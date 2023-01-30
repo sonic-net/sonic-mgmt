@@ -477,7 +477,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-8" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet18/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-9" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet19/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-10" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet20/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-11" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet21/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-11" EndPort="ens4f1" StartDevice="bjw-can-serv-11" StartPort="ens4f0"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -506,7 +506,6 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet18/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet19/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet20/1" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet21/1" vlanids=""/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-7215-3">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.103/23"/>
