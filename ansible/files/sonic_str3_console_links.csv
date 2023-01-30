@@ -14,3 +14,9 @@ console-197,22,str3-8101-fanout-02,ssh,admin
 console-197,21,str3-8101-fanout-03,ssh,admin
 console-199,9,str3-z9332f-01,ssh,admin
 console-199,10,str3-z9332f-04,ssh,admin
+console-197,14,str3-7260cx3-acs-fan-05,ssh,admin
+console-197,13,str3-7260cx3-acs-fan-06,ssh,admin
+console-197,12,str3-7260cx3-acs-fan-07,ssh,admin
+console-197,11,str3-7260cx3-acs-fan-08,ssh,admin
+console-197,10,str3-7808-sup-1,ssh,admin
+console-182,5,str3-z9332f-02,ssh,admin

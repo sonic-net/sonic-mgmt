@@ -21,6 +21,7 @@ all:
         vm_host_28:
         vm_host_29:
         vm_host_61:
+        vm_host_62:
         vm_svc_host_1:
         vm_svc_host_3:
         vm_bjw_host_6:
@@ -41,6 +42,7 @@ all:
         vms_13:
         vms_16:
         vms_61:
+        vms_62:
         vms_18:
         vms_20:
         vms_21:
@@ -70,6 +72,7 @@ all:
         server_13:
         server_16:
         server_61:
+        server_62:
         server_18:
         server_20:
         server_21:
@@ -169,6 +172,10 @@ vm_host_61:
   hosts:
     STR3-ACS-SERV-61:
       ansible_host: 10.64.246.96
+vm_host_62:
+  hosts:
+    STR3-ACS-SERV-62:
+      ansible_host: 10.64.246.6
 vm_host_18:
   hosts:
     STR2-ACS-SERV-18:
@@ -2154,6 +2161,24 @@ vms_61:
       ansible_host: 172.16.134.206
     VM61175:
       ansible_host: 172.16.134.207
+vms_62:
+  hosts:
+    VM62000:
+      ansible_host: 172.16.191.10
+    VM62001:
+      ansible_host: 172.16.191.11
+    VM62002:
+      ansible_host: 172.16.191.12
+    VM62003:
+      ansible_host: 172.16.191.13
+    VM62004:
+      ansible_host: 172.16.191.14
+    VM62005:
+      ansible_host: 172.16.191.15
+    VM62006:
+      ansible_host: 172.16.191.16
+    VM62007:
+      ansible_host: 172.16.191.17
 vms_18:
   hosts:
     VM18000:
@@ -4641,6 +4666,12 @@ server_61:
   children:
     vm_host_61:
     vms_61:
+server_62:
+  vars:
+    host_var_file: host_vars/STR3-ACS-SERV-62.yml
+  children:
+    vm_host_62:
+    vms_62:
 server_18:
   vars:
     host_var_file: host_vars/STR2-ACS-SERV-18.yml
