@@ -375,10 +375,6 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
 
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: "We still have issue for config reload command, and we will enable this test after merging the fix."
-
 #######################################
 #####           http              #####
 #######################################
