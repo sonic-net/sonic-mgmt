@@ -55,10 +55,10 @@ def test_bgp_convergence_performance(cvg_api,
         route_type: IPv4 or IPv6 routes
     """
     run_bgp_convergence_performance(cvg_api,
-                                      duthost,
-                                      tgen_ports,
-                                      multipath,
-                                      start_routes,
-                                      routes_step,
-                                      stop_routes,
-                                      route_type,)
+                                    duthost,
+                                    tgen_ports,
+                                    multipath,
+                                    start_routes,
+                                    routes_step,
+                                    stop_routes,
+                                    route_type,)
