@@ -139,10 +139,10 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
                      msg="Remove config_db.json in preference of minigraph.xml")
 
 def work_around_for_reboot(module):
-    # work around reboot for str-s6100-acs-4
+    # work around reboot for s6100
     # replace reboot with soft-reboot
-    _, out, _   = exec_command(module, cmd="show platform syseeprom", ignore_error=True)
-    if 'CN0F6N2RCES0078PI038' in out:
+    _, out, _   = exec_command(module, cmd="show platform summary", ignore_error=True)
+    if 'Force10-S6100' in out:
         exec_command(module, cmd="sudo mv /usr/local/bin/reboot /usr/local/bin/reboot_bak", ignore_error=True)
         exec_command(module, cmd="sudo ln -s /usr/local/bin/soft-reboot /usr/local/bin/reboot", ignore_error=True)
 
