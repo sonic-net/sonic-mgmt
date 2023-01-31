@@ -222,7 +222,7 @@ def parallel_run(
         )
     )
 
-    return results
+    return dict(results)
 
 
 def reset_ansible_local_tmp(target):
