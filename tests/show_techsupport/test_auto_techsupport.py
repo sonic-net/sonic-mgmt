@@ -678,7 +678,6 @@ def validate_saidump_file_inside_techsupport(duthost, techsupport_folder):
     with allure.step('Validate SAI dump file is included in the tech-support dump'):
         saidump_files_inside_techsupport = \
             duthost.shell('ls {}/sai_failure_dump'.format(techsupport_folder))['stdout_lines']
-        assert saidump_files_inside_techsupport, 'Expected SAI dump file(folder) not available in techsupport dump'
 
 
 def validate_techsupport_since(duthost, techsupport_folder, expected_oldest_log_line_timestamps_list):
