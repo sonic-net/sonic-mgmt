@@ -16,6 +16,8 @@ description:
         * show isis database
         * show isis route
         * show isis hostname
+        * show isis summary
+        * show running-config isisd
     - Retrieved facts will be inserted into the 'isis_facts'
 '''
 
@@ -208,7 +210,7 @@ class IsisModule(object):
         reg = r'(\s{1}\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d+)(\s+\d+\s+)(\S+\s+)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
         regex_v4route = re.compile(reg)
         regex_v6route = re.compile(r'(\s{1}[0-9a-fA-F:]+\/\d+)(\s+\d+\s+)(\S+\s+)([0-9a-fA-F:\-]+)')
-        for line in [item for item in route_items if item.strip()]:
+        for line in [item.strip() for item in route_items if item.strip()]:
             match = regex_v4route.match(line)
             if match:
                 routes['ipv4'][match.group(1).strip()] = {
@@ -227,6 +229,32 @@ class IsisModule(object):
                 continue
         return routes
 
+    def _parse_summary_per_area(self, summary_items):
+
+        def _parse_counter(counter_items):
+            counters = {}
+            regex_counter = re.compile(r'.*: (\d+)$')
+            counters['p2p_iih'] = int(regex_counter.match(counter_items[0]).group(1))
+            counters['l2_lsp'] = int(regex_counter.match(counter_items[1]).group(1))
+            counters['l2_csnp'] = int(regex_counter.match(counter_items[2]).group(1))
+            counters['l2_psnp'] = int(regex_counter.match(counter_items[3]).group(1))
+            return counters
+
+        summary_items = [item.strip() for item in summary_items if item.strip()]
+        summary = {'tx_cnt': {}, 'rx_cnt': {}, 'level_2': {}}
+        regex_p2p_iih = re.compile(r'P2P IIH: (\d+)')
+        while len(summary_items) > 0:
+            line = summary_items.pop(0).strip()
+            if 'TX counters per PDU type:' in line:
+                if regex_p2p_iih.match(summary_items[0]):
+                    summary['tx_cnt'] = _parse_counter(summary_items[0:5])
+                    summary_items = summary_items[5:-1]
+            elif 'RX counters per PDU type:' in line:
+                if regex_p2p_iih.match(summary_items[0]):
+                    summary['rx_cnt'] = _parse_counter(summary_items[0:4])
+                    summary_items = summary_items[4:-1]
+        return summary
+
     def parse_neighbors(self):
         self.facts['neighbors'] = self._parse_areas(self.out.split('\n'), self._parse_neighbors_per_area)
         return
@@ -239,6 +267,9 @@ class IsisModule(object):
         self.facts['route'] = self._parse_areas(self.out.split('\n'), self._parse_route_per_area)
         return
 
+    def parse_summary(self):
+        self.facts['summary'] = self._parse_areas(self.out.split('\n'), self._parse_summary_per_area)
+
     def parse_hostname(self):
         regex_hostname = re.compile(r'(\s*[2\*]\s+)(\d{4}.\d{4}.\d{4}\s+)(\S+)')
         split_output = self.out.split('\n')
@@ -248,6 +279,20 @@ class IsisModule(object):
             if match:
                 hostnames[match.group(2).rstrip()] = match.group(3)
         self.facts['hostname'] = hostnames
+        return
+
+    def collect_isis_config(self, command_str):
+        docker_cmd = '{} "show {} isisd" '.format(self.vty_cmd, command_str)
+        try:
+            rc, self.out, err = self.module.run_command(docker_cmd, executable='/bin/bash', use_unsafe_shell=True)
+        except Exception as e:
+            self.module.fail_json(msg=str(e))
+
+        if rc != 0:
+            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
+                                      (rc, self.out, err))
+        else:
+            self.facts['running-config'] = self.out
         return
 
     def run(self):
@@ -262,6 +307,11 @@ class IsisModule(object):
 
         self.collect_data("hostname")
         self.parse_hostname()
+
+        self.collect_data("summary")
+        self.parse_summary()
+
+        self.collect_isis_config("running-config")
 
         self.module.exit_json(ansible_facts={'isis_facts': self.facts})
 

@@ -18,7 +18,7 @@ class QosParamBroadcom(object):
                  dualTor,
                  dutTopo,
                  bufferConfig,
-                 asicConfig,
+                 dutHost,
                  testbedTopologyName,
                  verbose=True):
         self.qos_params = qos_params
