@@ -3,7 +3,7 @@ import pprint
 import pytest
 import time
 import logging
-import tech_support_cmds as cmds 
+import tech_support_cmds as cmds
 
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -20,6 +20,7 @@ pytestmark = [
 SUCCESS_CODE = 0
 DEFAULT_LOOP_RANGE = 2
 DEFAULT_LOOP_DELAY = 2
+MIN_FILES_NUM = 50
 
 pytest.tar_stdout = ""
 
@@ -317,14 +318,43 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
         logger.debug("Running show techsupport ... ")
         wait_until(300, 20, 0, execute_command, duthost, str(since))
         tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
-        stdout = duthost.command("rm -rf {}".format(tar_file))
-        logger.debug("Sleeping for {} seconds".format(loop_delay))
-        time.sleep(loop_delay)
+        duthost.command("tar -xf {} -C /tmp/".format(tar_file))
+        extracted_dump_folder_name = tar_file.lstrip('/var/dump/').split('.')[0]
+        extracted_dump_folder_path = '/tmp/{}'.format(extracted_dump_folder_name)
+        try:
+            validate_dump_file_content(duthost, extracted_dump_folder_path)
+        except AssertionError as err:
+            raise AssertionError(err)
+        finally:
+            duthost.command("rm -rf {}".format(tar_file))
+            duthost.command("rm -rf {}".format(extracted_dump_folder_path))
+            logger.debug("Sleeping for {} seconds".format(loop_delay))
+            time.sleep(loop_delay)
+
+
+def validate_dump_file_content(duthost, dump_folder_path):
+    """
+    Validate generated dump file content
+    :param duthost: duthost object
+    :param dump_folder_path: path to folder which has extracted dump file content
+    :return: AssertionError in case of failure, else None
+    """
+    sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
+    dump = duthost.command("ls {}/dump/".format(dump_folder_path))["stdout_lines"]
+    etc = duthost.command("ls {}/etc/".format(dump_folder_path))["stdout_lines"]
+    log = duthost.command("ls {}/log/".format(dump_folder_path))["stdout_lines"]
+
+    assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+    assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
+                                      "Test expects not less than 50 files. Available files: {}".format(dump)
+    assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
+                                     "Test expects not less than 50 files. Available files: {}".format(etc)
+    assert len(log), "Folder 'log' in dump archive is empty. Expected not empty folder"
 
 
 def add_asic_arg(format_str, cmds_list, asic_num):
-    """ 
-    Add ASIC specific arg using the supplied string formatter 
+    """
+    Add ASIC specific arg using the supplied string formatter
 
     New commands are added for each ASIC. In case of a regex
     paramter, new regex is created for each ASIC.
