@@ -3651,6 +3651,12 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl=64
         pkt_dst_mac=router_mac if router_mac != '' else dst_port_mac
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            pkt_dst_mac = def_vlan_mac
+
         pkt=construct_ip_pkt(packet_length,
                                pkt_dst_mac,
                                src_port_mac,
