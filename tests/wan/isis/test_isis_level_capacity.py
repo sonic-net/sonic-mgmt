@@ -17,7 +17,7 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def isis_setup_teardown_l12(isis_common_setup_teardown, request):
     target_devices = []
     selected_connections = isis_common_setup_teardown
@@ -37,7 +37,7 @@ def isis_setup_teardown_l12(isis_common_setup_teardown, request):
     request.addfinalizer(functools.partial(revert_isis_config, target_devices))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def isis_setup_teardown_l1(isis_common_setup_teardown, request):
     target_devices = []
     selected_connections = isis_common_setup_teardown
