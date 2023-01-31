@@ -1846,7 +1846,7 @@
 
 - conf-name: testbed-bjw-can-7050qx-2
   group-name: bjw6-9
-  topo: t1-lag
+  topo: t0
   ptf_image_name: docker-ptf
   ptf: bjw6-9
   ptf_ip: 10.150.23.58/23
