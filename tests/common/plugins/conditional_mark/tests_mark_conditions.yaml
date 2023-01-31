@@ -375,10 +375,6 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
 
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: "We still have issue for config reload command, and we will enable this test after merging the fix."
-
 #######################################
 #####           http              #####
 #######################################
@@ -476,13 +472,13 @@ macsec/test_macsec.py:
     conditions:
       - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
 
-macsec/test_macsec.py::TestDataPlane::test_server_to_neighbor:
+macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
     conditions:
       - "'t2' in topo_name"
 
-macsec/test_macsec.py::TestInteropProtocol::test_bgp:
+macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
   skip:
     reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
     conditions:
@@ -541,9 +537,9 @@ passw_hardening/test_passw_hardening.py:
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
-    reason: "Only support t1-lag topology"
+    reason: "Only support t1-lag and t2 topology"
     conditions:
-        - "topo_name not in ['t1-lag']"
+        - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
 
 pc/test_po_cleanup.py:
   skip:
@@ -968,7 +964,7 @@ vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run 8102. 4600 has issue https://github.com/sonic-net/sonic-mgmt/issues/6616"
     conditions:
-      - "(is_multi_asic==True) or (platform not in ['x86_64-8102_64h_o-r0'] and asic_type not in ['barefoot'])"
+      - "(is_multi_asic==True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'] and asic_type not in ['barefoot'])"
 
 vxlan/test_vnet_vxlan.py:
   skip:
