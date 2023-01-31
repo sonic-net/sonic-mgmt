@@ -238,12 +238,12 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Cisco-8101-C48T8":
             for i in range(0, 24, 2):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
-                port_alias_to_name_map["etp%d" % i+1] = "Ethernet%d" % ((i+1) * 4)
+                port_alias_to_name_map["etp%d" % (i+1)] = "Ethernet%d" % ((i+1) * 4)
             for i in range(0, 8):
-                port_alias_to_name_map["etp%d" % i+24] = "Ethernet%d" % ((i+12) * 8)
+                port_alias_to_name_map["etp%d" % (i+24)] = "Ethernet%d" % ((i+12) * 8)
             for i in range(0, 24, 2):
-                port_alias_to_name_map["etp%d" % i+32] = "Ethernet%d" % ((i+40) * 4)
-                port_alias_to_name_map["etp%d" % i+33] = "Ethernet%d" % ((i+41) * 4)
+                port_alias_to_name_map["etp%d" % (i+32)] = "Ethernet%d" % ((i+40) * 4)
+                port_alias_to_name_map["etp%d" % (i+33)] = "Ethernet%d" % ((i+41) * 4)
         elif hwsku == "Cisco-8101-C64":
             for i in range(0, 64):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)

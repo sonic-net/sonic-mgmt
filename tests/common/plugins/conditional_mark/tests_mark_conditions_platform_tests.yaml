@@ -314,12 +314,14 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
 #######################################
 ##### api/test_module.py #####
 #######################################
+
 platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 
 platform_tests/api/test_module.py::TestModuleApi::test_reboot:
    skip:
