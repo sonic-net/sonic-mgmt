@@ -10,6 +10,7 @@ r, ".* ERR route_check.py.*"
 r, ".* INFO mgmt-framework#supervisord: rest-server.*"
 r, ".* ERR radv#radvd.* Exiting, privsep_read_loop.*"
 r, ".* ERR ntpd.*bind.*AF_INET6.*"
+r, ".* ERR ntpd.*bind.*AF_INET.*"
 r, ".* ERR ntpd.*unable to create socket on.*"
 r, ".* WARNING syncd\d*#SDK:.* check_attribs_metadata: Not implemented attribute SAI_SWITCH_ATTR_SWITCH_HARDWARE_INFO.*"
 r, ".* WARNING syncd\d*#SDK:.* check_attribs_metadata: Not implemented attribute SAI_SWITCH_ATTR_AVAILABLE_DNAT_ENTRY.*"
@@ -165,3 +166,8 @@ r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/16703529
 r, ".* ERR CCmisApi:.*system_service.*Broken pipe.*"
+
+r, ".*ERR kernel: \[.*\] AMD-Vi: Event logged \[IO_PAGE_FAULT device=00:13.1 domain=0x0009 address=0x0 flags=0x0000\].*"
+
+r, ".*WARNING kernel: .*linux_knet_cb.*linux_bcm_knet.*linux_user_bde.*linux_kernel_bde.*xt_TCPMSS.*8021q.*garp.*mrp.*dummy.*"
+r, ".* ERR .*CounterCheck: Invalid port oid.*"

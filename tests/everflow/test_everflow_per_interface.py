@@ -30,7 +30,7 @@ logger = logging.getLogger(__file__)
 def skip_if_not_supported(tbinfo, setup_info, ip_ver):
 
     asic_type = setup_info[UP_STREAM]['everflow_dut'].facts["asic_type"]
-    unsupported_platforms = ["mellanox", "marvell", "cisco-8000"]
+    unsupported_platforms = ["mellanox", "cisco-8000"]
     # Skip ipv6 test on Mellanox platform
     is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
     # Skip ipv6 test on cisco-8000 platform
@@ -43,7 +43,7 @@ def build_candidate_ports(duthost, tbinfo, ns):
     """
     candidate_ports = {}
     unselected_ports = {}
-    if tbinfo['topo']['type'] == 't0':
+    if tbinfo['topo']['type'] in ['t0', 'mx']:
         candidate_neigh_name = 'Server'
     elif tbinfo['topo']['type'] == 'm0':
         candidate_neigh_name = 'MX'
