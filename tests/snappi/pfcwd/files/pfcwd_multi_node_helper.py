@@ -125,9 +125,8 @@ def run_pfcwd_multi_node_test(api,
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
 
-    """Check for whether DUT is a Mellanox 4600c device"""
+    """ Retrieve platform information for DUT """
     platform = duthost.facts['platform']
-    is_mlnx_4600c = True if "mlnx" and "4600c" in platform.lower() else False
 
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
@@ -141,7 +140,7 @@ def run_pfcwd_multi_node_test(api,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=port_id,
                      tolerance=TOLERANCE_THRESHOLD,
-                     is_mlnx_4600c=is_mlnx_4600c)
+                     platform=platform)
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
@@ -523,7 +522,7 @@ def __verify_results(rows,
                      trigger_pfcwd,
                      pause_port_id,
                      tolerance,
-                     is_mlnx_4600c):
+                     platform):
     """
     Verify if we get expected experiment results
 
@@ -540,11 +539,15 @@ def __verify_results(rows,
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
         tolerance (float): maximum allowable deviation
-        is_mlnx_4600c (bool): is DUT a Mellanox 4600c device
+        platform (str): platform information for DUT
 
     Returns:
         N/A
     """
+
+    """ Check for whether DUT is a Mellanox 4600c device """
+    is_mlnx_4600c = True if "mlnx" and "4600c" in platform.lower() else False
+
     for row in rows:
         flow_name = row.name
         tx_frames = row.frames_tx
