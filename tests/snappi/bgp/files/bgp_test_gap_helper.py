@@ -2,6 +2,7 @@ from tabulate import tabulate
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
 import json
+import logging
 from tests.common.reboot import reboot
 logger = logging.getLogger(__name__)
 
@@ -80,11 +81,10 @@ def run_bgp_scalability_v4_v6(cvg_api,
 
     if ipv4_routes == 0 and  ipv6_routes == 0:
         assert False, "Both v4 and v6 route counts can't be zero"
-    elif ipv4_routes !=0 and  ipv6_routes !=0:
+    elif ipv4_routes >1 and  ipv6_routes >1:
         dual_stack_flag = 1
     else:
         dual_stack_flag = 0
-                    
     """ Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(cvg_api,
                                         port_count,
@@ -94,14 +94,13 @@ def run_bgp_scalability_v4_v6(cvg_api,
                                         dual_stack_flag,)
 
     if ipv4_routes + ipv6_routes > 16000:
-        flag = 1
+        limit_flag = 1
     else:
-        flag = 0
+        limit_flag = 0
     """
         Run the BGP Scalability test
     """
-    get_bgp_scalability_result(cvg_api, localhost,
-                                 tgen_bgp_config,flag, duthost)
+    get_bgp_scalability_result(cvg_api, localhost, tgen_bgp_config, limit_flag, duthost)
 
 def duthost_bgp_3port_config(duthost,
                        tgen_ports,
@@ -218,7 +217,7 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     logger.info(cdf)
     duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json", "/etc/sonic/config_db.json"))
     logger.info('Reloading config to apply BGP config')
-    duthost.shell("sudo config reload -y \n")
+    duthost.shell("sudo config reload -f -y \n")
     wait(TIMEOUT+20, "For Config to reload \n")
 
 
@@ -350,9 +349,7 @@ def __tgen_bgp_config(cvg_api,
             createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 100)
         elif v6_routes == 0:
             createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 100)
-
     return conv_config
-
 
 def get_flow_stats(cvg_api):
     """
@@ -624,7 +621,7 @@ def stop_traffic(cvg_api):
     cvg_api.set_state(cs)
     wait(TIMEOUT-20, "For Protocols To STOP")
 
-def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag,duthost):
+def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
     """
     Cleaning up dut config at the end of the test
 
@@ -632,35 +629,27 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag,duthost):
         cvg_api (pytest fixture): snappi API
         bgp_config: tgen_bgp_config
     """
-    try:
-        cvg_api.set_config(bgp_config)
-        warning = run_traffic(cvg_api,duthost)
-    except Exception as e:
-        logger.info(e)
-        duthost.command("sudo config save -y")
-        reboot(duthost, localhost,reboot_type='fast')
-        logger.info("Wait until the system is stable")
-        pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
-        warning = run_traffic(cvg_api,duthost)
-    finally:
-        if warning == 1:
-            msg = "THRESHOLD_EXCEEDED warning message observed in syslog"
-        else:
-            msg = "THRESHOLD_EXCEEDED warning message not observed in syslog"
-        flow_stats = get_flow_stats(cvg_api)
-        tx_frame_rate = flow_stats[0].frames_tx_rate
-        assert tx_frame_rate != 0, "Traffic has not started"
-        flow_stats = get_flow_stats(cvg_api)
-        logger.info('|---- Tx Frame Rate: {} ----|'.format(flow_stats[0].frames_tx_rate))
-        logger.info('|---- Rx Frame Rate: {} ----|'.format(flow_stats[0].frames_rx_rate))
-        logger.info('|---- Loss % : {} ----|'.format(flow_stats[0].loss))
-        if flag == 1:
-            assert float(flow_stats[0].loss) > 0.1, "FAIL: Loss must have been observed for greater than 16k routes"
-            logger.info('PASSED : {}% Loss observerd in traffic item for 100k routes and {}'.format(float(flow_stats[0].loss),msg))
-        else:
-            assert  float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
-            logger.info('PASSED : No Loss observerd in traffic item and {}'.format(msg))
-        stop_traffic(cvg_api)
+    import pdb;pdb.set_trace()
+    cvg_api.set_config(bgp_config)
+    warning = run_traffic(cvg_api,duthost)
+    if warning == 1:
+        msg = "THRESHOLD_EXCEEDED warning message observed in syslog"
+    else:
+        msg = "THRESHOLD_EXCEEDED warning message not observed in syslog"
+    flow_stats = get_flow_stats(cvg_api)
+    tx_frame_rate = flow_stats[0].frames_tx_rate
+    assert tx_frame_rate != 0, "Traffic has not started"
+    flow_stats = get_flow_stats(cvg_api)
+    logger.info('|---- Tx Frame Rate: {} ----|'.format(flow_stats[0].frames_tx_rate))
+    logger.info('|---- Rx Frame Rate: {} ----|'.format(flow_stats[0].frames_rx_rate))
+    logger.info('|---- Loss % : {} ----|'.format(flow_stats[0].loss))
+    if flag == 1:
+        assert float(flow_stats[0].loss) > 0.1, "FAIL: Loss must have been observed for greater than 16k routes"
+        logger.info('PASSED : {}% Loss observerd in traffic item for 100k routes and {}'.format(float(flow_stats[0].loss),msg))
+    else:
+        assert  float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
+        logger.info('PASSED : No Loss observerd in traffic item and {}'.format(msg))
+    stop_traffic(cvg_api)
 
 def cleanup_config(duthost):
     """
