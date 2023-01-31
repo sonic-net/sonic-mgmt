@@ -1,6 +1,5 @@
 import pytest
-from .check_dut_asic_type import check_dut_asic_type    # noqa F401
-
+from .check_dut_asic_type import check_dut_asic_type # lgtm [py/unused-import]
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items):
@@ -16,3 +15,4 @@ def pytest_collection_modifyitems(items):
             else:
                 pos = len(item.fixturenames)
             item.fixturenames.insert(pos, "check_dut_asic_type")
+

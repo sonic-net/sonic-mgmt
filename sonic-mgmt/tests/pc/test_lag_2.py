@@ -12,6 +12,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
 from tests.common.config_reload import config_reload
+from tests.common.helpers.constants import DEFAULT_ASIC_ID
 
 logger = logging.getLogger(__name__)
 
@@ -373,47 +374,47 @@ def teardown(duthost):
     return
 
 
-def get_oper_status_from_db(duthost, port_name):
+def get_oper_status_from_db(asichost, port_name):
     """Get netdev_oper_status from state_db for interface"""
-    cmd = "redis-cli -n 6 hget \"PORT_TABLE|{}\" netdev_oper_status".format(port_name)
-    status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+    cmd = asichost.get_docker_cmd("redis-cli -n 6 hget \"PORT_TABLE|{}\" netdev_oper_status".format(port_name), "database")
+    status = asichost.sonichost.shell(cmd, module_ignore_errors=False)['stdout']
     # If PORT_TABLE in STATE_DB doesn't have key netdev_oper_status,
     # check oper_status in APPL_DB instead. This scenario happens on 202012.
     if not status:
-        cmd = "redis-cli -n 0 hget \"PORT_TABLE:{}\" oper_status".format(port_name)
-        status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+        cmd = asichost.get_docker_cmd("redis-cli -n 0 hget \"PORT_TABLE:{}\" oper_status".format(port_name), "database")
+        status = asichost.sonichost.shell(cmd, module_ignore_errors=False)['stdout']
     return status
 
-def get_admin_status_from_db(duthost, port_name):
+def get_admin_status_from_db(asichost, port_name):
     """Get netdev_oper_status from state_db for interface"""
-    cmd = "redis-cli -n 6 hget \"PORT_TABLE|{}\" admin_status".format(port_name)
-    status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+    cmd = asichost.get_docker_cmd("redis-cli -n 6 hget \"PORT_TABLE|{}\" admin_status".format(port_name), "database")
+    status = asichost.sonichost.shell(cmd, module_ignore_errors=False)['stdout']
     # If PORT_TABLE in STATE_DB doesn't have key admin_status,
     # check admin_status in APPL_DB instead. This scenario happens on 202012.
     if not status:
-        cmd = "redis-cli -n 0 hget \"PORT_TABLE:{}\" admin_status".format(port_name)
-        status = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+        cmd = asichost.get_docker_cmd("redis-cli -n 0 hget \"PORT_TABLE:{}\" admin_status".format(port_name), "database")
+        status = asichost.sonichost.shell(cmd, module_ignore_errors=False)['stdout']
     return status
 
-def check_status_is_syncd(duthost, po_intf, port_info, lag_name):
+def check_status_is_syncd(asichost, po_intf, port_info, lag_name):
     """Check if interface's status is synced with the netdev_oper_status in state_db"""
     port_status = port_info['link']['up'] if port_info['link'] else False
-    status_from_db = True if str(get_oper_status_from_db(duthost, po_intf)) == 'up' else False
+    status_from_db = True if str(get_oper_status_from_db(asichost, po_intf)) == 'up' else False
     return status_from_db == port_status
 
-def check_link_is_up(duthost, po_intf, port_info, lag_name):
+def check_link_is_up(duthost, asichost, po_intf, port_info, lag_name):
     """Check if interface's status and the netdev_oper_status in state_db are both up"""
     new_lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
     port_info = new_lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]
     port_status = port_info['link']['up'] if port_info['link'] else False
-    oper_status_from_db = True if str(get_oper_status_from_db(duthost, po_intf)) == 'up' else False
-    admin_status_from_db = True if str(get_admin_status_from_db(duthost, po_intf)) == 'up' else False
+    oper_status_from_db = True if str(get_oper_status_from_db(asichost, po_intf)) == 'up' else False
+    admin_status_from_db = True if str(get_admin_status_from_db(asichost, po_intf)) == 'up' else False
     return port_status and oper_status_from_db and admin_status_from_db
 
-def check_link_is_down(duthost, po_intf):
+def check_link_is_down(asichost, po_intf):
     """Check if interface's status and the netdev_oper_status in state_db are both up"""
-    oper_status = get_oper_status_from_db(duthost, po_intf)
-    admin_status = get_admin_status_from_db(duthost, po_intf)
+    oper_status = get_oper_status_from_db(asichost, po_intf)
+    admin_status = get_admin_status_from_db(asichost, po_intf)
 
     return str(oper_status) == 'down' and str(admin_status) == 'down'
 
@@ -428,7 +429,12 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
     test_lags = []
     try:
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-
+        namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
+        if namespace_id:
+            asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+        else:
+            asic_index = DEFAULT_ASIC_ID
+        asichost = duthost.asic_instance(asic_index)
         # Test for each lag
         if dut_lag == "unknown":
             test_lags = lag_facts['names']
@@ -438,37 +444,43 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
         # 1. Check if status of interface is in sync with state_db after bootup.
         for lag_name in test_lags:
             for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
-                if not check_status_is_syncd(duthost, po_intf, port_info, lag_name):
+                if not check_status_is_syncd(asichost, po_intf, port_info, lag_name):
                     pytest.fail("{} member {}'s status is not synced with oper_status in state_db.".format(lag_name, po_intf))
 
         # 2. Check if status of interface is in sync with state_db after shutdown/no shutdown.
         for lag_name in test_lags:
             for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
-                duthost.shutdown(po_intf)
+                asichost.shutdown_interface(po_intf)
                 # Retrieve lag_facts after shutdown interface
                 new_lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
                 port_info =  new_lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]
-                pytest_assert(wait_until(15, 1, 0, check_link_is_down, duthost, po_intf),
+                pytest_assert(wait_until(15, 1, 0, check_link_is_down, asichost, po_intf),
                 "{} member {}'s admin_status or oper_status in state_db is not down.".format(lag_name, po_intf))
 
                 # Retrieve lag_facts after no shutdown interface
-                duthost.no_shutdown(po_intf)
+                asichost.startup_interface(po_intf)
                 # Sometimes, it has to wait seconds for booting up interface
-                pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
+                pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, asichost, po_intf, port_info, lag_name),
                     "{} member {}'s status or netdev_oper_status in state_db is not up.".format(lag_name, po_intf))
     finally:
         # Recover interfaces in case of failure
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
+        namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
         for lag_name in test_lags:
+            if namespace_id:
+                asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+            else:
+                asic_index = DEFAULT_ASIC_ID
+            asichost = duthost.asic_instance(asic_index)
             for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                 if port_info['link']['up']:
                         logger.info("{} of {} is up, ignore it.".format(po_intf, lag_name))
                         continue
                 else:
                     logger.info("Interface {} of {} is down, no shutdown to recover it.".format(po_intf, lag_name))
-                    duthost.no_shutdown(po_intf)
+                    asichost.startup_interface(po_intf)
 
-def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardown, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
+def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_with_completeness_level, ignore_expected_loganalyzer_exceptions):
     """
     test port channel add/deletion and check interface status in state_db
     """
@@ -478,8 +490,13 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
     if duthost is None:
         pytest.fail("Failed with duthost is not found for dut name {}.".format(dut_name))
 
-    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+    namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
+    if namespace_id:
+        asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+    else:
+        asic_index = DEFAULT_ASIC_ID
+    asichost = duthost.asic_instance(asic_index)
     # Test for each lag
     if dut_lag == "unknown":
         test_lags = lag_facts['names']
@@ -494,8 +511,8 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
             asichost.config_portchannel_member(lag_name, po_intf, "del")
 
             # 2 Shutdown this port to check if status is down
-            duthost.shutdown(po_intf)
-            pytest_assert(wait_until(15, 1, 0, check_link_is_down, duthost, po_intf),
+            asichost.shutdown_interface(po_intf)
+            pytest_assert(wait_until(15, 1, 0, check_link_is_down, asichost, po_intf),
                 "{} member {}'s admin_status or oper_status in state_db is not down.".format(lag_name, po_intf))
 
             # 3 Add this port back into portchannel and check if status is synced
@@ -504,11 +521,11 @@ def test_lag_db_status_with_po_update(duthosts, enum_frontend_asic_index, teardo
             # 4 Retrieve lag_facts after shutdown interface and check if status is synced
             new_lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
             port_info =  new_lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]
-            pytest_assert(wait_until(15, 1, 0, check_status_is_syncd, duthost, po_intf, port_info, lag_name), 
+            pytest_assert(wait_until(15, 1, 0, check_status_is_syncd, asichost, po_intf, port_info, lag_name), 
                 "{} member {}'s status is not synced with oper_status in state_db.".format(lag_name, po_intf))
 
             # 5 No shutdown this port to check if status is up
-            duthost.no_shutdown(po_intf)
+            asichost.startup_interface(po_intf)
             # Sometimes, it has to wait seconds for booting up interface
-            pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, po_intf, port_info, lag_name),
+            pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, asichost, po_intf, port_info, lag_name),
                 "{} member {}'s admin_status or oper_status in state_db is not up.".format(lag_name, po_intf))

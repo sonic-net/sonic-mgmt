@@ -273,7 +273,7 @@ class ContinuousReboot:
             format(self.test_failures, self.reboot_count))
 
 
-    def start_continuous_reboot(self, request, duthost, ptfhost, localhost, tbinfo, creds):
+    def start_continuous_reboot(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds):
         self.test_set_up()
         # Start continuous warm/fast reboot on the DUT
         for count in range(self.continuous_reboot_count):
@@ -284,7 +284,7 @@ class ContinuousReboot:
                 .format(self.reboot_count, self.continuous_reboot_count, self.reboot_type))
             reboot_type = self.reboot_type + "-reboot"
             try:
-                self.advancedReboot = AdvancedReboot(request, duthost, ptfhost, localhost, tbinfo, creds,\
+                self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds,\
                     rebootType=reboot_type, moduleIgnoreErrors=True)
             except Exception:
                 self.sub_test_result = False
@@ -349,5 +349,5 @@ def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, lo
     """
     duthost = duthosts[rand_one_dut_hostname]
     continuous_reboot = ContinuousReboot(request, duthost, ptfhost, localhost, conn_graph_facts)
-    continuous_reboot.start_continuous_reboot(request, duthost, ptfhost, localhost, tbinfo, creds)
+    continuous_reboot.start_continuous_reboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds)
     continuous_reboot.test_teardown()

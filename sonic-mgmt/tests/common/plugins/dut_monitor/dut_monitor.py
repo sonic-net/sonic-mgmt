@@ -2,7 +2,7 @@ import argparse
 import time
 import os
 
-from datetime import datetime
+from  datetime import datetime
 
 
 FETCH_CPU_CMD = "ps -eo pcpu,args | sort -k 1 -r | tail -n +2"
@@ -15,6 +15,7 @@ def process_cpu(log_file):
     @summary: Fetch CPU utilization. Write to the file total and top 10 process CPU utilization.
     @param log_file: Opened file object to store fetched CPU utilization.
     """
+    buff = []
     general_template = """
 "{timestamp}":
     total: {total}
@@ -34,7 +35,7 @@ def process_cpu(log_file):
             top_consumer_counter -= 1
 
     result = general_template.format(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total=total) \
-        + "\n".join(top_consumer_list)
+                + "\n".join(top_consumer_list)
     log_file.write(result)
 
 
@@ -74,7 +75,7 @@ def main():
     ram_log = open("/tmp/ram.log", "w")
     hdd_log = open("/tmp/hdd.log", "w")
 
-    print("Started resources monitoring ...")
+    print "Started resources monitoring ..."
     while True:
         process_cpu(cpu_log)
         process_ram(ram_log)
@@ -83,7 +84,6 @@ def main():
         cpu_log.flush()
         ram_log.flush()
         hdd_log.flush()
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

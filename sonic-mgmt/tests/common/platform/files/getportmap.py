@@ -14,7 +14,7 @@ asic_id = None
 PORT_CONFIG_FILE = "port_config.ini"
 
 parser = argparse.ArgumentParser(description='Get the interface list for an asic',
-                                 formatter_class=argparse.RawTextHelpFormatter)
+                                     formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('-asicid', '--asic_index', type=str, help='the asic instance', default=None)
 
 args = parser.parse_args()
@@ -37,6 +37,6 @@ else:
     platform_sfputil.read_porttab_mappings(port_config_path)
 
 # print the mapping to stdout in json format
-print(json.dumps(platform_sfputil.logical_to_physical))
+print json.dumps(platform_sfputil.logical_to_physical)
 
 # json will be loaded by sonic-mgmt

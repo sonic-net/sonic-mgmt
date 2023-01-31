@@ -55,7 +55,7 @@ def select_ports(port_config_list, pattern, rx_port_id):
         rx_port_id_list = [rx_port_id]
         """ Interfaces in the same portchannel cannot send traffic to each other """
         if rx_port_config.type == SnappiPortType.PortChannelMember:
-            tx_port_id_list = [x.id for x in port_config_list
+            tx_port_id_list = [x.id for x in port_config_list \
                                if x.ip != rx_port_config.ip]
         else:
             tx_port_id_list = [x.id for x in port_config_list if x.id != rx_port_id]
@@ -63,7 +63,7 @@ def select_ports(port_config_list, pattern, rx_port_id):
     elif pattern == "all to all":
         """ Interfaces in the same portchannel cannot send traffic to each other """
         if rx_port_config.type == SnappiPortType.PortChannelMember:
-            tx_port_id_list = [x.id for x in port_config_list
+            tx_port_id_list = [x.id for x in port_config_list \
                                if x.ip != rx_port_config.ip]
             tx_port_id_list.append(rx_port_id)
         else:
@@ -89,7 +89,7 @@ def select_tx_port(tx_port_id_list, rx_port_id):
         return None
 
     max_tx_port_id = max(tx_port_id_list)
-    if max_tx_port_id < rx_port_id:
+    if  max_tx_port_id < rx_port_id:
         return max_tx_port_id
     else:
         return min(x for x in tx_port_id_list if x > rx_port_id)

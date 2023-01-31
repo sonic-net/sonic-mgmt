@@ -8,14 +8,13 @@ This test supports different platforms including:
     
 """
 import logging
-import time
 import pytest
 
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
-from tests.common.reboot import reboot
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.reboot import reboot, wait_for_startup
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +23,14 @@ pytestmark = [
 ]
 
 MAX_TIME_TO_REBOOT = 120
+
+
+@pytest.fixture(scope='function')
+def set_max_to_reboot(duthost):
+    global MAX_TIME_TO_REBOOT
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_link_down.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_TIME_TO_REBOOT = plt_reboot_ctrl['wait']
 
 
 def multi_duts_and_ports(duthosts):
@@ -134,11 +141,19 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
 
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname, 
                                  conn_graph_facts, duts_running_config_facts, 
-                                 fanouthosts, tbinfo, xcvr_skip_list):
+                                 fanouthosts, tbinfo, xcvr_skip_list, set_max_to_reboot):
     if len(duthosts.nodes) == 1:
         pytest.skip("Skip single-host dut for this test")
 
     duthost = duthosts[enum_supervisor_dut_hostname]
+
+    # There are some errors due to reboot happened before this test file for some reason,
+    # and SUP may not have enough time to recover all dockers and the wait for process wait for 300 secs in
+    # pytest_assert(wait_until(300, 20, 0, _all_critical_processes_healthy, dut),
+    # would not be enough. _all_critical_processes_healthy only validates processes are started
+    # Wait for ssh port to open up on the DUT
+    wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
+
     hostname = duthost.hostname
     # Before test, check all interfaces and services are up on all linecards
     check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list)
@@ -158,17 +173,24 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     # RP doesn't have any interfaces, check all LCs' interfaces
     link_status_on_all_LC(duthosts, localhost, fanouts_and_ports, up=False)
 
-    time.sleep(MAX_TIME_TO_REBOOT)
+    # Wait for ssh port to open up on the DUT
+    wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
 
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
     rebooted = float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s"))
     assert rebooted, "Device {} did not reboot".format(hostname)
 
+    # Verify that the links are all LCs are up
+    check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_list)
+
+    # Also make sure fanout hosts' links are up
+    link_status_on_all_LC(duthosts, localhost, fanouts_and_ports)
+
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname, 
                                     duts_running_config_facts, conn_graph_facts, 
-                                    fanouthosts, xcvr_skip_list, tbinfo):
+                                    fanouthosts, xcvr_skip_list, tbinfo, set_max_to_reboot):
     duthost = duthosts[enum_frontend_dut_hostname]
     hostname = duthost.hostname
 
@@ -190,9 +212,16 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
     # After reboot, immediately check for links 'down' status
     link_status_on_host(duthost, localhost, fanouts_and_ports, up=False)
 
-    time.sleep(MAX_TIME_TO_REBOOT)
+    # Wait for ssh port to open up on the DUT
+    wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
 
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
     rebooted = float(dut_uptime_before.strftime("%s")) != float(dut_uptime.strftime("%s"))
     assert rebooted, "Device {} did not reboot".format(hostname)
+
+    # After test, check all interfaces and services are up
+    check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
+
+    # Also make sure fanout hosts' links are up
+    link_status_on_host(duthost, localhost, fanouts_and_ports)

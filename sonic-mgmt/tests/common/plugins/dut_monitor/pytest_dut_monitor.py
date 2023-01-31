@@ -7,7 +7,7 @@ import os
 import yaml
 
 from collections import OrderedDict
-from datetime import datetime
+from  datetime import datetime
 from .errors import HDDThresholdExceeded, RAMThresholdExceeded, CPUThresholdExceeded
 
 
@@ -108,7 +108,7 @@ class DUTMonitorPlugin(object):
         failed = False
         peak_overused = []
         fail_msg = "\nRAM thresholds: peak - {}; before/after test difference - {}%\n".format(thresholds["ram_peak"],
-                                                                                              thresholds["ram_delta"])
+                                                                                            thresholds["ram_delta"])
 
         for timestamp, used_ram in ram_meas.items():
             if used_ram > thresholds["ram_peak"]:
@@ -137,10 +137,12 @@ class DUTMonitorPlugin(object):
         """
         Verify that CPU resources on the DUT are not overutilized
         """
+        failed = False
         total_overused = []
         process_overused = {}
-        cpu_thresholds = "CPU thresholds: total - {}; per process - {}; average - {}\n"\
-            .format(thresholds["cpu_total"], thresholds["cpu_process"], thresholds["cpu_total_average"])
+        cpu_thresholds = "CPU thresholds: total - {}; per process - {}; average - {}\n".format(thresholds["cpu_total"],
+                                                            thresholds["cpu_process"],
+                                                            thresholds["cpu_total_average"])
         average_cpu = "\n> Average CPU consumption during test run {}; Threshold - {}\n"
         fail_msg = ""
         total_sum = 0
@@ -166,8 +168,9 @@ class DUTMonitorPlugin(object):
             end = datetime.strptime(overused_list[-1][0], t_format)
 
             if (end - start).total_seconds() >= thresholds["cpu_measure_duration"]:
-                fail_msg = "Total CPU overuse during {} seconds.\n{}\n\n"\
-                    .format((end - start).total_seconds(), "\n".join([str(item) for item in overused_list]))
+                fail_msg = "Total CPU overuse during {} seconds.\n{}\n\n".format((end - start).total_seconds(),
+                "\n".join([str(item) for item in overused_list])
+                )
             del overused_list[0:]
             return fail_msg
 
@@ -203,12 +206,12 @@ class DUTMonitorPlugin(object):
                         timestamps.append(t_stamp)
                         continue
                     if (2 <= (t_stamp - timestamps[-1]).total_seconds() <= 3):
-                        timestamps.append(t_stamp)
-                        if m_id == (len(process_consumption) - 1):
-                            fail_msg += handle_process_measurements(p_name=process_name,
-                                                                    t_first=timestamps[0],
-                                                                    t_last=timestamps[-1],
-                                                                    p_average=process_sum / len(timestamps))
+                            timestamps.append(t_stamp)
+                            if m_id == (len(process_consumption) - 1):
+                                fail_msg += handle_process_measurements(p_name=process_name,
+                                                                        t_first=timestamps[0],
+                                                                        t_last=timestamps[-1],
+                                                                        p_average=process_sum / len(timestamps))
                     else:
                         fail_msg += handle_process_measurements(p_name=process_name,
                                                                 t_first=timestamps[0],
@@ -316,7 +319,7 @@ class DUTMonitorClient(object):
         self.run_channel.exec_command("python {} --start".format(DUT_MONITOR))
         # Ensure monitoring started
         output = self.run_channel.recv(1024)
-        if "Started resources monitoring ..." not in output:
+        if not "Started resources monitoring ..." in output:
             raise Exception("Failed to start monitoring on DUT: {}".format(output))
 
     def stop(self):

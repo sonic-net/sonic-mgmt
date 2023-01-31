@@ -100,20 +100,27 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
   #there is no fan tray idprom
   skip:
-    reason: "Unsupported platform API in mellanox or retrieving fan tray serial number is not supported in Cisco 8000"
+    reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox']"
+    reason: "Retrieving fan tray serial number is not supported in Cisco 8000"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
   skip:
-    reason: "Unsupported platform API in mellanox or Cisco 8000 platform the leds belong to the fan_tray and are set through the fan_tray API"
+    reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox']"
+    reason: "On Cisco 8000 platform the leds belong to the fan_tray and are set through the fan_tray API"
+    conditions:
+      - "asic_type in ['cisco-8000']"
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
   #test_set_fans_speed requires get_speed_tolerance to be implemented
@@ -123,6 +130,13 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:

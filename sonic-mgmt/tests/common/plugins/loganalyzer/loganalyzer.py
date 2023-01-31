@@ -41,8 +41,7 @@ class DisableLogrotateCronContext:
         # Wait for logrotate from previous cron task run to finish
         end = time.time() + 60
         while time.time() < end:
-            # Verify for exception because self.ansible_host automatically handle command return codes
-            # and raise exception for none zero code
+            # Verify for exception because self.ansible_host automatically handle command return codes and raise exception for none zero code
             try:
                 self.ansible_host.command("pgrep -f logrotate")
             except Exception:
@@ -98,8 +97,7 @@ class LogAnalyzer:
         """
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
 
-        cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}"\
-            .format(run_dir=self.dut_run_dir, marker=marker)
+        cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}".format(run_dir=self.dut_run_dir, marker=marker)
 
         logging.debug("Adding end marker '{}'".format(marker))
         self.ansible_host.command(cmd)
@@ -127,8 +125,7 @@ class LogAnalyzer:
     def _verify_log(self, result):
         """
         Verify that total match and expected missing match equals to zero or raise exception otherwise.
-        Verify that expected_match is not equal to zero
-        when there is configured expected regexp in self.expect_regex list
+        Verify that expected_match is not equal to zero when there is configured expected regexp in self.expect_regex list
         """
         if not result:
             raise LogAnalyzerError("Log analyzer failed - no result.")
@@ -145,8 +142,7 @@ class LogAnalyzer:
             # if the number of expected matches is provided
             if (self.expect_regex and (self.expected_matches_target > 0)
                and result["total"]["expected_match"] != self.expected_matches_target):
-                err_target = "Log analyzer expected {} messages but found only {}\n"\
-                    .format(self.expected_matches_target, len(self.expect_regex))
+                err_target = "Log analyzer expected {} messages but found only {}\n".format(self.expected_matches_target, len(self.expect_regex))
                 raise LogAnalyzerError(err_target + result_str)
 
     def _results_repr(self, result):
@@ -189,8 +185,7 @@ class LogAnalyzer:
     def load_common_config(self):
         """
         @summary: Load regular expressions from common files, which are localted in folder with legacy loganalyzer.
-                  Loaded regular expressions are used by "analyze" method
-                  to match expected text in the downloaded log file.
+                  Loaded regular expressions are used by "analyze" method to match expected text in the downloaded log file.
         """
         self.match_regex = self.ansible_loganalyzer.create_msg_regex([COMMON_MATCH])[1]
         self.ignore_regex = self.ansible_loganalyzer.create_msg_regex([COMMON_IGNORE])[1]
@@ -219,7 +214,7 @@ class LogAnalyzer:
             call_result = callback(*args, **kwargs)
         except Exception as err:
             logging.error("Error during callback execution:\n{}".format(err))
-            logging.debug("Log analysis result:\n{}".format(self.analyze(marker, fail=fail)))
+            logging.debug("Log analysis result\n".format(self.analyze(marker, fail=fail)))
             raise err
         self.analyze(marker, fail=fail)
 
@@ -247,8 +242,7 @@ class LogAnalyzer:
         Adds the start ignore marker to the log files
         """
         add_start_ignore_mark = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
-        cmd = "python {run_dir}/loganalyzer.py --action add_start_ignore_mark --run_id {add_start_ignore_mark}"\
-            .format(run_dir=self.dut_run_dir, add_start_ignore_mark=add_start_ignore_mark)
+        cmd = "python {run_dir}/loganalyzer.py --action add_start_ignore_mark --run_id {add_start_ignore_mark}".format(run_dir=self.dut_run_dir, add_start_ignore_mark=add_start_ignore_mark)
         if log_files:
             cmd += " --logs {}".format(','.join(log_files))
 
@@ -261,8 +255,7 @@ class LogAnalyzer:
         Adds the end ignore marker to the log files
         """
         marker = self._markers.pop()
-        cmd = "python {run_dir}/loganalyzer.py --action add_end_ignore_mark --run_id {marker}"\
-            .format(run_dir=self.dut_run_dir, marker=marker)
+        cmd = "python {run_dir}/loganalyzer.py --action add_end_ignore_mark --run_id {marker}".format(run_dir=self.dut_run_dir, marker=marker)
         if log_files:
             cmd += " --logs {}".format(','.join(log_files))
 
@@ -274,8 +267,7 @@ class LogAnalyzer:
         Adds the marker to the log files
         """
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
-        cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}"\
-            .format(run_dir=self.dut_run_dir, start_marker=start_marker)
+        cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}".format(run_dir=self.dut_run_dir, start_marker=start_marker)
         if log_files:
             cmd += " --logs {}".format(','.join(log_files))
 
@@ -285,15 +277,12 @@ class LogAnalyzer:
 
     def analyze(self, marker, fail=True):
         """
-        @summary: Extract syslog logs based on the start/stop markers and compose one file.
-                  Download composed file, analyze file based on defined regular expressions.
+        @summary: Extract syslog logs based on the start/stop markers and compose one file. Download composed file, analyze file based on defined regular expressions.
 
         @param marker: Marker obtained from "init" method.
         @param fail: Flag to enable/disable raising exception when loganalyzer find error messages.
 
-        @return: If "fail" is False - return dictionary of parsed syslog summary,
-                 if dictionary can't be parsed - return empty dictionary.
-                 If "fail" is True and if found match messages - raise exception.
+        @return: If "fail" is False - return dictionary of parsed syslog summary, if dictionary can't be parsed - return empty dictionary. If "fail" is True and if found match messages - raise exception.
         """
         logging.debug("Loganalyzer analyze")
         analyzer_summary = {"total": {"match": 0, "expected_match": 0, "expected_missing_match": 0},
@@ -348,8 +337,7 @@ class LogAnalyzer:
         logging.debug('    match_regex="{}"'.format(match_messages_regex.pattern if match_messages_regex else ''))
         logging.debug('    ignore_regex="{}"'.format(ignore_messages_regex.pattern if ignore_messages_regex else ''))
         logging.debug('    expect_regex="{}"'.format(expect_messages_regex.pattern if expect_messages_regex else ''))
-        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex,
-                                                                           ignore_messages_regex, expect_messages_regex)
+        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex)
         # Print file content and remove the file
         for folder in file_list:
             with open(folder) as fo:
@@ -363,8 +351,7 @@ class LogAnalyzer:
             matching_lines, expecting_lines = value
             analyzer_summary["total"]["match"] += len(matching_lines)
             analyzer_summary["total"]["expected_match"] += len(expecting_lines)
-            analyzer_summary["match_files"][key] = {"match": len(matching_lines),
-                                                    "expected_match": len(expecting_lines)}
+            analyzer_summary["match_files"][key] = {"match": len(matching_lines), "expected_match": len(expecting_lines)}
             analyzer_summary["match_messages"][key] = matching_lines
             analyzer_summary["expect_messages"][key] = expecting_lines
             expected_lines_total.extend(expecting_lines)

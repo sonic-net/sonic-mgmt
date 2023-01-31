@@ -935,35 +935,6 @@ class QosSaiBase(QosBase):
             logger.info(err)
         return bufferConfig
 
-    def dutAsicConfig(self, asic, duthost):
-        asicConfig = {}
-        # Only support to get brcm asic info, so far
-        if 'broadcom' in asic.lower():
-            try:
-                output = duthost.shell('bcmcmd "g THDI_BUFFER_CELL_LIMIT_SP"', module_ignore_errors=True)
-                logger.info('Read ASIC THDI_BUFFER_CELL_LIMIT_SP register, output {}'.format(output))
-                for line in output['stdout'].replace('\r', '\n').split('\n'):
-                    if line:
-                        m = re.match('THDI_BUFFER_CELL_LIMIT_SP\(0\).*\<LIMIT=(\S+)\>', line)
-                        if m:
-                            asicConfig['ingress_shared_limit_sp0'] = int(m.group(1), 0)
-                            break
-
-                output = duthost.shell('bcmcmd "g MMU_THDM_DB_POOL_SHARED_LIMIT"', module_ignore_errors=True)
-                logger.info('Read ASIC MMU_THDM_DB_POOL_SHARED_LIMIT register, output {}'.format(output))
-                count = 0
-                for line in output['stdout'].replace('\r', '\n').split('\n'):
-                    if line:
-                        m = re.match('MMU_THDM_DB_POOL_SHARED_LIMIT\(([01])\).*\]\=(\S+)', line)
-                        if m:
-                            asicConfig['egress_shared_limit_sp{}'.format(m.group(1))] = int(m.group(2), 0)
-                            count += 1
-                            if count == 2:
-                                break
-            except:
-                logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP/MMU_THDM_DB_POOL_SHARED_LIMIT register')
-        return asicConfig
-
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
@@ -1034,7 +1005,6 @@ class QosSaiBase(QosBase):
             pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
             pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
             pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
-            asicConfig = self.dutAsicConfig(duthost.facts['asic_type'], duthost)
 
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
             sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
@@ -1053,7 +1023,7 @@ class QosSaiBase(QosBase):
                                                        dutConfig["dualTor"],
                                                        dutTopo,
                                                        bufferConfig,
-                                                       asicConfig,
+                                                       duthost,
                                                        tbinfo["topo"]["name"])
             qosParams = qpm.run()
 
