@@ -140,7 +140,7 @@ def run_pfcwd_multi_node_test(api,
                      data_pkt_size=DATA_PKT_SIZE,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=port_id,
-                     tolerance=TOLERANCE_THRESHOLD
+                     tolerance=TOLERANCE_THRESHOLD,
                      is_mlnx_4600c=is_mlnx_4600c)
 
 
