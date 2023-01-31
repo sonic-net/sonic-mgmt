@@ -52,10 +52,11 @@ def adapt_interface_name(func):
         new_list = []
         for item in args_list:
             new_item = item
-            if 'Ethernet' in new_item:
-                new_item = re.sub(r'(^|\s)Ethernet', 'GigabitEthernet0/0/0/', new_item)
-            if 'Port-Channel' in item:
-                new_item = re.sub(r'(^|\s)Port-Channel', 'Bundle-Ether', new_item)
+            if isinstance(new_item, str):
+                if 'Ethernet' in new_item:
+                    new_item = re.sub(r'(^|\s)Ethernet', 'GigabitEthernet0/0/0/', new_item)
+                elif 'Port-Channel' in new_item:
+                    new_item = re.sub(r'(^|\s)Port-Channel', 'Bundle-Ether', new_item)
             new_list.append(new_item)
         new_args = tuple(new_list)
         return func(self, *new_args)
