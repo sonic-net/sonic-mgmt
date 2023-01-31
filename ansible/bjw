@@ -34,6 +34,8 @@ all:
           ansible_host: 10.150.23.58
         bjw6-10:
           ansible_host: 10.150.23.59
+        bjw6-11:
+          ansible_host: 10.150.23.60
     pdu:
       hosts:
         bjw-pdu-126-132:
