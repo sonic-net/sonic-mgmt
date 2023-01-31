@@ -1,6 +1,5 @@
-from tests.common.snappi.snappi_fixtures import (cvg_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
-from files.bgp_test_gap_helper import (duthost_bgp_scalability_config, run_bgp_scalability_v4_v6, cleanup_config)
-from tests.common.fixtures.conn_graph_facts import (conn_graph_facts, fanout_graph_facts)
+from tests.common.snappi.snappi_fixtures import cvg_api, tgen_ports
+from files.bgp_test_gap_helper import duthost_bgp_scalability_config, run_bgp_scalability_v4_v6, cleanup_config
 import pytest
 
 pytestmark = [pytest.mark.topology('tgen')]
@@ -19,8 +18,6 @@ def test_bgp_scalability_16k_v4_routes(cvg_api,
                                        duthost, 
                                        localhost, 
                                        tgen_ports, 
-                                       conn_graph_facts, 
-                                       fanout_graph_facts, 
                                        multipath, 
                                        ipv4_routes, 
                                        ipv6_routes, 
@@ -37,8 +34,6 @@ def test_bgp_scalability_8k_v6_routes(cvg_api,
                                       duthost, 
                                       localhost, 
                                       tgen_ports, 
-                                      conn_graph_facts, 
-                                      fanout_graph_facts, 
                                       multipath, 
                                       ipv4_routes, 
                                       ipv6_routes, 
@@ -55,8 +50,6 @@ def test_bgp_scalability_256_v6_routes(cvg_api,
                                        duthost, 
                                        localhost, 
                                        tgen_ports, 
-                                       conn_graph_facts, 
-                                       fanout_graph_facts, 
                                        multipath, 
                                        ipv4_routes, 
                                        ipv6_routes, 
@@ -73,8 +66,6 @@ def test_bgp_scalability_8kv4_4kv6_routes(cvg_api,
                                           duthost, 
                                           localhost, 
                                           tgen_ports, 
-                                          conn_graph_facts, 
-                                          fanout_graph_facts, 
                                           multipath, 
                                           ipv4_routes, 
                                           ipv6_routes, 
@@ -91,13 +82,11 @@ def test_bgp_scalability_100kv4_25kv6_routes(cvg_api,
                                              duthost, 
                                              localhost, 
                                              tgen_ports, 
-                                             conn_graph_facts, 
-                                             fanout_graph_facts, 
                                              multipath, 
                                              ipv4_routes, 
                                              ipv6_routes, 
                                              ipv6_prefix):
-                                             
+
     run_bgp_scalability_v4_v6(cvg_api, duthost, localhost, tgen_ports, multipath, ipv4_routes, ipv6_routes, ipv6_prefix)
 
 
