@@ -17,17 +17,17 @@ pytestmark = [
 
 def check_isis_neighbor(duthost, nbr_name, state):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
-    if isis_instance not in isis_facts['neighbors'].keys():
+    if isis_instance not in isis_facts['neighbors']:
         logger.info("Failed to isis instance {} in dut {}.".format(isis_instance, duthost.hostname))
         return False
 
-    if state == 'Up' and nbr_name not in isis_facts['neighbors'][isis_instance].keys():
+    if state == 'Up' and nbr_name not in isis_facts['neighbors'][isis_instance]:
         return False
 
     if state == 'Up' and isis_facts['neighbors'][isis_instance][nbr_name]['state'] == 'Up':
         return True
 
-    if state == 'Down' and nbr_name not in isis_facts['neighbors'][isis_instance].keys():
+    if state == 'Down' and nbr_name not in isis_facts['neighbors'][isis_instance]:
         return True
 
     logger.info("Failed to nbr {} in dut {}.".format(nbr_name, duthost.hostname))
