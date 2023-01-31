@@ -2,21 +2,22 @@ from tests.common.snappi.snappi_fixtures import cvg_api, tgen_ports
 from files.bgp_test_gap_helper import run_bgp_convergence_performance
 import pytest
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
 
-@pytest.mark.parametrize('multipath',[2])
-@pytest.mark.parametrize('start_routes',[500])
-@pytest.mark.parametrize('routes_step',[500])
-@pytest.mark.parametrize('stop_routes',[16000])
-@pytest.mark.parametrize('route_type',['IPv4'])
+
+@pytest.mark.parametrize('multipath', [2])
+@pytest.mark.parametrize('start_routes', [500])
+@pytest.mark.parametrize('routes_step', [500])
+@pytest.mark.parametrize('stop_routes', [16000])
+@pytest.mark.parametrize('route_type', ['IPv4'])
 def test_bgp_convergence_performance(cvg_api,
-                                    duthost,
-                                    tgen_ports,
-                                    multipath,
-                                    start_routes,
-                                    routes_step,
-                                    stop_routes,
-                                    route_type,):
+                                     duthost,
+                                     tgen_ports,
+                                     multipath,
+                                     start_routes,
+                                     routes_step,
+                                     stop_routes,
+                                     route_type,):
 
     """
     Topo:
@@ -26,15 +27,15 @@ def test_bgp_convergence_performance(cvg_api,
     1) Create BGP config on DUT and TGEN respectively
     2) Create a flow from TGEN1 to (N-1) TGEN ports
     3) Send Traffic from TGEN1 to (N-1) TGEN ports having the same route range
-    4) Simulate route withdraw from one of the (N-1) BGP peers which is the equivalent of remote link failure
-    5) Calculate the cp/dp for convergence time for routes ranging from "start_routes" to "stop_routes" values in steps of "routes_step" given in parameters 
+    4) Simulate route withdraw from one of the (N-1) BGP peers
+    5) Calculate the convergence time for routes
     6) Clean up the BGP config on the dut
 
     Verification:
     1) Send traffic with all routes advertised by BGP peers
         Result: Should not observe traffic loss
     2) Withdraw all routes from one of the BGP peer
-        Result: The traffic must be routed via rest of the ECMP paths and should not observe traffic loss
+        Result: Traffic must be routed via rest of the ECMP paths without loss
 
     Args:
         snappi_api (pytest fixture): Snappi API
