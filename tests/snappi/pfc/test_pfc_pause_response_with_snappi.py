@@ -65,16 +65,10 @@ def test_pfc_single_lossless_headroom(snappi_api,
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossless_prio)
 
-    """ Modify pfc pause delay value """
+    """ Populate headroom test params """
     _, pfc_pause_delay_str, headroom_test_result_str = enum_pfc_pause_delay_test_params.split('|')
     pfc_pause_delay = int(pfc_pause_delay_str)
     headroom_test_result = True if headroom_test_result_str == 'True' else False
-    l1_config = testbed_config.layer1[0]
-    pytest_require(len(l1_config.port_names) > 1,
-                   "Skip this testcase since only one Rx and Tx port have been configured")
-    pfc = l1_config.flow_control.ieee_802_1qbb
-
-    pfc.pfc_delay = pfc_pause_delay
     headroom_test_params = [pfc_pause_delay, headroom_test_result]
     duthost.command("sonic-clear queuecounters")
 
@@ -138,16 +132,10 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
     test_prio_list = lossless_prio_list
     bg_prio_list = lossy_prio_list
 
-    """ Modify pfc pause quanta """
+    """ Populate headroom test params """
     _, pfc_pause_delay_str, headroom_test_result_str = enum_pfc_pause_delay_test_params.split('|')
     pfc_pause_delay = int(pfc_pause_delay_str)
     headroom_test_result = True if headroom_test_result_str == 'True' else False
-    l1_config = testbed_config.layer1[0]
-    pytest_require(len(l1_config.port_names) > 1,
-                   "Skip this testcase since only one Rx and Tx port have been configured")
-    pfc = l1_config.flow_control.ieee_802_1qbb
-
-    pfc.pfc_delay = pfc_pause_delay
     headroom_test_params = [pfc_pause_delay, headroom_test_result]
     duthost.command("sonic-clear queuecounters")
 

@@ -86,6 +86,11 @@ def run_pfc_test(api,
         global DATA_FLOW_DELAY_SEC
         DATA_FLOW_DELAY_SEC = 2
 
+        """ Set up pfc delay parameter """
+        l1_config = testbed_config.layer1[0]
+        pfc = l1_config.flow_control.ieee_802_1qbb
+        pfc.pfc_delay = headroom_test_params[0]
+
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
@@ -118,6 +123,7 @@ def run_pfc_test(api,
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
+    
     """ Reset pfc delay parameter"""
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
