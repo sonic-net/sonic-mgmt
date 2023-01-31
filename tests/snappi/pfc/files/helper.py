@@ -118,6 +118,9 @@ def run_pfc_test(api,
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
+    """ Reset pfc delay parameter"""
+    pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
+    pfc.pfc_delay = 0
 
     """ Verify experiment results """
     __verify_results(rows=flow_stats,
@@ -195,7 +198,7 @@ def __gen_traffic(testbed_config,
     rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
 
     """ Instantiate peer ports in flow_port_config
-    flow_port_config: a list of two dictionaries of tx and rx ports on the peer side, 
+    flow_port_config: a list of two dictionaries of tx and rx ports on the peer (switch) side, 
     and the associated test priorities ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
     """
     global flow_port_config

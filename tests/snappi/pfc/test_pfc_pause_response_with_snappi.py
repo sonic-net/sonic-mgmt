@@ -18,16 +18,16 @@ logger = logging.getLogger(__name__)
 pytestmark = [ pytest.mark.topology('tgen') ]
 
 def test_pfc_single_lossless_headroom(snappi_api,
-                                        snappi_testbed_config,
-                                        conn_graph_facts,
-                                        fanout_graph_facts,
-                                        duthosts,
-                                        rand_one_dut_hostname,
-                                        rand_one_dut_portname_oper_up,
-                                        enum_dut_lossless_prio,
-                                        all_prio_list,
-                                        prio_dscp_map,
-                                        enum_pfc_pause_delay_test_params):
+                                      snappi_testbed_config,
+                                      conn_graph_facts,
+                                      fanout_graph_facts,
+                                      duthosts,
+                                      rand_one_dut_hostname,
+                                      rand_one_dut_portname_oper_up,
+                                      enum_dut_lossless_prio,
+                                      all_prio_list,
+                                      prio_dscp_map,
+                                      enum_pfc_pause_delay_test_params):
     """
     Test headroom capacity for DUT for a single lossless priority
 
@@ -66,7 +66,9 @@ def test_pfc_single_lossless_headroom(snappi_api,
     bg_prio_list.remove(lossless_prio)
 
     """ Modify pfc pause delay value """
-    _, pfc_pause_delay, headroom_test_result = enum_pfc_pause_delay_test_params.split('|')
+    _, pfc_pause_delay_str, headroom_test_result_str = enum_pfc_pause_delay_test_params.split('|')
+    pfc_pause_delay = int(pfc_pause_delay_str)
+    headroom_test_result = True if headroom_test_result_str == 'True' else False
     l1_config = testbed_config.layer1[0]
     pytest_require(len(l1_config.port_names) > 1,
                    "Skip this testcase since only one Rx and Tx port have been configured")
@@ -77,32 +79,32 @@ def test_pfc_single_lossless_headroom(snappi_api,
     duthost.command("sonic-clear queuecounters")
 
     run_pfc_test(api=snappi_api,
-                testbed_config=testbed_config,
-                port_config_list=port_config_list,
-                conn_data=conn_graph_facts,
-                fanout_data=fanout_graph_facts,
-                duthost=duthost,
-                dut_port=dut_port,
-                global_pause=False,
-                pause_prio_list=pause_prio_list,
-                test_prio_list=test_prio_list,
-                bg_prio_list=bg_prio_list,
-                prio_dscp_map=prio_dscp_map,
-                test_traffic_pause=True,
-                headroom_test_params=headroom_test_params)
+                 testbed_config=testbed_config,
+                 port_config_list=port_config_list,
+                 conn_data=conn_graph_facts,
+                 fanout_data=fanout_graph_facts,
+                 duthost=duthost,
+                 dut_port=dut_port,
+                 global_pause=False,
+                 pause_prio_list=pause_prio_list,
+                 test_prio_list=test_prio_list,
+                 bg_prio_list=bg_prio_list,
+                 prio_dscp_map=prio_dscp_map,
+                 test_traffic_pause=True,
+                 headroom_test_params=headroom_test_params)
 
 
 def test_pfc_pause_multi_lossless_headroom(snappi_api,
-                                       snappi_testbed_config,
-                                       conn_graph_facts,
-                                       fanout_graph_facts,
-                                       duthosts,
-                                       rand_one_dut_hostname,
-                                       rand_one_dut_portname_oper_up,
-                                       lossless_prio_list,
-                                       lossy_prio_list,
-                                       prio_dscp_map,
-                                       enum_pfc_pause_delay_test_params):
+                                           snappi_testbed_config,
+                                           conn_graph_facts,
+                                           fanout_graph_facts,
+                                           duthosts,
+                                           rand_one_dut_hostname,
+                                           rand_one_dut_portname_oper_up,
+                                           lossless_prio_list,
+                                           lossy_prio_list,
+                                           prio_dscp_map,
+                                           enum_pfc_pause_delay_test_params):
     """
     Test headroom capacity for DUT for multiple lossless priorities
 
@@ -150,16 +152,16 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
     duthost.command("sonic-clear queuecounters")
 
     run_pfc_test(api=snappi_api,
-                testbed_config=testbed_config,
-                port_config_list=port_config_list,
-                conn_data=conn_graph_facts,
-                fanout_data=fanout_graph_facts,
-                duthost=duthost,
-                dut_port=dut_port,
-                global_pause=False,
-                pause_prio_list=pause_prio_list,
-                test_prio_list=test_prio_list,
-                bg_prio_list=bg_prio_list,
-                prio_dscp_map=prio_dscp_map,
-                test_traffic_pause=True,
-                headroom_test_params=headroom_test_params)
+                 testbed_config=testbed_config,
+                 port_config_list=port_config_list,
+                 conn_data=conn_graph_facts,
+                 fanout_data=fanout_graph_facts,
+                 duthost=duthost,
+                 dut_port=dut_port,
+                 global_pause=False,
+                 pause_prio_list=pause_prio_list,
+                 test_prio_list=test_prio_list,
+                 bg_prio_list=bg_prio_list,
+                 prio_dscp_map=prio_dscp_map,
+                 test_traffic_pause=True,
+                 headroom_test_params=headroom_test_params)
