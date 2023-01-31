@@ -54,12 +54,12 @@ def test_bgp_convergence_performance(cvg_api,
         stop_routes: ending route count value
         route_type: IPv4 or IPv6 routes
     """
-    #convergence_test_iterations, multipath, start_routes, routes_step, stop_routes  and route_type parameters can be modified as per user preference
+    
     run_bgp_convergence_performance(cvg_api,
-                                      duthost,
-                                      tgen_ports,
-                                      multipath,
-                                      start_routes,
-                                      routes_step,
-                                      stop_routes,
-                                      route_type,)
+                                    duthost,
+                                    tgen_ports,
+                                    multipath,
+                                    start_routes,
+                                    routes_step,
+                                    stop_routes,
+                                    route_type,)
