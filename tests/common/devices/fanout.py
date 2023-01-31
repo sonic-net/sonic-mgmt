@@ -23,6 +23,7 @@ class FanoutHost(object):
         self.fanout_to_host_port_map = {}
         if os == 'sonic':
             self.os = os
+            self.fanout_port_alias_to_name = {}
             self.host = SonicHost(ansible_adhoc, hostname,
                                   shell_user=shell_user,
                                   shell_passwd=shell_passwd)
@@ -66,6 +67,9 @@ class FanoutHost(object):
                 raise AttributeError("Host of type {} does not contain a"
                                      "'shutdown_multiple' method"
                                      .format(type(self.host)))
+        if self.os == 'sonic':
+            if interface_name in self.fanout_port_alias_to_name.keys():
+                return self.host.shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.shutdown(interface_name)
 
@@ -85,6 +89,10 @@ class FanoutHost(object):
                 raise AttributeError("Host of type {} does not contain a"
                                      "'no_shutdown_multiple' method"
                                      .format(type(self.host)))
+
+        if self.os == 'sonic':
+            if interface_name in self.fanout_port_alias_to_name.keys():
+                return self.host.no_shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.no_shutdown(interface_name)
 
@@ -173,8 +181,25 @@ class FanoutHost(object):
         """
         return self.host.get_speed(interface_name)
 
+    def links_status_down(self, ports):
+        """Get interface status
+        Args:
+            ports (set): Interfaces on one fanout
+        Returns:
+            True: if all interfaces are down
+            False: if any interface is up
+        """
+        return self.host.links_status_down(ports)
+
+    def links_status_up(self, ports):
+        """Get interface status
+        Args:
+            ports (set): Interfaces on one fanout
+        Returns:
+            True: if all interfaces are up
+            False: if any interface is down
+        """
+        return self.host.links_status_up(ports)
+
     def set_port_fec(self, interface_name, mode):
         self.host.set_port_fec(interface_name, mode)
-
-    def is_intf_status_down(self, interface_name):
-        return self.host.is_intf_status_down(interface_name)

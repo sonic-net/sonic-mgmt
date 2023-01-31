@@ -6,6 +6,7 @@ import pytest
 import re
 import json
 
+from functools import reduce
 from ptf import mask, testutils
 from scapy.all import IP, IPv6, Ether
 from tests.common.dualtor import dual_tor_utils
@@ -54,6 +55,7 @@ def dut_dscp_tc_queue_maps(duthost):
         logging.error("Failed to retrieve map on {}, exception {}".format(duthost.hostname, repr(e)))
     return maps
 
+
 def derive_queue_id_from_dscp(duthost, dscp, is_tunnel):
     """
     Helper function to find Queue ID for a DSCP ID.
@@ -72,7 +74,8 @@ def derive_queue_id_from_dscp(duthost, dscp, is_tunnel):
         # Load tc_to_queue_map
         queue_id = map['tc_to_queue_map'][tc_to_queue_map_name][str(tc_id)]
     except Exception as e:
-        logging.error("Failed to retrieve queue id for dscp {} on {}, exception {}".format(dscp, duthost.hostname, repr(e)))
+        logging.error("Failed to retrieve queue id for dscp {} on {}, exception {}"
+                      .format(dscp, duthost.hostname, repr(e)))
         return
     return int(queue_id)
 
@@ -89,6 +92,7 @@ def derive_out_dscp_from_inner_dscp(duthost, inner_dscp):
         return int(dscp_id)
     else:
         return inner_dscp
+
 
 def queue_stats_check(dut, exp_queue, packet_count):
     queue_counter = dut.shell('show queue counters | grep "UC"')['stdout']
@@ -108,9 +112,12 @@ def queue_stats_check(dut, exp_queue, packet_count):
     if result:
         for number in result:
             if int(number) <= packet_count * (1 + DIFF) and int(number) >= packet_count:
-                logging.info("the expected Queue : {} received expected numbers of packet {}".format(exp_queue, number))
+                logging.info("the expected Queue : {} received expected numbers of packet {}"
+                             .format(exp_queue, number))
+
                 return True
-        logging.debug("the expected Queue : {} did not receive expected numbers of packet : {}".format(exp_queue, packet_count))
+        logging.debug("the expected Queue : {} did not receive expected numbers of packet : {}"
+                      .format(exp_queue, packet_count))
         return False
     else:
         logging.debug("Could not find expected queue counter matches.")
@@ -201,13 +208,15 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
-            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
+            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {1:02b}".format(outer_ecn, inner_ecn))
             check_res = []
             expected_outer_dscp = derive_out_dscp_from_inner_dscp(self.standby_tor, inner_dscp)
             if outer_dscp != expected_outer_dscp:
-                check_res.append("outer packet DSCP {0:06b} not same as expected packet DSCP {0:06b}".format(outer_dscp, expected_outer_dscp))
+                check_res.append("outer packet DSCP {0:06b} not same as expected packet DSCP {1:06b}"
+                                 .format(outer_dscp, expected_outer_dscp))
             if outer_ecn != inner_ecn:
-                check_res.append("outer packet ECN {0:02b} not same as inner packet ECN {0:02b}".format(outer_ecn, inner_ecn))
+                check_res.append("outer packet ECN {0:02b} not same as inner packet ECN {1:02b}"
+                                 .format(outer_ecn, inner_ecn))
             return " ,".join(check_res)
 
         def _check_queue(self, packet):
@@ -234,7 +243,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 check_res.append("no expect counter in the expected queue %s" % exp_queue)
             return " ,".join(check_res)
 
-        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None, check_items=("ttl", "tos", "queue"), packet_count=10):
+        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None,
+                     check_items=("ttl", "tos", "queue"), packet_count=10):
             """
             Init the tunnel traffic monitor.
 
@@ -265,7 +275,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.inner_packet = None
             if self.existing:
                 self.inner_packet = inner_packet
-            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr, inner_packet=self.inner_packet)
+            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr,
+                                                     inner_packet=self.inner_packet)
             self.rec_pkt = None
             self.check_items = check_items
 

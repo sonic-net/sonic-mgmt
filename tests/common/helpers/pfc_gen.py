@@ -6,41 +6,47 @@ Script to generate PFC packets.
 """
 import binascii
 import sys
-import os
 import optparse
 import logging
 import logging.handlers
 from socket import socket, AF_PACKET, SOCK_RAW
-from struct import *
 
 my_logger = logging.getLogger('MyLogger')
 my_logger.setLevel(logging.DEBUG)
+
 
 def checksum(msg):
     s = 0
 
     # loop taking 2 characters at a time
     for i in range(0, len(msg), 2):
-        w = ord(msg[i]) + (ord(msg[i+1]) << 8 )
+        w = ord(msg[i]) + (ord(msg[i+1]) << 8)
         s = s + w
 
-    s = (s>>16) + (s & 0xffff)
+    s = (s >> 16) + (s & 0xffff)
     s = s + (s >> 16)
 
-    #complement and mask to 4 byte short
+    # complement and mask to 4 byte short
     s = ~s & 0xffff
 
     return s
 
+
 def main():
     usage = "usage: %prog [options] arg1 arg2"
     parser = optparse.OptionParser(usage=usage)
-    parser.add_option("-i", "--interface", type="string", dest="interface", help="Interface list to send packets, seperated by ','",metavar="Interface")
-    parser.add_option('-p', "--priority", type="int", dest="priority", help="PFC class enable bitmap.", metavar="Priority", default=-1)
-    parser.add_option("-t", "--time", type="int", dest="time", help="Pause time in quanta for global pause or enabled class",metavar="time")
-    parser.add_option("-n", "--num", type="int", dest="num", help="Number of packets to be sent",metavar="number",default=1)
-    parser.add_option("-r", "--rsyslog-server", type="string", dest="rsyslog_server", default="127.0.0.1", help="Rsyslog server IPv4 address",metavar="IPAddress")
-    parser.add_option('-g', "--global", action="store_true", dest="global_pf", help="Send global pause frames (not PFC)", default=False)
+    parser.add_option("-i", "--interface", type="string", dest="interface",
+                      help="Interface list to send packets, seperated by ','", metavar="Interface")
+    parser.add_option('-p', "--priority", type="int", dest="priority",
+                      help="PFC class enable bitmap.", metavar="Priority", default=-1)
+    parser.add_option("-t", "--time", type="int", dest="time",
+                      help="Pause time in quanta for global pause or enabled class", metavar="time")
+    parser.add_option("-n", "--num", type="int", dest="num",
+                      help="Number of packets to be sent", metavar="number", default=1)
+    parser.add_option("-r", "--rsyslog-server", type="string", dest="rsyslog_server",
+                      default="127.0.0.1", help="Rsyslog server IPv4 address", metavar="IPAddress")
+    parser.add_option('-g', "--global", action="store_true", dest="global_pf",
+                      help="Send global pause frames (not PFC)", default=False)
     (options, args) = parser.parse_args()
 
     if options.interface is None:
@@ -68,18 +74,18 @@ def main():
     interfaces = options.interface.split(',')
 
     try:
-       sockets = []
-       for i in range(0, len(interfaces)):
-           sockets.append(socket(AF_PACKET, SOCK_RAW))
-    except:
+        sockets = []
+        for i in range(0, len(interfaces)):
+            sockets.append(socket(AF_PACKET, SOCK_RAW))
+    except Exception:
         print("Unable to create socket. Check your permissions")
         sys.exit(1)
 
     # Configure logging
-    handler = logging.handlers.SysLogHandler(address = (options.rsyslog_server,514))
+    handler = logging.handlers.SysLogHandler(address=(options.rsyslog_server, 514))
     my_logger.addHandler(handler)
 
-    for s,interface in zip(sockets, interfaces):
+    for s, interface in zip(sockets, interfaces):
         s.bind((interface, 0))
 
     """
@@ -138,8 +144,8 @@ def main():
         class_enable_field = binascii.unhexlify(format(class_enable, '04x'))
 
         packet = packet + class_enable_field
-        for p in range(0,7):
-            if (class_enable & (1<<p)):
+        for p in range(0, 7):
+            if (class_enable & (1 << p)):
                 packet = packet + binascii.unhexlify(format(options.time, '04x'))
             else:
                 packet = packet + b"\x00\x00"
@@ -153,6 +159,7 @@ def main():
             s.send(packet)
         iteration -= 1
     my_logger.debug(pre_str + '_STORM_END')
+
 
 if __name__ == "__main__":
     main()

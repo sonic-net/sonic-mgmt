@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import logging
 import pytest
 import re
@@ -26,7 +27,7 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
@@ -57,7 +58,7 @@ class QosBase:
         return self.buffer_model
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, dut_test_params):
+    def dutTestParams(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, dut_test_params, tbinfo):
         """
             Prepares DUT host test params
             Returns:
@@ -66,6 +67,20 @@ class QosBase:
         # update router mac
         if dut_test_params["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params["basicParams"]["router_mac"] = ''
+
+        # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+        # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
+        if "dualtor" in tbinfo["topo"]["name"]:
+            dut_test_params["basicParams"]["is_dualtor"] = True
+            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+                default_vlan_name = vlan_cfgs['default_vlan_config']
+                if default_vlan_name:
+                    for vlan in vlan_cfgs[default_vlan_name].values():
+                        if 'mac' in vlan and vlan['mac']:
+                            dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
+                            break
+            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"] is not None, "Dual-TOR miss default VLAN MAC address")
 
         yield dut_test_params
 
@@ -522,6 +537,7 @@ class QosSaiBase(QosBase):
             else:
                 intf_map = mgFacts["minigraph_interfaces"]
 
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
@@ -533,6 +549,19 @@ class QosSaiBase(QosBase):
                         dutPortIps.update({portIndex: portIpMap})
                         if intf in dualtor_ports:
                             dualTorPortIndexes.append(portIndex)
+                    # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
+                    # we also need to test them separately
+                    # for mellanox device, we run it on t1 topo mocked by ptf32 topo
+                    if use_separated_upkink_dscp_tc_map and isMellanoxDevice(duthost):
+                        neighName = mgFacts["minigraph_neighbors"].get(intf, {}).get("name", "").lower()
+                        if 't0' in neighName:
+                            downlinkPortIds.append(portIndex)
+                            downlinkPortIps.append(portConfig["peer_addr"])
+                            downlinkPortNames.append(intf)
+                        elif 't2' in neighName:
+                            uplinkPortIds.append(portIndex)
+                            uplinkPortIps.append(portConfig["peer_addr"])
+                            uplinkPortNames.append(intf)
 
             testPortIps = self.__assignTestPortIps(mgFacts)
 
@@ -541,6 +570,7 @@ class QosSaiBase(QosBase):
             for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                 vlan_id = None
                 if iface.startswith("Ethernet"):
+                    portName = iface
                     if "." in iface:
                         portName, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
@@ -714,7 +744,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def stopServices(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-            swapSyncd, enable_container_autorestart, disable_container_autorestart,
+            swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
             tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports): # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
@@ -881,6 +911,30 @@ class QosSaiBase(QosBase):
             duthost.command("docker exec syncd python /packets_aging.py enable")
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
+    def dutArpProxyConfig(self, duthost):
+        # so far, only record ARP proxy config to logging for debug purpose
+        vlanInterface = {}
+        try:
+            vlanInterface = json.loads(duthost.shell('sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
+        except:
+            logger.info('Failed to read vlan interface config')
+        if not vlanInterface:
+            return
+        for key, value in vlanInterface.items():
+            if 'proxy_arp' in value:
+                logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
+
+    def dutBufferConfig(self, duthost):
+        bufferConfig = {}
+        try:
+            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_POOL"')['stdout'])
+            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PROFILE"')['stdout'])
+            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_QUEUE"')['stdout'])
+            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PG"')['stdout'])
+        except Exception as err:
+            logger.info(err)
+        return bufferConfig
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
@@ -924,6 +978,8 @@ class QosSaiBase(QosBase):
         dutAsic = dutConfig["dutAsic"]
         dutTopo = dutConfig["dutTopo"]
 
+        self.dutArpProxyConfig(duthost)
+
         if isMellanoxDevice(duthost):
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
             sub_folder_dir = os.path.join(current_file_dir, "files/mellanox/")
@@ -941,6 +997,36 @@ class QosSaiBase(QosBase):
                                                        dutConfig["dualTor"]
                                                        )
             qosParams = qpm.run()
+
+        elif 'broadcom' in duthost.facts['asic_type'].lower():
+            bufferConfig = self.dutBufferConfig(duthost)
+            pytest_assert(len(bufferConfig) == 4, "buffer config is incompleted")
+            pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL is not exist in bufferConfig')
+            pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
+            pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
+            pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
+
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                       dutAsic,
+                                                       portSpeedCableLength,
+                                                       dutConfig,
+                                                       ingressLosslessProfile,
+                                                       ingressLossyProfile,
+                                                       egressLosslessProfile,
+                                                       egressLossyProfile,
+                                                       sharedHeadroomPoolSize,
+                                                       dutConfig["dualTor"],
+                                                       dutTopo,
+                                                       bufferConfig,
+                                                       duthost,
+                                                       tbinfo["topo"]["name"])
+            qosParams = qpm.run()
+
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
