@@ -3,8 +3,15 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
-  - cron: "0 2 * * 0-5"
+  - cron: "0 2 * * 0,1,2,3,4,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -27,18 +34,19 @@ parameters:
     default: $(IMAGE_BRCM_ABOOT_202012_SLIM)
     displayName: "Image URL"
 
-  - name: PREV_IMAGE_URL
-    type: string
-    default: $(IMAGE_BRCM_ABOOT_201811)
-    displayName: "Previous Image URL"
-
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
-  # Test Parameters
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym span vrf vxlan radv"'
+    displayName: Testbed specific
+
+  # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
     default: "pfcwd/test_pfcwd_warm_reboot.py \
@@ -47,20 +55,19 @@ parameters:
               platform_tests/test_reboot.py::test_warm_reboot \
               platform_tests/test_reboot.py::test_fast_reboot \
               arp/test_wr_arp.py"
-    displayName: "Skip test scripts"
+    displayName: "Skip Scripts"
 
-  # Testbed specific, to skip and/or include directories
-  - name: TESTBED_SPECIFIC
+  - name: PREV_IMAGE_URL
     type: string
-    default: '-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym span vrf vxlan radv"'
-    displayName: Testbed specific
+    default: $(IMAGE_BRCM_ABOOT_201811)
+    displayName: "Previous Image URL"
 
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
-      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}

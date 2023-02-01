@@ -549,7 +549,7 @@ class Analyzer(object):
                                     break
                                 else:
                                     count_dict['everflow_count'] += 1
-                            if 'test_qos_sai' in items[1]:
+                            if len(items) > 1 and 'test_qos_sai' in items[1]:
                                 if count_dict['qos_sai_count'] >= self.config_info['threshold']['max_icm_count_per_module']:
                                     logger.info("There are already 10 IcMs for qos_sai, inhibit this one avoid generating so many similar cases.")
                                     kusto_data = kusto_data[:idx]
@@ -676,7 +676,7 @@ class Analyzer(object):
             items = subtitle.split('.')
             if 'everflow' in items[0]:
                 everflow_count += 1
-            if 'test_qos_sai' in items[1]:
+            if len(items) > 1 and 'test_qos_sai' in items[1]:
                 qos_sai_count += 1
             if 'acl' in items[0]:
                 acl_count += 1
