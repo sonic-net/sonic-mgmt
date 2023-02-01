@@ -135,6 +135,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [facts](sonichost_methods/facts.md) - Returns platform information facts about the sonic device.
 
+- [get_acl_counter](sonichost_methods/get_acl_counter.md) - Read ACL counter of specific ACL table and ACL rule.
+
 - [get_asic_name](sonichost_methods/get_asic_name.md) - Returns name of current ASIC. For use in multi-ASIC environments.
 
 - [get_auto_negotiation_mode](sonichost_methods/get_auto_negotiation_mode.md) - Gets the auto negotiation status for a provided interface
