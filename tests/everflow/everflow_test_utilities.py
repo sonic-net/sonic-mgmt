@@ -16,6 +16,7 @@ from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -44,20 +45,6 @@ DEFAULT_SERVER_IP = "192.168.0.3"
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
-# Describe upstream neighbor of dut in different topos
-UPSTREAM_NEIGHBOR_MAP = {
-    "t0": "t1",
-    "t1": "t2",
-    "m0": "m1",
-    "t2": "t3"
-}
-# Describe downstream neighbor of dut in different topos
-DOWNSTREAM_NEIGHBOR_MAP = {
-    "t0": "server",
-    "t1": "t0",
-    "m0": "mx",
-    "t2": "t1"
-}
 # Topo that downstream neighbor of DUT are servers
 DOWNSTREAM_SERVER_TOPO = ["t0"]
 
@@ -290,6 +277,12 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
                 "server_dest_ports_ptf_id": downstream_dest_ports_ptf_id
             }
         )
+    # Update the VLAN MAC for dualtor testbed. The VLAN MAC will be used as dst MAC in upstream traffic
+    if 'dualtor' in topo:
+        vlan_name = mg_facts_list[0]['minigraph_vlans'].keys()[0]
+        vlan_mac = downStreamDutHost.get_dut_iface_mac(vlan_name)
+        setup_information.update({"dualtor": True})
+        setup_information[UP_STREAM]['ingress_router_mac'] = vlan_mac
 
     return setup_information
 
@@ -316,7 +309,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
 
     """
     topo = tbinfo['topo']['name']
-    if 't1' in topo or 't0' in topo:
+    if 't1' in topo or 't0' in topo or 'm0' in topo or 'mx' in topo or 'dualtor' in topo:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
     elif 't2' in topo:
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
@@ -459,18 +452,6 @@ class BaseEverflowTest(object):
     Contains common methods for setting up the mirror session and describing the
     mirror and ACL stage for the tests.
     """
-    @pytest.fixture(scope="class", autouse=True)
-    def skip_on_dualtor(self, tbinfo):
-        """
-        Skip dualtor topo for now
-        """
-        if 'dualtor' in tbinfo['topo']['name']:
-            pytest.skip("Dualtor testbed is not supported yet")
-        
-        self.is_t0 = False
-        if 't0' in tbinfo['topo']['name']:
-            self.is_t0 = True
-
     @pytest.fixture(scope="class", params=[CONFIG_MODE_CLI])
     def config_method(self, request):
         """Get the configuration method for this set of test cases.
@@ -847,6 +828,8 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
+        if duthost.facts["asic_type"] == 'marvell':
+            expected_packet.set_do_not_care_scapy(packet.IP, "id")
         if duthost.facts["asic_type"] in ["cisco-8000","innovium"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
 

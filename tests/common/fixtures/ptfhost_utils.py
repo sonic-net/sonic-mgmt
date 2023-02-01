@@ -257,11 +257,15 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request):
     """Run icmp_responder.py over ptfhost."""
     # No vlan is available on non-t0 testbed, so skip this fixture
     if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
+        yield
+        return
+    elif 'dualtor' not in tbinfo['topo']['name'] and "test_advanced_reboot" in request.node.name:
+        logger.info("Skip ICMP responder for advanced-reboot test on non dualtor devices")
         yield
         return
 
@@ -352,6 +356,10 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
         ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
         if 'dualtor' not in tbinfo['topo']['name']:
+            if "test_advanced_reboot" in request.node.name:
+                logger.info("Skip GARP service for advanced-reboot test on non dualtor devices")
+                yield
+                return
             # For mocked dualtor testbed
             mux_cable_table = {}
             server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')

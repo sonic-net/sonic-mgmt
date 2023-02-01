@@ -79,18 +79,15 @@ EXAMPLES='''
               "HwSku": "Arista-7260QX-64",
               "Type": "FanoutLeaf"
             },
-          "device_conn": [
-          {
-             "StartPort": "Ethernet0",
-             "EndPort": "Ethernet33",
-             "StartDevice": "str-s6000-on-1",
-             "VlanID": "233",
-             "BandWidth": "40000",
-             "VlanMode": "Access",
-             "EndDevice": "str-7260-01"
-           },
-           {...}
-           ],
+          "device_conn": {
+              "str-7260-11": {
+                  "Ethernet0": {
+                      "peerdevice": "str-7050qx-2",
+                      "peerport": "Ethernet4",
+                      "speed": "40000"
+                  },
+              }
+          },
            "device_vlan_range": {
               "VlanRange": "201-980,1041-1100"
             },

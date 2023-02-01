@@ -11,6 +11,7 @@ from everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE,
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 
 from everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -29,7 +30,7 @@ logger = logging.getLogger(__file__)
 def skip_if_not_supported(tbinfo, setup_info, ip_ver):
 
     asic_type = setup_info[UP_STREAM]['everflow_dut'].facts["asic_type"]
-    unsupported_platforms = ["mellanox", "marvell", "cisco-8000"]
+    unsupported_platforms = ["mellanox", "cisco-8000"]
     # Skip ipv6 test on Mellanox platform
     is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
     # Skip ipv6 test on cisco-8000 platform
@@ -42,7 +43,7 @@ def build_candidate_ports(duthost, tbinfo, ns):
     """
     candidate_ports = {}
     unselected_ports = {}
-    if tbinfo['topo']['type'] == 't0':
+    if tbinfo['topo']['type'] in ['t0', 'mx']:
         candidate_neigh_name = 'Server'
     elif tbinfo['topo']['type'] == 'm0':
         candidate_neigh_name = 'MX'
@@ -181,7 +182,7 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
         testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
-def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo):
+def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
