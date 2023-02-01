@@ -6099,6 +6099,7 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-08" Proxy="sonic" StartDevice="console-212" StartPort="45"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-09" Proxy="sonic" StartDevice="console-194" StartPort="24"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-10" Proxy="sonic" StartDevice="console-199" StartPort="15"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-12" Proxy="admin" StartDevice="console-182" StartPort="2"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050qx-32s-acs-01" Proxy="sonic" StartDevice="console-212" StartPort="19"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7060cx-32s-29" Proxy="sonic" StartDevice="console-212" StartPort="21"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7060-spy-1" Proxy="sonic" StartDevice="console-212" StartPort="2006"/>
