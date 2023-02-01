@@ -23,7 +23,7 @@ def _create_parser():
     parser.add_argument('-t', '--tstamp', type=str, help='Time stamp',
                       required=False,default=None)
     parser.add_argument('-c', '--collect_logs', action='store_true', help='Just Parse results',
-                      default=False)                  
+                      default=False)
     parser.add_argument('-a', '--dut_address', type=str, help='specify dut address',
                       required=False,default=None)
     parser.add_argument('-n', '--dut_name', type=str, help='DUT name specified to run tests',
@@ -101,7 +101,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             time.sleep(60)
             cmd = "./run_tests.sh -n {} -d {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
             os.system("bash -c '{}'".format(cmd))
-        
+
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
     failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
@@ -163,7 +163,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         #if last test, upload Allure results to server
         if tc == tcs[-1].strip():
             cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e --allure_server_addr='10.22.183.173' -e --allure_server_project_id={} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,build_id,log_dir,tc,tc_name)
-        else:    
+        else:
             cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
@@ -259,7 +259,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             time.sleep(60)
             cmd = "./run_tests.sh -n {} -d {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name)
             os.system("bash -c '{}'".format(cmd))
-        
+
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
     failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
@@ -287,7 +287,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         report_file.flush()
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
-    current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file)) 
+    current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file))
     current_result_file.flush()
     for tc in tcs:
         if '#' in tc:
@@ -325,7 +325,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
             cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-    
+
     current_result_file.close()
     report_file.close()
 
@@ -396,7 +396,7 @@ def main():
     else:
         dut_name = 'mathilda-01'
 
-    if tstamp is None:        
+    if tstamp is None:
         tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
 
     if only_parse:
@@ -407,7 +407,7 @@ def main():
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
-                exit     
+                exit
             run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,collect_logs,dut_address)
 
         #run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
