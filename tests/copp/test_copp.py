@@ -418,12 +418,9 @@ def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=1")
 
     if not test_params.swap_syncd:
-        http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
         mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
         # Add Rule to communicate to http/s proxy from namespace
         dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-        if http_proxy != https_proxy:
-            dut.command("sudo ip -n {} rule add from all to {} pref 3 lookup default".format(test_params.nn_target_namespace, https_proxy))
     # Add Rule to communicate to ptf nn agent client from namespace
     ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
@@ -438,13 +435,10 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     logging.info("Removing iptables rules and disabling eth0 port forwarding")
     dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=0")
     if not test_params.swap_syncd:
-        http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
         # Delete IP Table rule for http and ptf nn_agent traffic.
         mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
         # Delete Rule to communicate to http/s proxy from namespace
         dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-        if http_proxy != https_proxy:
-            dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
     # Delete Rule to communicate to ptf nn agent client from namespace
     ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
@@ -454,12 +448,12 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
 def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.is_multi_asic:
-        return
-    copp_utils.backup_config_db(duthost)
+        yield
+    else:
+        copp_utils.backup_config_db(duthost)
 
-    yield
-    copp_utils.restore_config_db(duthost)
-
+        yield
+        copp_utils.restore_config_db(duthost)
 
 def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):
     copp_utils.install_trap(duthost, feature_name)
