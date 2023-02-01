@@ -257,8 +257,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         finally:
             # Clean up the test
-            remote_dut.shell(remote_dut.get_linux_ip_cmd_for_namespace("ip neigh del {} dev {}".format(peer_ip, tx_port), setup_info[dest_port_type]["remote_namespace"]))
-            remote_dut.get_asic_or_sonic_host_from_namespace(setup_info[dest_port_type]["remote_namespace"]).command("ping {} -c3".format(peer_ip))
+            remote_dut.shell(
+                remote_dut.get_linux_ip_cmd_for_namespace("ip neigh del {} dev {}".format(peer_ip, tx_port),
+                                                          setup_info[dest_port_type]["remote_namespace"]))
+            remote_dut.get_asic_or_sonic_host_from_namespace(setup_info[dest_port_type]["remote_namespace"]).command(
+                "ping {} -c3".format(peer_ip))
 
         # Verify that everything still works
         time.sleep(10)  # for redis to get update to other lc
