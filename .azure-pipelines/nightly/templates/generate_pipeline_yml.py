@@ -83,6 +83,7 @@ parameters:
         ALWAYS_POWER_CYCLE_DUTS = yaml_file_info[branch]['ALWAYS_POWER_CYCLE_DUTS']
         ENABLE_DATAACL = yaml_file_info[branch]['ENABLE_DATAACL']
         SKIP_TEST_RESULTS_UPLOADING = yaml_file_info[branch]['SKIP_TEST_RESULTS_UPLOADING']
+        PREV_IMAGE_URL = yaml_file_info[branch]['PREV_IMAGE_URL']
 
         STATE_PATTERN = '''
 stages:
@@ -180,7 +181,15 @@ stages:
             file_content += SKIP_UPLOADING_PATTERN
             STATE_PATTERN += "\n      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}"
 
-
+        if PREV_IMAGE_URL:
+            PREV_IMAGE_URL_PATTERN = '''
+  - name: PREV_IMAGE_URL
+    type: string
+    default: $({})
+    displayName: "Previous Image URL"\n'''.format(PREV_IMAGE_URL)
+            file_content += PREV_IMAGE_URL_PATTERN
+            STATE_PATTERN += '''
+      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}'''
 
         file_content += STATE_PATTERN + "\n"
         vender = yaml_file_info[branch]['vendor']
@@ -210,6 +219,7 @@ def generate_yaml_files(data_df):
         ALWAYS_POWER_CYCLE_DUTS = ''
         ENABLE_DATAACL = ''
         SKIP_TEST_RESULTS_UPLOADING = ''
+        PREV_IMAGE_URL = ''
         for day_index in range(3, 10):
             day_key = keys[day_index]
             if row[day_key] != '':
@@ -249,6 +259,8 @@ def generate_yaml_files(data_df):
                 ENABLE_DATAACL = row[key].upper()
             if key.upper() == "SKIP_TEST_RESULTS_UPLOADING":
                 SKIP_TEST_RESULTS_UPLOADING = row[key].upper()
+            if key.upper() == "PREV_IMAGE_URL":
+                PREV_IMAGE_URL = row[key]
 
         for branch in yaml_file_info:
             branch_alias = branch
@@ -275,6 +287,7 @@ def generate_yaml_files(data_df):
             yaml_file_info[branch]['ALWAYS_POWER_CYCLE_DUTS'] = ALWAYS_POWER_CYCLE_DUTS
             yaml_file_info[branch]['ENABLE_DATAACL'] = ENABLE_DATAACL
             yaml_file_info[branch]['SKIP_TEST_RESULTS_UPLOADING'] = SKIP_TEST_RESULTS_UPLOADING
+            yaml_file_info[branch]['PREV_IMAGE_URL'] = PREV_IMAGE_URL
 
             if 'bjw' in AGENT_POOL:
                 IMAGE_URL_PREFIX = "BJW_IMAGE_"
