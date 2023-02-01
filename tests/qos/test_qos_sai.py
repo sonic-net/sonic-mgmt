@@ -1492,7 +1492,7 @@ class TestQosSai(QosSaiBase):
 
 
     def testQosSaiDwrrWeightChange(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        self, ptfhost, duthost, dutTestParams, dutConfig, dutQosConfig,
         updateSchedProfile
     ):
         """
@@ -1515,7 +1515,7 @@ class TestQosSai(QosSaiBase):
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
-
+        qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -1535,7 +1535,8 @@ class TestQosSai(QosSaiBase):
             "limit": qosConfig["wrr_chg"]["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku":dutTestParams['hwsku'],
-            "topo": dutTestParams["topo"]
+            "topo": dutTestParams["topo"],
+            "qos_remap_enable": qos_remap_enable
         })
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams

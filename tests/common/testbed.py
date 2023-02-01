@@ -23,8 +23,7 @@ class TestbedInfo(object):
     TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name',
                                  'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
     TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
-                                  'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut',
-                                  'inv_name', 'auto_recover', 'comment')
+                                  'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
     TOPOLOGY_FILEPATH = "../../ansible/vars/"
 
     def __init__(self, testbed_file):
@@ -96,7 +95,7 @@ class TestbedInfo(object):
                 if line['ptf_ipv6']:
                     line['ptf_ipv6'], line['ptf_netmask_v6'] = \
                         self._cidr_to_ip_mask(line['ptf_ipv6'])
-                line['duts'] = re.sub(r'\[|\]| ', '', line['dut']).split(';')
+                line['duts'] = re.sub('\[|\]| ', '', line['dut']).split(';')
                 line['duts_map'] = {dut: line['duts'].index(dut) for dut in line['duts']}
                 del line['dut']
 
@@ -116,6 +115,7 @@ class TestbedInfo(object):
                 tb["duts"] = tb.pop("dut")
                 tb["duts_map"] = {dut: i for i, dut in enumerate(tb["duts"])}
                 self.testbed_topo[tb["conf-name"]] = tb
+
 
     def dump_testbeds_to_yaml(self, args=""):
 
@@ -154,7 +154,7 @@ class TestbedInfo(object):
 
         testbed_data = []
         if args and len(args.sai) > 0:
-            # Generate the specific testbed info for SAI test bed set up
+            #Generate the specific testbed info for SAI test bed set up
             sai_ptf_image = args.sai_test_ptf
 
             tb_dict = self.testbed_topo[args.sai_testbed_name]
@@ -164,9 +164,9 @@ class TestbedInfo(object):
             testbed_data.append(testbed)
             print("Finished SAI testbed info generating.")
         else:
-            # Generate all test bed infos
+            #Generate all test bed infos
             for tb_name, tb_dict in self.testbed_topo.items():
-                tb_dict_fields = self._generate_testbed_fields(tb_dict, tb_name)
+                tb_dict_fields = self._generate_testbed_fields(tb_dict, tb_name)                
                 testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
                 testbed = OrderedDict(testbed_mapping)
                 testbed_data.append(testbed)
@@ -187,19 +187,21 @@ class TestbedInfo(object):
             yaml.dump(testbed_data, yamlfile,
                       explicit_start=True, Dumper=IncIndentDumper)
 
+
     def _generate_testbed_fields(self, tb_dict, tb_name):
         tb_topo = tb_dict["topo"]
         tb_ptf_image_name = tb_dict["ptf_image_name"]
         return self._generate_testbed_fields_from_info(tb_dict, tb_name, tb_topo, tb_ptf_image_name)
 
+
     def _generate_testbed_fields_from_info(self, tb_dict, tb_name, tb_topo, tb_ptf_image_name):
         ptf_ip, ptf_ipv6 = None, None
         if tb_dict["ptf_ip"]:
             ptf_ip = self._ip_mask_to_cidr(tb_dict["ptf_ip"],
-                                           tb_dict["ptf_netmask"])
+                                            tb_dict["ptf_netmask"])
         if tb_dict["ptf_ipv6"]:
             ptf_ipv6 = self._ip_mask_to_cidr(tb_dict["ptf_ipv6"],
-                                             tb_dict["ptf_netmask_v6"])
+                                                tb_dict["ptf_netmask_v6"])
 
         if len(self.testbed_fields) == len(self.TESTBED_FIELDS_DEPRECATED):
             tb_dict_fields = [
@@ -230,19 +232,21 @@ class TestbedInfo(object):
                 tb_dict["inv_name"],
                 tb_dict["auto_recover"],
                 tb_dict["comment"]
-            ]
+            ] 
         return tb_dict_fields
 
+
     def _generate_sai_testbed(self, tb_dict, tb_name, sai_ptf_image):
-        # Compatiable with generating from yaml, self.testbed_fields only set in csv
-        # Set self.testbed_fields
+        #Compatiable with generating from yaml, self.testbed_fields only set in csv
+        #Set self.testbed_fields
         if not hasattr(self, 'testbed_fields'):
             self.testbed_fields = self.TESTBED_FIELDS_RECOMMENDED
 
         sai_topo = self._generate_sai_ptf_topo(tb_dict)
-        tb_dict_fields = self._generate_testbed_fields_from_info(tb_dict, tb_name, sai_topo, sai_ptf_image)
+        tb_dict_fields = self._generate_testbed_fields_from_info(tb_dict, tb_name, sai_topo, sai_ptf_image)        
 
         return tb_dict_fields
+  
 
     def _generate_sai_ptf_topo(self, tb_dict):
         ports_count = len(tb_dict["topo"]["ptf_dut_intf_map"])
@@ -251,13 +255,14 @@ class TestbedInfo(object):
             sai_topo = "ptf32"
         else:
             sai_topo = "ptf64"
-
+        
         return sai_topo
+
 
     def get_testbed_type(self, topo_name):
         pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|appliance)')
         match = pattern.match(topo_name)
-        if match is None:
+        if match == None:
             logger.warning("Unsupported testbed type - {}".format(topo_name))
             return "unsupported"
         tb_type = match.group()
@@ -275,7 +280,7 @@ class TestbedInfo(object):
         port format : dut_index.port_index@ptf_index
 
         """
-        m = re.match(r"(\d+)(?:\.(\d+))?(?:@(\d+))?", str(port).strip())
+        m = re.match("(\d+)(?:\.(\d+))?(?:@(\d+))?", str(port).strip())
         m1, m2, m3 = m.groups()
         if m3:
             # Format: <dut_index>.<port_index>@<ptf_index>
@@ -385,7 +390,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--print-data", help="print testbed", action="store_true")
 
-    # SAI testbed param
+    #SAI testbed param
     parser.add_argument("-n", "--testbed", dest="sai_testbed_name", help="sai testbed name")
     parser.add_argument("-s", "--sai", dest="sai", help="generate sai testbed file", default="")
     parser.add_argument("-p", "--ptf", dest="sai_test_ptf", help="SAI test ptf image", default="docker-ptf")
