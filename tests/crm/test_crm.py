@@ -131,6 +131,8 @@ def generate_mac(num):
         mac_list.append(str(netaddr.EUI(mac_postfix)))
     return mac_list
 
+def is_cel_e1031_device(duthost):
+    return duthost.facts["platform"] == "x86_64-cel_e1031-r0"
 
 def generate_fdb_config(duthost, entry_num, vlan_id, iface, op, dest):
     """ Generate FDB config file to apply it using 'swssconfig' tool.
@@ -552,21 +554,39 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface, ip_ver, nexthop):
+def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, \
+    crm_interface, ip_ver, nexthop, ptfhost):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
+    if duthost.facts["asic_type"] == "marvell":
+        if ip_ver == "4":
+            ptfhost.add_ip_to_dev('eth1', nexthop+'/24')
+            ptfhost.set_dev_up_or_down('eth1', 'is_up')
+            ip_add_cmd = "config interface ip add Ethernet1 2.2.2.1/24"
+            ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
+            nexthop_add_cmd = "config route add prefix 99.99.99.0/24 nexthop {}".format(nexthop)
+            nexthop_del_cmd = "config route del prefix 99.99.99.0/24 nexthop {}".format(nexthop)
+        else:
+            ptfhost.add_ip_to_dev('eth1', nexthop+'/96')
+            ptfhost.set_dev_up_or_down('eth1', 'is_up')
+            ip_add_cmd = "config interface ip add Ethernet1 2001::2/64"
+            ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
+            nexthop_add_cmd = "config route add prefix 3001::0/64 nexthop {}".format(nexthop)
+            nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
+        asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
+        asichost.shell(ip_add_cmd)
+    else:
+        nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
-                            .format(ip_cmd=asichost.ip_cmd, 
+                            .format(ip_cmd=asichost.ip_cmd,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-    nexthop_del_cmd = "{ip_cmd} neigh del {nexthop} \
+        nexthop_del_cmd = "{ip_cmd} neigh del {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
-                            .format(ip_cmd=asichost.ip_cmd, 
+                            .format(ip_cmd=asichost.ip_cmd,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-
     # Get "crm_stats_ipv[4/6]_nexthop" used and available counter value
     get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
                             crm_stats_ipv{ip_ver}_nexthop_used \
@@ -574,13 +594,12 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                                 .format(db_cli=asichost.sonic_db_cli,
                                         ip_ver=ip_ver)
     crm_stats_nexthop_used, crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
-
     # Add nexthop
     asichost.shell(nexthop_add_cmd)
 
     logger.info("original crm_stats_nexthop_used is: {}, original crm_stats_nexthop_available is {}".format(
         crm_stats_nexthop_used, crm_stats_nexthop_available))
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used + 1,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used + 1,
                                    crm_stats_nexthop_available - 1, ">=", "<=")
     if not crm_stats_checker:
         RESTORE_CMDS["test_crm_nexthop"].append(nexthop_del_cmd)
@@ -589,8 +608,11 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
     # Remove nexthop
     asichost.shell(nexthop_del_cmd)
-
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used,
+    if duthost.facts["asic_type"] == "marvell":
+        asichost.shell(ip_remove_cmd)
+        asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)  
+        ptfhost.remove_ip_addresses() 
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_stats, duthost, crm_stats_nexthop_used,
                                    crm_stats_nexthop_available)
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_ipv{}_nexthop_used\" counter was not decremented or "
@@ -640,7 +662,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     # Add neighbor
     asichost.shell(neighbor_add_cmd)
 
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_neighbor_stats, duthost, crm_stats_neighbor_used,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_neighbor_stats, duthost, crm_stats_neighbor_used,
                                    crm_stats_neighbor_available, ">", "<")
     if not crm_stats_checker:
         RESTORE_CMDS["test_crm_nexthop"].append(neighbor_del_cmd)
@@ -654,7 +676,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     # Remove neighbor
     asichost.shell(neighbor_del_cmd)
 
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_neighbor_stats, duthost, crm_stats_neighbor_used,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_neighbor_stats, duthost, crm_stats_neighbor_used,
                                    crm_stats_neighbor_available, ">=", "==")
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_ipv4_neighbor_used\" counter was not decremented or "
@@ -736,7 +758,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         template_resource = 2
     else:
         template_resource = 1
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
                                    nexthop_group_used + template_resource,
                                    nexthop_group_available + template_resource, "==", "<=")
     if not crm_stats_checker:
@@ -752,7 +774,7 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     logger.info("Removing nexthop groups")
     duthost.shell(del_template.render(iface=crm_interface[0], iface2=crm_interface[1], prefix=network, namespace=asichost.namespace))
 
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
+    crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
                                    nexthop_group_used,
                                    nexthop_group_available)
     nexthop_group_name = "member_" if group_member else ""
@@ -920,8 +942,7 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_fr
 def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
-    if "t0" not in tbinfo["topo"]["name"].lower():
-        pytest.skip("Unsupported topology, expected to run only on 'T0*' topology")
+
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
@@ -957,6 +978,9 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     cmd = "fdbclear"
     duthost.command(cmd)
     time.sleep(5)
+    if is_cel_e1031_device(duthost):
+        # Sleep more time for E1031 device after fdbclear
+        time.sleep(10)
 
     # Get "crm_stats_fdb_entry" used and available counter value
     crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
@@ -969,7 +993,9 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     # Verify "crm_stats_fdb_entry_used" counter was incremented
     # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance. 
     # Hence, the used counter can increase by more than 1.
-    if is_cisco_device(duthost):
+    # For E1031, refer CS00012270660, SDK for Helix4 chip does not support retrieving  max l2 entry,
+    # HW and SW CRM available counter would be out of sync and increase by more than 1.
+    if is_cisco_device(duthost) or is_cel_e1031_device(duthost):
         pytest_assert(new_crm_stats_fdb_entry_used - crm_stats_fdb_entry_used >= 1, \
             "Counter 'crm_stats_fdb_entry_used' was not incremented")
     else: 
@@ -979,7 +1005,9 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     # Verify "crm_stats_fdb_entry_available" counter was decremented   
     # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance. 
     # Hence, the available counter can decrease by more than 1.
-    if is_cisco_device(duthost): 
+    # For E1031, refer CS00012270660, SDK for Helix4 chip does not support retrieving  max l2 entry,
+    # HW and SW CRM available counter would be out of sync and decrease by more than 1.
+    if is_cisco_device(duthost) or is_cel_e1031_device(duthost):
         pytest_assert(crm_stats_fdb_entry_available - new_crm_stats_fdb_entry_available >= 1, \
             "Counter 'crm_stats_fdb_entry_available' was not decremented")
     else:
@@ -1025,5 +1053,8 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         Used == {}".format(new_crm_stats_fdb_entry_used))
 
     # Verify "crm_stats_fdb_entry_available" counter was incremented
-    pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= 0, \
-        "Counter 'crm_stats_fdb_entry_available' was not incremented")
+    # For E1031, refer CS00012270660, SDK for Helix4 chip does not support retrieving max l2 entry, HW and
+    # SW CRM available counter would be out of sync, so this is not applicable for e1031 device
+    if not is_cel_e1031_device(duthost):
+        pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= 0, \
+            "Counter 'crm_stats_fdb_entry_available' was not incremented")

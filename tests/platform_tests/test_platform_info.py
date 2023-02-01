@@ -2,7 +2,7 @@
 Check platform information
 
 This script covers the test case 'Check platform information' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import json
 import logging
@@ -46,7 +46,7 @@ LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE = '.*Insufficient number of working fans warn
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fans warning cleared:.*'
 
 # These error messages are not triggered by platform test cases,
-# Ref to https://github.com/Azure/sonic-buildimage/issues/8944
+# Ref to https://github.com/sonic-net/sonic-buildimage/issues/8944
 SKIP_ERROR_LOG_COMMON = ['.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_get:.* queue egress Min limit get failed with error Invalid parameter.*',
                          '.*ERR syncd#syncd:.*collectQueueCounters: QUEUE_WATERMARK_STAT_COUNTER: failed to get stats of queue.*']
 
@@ -155,6 +155,24 @@ def get_psu_num(dut):
 
     return psu_num
 
+def get_healthy_psu_num(duthost):
+    """
+        @Summary: get number of healthy PSUs
+        @param: DUT host instance
+        @return: Number of healthy PSUs
+    """
+    PSUUTIL_CMD = "sudo psuutil status"
+    healthy_psus = 0
+    psuutil_status_output = duthost.command(PSUUTIL_CMD)
+
+    psus_status = psuutil_status_output["stdout_lines"][2:]
+    for iter in psus_status:
+        fields = iter.split()
+        if fields[2] == 'OK':
+            healthy_psus += 1
+
+    return healthy_psus
+
 
 def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
     """
@@ -219,7 +237,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
-    psu_num = get_psu_num(duthost)
+    psu_num = get_healthy_psu_num(duthost)
     pytest_require(psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")

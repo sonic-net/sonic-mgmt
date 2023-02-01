@@ -24,6 +24,7 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 SUB_PORTS_TEMPLATE = 'sub_port_config.j2'
 TUNNEL_TEMPLATE = 'tunnel_config.j2'
 PTF_NN_AGENT_TEMPLATE = 'ptf_nn_agent.conf.ptf.j2'
+ACL_TEMPLATE = 'backend_acl_update_config.j2'
 ACTION_FWD = 'fwd'
 ACTION_DROP = 'drop'
 TCP_PORT = 80
@@ -753,7 +754,7 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
 
     config_vlan_members = cfg_facts['port_index_map']
     port_status = cfg_facts['PORT']
-    config_port_indices = {}
+    config_port_indices = OrderedDict()
     for port, port_id in config_vlan_members.items():
         if ((port not in portchannel_members) and
             (not (('port_in_lag' in port_type or exclude_sub_interface_ports) and port in sub_interface_ports)) and
@@ -766,7 +767,7 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
     pytest_require(len(config_port_indices) == interface_num, "No port for testing")
 
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    ptf_ports = {}
+    ptf_ports = OrderedDict()
     for port_id in config_port_indices:
         ptf_ports[port_id] = ptf_ports_available_in_topo[port_id]
 

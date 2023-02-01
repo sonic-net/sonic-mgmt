@@ -23,9 +23,8 @@ from ptf.dataplane import match_exp_pkt
 from ptf.mask import Mask
 import datetime
 import subprocess
-import ipaddress
 from pprint import pprint
-from ipaddress import ip_address, ip_network
+from ipaddress import ip_address, ip_network, IPv4Address, IPv6Address
 
 class VNET(BaseTest):
     def __init__(self):
@@ -361,7 +360,7 @@ class VNET(BaseTest):
                 tcp_dport=5000)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 vxlan_pkt = simple_vxlan_packet(
                     eth_dst=self.dut_mac,
                     eth_src=self.random_mac,
@@ -374,7 +373,7 @@ class VNET(BaseTest):
                     vxlan_vni=int(test['vni']),
                     with_udp_chksum=False,
                     inner_frame=pkt)
-            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+            elif isinstance(ip_address(test['host']), IPv6Address):
                 vxlan_pkt = simple_vxlanv6_packet(
                     eth_dst=self.dut_mac,
                     eth_src=self.random_mac,
@@ -452,7 +451,7 @@ class VNET(BaseTest):
                 tcp_dport=5000)
             udp_sport = 1234 # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 encap_pkt = simple_vxlan_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
@@ -466,7 +465,7 @@ class VNET(BaseTest):
                     vxlan_vni=vni,
                     inner_frame=exp_pkt)
                 encap_pkt[IP].flags = 0x2
-            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+            elif isinstance(ip_address(test['host']), IPv6Address):
                 encap_pkt = simple_vxlanv6_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
@@ -484,7 +483,7 @@ class VNET(BaseTest):
             masked_exp_pkt = Mask(encap_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")

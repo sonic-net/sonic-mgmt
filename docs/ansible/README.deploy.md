@@ -6,7 +6,7 @@ and public [sonicdev Docker registry](https://sonicdev-microsoft.azurecr.io/).
 
 ## Requirements
 
-- Prepare a switch with the SONiC base image. See [this link](https://github.com/Azure/SONiC/blob/gh-pages/quickstart.md)
+- Prepare a switch with the SONiC base image. See [this link](https://github.com/sonic-net/SONiC/blob/gh-pages/quickstart.md)
 - If you are using your own APT repo or docker registry, packages and docker images must be uploaded to the repositories before running following steps.
 
 ## Deploy SONiC

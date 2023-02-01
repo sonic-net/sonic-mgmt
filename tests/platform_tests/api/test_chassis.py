@@ -94,7 +94,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(expected_value is not None,
                       "Unable to get expected value for '{}' from platform.json file".format(key))
 
-        pytest_assert(value == expected_value,
+        pytest_assert(re.match(expected_value, value),
                       "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
     def compare_value_with_device_facts(self, duthost, key, value, case_sensitive=True):
@@ -428,10 +428,13 @@ class TestChassisApi(PlatformApiTestBase):
 
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
+            interface_facts = duthost.show_interface(command='status')['ansible_facts']['int_status']
             if duthost.facts.get("platform") == 'x86_64-nvidia_sn2201-r0':
                 # On SN2201, there are 48 RJ45 ports which are also counted in SFP object lists
                 # So we need to adjust test case accordingly
-                expected_num_sfps += 48
+                for port,data in interface_facts.items():
+                    if data['type'] == 'RJ45':
+                        expected_num_sfps += 1
             pytest_assert(num_sfps == expected_num_sfps,
                           "Number of sfps ({}) does not match expected number ({})"
                           .format(num_sfps, expected_num_sfps))

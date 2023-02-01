@@ -43,6 +43,10 @@
       <virtualport type='openvswitch'/>
     </interface>
 {% endfor %}
+    <interface type='ethernet'>
+      <model type='virtio'/>
+      <target dev='{{ backplane_tap }}'/>
+    </interface>
     <controller type='usb' index='0'/>
     <memballoon model='virtio'>
       <alias name='balloon0'/>

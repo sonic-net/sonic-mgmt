@@ -81,7 +81,6 @@ def enable_garp(duthost):
 
 
 def test_mac_move(
-    require_mocked_dualtor,
     announce_new_neighbor, apply_active_state_to_orchagent,
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, set_crm_polling_interval,

@@ -14,12 +14,14 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
+
 class SonicProcess(Process):
     """
     Wrapper class around multiprocessing.Process that would capture the exception thrown if the Process throws
     an exception when run.
 
-    This exception (including backtrace) can be logged in test log to provide better info of why a particular Process failed.
+    This exception (including backtrace) can be logged in test log
+    to provide better info of why a particular Process failed.
     """
     def __init__(self, *args, **kwargs):
         Process.__init__(self, *args, **kwargs)
@@ -51,7 +53,7 @@ class SonicProcess(Process):
 
 
 def parallel_run(
-    target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24
+    target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24, init_result=None
 ):
     """Run target function on nodes in parallel
 
@@ -75,23 +77,28 @@ def parallel_run(
             spawned processes.
     """
     nodes = [node for node in nodes_list]
+
     # Callback API for wait_procs
     def on_terminate(worker):
         logger.info("process {} terminated with exit code {}".format(
             worker.name, worker.returncode)
         )
 
-    def force_terminate(workers):
+    def force_terminate(workers, init_result):
         # Some processes cannot be terminated. Try to kill them and raise flag.
         running_processes = [worker for worker in workers if worker.is_alive()]
         if len(running_processes) > 0:
             logger.info(
-                'Found processes still running: {}. Try to kill them.'.format( #lgtm [py/clear-text-logging-sensitive-data]
-                    str(running_processes)
-                )
+                'Found processes still running: {}. Try to kill them.'.format(str(running_processes))
             )
             for p in running_processes:
-                results[p.name] = [{'failed': True}]
+                # If sanity check process is killed, it still has init results.
+                # set its failed to True.
+                if init_result:
+                    init_result['failed'] = True
+                    results[results.keys()[0]] = init_result
+                else:
+                    results[p.name] = {'failed': True}
                 try:
                     os.kill(p.pid, signal.SIGKILL)
                 except OSError as err:
@@ -128,6 +135,10 @@ def parallel_run(
 
         while len(nodes) and tasks_running < concurrent_tasks:
             node = nodes.pop(0)
+            # For sanity check process, initial results in case of timeout.
+            if init_result:
+                init_result["host"] = node.hostname
+                results[node.hostname] = init_result
             kwargs['node'] = node
             kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
@@ -153,7 +164,7 @@ def parallel_run(
             logger.debug("all processes have timedout")
             tasks_running -= len(workers)
             tasks_done += len(workers)
-            force_terminate(workers)
+            force_terminate(workers, init_result)
             del workers[:]
         else:
             tasks_running -= len(gone)
@@ -173,13 +184,19 @@ def parallel_run(
                 worker.name
             ))
             worker.terminate()
-            results[worker.name] = [{'failed': True}]
+            # If sanity check process is killed, it still has init results.
+            # set its failed to True.
+            if init_result:
+                init_result['failed'] = True
+                results[results.keys()[0]] = init_result
+            else:
+                results[worker.name] = {'failed': True}
 
     end_time = datetime.datetime.now()
     delta_time = end_time - start_time
 
     # force terminate any workers still running
-    force_terminate(workers)
+    force_terminate(workers, init_result)
 
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
@@ -205,7 +222,7 @@ def parallel_run(
         )
     )
 
-    return results
+    return dict(results)
 
 
 def reset_ansible_local_tmp(target):

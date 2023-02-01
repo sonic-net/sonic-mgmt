@@ -3,6 +3,7 @@ import json
 
 ZERO_ADDR = r'0.0.0.0/0'
 
+
 def generate_ips(num, prefix, exclude_ips):
     """ Generate random ips within prefix """
     prefix = IPNetwork(prefix)
@@ -16,10 +17,9 @@ def generate_ips(num, prefix, exclude_ips):
     generated_ips = []
     for available_ip in available_ips:
         if available_ip not in exclude_ips:
-            generated_ips.append(str(available_ip) + '/' + str(prefix.prefixlen))
+            generated_ips.append(str(available_ip))
         if len(generated_ips) == num:
             break
-
     return generated_ips
 
 
@@ -33,7 +33,7 @@ def route_through_default_routes(host, ip_addr):
     output = host.shell("show ip route {} json".format(ip_addr))['stdout']
     routes_info = json.loads(output)
     ret = True
-    
+
     for prefix in routes_info.keys():
         if prefix != ZERO_ADDR:
             ret = False

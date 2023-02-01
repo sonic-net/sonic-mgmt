@@ -45,7 +45,7 @@ def test_fun(duthosts, rand_one_dut_hostname):
 - `owner` - Name of use that should own file/directory
     - Required: `False`
     - Type: `String`
-- `remote_src` - Whether `src` is on the remote host or on the calling device. 
+- `remote_src` - Whether `src` is on the remote host or on the calling device.
     - Required: `False`
     - Type: `Boolean`
     - Default: `False`

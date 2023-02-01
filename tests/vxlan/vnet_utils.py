@@ -147,13 +147,12 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
         logger.info("Skip applying config files on DUT")
 
 
-def cleanup_dut_vnets(duthost, mg_facts, vnet_config):
+def cleanup_dut_vnets(duthost, vnet_config):
     """
     Removes all VNET information from DUT
 
     Args:
         duthost: DUT host object
-        mg_facts: Minigraph facts
         vnet_config: Configuration generated from templates/vnet_config.j2
     """
     logger.info("Removing VNET information from DUT")
