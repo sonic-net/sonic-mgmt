@@ -70,7 +70,6 @@ def test_pfc_single_lossless_headroom(snappi_api,
     pfc_pause_delay = int(pfc_pause_delay_str)
     headroom_test_result = True if headroom_test_result_str == 'True' else False
     headroom_test_params = [pfc_pause_delay, headroom_test_result]
-    duthost.command("sonic-clear queuecounters")
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -137,7 +136,6 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
     pfc_pause_delay = int(pfc_pause_delay_str)
     headroom_test_result = True if headroom_test_result_str == 'True' else False
     headroom_test_params = [pfc_pause_delay, headroom_test_result]
-    duthost.command("sonic-clear queuecounters")
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,

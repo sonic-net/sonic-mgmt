@@ -81,6 +81,7 @@ def run_pfc_test(api,
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
 
     if headroom_test_params is not None:
+        duthost.command("sonic-clear queuecounters")
         global DATA_FLOW_DURATION_SEC
         DATA_FLOW_DURATION_SEC = 10
         global DATA_FLOW_DELAY_SEC
@@ -123,7 +124,7 @@ def run_pfc_test(api,
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
-    
+
     """ Reset pfc delay parameter"""
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
