@@ -117,8 +117,6 @@ class TestCOPP(object):
         3. Verify the trap status is installed by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        if duthost.is_multi_asic:
-            pytest.skip("Skipping as test needs changes to supoort multi-asic dut")
 
         logger.info("Uninstall trap {}".format(self.trap_id))
         copp_utils.uninstall_trap(duthost, self.feature_name, self.trap_id)
@@ -151,8 +149,6 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        if duthost.is_multi_asic:
-            pytest.skip("Skipping as test needs changes to supoort multi-asic dut")
 
         logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
         pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)
@@ -182,8 +178,6 @@ class TestCOPP(object):
         """
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        if duthost.is_multi_asic:
-            pytest.skip("Skipping as test needs changes to supoort multi-asic dut")
 
         logger.info("Set always_enabled of {} to true".format(self.trap_id))
         copp_utils.configure_always_enabled_for_trap(duthost, self.trap_id, "true")
@@ -447,13 +441,10 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
 @pytest.fixture(scope="function", autouse=False)
 def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.is_multi_asic:
-        yield
-    else:
-        copp_utils.backup_config_db(duthost)
+    copp_utils.backup_config_db(duthost)
 
-        yield
-        copp_utils.restore_config_db(duthost)
+    yield
+    copp_utils.restore_config_db(duthost)
 
 def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):
     copp_utils.install_trap(duthost, feature_name)
