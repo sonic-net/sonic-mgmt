@@ -198,7 +198,7 @@ def test_tor_switch_upstream(upper_tor_host, lower_tor_host,
                                     action=lambda: force_standby_tor(upper_tor_host, 'all'))
         verify_tor_states(expected_active_host=lower_tor_host,
                             expected_standby_host=upper_tor_host,
-                            expected_standby_health="unhealthy",
+                            expected_standby_health="healthy",
                             cable_type=cable_type)
 
 
@@ -226,7 +226,7 @@ def test_tor_switch_downstream_active(upper_tor_host, lower_tor_host,
                                     action=lambda: force_standby_tor(upper_tor_host, 'all'))
         verify_tor_states(expected_active_host=lower_tor_host,
                             expected_standby_host=upper_tor_host,
-                            expected_standby_health="unhealthy",
+                            expected_standby_health="healthy",
                             cable_type=cable_type)
 
 
@@ -254,7 +254,7 @@ def test_tor_switch_downstream_standby(upper_tor_host, lower_tor_host,
                                     action=lambda: force_standby_tor(upper_tor_host, 'all'))
         verify_tor_states(expected_active_host=lower_tor_host,
                             expected_standby_host=upper_tor_host,
-                            expected_standby_health="unhealthy",
+                            expected_standby_health="healthy",
                             cable_type=cable_type)
 
 
