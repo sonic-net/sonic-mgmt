@@ -670,9 +670,13 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    build_id = os.getenv("BUILD_ID")
+    if build_id is None:
+        build_id = 99999
+
     delta1 = datetime.datetime.now()
     tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
-    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
+    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_id))
     time.sleep(3)
     resp = chan.recv(9999)
 
