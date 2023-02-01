@@ -95,6 +95,19 @@ def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server
 
     check_dummy_addr_and_default_route(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route['IPv4'], check_default_route['IPv6'])
 
+    if dummy_syslog_server_ip_a: 
+        if ":" not in dummy_syslog_server_ip_a:
+            duthost.command("sudo ip -4 rule add from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+        else:
+            duthost.command("sudo ip -6 rule add from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+
+    if dummy_syslog_server_ip_b:
+        if ":" not in dummy_syslog_server_ip_b:
+            duthost.command("sudo ip -4 rule add from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+        else:
+            duthost.command("sudo ip -6 rule add from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+
+
     logger.info("Configuring the DUT")
     # Add dummy rsyslog destination for testing
     if dummy_syslog_server_ip_a is not None:
@@ -129,8 +142,17 @@ def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server
     # Remove the syslog configuration
     if dummy_syslog_server_ip_a is not None:
         duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_a))
+        if ":" not in dummy_syslog_server_ip_a:
+            duthost.command("sudo ip -4 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+        else:
+            duthost.command("sudo ip -6 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+
     if dummy_syslog_server_ip_b is not None:
         duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_b))
+        if ":" not in dummy_syslog_server_ip_b:
+            duthost.command("sudo ip -4 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+        else:
+            duthost.command("sudo ip -6 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
 
     duthost.fetch(src=DUT_PCAP_FILEPATH, dest=DOCKER_TMP_PATH)
     filepath = os.path.join(DOCKER_TMP_PATH, duthost.hostname, DUT_PCAP_FILEPATH.lstrip(os.path.sep))
