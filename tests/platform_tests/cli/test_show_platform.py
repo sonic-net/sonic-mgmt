@@ -95,7 +95,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     @summary: Verify output of `show platform syseeprom`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050","arista_7260"])
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050", "arista_7260", "arista_7060"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -106,7 +106,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     """
     Gather expected data from a inventory file instead if 'syseeprom_info' is defined in the inventory
     # Sample inventory with syseeprom:
-    
+
     str-msn2700-01:
         ansible_host: 10.251.0.188
         model: MSN2700-CS2FO
