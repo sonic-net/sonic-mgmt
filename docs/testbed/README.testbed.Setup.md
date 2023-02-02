@@ -104,7 +104,7 @@ The PTF docker container is used to send and receive data plane packets to the D
     docker push 127.0.0.1:5000/docker-ptf
     ```
 
-## Build and Run `docker-sonic-mgmt`
+## Build and Run `docker-sonic-mgmt` 
 
 Managing the testbed and running tests requires various dependencies to be installed and configured. We have built a `docker-sonic-mgmt` image that takes care of these dependencies so you can use `ansible-playbook`, `pytest`, and `spytest`.
 
