@@ -148,6 +148,56 @@ class TestSfpApi(PlatformApiTestBase):
         'templowalarm',
         'rxpowerhighalarm',
         'templowwarning',
+        'txpowerlowalarm'
+    ]
+
+    QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+        'txpowerlowwarning',
+        'temphighwarning',
+        'temphighalarm',
+        'txbiashighalarm',
+        'vcchighalarm',
+        'txbiaslowalarm',
+        'rxpowerhighwarning',
+        'vcclowwarning',
+        'txbiaslowwarning',
+        'rxpowerlowalarm',
+        'vcchighwarning',
+        'txpowerhighwarning',
+        'rxpowerlowwarning',
+        'txbiashighwarning',
+        'vcclowalarm',
+        'txpowerhighalarm',
+        'templowalarm',
+        'rxpowerhighalarm',
+        'templowwarning',
+        'txpowerlowalarm',
+        'lasertemphighwarning',
+        'lasertemplowwarning',
+        'lasertemplowalarm',
+        'lasertemphighalarm'
+    ]
+
+    QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+        'txpowerlowwarning',
+        'temphighwarning',
+        'temphighalarm',
+        'txbiashighalarm',
+        'vcchighalarm',
+        'txbiaslowalarm',
+        'rxpowerhighwarning',
+        'vcclowwarning',
+        'txbiaslowwarning',
+        'rxpowerlowalarm',
+        'vcchighwarning',
+        'txpowerhighwarning',
+        'rxpowerlowwarning',
+        'txbiashighwarning',
+        'vcclowalarm',
+        'txpowerhighalarm',
+        'templowalarm',
+        'rxpowerhighalarm',
+        'templowwarning',
         'txpowerlowalarm',
         'lasertemphighwarning',
         'lasertemplowwarning',
@@ -402,16 +452,30 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+
+            if not self.is_xcvr_optical(info_dict):
+                logger.info("test_get_temperature: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
+
             thold_info_dict = sfp.get_transceiver_threshold_info(platform_api_conn, i)
             if self.expect(thold_info_dict is not None, "Unable to retrieve transceiver {} threshold info".format(i)):
                 if self.expect(isinstance(thold_info_dict, dict), "Transceiver {} threshold info appears incorrect".format(i)):
                     actual_keys = thold_info_dict.keys()
 
-                    missing_keys = set(self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS) - set(actual_keys)
+                    if info_dict["type_abbrv_name"] == "QSFP-DD":
+                        if 'ZR' in info_dict[media_interface_code]:
+                            expected_keys = self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                        else:
+                            expected_keys = self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                    else:
+                        expected_keys = self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+
+                    missing_keys = set(expected_keys) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(False, "Transceiver {} threshold info does not contain field: '{}'".format(i, key))
 
-                    unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS)
+                    unexpected_keys = set(actual_keys) - set(expected_keys)
                     for key in unexpected_keys:
                         self.expect(False, "Transceiver {} threshold info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
@@ -734,3 +798,5 @@ class TestSfpApi(PlatformApiTestBase):
                 thermal = sfp.get_thermal(platform_api_conn, sfp_id, thermal_index)
                 self.expect(thermal and thermal == thermal_list[thermal_index], "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()
+
+
