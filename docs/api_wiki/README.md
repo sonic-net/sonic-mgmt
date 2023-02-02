@@ -123,6 +123,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [check_default_route](sonichost_methods/check_default_route.md) - Provides the status of the default route
 
+- [clear_acl_counters](sonichost_methods/clear_acl_counters.md) - Clear ACL counters statistics.
+
 - [critical_process_status](sonichost_methods/critical_process_status.md) - Gets status of service and provides list of exited and running member processes.
 
 - [critical_services](sonichost_methods/critical_services.md) - Provides a list of critical services running on the SONiC host.

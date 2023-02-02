@@ -29,7 +29,7 @@ def test_fun(duthosts, rand_one_dut_hostname):
 - `timeout` - maximum time (in second) to wait until ACL counter available.
     - Required: `False`
     - Type: `Integer`
-    - Default: `tests.common.devices.constants.ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC * 3`
+    - Default: `tests.common.devices.constants.ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC * 2`
 - `interval` - retry interval (in second) between read ACL counter.
     - Required: `False`
     - Type: `Integer`

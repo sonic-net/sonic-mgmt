@@ -2069,8 +2069,14 @@ Totals               6450                 6449
         """
         return self.show_and_parse('show syslog')
 
+    def clear_acl_counters(self):
+        """
+        Clear ACL counters statistics.
+        """
+        self.command('aclshow -c')
+
     def get_acl_counter(self, acl_table_name, acl_rule_name,
-                        timeout=ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC * 3,
+                        timeout=ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC * 2,
                         interval=ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC):
         """
         Read ACL counter of specific ACL table and ACL rule.
