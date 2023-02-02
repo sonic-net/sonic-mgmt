@@ -80,7 +80,7 @@ configlet/test_add_rack.py:
 #####            copp             #####
 #######################################
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
-  xfail:
+  skip:
     reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
     conditions:
       - "release in ['202012']"
