@@ -25,6 +25,7 @@ from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -720,7 +721,7 @@ def get_image_type(duthost):
 
 def find_duthost_on_role(duthosts, role, tbinfo):
     role_set = False
-
+    role_host = None
     for duthost in duthosts:
         if role_set:
             break
@@ -732,6 +733,7 @@ def find_duthost_on_role(duthosts, role, tbinfo):
             if role in neighbor["name"]:
                 role_host = duthost
                 role_set = True
+    pytest_assert(role_host, "Could not find {} duthost".format(role))
     return role_host
 
 def get_neighbor_port_list(duthost, neighbor_name):
