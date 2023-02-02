@@ -153,7 +153,7 @@ copp/test_copp.py:
       - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-backend', 't2', 'm0', 'mx']"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
-  xfail:
+  skip:
     reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
     conditions:
       - "release in ['202012']"
