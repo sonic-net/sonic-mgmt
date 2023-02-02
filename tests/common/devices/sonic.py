@@ -9,6 +9,7 @@ import time
 
 from collections import defaultdict
 from datetime import datetime, timedelta
+from multiprocessing.pool import ThreadPool
 
 from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
@@ -177,21 +178,33 @@ class SonicHost(AnsibleHostBase):
         """
         Gather facts about the platform for this SONiC device.
         """
+        pool = ThreadPool(5)
 
-        facts = dict()
-        facts.update(self._get_platform_info())
-        facts["num_asic"] = self._get_asic_count(facts["platform"])
-        facts["router_mac"] = self._get_router_mac()
-        facts["modular_chassis"] = self._get_modular_chassis()
-        facts["mgmt_interface"] = self._get_mgmt_interface()
-        facts["switch_type"] = self._get_switch_type()
-        facts["router_type"] = self._get_router_type()
-        asics_present = self.get_asics_present_from_inventory()
-        facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
+        facts = self._get_platform_info()
 
-        platform_asic = self._get_platform_asic(facts["platform"])
-        if platform_asic:
-            facts["platform_asic"] = platform_asic
+        num_asic = pool.apply_async(self._get_asic_count, args=(facts["platform"],))
+        router_mac = pool.apply_async(self._get_router_mac)
+        modular_chassis = pool.apply_async(self._get_modular_chassis)
+        mgmt_interface = pool.apply_async(self._get_mgmt_interface)
+        switch_type = pool.apply_async(self._get_switch_type)
+        router_type = pool.apply_async(self._get_router_type)
+        asics_present = pool.apply_async(self.get_asics_present_from_inventory)
+        platform_asic = pool.apply_async(self._get_platform_asic, args=(facts["platform"],))
+
+        pool.close()
+        pool.join()
+
+        facts["num_asic"] = num_asic.get()
+        facts["router_mac"] = router_mac.get()
+        facts["modular_chassis"] = modular_chassis.get()
+        facts["mgmt_interface"] = mgmt_interface.get()
+        facts["switch_type"] = switch_type.get()
+        facts["router_type"] = router_type.get()
+
+        facts["asics_present"] = asics_present.get() if len(asics_present.get()) != 0 else list(range(facts["num_asic"]))
+
+        if platform_asic.get():
+            facts["platform_asic"] = platform_asic.get()
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
