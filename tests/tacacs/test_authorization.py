@@ -267,6 +267,9 @@ def test_bypass_authorization(duthosts, enum_rand_one_per_hwsku_hostname, tacacs
     """
         Verify user can't run script with sh/python with following command.
             python ./testscript.py
+
+        NOTE: TACACS UT using tac_plus as server side, there is a bug that tac_plus can't handle an authorization message contains more than 10 attributes.
+              Because every command parameter will convert to a TACACS attribute, please don't using more than 5 command parameters in test case.
     """
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, 'echo "" >> ./testscript.py')
     pytest_assert(exit_code == 0)
@@ -275,7 +278,7 @@ def test_bypass_authorization(duthosts, enum_rand_one_per_hwsku_hostname, tacacs
     check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
 
     # Verify user can't run 'find' command with '-exec' parameter.
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . -type f -exec /bin/sh ;")
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . -exec")
     pytest_assert(exit_code == 1)
     check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
 
