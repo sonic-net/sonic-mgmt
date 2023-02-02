@@ -83,6 +83,8 @@ def test_thermal_global_state_db(duthosts, enum_supervisor_dut_hostname, tbinfo)
     duthost = duthosts[enum_supervisor_dut_hostname]
     if duthost.facts['modular_chassis'] == "False":
         pytest.skip("Test skipped applicable to modular chassis only")
+    if not duthost.is_supervisor_node():
+        pytest.skip("Test skipped applicable to supervisor only")
     chassis_db_ip = get_chassis_db_ip(duthost)
     expected_num_thermals = get_expected_num_thermals(duthosts)
     thermal_out = duthost.command("redis-dump -H {} -p 6380 -d 13 -y -k \"TEMP*\"".format(chassis_db_ip))
