@@ -954,8 +954,8 @@ jobs:
 
             echo "Save test report for publish artificates"
             mkdir -p $(System.DefaultWorkingDirectory)/publish
-            cp ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml $(System.DefaultWorkingDirectory)/publish/
-            cp tr.json $(System.DefaultWorkingDirectory)/publish/
+            cp ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}/tr.xml $(System.DefaultWorkingDirectory)/publish/
+            cp ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}/tr.json $(System.DefaultWorkingDirectory)/publish/
         env:
           TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
           TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
