@@ -722,14 +722,18 @@ class BaseEverflowTest(object):
         src_port_set = set()
         src_port_metadata_map = {}
 
-    
+
         if 't2' in setup['topo']:
             if valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)
-
-            src_port_set.add(dest_ports[0])
-            src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
+                if duthost.facts['switch_type'] == "voq":
+                    if self.mirror_type() != "egress":  # no egress route on the other node/namespace
+                        src_port_set.add(dest_ports[0])
+                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
+                else:
+                    src_port_set.add(dest_ports[0])
+                    src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
 
         else:
             src_port_namespace = setup[direction]["everflow_namespace"]
@@ -768,10 +772,11 @@ class BaseEverflowTest(object):
             if expect_recv:
                 time.sleep(STABILITY_BUFFER)
                 _, received_packet = testutils.verify_packet_any_port(
-                    ptfadapter,
-                    expected_mirror_packet,
-                    ports=dest_ports
+                ptfadapter,
+                expected_mirror_packet,
+                ports=dest_ports
                 )
+
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
                 inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent))
@@ -790,7 +795,11 @@ class BaseEverflowTest(object):
                 # mask off the DMAC and IP Checksum to verify the packet contents.
                 if self.mirror_type() == "egress":
                     mirror_packet_sent[packet.IP].ttl -= 1
-                    mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
+                    if 't2' in setup['topo']:
+                        if duthost.facts['switch_type'] == "voq":
+                            mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                    else:
+                        mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
 
                     inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
                     inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
@@ -808,7 +817,8 @@ class BaseEverflowTest(object):
         if duthost.facts["asic_type"] in ["mellanox"]:
             payload = binascii.unhexlify("0" * 44) + str(payload)
 
-        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000" , "innovium"]:
+        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"] or duthost.facts.get(
+                "platform_asic") in ["broadcom-dnx"]:
             payload = binascii.unhexlify("0" * 24) + str(payload)
 
         expected_packet = testutils.simple_gre_packet(
@@ -831,7 +841,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
         if duthost.facts["asic_type"] == 'marvell':
             expected_packet.set_do_not_care_scapy(packet.IP, "id")
-        if duthost.facts["asic_type"] in ["cisco-8000","innovium"]:
+        if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
