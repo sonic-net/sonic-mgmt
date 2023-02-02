@@ -148,7 +148,7 @@ copp/test_copp.py::TestCOPP::test_remove_trap:
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
-    reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform"
+    reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
     conditions:
       - "is_multi_asic==True"
 
