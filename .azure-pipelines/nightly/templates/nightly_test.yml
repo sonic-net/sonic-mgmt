@@ -79,6 +79,11 @@ parameters:
     type: string
     default: ""
 
+  # This is for completeness_level setting, if not setting, will use default setting.
+  - name: COMPLETENESS_LEVEL
+    type: string
+    default: ""
+
   # This is for other run_tests.sh options. For example, the run_tests.sh script supports "-S" option to skip
   # tests in specified folder. Assume a testbed needs to skip tests in folders like "platform_tests" and "dualtor"
   # sub-folders, the job yaml file calling this template can pass value '-S "platform_tests dualtor"' to
@@ -322,7 +327,9 @@ stages:
                 fi
 
                 DOW=$(date +%u)
-                if [ $((DOW)) -le 4 ] || [ $((DOW)) -eq 7 ]; then
+                if [[ $COMPLETENESS_LEVEL ]]; then
+                    PARAMS="$PARAMS --completeness_level=$COMPLETENESS_LEVEL"
+                elif [ $((DOW)) -le 4 ] || [ $((DOW)) -eq 7 ]; then
                     PARAMS="$PARAMS --completeness_level=confident"
                 fi
 
@@ -373,6 +380,7 @@ stages:
               GIT_USER_NAME: $(GIT_USER_NAME)
               GIT_API_TOKEN: $(GIT_API_TOKEN)
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
+              COMPLETENESS_LEVEL: ${{ parameters.COMPLETENESS_LEVEL }}
 
           - ${{ if eq(parameters.RUN_BSL_TEST, True) }}:
             - script: |
