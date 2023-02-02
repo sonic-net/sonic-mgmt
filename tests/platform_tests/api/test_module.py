@@ -91,6 +91,17 @@ class TestModuleApi(PlatformApiTestBase):
             return True
         return False
 
+    def skip_module_other_than_myself(self, module_num, platform_api_conn):
+        if chassis.is_modular_chassis(platform_api_conn):
+            name = module.get_name(platform_api_conn, module_num)
+            module_slot = module.get_slot(platform_api_conn, module_num)
+            chassis_slot = chassis.get_my_slot(platform_api_conn)
+            if module_slot != chassis_slot:
+                logger.info("Skipping module {} since it is not the same module as myself".format(name))
+                return True
+            return False
+        return False
+
     def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
@@ -119,6 +130,8 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
+            if self.skip_module_other_than_myself(i,platform_api_conn):
+                continue
             model = module.get_model(platform_api_conn, i)
             if self.expect(model is not None, "Unable to retrieve module {} model".format(i)):
                 self.expect(isinstance(model, STRING_TYPE), "Module {} model appears incorrect".format(i))
@@ -128,6 +141,8 @@ class TestModuleApi(PlatformApiTestBase):
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
+                continue
+            if self.skip_module_other_than_myself(i,platform_api_conn):
                 continue
             serial = module.get_serial(platform_api_conn, i)
             if self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
@@ -173,6 +188,8 @@ class TestModuleApi(PlatformApiTestBase):
         # TODO: Add expected base MAC address for each module to inventory file and compare against it
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
+                continue
+            if self.skip_module_other_than_myself(i,platform_api_conn):
                 continue
             # Need to skip FABRIC-CARDx as they do not have base_mac assigned
             mod_name = module.get_name(platform_api_conn, i)
@@ -220,7 +237,8 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
-
+            if self.skip_module_other_than_myself(i,platform_api_conn):
+                continue
             # Need to skip FABRIC-CARDx as they do not have system_eeprom info
             mod_name = module.get_name(platform_api_conn, i)
             if "FABRIC-CARD" in mod_name:
@@ -437,11 +455,13 @@ class TestModuleApi(PlatformApiTestBase):
         reboot_timeout = 300
         for mod_idx in range(self.num_modules):
             mod_name = module.get_name(platform_api_conn, mod_idx)
+            if self.skip_module_other_than_myself(mod_idx,platform_api_conn):
+                continue
             if mod_name in self.skip_mod_list:
                 logger.info("skipping reboot for module {} ".format(mod_name))
             else:
                 module_reboot = module.reboot(platform_api_conn, mod_idx, reboot_type)
-                pytest_assert(module_reboot == "True", "module {} reboot failed".format(mod_idx))
+                pytest_assert(module_reboot == bool(True), "module {} reboot failed".format(mod_idx))
                 sleep(reboot_timeout)
                 mod_status = module.get_oper_status(platform_api_conn, mod_idx)
                 pytest_assert(mod_status == "Online", "module {} boot up successful".format(mod_idx))
