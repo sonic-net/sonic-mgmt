@@ -252,14 +252,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     && mkdir ptf && cd ptf && wget \
                     https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
                     " '''.format(http_proxy, https_proxy, syncd_docker_name)
-
-        try:
-            # Stop bgp sessions
-            dut.command("sudo config bgp shutdown all")
-            dut.command(cmd)
-        finally:
-            dut.command("sudo config bgp startup all")
-
+        dut.command(cmd)
 
 def _map_port_number_to_interface(dut, nn_target_port):
     """
