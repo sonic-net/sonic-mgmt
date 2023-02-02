@@ -31,17 +31,20 @@ LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 
 
 @pytest.fixture(scope='module')
-def setup_stress_acl_table(rand_selected_dut, tbinfo):
+def setup_stress_acl_table(rand_selected_dut, tbinfo, duthost):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    pc = list(mg_facts['minigraph_portchannels'].keys())[0]
-    if not pc:
+    if tbinfo["topo"]["type"] == "mx":
+        table_port = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
+    else:
+        table_port = list(mg_facts['minigraph_portchannels'].keys())[0]
+    if not table_port:
         pytest.skip('No portchannels found')
 
     # Define a custom table type CUSTOM_TYPE by loading a json configuration
     rand_selected_dut.template(src=STRESS_ACL_TABLE_TEMPLATE, dest=STRESS_ACL_TABLE_JSON_FILE)
     rand_selected_dut.shell("sonic-cfggen -j {} -w".format(STRESS_ACL_TABLE_JSON_FILE))
     # Create an ACL table and bind to Vlan1000 interface
-    cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p {}".format(pc)
+    cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p {}".format(table_port)
     cmd_remove_table = "config acl remove table STRESS_ACL"
     loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="stress_acl")
     loganalyzer.load_common_config()
