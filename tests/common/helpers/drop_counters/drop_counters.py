@@ -97,7 +97,6 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
         return drop_list
 
     def _check_drops_on_dut():
-        import pdb;pdb.set_trace()
         return packets_count in _get_drops_across_all_duthosts()
 
     if not wait_until(25, 1, 0, _check_drops_on_dut):
