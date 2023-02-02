@@ -15,6 +15,7 @@ all:
         topologies:
           - t1
           - t1-lag
+          - t1-56-lag
           - t1-64-lag
           - t1-64-lag-clet
           - t1-backend
