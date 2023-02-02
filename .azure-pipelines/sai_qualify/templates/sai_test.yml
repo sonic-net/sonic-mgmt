@@ -964,3 +964,7 @@ jobs:
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
           PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
+
+  - publish: $(System.DefaultWorkingDirectory)/publish/
+    artifact: sai_test_report
+    displayName: "Public sai test report"
