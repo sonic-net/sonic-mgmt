@@ -270,7 +270,7 @@ fcffb9e0106e   ceosimage:4.25.10M                 "/sbin/init systemd.…"   30 
 8e8f8d9aff8a   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0103
 835ae77bc3cd   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0102
 afdcd58f7d88   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0101
-9b29d5e7f083   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0100 
+9b29d5e7f083   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0100
 ```
  
 You can login to the cEOS
