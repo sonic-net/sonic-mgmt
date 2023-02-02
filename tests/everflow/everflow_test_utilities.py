@@ -312,6 +312,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
     if 't1' in topo or 't0' in topo or 'm0' in topo or 'mx' in topo or 'dualtor' in topo:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
     elif 't2' in topo:
+        pytest_assert(len(duthosts) > 1, "Test must run on whole chassis")
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
         
     setup_information = gen_setup_information(downstream_duthost, upstream_duthost, tbinfo)
