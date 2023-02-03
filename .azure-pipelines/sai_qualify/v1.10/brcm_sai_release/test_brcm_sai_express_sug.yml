@@ -37,16 +37,6 @@ parameters:
     displayName: "Testbed Name for SAI test"
     default: vms3-t1-dx010-1
 
-  - name: RUN_SONiC_TEST
-    type: boolean
-    displayName: "Is Run SONiC Test"
-    default: false
-
-  - name: TESTBED_NAME_FOR_SONIC
-    type: string
-    displayName: "Testbed Name for SONiC test"
-    default: vms20-t1-dx010-6
-
   - name: IMAGE_URL
     type: string
     default: $(IMAGE_BRCM_202205)
@@ -146,16 +136,3 @@ jobs:
       # UPDATE_IMAGE: false
       # CHANGE_TOPO: false
       # PTF_DEPLOY_VSCODE: false
-
-
-
-- ${{ if parameters.RUN_SONiC_TEST }}:
-    - template: ../../templates/sonic_test_for_sai.yml
-      parameters:
-        TESTBED_NAME: ${{ parameters.TESTBED_NAME_FOR_SONIC }}
-        LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
-        PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-        IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
-        DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
-        SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
