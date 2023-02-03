@@ -161,7 +161,7 @@ class TestSfpApi(PlatformApiTestBase):
         'lasertemphighalarm'
     ]
 
-    # To get all the keys supported by QSFP-DD modules
+    # To get all the keys supported by QSFP-ZR modules
     # below list should be appended with
     # EXPECTED_XCVR_THRESHOLD_INFO_KEYS + QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
     QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
