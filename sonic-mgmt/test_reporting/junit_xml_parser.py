@@ -319,7 +319,7 @@ def _validate_test_case_properties(root):
 
         seen_testcase_properties.append(testcase_property_name)
 
-    missing_testcase_property = set(seen_testcase_properties) < set(REQUIRED_TESTCASE_PROPERTIES)
+    missing_testcase_property = set(REQUIRED_TESTCASE_PROPERTIES) - set(seen_testcase_properties)
     if missing_testcase_property:
         print("missing testcase property: {}".format(list(missing_testcase_property)))
 

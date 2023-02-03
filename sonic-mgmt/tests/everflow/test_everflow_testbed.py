@@ -74,7 +74,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     DEFAULT_SRC_IP = "20.0.0.1"
     DEFAULT_DST_IP = "30.0.0.1"
-    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th3"]
+    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th3", "j2c+", "jr2"]
 
     @pytest.fixture(params=[DOWN_STREAM, UP_STREAM])
     def dest_port_type(self, setup_info, setup_mirror_session, tbinfo, request):
@@ -257,10 +257,14 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         finally:
             # Clean up the test
-            remote_dut.shell(remote_dut.get_linux_ip_cmd_for_namespace("ip neigh del {} dev {}".format(peer_ip, tx_port), setup_info[dest_port_type]["remote_namespace"]))
-            remote_dut.get_asic_or_sonic_host_from_namespace(setup_info[dest_port_type]["remote_namespace"]).command("ping {} -c3".format(peer_ip))
+            remote_dut.shell(
+                remote_dut.get_linux_ip_cmd_for_namespace("ip neigh del {} dev {}".format(peer_ip, tx_port),
+                                                          setup_info[dest_port_type]["remote_namespace"]))
+            remote_dut.get_asic_or_sonic_host_from_namespace(setup_info[dest_port_type]["remote_namespace"]).command(
+                "ping {} -c3".format(peer_ip))
 
         # Verify that everything still works
+        time.sleep(10)  # for redis to get update to other lc
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
@@ -362,7 +366,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
       
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
- 
+
+        if tbinfo['topo']['type'] == "t2":
+            if everflow_dut.facts['switch_type'] == "voq":
+                pytest.skip("Skip test as is not supported on a VoQ chassis.")
+
         # Remaining Scenario not applicable for this topology
         if len(setup_info[dest_port_type]["dest_port"]) <= 2:
             pytest.skip("Skip test as not enough neighbors/ports.")

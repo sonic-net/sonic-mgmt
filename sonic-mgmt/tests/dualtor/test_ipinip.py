@@ -181,6 +181,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
     1. Only keep 1 uplink up. Shutdown others to force the bounced back traffic is egressed from monitor port of mirror session
     2. If there are more than 1 member in the LAG, update the LAG to have only one member
     """
+    pytest_require("dualtor" in tbinfo['topo']['name'], "Only run on dualtor testbed")
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     portchannels = mg_facts['minigraph_portchannels'].keys()
     up_portchannel = random.choice(portchannels)
@@ -245,7 +246,6 @@ def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface, p
     The issue can happen if the bounced back packets egressed from the monitor port of mirror session
     Find more details in CSP CS00012263713. 
     """
-    pytest_require("dualtor" in tbinfo['topo']['name'], "Only run on dualtor testbed")
     # Since we have only 1 uplink, the source port is also the dest port
     src_port_id = setup_mirror_session
     _, server_ip = rand_selected_interface

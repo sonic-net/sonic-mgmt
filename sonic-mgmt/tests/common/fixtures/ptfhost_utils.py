@@ -13,6 +13,7 @@ from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.dual_tor_utils import increase_linkmgrd_probe_interval
 
+
 logger = logging.getLogger(__name__)
 
 ROOT_DIR = "/root"
@@ -121,9 +122,11 @@ def change_mac_addresses(ptfhost):
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.change_mac_addresses()
     # NOTE: up/down ptf interfaces in change_mac_address will interrupt icmp_responder
-    # socket read/write operations, so let's restart icmp_responder
-    logging.debug("restart icmp_responder after change ptf port mac addresses")
-    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
+    # socket read/write operations, so let's restart icmp_responder if it is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)
+    if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
+        logging.debug("restart icmp_responder after change ptf port mac addresses")
+        ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
