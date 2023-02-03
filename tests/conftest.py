@@ -1151,6 +1151,36 @@ def generate_priority_lists(request, prio_scope):
 
     return ret if ret else empty
 
+
+def pfc_pause_delay_test_params(request):
+    empty = []
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'pfc_headroom_test_params'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in info:
+        return empty
+
+    dut_pfc_delay_params = info[tbname]
+    ret = []
+
+    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
+        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+            ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
+
+    return ret if ret else empty
+
+
 _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):
@@ -1255,6 +1285,8 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
+        metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
 ### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
 @pytest.fixture(scope="module")
@@ -1674,7 +1706,7 @@ def core_dump_and_config_check(duthosts, request):
             EXCLUDE_CONFIG_KEY_NAMES = [
                 'MUX_LINKMGR|LINK_PROBER'
             ]
-            
+
             def _remove_entry(table_name, key_name, config):
                 if table_name in config and key_name in config[table_name]:
                     config[table_name].pop(key_name)
@@ -1703,7 +1735,7 @@ def core_dump_and_config_check(duthosts, request):
             cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
             for key in cur_config_extra_keys:
                 cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
-            
+
             common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
             # Check if the running config is modified after module running
             for key in common_config_keys:
