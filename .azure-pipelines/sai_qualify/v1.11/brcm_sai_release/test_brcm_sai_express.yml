@@ -21,7 +21,7 @@ parameters:
   - name: LOCK_TESTBED_REASON
     displayName: "Lock Testbed Reason"
     type: string
-    default: "SAI 8.1 Release Express Testing"
+    default: "SAI 8.1 Release SAI Express Testing"
 
   - name: RUN_SAI_TEST
     type: boolean
