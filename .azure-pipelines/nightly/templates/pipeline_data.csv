@@ -39,8 +39,8 @@ Arista	vms18-t1-7050qx-acs-03	vms18-t1-7050qx-acs-03	202012-SLIM	202012-SLIM	202
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
               platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811
-Arista	testbed-bjw-can-7050qx-2.1	testbed-bjw-can-7050qx-2	202012-SLIM		202012-SLIM		202012-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10									
-Arista	testbed-bjw-can-7050qx-2.2	testbed-bjw-can-7050qx-2		202012-SLIM		202012-SLIM		202012-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 10									
+Arista	testbed-bjw-can-7050qx-2.1	testbed-bjw-can-7050qx-2	202012-SLIM		202012-SLIM		202012-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10			nightly-bjw						
+Arista	testbed-bjw-can-7050qx-2.2	testbed-bjw-can-7050qx-2		202012-SLIM		202012-SLIM		202012-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 10			nightly-bjw						
 Celestica	vms3-t1-dx010-1	vms3-t1-dx010-1	202205	internal	202205	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 4						TRUE	FALSE		
 Celestica	vms7-t0-dx010-4	vms7-t0-dx010-4	202012	internal	202012	internal	202205	master		-I "platform_tests generic_config_updater"'	Platform	0 2						TRUE	FALSE		
 Celestica	vms7-t0-dx010-5	vms7-t0-dx010-5	202012	internal	202012	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 11						TRUE	FALSE		
