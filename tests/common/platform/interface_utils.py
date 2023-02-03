@@ -55,6 +55,9 @@ def check_interface_status_of_up_ports(duthost):
 
     intf_facts = duthost.interface_facts(up_ports=up_ports)['ansible_facts']
     if len(intf_facts['ansible_interface_link_down_ports']) != 0:
+        for asic in duthost.frontend_asics:
+            logging.info("FEC Uncorrectable Counter on asic {}".format(asic.asic_index))
+            duthost.shell("bcmcmd -n {} \"phy fecstat counters eth1-eth18\"".format(asic.asic_index))
         return False
     return True
 

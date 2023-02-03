@@ -99,6 +99,10 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         logging.info("Wait {} seconds for all the transceivers to be detected".format(MAX_WAIT_TIME_FOR_INTERFACES))
         result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
                             xcvr_skip_list)
+        if not result:
+            for asic in dut.frontend_asics:
+                logger.info("FEC Uncorrectable Counter on asic {}".format(asic.asic_index))
+                dut.shell("bcmcmd -n {} \"phy fecstat counters eth1-eth18\"".format(asic.asic_index))
         assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
             MAX_WAIT_TIME_FOR_INTERFACES)
 

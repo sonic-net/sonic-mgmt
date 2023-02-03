@@ -161,7 +161,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
 
     if skip_sanity:
         logger.info("Skip sanity check according to configuration of test script.")
-        check_link_status(tbinfo, duthosts, fanouthosts)
+        check_link_status(duthosts)
         yield
         return
 
@@ -283,7 +283,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     else:
         logger.info('No pre-test sanity check item, skip pre-test sanity check.')
 
-    check_link_status(tbinfo, duthosts, fanouthosts)
+    check_link_status(duthosts)
     yield
 
     if not post_check:

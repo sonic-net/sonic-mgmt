@@ -2154,17 +2154,17 @@ def check_link_status(duthosts):
         for asic in a_dut.frontend_asics:
             count = 0
             logger.info("FEC Uncorrectable Counter on asic {}".format(asic.asic_index))
-            a_dut.shell("bcmcmd -n {} \"phy fecstat counters eth1-eth18\"")
+            a_dut.shell("bcmcmd -n {} \"phy fecstat counters eth1-eth18\"".format(asic.asic_index))
             counters = a_dut.shell(
                 "bcmcmd -n {} \"phy fecstat counters eth1-eth18\" | grep \"FEC Uncorrectable Counter\"".format(
                     asic.asic_index) + " | awk '{print $7, $9, $11}'")["stdout_lines"]
 
-            for i in range(1, 19):
+            for i in range(0, 18):
                 port_stat = counters[i].split(" ")
                 if port_stat[0].isnumeric() or port_stat[1].isnumeric() or port_stat[2].strip('/s').isnumeric():
                     count += 1
                     logger.info(
-                        "asic={}, eth{}, total={}, last={}, rate={}".format(asic.asic_index, i, port_stat[0],
+                        "asic={}, eth{}, total={}, last={}, rate={}".format(asic.asic_index, (i+1), port_stat[0],
                                                                             port_stat[1],
                                                                             port_stat[2].strip('/s')))
             if count == 0:
