@@ -464,7 +464,7 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = thold_info_dict.keys()
 
                     if info_dict["type_abbrv_name"] == "QSFP-DD":
-                        if 'ZR' in info_dict[media_interface_code]:
+                        if 'ZR' in info_dict["media_interface_code"]:
                             expected_keys = self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         else:
                             expected_keys = self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
