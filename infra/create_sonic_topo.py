@@ -681,7 +681,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_
     if create_allure_report:
         chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_id))
     else:
-        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_id))
+        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
     time.sleep(3)
     resp = chan.recv(9999)
 
