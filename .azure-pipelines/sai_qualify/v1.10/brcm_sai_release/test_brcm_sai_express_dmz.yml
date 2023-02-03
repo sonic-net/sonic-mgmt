@@ -114,6 +114,17 @@ parameters:
     type: string
     default: broadcom
 
+  # Resource agent pool
+  - name: AGENT_POOL
+    displayName: "Resource agent pool"
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
 jobs:
 - ${{ if parameters.RUN_SAI_TEST }}:
   - template: ../../templates/sai_test.yml
@@ -137,6 +148,7 @@ jobs:
       RECOVER_TB: ${{ parameters.RECOVER_TB }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
       ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
       # Below is only for debugging pipeline
       # PREPARE_SAI_TB: false
       # UPDATE_IMAGE: false

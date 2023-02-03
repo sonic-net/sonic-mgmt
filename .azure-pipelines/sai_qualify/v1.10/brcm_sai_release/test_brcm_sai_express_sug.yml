@@ -1,5 +1,5 @@
 name: SAI_202205_RELEASE_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-#Pipeline name TEST.EXP.SAI.BRCM.7.0
+#Pipeline name TEST.EXP.SAI.BRCM.7.1.SUG
 trigger: none
 pr: none
 
@@ -109,6 +109,17 @@ parameters:
     default: "Build.SAI.BRCM.7.0"
     type: string
 
+  # Resource agent pool
+  - name: AGENT_POOL
+    displayName: "Resource agent pool"
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
 jobs:
 - ${{ if parameters.RUN_SAI_TEST }}:
   - template: ../../templates/sai_test.yml
@@ -131,6 +142,7 @@ jobs:
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       RECOVER_TB: ${{ parameters.RECOVER_TB }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
       # Below is only for debugging pipeline
       # PREPARE_SAI_TB: false
       # UPDATE_IMAGE: false
