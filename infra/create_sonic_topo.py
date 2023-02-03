@@ -82,6 +82,8 @@ def _create_parser():
                       default=False)
     parser.add_argument('--cicd_clean', action='store_true', help='Clean at the end of CICD run',
                       default=False)    
+    parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
+                      default=False)            
     return parser
 
 def repo_update(data):
@@ -639,7 +641,7 @@ def add_vEOS_cfg(data):
 
     ssh.close()
 
-def run_scripts(data,script_file,drop_version,log_dir,device_type):
+def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_report):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -670,9 +672,16 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    build_id = os.getenv("BUILD_ID")
+    if build_id is None:
+        build_id = 99999
+
     delta1 = datetime.datetime.now()
     tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
-    chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
+    if create_allure_report:
+        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_id))
+    else:
+        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_id))
     time.sleep(3)
     resp = chan.recv(9999)
 
@@ -846,6 +855,7 @@ def main():
     tar_ball = args['tar_ball']
     cicd = args['cicd']
     cicd_clean = args['cicd_clean']
+    create_allure_report = args['create_allure_report']
 
     ptf_intfcount = 32
     if device_type == 'sherman':
@@ -992,7 +1002,7 @@ def main():
         print("Upload Sanity Script file")
         upload_sanity_file(data,script_file)
         print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
-        run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type)
+        run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
         delta4 = datetime.datetime.now()
         if run_result:
             create_report_html(data,log_dir)
