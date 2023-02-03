@@ -98,6 +98,15 @@ steps:
           -s "$skip_sad_cases" \
           -c "metadata-scripts/test_metadata_upgrade_path.py"
 
+        ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+          -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
+          -m individual \
+          -l INFO \
+          -e "$EXTRA_PARAMS" \
+          -u \
+          -s "$skip_sad_cases" \
+          -c "metadata-scripts/test_metadata_scripts.py"
+
         if [ $? -ne 0 ]; then
             TEST_PASS="FAIL"
         fi
