@@ -696,65 +696,16 @@ def snappi_dut_base_config(duthost_list,
                                        snappi_port=new_snappi_ports[index],
                                        snappi_ports=new_snappi_ports)
         pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
-        '''
-        config_result = __vlan_intf_config_multidut(config=config,
-                                       port_config_list=port_config_list,
-                                       duthost=duthost,
-                                       snappi_ports=new_snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
 
-        config_result = __portchannel_intf_config_multidut(config=config,
-                                              port_config_list=port_config_list,
-                                              duthost=duthost,
-                                              snappi_ports=new_snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
-
-        config_result = __l3_intf_config(config=config,
-                                     port_config_list=port_config_list,
-                                     duthost=duthost,
-                                     snappi_ports=new_snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
-        '''
     return config, port_config_list, new_snappi_ports
 
 
 @pytest.fixture(scope="module")
 def get_multidut_snappi_ports(duthosts,
-                                conn_graph_facts,
-                                fanout_graph_facts):
-
-    """
-    Populate tgen ports and connected DUT ports info of T0 testbed and returns as a list
-    Args:
-        duthost (pytest fixture): duthost fixture
-        conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
-    Return:
-        return tuple of duts and tgen ports
-    """
-    ports=[]
-    for host in duthosts:
-        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                            dut_hostname=host.hostname)
-        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-        for i in range(0,3):
-            try :
-                snappi_fanout_list.get_fanout_device_details(i)
-            except:
-                pass
-        snappi_ports = snappi_fanout_list.get_ports(peer_device = host.hostname)
-        for port in snappi_ports:
-            port['location'] = get_snappi_port_location(port)
-            ports.append(port)
-    return ports
-
-
-@pytest.fixture(scope="module")
-def get_multidut_snappi_ports1(duthosts,
                                conn_graph_facts,
                                fanout_graph_facts,
-                               line_card_choice = 'a',
-                               line_card_info='b',):
+                               line_card_choice,
+                               line_card_info,):
 
     """
     Populate tgen ports and connected DUT ports info of T0 testbed and returns as a list
@@ -765,27 +716,87 @@ def get_multidut_snappi_ports1(duthosts,
     Return:
         return tuple of duts and tgen ports
     """
-    def _get_multidut_snappi_ports1(line_card_choice, line_card_info):
+    def _get_multidut_snappi_ports(line_card_choice, line_card_info):
         host_names = line_card_info['hostname']
         asic_info = line_card_info['asic']
         asic_port_map = {
             "asic0": [
-                "Ethernet60",
-                "Ethernet64",
+                "Ethernet0",  
+                "Ethernet4",  
+                "Ethernet8",  
+                "Ethernet12", 
+                "Ethernet16", 
+                "Ethernet20", 
+                "Ethernet24", 
+                "Ethernet28", 
+                "Ethernet32", 
+                "Ethernet36", 
+                "Ethernet40", 
+                "Ethernet44", 
+                "Ethernet48", 
+                "Ethernet52", 
+                "Ethernet56", 
+                "Ethernet60", 
+                "Ethernet64", 
                 "Ethernet68",
             ],
             "asic1": [
-                "Ethernet80",
+                "Ethernet72", 
                 "Ethernet76", 
-                "Ethernet72",
+                "Ethernet80", 
+                "Ethernet84", 
+                "Ethernet88", 
+                "Ethernet92", 
+                "Ethernet96", 
+                "Ethernet100",
+                "Ethernet104",
+                "Ethernet108",
+                "Ethernet112",
+                "Ethernet116",
+                "Ethernet120",
+                "Ethernet124",
+                "Ethernet128",
+                "Ethernet132",
+                "Ethernet136",
+                "Ethernet140",
             ],
             "None": [
-                "Ethernet60",
-                "Ethernet64",
+                "Ethernet0",  
+                "Ethernet4",  
+                "Ethernet8",  
+                "Ethernet12", 
+                "Ethernet16", 
+                "Ethernet20", 
+                "Ethernet24", 
+                "Ethernet28", 
+                "Ethernet32", 
+                "Ethernet36", 
+                "Ethernet40", 
+                "Ethernet44", 
+                "Ethernet48", 
+                "Ethernet52", 
+                "Ethernet56", 
+                "Ethernet60", 
+                "Ethernet64", 
                 "Ethernet68",
-                "Ethernet80",
-                "Ethernet76",
-                "Ethernet72",
+                "Ethernet72", 
+                "Ethernet76", 
+                "Ethernet80", 
+                "Ethernet84", 
+                "Ethernet88", 
+                "Ethernet92", 
+                "Ethernet96", 
+                "Ethernet100",
+                "Ethernet104",
+                "Ethernet108",
+                "Ethernet112",
+                "Ethernet116",
+                "Ethernet120",
+                "Ethernet124",
+                "Ethernet128",
+                "Ethernet132",
+                "Ethernet136",
+                "Ethernet140",
             ]
         }
         ports=[]
@@ -807,7 +818,7 @@ def get_multidut_snappi_ports1(duthosts,
                             port['asic_value'] = asic
                             ports.append(port)         
         return ports
-    return _get_multidut_snappi_ports1
+    return _get_multidut_snappi_ports
 
 def get_tgen_peer_ports(snappi_ports, hostname):
     ports = []
@@ -894,55 +905,52 @@ def __vlan_intf_config_multidut(config, port_config_list, duthost, snappi_ports)
     return True
 
 
-#def __intf_config_multidut(config, port_config_list, duthost, snappi_port, snappi_ports)
-
-
 def __intf_config_multidut(config, port_config_list, duthost, snappi_port, snappi_ports):
     dut_mac = str(duthost.facts['router_mac'])
     prefix=24
     count=0
     temp=[]
-    #asic_count = get_asic_count(duthost)[0]
-    #asic = None if get_asic_count(duthost)[1] == True else ['asic%d'%i for i in range(0,asic_count)]
-    for i in snappi_ports:
-        if i['peer_device']==duthost.hostname:
-                temp.append(i)
-                count+=1
-        else:
-            pass
     port_count=len(snappi_ports)
     dutIps = create_ip_list("20.0.1.1", port_count, mask=prefix)
     tgenIps = create_ip_list("20.0.1.2", port_count, mask=prefix)
-    for i in temp:
-        port_id=i['port_id']
-        dutIp = dutIps[port_id]
-        tgenIp = tgenIps[port_id]
-        mac = __gen_mac(port_id)
-        logger.info('Configuring Dut: {} with port {}'.format(duthost.hostname,i['peer_port']))
-        duthost.command('sudo config interface ip add {} {}/{} \n' .format(i['peer_port'],dutIp,prefix))
-        device = config.devices.device(
-            name='Device Port {}'.format(port_id))[-1]
+    for port in snappi_ports:
+        if port['peer_device']==duthost.hostname:
+            port_id=port['port_id']
+            dutIp = dutIps[port_id]
+            tgenIp = tgenIps[port_id]
+            mac = __gen_mac(port_id)
+            logger.info('Configuring Dut: {} with port {}'.format(duthost.hostname,port['peer_port']))
+            if port['asic_value'] == 'None':
+                duthost.command('sudo config interface ip add {} {}/{} \n' .format(port['peer_port'],dutIp,prefix))
+            else:
+                duthost.command('sudo config interface -n netns {} ip add {} {}/{} \n' .format(port['asic_value'],port['peer_port'],dutIp,prefix))
+            device = config.devices.device(
+                name='Device Port {}'.format(port_id))[-1]
 
-        ethernet = device.ethernets.add()
-        ethernet.name = 'Ethernet Port {}'.format(port_id)
-        ethernet.port_name = config.ports[port_id].name
-        ethernet.mac = mac
+            ethernet = device.ethernets.add()
+            ethernet.name = 'Ethernet Port {}'.format(port_id)
+            ethernet.port_name = config.ports[port_id].name
+            ethernet.mac = mac
 
-        ip_stack = ethernet.ipv4_addresses.add()
-        ip_stack.name = 'Ipv4 Port {}'.format(port_id)
-        ip_stack.address = tgenIp
-        ip_stack.prefix = int(prefix)
-        ip_stack.gateway = dutIp
-        port_config = SnappiPortConfig(id=port_id,
-                                        ip=tgenIp,
-                                        mac=mac,
-                                        gw=dutIp,
-                                        gw_mac=dut_mac,
-                                        prefix_len=prefix,
-                                        port_type=SnappiPortType.IPInterface,
-                                        peer_port=i['peer_port'])
+            ip_stack = ethernet.ipv4_addresses.add()
+            ip_stack.name = 'Ipv4 Port {}'.format(port_id)
+            ip_stack.address = tgenIp
+            ip_stack.prefix = int(prefix)
+            ip_stack.gateway = dutIp
+            port_config = SnappiPortConfig(id=port_id,
+                                            ip=tgenIp,
+                                            mac=mac,
+                                            gw=dutIp,
+                                            gw_mac=dut_mac,
+                                            prefix_len=prefix,
+                                            port_type=SnappiPortType.IPInterface,
+                                            peer_port=port['peer_port'])
 
-        port_config_list.append(port_config)
+            port_config_list.append(port_config)
+        else:
+            pass
+
+
     return True
 
 def __portchannel_intf_config_multidut(config, port_config_list, duthost, snappi_ports):
@@ -1121,8 +1129,9 @@ def get_multidut_tgen_peer_port_set(line_card_choice,ports,config_set):
             port1=random.sample(ports,1)[0]
             for port in ports:
                 if port!=port1:
+                    port2 = port
                     port_set1 = (port1['location'],port1['peer_port'])
-                    port_set2 = (port['location'],port['peer_port'])
+                    port_set2 = (port2['location'],port2['peer_port'])
                 else:
                     continue
         elif line_card_choice == 'chassis_single_line_card_multi_asic':
@@ -1145,6 +1154,7 @@ def get_multidut_tgen_peer_port_set(line_card_choice,ports,config_set):
             port2=random.sample(asic2_ports,1)[0]
             port_set1 = (port1['location'],port1['peer_port'])
             port_set2 = (port2['location'],port2['peer_port'])
+            #import pdb;pdb.set_trace()
         elif line_card_choice == 'chassis_multi_line_card_multi_asic':
             for port in ports:
                 if port['asic_value'] == config_set[line_card_choice]['asic'][0] and port['peer_device'] == config_set[line_card_choice]['hostname'][0]:
@@ -1157,6 +1167,6 @@ def get_multidut_tgen_peer_port_set(line_card_choice,ports,config_set):
             port_set2 = (port2['location'],port2['peer_port'])
         else:
             pass
-        return (port_set1,port_set2)  
+        return [(port_set1,port_set2),[port1,port2]]
     except Exception as e:
         raise Exception(e,'Error: Invalid line_card_choice or Not enough ports')

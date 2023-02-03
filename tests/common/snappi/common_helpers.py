@@ -374,9 +374,11 @@ def get_asic_count(host_ans):
     platform_info = host_ans.shell('show platform summary')['stdout_lines']
     platform_info_dict=dict()
     for i in platform_info:
-        platform_info_dict[i.split(':')[0]]=i.split(':')[1]
+        platform_info_dict[i.split(':')[0]]=i.split(':')[1].lstrip(' ')
 
-    flag = True if 'Switch Type: voq' not in platform_info_dict else False
+    flag = True 
+    if platform_info_dict.has_key("Switch Type") and str(platform_info_dict["Switch Type"]) == "voq":
+        flag = False
     return [int(platform_info_dict['ASIC Count'].encode("utf-8")),flag]
 
 
@@ -632,7 +634,7 @@ def start_pfcwd(duthost,asic=None):
         duthost.shell('sudo ip netns exec {} pfcwd start_default'.format(asic))
 
 
-def stop_pfcwd(duthost,asic=None):
+def stop_pfcwd(duthost,asic_value):
     """
     Stop PFC watchdog
 
@@ -642,7 +644,7 @@ def stop_pfcwd(duthost,asic=None):
     Returns:
         N/A
     """
-    if asic == None:
+    if asic_value == 'None:
         duthost.shell('sudo pfcwd stop')
     else:
         duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic))

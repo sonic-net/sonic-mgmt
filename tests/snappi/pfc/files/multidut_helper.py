@@ -30,8 +30,10 @@ def run_pfc_test(api,
                  conn_data,
                  fanout_data,
                  duthost1,
+                 rx_port,
                  rx_port_id,
                  duthost2,
+                 tx_port,
                  tx_port_id,
                  global_pause,
                  pause_prio_list,
@@ -60,22 +62,10 @@ def run_pfc_test(api,
     """
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    asic_count_1 = get_asic_count(duthost1)[0]
-    asic_1 = None if get_asic_count(duthost1)[1] == True else ['asic%d'%i for i in range(0,asic_count_1)]
-    asic_count_2 = get_asic_count(duthost2)[0]
-    asic_2 = None if get_asic_count(duthost2)[1] == True else ['asic%d'%i for i in range(0,asic_count_2)]
-
-    if asic_1 != None and asic_2 != None:
-        for i,j in asic_1,asic_2:
-            stop_pfcwd(duthost1,i)
-            disable_packet_aging(duthost1)
-            stop_pfcwd(duthost2,j)
-            disable_packet_aging(duthost2)
-    else:
-        stop_pfcwd(duthost1)
-        disable_packet_aging(duthost1)
-        stop_pfcwd(duthost2)
-        disable_packet_aging(duthost2)
+    stop_pfcwd(duthost1,rx_port['asic_value'])
+    disable_packet_aging(duthost1)
+    stop_pfcwd(duthost2,tx_port['asic_value'])
+    disable_packet_aging(duthost2)
 
     """ Rate percent must be an integer """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
@@ -129,8 +119,6 @@ def run_pfc_test(api,
                      test_flow_pause=test_traffic_pause,
                      tolerance=TOLERANCE_THRESHOLD)
 
-    __cleanup_config(duthost1,port_config_list[0].peer_port,port_config_list[0].gateway)
-    __cleanup_config(duthost2,port_config_list[1].peer_port,port_config_list[1].gateway)
 sec_to_nanosec = lambda x: x * 1e9
 
 
@@ -449,10 +437,3 @@ def __verify_results(rows,
         logger.info('Tx Frames Total : {} , Tx Bytes Total : {} , DUT Buffer Size : {}'.format(tx_frames_total, 
                         tx_bytes_total, dut_buffer_size))
 
-        # pytest_assert(tx_bytes_total < dut_buffer_size,
-        #               'Total TX bytes {} should be smaller than DUT buffer size {}'.\
-        #               format(tx_bytes_total, dut_buffer_size))
-
-def __cleanup_config(duthost,port,ip):
-    logger.info('Cleaning up config on {}'.format(duthost.hostname))
-    duthost.command('sudo config interface ip remove {} {}/24 \n' .format(port,ip))
