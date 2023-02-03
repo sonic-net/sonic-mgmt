@@ -7,12 +7,18 @@ import sys, errno
 import os
 import argparse
 from python_sdk_api.sx_api import (SX_STATUS_SUCCESS,
+                                   SX_ACCESS_CMD_GET,
+                                   SX_ACCESS_CMD_GET_FIRST,
                                    sx_api_open,
                                    sx_api_port_device_get,
+                                   sx_api_lag_port_group_iter_get,
+                                   sx_port_log_id_t_arr_getitem,
+                                   sx_api_lag_port_group_get,
                                    sx_api_port_sll_set,
                                    sx_api_port_sll_get,
                                    sx_api_port_hll_set,
                                    new_sx_port_attributes_t_arr,
+                                   new_sx_port_log_id_t_arr,
                                    new_uint32_t_p,
                                    uint32_t_p_assign,
                                    uint32_t_p_value,
@@ -28,6 +34,24 @@ if (rc != SX_STATUS_SUCCESS):
     sys.stderr.write("Failed to open api handle.\nPlease check that SDK is running.\n")
     sys.exit(errno.EACCES)
 
+# Get number of LAGs
+lag_id_cnt_p = new_uint32_t_p()
+uint32_t_p_assign(lag_id_cnt_p, 0)
+lag_id = 0
+rc = sx_api_lag_port_group_iter_get(handle, SX_ACCESS_CMD_GET, 0, lag_id, None, None, lag_id_cnt_p)
+if rc != SX_STATUS_SUCCESS:
+    print("sx_api_lag_port_group_iter_get failed, rc = %d" % (rc))
+    sys.exit(rc)
+lag_id_cnt = uint32_t_p_value(lag_id_cnt_p)
+
+lag_id_list_p = new_sx_port_log_id_t_arr(lag_id_cnt)
+rc = sx_api_lag_port_group_iter_get(handle, SX_ACCESS_CMD_GET_FIRST, 0, lag_id, None, lag_id_list_p,
+                                    lag_id_cnt_p)
+if rc != SX_STATUS_SUCCESS:
+    print("sx_api_lag_port_group_iter_get failed, rc = %d" % (rc))
+    sys.exit(rc)
+lag_id_cnt = uint32_t_p_value(lag_id_cnt_p)
+
 # Get number of ports
 port_attributes_list = new_sx_port_attributes_t_arr(0)
 port_cnt_p = new_uint32_t_p()
@@ -40,6 +64,27 @@ if (rc != SX_STATUS_SUCCESS):
 port_cnt = uint32_t_p_value(port_cnt_p)
 
 sys.stderr.write("Got port count {}\n".format(port_cnt))
+
+lag_list = []
+lag_member_list = []
+
+for i in range(0, lag_id_cnt):
+    lag_id = sx_port_log_id_t_arr_getitem(lag_id_list_p, i)
+    log_port_cnt_p = new_uint32_t_p()
+    uint32_t_p_assign(log_port_cnt_p, port_cnt)
+    log_port_list_p = new_sx_port_log_id_t_arr(port_cnt)
+    rc = sx_api_lag_port_group_get(handle, 0, lag_id, log_port_list_p, log_port_cnt_p)
+    if rc != SX_STATUS_SUCCESS:
+        print("sx_api_lag_port_group_get failed, rc = %d" % (rc))
+        sys.exit(rc)
+    log_port_cnt = uint32_t_p_value(log_port_cnt_p)
+    for j in range(0, log_port_cnt):
+        log_port_id = sx_port_log_id_t_arr_getitem(log_port_list_p, j)
+        lag_member_list.append(log_port_id)
+    lag_list.append(lag_id)
+
+sys.stderr.write("Got LAG ports {}\n".format(lag_list))
+sys.stderr.write("Got LAG member ports {}\n".format(lag_member_list))
 
 # Get list of ports
 port_attributes_list = new_sx_port_attributes_t_arr(port_cnt)
@@ -80,10 +125,15 @@ else:
         sll = uint64_t_p_value(sll_p)
         sys.stderr.write(("sll_max_time=0x%X\n" % sll))
 
+logical_port_list = lag_list
 for i in range(0, port_cnt):
     port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list,i)
     log_port = int(port_attributes.log_port)
-    if log_port < 0xFFFFF: # only physical ports
+    if log_port not in lag_member_list and log_port < 0xFFFFF:
+        logical_port_list.append(log_port)
+sys.stderr.write("All ports to set {}\n".format(logical_port_list))
+
+for log_port in logical_port_list:
         if set_mode:
             rc = sx_api_port_hll_set(handle, log_port, hll_time, hll_stall)
             if (rc != SX_STATUS_SUCCESS):
