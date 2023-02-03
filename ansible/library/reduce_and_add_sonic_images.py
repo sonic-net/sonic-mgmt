@@ -73,7 +73,7 @@ def setup_swap_if_necessary(module):
                      msg="Create a temporary swap file")
 
 
-def reduce_installed_sonic_images(module, disk_used_pcent):
+def reduce_installed_sonic_images(module):
     _, out, _  = exec_command(module, cmd="sonic_installer list", ignore_error=True)
     lines = out.split('\n')
 
@@ -188,7 +188,7 @@ def main():
     try:
         results["current_stage"] = "start"
         work_around_for_slow_disks(module)
-        reduce_installed_sonic_images(module, disk_used_pcent)
+        reduce_installed_sonic_images(module)
         results["current_stage"] = "prepare"
         if new_image_url or save_as:
             free_up_disk_space(module, disk_used_pcent)
