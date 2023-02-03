@@ -32,6 +32,8 @@ def _create_parser():
                       required=False,default='docker-ptf')
     parser.add_argument('-b', '--build_id', type=str, help='Jenkins Build ID associated with the test',
                       required=False, default=None)
+    parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
+                      default=False)  
     return parser
 
 def run_exec_cmds(host,port,user,passwd,cmd_list):
@@ -48,7 +50,7 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
             print('There was an error pulling the runtime: {}'.format(error))
         ssh.close()
 
-def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,collect_logs=False,dut_address=None):
+def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -161,7 +163,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
 
 
         #if last test, upload Allure results to server
-        if tc == tcs[-1].strip():
+        if tc == tcs[-1].strip() and create_allure_report:
             cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e --allure_server_addr='10.22.183.173' -e --allure_server_project_id={} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,build_id,log_dir,tc,tc_name)
         else:
             cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
@@ -206,7 +208,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
 
     print("Total time : {} mins".format(minutes))
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,collect_logs=False,dut_address=None):
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -314,7 +316,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
         #if last test, upload Allure results to server
-        if tc == tcs[-1].strip():
+        if tc == tcs[-1].strip() and create_allure_report:
             cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e --allure_server_addr='10.22.183.173' -e --allure_server_project_id={} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,build_id,log_dir,tc,tc_name)
         else:
             cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
@@ -390,6 +392,7 @@ def main():
     dut_name = args['dut_name']
     topo_name = args['topo_name']
     build_id = args['build_id']
+    create_allure_report = args['create_allure_report']
 
     if device_type == 'sherman':
         dut_name = 'sherman-01'
@@ -403,12 +406,12 @@ def main():
         parse_results()
     else:
         if not collect_logs:
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,collect_logs,dut_address)
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address)
 
         #run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
 
