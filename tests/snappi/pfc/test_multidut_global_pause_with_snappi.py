@@ -16,15 +16,6 @@ pytestmark = [ pytest.mark.topology('snappi') ]
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set',[config_set])
-#@pytest.mark.parametrize('linecard_configuration_set',[{
-#                                "chassis_single_line_card_single_asic":{'hostname':["sonic-s6100-dut2"],'asic':["asic0"]},
-#                               "chassis_single_line_card_multi_asic": {'hostname':["sonic-s6100-dut2"],'asic':["asic0","asic1"]},
-#                                "chassis_multi_line_card_single_asic": {'hostname':["sonic-s6100-dut1","sonic-s6100-dut2"],'asic':["asic0"]},
-#                                "chassis_multi_line_card_multi_asic": {'hostname':["sonic-s6100-dut1","sonic-s6100-dut2"],'asic':["asic0","asic1"]},
-#                                "non_chassis_multi_line_card": {'hostname':["sonic-s6100-dut1","sonic-s6100-dut2"],'asic':['None']},
-#                                "non_chassis_single_line_card": {'hostname':["sonic-s6100-dut1"],'asic':['None']}
-#                            }]
-#                        )
 def test_global_pause(snappi_api,
                       conn_graph_facts,
                       fanout_graph_facts,
@@ -56,7 +47,6 @@ def test_global_pause(snappi_api,
         assert False, "Invalid line_card_choice value passed in parameter"
 
     duts = rand_select_two_dut
-    import pdb;pdb.set_trace()
     if (len(linecard_configuration_set[line_card_choice][hostname]) == 2):
         duthost1 = duts[0]
         duthost2 = duts[1]
@@ -89,7 +79,6 @@ def test_global_pause(snappi_api,
                                                               tgen_ports,
                                                               snappi_ports,
                                                               snappi_api)
-    import pdb;pdb.set_trace()
     prio_dscp_map = prio_dscp_map_dut_base(duthost1)
     all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list_dut_base(duthost1)
