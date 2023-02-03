@@ -647,7 +647,7 @@ def stop_pfcwd(duthost,asic_value):
     if asic_value == 'None:
         duthost.shell('sudo pfcwd stop')
     else:
-        duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic))
+        duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic_value))
 
 
 def disable_packet_aging(duthost):
