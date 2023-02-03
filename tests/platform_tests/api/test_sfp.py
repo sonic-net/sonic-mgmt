@@ -151,58 +151,20 @@ class TestSfpApi(PlatformApiTestBase):
         'txpowerlowalarm'
     ]
 
+    # To get all the keys supported by QSFP-DD modules
+    # below list should be appended with
+    # EXPECTED_XCVR_THRESHOLD_INFO_KEYS
     QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
-        'txpowerlowwarning',
-        'temphighwarning',
-        'temphighalarm',
-        'txbiashighalarm',
-        'vcchighalarm',
-        'txbiaslowalarm',
-        'rxpowerhighwarning',
-        'vcclowwarning',
-        'txbiaslowwarning',
-        'rxpowerlowalarm',
-        'vcchighwarning',
-        'txpowerhighwarning',
-        'rxpowerlowwarning',
-        'txbiashighwarning',
-        'vcclowalarm',
-        'txpowerhighalarm',
-        'templowalarm',
-        'rxpowerhighalarm',
-        'templowwarning',
-        'txpowerlowalarm',
         'lasertemphighwarning',
         'lasertemplowwarning',
         'lasertemplowalarm',
         'lasertemphighalarm'
     ]
 
+    # To get all the keys supported by QSFP-DD modules
+    # below list should be appended with
+    # EXPECTED_XCVR_THRESHOLD_INFO_KEYS + QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
     QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
-        'txpowerlowwarning',
-        'temphighwarning',
-        'temphighalarm',
-        'txbiashighalarm',
-        'vcchighalarm',
-        'txbiaslowalarm',
-        'rxpowerhighwarning',
-        'vcclowwarning',
-        'txbiaslowwarning',
-        'rxpowerlowalarm',
-        'vcchighwarning',
-        'txpowerhighwarning',
-        'rxpowerlowwarning',
-        'txbiashighwarning',
-        'vcclowalarm',
-        'txpowerhighalarm',
-        'templowalarm',
-        'rxpowerhighalarm',
-        'templowwarning',
-        'txpowerlowalarm',
-        'lasertemphighwarning',
-        'lasertemplowwarning',
-        'lasertemplowalarm',
-        'lasertemphighalarm',
         'prefecberhighalarm',
         'prefecberlowalarm',
         'prefecberhighwarning',
@@ -463,13 +425,11 @@ class TestSfpApi(PlatformApiTestBase):
                 if self.expect(isinstance(thold_info_dict, dict), "Transceiver {} threshold info appears incorrect".format(i)):
                     actual_keys = thold_info_dict.keys()
 
+                    expected_keys = self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                     if info_dict["type_abbrv_name"] == "QSFP-DD":
+                        expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         if 'ZR' in info_dict["media_interface_code"]:
-                            expected_keys = self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
-                        else:
-                            expected_keys = self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
-                    else:
-                        expected_keys = self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                            expected_keys += self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
 
                     missing_keys = set(expected_keys) - set(actual_keys)
                     for key in missing_keys:
@@ -798,5 +758,3 @@ class TestSfpApi(PlatformApiTestBase):
                 thermal = sfp.get_thermal(platform_api_conn, sfp_id, thermal_index)
                 self.expect(thermal and thermal == thermal_list[thermal_index], "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()
-
-
