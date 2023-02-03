@@ -92,7 +92,7 @@ agent:
 
 Init:
 * Upon start, read and parse configuration file.
-* Verify that the specified docker iamge + tag exists.
+* Verify that the specified docker image + tag exists.
 * Load all required configuration into dict `self.config`.
 
 Main loop:
@@ -117,7 +117,7 @@ This tool logs to `/tmp/agent-manager.log`. Log rotation is enabled.
 ```
 [Unit]
 Description=Agent Manager
-After=network.target
+After=docker.service
 
 [Service]
 ExecStart=/usr/bin/python /usr/bin/agent-manager.py

@@ -125,7 +125,8 @@ class AgentManager(object):
             logger.error('Possibly docker service down: {}'.format(repr(e)))
 
     def get_agent_containers(self):
-        agent_containers = [c for c in self.client.containers.list() if c.name.startswith(self.config['agent']['name'])]
+        agent_containers = [c for c in self.client.containers.list(all=True)
+                            if c.name.startswith(self.config['agent']['name'])]
         old_agents, current_agents = [], []
         for c in agent_containers:
             image_match = False
