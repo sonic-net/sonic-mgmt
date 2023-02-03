@@ -389,46 +389,42 @@ def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo, cable_type):
         _toggle_all_simulator_ports(mux_server_url, LOWER_TOR, tbinfo)
 
 
-def _are_muxcables_active(duthost):
-    """Check if all the muxcables are active on the duthost.
+def _probe_mux_ports(duthosts, ports):
+    """Probe the mux from the duthost."""
+    probe_cmd = "sonic-db-cli APPL_DB hset MUX_CABLE_COMMAND_TABLE:%s command probe"
+    cmds = [probe_cmd % port for port in ports]
+    for duthost in duthosts:
+        duthost.shell_cmds(cmds=cmds)
 
-    Example output of "show muxcable status --json"
-        {
-            "MUX_CABLE": {
-                "Ethernet0": {
-                    "STATUS": "active",
-                    "HEALTH": "unhealthy"
-                },
-                "Ethernet4": {
-                    "STATUS": "active",
-                    "HEALTH": "unhealthy"
-                },
-                "Ethernet8": {
-                    "STATUS": "active",
-                    "HEALTH": "unhealthy"
-                },
-                ...
-        }
 
-    Args:
-        duthost (ojb): Object for interacting with DUT.
+def _get_mux_ports(duthost, target_status=None, exclude_status=None):
+    """Get mux ports that has expected mux status."""
+    def _check_status(mux_status):
+        return ((target_status is None or target_status == mux_status) and (exclude_status is None or exclude_status != mux_status))
 
-    Returns:
-        bool: True if all mux cables are active on DUT. False if not.
-    """
     muxcables = json.loads(duthost.shell("show muxcable status --json")['stdout'])
-    inactive_muxcables = [intf for intf, muxcable in muxcables['MUX_CABLE'].items() if muxcable['STATUS'] != 'active']
-    if len(inactive_muxcables) > 0:
-        logger.info('Found muxcables not active on {}: {}'.format(duthost.hostname, json.dumps(inactive_muxcables)))
-        return False
-    else:
-        return True
+    return {port:mux_status for port, mux_status in muxcables['MUX_CABLE'].items() if _check_status(mux_status["STATUS"])}
 
 
 def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux_server_url, tbinfo):
     """Helper function to toggle all ports to active on the target DUT."""
+
+    def _check_toggle_done(duthosts, target_dut_hostname, probe=False):
+        duthost = duthosts[target_dut_hostname]
+        inactive_ports = _get_mux_ports(duthost, exclude_status="active")
+        if not inactive_ports:
+            return True
+
+        # NOTE: if ICMP responder is not running, linkmgrd is stuck in waiting for heartbeats and
+        # the mux probe interval is backed off. Adding a probe here to notify linkmgrd to shorten
+        # the wait for linkmgrd's sync with the mux.
+        if probe:
+            _probe_mux_ports(duthosts, list(inactive_ports.keys()))
+
+        logger.info('Found muxcables not active on {}: {}'.format(duthost.hostname, json.dumps(list(inactive_ports.keys()))))
+        return False
+
     logging.info("Toggling mux cable to {}".format(target_dut_hostname))
-    duthost = duthosts[target_dut_hostname]
     dut_index = tbinfo['duts'].index(target_dut_hostname)
     if dut_index == 0:
         data = {"active_side": UPPER_TOR}
@@ -444,11 +440,11 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
         ))
         _post(mux_server_url, data)
         time.sleep(5)
-        if _are_muxcables_active(duthost):
+        if _check_toggle_done(duthosts, target_dut_hostname):
             is_toggle_done = True
             break
 
-    if not is_toggle_done and not utilities.wait_until(60, 10, 0, _are_muxcables_active, duthost):
+    if not is_toggle_done and not utilities.wait_until(120, 10, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True):
         pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(target_dut_hostname))
 
 
@@ -550,6 +546,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
 
         # get mapping from port indices to mux status
         simulator_port_mux_status = {int(k.split('-')[-1]): v for k, v in simulator_mux_status.items()}
+        inconsistent_intfs = []
         for intf in upper_tor_mux_status['MUX_CABLE']:
 
             if mux_config[intf]["SERVER"].get("cable_type", CableType.default_type) == CableType.active_active:
@@ -575,6 +572,13 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
                 intf, upper_tor_status, lower_tor_status, simulator_status
             )
             logging.warn("Inconsistent mux status for interface %s", intf)
+            inconsistent_intfs.append(intf)
+
+        # NOTE: if ICMP responder is not running, linkmgrd is stuck in waiting for heartbeats and
+        # the mux probe interval is backed off. Adding a probe here to notify linkmgrd to shorten
+        # the wait for linkmgrd's sync with the mux.
+        if inconsistent_intfs:
+            _probe_mux_ports(duthosts, inconsistent_intfs)
             return False
         return True
 
@@ -586,7 +590,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     port_indices = mg_facts['minigraph_port_indices']
     pytest_assert(
-        utilities.wait_until(120, 5, 0, _check_mux_status_consistency),
+        utilities.wait_until(120, 10, 10, _check_mux_status_consistency),
         "Mux status is inconsistent between the DUTs and mux simulator after toggle"
     )
 
