@@ -923,7 +923,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_port, snapp
             if port['asic_value'] == 'None':
                 duthost.command('sudo config interface ip add {} {}/{} \n' .format(port['peer_port'],dutIp,prefix))
             else:
-                duthost.command('sudo config interface -n netns {} ip add {} {}/{} \n' .format(port['asic_value'],port['peer_port'],dutIp,prefix))
+                duthost.command('sudo config interface -n {} ip add {} {}/{} \n' .format(port['asic_value'],port['peer_port'],dutIp,prefix))
             device = config.devices.device(
                 name='Device Port {}'.format(port_id))[-1]
 
