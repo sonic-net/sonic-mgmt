@@ -200,21 +200,32 @@ def route_matches_expected_state(duthost, route_ip, expect_route):
 
 
 @pytest.fixture
-def remove_peer_loopback_route(rand_unselected_dut, shutdown_bgp_sessions):  # noqa: F811
+def remove_peer_loopback_route(rand_selected_dut, rand_unselected_dut, shutdown_bgp_sessions, get_testbed_params):  # noqa: F811
     """
     Remove routes to peer ToR loopback IP by shutting down BGP sessions on the peer
     """
 
     def _remove_peer_loopback_route():
-        shutdown_bgp_sessions(rand_unselected_dut)
-        # We need to maintain the expected active/standby state for the test
-        rand_unselected_dut.shell("config mux mode active all")
+        if rand_unselected_dut is None:
+            # mocked testbed, remove the static route installed by
+            # apply_dual_tor_peer_switch_route from kernel
+            remove_static_routes(rand_selected_dut, active_tor_loopback0)
+        else:
+            shutdown_bgp_sessions(rand_unselected_dut)
+            # We need to maintain the expected active/standby state for the test
+            rand_unselected_dut.shell("config mux mode active all")
+
+    active_tor_loopback0 = get_testbed_params()['active_tor_ip']
 
     yield _remove_peer_loopback_route
 
-    # The `shutdown_bgp_sessions` fixture already restores BGP sessions during teardown so we
-    # don't need to do it here
-    rand_unselected_dut.shell("config mux mode auto all")
+    if rand_unselected_dut is None:
+        # mocked testbed, need to add back the static route to kernel
+        add_nexthop_routes(rand_selected_dut, active_tor_loopback0)
+    else:
+        # The `shutdown_bgp_sessions` fixture already restores BGP sessions during teardown so we
+        # don't need to do it here
+        rand_unselected_dut.shell("config mux mode auto all")
 
 
 def test_standby_tor_downstream_loopback_route_readded(
@@ -238,7 +249,11 @@ def test_standby_tor_downstream_loopback_route_readded(
     check_tunnel_balance(**params)
 
     # Readd loopback routes and verify traffic is equally distributed
-    rand_unselected_dut.shell("config bgp start all")
+    if rand_unselected_dut is None:
+        # mocked testbed, need to add back the static route to kernel
+        add_nexthop_routes(rand_selected_dut, active_tor_loopback0)
+    else:
+        rand_unselected_dut.shell("config bgp start all")
     pt_assert(
         wait_until(
             10, 1, 0,
