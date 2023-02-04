@@ -505,9 +505,9 @@ mpls/test_mpls.py:
 #######################################
 mvrf:
   skip:
-    reason: "M0/MX/T2 topo does not support mvrf"
+    reason: "M0/MX topo does not support mvrf"
     conditions:
-      - "topo_name in ['m0', 'mx', 't2']"
+      - "topo_name in ['m0', 'mx']"
 
 #######################################
 #####           nat               #####
