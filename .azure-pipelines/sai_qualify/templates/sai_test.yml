@@ -763,7 +763,7 @@ jobs:
 
             echo "Save test report for publish artificates"
             mkdir $(System.DefaultWorkingDirectory)/publish
-            cp ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}/result.tar.gz $(System.DefaultWorkingDirectory)/publish/
+            cp ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}/* $(System.DefaultWorkingDirectory)/publish/
 
         env:
           PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
@@ -966,5 +966,6 @@ jobs:
           PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
 
       - publish: $(System.DefaultWorkingDirectory)/publish/
+        condition: ${{ parameters.RUN_TEST }}
         artifact: sai_test_report
         displayName: "Public sai test report"
