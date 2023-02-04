@@ -26,6 +26,15 @@ parameters:
     type: boolean
     default: true
 
+  - name: LOCK_TESTBED_REASON
+    displayName: "Lock Testbed Reason"
+    type: string
+    default: "SONiC Test for SAI release"
+
+  - name: TESTBED_LOCK_HOUR
+    type: string
+    default: "6"
+
   # ============ Upgrade parameters ============
   - name: UPDATE_IMAGE
     type: boolean
@@ -179,7 +188,7 @@ jobs:
           INTERVAL=60
 
           wait_time=0
-          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock; do
+          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "${{ parameters.LOCK_TESTBED_REASON }}" -f no; do
               if (( $wait_time >= $TIMEOUT)); then
                   echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                   exit 1

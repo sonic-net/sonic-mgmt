@@ -38,16 +38,6 @@ parameters:
     displayName: "Testbed Name for SAI test"
     default: vms3-t1-dx010-1
 
-  - name: RUN_SONiC_TEST
-    type: boolean
-    displayName: "Is Run SONiC Test"
-    default: false
-
-  - name: TESTBED_NAME_FOR_SONIC
-    type: string
-    displayName: "Testbed Name for SONiC test"
-    default: vms20-t1-dx010-6
-
   - name: IMAGE_URL
     type: string
     default: $(IMAGE_BRCM_202205)
@@ -124,6 +114,17 @@ parameters:
     type: string
     default: broadcom
 
+  # Resource agent pool
+  - name: AGENT_POOL
+    displayName: "Resource agent pool"
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
 jobs:
 - ${{ if parameters.RUN_SAI_TEST }}:
   - template: ../../templates/sai_test.yml
@@ -147,23 +148,10 @@ jobs:
       RECOVER_TB: ${{ parameters.RECOVER_TB }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
       ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
       # Below is only for debugging pipeline
       # PREPARE_SAI_TB: false
       # UPDATE_IMAGE: false
       # CHANGE_TOPO: false
       # PTF_DEPLOY_VSCODE: false
 
-
-
-- ${{ if parameters.RUN_SONiC_TEST }}:
-    - template: ../../templates/sonic_test_for_sai.yml
-      parameters:
-        TESTBED_NAME: ${{ parameters.TESTBED_NAME_FOR_SONIC }}
-        LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
-        PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-        IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
-        DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
-        SDK_BUILD_PIPELINE_NAME: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
-        ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
-        SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
