@@ -1207,12 +1207,12 @@ def generate_dut_backend_asics(request, duts_selected):
     metadata = get_testbed_metadata(request)
 
     if metadata is None:
-        return [[None]]
+        return [[None]]*len(duts_selected)
 
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            continue
+            dut_asic_list.append([None]) 
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
@@ -1243,6 +1243,35 @@ def generate_priority_lists(request, prio_scope):
     for dut, priorities in dut_prio.items():
         for p in priorities:
             ret.append('{}|{}'.format(dut, p))
+
+    return ret if ret else empty
+
+
+def pfc_pause_delay_test_params(request):
+    empty = []
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'pfc_headroom_test_params'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in info:
+        return empty
+
+    dut_pfc_delay_params = info[tbname]
+    ret = []
+
+    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
+        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+            ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
 
     return ret if ret else empty
 
@@ -1384,6 +1413,8 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
+        metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
 
 def get_autoneg_tests_data():
