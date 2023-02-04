@@ -17,6 +17,9 @@ function copy_syncd_files()
     cp $SYNCD_SCRIPT_ROOT/usr/local/bin/syncd.sh $SAISERVER_LOCAL
     cp $SYNCD_SCRIPT_ROOT/usr/lib/systemd/system/syncd.service $SAISERVER_SERVICE
     cp $SYNCD_SCRIPT_ROOT/usr/bin/syncd.sh $SAISERVER
+    if [ -f "$SHM_INI_FOLDER/$SYNCD_SHM_INI" ]; then
+        cp $SHM_INI_FOLDER/$SYNCD_SHM_INI $SHM_INI_FOLDER/$SAISERVER_SHM_INI
+    fi
 }
 
 function change_scripts()
@@ -43,7 +46,7 @@ function comment_out_funs()
     # remove lock check
     sed -i "s/  lock_service_state_change/ #lock_service_state_change/g" $SAISERVER_COMMON
     sed -i "s/  unlock_service_state_change/ #unlock_service_state_change/g" $SAISERVER_COMMON
-    
+
     #other variables
     sed -i "s/PEER=\"swss\"/#PEER=\"swss\"/g" $SAISERVER_LOCAL
 }
@@ -51,7 +54,7 @@ function comment_out_funs()
 function change_saiserver_version()
 {
     echo "change saiserver version to $version"
-    sed -i "s/docker-saiserver/docker-saiserver$version/g" $SAISERVER   
+    sed -i "s/docker-saiserver/docker-saiserver$version/g" $SAISERVER
 }
 
 check_versions() {
@@ -65,7 +68,7 @@ check_versions() {
     if [[ x"$version" != x"v2" && x"$version" != x"" ]]; then
         echo ""
         echo "Error: Version perameters is not right, it only can be [v2].";
-        helpFunction        
+        helpFunction
     fi
 }
 
@@ -75,14 +78,14 @@ helpFunction()
    echo ""
    echo "Prepare the script to start the saiserver services:"
    echo -e "\t-v [v1|v2]: saiserver version, support v1 and v2"
-   
+
    exit 1 # Exit script after printing help
 }
 
 while getopts ":v:" args; do
     case $args in
         v|operation)
-            version=${OPTARG} 
+            version=${OPTARG}
             ;;
         *)
             helpFunction
@@ -96,6 +99,10 @@ SAISERVER_COMMON=$SAISERVER_SCRIPT_ROOT/usr/local/bin/saiserver_common.sh
 SAISERVER_LOCAL=$SAISERVER_SCRIPT_ROOT/usr/local/bin/saiserver.sh
 SAISERVER_SERVICE=$SAISERVER_SCRIPT_ROOT/usr/lib/systemd/system/saiserver.service
 SAISERVER=$SAISERVER_SCRIPT_ROOT/usr/bin/saiserver.sh
+#After sai 1.11 brcm need to adjust the shm size
+SHM_INI_FOLDER=$SAISERVER_SCRIPT_ROOT/usr/share/sonic/device/x86_64-broadcom_common
+SAISERVER_SHM_INI=saiserver_shm.ini
+SYNCD_SHM_INI=syncd_shm.ini
 
 check_versions
 copy_syncd_files
