@@ -8,6 +8,8 @@ from tests.common.fixtures.conn_graph_facts import (
 import pytest
 
 pytestmark = [pytest.mark.topology('snappi')]
+
+
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm'])
 def test_reboot(cvg_api,
@@ -16,21 +18,21 @@ def test_reboot(cvg_api,
                 tgen_ports,
                 conn_graph_facts,
                 fanout_graph_facts,
-                reboot_type,
-               ):
-
+                reboot_type,):
     """
     Topo:
     TGEN1 --- DUT --- TGEN(2..N)
     Steps:
     1) Create 2 servers and a T1 device with dual stack BGP
     2) Configure LAG for the T1 Device
-    3) Send Traffic from Server1 to Server2, server2 to Server1, T1 to Server1, T1 to server2, Server1 to T1 and Server2 to T1
+    3) Send Traffic from Server1 to Server2, server2 to Server1,
+       T1 to Server1, T1 to server2, Server1 to T1 and Server2 to T1
     4) Make sure there is no loss observed while sending trafic
     5) Reboot the dut with warm-reboot command
     6) Make sure after reboot the traffic has converged
     Verification:
-    1) Make sure the control plane is up after the reboot is complete and the dut is back up
+    1) Make sure the control plane is up after the reboot is complete
+       and the dut is back up
     2) Traffic must have converged after the dut is back up
     Args:
         cvg_api (pytest fixture): Snappi Convergence API
@@ -46,4 +48,3 @@ def test_reboot(cvg_api,
                     tgen_ports,
                     reboot_type,
                     )
-
