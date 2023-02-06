@@ -81,7 +81,7 @@
       asics_present: "{{ hostvars[sup_dut]['asics_present'] | default([]) }}"
     when: sup_dut is defined and hostvars[sup_dut]['asics_present'] is defined
 
-  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name={{ asic_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
   - name: get connection graph if defined for dut (ignore any errors)
@@ -564,6 +564,22 @@
         become: true
         shell: bash "/etc/sonic/apply_clet.sh"
         when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - block:
+         - name: create isis config file for SONiC device
+           template: src=templates/isis_config.j2
+                     dest=/etc/sonic/isis_config.json
+           become: true
+
+         - name: active isis config
+           become: true
+           shell: sonic-cfggen -j /etc/sonic/isis_config.json -w
+
+         #will remove below task, after isisd issue got fixed
+         - name: restart bgp container
+           become: true
+           shell: docker restart bgp
+        when: topo == "wan-ecmp"
 
       - block:
         - name: set the default grpc credential file path

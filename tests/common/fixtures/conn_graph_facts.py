@@ -2,6 +2,8 @@ import pytest
 import os
 import six
 import yaml
+import sys
+import copy
 
 
 @pytest.fixture(scope="module")
@@ -89,10 +91,6 @@ def get_graph_facts(duthost, localhost, hostnames):
     return conn_graph_facts
 
 
-import sys
-import copy
-
-
 def key_convert2str(conn_graph_facts):
     """
         In Python2, some key type are unicode, but In Python3, are AnsibleUnsafeText. Convert them to str.
@@ -104,7 +102,8 @@ def key_convert2str(conn_graph_facts):
 
     # Else, convert
     result = copy.deepcopy(conn_graph_facts)
+    result['device_conn']={}
     for key, value in conn_graph_facts['device_conn'].items():
-        result['device_conn'][str(key)] = result['device_conn'].pop(str(key))
+        result['device_conn'][str(key)] = value
 
     return result
