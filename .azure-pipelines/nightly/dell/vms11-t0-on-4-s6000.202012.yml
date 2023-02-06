@@ -3,6 +3,13 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
   - cron: "0 4 * * 0,2,4"
     displayName: Nightly Scheduler
@@ -27,21 +34,22 @@ parameters:
     default: $(IMAGE_BRCM_202012)
     displayName: "Image URL"
 
-  - name: TESTBED_SPECIFIC
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
     type: string
-    default: '-S "sub_port_interfaces platform_tests"'
-    displayName: Testbed specific
+    default: $(SAITHRIFT_BRCM_202012)
+    displayName: "py_saithrift URL"
 
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
     default: false
 
-  # Test Parameters
-  - name: PY_SAITHRIFT_URL
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
-    displayName: "py_saithrift URL"
+    default: '-S "sub_port_interfaces platform_tests metadata-scripts"'
+    displayName: Testbed specific
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean

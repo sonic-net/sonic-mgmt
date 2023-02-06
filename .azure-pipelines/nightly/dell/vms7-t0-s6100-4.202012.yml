@@ -48,7 +48,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests generic_config_updater metadata-scripts"'
+    default: '-I "platform_tests generic_config_updater"'
     displayName: Testbed specific
 
   - name: CROSS_BRANCH_BASE_URL

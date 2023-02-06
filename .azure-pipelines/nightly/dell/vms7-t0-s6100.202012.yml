@@ -48,7 +48,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "platform_tests generic_config_updater"'
+    default: '-S "platform_tests generic_config_updater metadata-scripts"'
     displayName: Testbed specific
 
   # Custom skip scripts

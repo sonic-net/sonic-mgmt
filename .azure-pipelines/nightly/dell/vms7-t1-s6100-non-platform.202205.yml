@@ -41,7 +41,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'
+    default: '-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater metadata-scripts"'
     displayName: Testbed specific
 
 stages:

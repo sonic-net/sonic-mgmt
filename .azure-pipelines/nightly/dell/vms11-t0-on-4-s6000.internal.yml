@@ -27,16 +27,17 @@ parameters:
     default: $(IMAGE_BRCM_INTERNAL)
     displayName: "Image URL"
 
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-S "sub_port_interfaces platform_tests generic_config_updater"'
-    displayName: Testbed specific
-
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "sub_port_interfaces platform_tests generic_config_updater metadata-scripts"'
+    displayName: Testbed specific
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
