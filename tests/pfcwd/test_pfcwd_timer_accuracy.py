@@ -153,7 +153,7 @@ class TestPfcwdAllTimer(object):
         storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
         storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         logger.info("Wait for PFC storm end marker to appear in logs")
-        time.sleep(1)
+        time.sleep(8)
         storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
         storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
         real_detect_time = storm_detect_ms - storm_start_ms
