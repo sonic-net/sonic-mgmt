@@ -9,11 +9,10 @@
 
 This document describes the process of testing SAI test cases under **sonic-mgmt docker**, for **PTF-SAI docker**, please see [this page.](https://github.com/opencomputeproject/SAI/blob/master/ptf/docs/SAI-PTFv2Overview.md#sai-ptfv2-overview)
 
-In addition, the framework of testing SAI test case is same as sonic-mgmt, and the ways of running test cases are similar, except for some different parameters. The details of running `pytest` can be found [here](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/tests/pytest.org.md). The details of running cases can be found [here](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/tests/pytest.run.md). 
+In addition, the framework of testing SAI test case is same as sonic-mgmt, and the ways of running test cases are similar, except for some different parameters. The details of running `pytest` can be found [here](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/tests/pytest.org.md). The details of running cases can be found [here](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/tests/pytest.run.md).
 
 The whole process of setting up SAI test environment, in this document, can be described as following.
 First, a testbed with complete configuration is required. Second, since the test is conducted in docker, we need to prepare sonic-mgmt docker. In the last place, we can run the SAI test cases.
-
 
 
 ## Prepare testbed
@@ -31,7 +30,7 @@ Now we've got the testbed with complete configuration.
 ## Setup sonic-mgmt docker
 1. Clone the sonic-mgmt repo
    ```bash
-   git clone https://github.com/sonic-net/sonic-mgmt   
+   git clone https://github.com/sonic-net/sonic-mgmt
    ```
 2. [Setup sonic-mgmt docker.](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#setup-sonic-mgmt-docker) After doing so, we are in the sonic-mgmt docker environment. Please go to the sonic-mgmt repo in your docker, i.e., `cd /data/sonic-mgmt`.
 
