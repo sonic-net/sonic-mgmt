@@ -48,4 +48,3 @@ def test_reboot(cvg_api,
                     tgen_ports,
                     reboot_type,
                     )
-
