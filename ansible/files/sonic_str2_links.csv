@@ -2726,7 +2726,7 @@ str2-7050cx3-acs-13,Ethernet20,str2-7260cx3-acs-fan-06,Ethernet6/1,100000,2106,A
 str2-7050cx3-acs-13,Ethernet24,str2-7260cx3-acs-fan-06,Ethernet7/1,100000,2107,Access
 str2-7050cx3-acs-13,Ethernet28,str2-7260cx3-acs-fan-06,Ethernet8/1,100000,2108,Access
 str2-7050cx3-acs-13,Ethernet32,str2-7260cx3-acs-fan-06,Ethernet9/1,100000,2109,Access
-str2-7050cx3-acs-13,Ethernet36,str2-7260cx3-acs-fan-06,Ethernet10/1,100000,2110Access
+str2-7050cx3-acs-13,Ethernet36,str2-7260cx3-acs-fan-06,Ethernet10/1,100000,2110,Access
 str2-7050cx3-acs-13,Ethernet40,str2-7260cx3-acs-fan-06,Ethernet11/1,100000,2111,Access
 str2-7050cx3-acs-13,Ethernet44,str2-7260cx3-acs-fan-06,Ethernet12/1,100000,2112,Access
 str2-7050cx3-acs-13,Ethernet48,str2-7260cx3-acs-fan-06,Ethernet13/1,100000,2113,Access
