@@ -71,7 +71,7 @@ class LagTest:
     def __get_lag_intf_info(self, lag_facts, lag_name):
         # Figure out interface informations
         po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
-        intf          = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
+        intf          = list(lag_facts['lags'][lag_name]['po_config']['ports'].keys())[0]
         return intf, po_interfaces
 
     def __get_lag_intf_namespace_id(self, lag_facts, lag_name):
