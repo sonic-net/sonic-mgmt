@@ -58,6 +58,7 @@ SAI_TEST_T0_CASE_DIR_ON_PTF = SAI_TEST_ON_PTF_DIR + "/test/sai_test"
 SAI_TEST_RESOURCE_ON_PTF_DIR = "/tmp/sai_qualify/resources"
 SAI_TEST_REPORT_DIR_ON_PTF = "/tmp/sai_qualify/test_results"
 SAI_TEST_REPORT_TMP_DIR_ON_PTF = "/tmp/sai_qualify/test_results_tmp"
+SAI_TEST_INVOCATION_LOG_DIR = "/tmp/sai_qualify/invocation_logs"
 SAISERVER_CONTAINER = "saiserver"
 SYNCD_CONATINER = "syncd"
 
