@@ -2,10 +2,10 @@
 IPinIP Decap configs for different ASICs:
 Table Name in APP_DB: TUNNEL_DECAP_TABLE:IPINIP_TUNNEL
 
-Config          Mellanox <= [201911]        Mellanox >= [202012]        Broadcom <= [201911]        Broadcom >= [202012]
-dscp_mode       uniform                     uniform                     pipe                        uniform
-ecn_mode        standard                    standard                    copy_from_outer             copy_from_outer
-ttl_mode        pipe                        pipe                        pipe                        pipe
+Config          Mellanox <= [201911]        Mellanox >= [202012]        Broadcom <= [201911]        Broadcom >= [202012]     Innovium
+dscp_mode       uniform                     uniform                     pipe                        uniform                  pipe
+ecn_mode        standard                    standard                    copy_from_outer             copy_from_outer          copy_from_outer
+ttl_mode        pipe                        pipe                        pipe                        pipe                     pipe
 '''
 import json
 import logging
