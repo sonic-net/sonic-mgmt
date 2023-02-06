@@ -78,7 +78,7 @@ def get_graph_facts(duthost, localhost, hostnames):
                     kargs["hosts"] = hostnames
                 conn_graph_facts = localhost.conn_graph_facts(
                     **kargs)["ansible_facts"]
-                return conn_graph_facts
+                return key_convert2str(conn_graph_facts)
     # END OF DEPRECATE WARNING: deprecate ends here.
 
     kargs = {"filepath": lab_conn_graph_path}
