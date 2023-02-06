@@ -424,7 +424,7 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet7/1" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet7/2" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet7/3" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet2"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet7/4" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet3"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-2" EndPort="Ethernet50" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet3"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-8" EndPort="Ethernet0" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-8" EndPort="Ethernet4" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-8" EndPort="Ethernet8" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet12"/>
@@ -614,6 +614,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet46" vlanids="479"/>
       <InterfaceVlan mode="Access" portname="Ethernet47" vlanids="480"/>
       <InterfaceVlan mode="Access" portname="Ethernet49" vlanids="552"/>
+      <InterfaceVlan mode="Access" portname="Ethernet50" vlanids="587"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="433-480,552"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-7215-1">
@@ -960,7 +961,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet7/1" vlanids="584"/>
       <InterfaceVlan mode="Access" portname="Ethernet7/2" vlanids="585"/>
       <InterfaceVlan mode="Access" portname="Ethernet7/3" vlanids="586"/>
-      <InterfaceVlan mode="Access" portname="Ethernet7/4" vlanids="587"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="249-252,316,348,380,429-432,481-484,548,549-551,584-587"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-serv-10">
