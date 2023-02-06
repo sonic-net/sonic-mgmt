@@ -112,16 +112,15 @@ def duthost_bgp_config(duthost, tgen_ports):
     logger.info('Configuring 1.1.1.1/32 on the loopback interface')
     duthost.shell(loopback)
     logger.info('Configuring BGP in config_db.json')
-    bgp_neighbors = {tgen_ports[1]['ipv6']:
-                         {"rrclient": "0", "name": "ARISTA08T0",
-                          "local_addr": tgen_ports[1]['peer_ipv6'],
-                          "nhopself": "0", "holdtime": "90",
-                          "asn": TGEN_AS_NUM, "keepalive": "30"},
-                     tgen_ports[1]['ip']:
-                         {"rrclient": "0", "name": "ARISTA08T0",
-                          "local_addr": tgen_ports[1]['peer_ip'],
-                          "nhopself": "0", "holdtime": "90",
-                          "asn": TGEN_AS_NUM, "keepalive": "30"}}
+    bgp_neighbors = \
+        {tgen_ports[1]['ipv6']: {"rrclient": "0", "name": "ARISTA08T0",
+                                 "local_addr": tgen_ports[1]['peer_ipv6'],
+                                 "nhopself": "0", "holdtime": "90",
+                                 "asn": TGEN_AS_NUM, "keepalive": "30"},
+         tgen_ports[1]['ip']: {"rrclient": "0", "name": "ARISTA08T0",
+                               "local_addr": tgen_ports[1]['peer_ip'],
+                               "nhopself": "0", "holdtime": "90",
+                               "asn": TGEN_AS_NUM, "keepalive": "30"}}
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
     for neighbor, neighbor_info in bgp_neighbors.items():
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
@@ -520,7 +519,7 @@ def get_convergence_for_reboot_test(duthost,
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(360, 10, 1,
                              duthost.critical_services_fully_started),
-                "Not all critical services are fully started")
+                  "Not all critical services are fully started")
     request = cvg_api.convergence_request()
     request.convergence.flow_names = flow_names
     convergence_metrics = cvg_api.get_results(request).flow_convergence
@@ -532,8 +531,8 @@ def get_convergence_for_reboot_test(duthost,
                 logger.info("Some Loss Observed in Traffic Item {}".format(i))
                 dp.append(metrics.data_plane_convergence_us / 1000)
                 logger.info(
-                    'DP/DP Convergence Time (ms) of {} : {}'.format(i,
-                    metrics.data_plane_convergence_us / 1000))
+                    'DP/DP Convergence Time (ms) of {} : {}'
+                    .format(i, metrics.data_plane_convergence_us / 1000))
             else:
                 dp.append(0)
                 logger.info('DP/DP Convergence Time (ms) of {} : '
@@ -547,12 +546,13 @@ def get_convergence_for_reboot_test(duthost,
                 "Loss observed for Traffic Item: {}".format(i)
             logger.info("No Loss Observed in Traffic Item {}".format(i))
             dp.append(metrics.data_plane_convergence_us / 1000)
-            logger.info('DP/DP Convergence Time (ms) of {} : {}'.format(i,
-                                metrics.data_plane_convergence_us / 1000))
+            logger.info('DP/DP Convergence Time (ms) of {} : {}'.
+                        format(i,
+                               metrics.data_plane_convergence_us / 1000))
 
     flow_names_table_rows = ["Server IPv4_1 - Server IPv4_2",
                              "Server IPv6_2 - Server IPv6_1",
-                             "Server IPv4_1 - T1",  "Server IPv6_2 - T1",
+                             "Server IPv4_1 - T1", "Server IPv6_2 - T1",
                              "T1 - Server IPv4_1", "T1 - Server IPv6_2"]
     for j, i in enumerate(flow_names_table_rows):
         table.append([reboot_type, i, dp[j], float(0.0)])
@@ -582,4 +582,3 @@ def cleanup_config(duthost):
                              duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
     logger.info('Convergence Test Completed')
-
