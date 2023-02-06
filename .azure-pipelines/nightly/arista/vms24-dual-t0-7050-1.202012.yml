@@ -3,8 +3,15 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
-  - cron: "0 10 * * 0,2"
+  - cron: "0 10 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -27,26 +34,28 @@ parameters:
     default: $(IMAGE_BRCM_ABOOT_202012)
     displayName: "Image URL"
 
-  # Deploy parameters
-  - name: ENABLE_DATAACL
-    type: boolean
-    default: false
-
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
-  - name: SKIP_SCRIPTS
-    type: string
-    default: "platform_tests/test_cont_warm_reboot.py"
-    displayName: "Skip Scripts"
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
 
+  # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
     default: '-I "dualtor qos pc generic_config_updater acl drop_packets snmp"'
     displayName: Testbed specific
+
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "platform_tests/test_cont_warm_reboot.py"
+    displayName: "Skip Scripts"
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
@@ -60,6 +69,6 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
