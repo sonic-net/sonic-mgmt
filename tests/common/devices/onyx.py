@@ -41,11 +41,21 @@ class OnyxHost(AnsibleHostBase):
         logging.info('Shut interface [%s]' % interface_name)
         return out
 
+    def shutdown_multiple(self, interfaces):
+        for interface in interfaces:
+            out = self.shutdown(interface)
+        return out
+
     def no_shutdown(self, interface_name):
         out = self.host.onyx_config(
             lines=['no shutdown'],
             parents='interface %s' % interface_name)
         logging.info('No shut interface [%s]' % interface_name)
+        return out
+
+    def no_shutdown_multiple(self, interfaces):
+        for interface in interfaces:
+            out = self.no_shutdown(interface)
         return out
 
     def check_intf_link_state(self, interface_name):
