@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+import sys
 import time
 import json
 import copy
@@ -7,8 +8,10 @@ import copy
 import ptf.mask as mask
 import ptf.packet as packet
 
-
-NATIVE_TYPE = (int, float, long, bool, list, dict, tuple, set, str, bytes, unicode, type(None))
+if sys.version_info.major > 2:
+    NATIVE_TYPE = (int, float, bool, list, dict, tuple, set, str, bytes, type(None))
+else:
+    NATIVE_TYPE = (int, float, long, bool, list, dict, tuple, set, str, bytes, unicode, type(None))     # noqa F821
 
 
 def _parse_layer(layer):
@@ -28,7 +31,7 @@ def _parse_layer(layer):
 
     for field in layer.fields_desc:
         value = getattr(layer, field.name)
-        if value is type(None):
+        if isinstance(value, type(None)):
             value = None
 
         if not isinstance(value, NATIVE_TYPE):
@@ -101,14 +104,12 @@ class FilterPktBuffer(object):
 
         self.__ignore_fields()
 
-
     def __ignore_fields(self):
         """
         Ignore fields of packet
         """
         for field, value in self.ignore_fields:
             self.masked_exp_pkt.set_do_not_care_scapy(getattr(packet, field), value)
-
 
     def __remove_ignore_fields(self, pkt_dict):
         """
@@ -128,7 +129,6 @@ class FilterPktBuffer(object):
 
         return pkt_dict
 
-
     def __find_pkt_in_buffer(self, dst_port_number):
         """
         Find expected packet in buffer by using matched fields
@@ -143,7 +143,7 @@ class FilterPktBuffer(object):
         received_pkt = None
 
         for pkt in packet_buffer:
-            packet_dict = convert_pkt_to_dict(Ether(pkt[0]))
+            packet_dict = convert_pkt_to_dict(packet.Ether(pkt[0]))
 
             for field, value in self.match_fields:
                 try:
@@ -153,13 +153,12 @@ class FilterPktBuffer(object):
                     break
             else:
                 matched_index += 1
-                received_pkt = Ether(pkt[0])
+                received_pkt = packet.Ether(pkt[0])
 
         if received_pkt:
             return ({dst_port_number: matched_index}, received_pkt)
 
         return (None, None)
-
 
     def __diff_between_dict(self, rcv_pkt_dict, exp_pkt_dict, path=''):
         """
@@ -188,7 +187,6 @@ class FilterPktBuffer(object):
 
         return self.received_pkt_diff
 
-
     def _diff_between_pkt(self, received_pkt):
         """
         Get the difference between received packet and expected packet
@@ -205,7 +203,6 @@ class FilterPktBuffer(object):
         masked_pkt = self.__remove_ignore_fields(self.pkt_dict)
 
         return self.__diff_between_dict(received_pkt, masked_pkt)
-
 
     def filter_pkt_in_buffer(self):
         """
@@ -225,7 +222,6 @@ class FilterPktBuffer(object):
             return self.masked_exp_pkt.pkt_match(self.received_pkt) or self._diff_between_pkt(self.received_pkt)
 
         return False
-
 
     def show_packet(self, pkt_type='expected'):
         """

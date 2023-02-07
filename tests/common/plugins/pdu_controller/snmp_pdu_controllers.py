@@ -17,7 +17,7 @@ class snmpPduController(PduControllerBase):
     """
     PDU Controller class for SNMP conrolled PDUs - 'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
 
-    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type 
+    This class implements the interface defined in PduControllerBase class for SNMP conrtolled PDU type
     'Sentry Switched CDU' and 'APC Web/SNMP Management Card'
     """
 
@@ -89,9 +89,9 @@ class snmpPduController(PduControllerBase):
             self.has_lanes = False
             self.max_lanes = 1
         elif self.pduType == "ApcRPDU":
-            self.PORT_NAME_BASE_OID      = APC_RPDU_PORT_NAME_BASE_OID
-            self.PORT_STATUS_BASE_OID    = APC_RPDU_PORT_STATUS_BASE_OID
-            self.PORT_CONTROL_BASE_OID   = APC_RPDU_PORT_CONTROL_BASE_OID
+            self.PORT_NAME_BASE_OID = APC_RPDU_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = APC_RPDU_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = APC_RPDU_PORT_CONTROL_BASE_OID
             self.has_lanes = False
             self.max_lanes = 1
         else:

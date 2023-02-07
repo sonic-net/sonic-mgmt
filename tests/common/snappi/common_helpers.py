@@ -16,6 +16,7 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 
+
 def increment_ip_address(ip, incr=1):
     """
     Increment IP address by an integer number.
@@ -59,7 +60,7 @@ def get_vlan_subnet(host_ans):
     mg_vlans = mg_facts['minigraph_vlans']
 
     if len(mg_vlans) != 1:
-        print 'There should be only one Vlan at the DUT'
+        print('There should be only one Vlan at the DUT')
         return None
 
     mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
@@ -91,6 +92,7 @@ def get_egress_lossless_buffer_size(host_ans):
     egress_lossless_pool = buffer_pools[profile_name]
     return int(egress_lossless_pool['size'])
 
+
 def get_lossless_buffer_size(host_ans):
     """
     Get egress lossless buffer size of a switch, unless an 8102 switch,
@@ -119,25 +121,23 @@ def get_lossless_buffer_size(host_ans):
 
 def get_pg_dropped_packets(duthost, phys_intf, prio):
     """
-    Get number of ingress packets dropped on a specific priority 
+    Get number of ingress packets dropped on a specific priority
     of a physical interface
     Args:
         host_ans: Ansible host instance of the device
         phys_intf (str): Name of physical interface ex. Ethernet4
-        prio (int): Priority group to check ex. 4 
+        prio (int): Priority group to check ex. 4
     Returns:
         total number of dropped packets (int)
     """
-    oid_cmd = "sonic-db-cli " \
-    "COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
     oid_out = duthost.command(oid_cmd)
     oid_str = str(oid_out["stdout_lines"][0] or 1)
 
     if oid_str == "1":
         return None
 
-    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + \
-    " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
     out = duthost.command(cmd)
     dropped_packets = int(out["stdout_lines"][0] or -1)
 
@@ -669,7 +669,7 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
     """
 
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
-    subnet = unicode(subnet, "utf-8")
+    subnet = subnet.encode().decode("utf-8")
     ipv6_list = []
     for i in range(number_of_ip):
         network = IPv6Network(subnet)

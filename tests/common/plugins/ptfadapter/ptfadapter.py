@@ -10,6 +10,7 @@ from ptf.dataplane import DataPlane, DataPlanePortNN
 from tests.common.utilities import wait_until
 import logging
 
+
 class PtfAdapterNNConnectionError(Exception):
 
     def __init__(self, remote_sock_addr):
@@ -37,7 +38,7 @@ class PtfTestAdapter(BaseTest):
         :param ptf_port_set: PTF ports
         :return:
         """
-        self.runTest = lambda : None # set a no op runTest attribute to satisfy BaseTest interface
+        self.runTest = lambda: None    # set a no op runTest attribute to satisfy BaseTest interface
         super(PtfTestAdapter, self).__init__()
         self.payload_pattern = ""
         self.connected = False
@@ -59,7 +60,7 @@ class PtfTestAdapter(BaseTest):
         sock = nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)
         sock.connect(socket_addr)
         try:
-            return wait_until(10, 0.2, 0, lambda:sock.get_statistic(self.NN_STAT_CURRENT_CONNECTIONS) == 1)
+            return wait_until(10, 0.2, 0, lambda: sock.get_statistic(self.NN_STAT_CURRENT_CONNECTIONS) == 1)
         finally:
             sock.close()
 
