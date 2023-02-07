@@ -3,8 +3,8 @@
 This file contains Python script to enable/disable packets aging in queues(buffers?).
 '''
 
-import sys, errno
-import os
+import sys
+import errno
 import argparse
 from python_sdk_api.sx_api import (SX_STATUS_SUCCESS,
                                    SX_ACCESS_CMD_GET,
@@ -17,11 +17,14 @@ from python_sdk_api.sx_api import (SX_STATUS_SUCCESS,
                                    sx_api_port_sll_set,
                                    sx_api_port_sll_get,
                                    sx_api_port_hll_set,
+                                   sx_api_port_hll_get,
                                    new_sx_port_attributes_t_arr,
                                    new_sx_port_log_id_t_arr,
                                    new_uint32_t_p,
                                    uint32_t_p_assign,
                                    uint32_t_p_value,
+                                   new_uint64_t_p,
+                                   uint64_t_p_value,
                                    sx_port_attributes_t_arr_getitem)
 
 parser = argparse.ArgumentParser(description='Toggle Mellanox-specific packet aging on egress queues')
@@ -57,7 +60,7 @@ port_attributes_list = new_sx_port_attributes_t_arr(0)
 port_cnt_p = new_uint32_t_p()
 uint32_t_p_assign(port_cnt_p, 0)
 
-rc = sx_api_port_device_get(handle, 1 , 0, port_attributes_list,  port_cnt_p)
+rc = sx_api_port_device_get(handle, 1, 0, port_attributes_list,  port_cnt_p)
 if (rc != SX_STATUS_SUCCESS):
     sys.stderr.write("An error returned by sx_api_port_device_get.\n")
     sys.exit()
@@ -91,20 +94,20 @@ port_attributes_list = new_sx_port_attributes_t_arr(port_cnt)
 port_cnt_p = new_uint32_t_p()
 uint32_t_p_assign(port_cnt_p, port_cnt)
 
-rc = sx_api_port_device_get(handle, 1 , 0, port_attributes_list,  port_cnt_p)
+rc = sx_api_port_device_get(handle, 1, 0, port_attributes_list, port_cnt_p)
 if (rc != SX_STATUS_SUCCESS):
     sys.stderr.write("An error returned by sx_api_port_device_get.\n")
     sys.exit()
 port_cnt = uint32_t_p_value(port_cnt_p)
 
 set_mode = False
-if args.command == "enable": # enable packets aging
+if args.command == "enable":  # enable packets aging
     sll_time = 0x418937
     hll_time = 0x83127
     hll_stall = 7
     set_mode = True
 else:
-    assert args.command == "disable" # disable packets aging
+    assert args.command == "disable"  # disable packets aging
     sll_time = 0xffffffffffffffff
     hll_time = 0xffffffff
     hll_stall = 0
@@ -127,28 +130,28 @@ else:
 
 logical_port_list = lag_list
 for i in range(0, port_cnt):
-    port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list,i)
+    port_attributes = sx_port_attributes_t_arr_getitem(port_attributes_list, i)
     log_port = int(port_attributes.log_port)
     if log_port not in lag_member_list and log_port < 0xFFFFF:
         logical_port_list.append(log_port)
 sys.stderr.write("All ports to set {}\n".format(logical_port_list))
 
 for log_port in logical_port_list:
-        if set_mode:
-            rc = sx_api_port_hll_set(handle, log_port, hll_time, hll_stall)
-            if (rc != SX_STATUS_SUCCESS):
-                sys.stderr.write("An error returned by sx_api_port_hll_set.\n")
-                sys.exit()
+    if set_mode:
+        rc = sx_api_port_hll_set(handle, log_port, hll_time, hll_stall)
+        if (rc != SX_STATUS_SUCCESS):
+            sys.stderr.write("An error returned by sx_api_port_hll_set.\n")
+            sys.exit()
+    else:
+        hll_max_time_p = new_uint32_t_p()
+        hll_stall_cnt_p = new_uint32_t_p()
+        rc = sx_api_port_hll_get(handle, log_port, hll_max_time_p, hll_stall_cnt_p)
+        if (rc != SX_STATUS_SUCCESS):
+            sys.stderr.write("An error returned by sx_api_port_hll_set.\n")
+            sys.exit()
         else:
-            hll_max_time_p = new_uint32_t_p()
-            hll_stall_cnt_p = new_uint32_t_p()
-            rc = sx_api_port_hll_get(handle,log_port, hll_max_time_p, hll_stall_cnt_p)
-            if (rc != SX_STATUS_SUCCESS):
-                sys.stderr.write("An error returned by sx_api_port_hll_set.\n")
-                sys.exit()
-            else:
-                hll_max_time = uint32_t_p_value(hll_max_time_p)
-                hll_stall_cnt = uint32_t_p_value(hll_stall_cnt_p)
-                sys.stderr.write(("Port%d(Ethernet%d, logical:0x%X) hll_time:0x%X, hll_stall:0x%X\n" %
-                    (port_attributes.port_mapping.module_port, (port_attributes.port_mapping.module_port * 4),
-                        log_port, hll_max_time, hll_stall_cnt)))
+            hll_max_time = uint32_t_p_value(hll_max_time_p)
+            hll_stall_cnt = uint32_t_p_value(hll_stall_cnt_p)
+            sys.stderr.write(("Port%d(Ethernet%d, logical:0x%X) hll_time:0x%X, hll_stall:0x%X\n" %
+                              (port_attributes.port_mapping.module_port, (port_attributes.port_mapping.module_port * 4),
+                               log_port, hll_max_time, hll_stall_cnt)))
