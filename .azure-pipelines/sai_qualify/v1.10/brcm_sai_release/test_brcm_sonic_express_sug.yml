@@ -96,6 +96,5 @@ jobs:
         UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
         DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
         SDK_BUILD_PIPELINE_NAME: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
-        ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
         SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
         AGENT_POOL: ${{ parameters.AGENT_POOL }}

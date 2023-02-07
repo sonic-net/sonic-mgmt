@@ -36,16 +36,16 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name for SAI test"
-    default: vms3-t1-dx010-1
+    default: testbed-bjw-slx-can-3
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_202205)
+    default: $(BJW_IMAGE_BRCM_202205)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFTV2_BRCM_INTERNAL_202205)
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202205_BJ)
     displayName: "py_saithrift URL"
 
   - name: SDK_ARTIFACT_NAME
@@ -118,7 +118,7 @@ parameters:
   - name: AGENT_POOL
     displayName: "Resource agent pool"
     type: string
-    default: nightly
+    default: nightly-bjw
     values:
       - nightly
       - nightly2
