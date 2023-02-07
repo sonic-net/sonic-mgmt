@@ -35,5 +35,5 @@
 
 - name: Get the list of ports to be combined to Everflow ACL tables
   set_fact:
-    everflow_table_ports: "{{ (testbed_type in ['t1-lag', 't1-64-lag', 't1-64-lag-clet']) | ternary(portchannel_ports + tor_ports, spine_ports + tor_ports) }}"
+    everflow_table_ports: "{{ (testbed_type in ['t1-lag', 't1-64-lag', 't1-64-lag-clet', 't1-56-lag']) | ternary(portchannel_ports + tor_ports, spine_ports + tor_ports) }}"
 

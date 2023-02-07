@@ -47,7 +47,7 @@ EXAMPLES = '''
         testcases:
             acl:
                 filename: acl.yml
-                topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+                topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
                 execvar:
                   ptf_host:
                   testbed_type:
@@ -58,7 +58,7 @@ EXAMPLES = '''
                   ptf_host:
             bgp_fact:
                 filename: bgp_fact.yml
-                topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+                topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
             ...
 
     To use it:
@@ -95,6 +95,7 @@ RETURN = '''
                 t1-lag:    [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
                 t1-64-lag: [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
                 t1-64-lag-clet: [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
+                t1-56-lag: [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
             }
 '''
 
