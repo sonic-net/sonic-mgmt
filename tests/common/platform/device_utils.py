@@ -1,8 +1,10 @@
+import re
 from tests.common.helpers.dut_ports import encode_dut_port_name
 
 """
 Helper script for fanout switch operations
 """
+
 
 def fanout_switch_port_lookup(fanout_switches, dut_name, dut_port):
     """

@@ -66,7 +66,9 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']
     eth0_ip = setup_info['eth0_ip']
-    pfc_wd_test_port = test_ports.keys()[0]
+    # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
+    # So that convert to list explicitly.
+    pfc_wd_test_port = list(test_ports.keys())[0]
     neighbors = setup_info['neighbors']
     fanout_info = enum_fanout_graph_facts
     dut = duthost
