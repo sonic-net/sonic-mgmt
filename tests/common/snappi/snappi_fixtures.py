@@ -700,12 +700,10 @@ def snappi_dut_base_config(duthost_list,
     return config, port_config_list, new_snappi_ports
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def get_multidut_snappi_ports(duthosts,
                                conn_graph_facts,
-                               fanout_graph_facts,
-                               line_card_choice,
-                               line_card_info,):
+                               fanout_graph_facts,):
 
     """
     Populate tgen ports and connected DUT ports info of T0 testbed and returns as a list

@@ -644,7 +644,7 @@ def stop_pfcwd(duthost,asic_value):
     Returns:
         N/A
     """
-    if asic_value == 'None:
+    if asic_value == 'None':
         duthost.shell('sudo pfcwd stop')
     else:
         duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic_value))
