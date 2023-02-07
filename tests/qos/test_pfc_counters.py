@@ -1,6 +1,6 @@
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from qos_fixtures import leaf_fanouts
-from qos_helpers import eos_to_linux_intf, nxos_to_linux_intf
+from qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 import os
 import time
 import pytest
@@ -86,9 +86,12 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
             peer_device = conn_facts[intf]['peerdevice']
             peer_port = conn_facts[intf]['peerport']
             peerdev_ans = fanouthosts[peer_device]
+            fanout_os = peerdev_ans.get_fanout_os()
             fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
-            if peerdev_ans.get_fanout_os() == "nxos":
+            if fanout_os == "nxos":
                 peer_port_name = nxos_to_linux_intf(peer_port)
+            elif fanout_os == "sonic":
+                peer_port_name = sonic_to_linux_intf(peer_port)
             else:
                 peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
 
@@ -130,9 +133,12 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
                 peer_device = conn_facts[intf]['peerdevice']
                 peer_port = conn_facts[intf]['peerport']
                 peerdev_ans = fanouthosts[peer_device]
+                fanout_os = peerdev_ans.get_fanout_os()
                 fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
-                if peerdev_ans.get_fanout_os() == "nxos":
+                if fanout_os == "nxos":
                     peer_port_name = nxos_to_linux_intf(peer_port)
+                elif fanout_os == "sonic":
+                    peer_port_name = sonic_to_linux_intf(peer_port)
                 else:
                     peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
 

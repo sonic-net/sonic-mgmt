@@ -47,6 +47,14 @@ def nxos_to_linux_intf(nxos_intf_name):
     """
     return nxos_intf_name.replace('Ethernet', 'Eth').replace('/', '-')
 
+def sonic_to_linux_intf(sonic_intf_name):
+    """
+    @Summary: Map SONiC's interface name to Linux's interface name
+    @param sonic_intf_name: Interface name in SONiC
+    @return: Return the interface name in Linux
+    """
+    return sonic_intf_name
+
 def get_phy_intfs(host_ans):
     """
     @Summary: Get the physical interfaces (e.g., EthernetX) of a DUT
