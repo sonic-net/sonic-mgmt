@@ -92,6 +92,7 @@ def get_egress_lossless_buffer_size(host_ans):
     egress_lossless_pool = buffer_pools[profile_name]
     return int(egress_lossless_pool['size'])
 
+
 def get_lossless_buffer_size(host_ans):
     """
     Get egress lossless buffer size of a switch, unless an 8102 switch,
@@ -120,25 +121,23 @@ def get_lossless_buffer_size(host_ans):
 
 def get_pg_dropped_packets(duthost, phys_intf, prio):
     """
-    Get number of ingress packets dropped on a specific priority 
+    Get number of ingress packets dropped on a specific priority
     of a physical interface
     Args:
         host_ans: Ansible host instance of the device
         phys_intf (str): Name of physical interface ex. Ethernet4
-        prio (int): Priority group to check ex. 4 
+        prio (int): Priority group to check ex. 4
     Returns:
         total number of dropped packets (int)
     """
-    oid_cmd = "sonic-db-cli " \
-    "COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
     oid_out = duthost.command(oid_cmd)
     oid_str = str(oid_out["stdout_lines"][0] or 1)
 
     if oid_str == "1":
         return None
 
-    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + \
-    " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
     out = duthost.command(cmd)
     dropped_packets = int(out["stdout_lines"][0] or -1)
 
