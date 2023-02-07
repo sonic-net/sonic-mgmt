@@ -249,6 +249,7 @@ def wait_rsyslogd_restart(duthost, service_name, old_pid):
     cmd = "docker exec -i {} bash -c 'supervisorctl status rsyslogd'".format(service_name)
     wait_time = 30
     while wait_time > 0:
+        wait_time -= 1
         if get_rsyslogd_pid(duthost, service_name) == old_pid:
             time.sleep(1)
             continue
