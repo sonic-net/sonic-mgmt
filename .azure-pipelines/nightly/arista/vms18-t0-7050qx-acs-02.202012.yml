@@ -57,11 +57,6 @@ parameters:
               arp/test_wr_arp.py"
     displayName: "Skip Scripts"
 
-  - name: PREV_IMAGE_URL
-    type: string
-    default: $(IMAGE_BRCM_ABOOT_201811)
-    displayName: "Previous Image URL"
-
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -70,4 +65,3 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
-      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}

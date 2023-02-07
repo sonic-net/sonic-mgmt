@@ -33,12 +33,12 @@ Arista	vms18-t0-7050qx-acs-02	vms18-t0-7050qx-acs-02	202012-SLIM	202012-SLIM	202
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
               platform_tests/test_reboot.py::test_fast_reboot \
-              arp/test_wr_arp.py"""							IMAGE_BRCM_ABOOT_201811	
+              arp/test_wr_arp.py"""								
 Arista	vms18-t1-7050qx-acs-03	vms18-t1-7050qx-acs-03	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM		-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym"'	Platform	30 10		"""pfcwd/test_pfcwd_warm_reboot.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811	
+              platform_tests/test_reboot.py::test_fast_reboot"""								
 Arista	testbed-bjw-can-7050qx-2.1	testbed-bjw-can-7050qx-2	202012-SLIM		202012-SLIM		202012-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10			nightly-bjw							
 Arista	testbed-bjw-can-7050qx-2.2	testbed-bjw-can-7050qx-2		202012-SLIM		202012-SLIM		202012-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 10			nightly-bjw							
 Arista	vms24-dual-t0-7050-1	vms24-dual-t0-7050-1	202012	internal	202012	202205	202012	master		-I "dualtor qos pc generic_config_updater acl drop_packets snmp"'	Non-platform	0 10		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE		
