@@ -191,7 +191,7 @@ class IsisModule(object):
 
     def _parse_db_per_area(self, db_items):
         regex_lsp = \
-            re.compile(r'(\S{1,14}.[0-9]{2}-[0-9]{2}\b)(\s+\*?\s+)(\d+\s+)(0x[0-9a-f]{8}\s+)(0x[0-9a-f]{4}\s+)(\d+)')
+            re.compile(r'(\S{1,14}.\d{2}-\d{2}\b)(\s+\*?\s+)(\d+\s+)(0x.{8}\s+)(0x.{4}\s+)(\d+)\s+\d+/\d+/(\d+)')
         datebase = {}
         for line in db_items:
             match = regex_lsp.match(line)
@@ -201,9 +201,31 @@ class IsisModule(object):
                     'seqnum': match.group(4),
                     'chksum': match.group(5),
                     'holdtime': match.group(6),
+                    'overload': match.group(7),
                     'local': True if match.group(2).strip().rstrip() == '*' else False,
                     }
         return datebase
+
+    def _parse_db_detail_per_area(self, db_items):
+        regex_lsp = \
+            re.compile(r'(\S{1,14}.\d{2}-\d{2}\b)(\s+\*?\s+)(\d+\s+)(0x.{8}\s+)(0x.{4}\s+)(\d+)\s+\d+/\d+/(\d+)')
+
+        regex_lsp_detail = \
+            re.compile(r'\s*Extended IP Reachability:\s+(\S+)\s+\(Metric:\s+([0-9]*)\)')
+
+        database = {}
+        for line in db_items:
+            match = regex_lsp.match(line)
+            if match:
+                lsp_id = match.group(1)
+                database[lsp_id] = {}
+                continue
+
+            match = regex_lsp_detail.match(line)
+            if match:
+                database[lsp_id][match.group(1)] = match.group(2)
+
+        return database
 
     def _parse_route_per_area(self, route_items):
         routes = {'ipv4': {}, 'ipv6': {}}
@@ -263,6 +285,10 @@ class IsisModule(object):
         self.facts['database'] = self._parse_areas(self.out.split('\n'), self._parse_db_per_area)
         return
 
+    def parse_database_detail(self):
+        self.facts['database_detail'] = self._parse_areas(self.out.split('\n'), self._parse_db_detail_per_area)
+        return
+
     def parse_route(self):
         self.facts['route'] = self._parse_areas(self.out.split('\n'), self._parse_route_per_area)
         return
@@ -301,6 +327,9 @@ class IsisModule(object):
 
         self.collect_data("database")
         self.parse_database()
+
+        self.collect_data("database detail")
+        self.parse_database_detail()
 
         self.collect_data("route")
         self.parse_route()
