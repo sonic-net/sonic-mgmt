@@ -125,7 +125,7 @@ def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
-    duthost.command("config bgp shutdown all")  
+    duthost.command("config bgp shutdown all")
 
     asic.stop_service("swss")
     asic.delete_container("syncd")
