@@ -46,12 +46,12 @@ Celestica	vms3-t1-dx010-1	vms3-t1-dx010-1	202205	internal	202205	internal	202205
 Celestica	vms7-t0-dx010-4	vms7-t0-dx010-4	202012	internal	202012	internal	202205	master		-I "platform_tests generic_config_updater"'	Platform	0 2						TRUE	FALSE			
 Celestica	vms7-t0-dx010-5	vms7-t0-dx010-5	202012	internal	202012	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 11						TRUE	FALSE			
 Celestica	vms20-t1-dx010-6	vms20-t1-dx010-6	202205	internal	202205	internal	202205	master		-I "platform_tests generic_config_updater"'	Platform	0 15						TRUE	FALSE			
-Dell	vms7-t0-s6100	vms7-t0-s6100	202012		202012		202012			-S "platform_tests generic_config_updater metadata-scripts"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"		IMAGE_BRCM_201811	TRUE	TRUE				
-Dell	vms7-t0-s6100	vms7-t0-s6100		internal		internal		master		-S "platform_tests generic_config_updater metadata-scripts"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"				FALSE				
-Dell	vms7-t0-s6100-4	vms7-t0-s6100-4	202012		202012		202012			-I "platform_tests generic_config_updater"'	Non-platform	0 12				IMAGE_BRCM_201811	TRUE	TRUE				
+Dell	vms7-t0-s6100	vms7-t0-s6100	202012		202012		202012			-S "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"		IMAGE_BRCM_201811	TRUE	TRUE				
+Dell	vms7-t0-s6100	vms7-t0-s6100		internal		internal		master		-S "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"				FALSE				
+Dell	vms7-t0-s6100-4	vms7-t0-s6100-4	202012		202012		202012			-I "platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 12				IMAGE_BRCM_201811	TRUE	TRUE				
 Dell	vms7-t0-s6100-4	vms7-t0-s6100-4		internal		internal		master		-I "platform_tests generic_config_updater"'	Non-platform	0 12						TRUE				
 Dell	vms7-t1-s6100-platform	vms7-t1-s6100			master	internal	202205			-I "platform_tests generic_config_updater"'	Non-platform	0 4						TRUE				
-Dell	vms7-t1-s6100-non-platform	vms7-t1-s6100	202205	internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 4						TRUE				
+Dell	vms7-t1-s6100-non-platform	vms7-t1-s6100	202205	internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 4						TRUE				
 Dell	vms11-t0-on-4-s6000	vms11-t0-on-4	202012		202012		202012			-S "sub_port_interfaces platform_tests metadata-scripts"'	Non-platform	0 4							FALSE	FALSE		
 Dell	vms11-t0-on-4-s6000	vms11-t0-on-4		internal		internal		internal		-S "sub_port_interfaces platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 4								FALSE		
 Dell	vms13-4-t0-s6000	vms13-4-t0	202012	internal	202012	internal	202012	internal		-I "platform_tests generic_config_updater"'	Platform	0 20								FALSE		
