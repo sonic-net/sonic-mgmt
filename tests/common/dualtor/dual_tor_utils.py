@@ -872,6 +872,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "id")       # since src and dst changed, ID would change too
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl")      # ttl in outer packet is set to 255
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum")   # checksum would differ as the IP header is not the same
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "flags")    # "Don't fragment" flag may be set in the outer header
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
@@ -913,6 +914,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "id")
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl")
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "flags")
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
