@@ -5,6 +5,8 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import check_container_state
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
 
 pytestmark = [
