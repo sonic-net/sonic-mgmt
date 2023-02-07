@@ -93,3 +93,127 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                 submode, intervalms,
                 update_count)
     return cmd
+
+
+def backup_monit_config_files(duthost):
+    """Backs up Monit configuration files on DuT.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+
+    Returns:
+        None.
+    """
+    logger.info("Backing up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
+    duthost.shell("cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("mv -f /etc/monit/conf.d/monit_* /tmp/")
+    duthost.shell("cp -f /tmp/monit_telemetry /etc/monit/conf.d/")
+    logger.info("Monit configuration files on DuT '{}' is backed up.".format(duthost.hostname))
+
+
+def customize_monit_config_files(duthost, temp_config_line):
+    """Customizes the Monit configuration file on DuT.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        temp_config_line: A string to replace the initial Monit configuration.
+
+    Returns:
+        None.
+    """
+    logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
+    duthost.shell("sed -i '$s/^./#/' /etc/monit/conf.d/monit_telemetry")
+    duthost.shell("echo '{}' | tee -a /etc/monit/conf.d/monit_telemetry".format(temp_config_line))
+    duthost.shell("sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
+    logger.info("Modifying Monit config to eliminate start delay and decrease interval are done.")
+
+
+def restore_monit_config_files(duthost):
+    """Restores the initial Monit configuration file on DuT.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+
+    Returns:
+        None.
+    """
+    logger.info("Restoring original Monit configuration files on DuT '{}' ...".format(duthost.hostname))
+    duthost.shell("mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("mv -f /tmp/monit_* /etc/monit/conf.d/")
+    logger.info("Original Monit configuration files on DuT '{}' are restored.".format(duthost.hostname))
+
+
+def check_monit_running(duthost):
+    """Checks whether Monit is running or not.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+
+    Returns:
+        Returns True if Monit is running; Otherwist, returns False.
+    """
+    monit_services_status = duthost.get_monit_services_status()
+    if not monit_services_status:
+        return False
+
+    return True
+
+
+def restart_monit_service(duthost):
+    """Restarts Monit service and polls Monit running status.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+
+    Returns:
+        None.
+    """
+    logger.info("Restarting Monit service ...")
+    duthost.shell("systemctl restart monit")
+    logger.info("Monit service is restarted.")
+
+    logger.info("Checks whether Monit is running or not after restarted ...")
+    is_monit_running = wait_until(MONIT_RESTART_THRESHOLD_SECS,
+                                  MONIT_CHECK_INTERVAL_SECS,
+                                  0,
+                                  check_monit_running,
+                                  duthost)
+    pytest_assert(is_monit_running, "Monit is not running after restarted!")
+    logger.info("Monit is running!")
+
+
+def check_critical_processes(duthost, container_name):
+    """Checks whether the critical processes are running after container was restarted.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        container_name: Name of container.
+
+    Returns:
+        None.
+    """
+    status_result = duthost.critical_process_status(container_name)
+    if status_result["status"] is False or len(status_result["exited_critical_process"]) > 0:
+        return False
+
+    return True
+
+
+def postcheck_critical_processes(duthost, container_name):
+    """Checks whether the critical processes are running after container was restarted.
+
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        container_name: Name of container.
+
+    Returns:
+        None.
+    """
+    logger.info("Checking the running status of critical processes in '{}' container ..."
+                .format(container_name))
+    is_succeeded = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+                              check_critical_processes, duthost, container_name)
+    if not is_succeeded:
+        pytest.fail("Not all critical processes in '{}' container are running!"
+                    .format(container_name))
+    logger.info("All critical processes in '{}' container are running.".format(container_name))
