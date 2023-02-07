@@ -2,6 +2,11 @@ import datetime
 import ipaddress
 
 from tests.common import constants
+import sys
+
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
 
 
 class TrafficPorts(object):
@@ -188,7 +193,9 @@ class TrafficPorts(object):
             temp_ports (dict): port info constructed from the vlan interfaces
         """
         temp_ports = dict()
-        vlan_details = self.vlan_info.values()[0]
+        # In Python2, dict.values() returns list object, but in Python3 returns an iterable but not indexable object.
+        # So that convert to list explicitly.
+        vlan_details = list(self.vlan_info.values())[0]
         # Filter(remove) PortChannel interfaces from VLAN members list
         vlan_members = [port for port in vlan_details['members'] if 'PortChannel' not in port]
 
