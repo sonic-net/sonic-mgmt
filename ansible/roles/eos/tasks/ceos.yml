@@ -52,3 +52,8 @@
     - 2
     - 3
     - 4
+
+- name: enable ip_forwarding in ceos container
+  command: docker exec ceos_{{ vm_set_name }}_{{ inventory_hostname }} bash -c "sysctl net.ipv4.ip_forward=1"
+  when: topo == "wan-3link-tg"
+  delegate_to: localhost

@@ -58,12 +58,12 @@ class AnsibleHostBase(object):
         verbose = complex_args.pop('verbose', True)
 
         if verbose:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}"\
-                .format(filename, function_name, line_number, self.hostname,
-                        self.module_name, json.dumps(module_args), json.dumps(complex_args)))
+            logging.debug("{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}"
+                          .format(filename, function_name, line_number, self.hostname,
+                                  self.module_name, json.dumps(module_args), json.dumps(complex_args)))
         else:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} executing..."\
-                .format(filename, function_name, line_number, self.hostname, self.module_name))
+            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} executing..."
+                          .format(filename, function_name, line_number, self.hostname, self.module_name))
 
         module_ignore_errors = complex_args.pop('module_ignore_errors', False)
         module_async = complex_args.pop('module_async', False)
@@ -78,17 +78,19 @@ class AnsibleHostBase(object):
         res = self.module(*module_args, **complex_args)[self.hostname]
 
         if verbose:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"\
-                .format(filename, function_name, line_number, self.hostname, self.module_name, json.dumps(res)))
+            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"
+                          .format(filename, function_name, line_number,
+                                  self.hostname, self.module_name, json.dumps(res)))
         else:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} done, is_failed={}, rc={}"\
-                .format(filename, function_name, line_number, self.hostname, self.module_name, \
-                        res.is_failed, res.get('rc', None)))
+            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} done, is_failed={}, rc={}"
+                          .format(filename, function_name, line_number, self.hostname,
+                                  self.module_name, res.is_failed, res.get('rc', None)))
 
         if (res.is_failed or 'exception' in res) and not module_ignore_errors:
             raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
         return res
+
 
 class NeighborDevice(dict):
     def __str__(self):

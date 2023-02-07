@@ -13,6 +13,7 @@ from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.dual_tor_utils import increase_linkmgrd_probe_interval
 
+
 logger = logging.getLogger(__name__)
 
 ROOT_DIR = "/root"
@@ -120,6 +121,12 @@ def change_mac_addresses(ptfhost):
     """
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.change_mac_addresses()
+    # NOTE: up/down ptf interfaces in change_mac_address will interrupt icmp_responder
+    # socket read/write operations, so let's restart icmp_responder if it is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)
+    if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
+        logging.debug("restart icmp_responder after change ptf port mac addresses")
+        ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -139,6 +146,8 @@ def remove_ip_addresses(ptfhost):
 
     logger.info("Remove IPs to restore ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.remove_ip_addresses()
+    # Interfaces restart is required, otherwise the ipv6 link-addresses won't back.
+    ptfhost.restart_interfaces()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -160,8 +169,7 @@ def copy_arp_responder_py(ptfhost):
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
 
 
-@pytest.fixture(scope='class')
-def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+def _ptf_portmap_file(duthost, ptfhost, tbinfo):
     """
         Prepare and copys port map file to PTF host
 
@@ -173,7 +181,6 @@ def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         Returns:
             filename (str): returns the filename copied to PTF host
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
     portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -189,7 +196,24 @@ def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
     ptfhost.copy(src=portMapFile, dest="/root/")
 
-    yield "/root/{}".format(portMapFile.split('/')[-1])
+    return "/root/{}".format(portMapFile.split('/')[-1])
+
+
+@pytest.fixture(scope='class')
+def ptf_portmap_file(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, tbinfo):
+    """
+    A class level fixture that calls _ptf_portmap_file
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    yield _ptf_portmap_file(duthost, ptfhost, tbinfo)
+
+
+@pytest.fixture(scope='module')
+def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
+    """
+    A module level fixture that calls _ptf_portmap_file
+    """
+    yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
 
 
 icmp_responder_session_started = False
@@ -236,11 +260,15 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request):
     """Run icmp_responder.py over ptfhost."""
     # No vlan is available on non-t0 testbed, so skip this fixture
     if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
+        yield
+        return
+    elif 'dualtor' not in tbinfo['topo']['name'] and "test_advanced_reboot" in request.node.name:
+        logger.info("Skip ICMP responder for advanced-reboot test on non dualtor devices")
         yield
         return
 
@@ -277,6 +305,31 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     ptfhost.shell("supervisorctl stop icmp_responder")
 
 
+@pytest.fixture
+def pause_garp_service(ptfhost):
+    """
+    Temporarily pause GARP service on PTF for one test method
+
+    `run_garp_service` is module scoped and autoused,
+    but some tests in modules where it is imported need it disabled
+    This fixture should only be used when garp_service is already running on the PTF
+    """
+    needs_resume = False
+    res = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True)
+    if res['rc'] != 0:
+        logger.warning("GARP service not present on PTF")
+    elif 'RUNNING' in res['stdout']:
+        needs_resume = True
+        ptfhost.shell("supervisorctl stop garp_service")
+    else:
+        logger.warning("GARP service already stopped on PTF")
+
+    yield
+
+    if needs_resume:
+        ptfhost.shell("supervisorctl start garp_service")
+
+
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -306,6 +359,10 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
         ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
         if 'dualtor' not in tbinfo['topo']['name']:
+            if "test_advanced_reboot" in request.node.name:
+                logger.info("Skip GARP service for advanced-reboot test on non dualtor devices")
+                yield
+                return
             # For mocked dualtor testbed
             mux_cable_table = {}
             server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')
@@ -372,7 +429,7 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
-    
+
     asic_idx = 0
     ports_map = {}
     for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():

@@ -22,7 +22,7 @@ import itertools
 import ptf
 import ptf.packet as scapy
 
-from collections import Iterable
+from collections import Iterable, defaultdict
 
 from ptf import config
 from ptf.base_tests import BaseTest
@@ -73,6 +73,7 @@ class FibTest(BaseTest):
     DEFAULT_BALANCING_TEST_NUMBER = 1
     ACTION_FWD = 'fwd'
     ACTION_DROP = 'drop'
+    DEFAULT_SWITCH_TYPE = 'voq'
 
     _required_params = [
         'fib_info_files',
@@ -111,6 +112,9 @@ class FibTest(BaseTest):
          - single_fib_for_duts:   have a single fib file for all DUTs in multi-dut case. Default: False
         '''
         self.dataplane = ptf.dataplane_instance
+        self.asic_type = self.test_params.get('asic_type')
+        if self.asic_type == "marvell":
+            fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):
@@ -134,6 +138,7 @@ class FibTest(BaseTest):
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
         self.balancing_test_number = self.test_params.get('balancing_test_number', self.DEFAULT_BALANCING_TEST_NUMBER)
         self.balancing_test_count = 0
+        self.switch_type = self.test_params.get('switch_type', self.DEFAULT_SWITCH_TYPE)
 
         self.pkt_action = self.test_params.get('pkt_action', self.ACTION_FWD)
         self.ttl = self.test_params.get('ttl', 64)
@@ -365,9 +370,8 @@ class FibTest(BaseTest):
                                 format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
             return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
-            rcvd_port_index, rcvd_pkt = verify_no_packet_any(self, masked_exp_pkt, dst_ports)
-            rcvd_port = dst_ports[rcvd_port_index]
-            return (rcvd_port, rcvd_pkt)
+            verify_no_packet_any(self, masked_exp_pkt, dst_ports)
+            return (None, None)
     #---------------------------------------------------------------------
 
     def check_ipv6_route(self, src_port, dst_ip_addr, dst_port_lists):
@@ -455,9 +459,8 @@ class FibTest(BaseTest):
                                 format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
             return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
-            rcvd_port_index, rcvd_pkt = verify_no_packet_any(self, masked_exp_pkt, dst_ports)
-            rcvd_port = dst_ports[rcvd_port_index]
-            return (rcvd_port, rcvd_pkt)
+            verify_no_packet_any(self, masked_exp_pkt, dst_ports)
+            return (None, None)
 
     def check_within_expected_range(self, actual, expected):
         '''
@@ -479,26 +482,51 @@ class FibTest(BaseTest):
         logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
 
+        asic_list = defaultdict(list)
+        if self.switch_type == "voq":
+            asic_list['voq'] = dest_port_list
+        else:
+            for port in dest_port_list:
+                if type(port) == list:
+                    port_map = self.ptf_test_port_map[str(port[0])]
+                    asic_id = port_map.get('asic_idx',0)
+                    member = asic_list.get(asic_id)
+                    if member is None:
+                        member = []
+                    member.append(port)
+                    asic_list[asic_id] = member
+                else:
+                    port_map = self.ptf_test_port_map[str(port)]
+                    asic_id = port_map.get('asic_idx',0)
+                    member = asic_list.get(asic_id)
+                    if member is None:
+                        member = []
+                    member.append(port)
+                    asic_list[asic_id] = member
+
         total_hit_cnt = 0
         for ecmp_entry in dest_port_list:
             for member in ecmp_entry:
                 total_hit_cnt += port_hit_cnt.get(member, 0)
+        
+        total_hit_cnt = total_hit_cnt//len(asic_list.keys())
 
-        for ecmp_entry in dest_port_list:
-            total_entry_hit_cnt = 0
-            for member in ecmp_entry:
-                total_entry_hit_cnt += port_hit_cnt.get(member, 0)
-            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
-            logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                         % ("ECMP", str(ecmp_entry), total_hit_cnt//len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
-            result &= r
-            if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
-                continue
-            for member in ecmp_entry:
-                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+        for asic_member in asic_list.values():
+            for ecmp_entry in asic_member:
+                total_entry_hit_cnt = 0
+                for member in ecmp_entry:
+                    total_entry_hit_cnt += port_hit_cnt.get(member, 0)
+                (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(asic_member))
                 logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                              % ("LAG", str(member), total_entry_hit_cnt//len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                    % ("ECMP", str(ecmp_entry), total_hit_cnt//len(asic_member), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
                 result &= r
+                if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
+                    continue
+                for member in ecmp_entry:
+                    (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+                    logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
+                        % ("LAG", str(member), total_entry_hit_cnt//len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                    result &= r
 
         assert result
 

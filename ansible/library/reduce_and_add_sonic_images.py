@@ -26,7 +26,7 @@ import sys
 from os import path
 from ansible.module_utils.basic import *
 
-results = {"downloaded_image_version": "Unknown"}
+results = {"downloaded_image_version": "Unknown", "current_stage": "Unknown"}
 
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     rc, out, err = module.run_command(cmd, use_unsafe_shell=True)
@@ -74,6 +74,19 @@ def setup_swap_if_necessary(module):
 
 
 def reduce_installed_sonic_images(module):
+    _, out, _  = exec_command(module, cmd="sonic_installer list", ignore_error=True)
+    lines = out.split('\n')
+
+    # if next boot image not same with current, set current as next boot, and delete the orinal next image
+    for line in lines:
+        if 'Current:' in line:
+            curr_image = line.split(':')[1].strip()
+        elif 'Next:' in line:
+            next_image = line.split(':')[1].strip()
+
+    if curr_image != next_image:
+        exec_command(module, cmd="sonic_installer set-next-boot {}".format(curr_image), ignore_error=True)
+
     exec_command(module, cmd="sonic_installer cleanup -y", ignore_error=True)
 
 
@@ -156,6 +169,7 @@ def free_up_disk_space(module, disk_used_pcent):
         exec_command(module, "rm -f /var/log/*.gz", ignore_error=True)
         exec_command(module, "rm -f /var/core/*", ignore_error=True)
         exec_command(module, "rm -rf /var/dump/*", ignore_error=True)
+        exec_command(module, "rm -rf /home/admin/*", ignore_error=True)
 
 
 def main():
@@ -172,15 +186,19 @@ def main():
     save_as = module.params['save_as']
 
     try:
+        results["current_stage"] = "start"
         work_around_for_slow_disks(module)
         reduce_installed_sonic_images(module)
+        results["current_stage"] = "prepare"
         if new_image_url or save_as:
             free_up_disk_space(module, disk_used_pcent)
             setup_swap_if_necessary(module)
+            results["current_stage"] = "install"
             install_new_sonic_image(module, new_image_url, save_as)
+        results["current_stage"] = "complete"
     except:
         err = str(sys.exc_info())
-        module.fail_json(msg="Error: %s" % err)
+        module.fail_json(msg="Results: %s; Error: %s" % (results, err))
 
     module.exit_json(ansible_facts=results)
 

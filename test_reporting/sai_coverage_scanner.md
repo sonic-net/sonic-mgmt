@@ -33,6 +33,8 @@ python3 test_reporting/sai_coverage/case_scanner.py -p ptf
 
 ## 2. Upload results to Kusto
 
+### a) Upload CaseInvocationReport
+
 Firstly, the corresponding table and mapping should be created in Kusto by the following Kusto commands.
 ```kql
 .create table CaseInvocationReport
@@ -78,8 +80,40 @@ upload_time: string
 '{"column":"upload_time","Properties":{"path":"$.upload_time"}}]'
 ```
 
-Then, connect to the `CaseInvocationReportV2` table and ingest data into it.
+Then, connect to the `CaseInvocationReport` table and ingest data into it.
 ```bash
 # 4. upload the results (json files) to Kusto
 python3 test_reporting/report_uploader.py result/scan SaiTestData -c case_invoc
+```
+
+### b) Upload SAIHeaderDefinition
+
+Firstly, the corresponding table and mapping should be created in Kusto by the following Kusto commands.
+
+```kql
+.create table SAIHeaderDefinition
+(
+sai_header: string,
+sai_id: string,
+sai_method_table: string,
+sai_feature: string,
+sai_api: string,
+sai_alias: string,
+branchName: string
+)
+
+.create table SAIHeaderDefinition ingestion json mapping
+'SAIHeaderDefinitionMapping' '['
+'{"column":"sai_header","Properties":{"path":"$.sai_header"}},'
+'{"column":"sai_id","Properties":{"path":"$.sai_id"}},'
+'{"column":"sai_method_table","Properties":{"path":"$.sai_method_table"}},'
+'{"column":"sai_feature","Properties":{"path":"$.sai_feature"}},'
+'{"column":"sai_api","Properties":{"path":"$.sai_api"}},'
+'{"column":"sai_alias","Properties":{"path":"$.sai_alias"}}]'
+```
+
+Then, connect to the `SAIHeaderDefinition` table and ingest data into it.
+```bash
+# 4. upload the results (json files) to Kusto
+python3 test_reporting/report_uploader.py result/sai_header_scan_result_test.json SaiTestData -c sai_header_def
 ```

@@ -29,7 +29,15 @@ POST_CHECK_THRESHOLD_SECS = 360
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
+    # Enable autorestart for all features before the test begins
+    for hostname in selected_rand_one_per_hwsku_hostname:
+        duthost = duthosts[hostname]
+        feature_list, _ = duthost.get_feature_status()
+        for feature, status in feature_list.items():
+            if status == 'enabled':
+                duthost.shell("sudo config feature autorestart {} enabled".format(feature))
     yield
+    # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         config_reload(duthost, config_source='running_golden_config', safe_reload=True)
@@ -86,12 +94,13 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
             ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: invalid OIDs in fdb notifications.*",
-            ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*",
+            ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: FDB notification was not sent since it contain invalid "
+            "OIDs.*",
             ".*ERR syncd[0-9]*#syncd.*saiGetMacAddress: failed to get mac address: SAI_STATUS_ITEM_NOT_FOUND.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_lag_or_port_get: Invalid port type - 2.*",
-            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported \
-            for bridge port type port.*",
+            ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported for "
+            "bridge port type port.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_debug_counter_availability_get: Unsupported debug counter type - (0|1).*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_get_port_stats_ext: Invalid port counter (177|178|179|180|181|182).*",
             ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_.*",
@@ -107,15 +116,23 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
             ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
-            ".*ERR dhcp_relay#dhcp6?relay.*bind: Failed to bind socket to link local ipv6 address on interface .* after [0-9]+ retries",
-        ]
+            ".*ERR dhcp_relay#dhcp6?relay.*bind: Failed to bind socket to link local ipv6 address on interface .* "
+            "after [0-9]+ retries",
+            ".*ERR gbsyncd#syncd: :- updateNotificationsPointers: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not "
+            "handled.*",
+            ".*ERR gbsyncd#syncd: :- updateNotificationsPointers: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not "
+            "handled.*",
+            ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*",
+            ".*ERR swss#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled.*",
+            ".*ERR swss#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled.*",
+    ]
     ignore_regex_dict = {
         'common': [
             ".*ERR monit.*",
             ".*ERR systemd.*Failed to start .* [Cc]ontainer.*",
             ".*ERR kernel.*PortChannel.*",
             ".*ERR route_check.*",
-            ".*ERR wrong number of arguments for 'hset' command: Input/output error: Input/output error"
+            ".*ERR wrong number of arguments for 'hset' command: Input/output error.*"
         ],
         'pmon': [
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
@@ -410,12 +427,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
 
     logger.info("Start testing the container '{}'...".format(container_name))
 
-    restore_disabled_state = False
-    if feature_autorestart_states[feature_name] == "disabled":
-        logger.info("Change auto-restart state of container '{}' to be 'enabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} enabled".format(feature_name))
-        restore_disabled_state = True
-
     # Currently we select 'rsyslogd' as non-critical processes for testing based on
     # the assumption that every container has an 'rsyslogd' process running and it is not
     # considered to be a critical process
@@ -452,10 +463,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             # why we use 'break' statement. Once we add the "extended" mode, we will remove this
             # statement
             break
-
-    if restore_disabled_state:
-        logger.info("Restore auto-restart state of container '{}' to 'disabled'".format(container_name))
-        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
 
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors

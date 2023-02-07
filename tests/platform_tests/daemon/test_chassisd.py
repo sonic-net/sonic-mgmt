@@ -7,10 +7,7 @@ This script is to cover the test case in the SONiC platform daemon and service t
 https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
 import logging
-import re
 import time
-
-from datetime import datetime
 
 import pytest
 
@@ -70,12 +67,16 @@ def check_expected_daemon_status(duthost, expected_daemon_status):
     daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
     return daemon_status == expected_daemon_status
 
+def check_if_daemon_restarted(duthost, daemon_name, pre_daemon_pid):
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    return (daemon_pid > pre_daemon_pid)
+
 def collect_data(duthost):
     keys = duthost.shell('sonic-db-cli STATE_DB KEYS "CHASSIS_*TABLE|*"')['stdout_lines']
 
     dev_data = {}
     for k in keys:
-        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout_lines']
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
     return {'keys': keys, 'data': dev_data}
@@ -167,6 +168,7 @@ def test_pmon_chassisd_term_and_start_status(check_daemon_status, duthosts, enum
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
+    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
     wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)

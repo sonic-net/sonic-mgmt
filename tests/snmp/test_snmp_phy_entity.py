@@ -634,31 +634,35 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
     entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
 
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
+    # Ignore the test if the platform does not have psus (e.g Line card)
+    if not keys:
+        pytest.skip('PSU information does not exist in DB, skipping this test {}'.format(duthost.hostname))
     power_off_psu_found = False
     for key in keys:
         psu_info = redis_hgetall(duthost, STATE_DB, key)
+        if psu_info['presence'] == 'false' or psu_info['status'] == 'true':
+            continue
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
         entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_PSU + position * MODULE_INDEX_MULTIPLE
-        if psu_info['status'] != 'true':
-            assert expect_oid in entity_mib_info
-            for field, sensor_tuple in PSU_SENSOR_INFO.items():
-                sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
-                # entity_sensor_mib_info is only supported in image newer than 202012
-                if sensor_oid in entity_mib_info:
-                    if psu_info['current'] == '0.0' and psu_info['power'] == '0.0':
-                        power_off_psu_found = True
-                        break
-                if is_sensor_test_supported(duthost):
-                    if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
-                        power_off_psu_found = True
-                        break
-                else:
-                    if sensor_oid not in entity_mib_info:
-                        power_off_psu_found = True
-                        break
+        assert expect_oid in entity_mib_info
+        for field, sensor_tuple in PSU_SENSOR_INFO.items():
+            sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
+            # entity_sensor_mib_info is only supported in image newer than 202012
+            if sensor_oid in entity_mib_info:
+                if psu_info['current'] == '0.0' and psu_info['power'] == '0.0':
+                    power_off_psu_found = True
+                    break
+            if is_sensor_test_supported(duthost):
+                if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
+                    power_off_psu_found = True
+                    break
+            else:
+                if sensor_oid not in entity_mib_info:
+                    power_off_psu_found = True
+                    break
     return power_off_psu_found
 
 

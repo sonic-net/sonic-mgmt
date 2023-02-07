@@ -54,6 +54,20 @@ def temp_enable_bgp_autorestart(duthosts):
         duthost.shell_cmds(cmds=cmds)
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        ".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: vtysh -c 'show bgp summary json'"
+    ]
+
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
+
+
 def test_active_tor_kill_bgpd_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
     toggle_all_simulator_ports_to_upper_tor, kill_bgpd):
@@ -168,13 +182,20 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
             action=lambda: shutdown_bgp_sessions(upper_tor_host)
         )
 
-    verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host,
-        expected_standby_health="unhealthy",
-        cable_type=cable_type
-    )
+    if cable_type == CableType.active_active:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            expected_standby_health="unhealthy",
+            cable_type=cable_type
+        )
 
+    if cable_type == CableType.active_standby:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            cable_type=cable_type
+        )
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby

@@ -359,10 +359,10 @@ class TestAutoTechSupport:
         """
         Validate max limit parameter for core/techsupport folder
         Test logic is as follows:
-        - Create 5 core/techsupport dummy files(each file 5%) which will use 25% of space in test folder
         - Set core/techsupport max limit to 0
+        - Create 5 core/techsupport dummy files(each file 5%) which will use 25% of space in test folder
         - Trigger techsupport and check that dummy files + new created core/techsupport files available
-        - Set core/techsupport max limit to 18
+        - Set core/techsupport max limit to 19
         - Trigger techsupport and check that 2 oldest dummy files removed, all other + new created core/techsupport
         files available
         :param test_mode: test mode - core or techsupport
@@ -381,20 +381,23 @@ class TestAutoTechSupport:
             pytest.skip('System uses more than 50% of space. '
                         'Test required at least 50% of free space in {}'.format(validation_folder))
 
+        max_limit = 0
+        with allure.step('Set {} limit to: {}'.format(test_mode, max_limit)):
+            set_limit(self.duthost, test_mode, max_limit, cleanup_list)
+
         with allure.step('Create 5 stub files(each file 5%) which will use 25% of space in test folder'):
             num_of_dummy_files = 5
-            one_file_size_in_percent = 5
             one_percent_in_mb = total / 100
+            # On some platforms one_percent_in_mb may be up to 800 Mb, in case of core test_mode
+            # this significantly increases the generation time needed for techsupport
+            one_file_size_in_percent = 1 if one_percent_in_mb > 300 and test_mode == 'core' else 5
             expected_file_size_in_mb = one_percent_in_mb * one_file_size_in_percent
             dummy_file_generator = create_techsupport_stub_file if test_mode == 'techsupport' else create_core_stub_file
             dummy_files_list = []
             for stub_file in range(num_of_dummy_files):
                 dummy_files_list.append(dummy_file_generator(self.duthost, size_in_mb=expected_file_size_in_mb))
 
-        max_limit = 0
         with allure.step('Validate: {} limit(disabled): {}'.format(test_mode, max_limit)):
-            with allure.step('Set {} limit to: {}'.format(test_mode, max_limit)):
-                set_limit(self.duthost, test_mode, max_limit, cleanup_list)
 
             with allure.step('Create .core file in test docker and check techsupport generated'):
                 expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
@@ -405,7 +408,7 @@ class TestAutoTechSupport:
                 validate_expected_stub_files(self.duthost, validation_folder, dummy_files_list,
                                              expected_number_of_additional_files=1)
 
-        max_limit = 18
+        max_limit = 3 if one_percent_in_mb > 300 and test_mode == 'core' else 19
         with allure.step('Validate: {} limit: {}'.format(test_mode, max_limit)):
             with allure.step('Set {} limit to: {}'.format(test_mode, max_limit)):
                 set_limit(self.duthost, test_mode, max_limit, cleanup_list=None)
@@ -787,7 +790,7 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
 
     if expected_techsupport_files:
         # techsupport file creation may took some time after generate dump process already finished
-        assert wait_until(300, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
+        assert wait_until(600, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
             'New expected techsupport file was not generated'
 
     # Do validation for history
@@ -1098,7 +1101,7 @@ def validate_folder_size_less_than_allowed(duthost, folder, expected_max_folder_
         used_by_folder = get_used_space(duthost, folder)
         err_msg = 'Folder {} has size: {}Mb more than expected: {}Mb'.format(folder, used_by_folder,
                                                                              expected_max_folder_size)
-        assert used_by_folder < expected_max_folder_size, err_msg
+        assert used_by_folder <= expected_max_folder_size, err_msg
 
 
 def is_docker_enabled(system_features_status, docker):

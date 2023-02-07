@@ -47,15 +47,12 @@ def test_sai(sai_testbed,
         run_case_from_ptf(
             duthost, dut_ip, ptfhost,
             ptf_sai_test_case, sai_test_interface_para, request)
-        if request.config.option.always_stop_sai_test_container:
-            stop_and_rm_sai_test_container(
-                duthost, get_sai_test_container_name(request))
     except BaseException as e:
         logger.info("Test case [{}] failed, \
             trying to restart sai test container, \
                 failed as {}.".format(ptf_sai_test_case, e))
-        stop_and_rm_sai_test_container(
-            duthost, get_sai_test_container_name(request))
         pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
     finally:
+        stop_and_rm_sai_test_container(
+            duthost, get_sai_test_container_name(request))
         store_test_result(ptfhost)

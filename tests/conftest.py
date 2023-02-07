@@ -24,6 +24,7 @@ from tests.common.devices.k8s import K8sMasterCluster
 from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
+from tests.common.devices.cisco import CiscoHost
 from tests.common.helpers.parallel import parallel_run
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session    # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
@@ -96,7 +97,7 @@ def pytest_addoption(parser):
                      help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     # neighbor device type
-    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic"],
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
                      help="Neighbor devices type")
 
     # FWUtil options
@@ -501,6 +502,18 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
                     'conf': tbinfo['topo']['properties']['configuration'][k]
                 }
             )
+        elif neighbor_type == "cisco":
+            device = NeighborDevice(
+                {
+                    'host': CiscoHost(
+                        ansible_adhoc,
+                        vm_name,
+                        creds['cisco_login'],
+                        creds['cisco_password'],
+                    ),
+                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                }
+            )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
         devices[k] = device
@@ -556,6 +569,13 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                                         shell_passwd=shell_password)
                     fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
+
+                    if fanout.os == 'sonic':
+                        ifs_status = fanout.host.get_interfaces_status()
+                        for key, interface_info in ifs_status.items():
+                            fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
+                        logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
+
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
                 # Add port name to fanout port mapping port if dut_port is alias.
@@ -1187,12 +1207,12 @@ def generate_dut_backend_asics(request, duts_selected):
     metadata = get_testbed_metadata(request)
 
     if metadata is None:
-        return [[None]]
+        return [[None]]*len(duts_selected)
 
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            continue
+            dut_asic_list.append([None]) 
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
@@ -1223,6 +1243,35 @@ def generate_priority_lists(request, prio_scope):
     for dut, priorities in dut_prio.items():
         for p in priorities:
             ret.append('{}|{}'.format(dut, p))
+
+    return ret if ret else empty
+
+
+def pfc_pause_delay_test_params(request):
+    empty = []
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'pfc_headroom_test_params'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in info:
+        return empty
+
+    dut_pfc_delay_params = info[tbname]
+    ret = []
+
+    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
+        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+            ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
 
     return ret if ret else empty
 
@@ -1317,8 +1366,32 @@ def pytest_generate_tests(metafunc):        # noqa E302
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
-    if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
-        metafunc.parametrize("enum_dut_portname_module_fixture", parametrise_autoneg_tests(), scope="module")
+
+    def format_portautoneg_test_id(param):
+        speeds = param['speeds'] if 'speeds' in param else [param['speed']]
+        return "{}|{}|{}".format(param['dutname'], param['port'], ','.join(speeds))
+
+    if "enum_dut_portname_module_fixture" in metafunc.fixturenames or \
+            "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
+        autoneg_tests_data = get_autoneg_tests_data()
+        if "enum_dut_portname_module_fixture" in metafunc.fixturenames:
+            metafunc.parametrize(
+                "enum_dut_portname_module_fixture",
+                autoneg_tests_data,
+                scope="module",
+                ids=format_portautoneg_test_id,
+                indirect=True
+            )
+
+        if "enum_speed_per_dutport_fixture" in metafunc.fixturenames:
+            metafunc.parametrize(
+                "enum_speed_per_dutport_fixture",
+                parametrise_per_supported_port_speed(autoneg_tests_data),
+                scope="module",
+                ids=format_portautoneg_test_id,
+                indirect=True
+            )
+
     if "enum_dut_portname_oper_up" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname_oper_up", generate_port_lists(metafunc, "oper_up_ports"))
     if "enum_dut_portname_admin_up" in metafunc.fixturenames:
@@ -1340,24 +1413,33 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
+        metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
 
-def parametrise_autoneg_tests():
+def get_autoneg_tests_data():
     folder = 'metadata'
     filepath = os.path.join(folder, 'autoneg-test-params.json')
+    if not os.path.exists(filepath):
+        logger.warning('Autoneg tests datafile is missing: {}. " \
+            "Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
+        return [{'dutname': 'unknown', 'port': 'unknown', 'speeds': ['unknown']}]
     data = {}
-    try:
-        with open(filepath) as yf:
-            data = json.load(yf)
-    except IOError:
-        logger.warning('Cannot find a datafile for autoneg tests at {}. '
-                       'Run test_pretest -k test_update_testbed_metadata to create it'.format(filepath))
-        return []
+    with open(filepath) as yf:
+        data = json.load(yf)
 
-    def limit_ports(ports):
-        return random.sample(ports, min(3, len(ports)))
+    return [
+        {'dutname': dutname, 'port': dutport, 'speeds': portinfo['common_port_speeds']}
+        for dutname, ports in data.items()
+        for dutport, portinfo in ports.items()
+    ]
 
-    return [encode_dut_port_name(dutname, dutport) for dutname in data for dutport in limit_ports(data[dutname])]
+
+def parametrise_per_supported_port_speed(data):
+    return [
+        {'dutname': conn_info['dutname'], 'port': conn_info['port'], 'speed': speed}
+        for conn_info in data for speed in conn_info['speeds']
+    ]
 
 
 # Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
@@ -1730,8 +1812,18 @@ def __dut_reload(duts_data, node=None, results=None):
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"], indent=4),
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"][None], indent=4),
               dest='/etc/sonic/config_db.json', verbose=False)
+
+    if node.is_multi_asic:
+        for asic_index in range(0, node.facts.get('num_asic')):
+            asic_ns = "asic{}".format(asic_index)
+            asic_cfg_file = "/tmp/{}_config_db{}.json".format(node.hostname, asic_index)
+            with open(asic_cfg_file, "w") as outfile:
+                outfile.write(json.dumps(duts_data[node.hostname]['pre_running_config'][asic_ns], indent=4))
+            node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
+            os.remove(asic_cfg_file)
+
     config_reload(node)
 
 
@@ -1771,11 +1863,24 @@ def core_dump_and_config_check(duthosts, request):
                 pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
+            logger.info("Collecting running config before test on {}".format(duthost.hostname))
+            duts_data[duthost.hostname]["pre_running_config"] = {}
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"] = \
+            duts_data[duthost.hostname]["pre_running_config"][None] = \
                 json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
+
+            if duthost.is_multi_asic:
+                for asic_index in range(0, duthost.facts.get('num_asic')):
+                    asic_ns = "asic{}".format(asic_index)
+                    if not duthost.stat(
+                            path="/etc/sonic/running_golden_config{}.json".format(asic_index))['stat']['exists']:
+                        duthost.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
+                                      format(asic_ns, asic_index))
+                    duts_data[duthost.hostname]['pre_running_config'][asic_ns] = \
+                        json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
+                                                 verbose=False)['stdout'])
 
     yield
 
@@ -1800,72 +1905,111 @@ def core_dump_and_config_check(duthosts, request):
                 core_dump_check_pass = False
 
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
-            duts_data[duthost.hostname]["cur_running_config"] = \
+            # get running config after running
+            duts_data[duthost.hostname]["cur_running_config"] = {}
+            duts_data[duthost.hostname]["cur_running_config"][None] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+            if duthost.is_multi_asic:
+                for asic_index in range(0, duthost.facts.get('num_asic')):
+                    asic_ns = "asic{}".format(asic_index)
+                    duts_data[duthost.hostname]["cur_running_config"][asic_ns] = \
+                        json.loads(duthost.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                                 verbose=False)['stdout'])
 
-            pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
-            cur_running_config_keys = set(duts_data[duthost.hostname]["cur_running_config"].keys())
-
+            # The tables that we don't care
+            EXCLUDE_CONFIG_TABLE_NAMES = set([])
+            # The keys that we don't care
             # Current skipped keys:
-            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture to account for the lower performance of the ICMP responder/mux simulator
-            #    compared to real servers and mux cables. It's appropriate to persist this change since the testbed will always be using the ICMP responder
-            #    and mux simulator. Linkmgrd is the only service to consume this table so it should not affect other test cases.
-            EXCLUDE_CONFIG_KEYS = set(["MUX_LINKMGR"])
-            # Check if there are extra keys in pre running config
-            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
-            for key in pre_config_extra_keys:
-                pre_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["pre_running_config"][key]})
+            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture
+            # to account for the lower performance of the ICMP responder/mux simulator,
+            # compared to real servers and mux cables. It's appropriate to persist this change
+            # since the testbed will always be using the ICMP responder and mux simulator.
+            # Linkmgrd is the only service to consume this table so it should not affect other test cases.
+            EXCLUDE_CONFIG_KEY_NAMES = [
+                'MUX_LINKMGR|LINK_PROBER'
+            ]
 
-            # Check if there are extra keys in cur running config
-            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_KEYS)
-            for key in cur_config_extra_keys:
-                cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
+            def _remove_entry(table_name, key_name, config):
+                if table_name in config and key_name in config[table_name]:
+                    config[table_name].pop(key_name)
+                    if len(config[table_name]) == 0:
+                        config.pop(table_name)
 
-            # Get common keys in pre running config and cur running config
-            common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_KEYS)
+            for cfg_context in duts_data[duthost.hostname]['pre_running_config']:
+                pre_only_config[duthost.hostname][cfg_context] = {}
+                cur_only_config[duthost.hostname][cfg_context] = {}
+                inconsistent_config[duthost.hostname][cfg_context] = {}
 
-            # Check if the running config is modified after module running
-            for key in common_config_keys:
-                # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
-                if key == "FLEX_COUNTER_TABLE":
-                    for sub_key, sub_value in duts_data[duthost.hostname]["pre_running_config"][key].items():
-                        try:
-                            pre_value = duts_data[duthost.hostname]["pre_running_config"][key][sub_key]
-                            cur_value = duts_data[duthost.hostname]["cur_running_config"][key][sub_key]
-                            if pre_value["FLEX_COUNTER_STATUS"] != cur_value["FLEX_COUNTER_STATUS"]:
-                                inconsistent_config[duthost.hostname].update(
+                pre_running_config = duts_data[duthost.hostname]["pre_running_config"][cfg_context]
+                cur_running_config = duts_data[duthost.hostname]["cur_running_config"][cfg_context]
+
+                # Remove ignored keys from base config
+                for exclude_key in EXCLUDE_CONFIG_KEY_NAMES:
+                    fields = exclude_key.split('|')
+                    if len(fields) != 2:
+                        continue
+                    _remove_entry(fields[0], fields[1], pre_running_config)
+                    _remove_entry(fields[0], fields[1], cur_running_config)
+
+                pre_running_config_keys = set(pre_running_config.keys())
+                cur_running_config_keys = set(cur_running_config.keys())
+
+                # Check if there are extra keys in pre running config
+                pre_config_extra_keys = list(
+                    pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                for key in pre_config_extra_keys:
+                    pre_only_config[duthost.hostname][cfg_context].update({key: pre_running_config[key]})
+
+                # Check if there are extra keys in cur running config
+                cur_config_extra_keys = list(
+                    cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                for key in cur_config_extra_keys:
+                    cur_only_config[duthost.hostname][cfg_context].update({key: cur_running_config[key]})
+
+                # Get common keys in pre running config and cur running config
+                common_config_keys = list(pre_running_config_keys & cur_running_config_keys -
+                                          EXCLUDE_CONFIG_TABLE_NAMES)
+
+                # Check if the running config is modified after module running
+                for key in common_config_keys:
+                    # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
+                    if key == "FLEX_COUNTER_TABLE":
+                        for sub_key, sub_value in pre_running_config[key].items():
+                            try:
+                                pre_value = pre_running_config[key][sub_key]
+                                cur_value = cur_running_config[key][sub_key]
+                                if pre_value["FLEX_COUNTER_STATUS"] != cur_value["FLEX_COUNTER_STATUS"]:
+                                    inconsistent_config[duthost.hostname][cfg_context].update(
+                                        {
+                                            key: {
+                                                "pre_value": pre_running_config[key],
+                                                "cur_value": cur_running_config[key]
+                                            }
+                                        }
+                                    )
+                            except KeyError:
+                                inconsistent_config[duthost.hostname][cfg_context].update(
                                     {
                                         key: {
-                                            "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                            "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
+                                            "pre_value": pre_running_config[key],
+                                            "cur_value": cur_running_config[key]
                                         }
                                     }
                                 )
-                        except KeyError:
-                            inconsistent_config[duthost.hostname].update(
-                                {
-                                    key: {
-                                        "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                        "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
-                                    }
+                    elif pre_running_config[key] != cur_running_config[key]:
+                        inconsistent_config[duthost.hostname][cfg_context].update(
+                            {
+                                key: {
+                                    "pre_value": pre_running_config[key],
+                                    "cur_value": cur_running_config[key]
                                 }
-                            )
-                elif duts_data[duthost.hostname]["pre_running_config"][key] != \
-                        duts_data[duthost.hostname]["cur_running_config"][key]:
-                    inconsistent_config[duthost.hostname].update(
-                        {
-                            key: {
-                                "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
-                                }
-                        }
-                    )
+                            }
+                        )
 
-            if pre_only_config[duthost.hostname] or \
-                    cur_only_config[duthost.hostname] or \
-                    inconsistent_config[duthost.hostname]:
-                config_db_check_pass = False
-
+                if pre_only_config[duthost.hostname][cfg_context] or \
+                        cur_only_config[duthost.hostname][cfg_context] or \
+                        inconsistent_config[duthost.hostname][cfg_context]:
+                    config_db_check_pass = False
         if not (core_dump_check_pass and config_db_check_pass):
             check_result = {
                 "core_dump_check": {
