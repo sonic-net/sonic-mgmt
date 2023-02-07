@@ -208,7 +208,7 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
     # Returns whether 1 packet was successfully enqueued.
     if asic_type in ['cisco-8000']:
         queue_counters_base = sai_thrift_read_queue_occupancy(test_case.client, dst_port_id)
-        max_packets = 100
+        max_packets = 500
         for packet_i in range(max_packets):
             send_packet(test_case, src_port_id, pkt, 1)
             queue_counters = sai_thrift_read_queue_occupancy(test_case.client, dst_port_id)
@@ -659,7 +659,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 ip_ecn=ecn,
                 ip_ttl=64
                 )
-        
+
         ipinip_packet = simple_ipv4ip_packet(
                             eth_dst=active_tor_mac,
                             eth_src=standby_tor_mac,
@@ -744,7 +744,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size)
         finally:
             # Enable tx on dest port
-            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])       
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
 
 # DOT1P to pg mapping
@@ -2373,7 +2373,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         qos_remap_enable = bool(self.test_params.get('qos_remap_enable', False))
         print >> sys.stderr, "dst_port_id: %d, src_port_id: %d qos_remap_enable: %d" % (dst_port_id, src_port_id, qos_remap_enable)
         print >> sys.stderr, "dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (dst_port_mac, src_port_mac, src_port_ip, dst_port_ip)
-        
+
         asic_type = self.test_params['sonic_asic_type']
         default_packet_length = 1500
         exp_ip_id = 110
@@ -3831,7 +3831,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
                                             dst_ip=dst_port_ip,
                                             ecn=ecn,
                                             packet_size=packet_size)
-            
+
             # Send packets short of triggering pfc
             send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
             time.sleep(8)
@@ -3854,5 +3854,5 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(rx_counters[pg] > rx_counters_base[pg])
         finally:
             # Enable tx on dest port
-            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])       
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
