@@ -9,7 +9,6 @@ import time
 
 from collections import defaultdict
 from datetime import datetime, timedelta
-from multiprocessing.pool import ThreadPool
 
 from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
@@ -20,6 +19,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
+from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
@@ -178,33 +178,34 @@ class SonicHost(AnsibleHostBase):
         """
         Gather facts about the platform for this SONiC device.
         """
-        pool = ThreadPool(5)
-
         facts = self._get_platform_info()
 
-        num_asic = pool.apply_async(self._get_asic_count, args=(facts["platform"],))
-        router_mac = pool.apply_async(self._get_router_mac)
-        modular_chassis = pool.apply_async(self._get_modular_chassis)
-        mgmt_interface = pool.apply_async(self._get_mgmt_interface)
-        switch_type = pool.apply_async(self._get_switch_type)
-        router_type = pool.apply_async(self._get_router_type)
-        asics_present = pool.apply_async(self.get_asics_present_from_inventory)
-        platform_asic = pool.apply_async(self._get_platform_asic, args=(facts["platform"],))
+        results = parallel_run_threaded(
+            [
+                lambda: self._get_asic_count(facts["platform"]),
+                self._get_router_mac,
+                self._get_modular_chassis,
+                self._get_mgmt_interface,
+                self._get_switch_type,
+                self._get_router_type,
+                self.get_asics_present_from_inventory,
+                lambda: self._get_platform_asic(facts["platform"])
+            ],
+            timeout=120,
+            thread_count=5
+        )
 
-        pool.close()
-        pool.join()
+        facts["num_asic"] = results[0]
+        facts["router_mac"] = results[1]
+        facts["modular_chassis"] = results[2]
+        facts["mgmt_interface"] = results[3]
+        facts["switch_type"] = results[4]
+        facts["router_type"] = results[5]
 
-        facts["num_asic"] = num_asic.get()
-        facts["router_mac"] = router_mac.get()
-        facts["modular_chassis"] = modular_chassis.get()
-        facts["mgmt_interface"] = mgmt_interface.get()
-        facts["switch_type"] = switch_type.get()
-        facts["router_type"] = router_type.get()
+        facts["asics_present"] = results[6] if len(results[6]) != 0 else list(range(facts["num_asic"]))
 
-        facts["asics_present"] = asics_present.get() if len(asics_present.get()) != 0 else list(range(facts["num_asic"]))
-
-        if platform_asic.get():
-            facts["platform_asic"] = platform_asic.get()
+        if results[7]:
+            facts["platform_asic"] = results[7]
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
