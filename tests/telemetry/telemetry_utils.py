@@ -93,3 +93,10 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                 submode, intervalms,
                 update_count)
     return cmd
+
+
+def listenForEvent(tag, event, timeout, localhost, run_cmd, op_file):
+    logger.info("Starting to listen for event {}".format(event))
+    filter_event = tag + ":" + event
+    run_cmd(localhost, ["heartbeat=5"], op_file=op_file,
+            filter_event=filter_event, event_cnt=1, timeout=timeout)
