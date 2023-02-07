@@ -6,6 +6,12 @@ from ansible.module_utils.parsing.convert_bool import boolean
 from ansible.module_utils._text import to_text
 
 import ast
+import sys
+
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
+
 
 class ActionModule(ActionBase):
 
