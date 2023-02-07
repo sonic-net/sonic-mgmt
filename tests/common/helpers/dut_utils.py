@@ -87,14 +87,18 @@ def clear_failed_flag_and_restart(duthost, container_name):
     Returns:
         None
     """
-    logger.info("{} hits start limit and clear reset-failed flag".format(container_name))
+    logger.info("Clearing reset-failed flag of container '{}'".format(container_name))
     duthost.shell("sudo systemctl reset-failed {}.service".format(container_name))
-    duthost.shell("sudo systemctl start {}.service".format(container_name))
+    logger.info("reset-failed flag of container '{}' is cleared".format(container_name))
+
+    logger.info("Container '{}' is being restarted ...".format(container_name))
+    duthost.shell("sudo systemctl restart {}.service".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
                            0,
                            check_container_state, duthost, container_name, True)
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
+    logger.info("Container '{}' is restarted.".format(container_name))
 
 
 def get_group_program_info(duthost, container_name, group_name):
