@@ -4,22 +4,26 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports
+    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
+    get_multidut_3_tgen_peer_port_set
 from tests.common.snappi.qos_fixtures import prio_dscp_map_dut_base,\
              lossless_prio_list_dut_base
-import random
-
+from tests.snappi.variables import config_set, line_card_choice
 from files.pfcwd_multidut_multi_node_helper import run_pfcwd_multi_node_test, dummy
 from files.helper import skip_pfcwd_test
 
 pytestmark = [ pytest.mark.topology('snappi') ]
 
 @pytest.mark.parametrize("trigger_pfcwd", [False])
+@pytest.mark.parametrize('line_card_choice', [line_card_choice])
+@pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_multidut_pfcwd_all_to_all(snappi_api,
                           conn_graph_facts,
                           fanout_graph_facts,
                           duthosts,
                           rand_select_two_dut,
+                          line_card_choice,
+                          linecard_configuration_set,
                           get_multidut_snappi_ports,
                           trigger_pfcwd):
 
@@ -38,19 +42,41 @@ def test_multidut_pfcwd_all_to_all(snappi_api,
         lossy_prio_list (pytest fixture): list of lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
-
+        line_card_choice: Line card choice to be mentioned in the variable.py file
+        linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
     Returns:
         N/A
     """
-    #duts = rand_select_two_dut
-    duthost1 = duthosts[0]
-    duthost2 = duthosts[1]
-    snappi_ports = get_multidut_snappi_ports
-    port_set1 = random.sample(get_tgen_peer_ports(snappi_ports, duthost1.hostname), 1)[0]
-    port_set2 = get_tgen_peer_ports(snappi_ports, duthost2.hostname)
-    tgen_ports = [port_set1[0], port_set2[1][0], port_set2[0][0] ]
+    if line_card_choice not in linecard_configuration_set.keys():
+        assert False, "Invalid line_card_choice value passed in parameter"
+
+    duts = rand_select_two_dut
+    if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
+        duthost1 = duts[0]
+        duthost2 = duts[1]
+        dut_list = [duthost1, duthost2]
+    elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
+        for dut in duts:
+            if linecard_configuration_set[line_card_choice]['hostname'] in [dut.hostname]:
+                duthost1 = dut
+                duthost2 = dut
+                dut_list = [duthost1]
+    else:
+        assert False, "Hostname can't be an empty list"
+
+    snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice, 
+                                                line_card_info=linecard_configuration_set[line_card_choice])
+    if len(snappi_port_list) < 3:
+        assert False, "Need Minimum of 3 ports for the test"
+    tgen_snappi_ports = get_multidut_3_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set)
+    port_set = tgen_snappi_ports[0]
+    port_set1 = port_set[0]
+    port_set2 = port_set[1]
+    port_set3 = port_set[2]
+    snappi_ports = tgen_snappi_ports[1]
+    tgen_ports = [port_set1[0], port_set2[0], port_set3[0]]
     dut_port = port_set1[1]
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config([duthost1, duthost2],
+    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
                                                               tgen_ports,
                                                               snappi_ports,
                                                               snappi_api)
@@ -69,8 +95,10 @@ def test_multidut_pfcwd_all_to_all(snappi_api,
                               conn_data=conn_graph_facts,
                               fanout_data=fanout_graph_facts,
                               duthost1=duthost1,
+                              rx_port=snappi_ports[0],
                               rx_port_id_list=[snappi_ports[0]["port_id"]],
                               duthost2=duthost2,
+                              tx_port=[snappi_ports[1],snappi_ports[2]],
                               tx_port_id_list=[snappi_ports[1]["port_id"],snappi_ports[2]["port_id"]],
                               dut_port=dut_port,
                               pause_prio_list=pause_prio_list,

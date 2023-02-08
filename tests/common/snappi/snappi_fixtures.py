@@ -53,8 +53,7 @@ def snappi_api(snappi_api_serv_ip,
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
         snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture.
     """
-    #location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
-    location = "https://" + '10.36.77.32' + ":" + str(11009)
+    location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
     # TODO: Currently extension is defaulted to ixnetwork.
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
@@ -1152,7 +1151,6 @@ def get_multidut_tgen_peer_port_set(line_card_choice,ports,config_set):
             port2=random.sample(asic2_ports,1)[0]
             port_set1 = (port1['location'],port1['peer_port'])
             port_set2 = (port2['location'],port2['peer_port'])
-            #import pdb;pdb.set_trace()
         elif line_card_choice == 'chassis_multi_line_card_multi_asic':
             for port in ports:
                 if port['asic_value'] == config_set[line_card_choice]['asic'][0] and port['peer_device'] == config_set[line_card_choice]['hostname'][0]:
@@ -1166,5 +1164,69 @@ def get_multidut_tgen_peer_port_set(line_card_choice,ports,config_set):
         else:
             pass
         return [(port_set1,port_set2),[port1,port2]]
+    except Exception as e:
+        raise Exception(e,'Error: Invalid line_card_choice or Not enough ports')
+
+def get_multidut_3_tgen_peer_port_set(line_card_choice,ports,config_set):
+    asic1_ports, asic2_ports=[],[]
+    try:
+        if line_card_choice == 'chassis_single_line_card_single_asic' or line_card_choice =='non_chassis_single_line_card':
+            port1=ports[0]
+            port2=ports[1]
+            port3=ports[2]
+            port_set1 = (port1['location'],port1['peer_port'])
+            port_set2 = (port2['location'],port2['peer_port'])
+            port_set3 = (port3['location'],port3['peer_port'])
+        elif line_card_choice == 'chassis_single_line_card_multi_asic':
+            for port in ports:
+                if port['asic_value'] == config_set[line_card_choice]['asic'][0]:
+                    asic1_ports.append(port)
+                elif port['asic_value'] == config_set[line_card_choice]['asic'][1]:
+                    asic2_ports.append(port)
+            port1=random.sample(asic1_ports,1)[0]
+            port2=random.sample(asic2_ports,1)[0]
+            for port in asic2_ports:
+                if port!=port2:
+                    port3 = port
+                else:
+                    continue
+            port_set1 = (port1['location'],port1['peer_port'])
+            port_set2 = (port2['location'],port2['peer_port'])
+            port_set3 = (port3['location'],port3['peer_port'])
+        elif line_card_choice == 'chassis_multi_line_card_single_asic' or line_card_choice =='non_chassis_multi_line_card':
+            for port in ports:
+                if port['peer_device'] == config_set[line_card_choice]['hostname'][0]:
+                    asic1_ports.append(port)
+                elif port['peer_device'] == config_set[line_card_choice]['hostname'][1]:
+                    asic2_ports.append(port)
+            port1=random.sample(asic1_ports,1)[0]
+            port2=random.sample(asic2_ports,1)[0]
+            for port in asic2_ports:
+                if port!=port2:
+                    port3 = port
+                else:
+                    continue
+            port_set1 = (port1['location'],port1['peer_port'])
+            port_set2 = (port2['location'],port2['peer_port'])
+            port_set3 = (port3['location'],port3['peer_port'])
+        elif line_card_choice == 'chassis_multi_line_card_multi_asic':
+            for port in ports:
+                if port['asic_value'] == config_set[line_card_choice]['asic'][0] and port['peer_device'] == config_set[line_card_choice]['hostname'][0]:
+                    asic1_ports.append(port)
+                elif port['asic_value'] == config_set[line_card_choice]['asic'][1] and port['peer_device'] == config_set[line_card_choice]['hostname'][1]:
+                    asic2_ports.append(port)
+            port1=random.sample(asic1_ports,1)[0]
+            port2=random.sample(asic2_ports,1)[0]
+            for port in asic2_ports:
+                if port!=port2:
+                    port3 = port
+                else:
+                    continue
+            port_set1 = (port1['location'],port1['peer_port'])
+            port_set2 = (port2['location'],port2['peer_port'])
+            port_set3 = (port3['location'],port3['peer_port'])
+        else:
+            pass
+        return [(port_set1,port_set2,port_set3),[port1,port2,port3]]
     except Exception as e:
         raise Exception(e,'Error: Invalid line_card_choice or Not enough ports')

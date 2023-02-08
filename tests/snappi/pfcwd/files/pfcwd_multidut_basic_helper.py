@@ -7,7 +7,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
-    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, get_asic_count,\
+    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
     enable_packet_aging, start_pfcwd
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
@@ -27,8 +27,10 @@ def run_pfcwd_basic_test(api,
                          conn_data,
                          fanout_data,
                          duthost1,
+                         rx_port,
                          rx_port_id,
                          duthost2,
+                         tx_port,
                          tx_port_id,
                          dut_port,
                          prio_list,
@@ -52,35 +54,15 @@ def run_pfcwd_basic_test(api,
     Returns:
         N/A
     """
-    #get_asic_count(duthost1)
-    asic_count_1 = get_asic_count(duthost1)[0]
-    asic_1 = None if get_asic_count(duthost1)[1] == True else ['asic%d'%i for i in range(0,asic_count_1)]
-    asic_count_2 = get_asic_count(duthost2)[0]
-    asic_2 = None if get_asic_count(duthost2)[1] == True else ['asic%d'%i for i in range(0,asic_count_2)]
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    #start_pfcwd(duthost1,asic)
-    #enable_packet_aging(duthost1)
-    #start_pfcwd(duthost2,asic)
-    #enable_packet_aging(duthost2)
-
-    if asic_1 != None and asic_2 != None:
-        for i,j in asic_1,asic_2:
-            start_pfcwd(duthost1,i)
-            enable_packet_aging(duthost1)
-            start_pfcwd(duthost2,j)
-            enable_packet_aging(duthost2)
-            poll_interval_sec = get_pfcwd_poll_interval(duthost1,i) / 1000.0
-            detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,namespace=i) / 1000.0
-            restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,namespace=i) / 1000.0
-    else:
-        start_pfcwd(duthost1)
-        enable_packet_aging(duthost1)
-        start_pfcwd(duthost2)
-        enable_packet_aging(duthost2)
-        poll_interval_sec = float(get_pfcwd_poll_interval(duthost1) / 1000.0)
-        detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port) / 1000.0
-        restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port) / 1000.0
+    start_pfcwd(duthost1, rx_port['asic_value'])
+    enable_packet_aging(duthost1)
+    start_pfcwd(duthost2, tx_port['asic_value'])
+    enable_packet_aging(duthost2)
+    poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,asic_value=rx_port['asic_value']) / 1000.0
+    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,asic_value=rx_port['asic_value']) / 1000.0
 
     if trigger_pfcwd:
         """ Large enough to trigger PFC watchdog """

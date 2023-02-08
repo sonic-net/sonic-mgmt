@@ -432,7 +432,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
             return False
 
         """ Ensure that Kmin is no larger than Kmax during the update """
-        if asic_value=='None'
+        if asic_value=='None':
             if kmin > kmin_old:
                 host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
                 host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
@@ -461,7 +461,7 @@ def enable_ecn(host_ans, prio, asic_value='None'):
     Returns:
         N/A
     """
-    if asic_value=='None'
+    if asic_value=='None':
         host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
@@ -479,7 +479,7 @@ def disable_ecn(host_ans, prio, asic_value='None'):
     Returns:
         N/A
     """
-    if asic_value=='None'
+    if asic_value=='None':
         host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} off'.format(asic_value, prio))

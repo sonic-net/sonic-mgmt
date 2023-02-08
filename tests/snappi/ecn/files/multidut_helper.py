@@ -80,7 +80,7 @@ def run_ecn_test(api,
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
 
     """ Enable ECN marking """
-    enable_ecn(host_ans=duthost1, prio=lossless_prio, asic_value=rx_port['asic_value']))
+    enable_ecn(host_ans=duthost1, prio=lossless_prio, asic_value=rx_port['asic_value'])
 
     """ Configure PFC threshold to 2 ^ 3 """
     config_result = config_ingress_lossless_buffer_alpha(host_ans=duthost1,
@@ -307,15 +307,7 @@ def __run_traffic(api,
     cs.port_names = [capture_port_name]
     cs.state = cs.START
     api.set_capture_state(cs)
-    import pdb;pdb.set_trace()
-    api_serv = '10.36.83.101'
-    username = 'admin'
-    password = 'admin'
-    #Mention the Session ID of UHD
-    sessionId=9
-    session = SessionAssistant(IpAddress=api_serv, RestPort=443, UserName=username, Password=password,SessionName=None, SessionId=sessionId, ApiKey=None, ClearConfig=False, LogLevel='info')
-    ixn = session.Ixnetwork
-    import pdb;pdb.set_trace()
+
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START

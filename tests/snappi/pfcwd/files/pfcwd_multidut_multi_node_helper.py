@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_helpers import get_dut_port_id
-from tests.common.snappi.common_helpers import pfc_class_enable_vector,get_asic_count,\
+from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
 from tests.common.snappi.port import select_ports
 from tests.common.snappi.snappi_helpers import wait_for_arp
@@ -29,8 +29,10 @@ def run_pfcwd_multi_node_test(api,
                               conn_data,
                               fanout_data,
                               duthost1,
+                              rx_port,
                               rx_port_id_list,
                               duthost2,
+                              tx_port,
                               tx_port_id_list,
                               dut_port,
                               pause_prio_list,
@@ -72,28 +74,13 @@ def run_pfcwd_multi_node_test(api,
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
 
-    #start_pfcwd(duthost1)
-    #enable_packet_aging(duthost1)
-    #start_pfcwd(duthost2)
-    #enable_packet_aging(duthost2)
 
-    #poll_interval_sec = get_pfcwd_poll_interval(duthost1) / 1000.0
-    #detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port) / 1000.0
-    if asic_1 != None and asic_2 != None:
-        for i,j in asic_1,asic_2:
-            start_pfcwd(duthost1,i)
-            enable_packet_aging(duthost1)
-            start_pfcwd(duthost2,j)
-            enable_packet_aging(duthost2)
-            poll_interval_sec = get_pfcwd_poll_interval(duthost1,i) / 1000.0
-            detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,namespace=i) / 1000.0
-    else:
-        start_pfcwd(duthost1)
-        enable_packet_aging(duthost1)
-        start_pfcwd(duthost2)
-        enable_packet_aging(duthost2)
-        poll_interval_sec = float(get_pfcwd_poll_interval(duthost1) / 1000.0)
-        detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port) / 1000.0
+    start_pfcwd(duthost1, rx_port['asic_value'])
+    enable_packet_aging(duthost1)
+    start_pfcwd(duthost2, tx_port[0]['asic_value'])
+    enable_packet_aging(duthost2)
+    poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,asic_value=rx_port['asic_value']) / 1000.0
 
     if trigger_pfcwd:
         pfc_storm_dur_sec = poll_interval_sec + detect_time_sec
