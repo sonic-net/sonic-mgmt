@@ -1354,7 +1354,10 @@ def remove_static_routes(standby_tor, active_tor_loopback_ip):
     Remove static routes for active tor
     """
     logger.info("Removing dual ToR peer switch static route")
-    standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
+
+    active_tor_loopback_ip = ipaddress.ip_address(active_tor_loopback_ip.decode())
+    subnet_mask_len = 32 if active_tor_loopback_ip.version == 4 else 128
+    standby_tor.shell('ip route del {}/{}'.format(str(active_tor_loopback_ip), subnet_mask_len), module_ignore_errors=True)
 
 
 def increase_linkmgrd_probe_interval(duthosts, tbinfo):
