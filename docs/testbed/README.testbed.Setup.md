@@ -80,31 +80,38 @@ debian                                         latest        e7d08cddf791   24 m
 **Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
 
 
-## Setup Docker Registry for `docker-ptf`
+## Build and Run `docker-ptf`
 
-The PTF docker container is used to send and receive data plane packets to the DUT. In 'add-topo' step, you can use the Microsoft docker registry host [`/ansible/vars/docker_registry.yml`](/ansible/vars/docker_registry.yml)to obtain docker-ptf. But more conveniently, it is recommended to use a **local registry** to save the **docker-ptf**. If you are using this method, the following steps are necessary.
+1. The PTF docker container is used to send and receive data plane packets to the DUT. In 'add-topo' step, you can use the Microsoft docker registry host [`/ansible/vars/docker_registry.yml`](/ansible/vars/docker_registry.yml) to obtain docker-ptf directly (**recommended**).
 
-1. Build `docker-ptf` image (**not recommended**)
+2. If you are using a **local registry** to save the **docker-ptf**, you should obtain a local `docker-ptf` image first:
+   You can **either** build a `docker-ptf` from buildimage repo:
     ```
     git clone --recursive https://github.com/sonic-net/sonic-buildimage.git
     cd sonic-buildimage
     make configure PLATFORM=vs ;#takes about 1 hour or more
     make target/docker-ptf.gz
     ```
-   You can also download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fdocker-ptf.gz) (**recommended**). Then, load the docker-ptf into the docker images:
+   **or** download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fdocker-ptf.gz) . Then, load the docker-ptf into the docker images:
     ```
     docker load < docker-ptf.gz
     ```
-
-2. Setup your own [Docker Registry](https://docs.docker.com/registry/) and upload `docker-ptf` to your registry:
+   **Then**, setup your own [Docker Registry](https://docs.docker.com/registry/) and upload `docker-ptf` to your registry:
     ```
     docker pull registry
     docker run -d -p 5000:5000 --name registry registry:latest
     docker image tag docker-ptf 127.0.0.1:5000/docker-ptf
     docker push 127.0.0.1:5000/docker-ptf
     ```
+    Also, if you are using a local registry, in later `Prepare Testbed Configuration` step, you have to update the docker registry information in [`vars/docker_registry.yml`](/ansible/vars/docker_registry.yml).
+    ```
+    #docker_registry_host: sonicdev-microsoft.azurecr.io:443
+    docker_registry_host: 127.0.0.1:5000
+    docker_registry_username: root
+    docker_registry_password: root
+    ```
 
-## Build and Run `docker-sonic-mgmt` 
+## Build and Run `docker-sonic-mgmt`
 
 Managing the testbed and running tests requires various dependencies to be installed and configured. We have built a `docker-sonic-mgmt` image that takes care of these dependencies so you can use `ansible-playbook`, `pytest`, and `spytest`.
 
@@ -228,15 +235,8 @@ Once you are in the docker container, you need to modify the testbed configurati
     skip_ceos_image_downloading: true
     ```
     **NOTE: We are using local ceos image, hence the skip ceos image downloading should be set as true.
-    
-- PTF Docker
-    - Update the docker registry information in [`vars/docker_registry.yml`](/ansible/vars/docker_registry.yml).
-    ```
-    #docker_registry_host: sonicdev-microsoft.azurecr.io:443
-    docker_registry_host: 127.0.0.1:5000
-    docker_registry_username: root
-    docker_registry_password: root
-    ```
+
+
 ## Deploy physical Fanout Switch VLAN
 
 You need to specify all physical connections that exist in the lab before deploying the fanout and running the tests.
@@ -272,7 +272,7 @@ fcffb9e0106e   ceosimage:4.25.10M                 "/sbin/init systemd.…"   30 
 afdcd58f7d88   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0101
 9b29d5e7f083   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0100
 ```
- 
+
 You can login to the cEOS
 ```
 docker exec -it ceos_vms1-1_VM0101 Cli
