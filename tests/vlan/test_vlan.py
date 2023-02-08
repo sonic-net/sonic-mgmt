@@ -120,7 +120,7 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 def skip_sonic_leaf_fanout(fanouthosts):
     """
     The test set can't run on testbeds connected to sonic leaf-fanout for below reasons:
-	1.The test will generate QinQ packet for testing. However, the QinQ packet will be dropped by sonic 
+	1.The test will generate QinQ packet for testing. However, the QinQ packet will be dropped by sonic
 	leaf-fanout because dot1q-tunnel is not supported. Hence we skip the test on testbeds running sonic leaf-fanout.
 	2.The egressed  packets of some testcases will be tagged with test vlan id, which will be dropped by sonic leaf-fanout.
     """
