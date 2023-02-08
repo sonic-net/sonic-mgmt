@@ -16,6 +16,6 @@ def add_ecn_args(parser):
         "--disable_ecn_snappi_test",
         action="store",
         type=str2bool,
-        default=True,
+        default=False,
         help="Control execution of ECN tests",
     )
