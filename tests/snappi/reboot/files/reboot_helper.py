@@ -6,6 +6,7 @@ from threading import Thread
 import json
 import ipaddr
 import time
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -558,9 +559,11 @@ def get_convergence_for_reboot_test(duthost,
         table.append([reboot_type, i, dp[j], float(0.0)])
     table.append([reboot_type, 'BGP Control Plane Up Time', float(0.0),
                   float(bgp_up_time) * 1000])
-    table.append([reboot_type, ''.
-                 join('Loopback Up Time'.format(p1.dst_ip)),
-                  float(0.0), float(loopback_up_time) * 1000])
+    table.append([reboot_type,
+                  'Loopback Up Time',
+                  float(0.0),
+                  float(loopback_up_time) * 1000]
+                 )
     columns = ['Reboot Type', 'Traffic Item Name',
                'Data Plane Convergence Time (ms)', 'Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
