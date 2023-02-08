@@ -55,7 +55,10 @@ class TestContLinkFlap(object):
         logging.info("Redis Memory: %s M", start_time_redis_memory)
 
         # Record ipv4 route counts at start
-        sumv4, sumv6 = duthost.get_ip_route_summary()
+        sumv4, sumv6 = duthost.get_ip_route_summary(True)
+        logging.debug("sumv4  {} ".format(sumv4))
+        logging.debug("sumv6  {} ".format(sumv6))
+
         totalsv4 = sumv4.get('Totals', {})
         totalsv6 = sumv6.get('Totals', {})
         start_time_ipv4_route_counts = totalsv4.get('routes', 0)
