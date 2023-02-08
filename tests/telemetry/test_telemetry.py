@@ -8,6 +8,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
+from telemetry_utils import backup_monit_config_files, customize_monit_config_files, restart_monit_service
+from telemetry_utils import restore_monit_config_files, postcheck_critical_processes 
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -46,6 +48,7 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
             pytest_assert(str(value) == server_crt_expected, "'server_crt' value is not '{}'".format(server_crt_expected))
 
+
 def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verify telemetry should be enabled by default
     """
@@ -61,6 +64,7 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
         if str(k) == "status":
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
+
 
 def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
@@ -79,6 +83,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, se
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
+
 def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """ Test osbuild/version query.
     """
@@ -90,6 +95,7 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
 
     assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
+
 
 def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """
@@ -135,6 +141,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
 
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
+
 
 def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
@@ -203,8 +210,8 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
                             CONTAINER_CHECK_INTERVAL_SECS,
                             0,
                             check_container_state, duthost, CONTAINER_NAME, True)
-    pytest_assert(is_running, "'{}' is not running on DuT!".format(CONTAINER_NAME))
-    logger.info("'{}' is running on DuT!".format(CONTAINER_NAME))
+    pytest_assert(is_running, "'{}' is not running on DUT!".format(CONTAINER_NAME))
+    logger.info("'{}' is running on DUT!".format(CONTAINER_NAME))
 
     expected_alerting_messages = []
     expected_alerting_messages.append(".*restart_service.*Restarting service 'telemetry'.*")
@@ -218,8 +225,9 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
 
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, xpath="DOCKER_STATS,TEST_STATS", target="STATE_DB", num_connections=9000000) 
     client_thread = ThreadPool(processes=1)
-    client_thread.apply_async(run_gnmi_client, (ptfhost, dut_ip, gnxi_path, -1))
+    client_thread.apply_async(ptfhost.shell(cmd))
 
     logger.info("Sleep '{}' seconds to wait for the syslog messages related to '{}' container restarted ..."
                 .format(WAITING_SYSLOG_MSG_SECS, CONTAINER_NAME))
