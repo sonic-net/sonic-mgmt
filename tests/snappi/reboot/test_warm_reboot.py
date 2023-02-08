@@ -1,17 +1,16 @@
+from _pytest.capture import capsys
+from tests.common.snappi.snappi_fixtures import cvg_api
+from tests.common.snappi.snappi_fixtures import (
+    snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
 from tests.snappi.reboot.files.reboot_helper import run_reboot_test
-import tests.common.snappi.snappi_fixtures
+from tests.common.fixtures.conn_graph_facts import (
+    conn_graph_facts, fanout_graph_facts)
 import pytest
 
 pytestmark = [pytest.mark.topology('snappi')]
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.fixture(tests.common.snappi.snappi_fixtures.cvg_api())
-@pytest.fixture(tests.common.snappi.snappi_fixtures.snappi_api_serv_ip)
-@pytest.fixture(tests.common.snappi.snappi_fixtures.snappi_api_serv_port)
-@pytest.fixture(tests.common.snappi.snappi_fixtures.tgen_ports)
-@pytest.fixture(tests.common.snappi.snappi_fixtures.conn_graph_facts)
-@pytest.fixture(tests.common.snappi.snappi_fixtures.fanout_graph_facts)
 @pytest.mark.parametrize('reboot_type', ['warm'])
 def test_reboot(cvg_api,
                 duthost,
