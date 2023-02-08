@@ -659,6 +659,12 @@ qos:
     conditions:
       - "topo_name in ['m0', 'mx']"
 
+qos/test_buffer.py:
+  skip:
+    reason: "These tests don't apply to cisco 8000 platforms, since they support only traditional model."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 qos/test_buffer_traditional.py:
   skip:
     reason: "Buffer traditional test is only supported 201911 branch and not yet supported on multi-ASIC platform."
