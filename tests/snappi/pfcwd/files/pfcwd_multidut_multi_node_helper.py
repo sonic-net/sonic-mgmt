@@ -61,10 +61,6 @@ def run_pfcwd_multi_node_test(api,
     Returns:
         N/A
     """
-    asic_count_1 = get_asic_count(duthost1)[0]
-    asic_1 = None if get_asic_count(duthost1)[1] == True else ['asic%d'%i for i in range(0,asic_count_1)]
-    asic_count_2 = get_asic_count(duthost2)[0]
-    asic_2 = None if get_asic_count(duthost2)[1] == True else ['asic%d'%i for i in range(0,asic_count_2)]
     patterns = ['all to all', 'many to one']
     if pattern not in patterns:
         raise ValueError('invalid traffic pattern passed in "{}", must be {}'.format(
@@ -73,8 +69,6 @@ def run_pfcwd_multi_node_test(api,
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
-
-
     start_pfcwd(duthost1, rx_port['asic_value'])
     enable_packet_aging(duthost1)
     start_pfcwd(duthost2, tx_port[0]['asic_value'])
