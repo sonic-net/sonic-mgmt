@@ -5,7 +5,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
-    get_egress_lossless_buffer_size, stop_pfcwd, disable_packet_aging, get_asic_count
+    get_egress_lossless_buffer_size, stop_pfcwd, disable_packet_aging
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -62,9 +62,9 @@ def run_pfc_test(api,
     """
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    stop_pfcwd(duthost1,rx_port['asic_value'])
+    stop_pfcwd(duthost1, rx_port['asic_value'])
     disable_packet_aging(duthost1)
-    stop_pfcwd(duthost2,tx_port['asic_value'])
+    stop_pfcwd(duthost2, tx_port['asic_value'])
     disable_packet_aging(duthost2)
 
     """ Rate percent must be an integer """

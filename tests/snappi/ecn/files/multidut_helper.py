@@ -28,8 +28,10 @@ def run_ecn_test(api,
                  conn_data,
                  fanout_data,
                  duthost1,
+                 rx_port,
                  rx_port_id,
                  duthost2,
+                 tx_port,
                  tx_port_id,
                  dut_port,
                  kmin,
@@ -66,22 +68,24 @@ def run_ecn_test(api,
 
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 
-    stop_pfcwd(duthost1)
+    stop_pfcwd(duthost1, rx_port['asic_value'])
     disable_packet_aging(duthost1)
 
     """ Configure WRED/ECN thresholds """
     config_result = config_wred(host_ans=duthost1,
                                 kmin=kmin,
                                 kmax=kmax,
-                                pmax=pmax)
+                                pmax=pmax,
+                                asic_value=rx_port['asic_value'])
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
 
     """ Enable ECN marking """
-    enable_ecn(host_ans=duthost1, prio=lossless_prio)
+    enable_ecn(host_ans=duthost1, prio=lossless_prio, asic_value=rx_port['asic_value']))
 
     """ Configure PFC threshold to 2 ^ 3 """
     config_result = config_ingress_lossless_buffer_alpha(host_ans=duthost1,
-                                                         alpha_log2=3)
+                                                         alpha_log2=3,
+                                                         namespace=rx_port['asic_value'])
 
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
     """ Get the ID of the port to test """
