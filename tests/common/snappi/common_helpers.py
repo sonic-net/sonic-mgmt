@@ -332,12 +332,13 @@ def pfc_class_enable_vector(prio_list):
     return vector
 
 
-def get_wred_profiles(host_ans):
+def get_wred_profiles(host_ans, asic_value="None"):
     """
     Get all the WRED/ECN profiles of a SONiC switch
 
     Args:
         host_ans: Ansible host instance of the device
+        asic_value: asic value of the host 
 
     Returns:
         WRED/ECN profiles (dictionary) or None.
@@ -361,8 +362,12 @@ def get_wred_profiles(host_ans):
             }
         }
     """
-    config_facts = host_ans.config_facts(host=host_ans.hostname,
-                                         source="running")['ansible_facts']
+    if asic_value=="None":
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                            source="running")['ansible_facts']
+    else:
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                            source="running",namespace=asic_value)['ansible_facts']
 
     if "WRED_PROFILE" in config_facts.keys():
         return config_facts['WRED_PROFILE']
@@ -382,7 +387,7 @@ def get_asic_count(host_ans):
     return [int(platform_info_dict['ASIC Count'].encode("utf-8")),flag]
 
 
-def config_wred(host_ans, kmin, kmax, pmax, profile=None):
+def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
     """
     Config a WRED/ECN profile of a SONiC switch
 
@@ -392,6 +397,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
         kmax (int): RED/ECN maximum threshold in bytes
         pmax (int): RED/ECN maximum marking probability in percentage
         profile (str): name of profile to configure (None means any profile)
+        asic_value: asic value of the host 
 
     Returns:
         If configuration succeeds (bool)
@@ -426,46 +432,57 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
             return False
 
         """ Ensure that Kmin is no larger than Kmax during the update """
-        if kmin > kmin_old:
-            host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
-            host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
-            #host_ans.shell('sudo ip netns exec asic0 ecnconfig -p {} -gmax {}'.format(p, kmax))
-            #host_ans.shell('sudo ip netns exec asic0 ecnconfig -p {} -gmin {}'.format(p, kmin))
+        if asic_value=='None'
+            if kmin > kmin_old:
+                host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
+                host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
+            else:
+                host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
+                host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
         else:
-            host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
-            host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
-            #host_ans.shell('sudo ip netns exec asic0 ecnconfig -p {} -gmin {}'.format(p, kmin))
-            #host_ans.shell('sudo ip netns exec asic0 ecnconfig -p {} -gmax {}'.format(p, kmax))
-
+            if kmin > kmin_old:
+                host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmax {}'.format(asic_value, p, kmax))
+                host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmin {}'.format(asic_value, p, kmin))
+            else:
+                host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmin {}'.format(asic_value, p, kmin))
+                host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmax {}'.format(asic_value, p, kmax))
     return True
 
 
-def enable_ecn(host_ans, prio):
+def enable_ecn(host_ans, prio, asic_value='None'):
     """
     Enable ECN marking on a priority
 
     Args:
         host_ans: Ansible host instance of the device
         prio (int): priority
+        asic_value: asic value of the host 
 
     Returns:
         N/A
     """
-    host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
+    if asic_value=='None'
+        host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
+    else:
+        host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
 
 
-def disable_ecn(host_ans, prio):
+def disable_ecn(host_ans, prio, asic_value='None'):
     """
     Disable ECN marking on a priority
 
     Args:
         host_ans: Ansible host instance of the device
         prio (int): priority
+        asic_value: asic value of the host 
 
     Returns:
         N/A
     """
-    host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
+    if asic_value=='None'
+        host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
+    else:
+        host_ans.shell('sudo ip netns exec {} ecnconfig -q {} off'.format(asic_value, prio))
 
 
 def config_buffer_alpha(host_ans, profile, alpha_log2):
@@ -483,13 +500,14 @@ def config_buffer_alpha(host_ans, profile, alpha_log2):
     host_ans.shell('sudo mmuconfig -p {} -a {}'.format(profile, alpha_log2))
 
 
-def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
+def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, namespace='None'):
     """
     Configure ingress buffer thresholds (a.k.a., alpha) of a device to 2^alpha_log2
 
     Args:
         host_ans: Ansible host instance of the device
         alpha_log2 (int): set threshold to 2^alpha_log2
+        namespace: asic value of the host
 
     Returns:
         If configuration succeeds (bool)
@@ -497,8 +515,10 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     if not isinstance(alpha_log2, int):
         return False
 
-    config_facts = host_ans.config_facts(host=host_ans.hostname,
-                                         source="running")['ansible_facts']
+    if namespace=='None':
+        config_facts = host_ans.config_facts(host=host_ans.hostname,source="running")['ansible_facts']
+    else:
+        config_facts = host_ans.config_facts(host=host_ans.hostname,source="running",namespace=namespace)['ansible_facts']
 
     if "BUFFER_PROFILE" not in config_facts.keys():
         return False
@@ -513,8 +533,11 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
         config_buffer_alpha(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2)
 
     """ Check if configuration succeeds """
-    config_facts = host_ans.config_facts(host=host_ans.hostname,
-                                         source="running")['ansible_facts']
+    if namespace=='None':
+        config_facts = host_ans.config_facts(host=host_ans.hostname,source="running")['ansible_facts']
+    else:
+        config_facts = host_ans.config_facts(host=host_ans.hostname,source="running",namespace=namespace)['ansible_facts']
+
 
     for profile in ingress_profiles:
         dynamic_th = config_facts['BUFFER_PROFILE'][profile]['dynamic_th']
@@ -524,7 +547,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     return True
 
 
-def get_pfcwd_config_attr(host_ans, config_scope, attr,namespace = None):
+def get_pfcwd_config_attr(host_ans, config_scope, attr, namespace='None'):
     """
     Get PFC watchdog configuration attribute
 
@@ -532,12 +555,17 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr,namespace = None):
         host_ans: Ansible host instance of the device
         config_scope (str): 'GLOBAL' or interface name
         attr (str): config attribute name, e.g., 'detection_time'
+        namespace: asic value of the host
 
     Returns:
         config attribute (str) or None
     """
-    #config_facts = host_ans.config_facts(host=host_ans.hostname,source="running")['ansible_facts']
-    config_facts = host_ans.config_facts(host=host_ans.hostname,source="running",namespace= namespace)['ansible_facts']
+    if namespace=='None':
+        config_facts = host_ans.config_facts(host=host_ans.hostname,source="running")['ansible_facts']
+    else:
+        config_facts = host_ans.config_facts(host=host_ans.hostname,source="running",namespace=namespace)['ansible_facts']
+
+
     if 'PFC_WD' not in config_facts.keys():
         return None
 
@@ -552,21 +580,26 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr,namespace = None):
     return None
 
 
-def get_pfcwd_poll_interval(host_ans,namespace=None):
+def get_pfcwd_poll_interval(host_ans, asic_value='None'):
     """
     Get PFC watchdog polling interval
 
     Args:
         host_ans: Ansible host instance of the device
+        asic_value: asic value of the host 
 
     Returns:
         Polling interval in ms (int) or None
     """
-
-    val = get_pfcwd_config_attr(host_ans=host_ans,
-                                config_scope='GLOBAL',
-                                attr='POLL_INTERVAL',
-                                namespace= namespace)
+    if asic_value == 'None':
+        val = get_pfcwd_config_attr(host_ans=host_ans,
+                                    config_scope='GLOBAL',
+                                    attr='POLL_INTERVAL')
+    else:
+        val = get_pfcwd_config_attr(host_ans=host_ans,
+                                    config_scope='GLOBAL',
+                                    attr='POLL_INTERVAL',
+                                    namespace=asic_value)
 
     if val is not None:
         return int(val)
@@ -574,21 +607,27 @@ def get_pfcwd_poll_interval(host_ans,namespace=None):
     return None
 
 
-def get_pfcwd_detect_time(host_ans, intf,namespace=None):
+def get_pfcwd_detect_time(host_ans, intf, asic_value='None'):
     """
     Get PFC watchdog detection time of a given interface
 
     Args:
         host_ans: Ansible host instance of the device
         intf (str): interface name
+        asic_value: asic value of the host 
 
     Returns:
         Detection time in ms (int) or None
     """
-    val = get_pfcwd_config_attr(host_ans=host_ans,
-                                config_scope=intf,
-                                attr='detection_time',
-                                namespace= namespace)
+    if asic_value == 'None':
+        val = get_pfcwd_config_attr(host_ans=host_ans,
+                                    config_scope=intf,
+                                    attr='detection_time')
+    else:
+        val = get_pfcwd_config_attr(host_ans=host_ans,
+                                    config_scope=intf,
+                                    attr='detection_time',
+                                    namespace= asic_value)
 
     if val is not None:
         return int(val)
@@ -596,21 +635,27 @@ def get_pfcwd_detect_time(host_ans, intf,namespace=None):
     return None
 
 
-def get_pfcwd_restore_time(host_ans, intf,namespace=None):
+def get_pfcwd_restore_time(host_ans, intf, asic_value='None'):
     """
     Get PFC watchdog restoration time of a given interface
 
     Args:
         host_ans: Ansible host instance of the device
         intf (str): interface name
-
+        asic_value: asic value of the host 
+   
     Returns:
         Restoration time in ms (int) or None
     """
-    val = get_pfcwd_config_attr(host_ans=host_ans,
-                                config_scope=intf,
-                                attr='restoration_time',
-                                namespace= namespace)
+    if asic_value == 'None':
+        val = get_pfcwd_config_attr(host_ans=host_ans,
+                                    config_scope=intf,
+                                    attr='restoration_time')
+    else:
+        val = get_pfcwd_config_attr(host_ans=host_ans,
+                                    config_scope=intf,
+                                    attr='restoration_time',
+                                    namespace= asic_value)
 
     if val is not None:
         return int(val)
@@ -618,28 +663,30 @@ def get_pfcwd_restore_time(host_ans, intf,namespace=None):
     return None
 
 
-def start_pfcwd(duthost,asic=None):
+def start_pfcwd(duthost,asic_value='None'):
     """
     Start PFC watchdog with default setting
 
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
+        asic_value: asic value of the host 
 
     Returns:
         N/A
     """
-    if asic == None:
+    if asic_value == 'None':
         duthost.shell('sudo pfcwd start_default')
     else:
-        duthost.shell('sudo ip netns exec {} pfcwd start_default'.format(asic))
+        duthost.shell('sudo ip netns exec {} pfcwd start_default'.format(asic_value))
 
 
-def stop_pfcwd(duthost,asic_value):
+def stop_pfcwd(duthost, asic_value='None'):
     """
     Stop PFC watchdog
 
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
+        asic_value: asic value of the host 
 
     Returns:
         N/A
