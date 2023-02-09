@@ -38,7 +38,7 @@ def inbound_vnet_packets(dash_config_info):
         ip_src=dash_config_info[LOOPBACK_IP],
         ip_dst=dash_config_info[LOCAL_PA_IP],
         vxlan_vni=dash_config_info[VM_VNI],
-        ip_ttl=0,
+        ip_ttl=255,
         ip_id=0,
         inner_frame=inner_packet
     )
@@ -77,8 +77,7 @@ def outbound_vnet_packets(dash_config_info):
         ip_src=dash_config_info[LOOPBACK_IP],
         ip_dst=dash_config_info[REMOTE_PA_IP],
         vxlan_vni=dash_config_info[VNET2_VNI],
-        # TODO: Change TTL to 63 after SAI bug is fixed
-        ip_ttl=0,
+        ip_ttl=255,
         ip_id=0,
         inner_frame=inner_packet
     )
