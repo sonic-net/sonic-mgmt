@@ -1928,6 +1928,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                 EXCLUDE_CONFIG_KEY_NAMES = [
                     'MUX_LINKMGR|LINK_PROBER'
                 ]
+            else:
+                EXCLUDE_CONFIG_KEY_NAMES = []
 
             def _remove_entry(table_name, key_name, config):
                 if table_name in config and key_name in config[table_name]:
