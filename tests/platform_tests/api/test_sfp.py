@@ -416,7 +416,8 @@ class TestSfpApi(PlatformApiTestBase):
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
 
             if not self.is_xcvr_optical(info_dict):
-                logger.info("test_get_transceiver_threshold_info: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                logger.info("test_get_transceiver_threshold_info: \
+                               Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
             thold_info_dict = sfp.get_transceiver_threshold_info(platform_api_conn, i)
