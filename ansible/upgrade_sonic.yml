@@ -136,7 +136,7 @@
       changed_when: false
 
     - name: Wait for SONiC initialization
-      pause: seconds=60
+      pause: seconds=90
 
     - name: Set all bgp interfaces admin-up
       become: true
