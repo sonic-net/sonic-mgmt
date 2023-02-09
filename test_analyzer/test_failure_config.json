@@ -2,13 +2,11 @@
     "worker_number": 10,
     "run_timeout": 3600,
     "testbeds": {
-        "excluded_testbed_keywords": ["ixia", "t2", "3132", "e1031", "8102", "8101", "s6100", "s6000", "7280", "slx", "3164"],
-        "excluded_testbed_keywords_setup_error": ["ixia", "t2", "3132", "e1031", "8102", "8101", "s6100", "s6000", "7280", "slx", "3164"],
-        "included_testbeds": ["vms21-dual-t0-7050-3", "vms21-dual-t0-7260"]
+        "excluded_testbed_keywords": ["ixia", "t2", "3132", "e1031", "s6100", "s6000", "7280", "slx", "3164","vms6-t0-7060", "vms11-2-t0"],
+        "excluded_testbed_keywords_setup_error": ["ixia", "t2", "3132", "e1031", "8102", "8101", "s6100", "s6000", "7280", "slx", "3164"]
     },
     "hwsku": {
-        "excluded_hwsku": ["Force10-S6000", "Force10-S6100"],
-        "included_hwsku": ["Arista-7050CX3-32S-C32"]
+        "excluded_hwsku": ["Force10-S6000", "Force10-S6100"]
     },
     "asic": {
         "excluded_asic": ["barefoot"]
@@ -19,10 +17,8 @@
         "included_branch": ["20201231", "master", "internal", "20220531"]
     },
     "topo": {
-        "excluded_topo": ["t2"],
-        "included_topo": ["t1", "dualtor"]
+        "excluded_topo": ["t2"]
     },
-    "key_testbeds": ["vmsvc1-dual-t0-7050-1", "vmsvc1-dual-t0-7050-2"],
     "threshold": {
         "duration_days": 7,
         "repro_count_limit": 2,
