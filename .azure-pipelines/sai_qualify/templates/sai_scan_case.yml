@@ -204,6 +204,11 @@ parameters:
     type: string
     default: "master"
 
+  - name: SCAN_CASES
+    displayName: "Scan cases"
+    type: boolean
+    default: true
+
 jobs:
   - job: SAITest
     pool: ${{ parameters.AGENT_POOL }}
