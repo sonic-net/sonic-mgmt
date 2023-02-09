@@ -646,8 +646,10 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
 platform_tests/api/test_watchdog.py:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
+      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
 
 #######################################
 #####           broadcom          #####
@@ -665,6 +667,7 @@ platform_tests/broadcom/test_ser.py:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type not in ['broadcom']"
+      - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
 
 #######################################
 #####  cli/test_show_platform.py  #####

@@ -7,7 +7,6 @@ import copy
 
 import ptf.mask as mask
 import ptf.packet as packet
-import scapy.Ether as Ether
 
 if sys.version_info.major > 2:
     NATIVE_TYPE = (int, float, bool, list, dict, tuple, set, str, bytes, type(None))
@@ -144,7 +143,7 @@ class FilterPktBuffer(object):
         received_pkt = None
 
         for pkt in packet_buffer:
-            packet_dict = convert_pkt_to_dict(Ether(pkt[0]))
+            packet_dict = convert_pkt_to_dict(packet.Ether(pkt[0]))
 
             for field, value in self.match_fields:
                 try:
@@ -154,7 +153,7 @@ class FilterPktBuffer(object):
                     break
             else:
                 matched_index += 1
-                received_pkt = Ether(pkt[0])
+                received_pkt = packet.Ether(pkt[0])
 
         if received_pkt:
             return ({dst_port_number: matched_index}, received_pkt)
