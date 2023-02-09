@@ -2765,12 +2765,12 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet11/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet36"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet12/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet40"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet13/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet44"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet14/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet14/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet68"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet15/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet52"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet16/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet56"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet17/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet60"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet18/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet64"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet19/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet68"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet19/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet48"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet20/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet72"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet21/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet76"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str2-7260cx3-d09-u02" EndPort="Ethernet22/1" StartDevice="str2-8800-lc3-3" StartPort="Ethernet80"/>

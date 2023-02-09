@@ -2633,12 +2633,12 @@ str2-8800-lc3-3,Ethernet32,str2-7260cx3-d09-u02,Ethernet10/1,40000,1978,Access
 str2-8800-lc3-3,Ethernet36,str2-7260cx3-d09-u02,Ethernet11/1,40000,1979,Access
 str2-8800-lc3-3,Ethernet40,str2-7260cx3-d09-u02,Ethernet12/1,40000,1980,Access
 str2-8800-lc3-3,Ethernet44,str2-7260cx3-d09-u02,Ethernet13/1,40000,1981,Access
-str2-8800-lc3-3,Ethernet48,str2-7260cx3-d09-u02,Ethernet14/1,40000,1982,Access
+str2-8800-lc3-3,Ethernet68,str2-7260cx3-d09-u02,Ethernet14/1,40000,1982,Access
 str2-8800-lc3-3,Ethernet52,str2-7260cx3-d09-u02,Ethernet15/1,40000,1983,Access
 str2-8800-lc3-3,Ethernet56,str2-7260cx3-d09-u02,Ethernet16/1,40000,1984,Access
 str2-8800-lc3-3,Ethernet60,str2-7260cx3-d09-u02,Ethernet17/1,40000,1985,Access
 str2-8800-lc3-3,Ethernet64,str2-7260cx3-d09-u02,Ethernet18/1,40000,1986,Access
-str2-8800-lc3-3,Ethernet68,str2-7260cx3-d09-u02,Ethernet19/1,40000,1987,Access
+str2-8800-lc3-3,Ethernet48,str2-7260cx3-d09-u02,Ethernet19/1,40000,1987,Access
 str2-8800-lc3-3,Ethernet72,str2-7260cx3-d09-u02,Ethernet20/1,40000,1988,Access
 str2-8800-lc3-3,Ethernet76,str2-7260cx3-d09-u02,Ethernet21/1,40000,1989,Access
 str2-8800-lc3-3,Ethernet80,str2-7260cx3-d09-u02,Ethernet22/1,40000,1990,Access
