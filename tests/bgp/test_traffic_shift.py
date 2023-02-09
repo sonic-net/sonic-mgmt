@@ -231,7 +231,7 @@ def verify_current_routes_announced_to_neighs(dut_host, neigh_hosts, orig_routes
     logger.info("Verifying all the original routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
     cur_routes_on_all_nbrs.update(parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver))
     # Compare current routes after TSB with original routes advertised to neighbors
-    if cur_routes_on_all_nbrs.items() != orig_routes_on_all_nbrs.items():        
+    if cur_routes_on_all_nbrs != orig_routes_on_all_nbrs:        
         return False           
     return True
 
