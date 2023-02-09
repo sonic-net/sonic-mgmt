@@ -553,7 +553,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                 # `network_cli` connection with device when applicable.
                 network_user = creds.get('fanout_network_user', admin_user)
                 network_password = creds.get('fanout_network_password',
-                                                admin_password)
+                                             admin_password)
                 shell_user = creds.get('fanout_shell_user', admin_user)
                 shell_password = creds.get('fanout_shell_pass', admin_password)
                 if os_type == 'sonic':
