@@ -1,18 +1,19 @@
 import pytest
-from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
-    get_multidut_tgen_peer_port_set
+    get_multidut_tgen_peer_port_set, cleanup_config
 from tests.common.snappi.qos_fixtures import prio_dscp_map_dut_base,\
-             lossless_prio_list_dut_base
-from unittest import result
+    lossless_prio_list_dut_base
+
 from tests.snappi.variables import config_set, line_card_choice
-from tests.common.helpers.assertions import pytest_require, pytest_assert
 from files.multidut_helper import run_ecn_test, is_ecn_marked
 
 pytestmark = [pytest.mark.topology('snappi')]
+
+
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_dequeue_ecn(request,
@@ -58,7 +59,7 @@ def test_dequeue_ecn(request,
         dut_list = [duthost1, duthost2]
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
         for dut in duts:
-            if linecard_configuration_set[line_card_choice]['hostname'] in [dut.hostname]:
+            if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]:
                 duthost1 = dut
                 duthost2 = dut
                 dut_list = [duthost1]
@@ -111,7 +112,6 @@ def test_dequeue_ecn(request,
                            prio_dscp_map=prio_dscp_map,
                            iters=1)[0]
 
-
     """ Check if we capture all the packets """
     pytest_assert(len(ip_pkts) == pkt_cnt,
                   'Only capture {}/{} IP packets'.format(len(ip_pkts), pkt_cnt))
@@ -122,3 +122,4 @@ def test_dequeue_ecn(request,
     """ Check if the last packet is not marked """
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                   "The last packet should not be marked")
+    cleanup_config(dut_list, snappi_ports)

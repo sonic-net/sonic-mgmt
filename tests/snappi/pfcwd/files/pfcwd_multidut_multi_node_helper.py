@@ -74,7 +74,8 @@ def run_pfcwd_multi_node_test(api,
     start_pfcwd(duthost2, tx_port[0]['asic_value'])
     enable_packet_aging(duthost2)
     poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,asic_value=rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port, 
+                                            asic_value=rx_port['asic_value']) / 1000.0
 
     if trigger_pfcwd:
         pfc_storm_dur_sec = poll_interval_sec + detect_time_sec
@@ -84,12 +85,12 @@ def run_pfcwd_multi_node_test(api,
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
 
     """ Generate traffic config """
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / \
-                                 (num_ports - 1) / \
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT /
+                                 (num_ports - 1) /
                                  len(test_prio_list))
 
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / \
-                               (num_ports - 1) / \
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT /
+                               (num_ports - 1) /
                                len(bg_prio_list))
 
     __gen_traffic(testbed_config=testbed_config,
@@ -135,9 +136,6 @@ def run_pfcwd_multi_node_test(api,
                      pause_port_id=rx_port_id_list[0],
                      tolerance=TOLERANCE_THRESHOLD)
 
-    __cleanup_config(duthost1,port_config_list[0].peer_port,port_config_list[0].gateway)
-    __cleanup_config(duthost2,port_config_list[1].peer_port,port_config_list[1].gateway)
-    __cleanup_config(duthost2,port_config_list[2].peer_port,port_config_list[2].gateway)
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
     """
@@ -167,7 +165,7 @@ def __data_flow_src(flow_name):
     """
     words = flow_name.split()
     index = words.index('->')
-    return int(words[index-1])
+    return int(words[index - 1])
 
 
 def __data_flow_dst(flow_name):
@@ -182,7 +180,7 @@ def __data_flow_dst(flow_name):
     """
     words = flow_name.split()
     index = words.index('->')
-    return int(words[index+1])
+    return int(words[index + 1])
 
 
 def __gen_traffic(testbed_config,
@@ -554,11 +552,11 @@ def __verify_results(rows,
             pytest_assert(tx_frames == rx_frames,
                           '{} should not have any dropped packet'.format(flow_name))
 
-            exp_bg_flow_rx_pkts =  bg_flow_rate_percent / 100.0 * speed_gbps \
+            exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
             deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
             pytest_assert(abs(deviation) < tolerance,
-                          '{} should receive {} packets (actual {})'.\
+                          '{} should receive {} packets (actual {})'.
                           format(flow_name, exp_bg_flow_rx_pkts, rx_frames))
 
         elif test_flow_name in flow_name:
@@ -566,7 +564,7 @@ def __verify_results(rows,
             src_port_id = __data_flow_src(flow_name)
             dst_port_id = __data_flow_dst(flow_name)
 
-            exp_test_flow_rx_pkts =  test_flow_rate_percent / 100.0 * speed_gbps \
+            exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
             if trigger_pfcwd and\
@@ -584,7 +582,7 @@ def __verify_results(rows,
                 pytest_assert(tx_frames == rx_frames,
                               '{} should not have any dropped packet'.format(flow_name))
                 pytest_assert(rx_frames < exp_test_flow_rx_pkts,
-                              '{} shoudl receive less than {} packets (actual {})'.\
+                              '{} shoudl receive less than {} packets (actual {})'.
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))
 
             else:
@@ -597,17 +595,7 @@ def __verify_results(rows,
 
                 deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
                 pytest_assert(abs(deviation) < tolerance,
-                              '{} should receive {} packets (actual {})'.\
+                              '{} should receive {} packets (actual {})'.
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))
 
-def __cleanup_config(duthost,port,ip):
-    logger.info('Cleaning up config on {}'.format(duthost.hostname))
-    duthost.command('sudo config interface ip remove {} {}/24 \n' .format(port,ip))
 
-def dummy(duthost1,duthost2):
-    logger.info('Cleaning up config on {}'.format(duthost1.hostname))
-    duthost1.command('sudo config interface ip remove {} 20.0.1.1/24 \n' .format(port_config_list[0].peer_port))
-    logger.info('Cleaning up config on {}'.format(duthost2.hostname))
-    duthost2.command('sudo config interface ip remove {} 20.0.2.1/24 \n' .format(port_config_list[1].peer_port))
-    logger.info('Cleaning up config on {}'.format(duthost2.hostname))
-    duthost2.command('sudo config interface ip remove {} 20.0.3.1/24 \n' .format(port_config_list[2].peer_port))

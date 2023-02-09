@@ -90,15 +90,14 @@ def run_ecn_test(api,
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
     """ Get the ID of the port to test """
     port_id = get_dut_port_id(dut_hostname=duthost1.hostname,
-                            dut_port=dut_port,
-                            conn_data=conn_data,
-                            fanout_data=fanout_data)
+                              dut_port=dut_port,
+                              conn_data=conn_data,
+                              fanout_data=fanout_data)
 
     pytest_assert(port_id is not None,
                   'Failed to get ID for port {}'.format(dut_port))
 
     """ Generate packet capture config """
-    #Test
     __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
 
     """ Generate traffic config """
@@ -134,7 +133,8 @@ def run_ecn_test(api,
     return result
 
 
-sec_to_nanosec = lambda x : x * 1e9
+def sec_to_nanosec(x):
+    return x * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -200,7 +200,7 @@ def __gen_traffic(testbed_config,
     ipv4.priority.choice = ipv4.priority.DSCP
     ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
     ipv4.priority.dscp.ecn.value = (
-            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+        ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
     data_flow.size.fixed = data_pkt_size
     data_flow.rate.percentage = 100

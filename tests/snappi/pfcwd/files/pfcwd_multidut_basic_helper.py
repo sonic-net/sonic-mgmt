@@ -21,6 +21,7 @@ DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.25
 
+
 def run_pfcwd_basic_test(api,
                          testbed_config,
                          port_config_list,
@@ -61,8 +62,10 @@ def run_pfcwd_basic_test(api,
     start_pfcwd(duthost2, tx_port['asic_value'])
     enable_packet_aging(duthost2)
     poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,asic_value=rx_port['asic_value']) / 1000.0
-    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,asic_value=rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port, 
+                                            asic_value=rx_port['asic_value']) / 1000.0
+    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port, 
+                                              asic_value=rx_port['asic_value']) / 1000.0
 
     if trigger_pfcwd:
         """ Large enough to trigger PFC watchdog """
@@ -76,7 +79,7 @@ def run_pfcwd_basic_test(api,
         flow2_dur_sec = 1
 
         flow1_max_loss_rate = 1
-        flow1_min_loss_rate = 1- DEVIATION
+        flow1_min_loss_rate = 1 - DEVIATION
 
     else:
         pfc_storm_dur_sec = detect_time_sec * 0.5
@@ -120,7 +123,9 @@ def run_pfcwd_basic_test(api,
                      data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
                      data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
 
-sec_to_nanosec = lambda x : x * 1e9
+
+def sec_to_nanosec(x):
+    return x * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -339,5 +344,5 @@ def __verify_results(rows,
         max_loss_rate = data_flow_max_loss_rate_list[i]
 
         pytest_assert(loss_rate <= max_loss_rate and loss_rate >= min_loss_rate,
-                      'Loss rate of {} ({}) should be in [{}, {}]'.format(
-                      data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))
+                      'Loss rate of {} ({}) should be in [{}, {}]'.
+                      format(data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))

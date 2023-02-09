@@ -698,6 +698,22 @@ def snappi_dut_base_config(duthost_list,
 
     return config, port_config_list, new_snappi_ports
 
+def cleanup_config(duthost_list,snappi_ports):
+    for index,duthost in enumerate(duthost_list):
+        port_count=len(snappi_ports)
+        prefix=24
+        dutIps = create_ip_list("20.0.1.1", port_count, mask=prefix)
+        tgenIps = create_ip_list("20.0.1.2", port_count, mask=prefix)
+        for port in snappi_ports:
+            if port['peer_device']==duthost.hostname:
+                port_id=port['port_id']
+                dutIp = dutIps[port_id]
+                tgenIp = tgenIps[port_id]
+                logger.info('Removing Configuration on Dut: {} with port {} with ip :{}/{}'.format(duthost.hostname,port['peer_port'],dutIp,prefix))
+                if port['asic_value'] == 'None':
+                    duthost.command('sudo config interface ip remove {} {}/{} \n' .format(port['peer_port'],dutIp,prefix))
+                else:
+                    duthost.command('sudo config interface -n {} ip remove {} {}/{} \n' .format(port['asic_value'],port['peer_port'],dutIp,prefix))
 
 @pytest.fixture(scope="function")
 def get_multidut_snappi_ports(duthosts,
@@ -916,7 +932,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_port, snapp
             dutIp = dutIps[port_id]
             tgenIp = tgenIps[port_id]
             mac = __gen_mac(port_id)
-            logger.info('Configuring Dut: {} with port {}'.format(duthost.hostname,port['peer_port']))
+            logger.info('Configuring Dut: {} with port {} with IP {}/{}'.format(duthost.hostname,port['peer_port'],dutIp,prefix))
             if port['asic_value'] == 'None':
                 duthost.command('sudo config interface ip add {} {}/{} \n' .format(port['peer_port'],dutIp,prefix))
             else:

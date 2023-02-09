@@ -100,7 +100,7 @@ def run_pfc_test(api,
                                config=testbed_config,
                                data_flow_names=data_flow_names,
                                all_flow_names=all_flow_names,
-                               exp_dur_sec=DATA_FLOW_DURATION_SEC+DATA_FLOW_DELAY_SEC)
+                               exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC)
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
@@ -119,7 +119,9 @@ def run_pfc_test(api,
                      test_flow_pause=test_traffic_pause,
                      tolerance=TOLERANCE_THRESHOLD)
 
-sec_to_nanosec = lambda x: x * 1e9
+
+def sec_to_nanosec(x):
+    return x * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -331,8 +333,6 @@ def __run_traffic(api,
     pytest_assert(attempts < max_attempts,
                   "Flows do not stop in {} seconds".format(max_attempts))
 
-
-
     """ Dump per-flow statistics """
     request = api.metrics_request()
     request.flow.flow_names = all_flow_names
@@ -341,7 +341,6 @@ def __run_traffic(api,
     ts = api.transmit_state()
     ts.state = ts.STOP
     api.set_transmit_state(ts)
-
     return rows
 
 
@@ -391,14 +390,13 @@ def __verify_results(rows,
         if bg_flow_name not in row.name:
             continue
 
-       
         tx_frames = row.frames_tx
         rx_frames = row.frames_rx
-        logger.info('Back Ground Flow Name : {} ,  TX Frames : {} , RX Frames : {}'.format(row.name, tx_frames, rx_frames))
+        logger.info('Back Ground Flow Name:{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
         pytest_assert(tx_frames == rx_frames,
                       '{} should not have any dropped packet'.format(row.name))
 
-        exp_bg_flow_rx_pkts =  bg_flow_rate_percent / 100.0 * speed_gbps \
+        exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
             * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
         pytest_assert(abs(deviation) < tolerance,
@@ -435,5 +433,5 @@ def __verify_results(rows,
         dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
         logger.info('In-flight TX bytes of test flows should be held by switch buffer')
         logger.info('Tx Frames Total : {} , Tx Bytes Total : {} , DUT Buffer Size : {}'.format(tx_frames_total, 
-                        tx_bytes_total, dut_buffer_size))
+                    tx_bytes_total, dut_buffer_size))
 

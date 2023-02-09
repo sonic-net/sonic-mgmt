@@ -16,6 +16,7 @@ TOLERANCE_THRESHOLD = 0.05
 
 logger = logging.getLogger(__name__)
 
+
 def run_pfcwd_runtime_traffic_test(api,
                                    testbed_config,
                                    port_config_list,
@@ -68,6 +69,7 @@ def run_pfcwd_runtime_traffic_test(api,
     flow_stats = __run_traffic(api=api,
                                config=testbed_config,
                                duthost=duthost1,
+                               port=rx_port,
                                all_flow_names=all_flow_names,
                                pfcwd_start_delay_sec=PFCWD_START_DELAY_SEC,
                                exp_dur_sec=DATA_FLOW_DURATION_SEC)
@@ -80,9 +82,6 @@ def run_pfcwd_runtime_traffic_test(api,
                      data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                      data_pkt_size=DATA_PKT_SIZE,
                      tolerance=TOLERANCE_THRESHOLD)
-    
-    __cleanup_config(duthost1,port_config_list[0].peer_port,port_config_list[0].gateway)
-    __cleanup_config(duthost2,port_config_list[1].peer_port,port_config_list[1].gateway)
 
 
 def __gen_traffic(testbed_config,
@@ -153,7 +152,7 @@ def __gen_traffic(testbed_config,
         data_flow.metrics.loss = True
 
 
-def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, exp_dur_sec):
+def __run_traffic(api, config, duthost, port, all_flow_names, pfcwd_start_delay_sec, exp_dur_sec):
     """
     Start traffic at time 0 and enable PFC watchdog at pfcwd_start_delay_sec
 
@@ -161,6 +160,7 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
         api (obj): SNAPPI session
         config (obj): experiment config (testbed config + flow config)
         duthost (Ansible host instance): device under test
+        port: Rx port
         all_flow_names (list): list of names of all the flows
         pfcwd_start_delay_sec (int): PFC watchdog start delay in second
         exp_dur_sec (int): experiment duration in second
@@ -169,8 +169,6 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
         per-flow statistics (list)
     """
     api.set_config(config)
-    asic_count = get_asic_count(duthost)[0]
-    asic = None if get_asic_count(duthost)[1] == True else ['asic%d'%i for i in range(0,asic_count)]
     logger.info('Wait for Arp to Resolve ...')
     wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
 
@@ -180,11 +178,7 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
     api.set_transmit_state(ts)
 
     time.sleep(pfcwd_start_delay_sec)
-    if asic != None:
-        for i in asic:
-            start_pfcwd(duthost,i)
-    else:
-        start_pfcwd(duthost)
+    start_pfcwd(duthost, port['asic_value'])
     time.sleep(exp_dur_sec - pfcwd_start_delay_sec)
 
     attempts = 0
@@ -242,18 +236,13 @@ def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, toleran
         rx_frames = row.frames_rx
         logger.info('Flow Name : {} , Tx Frames : {}, Rx Frames : {}'.format(flow_name, tx_frames, rx_frames))
 
+        pytest_assert(tx_frames == rx_frames, "{} packets of {} are dropped".
+                      format(tx_frames - rx_frames, flow_name))
 
-        pytest_assert(tx_frames == rx_frames, "{} packets of {} are dropped".\
-                      format(tx_frames-rx_frames, flow_name))
-
-        exp_rx_pkts =  data_flow_rate_percent / 100.0 * speed_gbps \
+        exp_rx_pkts = data_flow_rate_percent / 100.0 * speed_gbps \
             * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
         deviation = (rx_frames - exp_rx_pkts) / float(exp_rx_pkts)
         pytest_assert(abs(deviation) < tolerance,
-                      "{} should receive {} packets (actual {})".\
+                      "{} should receive {} packets (actual {})".
                       format(flow_name, exp_rx_pkts, rx_frames))
-
-def __cleanup_config(duthost,port,ip):
-    logger.info('Cleaning up config on {}'.format(duthost.hostname))
-    duthost.command('sudo config interface ip remove {} {}/24 \n' .format(port,ip))

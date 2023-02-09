@@ -57,8 +57,8 @@ def run_pfcwd_burst_storm_test(api,
     start_pfcwd(duthost2, tx_port['asic_value'])
     enable_packet_aging(duthost2)
     poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,asic_value=rx_port['asic_value']) / 1000.0
-    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,asic_value=rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port, asic_value=rx_port['asic_value']) / 1000.0
+    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port, asic_value=rx_port['asic_value']) / 1000.0
 
     burst_cycle_sec = poll_interval_sec + detect_time_sec + restore_time_sec + 0.1
     data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS)
@@ -92,11 +92,10 @@ def run_pfcwd_burst_storm_test(api,
     __verify_results(rows=flow_stats,
                      data_flow_prefix=DATA_FLOW_PREFIX,
                      pause_flow_prefix=PAUSE_FLOW_PREFIX)
-    
-    __cleanup_config(duthost1,port_config_list[0].peer_port,port_config_list[0].gateway)
-    __cleanup_config(duthost2,port_config_list[1].peer_port,port_config_list[1].gateway)
 
-sec_to_nanosec = lambda x : x * 1e9
+
+def sec_to_nanosec(x):
+    return x * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -308,7 +307,3 @@ def __verify_results(rows, data_flow_prefix, pause_flow_prefix):
             """ PFC pause storm """
             pytest_assert(tx_frames > 0 and rx_frames == 0,
                           "All the PFC packets should be dropped")
-
-def __cleanup_config(duthost,port,ip):
-    logger.info('Cleaning up config on {}'.format(duthost.hostname))
-    duthost.command('sudo config interface ip remove {} {}/24 \n' .format(port,ip))
