@@ -128,7 +128,7 @@ class TestSfpApi(PlatformApiTestBase):
         'tx1power'
     ]
 
-    EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+    EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS = [
         'txpowerlowwarning',
         'temphighwarning',
         'temphighalarm',
@@ -153,7 +153,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     # To get all the keys supported by QSFP-DD modules
     # below list should be appended with
-    # EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+    # EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS
     QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
         'lasertemphighwarning',
         'lasertemplowwarning',
@@ -163,7 +163,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     # To get all the keys supported by QSFP-ZR modules
     # below list should be appended with
-    # EXPECTED_XCVR_THRESHOLD_INFO_KEYS + QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+    # EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS + QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
     QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
         'prefecberhighalarm',
         'prefecberlowalarm',
@@ -354,7 +354,7 @@ class TestSfpApi(PlatformApiTestBase):
             if self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 if self.expect(isinstance(info_dict, dict), "Transceiver {} info appears incorrect".format(i)):
                     actual_keys = info_dict.keys()
-                    
+
                     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
                     # NOTE: No more releases to be added here. Platform should use SFP-refactor.
                     # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
@@ -425,7 +425,7 @@ class TestSfpApi(PlatformApiTestBase):
                 if self.expect(isinstance(thold_info_dict, dict), "Transceiver {} threshold info appears incorrect".format(i)):
                     actual_keys = thold_info_dict.keys()
 
-                    expected_keys = self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                    expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
                     if info_dict["type_abbrv_name"] == "QSFP-DD":
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         if 'ZR' in info_dict["media_interface_code"]:
