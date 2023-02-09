@@ -139,7 +139,7 @@ k8s_server_19:
 ```
 $ git clone https://github.com/sonic-net/sonic-mgmt
 $ cd sonic-mgmt/ansible
-$ sudo ./setup-management-network.sh
+$ sudo -H ./setup-management-network.sh
 $ sudo ./setup-br1-nat.sh <name of server's external facing port>
 ```
 2. Setup virtual switch testbed as described [here](README.testbed.VsSetup.md). **Note:** if the host machine is a VM, nested virtualization must be enabled.
