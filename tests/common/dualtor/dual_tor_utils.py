@@ -1365,11 +1365,7 @@ def recover_linkmgrd_probe_interval(duthosts, tbinfo):
         return
 
     default_probe_interval_ms = 100
-    logger.info("Recover linkmgrd probe interval on {} to {}ms".format(duthosts, default_probe_interval_ms))
-    cmds = []
-    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
-                .format(default_probe_interval_ms))
-    duthosts.shell_cmds(cmds=cmds)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
 
 
 def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
@@ -1383,7 +1379,7 @@ def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
     cmds = []
     cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
                 .format(probe_interval_ms))
-    duthosts.shell_cmds(cmds=cmds)
+    duthosts.shell(cmds=cmds)
 
 
 @pytest.fixture(scope='module')
