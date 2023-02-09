@@ -1359,27 +1359,22 @@ def remove_static_routes(standby_tor, active_tor_loopback_ip):
 
 def recover_linkmgrd_probe_interval(duthosts, tbinfo):
     '''
-    Increase the interval at which linkmgrd sends ICMP heartbeats to the server/PTF
+    Recover the linkmgrd probe interval to default value
     '''
-    if 'dualtor' not in tbinfo['topo']['name']:
-        return
-
     default_probe_interval_ms = 100
     update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
 
 
 def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
     '''
-    Temporarily modify linkmgrd probe interval
+    Update the linkmgrd probe interval
     '''
     if 'dualtor' not in tbinfo['topo']['name']:
         return
 
     logger.info("Update linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
-    cmds = []
-    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
-                .format(probe_interval_ms))
-    duthosts.shell(cmds=cmds)
+    duthosts.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
+                   .format(probe_interval_ms))
 
 
 @pytest.fixture(scope='module')
