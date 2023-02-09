@@ -971,8 +971,8 @@ jobs:
         displayName: "Public sai test report"
 
       - task: Bash@3
-        displayName: Scan SAI repo
-        condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.UPLOAD_TEST_REPORT }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+        displayName: Scan cases
+        condition: ${{ parameters.SCAN_CASES }}
         inputs:
           targetType: 'inline'
           script: |
@@ -1001,5 +1001,5 @@ jobs:
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
           PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
-          SCAN: ${{ parameters.SCAN }}
+          SCAN_CASES: ${{ parameters.SCAN_CASES }}
 

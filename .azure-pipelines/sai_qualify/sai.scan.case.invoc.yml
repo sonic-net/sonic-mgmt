@@ -133,7 +133,7 @@ parameters:
       - nightly-svc
       - nightly-bjw
 
-  - name: SCAN
+  - name: SCAN_CASES
     displayName: "Scan cases"
     type: boolean
     default: true
@@ -167,4 +167,4 @@ stages:
       MGMT_REPO: ${{ parameters.MGMT_REPO }}
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
-      SCAN: ${{ parameters.SCAN }}
+      SCAN_CASES: ${{ parameters.SCAN_CASES }}
