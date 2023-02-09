@@ -30,7 +30,7 @@ First, we need to prepare the host where we will be configuring the virtual test
 ```
 git clone https://github.com/sonic-net/sonic-mgmt
 cd sonic-mgmt/ansible
-sudo ./setup-management-network.sh
+sudo -H ./setup-management-network.sh
 ```
 
 4. [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
