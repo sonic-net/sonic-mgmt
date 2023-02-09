@@ -41,12 +41,19 @@ def check_services(duthost):
     if not duthost.critical_services_fully_started():
         raise RebootHealthError("dut.critical_services_fully_started is False")
 
-    for service in duthost.critical_services:
-        status = duthost.get_service_props(service)
-        if status["ActiveState"] != "active":
-            raise RebootHealthError("ActiveState of {} is {}, expected: active".format(service, status["ActiveState"]))
-        if status["SubState"] != "running":
-            raise RebootHealthError("SubState of {} is {}, expected: running".format(service, status["SubState"]))
+    def check_props(service, props):
+        expected_props_state = {
+            "ActiveState": "active",
+            "SubState": "running"
+        }
+        for prop_name, expected_state in expected_props_state.items():
+            prop_state = props[prop_name]
+            if prop_state != expected_state:
+                raise RebootHealthError("{} of {} is {}, expected: {}".format(prop_name, service, prop_state, expected_state))
+    
+    svc_props = duthost.get_service_props_bulk(duthost.critical_services)
+    for service, props in svc_props.items():
+        check_props(service, props)
 
 
 @handle_test_error
