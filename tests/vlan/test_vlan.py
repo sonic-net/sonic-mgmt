@@ -8,13 +8,13 @@ import logging
 import pprint
 import time
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        #noqa
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  #noqa
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # flake8：noqa
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # flake8：noqa
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
-from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list       #noqa
+from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list       # flake8：noqa
 from tests.common.fixtures.duthost_utils import utils_create_test_vlans
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig              #noqa
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig              # flake8：noqa
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
 from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
 
@@ -64,7 +64,7 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
 
     # For t0 topo, will add port to new VLAN, use 'orig' field to identify new VLAN.
-    vlan_id_list = [k for k, v in vlan_intfs_dict.items() if v['orig'] == False]        #noqa
+    vlan_id_list = [k for k, v in vlan_intfs_dict.items() if v['orig'] == False]        # flake8：noqa
     pvid_cycle = itertools.cycle(vlan_id_list)
     # when running on t0 we can use the portchannel members
     if config_portchannels:
@@ -129,7 +129,8 @@ def skip_sonic_leaf_fanout(fanouthosts):
     The test set can't run on testbeds connected to sonic leaf-fanout for below reasons:
     1.The test will generate QinQ packet for testing. However, the QinQ packet will be dropped by sonic
     leaf-fanout because dot1q-tunnel is not supported. Hence we skip the test on testbeds running sonic leaf-fanout.
-    2.The egressed  packets of some testcases will be tagged with test vlan id, which will be dropped by sonic leaf-fanout.
+    2.The egressed  packets of some testcases will be tagged with test vlan id, 
+    which will be dropped by sonic leaf-fanout.
     """
     for fanouthost in fanouthosts.values():
         if fanouthost.get_fanout_os() == 'sonic':
@@ -204,7 +205,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_po
 
             # Must wait for orchagent to remove related router interface
             start_time = time.time()
-            assert wait_until(120, 2, 0, check_portchannels_down, duthost, portchannel_interfaces), "Shutdown portchannels failed"      #noqa
+            assert wait_until(120, 2, 0, check_portchannels_down, duthost, portchannel_interfaces), "Shutdown portchannels failed"      # flake8：noqa
             end_time = time.time()
             logger.info('Take {} seconds to shutdown portchannels'.format(end_time-start_time))
 
@@ -445,19 +446,23 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, fanouthosts, work_vlan_ports_list,
         transmit_tagged_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=src_mac, dst_mac=dst_mac)
         return_transmit_tagged_pkt = build_icmp_packet(vlan_id=tagged_test_vlan, src_mac=dst_mac, dst_mac=src_mac)
 
-        logger.info("Tagged({}) packet to be sent from port {} to port {}".format(tagged_test_vlan, src_port, dst_port))
+        logger.info("Tagged({}) packet to be sent from port {} to port {}"\
+            .format(tagged_test_vlan, src_port, dst_port))
 
         verify_unicast_packets(ptfadapter, transmit_tagged_pkt, transmit_tagged_pkt, src_port[0], dst_port)
 
         logger.info("One Way Tagged Packet Transmission Works")
-        logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(tagged_test_vlan, src_port, dst_port))
+        logger.info("Tagged({}) packet successfully sent from port {} to port {}"\
+                    .format(tagged_test_vlan, src_port, dst_port))
 
-        logger.info("Tagged({}) packet to be sent from port {} to port {}".format(tagged_test_vlan, dst_port, src_port))
+        logger.info("Tagged({}) packet to be sent from port {} to port {}".\
+                    format(tagged_test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_tagged_pkt, return_transmit_tagged_pkt, dst_port[0], src_port)
 
         logger.info("Two Way Tagged Packet Transmission Works")
-        logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(tagged_test_vlan, dst_port[0], src_port))
+        logger.info("Tagged({}) packet successfully sent from port {} to port {}"\
+                    .format(tagged_test_vlan, dst_port[0], src_port))
 
 
 @pytest.mark.bsl
@@ -488,19 +493,23 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
         transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac)
         return_transmit_untagged_pkt = build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac)
 
-        logger.info("Untagged({}) packet to be sent from port {} to port {}".format(untagged_test_vlan, src_port, dst_port))
+        logger.info("Untagged({}) packet to be sent from port {} to port {}"\
+                    .format(untagged_test_vlan, src_port, dst_port))
 
         verify_unicast_packets(ptfadapter, transmit_untagged_pkt, transmit_untagged_pkt, src_port[0], dst_port)
 
         logger.info("One Way Untagged Packet Transmission Works")
-        logger.info("Untagged({}) packet successfully sent from port {} to port {}".format(untagged_test_vlan, src_port, dst_port))
+        logger.info("Untagged({}) packet successfully sent from port {} to port {}"\
+                    .format(untagged_test_vlan, src_port, dst_port))
 
-        logger.info("Untagged({}) packet to be sent from port {} to port {}".format(untagged_test_vlan, dst_port, src_port))
+        logger.info("Untagged({}) packet to be sent from port {} to port {}"\
+                    .format(untagged_test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_untagged_pkt, return_transmit_untagged_pkt, dst_port[0], src_port)
 
         logger.info("Two Way Untagged Packet Transmission Works")
-        logger.info("Untagged({}) packet successfully sent from port {} to port {}".format(untagged_test_vlan, dst_port, src_port))
+        logger.info("Untagged({}) packet successfully sent from port {} to port {}"\
+                    .format(untagged_test_vlan, dst_port, src_port))
 
 
 @pytest.mark.bsl
@@ -548,14 +557,16 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, fanouthosts, work_vlan_por
         verify_unicast_packets(ptfadapter, transmit_untagged_pkt, exp_tagged_pkt, src_port[0], dst_port)
 
         logger.info("One Way Untagged Packet Transmission Works")
-        logger.info("Untagged({}) packet successfully sent from port {} to port {}".format(test_vlan, src_port, dst_port))
+        logger.info("Untagged({}) packet successfully sent from port {} to port {}"\
+                    .format(test_vlan, src_port, dst_port))
 
         logger.info("Tagged({}) packet to be sent from port {} to port {}".format(test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_tagged_pkt, exp_untagged_pkt, dst_port[0], src_port)
 
         logger.info("Two Way tagged Packet Transmission Works")
-        logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(test_vlan, dst_port, src_port))
+        logger.info("Tagged({}) packet successfully sent from port {} to port {}"\
+                    .format(test_vlan, dst_port, src_port))
 
 
 def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, fanouthosts, work_vlan_ports_list, 
@@ -581,7 +592,8 @@ def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, fanouthosts, work_
         src_mac = ptfadapter.dataplane.get_mac(0, src_port[0])
         dst_mac = ptfadapter.dataplane.get_mac(0, dst_port[0])
 
-        transmit_qinq_pkt = build_qinq_packet(outer_vlan_id=tagged_test_vlan, vlan_id=250, src_mac=src_mac, dst_mac=dst_mac)
+        transmit_qinq_pkt = build_qinq_packet(outer_vlan_id=tagged_test_vlan, vlan_id=250, 
+                                              src_mac=src_mac, dst_mac=dst_mac)
         logger.info("QinQ({}) packet to be sent from port {} to port {}".format(tagged_test_vlan, src_port, dst_port))
 
         verify_unicast_packets(ptfadapter, transmit_qinq_pkt, transmit_qinq_pkt, src_port[0], dst_port)
