@@ -232,7 +232,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
     global icmp_responder_session_started
 
     update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
-    duthosts.shell_cmds("config save -y")
+    duthosts.shell("config save -y")
 
     duthost = duthosts[0]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
@@ -280,7 +280,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
         return
 
     update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
-    duthosts.shell_cmds("config save -y")
+    duthosts.shell("config save -y")
 
     duthost = duthosts[rand_one_dut_hostname]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
@@ -308,7 +308,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     ptfhost.shell("supervisorctl stop icmp_responder")
     logging.info("Recover linkmgrd probe interval")
     recover_linkmgrd_probe_interval(duthosts, tbinfo)
-    duthosts.shell_cmds("config save -y")
+    duthosts.shell("config save -y")
 
 
 @pytest.fixture
