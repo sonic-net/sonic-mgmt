@@ -784,10 +784,6 @@ qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
 
-qos/test_pfc_pause.py::test_pfc_pause_lossless:
-  xfail:
-    reason: "The fanout script(pfc_gen.py) is not reliable."
-
 qos/test_tunnel_qos_remap.py::test_pfc_pause_extra_lossless_active:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
