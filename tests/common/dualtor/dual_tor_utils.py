@@ -1349,15 +1349,15 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     logging.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
 
 
-def remove_static_routes(standby_tor, active_tor_loopback_ip):
+def remove_static_routes(standby_tor, route_dst):
     """
     Remove static routes for active tor
     """
-    logger.info("Removing dual ToR peer switch static route")
-
-    active_tor_loopback_ip = ipaddress.ip_address(active_tor_loopback_ip.decode())
-    subnet_mask_len = 32 if active_tor_loopback_ip.version == 4 else 128
-    standby_tor.shell('ip route del {}/{}'.format(str(active_tor_loopback_ip), subnet_mask_len), module_ignore_errors=True)
+    route_dst = ipaddress.ip_address(route_dst.decode())
+    subnet_mask_len = 32 if route_dst.version == 4 else 128
+    
+    logger.info("Removing dual ToR peer switch static route: ip route del {}/{}".format(str(route_dst), subnet_mask_len))
+    standby_tor.shell('ip route del {}/{}'.format(str(route_dst), subnet_mask_len), module_ignore_errors=True)
 
 
 def increase_linkmgrd_probe_interval(duthosts, tbinfo):
