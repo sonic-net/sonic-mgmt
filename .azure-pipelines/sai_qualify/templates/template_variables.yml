@@ -3,3 +3,4 @@ variables:
 - group: SAITHRIFT_URLS
 - group: SAI_IMAGE_URLS
 - group: SAI_SAITHRIFT_URLS
+- group: SCAN_CASES
