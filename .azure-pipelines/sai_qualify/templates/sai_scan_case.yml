@@ -969,3 +969,37 @@ jobs:
         condition: ${{ parameters.RUN_TEST }}
         artifact: sai_test_report
         displayName: "Public sai test report"
+
+      - task: Bash@3
+        displayName: Scan SAI repo
+        condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.UPLOAD_TEST_REPORT }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+
+            echo "Generate header"
+            SAI_PATH=/tmp/sai_qualify/SAI
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
+            
+            echo "Generate SAI definitions"
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/sai_adapter_scanner.py ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/sai_adapter
+
+            echo "Generate scan results"
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/case_scanner.py -p sai_test -sp ${BASH_WORKING_FOLDER}/result/scan/sai_test
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/case_scanner.py -p ptf -sp ${BASH_WORKING_FOLDER}/result/scan/ptf
+
+            echo "Upload resulrs"
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
+
+        env:
+          TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+          TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+          TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+          TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+          BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
+          SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
+          PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
+          SCAN: ${{ parameters.SCAN }}
+
