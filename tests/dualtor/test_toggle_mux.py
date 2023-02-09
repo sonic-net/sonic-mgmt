@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.dualtor.mux_simulator_control import check_mux_status, validate_check_result
-from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval
+from tests.common.dualtor.dual_tor_utils import recover_linkmgrd_probe_interval, update_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
 
 
@@ -13,8 +13,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-
-DEFAUL_INTERVAL_V4 = 100
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -49,7 +47,7 @@ def test_toggle_mux_from_simulator(duthosts, tbinfo, active_side, toggle_all_sim
 
     cur_interval_v4 = get_interval_v4
     if cur_interval_v4 is not None:
-        update_linkmgrd_probe_interval(duthosts, tbinfo, DEFAUL_INTERVAL_V4)
+        recover_linkmgrd_probe_interval(duthosts, tbinfo)
 
     logger.info('Toggle mux active side from mux simulator')
     toggle_all_simulator_ports(active_side)
@@ -69,7 +67,7 @@ def test_toggle_mux_from_cli(duthosts, tbinfo, active_side, get_mux_status, get_
 
     cur_interval_v4 = get_interval_v4
     if cur_interval_v4 is not None:
-        update_linkmgrd_probe_interval(duthosts, tbinfo, DEFAUL_INTERVAL_V4)
+        recover_linkmgrd_probe_interval(duthosts, tbinfo)
 
     # Use cli to toggle muxcable active side
     if active_side == UPPER_TOR:
