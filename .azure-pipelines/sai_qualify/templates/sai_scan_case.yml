@@ -940,7 +940,6 @@ jobs:
 
       - task: Bash@3
         displayName: Upload Test Results
-        # condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.UPLOAD_TEST_REPORT }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
         condition: ${{ parameters.UPLOAD_TEST_REPORT }}
         inputs:
           targetType: 'inline'
