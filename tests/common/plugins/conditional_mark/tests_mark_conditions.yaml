@@ -425,9 +425,9 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue:
 
 iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
   skip:
-    reason: "Dynamic breakout for 40G is not supported for cisco 8000 platform"
+    reason: "Dynamic breakout for 40G is not supported for cisco 8101 platform"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "platform in ['x86_64-8101_32fh_o-r0']"
 
 #######################################
 #####            ip               #####
