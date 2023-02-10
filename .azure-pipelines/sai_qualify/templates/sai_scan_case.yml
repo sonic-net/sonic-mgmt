@@ -961,6 +961,7 @@ jobs:
             pip3 install -r ${BASH_WORKING_FOLDER}/test_reportingrequirements.txt
             pip install -r ${BASH_WORKING_FOLDER}/test_reportingrequirements.txt
             # popd
+            pip list
 
 
             echo "Generate header"
