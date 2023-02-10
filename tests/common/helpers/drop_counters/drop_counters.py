@@ -97,7 +97,7 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
             # if the dut_iface is not found ignore this device
             if dut_iface not in pkt_drops:
                 continue
-            drop_list.append(int(pkt_drops[dut_iface][column_key].replace(",", "")))L3 counters may not be supported on this platform
+            drop_list.append(int(pkt_drops[dut_iface][column_key].replace(",", "")))
         return drop_list
 
     def _check_drops_on_dut():
