@@ -20,6 +20,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
+from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
@@ -179,21 +180,34 @@ class SonicHost(AnsibleHostBase):
         """
         Gather facts about the platform for this SONiC device.
         """
+        facts = self._get_platform_info()
 
-        facts = dict()
-        facts.update(self._get_platform_info())
-        facts["num_asic"] = self._get_asic_count(facts["platform"])
-        facts["router_mac"] = self._get_router_mac()
-        facts["modular_chassis"] = self._get_modular_chassis()
-        facts["mgmt_interface"] = self._get_mgmt_interface()
-        facts["switch_type"] = self._get_switch_type()
-        facts["router_type"] = self._get_router_type()
-        asics_present = self.get_asics_present_from_inventory()
-        facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
+        results = parallel_run_threaded(
+            [
+                lambda: self._get_asic_count(facts["platform"]),
+                self._get_router_mac,
+                self._get_modular_chassis,
+                self._get_mgmt_interface,
+                self._get_switch_type,
+                self._get_router_type,
+                self.get_asics_present_from_inventory,
+                lambda: self._get_platform_asic(facts["platform"])
+            ],
+            timeout=120,
+            thread_count=5
+        )
 
-        platform_asic = self._get_platform_asic(facts["platform"])
-        if platform_asic:
-            facts["platform_asic"] = platform_asic
+        facts["num_asic"] = results[0]
+        facts["router_mac"] = results[1]
+        facts["modular_chassis"] = results[2]
+        facts["mgmt_interface"] = results[3]
+        facts["switch_type"] = results[4]
+        facts["router_type"] = results[5]
+
+        facts["asics_present"] = results[6] if len(results[6]) != 0 else list(range(facts["num_asic"]))
+
+        if results[7]:
+            facts["platform_asic"] = results[7]
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
