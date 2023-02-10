@@ -2,7 +2,6 @@ import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from ptf.mask import Mask
-
 import itertools
 import logging
 import pprint
