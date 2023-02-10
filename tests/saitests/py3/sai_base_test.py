@@ -115,24 +115,24 @@ class ThriftInterface(BaseTest):
     def sai_thrift_port_tx_enable(self, client, asic_type, port_list, last_port=True):
         if self.platform_asic and self.platform_asic == "broadcom-dnx" and last_port:
             # need to enable watchdog on the source asic using cint script
-            cmd = "bcmcmd -n {} \"cint cint_wd_enable.txt\"".format(self.asic_id)
+            cmd = "bcmcmd -n {} \"BCMSAI credit-watchdog enable\"".format(self.asic_id)
             stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.server,
                                                             self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             cmd)
-            assert ('is Successful' in stdOut[1], "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.asic_id,
+            assert ('Success rv = 0' in stdOut[1], "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.asic_id,
                                                                                             self.server))
 
         sai_thrift_port_tx_enable(client, asic_type, port_list)
     def sai_thrift_port_tx_disable(self, client, asic_type, port_list):
         if self.platform_asic and self.platform_asic == "broadcom-dnx":
             # need to enable watchdog on the source asic using cint script
-            cmd = "bcmcmd -n {} \"cint cint_wd_disable.txt\"".format(self.asic_id)
+            cmd = "bcmcmd -n {} \"BCMSAI credit-watchdog disable\"".format(self.asic_id)
             stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.server,
                                                             self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             cmd)
-            assert ('is Successful' in stdOut[1]), "disable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.asic_id,
+            assert ('Success rv = 0' in stdOut[1]), "disable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.asic_id,
                                                                                          self.server)
         sai_thrift_port_tx_disable(client, asic_type, port_list)
 

@@ -478,28 +478,10 @@ class QosSaiBase(QosBase):
             "src_port_vlan": srcVlan
         }
 
-    @pytest.fixture(scope='class')
-    def copy_cint_scripts_in_syncd(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
-        a_dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        asic = a_dut.asic_instance(enum_frontend_asic_index)
-        file_list=[]
-        if a_dut.sonichost.facts['platform_asic'] == "broadcom-dnx":
-            file_list = ["cint_wd_disable.txt", "cint_wd_enable.txt"]
-        for a_file in file_list:
-            a_dut.copy(src=os.path.join("qos/files/brcm/cint_scripts", a_file), dest="/tmp/{}".format(a_file, a_file))
-            docker_name = asic.get_docker_name('syncd')
-            a_dut.shell("docker cp /tmp/{} {}:/{}".format(a_file, docker_name, a_file))
-
-        yield
-        for a_file in file_list:
-            a_dut.shell("rm /tmp/{}".format(a_file))
-            docker_name = asic.get_docker_name('syncd')
-            a_dut.shell("docker exec {} rm /{}".format(docker_name, a_file))
-
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
             self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-            enum_frontend_asic_index, copy_cint_scripts_in_syncd, lower_tor_host, tbinfo, dualtor_ports, dut_qos_maps): # noqa F811
+            enum_frontend_asic_index, lower_tor_host, tbinfo, dualtor_ports, dut_qos_maps): # noqa F811
         """
             Build DUT host config pertaining to QoS SAI tests
 
