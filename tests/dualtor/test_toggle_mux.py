@@ -45,6 +45,15 @@ def reset_link_prober_interval_v4(duthosts, get_interval_v4, tbinfo):
     if cur_interval_v4 is not None:
         recover_linkmgrd_probe_interval(duthosts, tbinfo)
 
+    # NOTE: as there is no icmp_responder running, the device is stucked in consistently probing
+    # the mux status. If there is a previous case that has fixture run_icmp_responder called, the
+    # link prober interval is changed into 1000ms, the mux probing interval could be 384s at most.
+    # So after a hardware mux change, SONiC is only able to learn the change after 384s in worst case.
+    # To accelerate this, let's restarting linkmgrd to break out from the probing loop firstly and
+    # change the the probing interval back to 100ms to reduce the future probing interval maximum
+    # down to 38.4s.
+    duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+
     yield
 
     if cur_interval_v4 is not None:
