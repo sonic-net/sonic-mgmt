@@ -955,12 +955,12 @@ jobs:
             fi
             popd
 
-            pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/sai_qualify
-            echo "Install SAI_Qualify requirements"
-            cat requirements.txt
-            pip3 install -r requirements.txt
-            pip install -r requirements.txt
-            popd
+            # pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/sai_qualify
+            # echo "Install SAI_Qualify requirements"
+            # cat requirements.txt
+            pip3 install -r ${BASH_WORKING_FOLDER}/test_reportingrequirements.txt
+            pip install -r ${BASH_WORKING_FOLDER}/test_reportingrequirements.txt
+            # popd
 
 
             echo "Generate header"
