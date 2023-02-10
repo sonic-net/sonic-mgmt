@@ -423,6 +423,12 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue:
     conditions:
       - "topo_name in ['m0', 'mx']"
 
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
+  skip:
+    reason: "Dynamic breakout for 40G is not supported for cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            ip               #####
 #######################################
