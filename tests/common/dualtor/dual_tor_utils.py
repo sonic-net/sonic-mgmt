@@ -1355,7 +1355,7 @@ def remove_static_routes(standby_tor, route_dst):
     """
     route_dst = ipaddress.ip_address(route_dst.decode())
     subnet_mask_len = 32 if route_dst.version == 4 else 128
-    
+
     logger.info("Removing dual ToR peer switch static route:  {}/{}".format(str(route_dst), subnet_mask_len))
     standby_tor.shell('ip route del {}/{}'.format(str(route_dst), subnet_mask_len), module_ignore_errors=True)
 
