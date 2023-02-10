@@ -60,6 +60,9 @@ class TestAutoTechSupport:
     test_docker = None
 
     def set_test_dockers_list(self):
+        self.dockers_list[:] = []
+        self.number_of_test_dockers = 0
+        self.test_docker = None
         auto_tech_support_features_list = self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys()
         system_features_status = self.duthost.get_feature_status()
         for feature in auto_tech_support_features_list:
@@ -68,11 +71,6 @@ class TestAutoTechSupport:
 
         self.number_of_test_dockers = len(self.dockers_list)
         self.test_docker = random.choice(self.dockers_list)
-
-    def clear_class_param(self):
-        self.dockers_list[:] = []
-        self.number_of_test_dockers = 0
-        self.test_docker = None
 
     @pytest.fixture(autouse=True)
     def common_configuration(self, duthosts, rand_one_dut_hostname):
@@ -93,7 +91,6 @@ class TestAutoTechSupport:
 
         clear_auto_techsupport_history(self.duthost)
         clear_folders(self.duthost)
-        self.clear_class_param()
 
     @pytest.fixture()
     def global_rate_limit_zero(self):
