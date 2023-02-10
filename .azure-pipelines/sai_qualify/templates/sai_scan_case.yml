@@ -986,7 +986,6 @@ jobs:
             pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
             if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]
             then
-              echo "!!!!"
               git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
               git fetch ${{ parameters.MGMT_REPO }}
               git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }}
@@ -1007,22 +1006,22 @@ jobs:
             cd ${BASH_WORKING_FOLDER}/test_reporting
             pip3 install -r requirements.txt
 
-            pip list
+            # pip list
 
             echo "Generate header"
             SAI_PATH=/tmp/sai_qualify/SAI
-            python3 ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
+            python3 sai_coverage/sai_header_scanner.py $SAI_PATH/inc
             
             echo "Generate SAI definitions"
-            python3 ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/sai_adapter_scanner.py ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/sai_adapter
+            python3 sai_coverage/sai_adapter_scanner.py sai_coverage/sai_adapter
 
             echo "Generate scan results"
-            python3 ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/case_scanner.py -p sai_test -sp ${BASH_WORKING_FOLDER}/result/scan/sai_test
-            python3 ${BASH_WORKING_FOLDER}/test_reporting/sai_coverage/case_scanner.py -p ptf -sp ${BASH_WORKING_FOLDER}/result/scan/ptf
+            python3 sai_coverage/case_scanner.py -p sai_test -sp ../result/scan/sai_test
+            # python3 sai_coverage/case_scanner.py -p ptf -sp ../result/scan/ptf
 
             echo "Upload resulrs"
-            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
-            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
+            python3 report_uploader.py ../result/scan/sai_test SaiTestData -c case_invoc
+            # python3 report_uploader.py ../result/scan/ptf SaiTestData -c case_invoc
 
         env:
             BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
