@@ -1008,6 +1008,8 @@ jobs:
 
             # pip list
 
+            echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
+            
             echo "Generate header"
             SAI_PATH=/tmp/sai_qualify/SAI
             python3 sai_coverage/sai_header_scanner.py $SAI_PATH/inc
@@ -1019,7 +1021,7 @@ jobs:
             python3 sai_coverage/case_scanner.py -p sai_test -sp ../result/scan/sai_test
             # python3 sai_coverage/case_scanner.py -p ptf -sp ../result/scan/ptf
 
-            echo "Upload resulrs"
+            echo "Upload scan results"
             python3 report_uploader.py ../result/scan/sai_test SaiTestData -c case_invoc
             # python3 report_uploader.py ../result/scan/ptf SaiTestData -c case_invoc
 
