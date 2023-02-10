@@ -11,7 +11,8 @@ from jinja2 import Template
 
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
-from tests.common.dualtor.dual_tor_utils import increase_linkmgrd_probe_interval
+from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
 GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
+PROBER_INTERVAL_MS = 1000
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -121,9 +123,11 @@ def change_mac_addresses(ptfhost):
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.change_mac_addresses()
     # NOTE: up/down ptf interfaces in change_mac_address will interrupt icmp_responder
-    # socket read/write operations, so let's restart icmp_responder
-    logging.debug("restart icmp_responder after change ptf port mac addresses")
-    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
+    # socket read/write operations, so let's restart icmp_responder if it is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)
+    if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
+        logging.debug("restart icmp_responder after change ptf port mac addresses")
+        ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -227,7 +231,8 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     global icmp_responder_session_started
 
-    increase_linkmgrd_probe_interval(duthosts, tbinfo)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    duthosts.shell("config save -y")
 
     duthost = duthosts[0]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
@@ -274,7 +279,8 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
         yield
         return
 
-    increase_linkmgrd_probe_interval(duthosts, tbinfo)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    duthosts.shell("config save -y")
 
     duthost = duthosts[rand_one_dut_hostname]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
@@ -300,6 +306,9 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
 
     logging.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
+    logging.info("Recover linkmgrd probe interval")
+    recover_linkmgrd_probe_interval(duthosts, tbinfo)
+    duthosts.shell("config save -y")
 
 
 @pytest.fixture
