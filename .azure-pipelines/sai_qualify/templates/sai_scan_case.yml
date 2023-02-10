@@ -1008,22 +1008,26 @@ jobs:
 
             # pip list
 
-            echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
+            cd ../..  # move to sonic-mgmt root folder
+
+            git clone https://github.com/opencomputeproject/SAI.git
+
+            cd ${BASH_WORKING_FOLDER}
             
             echo "Generate header"
-            SAI_PATH=/tmp/sai_qualify/SAI
-            python3 sai_coverage/sai_header_scanner.py $SAI_PATH/inc
+            SAI_PATH=../SAI
+            python3 test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
             
             echo "Generate SAI definitions"
-            python3 sai_coverage/sai_adapter_scanner.py sai_coverage/sai_adapter
+            python3 test_reporting/sai_coverage/sai_adapter_scanner.py test_reporting/sai_coverage/sai_adapter
 
             echo "Generate scan results"
-            python3 sai_coverage/case_scanner.py -p sai_test -sp ../result/scan/sai_test
-            # python3 sai_coverage/case_scanner.py -p ptf -sp ../result/scan/ptf
+            python3 test_reporting/sai_coverage/case_scanner.py -p sai_test -sp result/scan/sai_test
+            # python3 test_reporting/sai_coverage/case_scanner.py -p ptf -sp result/scan/ptf
 
             echo "Upload scan results"
-            python3 report_uploader.py ../result/scan/sai_test SaiTestData -c case_invoc
-            # python3 report_uploader.py ../result/scan/ptf SaiTestData -c case_invoc
+            python3 test_reporting/report_uploader.py result/scan/sai_test SaiTestData -c case_invoc
+            # python3 test_reporting/report_uploader.py result/scan/ptf SaiTestData -c case_invoc
 
         env:
             BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
