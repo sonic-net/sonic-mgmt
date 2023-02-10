@@ -714,7 +714,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 ip_ecn=ecn,
                 ip_ttl=64
                 )
-        
+
         ipinip_packet = simple_ipv4ip_packet(
                             eth_dst=active_tor_mac,
                             eth_src=standby_tor_mac,
@@ -799,7 +799,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size)
         finally:
             # Enable tx on dest port
-            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])       
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
 
 # DOT1P to pg mapping
@@ -1239,15 +1239,15 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                                      ip_ecn=ecn,
                                      ip_ttl=ttl)
 
-        print >> sys.stderr, "test dst_port_id: {}, src_port_1_id: {}".format(
+        print("test dst_port_id: {}, src_port_1_id: {}".format(
             dst_port_id, src_port_1_id
-        )
+        ), file=sys.stderr)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
             self, 0, src_port_1_id, pkt_dst_mac, dst_port_ip, src_port_1_ip
         )
-        print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
+        print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
 
         # get a snapshot of counter values at recv and transmit ports
         recv_counters_base1, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_1_id])
@@ -1268,10 +1268,10 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
             # send packets short of triggering pfc
             # Send 1 less packet due to leakout filling
             if num_of_flows == 'multiple':
-                send_packet(self, src_port_1_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc/2 - 2 - margin)
-                send_packet(self, src_port_1_id, pkt2, pkts_num_leak_out + pkts_num_trig_pfc/2 - 2 - margin)
-                send_packet(self, src_port_2_id, pkt3, pkts_num_leak_out + pkts_num_trig_pfc/2 - 2 - margin)
-                send_packet(self, src_port_2_id, pkt4, pkts_num_leak_out + pkts_num_trig_pfc/2 - 2 - margin)
+                send_packet(self, src_port_1_id, pkt, pkts_num_leak_out + (pkts_num_trig_pfc // 2) - 2 - margin)
+                send_packet(self, src_port_1_id, pkt2, pkts_num_leak_out + (pkts_num_trig_pfc // 2) - 2 - margin)
+                send_packet(self, src_port_2_id, pkt3, pkts_num_leak_out + (pkts_num_trig_pfc // 2) - 2 - margin)
+                send_packet(self, src_port_2_id, pkt4, pkts_num_leak_out + (pkts_num_trig_pfc // 2) - 2 - margin)
             else:
                 send_packet(self, src_port_1_id, pkt, pkts_num_leak_out + pkts_num_trig_pfc - 2 - margin)
                 send_packet(self, src_port_2_id, pkt3, pkts_num_leak_out + pkts_num_trig_pfc - 2 - margin)
@@ -2312,6 +2312,24 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.src_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in self.src_port_ids]
 
+        # Correct any destination ports that may be in a lag
+        for i in range(len(self.dst_port_ids)):
+            src_port_id = self.src_port_ids[i]
+            dst_port_id = self.dst_port_ids[i]
+            dst_port_mac = self.dst_port_macs[i]
+            src_port_ip = self.src_port_ips[i]
+            dst_port_ip = self.dst_port_ips[i]
+            real_dst_port_id = get_rx_port(
+                self,
+                0,
+                src_port_id,
+                self.router_mac if self.router_mac != '' else dst_port_mac,
+                dst_port_ip, src_port_ip
+            )
+            if real_dst_port_id != dst_port_id:
+                print("Corrected dst port from {} to {}".format(dst_port_id, real_dst_port_id), file=sys.stderr)
+                self.dst_port_ids[i] = real_dst_port_id
+
         time.sleep(8)
 
     def tearDown(self):
@@ -2365,15 +2383,16 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 dst_port_ip = self.dst_port_ips[i]
                 pkt_count = self.pkt_counts[i]
 
-                tos = (dscp << 2) | self.ecn
                 ttl = 64
-                pkt = simple_tcp_packet(pktlen=self.packet_size,
-                                        eth_dst=self.router_mac if self.router_mac != '' else dst_port_mac,
-                                        eth_src=src_port_mac,
-                                        ip_src=src_port_ip,
-                                        ip_dst=dst_port_ip,
-                                        ip_tos=tos,
-                                        ip_ttl=ttl)
+                pkt = construct_ip_pkt(self.packet_size,
+                                       self.router_mac if self.router_mac != '' else dst_port_mac,
+                                       src_port_mac,
+                                       src_port_ip,
+                                       dst_port_ip,
+                                       dscp,
+                                       None,
+                                       ecn=self.ecn,
+                                       ttl=64)
 
                 if i == len(self.src_port_ids) - 1:
                     # Verify XOFF has not been triggered on final port before sending traffic
@@ -2975,13 +2994,13 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                                  udp_dport=2049,
                                  ip_ecn=ecn,
                                  ip_ttl=ttl)
-        print >> sys.stderr, "dst_port_id: %d, src_port_id: %d " % (dst_port_id, src_port_id)
+        print("dst_port_id: {}, src_port_id: {}".format(dst_port_id, src_port_id), file=sys.stderr)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
         )
-        print >> sys.stderr, "actual dst_port_id: %d" % (dst_port_id)
+        print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -4172,7 +4191,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
                                             dst_ip=dst_port_ip,
                                             ecn=ecn,
                                             packet_size=packet_size)
-            
+
             # Send packets short of triggering pfc
             send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
             time.sleep(8)
@@ -4195,5 +4214,4 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(rx_counters[pg] > rx_counters_base[pg])
         finally:
             # Enable tx on dest port
-            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])       
-
+            sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
