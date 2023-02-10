@@ -986,6 +986,7 @@ jobs:
             pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
             if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]
             then
+              echo "!!!!"
               git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
               git fetch ${{ parameters.MGMT_REPO }}
               git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }} -- sai_qualify/ scripts/sai_qualify/
