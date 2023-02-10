@@ -958,8 +958,8 @@ jobs:
             # pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/sai_qualify
             # echo "Install SAI_Qualify requirements"
             # cat requirements.txt
-            pip3 install -r ${BASH_WORKING_FOLDER}/test_reportingrequirements.txt
-            pip install -r ${BASH_WORKING_FOLDER}/test_reportingrequirements.txt
+            pip3 install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
+            pip install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
             # popd
             pip list
 
