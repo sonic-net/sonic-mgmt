@@ -714,7 +714,7 @@ class TestConfigInterface():
         pytest_assert(wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, _port_status, 'up'),
                         "Interface {} should be admin up".format(test_intf))
 
-
+    @pytest.mark.skip(reason="Cisco 8000 Platform doesnt support 40G breakout")
     def test_config_interface_speed(self, setup_config_mode, sample_intf, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Checks whether 'config interface speed <intf> <speed>' sets
