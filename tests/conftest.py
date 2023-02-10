@@ -529,71 +529,71 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
-    try:
-        for dut_host, value in dev_conn.items():
-            duthost = duthosts[dut_host]
-            mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-            for dut_port in value.keys():
-                fanout_rec = value[dut_port]
-                fanout_host = str(fanout_rec['peerdevice'])
-                fanout_port = str(fanout_rec['peerport'])
+    for dut_host, value in dev_conn.items():
+        duthost = duthosts[dut_host]
+        if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            continue  # skip for kvm platform which has no fanout
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        for dut_port in value.keys():
+            fanout_rec = value[dut_port]
+            fanout_host = str(fanout_rec['peerdevice'])
+            fanout_port = str(fanout_rec['peerport'])
 
-                if fanout_host in fanout_hosts.keys():
-                    fanout = fanout_hosts[fanout_host]
-                else:
-                    host_vars = ansible_adhoc().options[
-                        'inventory_manager'].get_host(fanout_host).vars
-                    os_type = host_vars.get('os', 'eos')
-                    admin_user = creds['fanout_admin_user']
-                    admin_password = creds['fanout_admin_password']
-                    # `fanout_network_user` and `fanout_network_password` are for
-                    # accessing the non-shell CLI of fanout.
-                    # Ansible will use this set of credentail for establishing
-                    # `network_cli` connection with device when applicable.
-                    network_user = creds.get('fanout_network_user', admin_user)
-                    network_password = creds.get('fanout_network_password',
-                                                 admin_password)
-                    shell_user = creds.get('fanout_shell_user', admin_user)
-                    shell_password = creds.get('fanout_shell_pass', admin_password)
-                    if os_type == 'sonic':
-                        shell_user = creds.get('fanout_sonic_user', None)
-                        shell_password = creds.get('fanout_sonic_password', None)
+            if fanout_host in fanout_hosts.keys():
+                fanout = fanout_hosts[fanout_host]
+            else:
+                host_vars = ansible_adhoc().options[
+                    'inventory_manager'].get_host(fanout_host).vars
+                os_type = host_vars.get('os', 'eos')
+                admin_user = creds['fanout_admin_user']
+                admin_password = creds['fanout_admin_password']
+                # `fanout_network_user` and `fanout_network_password` are for
+                # accessing the non-shell CLI of fanout.
+                # Ansible will use this set of credentail for establishing
+                # `network_cli` connection with device when applicable.
+                network_user = creds.get('fanout_network_user', admin_user)
+                network_password = creds.get('fanout_network_password',
+                                             admin_password)
+                shell_user = creds.get('fanout_shell_user', admin_user)
+                shell_password = creds.get('fanout_shell_pass', admin_password)
+                if os_type == 'sonic':
+                    shell_user = creds.get('fanout_sonic_user', None)
+                    shell_password = creds.get('fanout_sonic_password', None)
 
-                    fanout = FanoutHost(ansible_adhoc,
-                                        os_type,
-                                        fanout_host,
-                                        'FanoutLeaf',
-                                        network_user,
-                                        network_password,
-                                        shell_user=shell_user,
-                                        shell_passwd=shell_password)
-                    fanout.dut_hostnames = [dut_host]
-                    fanout_hosts[fanout_host] = fanout
+                fanout = FanoutHost(ansible_adhoc,
+                                    os_type,
+                                    fanout_host,
+                                    'FanoutLeaf',
+                                    network_user,
+                                    network_password,
+                                    shell_user=shell_user,
+                                    shell_passwd=shell_password)
+                fanout.dut_hostnames = [dut_host]
+                fanout_hosts[fanout_host] = fanout
 
-                    if fanout.os == 'sonic':
-                        ifs_status = fanout.host.get_interfaces_status()
-                        for key, interface_info in ifs_status.items():
-                            fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
-                        logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
+                if fanout.os == 'sonic':
+                    ifs_status = fanout.host.get_interfaces_status()
+                    for key, interface_info in ifs_status.items():
+                        fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
+                    logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
 
-                fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+            fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
-                # Add port name to fanout port mapping port if dut_port is alias.
-                if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
-                    mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
-                    # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
-                    # it happens when an interface has the same name with another alias, for example:
-                    # Interface     Alias
-                    # --------------------
-                    # Ethernet108   Ethernet32
-                    # Ethernet32    Ethernet13/1
-                    if mapped_port not in value.keys():
-                        fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+            # Add port name to fanout port mapping port if dut_port is alias.
+            if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+                mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
+                # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
+                # it happens when an interface has the same name with another alias, for example:
+                # Interface     Alias
+                # --------------------
+                # Ethernet108   Ethernet32
+                # Ethernet32    Ethernet13/1
+                if mapped_port not in value.keys():
+                    fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
 
-                if dut_host not in fanout.dut_hostnames:
-                    fanout.dut_hostnames.append(dut_host)
-    except Exception:
-        pass
+            if dut_host not in fanout.dut_hostnames:
+                fanout.dut_hostnames.append(dut_host)
+
     return fanout_hosts
 
 
