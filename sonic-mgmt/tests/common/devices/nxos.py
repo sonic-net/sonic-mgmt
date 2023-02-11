@@ -67,6 +67,16 @@ class NxosHost(AnsibleHostBase):
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["stdout"]))
 
+    def get_auto_negotiation_mode(self, interface_name):
+        output = self.eos_command(commands=[{
+            'command': 'show interfaces %s status' % interface_name,
+            'output': 'json'
+        }])
+        if self._has_cli_cmd_failed(output):
+            _raise_err('Failed to get auto neg state for {}: {}'.format(interface_name, output['msg']))
+        autoneg_enabled = output['stdout'][0]['TABLE_interface']['ROW_interface'].get('autonegotiation', False)
+        return autoneg_enabled
+
     def shutdown(self, interface_name):
         out = self.nxos_config(
             lines=['shutdown'],
@@ -82,9 +92,13 @@ class NxosHost(AnsibleHostBase):
         return out
     
     def shutdown_multiple(self, interfaces):
-        intf_str = ','.join(interfaces)
-        return self.shutdown(intf_str)
+        ret_list = []
+        for intf in interfaces:
+            ret_list.append(self.shutdown(intf))
+        return ret_list
     
     def no_shutdown_multiple(self, interfaces):
-        intf_str = ','.join(interfaces)
-        return self.no_shutdown(intf_str)
+        ret_list = []
+        for intf in interfaces:
+            ret_list.append(self.no_shutdown(intf))
+        return ret_list
