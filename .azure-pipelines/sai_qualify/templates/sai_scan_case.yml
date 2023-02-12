@@ -1028,6 +1028,7 @@ jobs:
 
             cd ${BASH_WORKING_FOLDER}/test_reporting
 
+            mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
             python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
             # python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
