@@ -1026,7 +1026,7 @@ jobs:
             # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
             echo "Upload scan results"
-            python3 test_reporting/junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
+            python3 test_reporting/junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o test_reporting/tr.json
 
             python3 test_reporting/report_uploader.py result/scan/sai_test SaiTestData -c case_invoc
             # python3 test_reporting/report_uploader.py result/scan/ptf SaiTestData -c case_invoc
