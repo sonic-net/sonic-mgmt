@@ -1022,8 +1022,8 @@ jobs:
             python3 test_reporting/sai_coverage/sai_adapter_scanner.py test_reporting/sai_coverage/sai_adapter
 
             echo "Generate scan results"
-            python3 test_reporting/sai_coverage/case_scanner.py -p sai_test -sp result/scan/sai_test
-            # python3 test_reporting/sai_coverage/case_scanner.py -p ptf -sp result/scan/ptf
+            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
+            # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
             echo "Upload scan results"
             python3 test_reporting/report_uploader.py result/scan/sai_test SaiTestData -c case_invoc
