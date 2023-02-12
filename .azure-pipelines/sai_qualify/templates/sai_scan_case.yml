@@ -172,7 +172,7 @@ parameters:
 
   - name: SDK_ARTIFACT_NAME
     default: ""
-    type: string
+    type: stringPYTEST_PATH
 
   # - name: PIPELINE_BRANCH
   #   default: "internal"
@@ -1026,10 +1026,11 @@ jobs:
             source /var/AzDevOps/env-python3/bin/activate
             cd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
             ls
+            pwd
             
             mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
-            cd ${BASH_WORKING_FOLDER}/test_reporting
+            # cd ${BASH_WORKING_FOLDER}/test_reporting
 
             # mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
             python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
