@@ -172,7 +172,7 @@ parameters:
 
   - name: SDK_ARTIFACT_NAME
     default: ""
-    type: stringPYTEST_PATH
+    type: string
 
   # - name: PIPELINE_BRANCH
   #   default: "internal"
