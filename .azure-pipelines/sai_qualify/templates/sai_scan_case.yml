@@ -998,11 +998,6 @@ jobs:
             # pip3 install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
             # pip install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
 
-
-            echo "Activate python3 virtual environment"
-            source /var/AzDevOps/env-python3/bin/activate
-            mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-
             cd ${BASH_WORKING_FOLDER}/test_reporting
             pip3 install -r requirements.txt
 
@@ -1026,8 +1021,16 @@ jobs:
             # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
             echo "Upload scan results"
-            python3 test_reporting/junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o test_reporting/tr.json
 
+            echo "Activate python3 virtual environment"
+            source /var/AzDevOps/env-python3/bin/activate
+            mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+
+            cd ${BASH_WORKING_FOLDER}/test_reporting
+
+            python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
+
+            # python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
             python3 test_reporting/report_uploader.py result/scan/sai_test SaiTestData -c case_invoc
             # python3 test_reporting/report_uploader.py result/scan/ptf SaiTestData -c case_invoc
 
@@ -1041,3 +1044,4 @@ jobs:
             BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
             PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
             OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
+            SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
