@@ -326,7 +326,7 @@ class ContinuousReboot:
 
 
 @pytest.mark.device_type('vs')
-def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
+def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
@@ -347,7 +347,7 @@ def test_continuous_reboot(request, duthosts, rand_one_dut_hostname, ptfhost, lo
         Status of transceivers - ports in lab_connection_graph should be present
         Status of BGP neighbors - should be established
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     continuous_reboot = ContinuousReboot(request, duthost, ptfhost, localhost, conn_graph_facts)
     continuous_reboot.start_continuous_reboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds)
     continuous_reboot.test_teardown()
