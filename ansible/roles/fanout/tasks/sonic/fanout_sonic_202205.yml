@@ -21,7 +21,7 @@
   become: yes
 
 - name: SONiC update config db
-  shell: config reload -y
+  shell: config reload -y -f
   become: true
 
 - name: wait for SONiC update config db finish
@@ -34,11 +34,6 @@
 
 - name: Setup broadcom based fanouts
   block:
-    - name: configure TPID of access ports
-      set_port_tpid:
-        fanout_port_vlans: "{{ device_port_vlans[inventory_hostname] }}"
-        fanout_port_config: "{{ fanout_port_config }}"
-
     - name: reinit fp entries
       shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
       become: yes
