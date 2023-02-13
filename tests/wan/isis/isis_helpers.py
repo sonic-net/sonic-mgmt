@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_utils import clear_failed_flag_and_restart
+from tests.common.devices.multi_asic import MultiAsicSonicHost
 
 
 DEFAULT_ISIS_INSTANCE = 'test'
@@ -14,7 +15,9 @@ NBR_BACKUP_PATH = '/tmp/isis'
 NBR_BACKUP_FILE = '{}_isis.cfg'
 EOS_ISIS_TEMPLATE = 'wan/isis/template/eos_isis_config.j2'
 SONIC_ISIS_TEMPLATE = 'wan/isis/template/sonic_isis_config.j2'
+FRRCFGD_ENABLE_TEMPLATE = 'wan/isis/template/frrconfigd_enable.j2'
 SONIC_ISIS_CFG_FILE = '/tmp/isis_config.json'
+SONIC_FRRCFGD_ENABLE_FILE = '/tmp/frrcfgd_enabld.json'
 
 
 # Temporarily use this method to check bgp container restart count hit start-limit-hit
@@ -77,12 +80,7 @@ def remove_sonic_isis_config(duthost):
     sonic_isis_template = Template(open(SONIC_ISIS_TEMPLATE).read())
     duthost.copy(content=sonic_isis_template.render(), dest=SONIC_ISIS_CFG_FILE)
     duthost.shell("sudo sonic-cfggen -j '{}' --write-to-db".format(SONIC_ISIS_CFG_FILE))
-    try:
-        duthost.restart_service("bgp")
-    except RunAnsibleModuleFail:
-        if is_hiting_start_limit(duthost, "bgp"):
-            clear_failed_flag_and_restart(duthost, "bgp")
-    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
+    time.sleep(5)
 
 
 def remove_nbr_isis_config(nbrhost):
@@ -109,15 +107,7 @@ def config_sonic_isis(duthost):
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     duthost.copy(content=sonic_isis_template.render(**hostvars), dest=SONIC_ISIS_CFG_FILE)
     duthost.shell("sudo sonic-cfggen -j '{}' --write-to-db".format(SONIC_ISIS_CFG_FILE))
-    try:
-        duthost.restart_service("bgp")
-    except RunAnsibleModuleFail:
-        if is_hiting_start_limit(duthost, "bgp"):
-            clear_failed_flag_and_restart(duthost, "bgp")
-    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
-    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "swss"),
-                  "SWSS not started.")
-    time.sleep(20)
+    time.sleep(10)
 
 
 def config_nbr_isis(nbrhost):
@@ -199,6 +189,9 @@ def setup_isis(selected_connections):
         which describes the connection between port_channels in different devices.
     """
     for device, port_list in get_dev_ports(selected_connections).items():
+        if isinstance(device, MultiAsicSonicHost):
+            set_frrcfgd_mode(device, 'true')
+
         generate_isis_config(device, port_list)
         config_device_isis(device)
 
@@ -217,6 +210,9 @@ def teardown_isis(selected_connections):
         else:
             remove_sonic_isis_config(device)
 
+        if isinstance(device, MultiAsicSonicHost):
+            set_frrcfgd_mode(device, 'false')
+
 
 def get_nbr_name(nbrhosts, nbrhost):
     """
@@ -231,3 +227,22 @@ def get_nbr_name(nbrhosts, nbrhost):
         if nbrhost == v['host']:
             nbr_name = name
             return nbr_name
+
+
+def set_frrcfgd_mode(duthost, frrcfgd_mode):
+    if frrcfgd_mode == 'true':
+        frrcfgd_template = Template(open(FRRCFGD_ENABLE_TEMPLATE).read())
+        duthost.copy(content=frrcfgd_template.render(FRRCFGD_MODE=frrcfgd_mode), dest=SONIC_FRRCFGD_ENABLE_FILE)
+        duthost.shell("sudo sonic-cfggen -j '{}' --write-to-db".format(SONIC_FRRCFGD_ENABLE_FILE))
+    else:
+        duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "value" "frr_mgmt_framework_config"')
+
+    try:
+        duthost.restart_service("bgp")
+    except RunAnsibleModuleFail:
+        if is_hiting_start_limit(duthost, "bgp"):
+            clear_failed_flag_and_restart(duthost, "bgp")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "swss"),
+                  "SWSS not started.")
+    time.sleep(20)
