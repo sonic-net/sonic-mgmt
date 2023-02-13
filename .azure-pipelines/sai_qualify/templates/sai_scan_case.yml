@@ -992,24 +992,14 @@ jobs:
             fi
             popd
 
-            git remote -v
-            git branch
-
-            # pip3 install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
-            # pip install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
-
-            
+            echo "Activate python3 virtual environment"
             source /var/AzDevOps/env-python3/bin/activate
-            
             cd ${BASH_WORKING_FOLDER}/test_reporting
             pip3 install -r requirements.txt
 
-            # pip list
-
-            cd ../..  # move to sonic-mgmt root folder
+            cd ../..  # move to ../sonic-mgmt
 
             git clone https://github.com/opencomputeproject/SAI.git
-
             cd ${BASH_WORKING_FOLDER}
             
             echo "Generate header"
@@ -1023,22 +1013,13 @@ jobs:
             python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
             # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
-            pwd
-
             echo "Upload scan results"
-            
             mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-
             cd ${BASH_WORKING_FOLDER}/test_reporting
-            ls
-            # mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
             python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
-            # python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
-            pwd
             python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
             # python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
-
 
             echo "Save test report for publish artificates"
             mkdir -p $(System.DefaultWorkingDirectory)/publish
