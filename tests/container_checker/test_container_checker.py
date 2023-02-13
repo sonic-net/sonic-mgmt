@@ -180,7 +180,7 @@ def get_expected_alerting_message(container_name):
     return expected_alerting_messages
 
 
-def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, 
+def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname,
                            enum_rand_one_asic_index, enum_dut_feature, tbinfo):
     """Tests the feature of container checker.
 
