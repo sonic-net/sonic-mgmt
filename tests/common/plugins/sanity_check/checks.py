@@ -27,7 +27,7 @@ CHECK_ITEMS = [
     'check_monit',
     'check_mux_simulator',
     'check_secureboot',
-    'check_neighbor_macsec_empty',]
+    'check_neighbor_macsec_empty']
 
 __all__ = CHECK_ITEMS
 
@@ -870,6 +870,7 @@ def check_secureboot(duthosts, request):
 
         return check_results
     return _check
+
 
 @pytest.fixture(scope="module")
 def check_neighbor_macsec_empty(ctrl_links):

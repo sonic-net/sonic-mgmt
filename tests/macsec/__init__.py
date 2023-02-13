@@ -16,9 +16,11 @@ from macsec_config_helper import enable_macsec_feature
 from macsec_config_helper import disable_macsec_feature
 from macsec_config_helper import setup_macsec_configuration
 from macsec_config_helper import cleanup_macsec_configuration
+# flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
 
 logger = logging.getLogger(__name__)
+
 
 class MacsecPlugin(object):
     """
@@ -84,9 +86,9 @@ class MacsecPlugin(object):
 
             cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
             setup_macsec_configuration(duthost, ctrl_links,
-                                        profile['name'], profile['priority'], profile['cipher_suite'],
-                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                        profile['send_sci'], profile['rekey_period'])
+                                       profile['name'], profile['priority'], profile['cipher_suite'],
+                                       profile['primary_cak'], profile['primary_ckn'], profile['policy'],
+                                       profile['send_sci'], profile['rekey_period'])
             logger.info(
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
         return __startup_macsec
@@ -136,7 +138,8 @@ class MacsecPlugin(object):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
-            if ((tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]) or (tbinfo["topo"]["type"] == "t2" and "T1" in neighbor["name"])) :
+            if ((tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"])
+                    or (tbinfo["topo"]["type"] == "t2" and "T1" in neighbor["name"])):
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
                 links[interface] = {
                     "name": neighbor["name"],
@@ -151,7 +154,8 @@ class MacsecPlugin(object):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
-            if ((tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]) or (tbinfo["topo"]["type"] == "t2" and "T3" in neighbor["name"])):
+            if ((tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"])
+                    or (tbinfo["topo"]["type"] == "t2" and "T3" in neighbor["name"])):
                 for item in mg_facts["minigraph_bgp"]:
                     if item["name"] == neighbor["name"]:
                         if isinstance(ip_address(item["addr"]), IPv4Address):
