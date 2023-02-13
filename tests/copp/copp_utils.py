@@ -254,6 +254,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     " '''.format(http_proxy, https_proxy, syncd_docker_name)
         dut.command(cmd)
 
+
 def _map_port_number_to_interface(dut, nn_target_port):
     """
         Retrieves the correct interface for a given port number.

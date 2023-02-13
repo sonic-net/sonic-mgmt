@@ -4,10 +4,10 @@ import pytest
 import sys
 from tests.common.utilities import skip_release
 
-sys.path.append("./configlet/util")
-
 from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
 from helpers import log_info
+
+sys.path.append("./configlet/util")
 
 pytestmark = [
         pytest.mark.topology("t1")
@@ -39,12 +39,12 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     """
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:
-         loganalyzer_ignore_regex = [
-             ".*ERR sonic_yang: Data Loading Failed:Must condition not satisfied.*",
-             ".*ERR sonic_yang: Failed to validate data tree#012.*",
-             ".*ERR config: Change Applier:.*",
-         ]
-         loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+        loganalyzer_ignore_regex = [
+            ".*ERR sonic_yang: Data Loading Failed:Must condition not satisfied.*",
+            ".*ERR sonic_yang: Failed to validate data tree#012.*",
+            ".*ERR config: Change Applier:.*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
 
     yield
 
@@ -70,5 +70,4 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     log_info("sys.version={}".format(sys.version))
-    do_test_add_rack(duthost, is_storage_backend = 'backend' in tbinfo['topo']['name'])
-
+    do_test_add_rack(duthost, is_storage_backend='backend' in tbinfo['topo']['name'])
