@@ -840,6 +840,12 @@ snmp/test_snmp_lldp.py:
     conditions:
       - "is_supervisor"
 
+snmp/test_snmp_loopback.py:
+  skip:
+    reason: "Doesn't advertise loopback route for backend topology."
+    conditions:
+      - "topo_name in ['t0-backend', 't1-backend']"
+
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"

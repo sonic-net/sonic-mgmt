@@ -389,7 +389,7 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet6/1" StartDevice="bjw-can-7050qx-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet6/2" StartDevice="bjw-can-7050qx-1" StartPort="Ethernet1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet6/3" StartDevice="bjw-can-7050qx-1" StartPort="Ethernet2"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-2" EndPort="Ethernet49" StartDevice="bjw-can-7050qx-1" StartPort="Ethernet3"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-2" EndPort="Ethernet49" StartDevice="bjw-can-7050qx-1" StartPort="Ethernet3"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-7" EndPort="Ethernet0" StartDevice="bjw-can-7050qx-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-7" EndPort="Ethernet4" StartDevice="bjw-can-7050qx-1" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-7" EndPort="Ethernet8" StartDevice="bjw-can-7050qx-1" StartPort="Ethernet12"/>
