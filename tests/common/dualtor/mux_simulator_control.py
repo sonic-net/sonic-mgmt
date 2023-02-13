@@ -516,7 +516,34 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):    # noqa F811
+def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(duthosts, enum_rand_one_per_hwsku_frontend_hostname, mux_server_url, tbinfo): # noqa F811
+    """
+    A function level fixture to toggle all ports to enum_rand_one_per_hwsku_frontend_hostname.
+
+    Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
+    After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
+    """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name']:
+        yield
+        return
+
+    logger.info('Set all muxcable to manual mode on all ToRs')
+    duthosts.shell('config muxcable mode manual all')
+
+    _toggle_all_simulator_ports_to_target_dut(
+        enum_rand_one_per_hwsku_frontend_hostname, duthosts, mux_server_url, tbinfo
+    )
+
+    yield
+
+    logger.info('Set all muxcable to auto mode on all ToRs')
+    duthosts.shell('config muxcable mode auto all')
+
+
+
+@pytest.fixture
+def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):
     """
     A function level fixture to toggle all ports to a random side.
     """
