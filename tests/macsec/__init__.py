@@ -16,6 +16,7 @@ from macsec_config_helper import enable_macsec_feature
 from macsec_config_helper import disable_macsec_feature
 from macsec_config_helper import setup_macsec_configuration
 from macsec_config_helper import cleanup_macsec_configuration
+from tests.common.plugins.sanity_check import sanity_check
 
 logger = logging.getLogger(__name__)
 
@@ -46,27 +47,27 @@ class MacsecPlugin(object):
             metafunc.parametrize('macsec_profile',
                                  [self.macsec_profiles[x] for x in profiles],
                                  ids=profiles,
-                                 scope="session")
+                                 scope="module")
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def start_macsec_service(self, duthost, macsec_nbrhosts):
         def __start_macsec_service():
             enable_macsec_feature(duthost, macsec_nbrhosts)
         return __start_macsec_service
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def stop_macsec_service(self, duthost, macsec_nbrhosts):
         def __stop_macsec_service():
             disable_macsec_feature(duthost, macsec_nbrhosts)
         return __stop_macsec_service
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def macsec_feature(self, start_macsec_service, stop_macsec_service):
         start_macsec_service()
         yield
         stop_macsec_service()
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def startup_macsec(self, request, duthost, ctrl_links, macsec_profile):
         def __startup_macsec():
             profile = macsec_profile
@@ -90,14 +91,14 @@ class MacsecPlugin(object):
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
         return __startup_macsec
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def shutdown_macsec(self, duthost, ctrl_links, macsec_profile):
         def __shutdown_macsec():
             profile = macsec_profile
             cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
-    @pytest.fixture(scope="session", autouse=True)
+    @pytest.fixture(scope="module", autouse=True)
     def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature):
         '''
             setup macsec links
@@ -106,11 +107,11 @@ class MacsecPlugin(object):
         yield
         shutdown_macsec()
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def macsec_nbrhosts(self, ctrl_links):
         return {nbr["name"]: nbr for nbr in ctrl_links.values()}
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def ctrl_links(self, duthost, tbinfo, nbrhosts):
         if not nbrhosts:
             topo_name = tbinfo['topo']['name']
@@ -120,7 +121,7 @@ class MacsecPlugin(object):
         nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
         return self.find_links_from_nbr(duthost, tbinfo, nbrhosts)
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def unctrl_links(self, duthost, tbinfo, nbrhosts, ctrl_links):
         unctrl_nbr_names = set(nbrhosts.keys())
         for _, nbr in ctrl_links.items():
@@ -130,7 +131,7 @@ class MacsecPlugin(object):
         nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
         return self.find_links_from_nbr(duthost, tbinfo, nbrhosts)
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def downstream_links(self, duthost, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
 
@@ -145,7 +146,7 @@ class MacsecPlugin(object):
         self.find_links(duthost, tbinfo, filter)
         return links
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def upstream_links(self, duthost, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
 
@@ -193,7 +194,8 @@ class MacsecPlugin(object):
             links[interface] = {
                 "name": neighbor["name"],
                 "host": nbrhosts[neighbor["name"]]["host"],
-                "port": port
+                "port": port,
+                "dut_name": duthost.hostname
             }
         self.find_links(duthost, tbinfo, filter)
         return links
