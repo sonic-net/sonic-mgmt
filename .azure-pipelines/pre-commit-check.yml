@@ -48,6 +48,9 @@ steps:
     # Store the check results in an AZP variable, it will be rendered in Github comment
     echo "##vso[task.setvariable variable=results;]$results"
 
+    echo "Debug github comment failed issue of pre-commit "
+    echo "Fake line longer than 120 chars xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
     exit $RC
   displayName: 'Run pre-commit check'
 
