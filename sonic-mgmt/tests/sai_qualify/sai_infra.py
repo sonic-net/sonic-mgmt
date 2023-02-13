@@ -498,7 +498,8 @@ def collect_test_result(duthost, ptfhost, request):
     logger.info("Collecting test result and related information.")
     # TODO : collect DUT test report
     collect_sonic_os_and_platform_info(duthost, request)
-    collect_sai_test_report_xml(ptfhost, request)
+    collect_sai_test_report_xml(ptfhost, request)    
+    collect_sai_test_invocation_report(ptfhost, request)
 
 
 def collect_sonic_os_and_platform_info(duthost, request):
@@ -564,20 +565,18 @@ def store_test_result(ptfhost):
             SAI_TEST_REPORT_TMP_DIR_ON_PTF,
             SAI_TEST_REPORT_DIR_ON_PTF))
     try:
+        logger.info("Copy test reports")
         ptfhost.shell("mkdir -p {}".format(
             SAI_TEST_REPORT_TMP_DIR_ON_PTF))
         ptfhost.shell("mkdir -p {}".format(
             SAI_TEST_REPORT_DIR_ON_PTF))
         ptfhost.shell("cp {0}/*.* {1}/".format(
             SAI_TEST_REPORT_TMP_DIR_ON_PTF,
-            SAI_TEST_REPORT_DIR_ON_PTF))
+            SAI_TEST_REPORT_DIR_ON_PTF))        
+        
     except BaseException as e:  # lgtm [py/catch-base-exception]
         logger.info(
-            "Error when Copying file from folder\
-                : {0} to folder: {1}. Failes as {2}".format(
-                SAI_TEST_REPORT_TMP_DIR_ON_PTF,
-                SAI_TEST_REPORT_DIR_ON_PTF,
-                e))
+            "Error when restoring test result: {}.".format(e))
 
 
 def collect_sai_test_report_xml(ptfhost, request):
@@ -595,6 +594,50 @@ def collect_sai_test_report_xml(ptfhost, request):
                 SAI_TEST_REPORT_DIR_ON_PTF))
         ptfhost.fetch(
             src="{0}/result.tar.gz".format(SAI_TEST_REPORT_DIR_ON_PTF),
+            dest=request.config.option.sai_test_report_dir + "/",
+            flat=True)
+    except BaseException as e:  # lgtm [py/catch-base-exception]
+        logger.info("Error when Collecting xunit SAI tests log from ptf.\
+             Failes as {0}".format(e))
+
+def collect_sai_test_invocation_report(ptfhost, request):
+    """
+    Collect SAI test invocation report.
+
+    Args:
+        ptfhost (AnsibleHost): The PTF server.
+        request: Pytest request.
+    """
+    logger.info("Collecting invocation log from ptf")
+    try:
+                
+        logger.info("Copy test invocation logs")
+        ptfhost.shell("mkdir -p {}".format(
+            SAI_TEST_INVOCATION_LOG_DIR))
+        if request.config.option.enable_sai_test \
+            or request.config.option.enable_t0_warmboot_test:
+            logger.info("Copy test T0 invocation logs")
+            ptfhost.shell("mkdir -p {}/{}".format(
+            SAI_TEST_INVOCATION_LOG_DIR, "T0"))
+            ptfhost.shell("cp {}/logs/*.* {}/{}/".format(
+            SAI_TEST_T0_CASE_DIR_ON_PTF,
+            SAI_TEST_INVOCATION_LOG_DIR,
+            "T0"))
+        elif request.config.option.enable_ptf_sai_test \
+            or request.config.option.enable_ptf_warmboot_test:   # noqa: E125
+            logger.info("Copy test PTF invocation logs")
+            ptfhost.shell("mkdir -p {}/{}".format(
+            SAI_TEST_INVOCATION_LOG_DIR, "PTF"))
+            ptfhost.shell("cp {}/logs/*.* {}/{}/".format(
+            SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF,
+            SAI_TEST_INVOCATION_LOG_DIR,
+            "PTF"))
+
+        ptfhost.shell(
+            "cd {0} && tar -czvf invocation.tar.gz *".format(
+                SAI_TEST_INVOCATION_LOG_DIR))
+        ptfhost.fetch(
+            src="{0}/invocation.tar.gz".format(SAI_TEST_INVOCATION_LOG_DIR),
             dest=request.config.option.sai_test_report_dir + "/",
             flat=True)
     except BaseException as e:  # lgtm [py/catch-base-exception]

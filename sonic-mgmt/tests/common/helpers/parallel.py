@@ -6,8 +6,10 @@ import shutil
 import tempfile
 import signal
 import traceback
+import time
 
-from multiprocessing import Process, Manager, Pipe
+from multiprocessing import Process, Manager, Pipe, TimeoutError
+from multiprocessing.pool import ThreadPool
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -248,3 +250,37 @@ def reset_ansible_local_tmp(target):
     wrapper.__name__ = target.__name__
 
     return wrapper
+
+
+def parallel_run_threaded(target_functions, timeout=10, thread_count=2):
+    """
+    Run target functions with a thread pool.
+    
+    @param target_functions: list of target functions to execute
+    @param timeout: timeout seconds, default 10
+    @param thread_count: thread count, default 2
+    """
+    pool = ThreadPool(thread_count)
+    results = [pool.apply_async(func) for func in target_functions]
+
+    start_time = time.time()
+    while time.time() - start_time <= timeout:
+        alive_functions = [func for func, result in zip(target_functions, results) if not result.ready()]
+        if alive_functions:
+            time.sleep(0.2)
+        else:
+            pool.close()
+            pool.join()
+            break
+    else:
+        raise TimeoutError("%s seconds timeout waiting for %r to finish" % (timeout, alive_functions))
+
+    outputs = []
+    for func, result in zip(target_functions, results):
+        try:
+            output = result.get()
+        except Exception as error:
+            logging.error("Target function %r errored:\n%s", func, traceback.format_exc())
+            raise error
+        outputs.append(output)
+    return outputs

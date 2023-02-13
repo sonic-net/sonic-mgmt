@@ -944,13 +944,19 @@ class TestShowIP():
                 elif mode == 'default':
                     assert re.search(r'{}\s+{}'.format(item['attachto'], item['addr']), show_ipv6_interface) is not None
 
-    def test_show_ip_route_v4(self, setup_config_mode, spine_ports):
+    def test_show_ip_route_v4(self, setup_config_mode, spine_ports, tbinfo):
         """
         Checks whether 'show ip route <ip>' lists the interface name as
         per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip route 192.168.1.1'.format(ifmode))['stdout']
+        dip = '192.168.1.1'
+        # In T2 topo, 192.168.1.1 is forwarded via a route learnt over ibgp from other LC, which will fail the test
+        # because the vias in 'show ip route' output are Inband ports. Explicitly use '0.0.0.0' here to check the
+        # output of default route, whose vias should be local ports.
+        if tbinfo['topo']['type'].startswith('t2'):
+            dip = '0.0.0.0'
+        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip route {}'.format(ifmode, dip))['stdout']
         logger.info('route:\n{}'.format(route))
 
         if mode == 'alias':

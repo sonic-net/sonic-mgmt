@@ -1,9 +1,10 @@
 import os
 import pprint
 import pytest
+import re
 import time
 import logging
-import tech_support_cmds as cmds 
+import tech_support_cmds as cmds
 
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -20,6 +21,7 @@ pytestmark = [
 SUCCESS_CODE = 0
 DEFAULT_LOOP_RANGE = 2
 DEFAULT_LOOP_DELAY = 2
+MIN_FILES_NUM = 50
 
 pytest.tar_stdout = ""
 
@@ -47,6 +49,7 @@ SESSION_INFO = {
     'queue': "0"
 }
 
+
 # ACL PART #
 
 
@@ -64,13 +67,12 @@ def setup_acl_rules(duthost, acl_setup):
 
     logger.info('Generating configurations for ACL rules, ACL table {}'.format(name))
     extra_vars = {
-        'acl_table_name':  name,
+        'acl_table_name': name,
     }
     logger.info('Extra variables for ACL table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
-    duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE),
-                                        dest=dut_conf_file_path)
+    duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULES_FULL_TEMPLATE), dest=dut_conf_file_path)
 
     logger.info('Applying {}'.format(dut_conf_file_path))
     duthost.command('config acl update full {}'.format(dut_conf_file_path))
@@ -206,15 +208,17 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, 
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
-        'acl_table_name':  EVERFLOW_TABLE_NAME,
+        'acl_table_name': EVERFLOW_TABLE_NAME,
     }
     logger.info('Extra variables for MIRROR table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
     duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULE_PERSISTENT_TEMPLATE), dest=acl_rule_file)
-    duthost.command('config mirror_session add {} {} {} {} {} {} {}'
-    .format(SESSION_INFO['name'], SESSION_INFO['src_ip'], neighbor_ip,
-     SESSION_INFO['dscp'], SESSION_INFO['ttl'], SESSION_INFO['gre'], SESSION_INFO['queue']))
+    duthost.command('config mirror_session add {} {} {} {} {} {} {}'.format(SESSION_INFO['name'],
+                                                                            SESSION_INFO['src_ip'], neighbor_ip,
+                                                                            SESSION_INFO['dscp'], SESSION_INFO['ttl'],
+                                                                            SESSION_INFO['gre'], SESSION_INFO['queue'])
+                    )
 
     logger.info('Loading acl mirror rules ...')
     load_rule_cmd = "acl-loader update full {} --session_name={}".format(acl_rule_file, SESSION_INFO['name'])
@@ -257,6 +261,7 @@ def config(request):
     e.g. : test_techsupport[acl]
     """
     return request.getfixturevalue(request.param)
+
 
 def execute_command(duthost, since):
     """
@@ -317,14 +322,43 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
         logger.debug("Running show techsupport ... ")
         wait_until(300, 20, 0, execute_command, duthost, str(since))
         tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
-        stdout = duthost.command("rm -rf {}".format(tar_file))
-        logger.debug("Sleeping for {} seconds".format(loop_delay))
-        time.sleep(loop_delay)
+        duthost.command("tar -xf {} -C /tmp/".format(tar_file))
+        extracted_dump_folder_name = tar_file.lstrip('/var/dump/').split('.')[0]
+        extracted_dump_folder_path = '/tmp/{}'.format(extracted_dump_folder_name)
+        try:
+            validate_dump_file_content(duthost, extracted_dump_folder_path)
+        except AssertionError as err:
+            raise AssertionError(err)
+        finally:
+            duthost.command("rm -rf {}".format(tar_file))
+            duthost.command("rm -rf {}".format(extracted_dump_folder_path))
+            logger.debug("Sleeping for {} seconds".format(loop_delay))
+            time.sleep(loop_delay)
+
+
+def validate_dump_file_content(duthost, dump_folder_path):
+    """
+    Validate generated dump file content
+    :param duthost: duthost object
+    :param dump_folder_path: path to folder which has extracted dump file content
+    :return: AssertionError in case of failure, else None
+    """
+    sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
+    dump = duthost.command("ls {}/dump/".format(dump_folder_path))["stdout_lines"]
+    etc = duthost.command("ls {}/etc/".format(dump_folder_path))["stdout_lines"]
+    log = duthost.command("ls {}/log/".format(dump_folder_path))["stdout_lines"]
+
+    assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+    assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
+                                      "Test expects not less than 50 files. Available files: {}".format(dump)
+    assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
+                                     "Test expects not less than 50 files. Available files: {}".format(etc)
+    assert len(log), "Folder 'log' in dump archive is empty. Expected not empty folder"
 
 
 def add_asic_arg(format_str, cmds_list, asic_num):
-    """ 
-    Add ASIC specific arg using the supplied string formatter 
+    """
+    Add ASIC specific arg using the supplied string formatter
 
     New commands are added for each ASIC. In case of a regex
     paramter, new regex is created for each ASIC.
@@ -385,7 +419,8 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "nat_cmds": cmds.nat_cmds,
         "bfd_cmds": add_asic_arg(" -n {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
-        "docker_cmds": add_asic_arg("{}", cmds.docker_cmds_201911 if '201911' in duthost.os_version else cmds.docker_cmds, num),
+        "docker_cmds":
+            add_asic_arg("{}", cmds.docker_cmds_201911 if '201911' in duthost.os_version else cmds.docker_cmds, num),
         "misc_show_cmds": add_asic_arg("asic{} ", cmds.misc_show_cmds, num),
         "misc_cmds": cmds.misc_cmds,
     }
@@ -393,9 +428,9 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     if duthost.facts["asic_type"] == "broadcom":
         cmds_to_check.update(
             {
-                "broadcom_cmd_bcmcmd": 
+                "broadcom_cmd_bcmcmd":
                     add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
-                "broadcom_cmd_misc": 
+                "broadcom_cmd_misc":
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
@@ -438,15 +473,15 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
 
         for command in cmdlist:
             if isinstance(cmd_name, str):
-                if strbash_in_cmdlist :
+                if strbash_in_cmdlist:
                     result = (cmd_name.replace('"', '\\"') in command)
-                else :
+                else:
                     result = (cmd_name in command)
             else:
-                if strbash_in_cmdlist :
+                if strbash_in_cmdlist:
                     new_pattern = re.compile(cmd_name.pattern.replace('"', '\\\\"'))
                     result = new_pattern.search(command)
-                else :
+                else:
                     result = cmd_name.search(command)
             if result:
                 found = True
@@ -458,8 +493,9 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
 
     return cmd_not_found
 
+
 def test_techsupport_commands(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check
 ):
     """
     This test checks list of commands that will be run when executing
@@ -478,9 +514,7 @@ def test_techsupport_commands(
     cmd_not_found = defaultdict(list)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    stdout = duthost.shell(
-        'sudo generate_dump -n | grep -v "^mkdir\|^rm\|^tar\|^gzip"'
-    )
+    stdout = duthost.shell('sudo generate_dump -n | grep -v "^mkdir\|^rm\|^tar\|^gzip"')
 
     pytest_assert(stdout['rc'] == 0, 'generate_dump command failed')
 
@@ -488,7 +522,7 @@ def test_techsupport_commands(
 
     strbash_in_cmdlist = False
     for command in cmd_list:
-        if "bash -c" in command :
+        if "bash -c" in command:
             strbash_in_cmdlist = True
             break
 

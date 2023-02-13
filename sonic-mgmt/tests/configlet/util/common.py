@@ -185,10 +185,14 @@ def chk_for_pfc_wd(duthost):
     log_debug("pfc_status={}".format(pfc_status))
 
     if pfc_status == "enable":
-        res = duthost.shell('redis-dump -d 4 --pretty -k \"PFC_WD*\"')
-        pfc_wd_data = json.loads(res["stdout"])
-        if len(pfc_wd_data):
-            ret = True
+        for namespace in duthost.get_frontend_asic_namespace_list():
+            cmd_prefix = ''
+            if duthost.is_multi_asic:
+                cmd_prefix = 'sudo ip netns exec {} '.format(namespace)            
+            res = duthost.shell(cmd_prefix + 'redis-dump -d 4 --pretty -k \"PFC_WD*\"')
+            pfc_wd_data = json.loads(res["stdout"])
+            if len(pfc_wd_data):
+                ret = True                
     else:
         # pfc is not enabled; return True, as there will not be any pfc to check
         ret = True

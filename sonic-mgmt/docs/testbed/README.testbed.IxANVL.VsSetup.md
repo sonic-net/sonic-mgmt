@@ -29,7 +29,7 @@
      ```
      git clone https://github.com/sonic-net/sonic-mgmt
      cd sonic-mgmt/ansible
-     sudo ./setup-management-network.sh
+     sudo -H ./setup-management-network.sh
      ```
 
      **NOTE** setup-management-network.sh can fail on a check of br1 exists or not. In that case you can modify the script and comment out if checks of line 45 and line 49 until the issue is fixed.

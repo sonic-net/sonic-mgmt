@@ -872,6 +872,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "id")       # since src and dst changed, ID would change too
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl")      # ttl in outer packet is set to 255
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum")   # checksum would differ as the IP header is not the same
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "flags")    # "Don't fragment" flag may be set in the outer header
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
@@ -913,6 +914,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "id")
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "ttl")
         exp_tunnel_pkt.set_do_not_care_scapy(IP, "chksum")
+        exp_tunnel_pkt.set_do_not_care_scapy(IP, "flags")
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
@@ -1355,35 +1357,24 @@ def remove_static_routes(standby_tor, active_tor_loopback_ip):
     standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
 
 
-def increase_linkmgrd_probe_interval(duthosts, tbinfo):
+def recover_linkmgrd_probe_interval(duthosts, tbinfo):
     '''
-    Increase the interval at which linkmgrd sends ICMP heartbeats to the server/PTF
+    Recover the linkmgrd probe interval to default value
     '''
-    if 'dualtor' not in tbinfo['topo']['name']:
-        return
-
-    probe_interval_ms = 1000
-
-    logger.info("Increase linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
-
-    cmds = []
-    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
-                .format(probe_interval_ms))
-    cmds.append("config save -y")
-    duthosts.shell_cmds(cmds=cmds)
+    default_probe_interval_ms = 100
+    update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
 
 
 def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
     '''
-    Temporarily modify linkmgrd probe interval
+    Update the linkmgrd probe interval
     '''
     if 'dualtor' not in tbinfo['topo']['name']:
         return
 
-    logger.info("Increase linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
-    cmds = []
-    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(probe_interval_ms))
-    duthosts.shell_cmds(cmds=cmds)
+    logger.info("Update linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
+    duthosts.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
+                   .format(probe_interval_ms))
 
 
 @pytest.fixture(scope='module')

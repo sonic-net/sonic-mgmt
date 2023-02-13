@@ -65,7 +65,6 @@ def teardown(duthost):
     shutdown_cmds = ["sudo config nat remove {}"
                      .format(cmd) for cmd in ["static all", "bindings", "pools", "interfaces"]]
     exec_command(duthost, shutdown_cmds)
-    # Clear all enries
     duthost.command("sudo sonic-clear nat translations")
 
 

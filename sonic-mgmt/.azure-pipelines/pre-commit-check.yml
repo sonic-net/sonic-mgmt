@@ -1,7 +1,7 @@
 parameters:
 - name: github_conn
   type: string
-  default: 'sonic-net'
+  default: 'sonic-net-comment'
 
 steps:
 - script: |

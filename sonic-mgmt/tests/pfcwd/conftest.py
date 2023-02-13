@@ -103,7 +103,7 @@ def setup_pfc_test(
     Yields:
         setup_info: dictionary containing pfc timers, generated test ports and selected test ports
     """
-    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
+    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag"}
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = mg_facts['minigraph_ports'].keys()
