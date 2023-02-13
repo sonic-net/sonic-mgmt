@@ -54,7 +54,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str3-z9332f-06" EndPort="Ethernet257" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet13/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet6/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-03" EndPort="etp54" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet7/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-03" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet7/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-acs-serv-62" EndPort="ens4f0" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet14/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-05" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet15/1"/>
@@ -1483,7 +1483,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.192/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-8101-fanout-03">
-      <InterfaceVlan mode="Trunk" portname="etp54" vlanids="737-800"/>
+      <InterfaceVlan mode="Trunk" portname="etp62" vlanids="737-800"/>
       <InterfaceVlan mode="Access" portname="etp0" vlanids="737"/>
       <InterfaceVlan mode="Access" portname="etp1" vlanids="738"/>
       <InterfaceVlan mode="Access" portname="etp2" vlanids="739"/>
