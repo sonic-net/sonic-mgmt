@@ -7,6 +7,7 @@
 - Avoid print statements, use the logging module instead.
 - Spaces are the preferred indentation method.
 - Add logs to indicate the state transitions, exceptions, errors, assertions, meaningful points, and so on.
+- Logs to be contained and rotated, to avoid the exhaustion of the host memory.
 
 
 ## Checklist for the PR author
@@ -28,6 +29,7 @@
 - Verify that the code optimized in terms of time and space complexity.
 - The test run time should comply with the test budget, as defined in the test plan review. A new test case, in any case, should not consume more than 30 minutes.
 - Specify to which branches the test/fix should be backported. The testing guidelines mentioned above applies for backporting as well. Note: backporting should always start with the latest version. For example: backport to 202012 and not to 202205 is not allowed.
+- New control plane test cases should be included in the kvmtest.sh script.
 - Use allure steps for better visualization(optional).
 
 ## Checklist for the code reviewer
