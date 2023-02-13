@@ -213,6 +213,9 @@ def shutdown_ebgp(duthosts):
     v4ebgps = {}
     v6ebgps = {}
     orch_cpu_threshold = 10
+    # increase timeout for check_orch_cpu_utilization to 120sec for chassis
+    # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
+    orch_cpu_timeout = 60 if len(duthosts) == 1 else 120
     for duthost in duthosts.frontend_nodes:
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = duthost.get_ip_route_summary()
@@ -223,7 +226,7 @@ def shutdown_ebgp(duthosts):
         # Verify that the total eBGP routes are 0.
         pytest_assert(wait_until(30, 2, 0, check_ebgp_routes, 0, 0, duthost),
                       "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-        pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
