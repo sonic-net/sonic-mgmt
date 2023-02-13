@@ -18,6 +18,9 @@
     {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
             "fec" : "rs",
     {% endif %}
+    {% if 'broadcom' in fanout_sonic_version["asic_type"] and device_port_vlans[inventory_hostname][port_name]["mode"] == "Access" %}
+            "tpid": "0x9100",
+    {% endif %}
     {% if 'peerdevice' in fanout_port_config[port_name] %}
             "admin_status": "up"
     {% else %}
