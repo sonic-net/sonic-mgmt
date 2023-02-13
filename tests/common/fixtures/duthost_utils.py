@@ -244,7 +244,7 @@ def shutdown_ebgp(duthosts):
         pytest_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
                       "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
                       "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
-        pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
