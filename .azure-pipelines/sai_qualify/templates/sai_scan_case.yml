@@ -1010,7 +1010,7 @@ jobs:
             python3 test_reporting/sai_coverage/sai_adapter_scanner.py test_reporting/sai_coverage/sai_adapter
 
             echo "Generate scan results"
-            # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
+            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
             python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
             echo "Upload scan results"
@@ -1018,7 +1018,7 @@ jobs:
             cd ${BASH_WORKING_FOLDER}/test_reporting
             python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
-            # python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
+            python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
             python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
 
             echo "Save test report for publish artificates"
