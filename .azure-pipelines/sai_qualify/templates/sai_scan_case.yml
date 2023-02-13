@@ -1031,8 +1031,8 @@ jobs:
             python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
             # python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
-            python3 test_reporting/report_uploader.py result/scan/sai_test SaiTestData -c case_invoc
-            # python3 test_reporting/report_uploader.py result/scan/ptf SaiTestData -c case_invoc
+            python3 report_uploader.py ../result/scan/sai_test SaiTestData -c case_invoc
+            # python3 report_uploader.py ../result/scan/ptf SaiTestData -c case_invoc
 
 
             echo "Save test report for publish artificates"
