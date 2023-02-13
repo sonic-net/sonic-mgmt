@@ -287,31 +287,36 @@ class IsisModule(object):
 
         def _parse_counter(counter_items):
             counters = {}
-            regex_counter = re.compile(r'.*: (\d+)$')
-            counters['p2p_iih'] = int(regex_counter.match(counter_items[0]).group(1))
-            counters['l2_lsp'] = int(regex_counter.match(counter_items[1]).group(1))
-            counters['l2_csnp'] = int(regex_counter.match(counter_items[2]).group(1))
-            counters['l2_psnp'] = int(regex_counter.match(counter_items[3]).group(1))
+            regex_p2p_iih = re.compile(r'\s*P2P IIH: (\d+)')
+            regex_l2_lsp = re.compile(r'\s*L2 LSP: (\d+)')
+            regex_l2_csnp = re.compile(r'\s*L2 CSNP: (\d+)')
+            regex_l2_psnp = re.compile(r'\s*L2 PSNP: (\d+)')
+            for item in counter_items:
+                if regex_p2p_iih.match(item):
+                    counters['p2p_iih'] = int(regex_p2p_iih.match(item).group(1))
+                elif regex_l2_lsp.match(item):
+                    counters['l2_lsp'] = int(regex_l2_lsp.match(item).group(1))
+                elif regex_l2_csnp.match(item):
+                    counters['l2_csnp'] = int(regex_l2_csnp.match(item).group(1))
+                elif regex_l2_psnp.match(item):
+                    counters['l2_psnp'] = int(regex_l2_psnp.match(item).group(1))
             return counters
 
         summary_items = [item.strip() for item in summary_items if item.strip()]
         summary = {'tx_cnt': {}, 'rx_cnt': {}, 'level_2': {}}
 
-        for item in summary_items:
-            if 'Level-1' in item:
-                return summary
-
-        regex_p2p_iih = re.compile(r'P2P IIH: (\d+)')
         while len(summary_items) > 0:
             line = summary_items.pop(0).strip()
             if 'TX counters per PDU type:' in line:
-                if regex_p2p_iih.match(summary_items[0]):
-                    summary['tx_cnt'] = _parse_counter(summary_items[0:5])
-                    summary_items = summary_items[5:-1]
+                counter_items = []
+                while len(summary_items) > 0 and 'RX counters per PDU type:' not in summary_items[0]:
+                    counter_items.append(summary_items.pop(0).strip().rstrip())
+                summary['tx_cnt'] = _parse_counter(counter_items)
             elif 'RX counters per PDU type:' in line:
-                if regex_p2p_iih.match(summary_items[0]):
-                    summary['rx_cnt'] = _parse_counter(summary_items[0:4])
-                    summary_items = summary_items[4:-1]
+                counter_items = []
+                while len(summary_items) > 0 and 'Level-' not in summary_items[0]:
+                    counter_items.append(summary_items.pop(0).strip().rstrip())
+                summary['rx_cnt'] = _parse_counter(counter_items)
         return summary
 
     def parse_neighbors(self):
