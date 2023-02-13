@@ -315,6 +315,8 @@ def parse_dpg(dpg, hname):
                 peer_addr_val = ipaddr_val + 1
             else:
                 peer_addr_val = ipaddr_val - 1
+        else:
+            peer_addr_val = ipaddr_val + 1
 
         if peer_addr_val is not None:
             intf['peer_addr'] = ipaddress.IPAddress(peer_addr_val)
