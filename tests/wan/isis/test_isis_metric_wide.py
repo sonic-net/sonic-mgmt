@@ -6,6 +6,9 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from isis_helpers import config_device_isis
 from isis_helpers import add_dev_isis_attr, del_dev_isis_attr
+from isis_helpers import DEFAULT_ISIS_INSTANCE as isis_instance
+
+WIDE_MATRIC = '16777215'
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +24,7 @@ def isis_setup_teardown_wide_metric(isis_common_setup_teardown, request):
     selected_connections = isis_common_setup_teardown
 
     config_key = "wide_metric"
-    config_dict = {config_key: '16777215'}
+    config_dict = {config_key: WIDE_MATRIC}
     for (dut_host, _, _, _) in selected_connections:
         add_dev_isis_attr(dut_host, config_dict)
         target_devices.append(dut_host)
@@ -37,11 +40,10 @@ def isis_setup_teardown_wide_metric(isis_common_setup_teardown, request):
 
 def check_isis_wide_metric(duthost):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
-    for lsp, metric in isis_facts['database_detail']['test'].items():
+    for lsp in isis_facts['database_detail'][isis_instance].keys():
         if duthost.hostname in lsp:
-            for _, value in metric.items():
-                if int(value) == 16777215:
-                    return True
+            for item in isis_facts['database_detail'][isis_instance][lsp]['extend_ip_reachability']:
+                return WIDE_MATRIC in item.values()
     return False
 
 

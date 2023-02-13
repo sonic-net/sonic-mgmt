@@ -139,7 +139,6 @@ class IsisModule(object):
         self.facts = defaultdict(dict)
         self.module = module
         self.vty_cmd = vty_cmd
-        return
 
     def collect_data(self, command_str):
         """
@@ -154,7 +153,6 @@ class IsisModule(object):
         if rc != 0:
             self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
                                       (rc, self.out, err))
-        return
 
     def _parse_areas(self, lines, callback):
         regex_area = re.compile(r'Area (.*):')
@@ -207,31 +205,65 @@ class IsisModule(object):
         return datebase
 
     def _parse_db_detail_per_area(self, db_items):
+
+        def _parse_db_detail_lsp(lsp_items):
+            lsp_details = {'extend_reachability': [],
+                           'ipv4_address': [],
+                           'extend_ip_reachability': [],
+                           'ipv6_reachability': []}
+            regex_protos = re.compile(r'Protocols Supported: (\S+, \S*)')
+            regex_area = re.compile(r'Area Address: (\d+\.\d+)')
+            regex_te_routeid = re.compile(r'TE Router ID: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+            regex_extend_reachability = \
+                re.compile(r'Extended Reachability: (\d{4}.\d{4}.\d{4}\.\d{2}) \(Metric: (\d+)\)')
+            regex_ipv4_address = \
+                re.compile(r'IPv4 Interface Address: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+            regex_extend_ip_reachability = \
+                re.compile(r'Extended IP Reachability:\s+(\S+)\s+\(Metric:\s+(\d+)\)')
+            regex_ipv6_reachability = \
+                re.compile(r'IPv6 Reachability: (\S+)\s+\(Metric:\s+(\d+)\)')
+
+            for item in lsp_items:
+                if regex_protos.match(item):
+                    lsp_details['protocols'] = regex_protos.match(item).group(1)
+                elif regex_area.match(item):
+                    lsp_details['area_address'] = regex_area.match(item).group(1)
+                elif regex_te_routeid.match(item):
+                    lsp_details['te_routeid'] = regex_te_routeid.match(item).group(1)
+                elif regex_extend_reachability.match(item):
+                    m = regex_extend_reachability.match(item)
+                    lsp_details['extend_reachability'].append({m.group(1): m.group(2)})
+                elif regex_ipv4_address.match(item):
+                    lsp_details['ipv4_address'].append(regex_ipv4_address.match(item).group(1))
+                elif regex_extend_ip_reachability.match(item):
+                    m = regex_extend_ip_reachability.match(item)
+                    lsp_details['extend_ip_reachability'].append({m.group(1): m.group(2)})
+                elif regex_ipv6_reachability.match(item):
+                    m = regex_ipv6_reachability.match(item)
+                    lsp_details['ipv6_reachability'].append({m.group(1): m.group(2)})
+
+            return lsp_details
+
         regex_lsp = \
             re.compile(r'(\S{1,14}.\d{2}-\d{2}\b)(\s+\*?\s+)(\d+\s+)(0x.{8}\s+)(0x.{4}\s+)(\d+)\s+\d+/\d+/(\d+)')
 
-        regex_lsp_detail = \
-            re.compile(r'\s*Extended IP Reachability:\s+(\S+)\s+\(Metric:\s+([0-9]*)\)')
-
         database = {}
-        for line in db_items:
-            match = regex_lsp.match(line)
-            if match:
-                lsp_id = match.group(1)
-                database[lsp_id] = {}
-                continue
-
-            match = regex_lsp_detail.match(line)
-            if match:
-                database[lsp_id][match.group(1)] = match.group(2)
-
+        while len(db_items) > 0:
+            line = db_items.pop(0).strip()
+            match_res = regex_lsp.match(line)
+            if match_res:
+                lsp_id = match_res.group(1)
+                lsp_items = []
+                while len(db_items) > 0 and db_items[0].strip().rstrip():
+                    lsp_items.append(db_items.pop(0).strip().rstrip())
+                database[lsp_id] = _parse_db_detail_lsp(lsp_items)
         return database
 
     def _parse_route_per_area(self, route_items):
         routes = {'ipv4': {}, 'ipv6': {}}
-        reg = r'(\s{1}\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d+)(\s+\d+\s+)(\S+\s+)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+        reg = r'(\s*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d+)(\s+\d+\s+)(\S+\s+)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
         regex_v4route = re.compile(reg)
-        regex_v6route = re.compile(r'(\s{1}[0-9a-fA-F:]+\/\d+)(\s+\d+\s+)(\S+\s+)([0-9a-fA-F:\-]+)')
+        regex_v6route = re.compile(r'(\s*[0-9a-fA-F:]+\/\d+)(\s+\d+\s+)(\S+\s+)([0-9a-fA-F:\-]+)')
         for line in [item.strip() for item in route_items if item.strip()]:
             match = regex_v4route.match(line)
             if match:
@@ -255,43 +287,49 @@ class IsisModule(object):
 
         def _parse_counter(counter_items):
             counters = {}
-            regex_counter = re.compile(r'.*: (\d+)$')
-            counters['p2p_iih'] = int(regex_counter.match(counter_items[0]).group(1))
-            counters['l2_lsp'] = int(regex_counter.match(counter_items[1]).group(1))
-            counters['l2_csnp'] = int(regex_counter.match(counter_items[2]).group(1))
-            counters['l2_psnp'] = int(regex_counter.match(counter_items[3]).group(1))
+            regex_p2p_iih = re.compile(r'\s*P2P IIH: (\d+)')
+            regex_l2_lsp = re.compile(r'\s*L2 LSP: (\d+)')
+            regex_l2_csnp = re.compile(r'\s*L2 CSNP: (\d+)')
+            regex_l2_psnp = re.compile(r'\s*L2 PSNP: (\d+)')
+            for item in counter_items:
+                if regex_p2p_iih.match(item):
+                    counters['p2p_iih'] = int(regex_p2p_iih.match(item).group(1))
+                elif regex_l2_lsp.match(item):
+                    counters['l2_lsp'] = int(regex_l2_lsp.match(item).group(1))
+                elif regex_l2_csnp.match(item):
+                    counters['l2_csnp'] = int(regex_l2_csnp.match(item).group(1))
+                elif regex_l2_psnp.match(item):
+                    counters['l2_psnp'] = int(regex_l2_psnp.match(item).group(1))
             return counters
 
         summary_items = [item.strip() for item in summary_items if item.strip()]
         summary = {'tx_cnt': {}, 'rx_cnt': {}, 'level_2': {}}
-        regex_p2p_iih = re.compile(r'P2P IIH: (\d+)')
+
         while len(summary_items) > 0:
             line = summary_items.pop(0).strip()
             if 'TX counters per PDU type:' in line:
-                if regex_p2p_iih.match(summary_items[0]):
-                    summary['tx_cnt'] = _parse_counter(summary_items[0:5])
-                    summary_items = summary_items[5:-1]
+                counter_items = []
+                while len(summary_items) > 0 and 'RX counters per PDU type:' not in summary_items[0]:
+                    counter_items.append(summary_items.pop(0).strip().rstrip())
+                summary['tx_cnt'] = _parse_counter(counter_items)
             elif 'RX counters per PDU type:' in line:
-                if regex_p2p_iih.match(summary_items[0]):
-                    summary['rx_cnt'] = _parse_counter(summary_items[0:4])
-                    summary_items = summary_items[4:-1]
+                counter_items = []
+                while len(summary_items) > 0 and 'Level-' not in summary_items[0]:
+                    counter_items.append(summary_items.pop(0).strip().rstrip())
+                summary['rx_cnt'] = _parse_counter(counter_items)
         return summary
 
     def parse_neighbors(self):
         self.facts['neighbors'] = self._parse_areas(self.out.split('\n'), self._parse_neighbors_per_area)
-        return
 
     def parse_database(self):
         self.facts['database'] = self._parse_areas(self.out.split('\n'), self._parse_db_per_area)
-        return
 
     def parse_database_detail(self):
         self.facts['database_detail'] = self._parse_areas(self.out.split('\n'), self._parse_db_detail_per_area)
-        return
 
     def parse_route(self):
         self.facts['route'] = self._parse_areas(self.out.split('\n'), self._parse_route_per_area)
-        return
 
     def parse_summary(self):
         self.facts['summary'] = self._parse_areas(self.out.split('\n'), self._parse_summary_per_area)
@@ -305,7 +343,6 @@ class IsisModule(object):
             if match:
                 hostnames[match.group(2).rstrip()] = match.group(3)
         self.facts['hostname'] = hostnames
-        return
 
     def collect_isis_config(self, command_str):
         docker_cmd = '{} "show {} isisd" '.format(self.vty_cmd, command_str)
@@ -319,7 +356,6 @@ class IsisModule(object):
                                       (rc, self.out, err))
         else:
             self.facts['running-config'] = self.out
-        return
 
     def run(self):
         self.collect_data("neighbor detail")
