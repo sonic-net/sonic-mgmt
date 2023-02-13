@@ -998,6 +998,9 @@ jobs:
             # pip3 install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
             # pip install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
 
+            
+            source /var/AzDevOps/env-python3/bin/activate
+            
             cd ${BASH_WORKING_FOLDER}/test_reporting
             pip3 install -r requirements.txt
 
@@ -1023,19 +1026,18 @@ jobs:
             pwd
 
             echo "Upload scan results"
-
-            echo "Activate python3 virtual environment"
-            source /var/AzDevOps/env-python3/bin/activate
+            
             mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/test_reporting
+            ls
             # mkdir -p ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-            # python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
+            python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
             # python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -j tr.json SaiTestData
             pwd
-            python3 report_uploader.py ../result/scan/sai_test SaiTestData -c case_invoc
-            # python3 report_uploader.py ../result/scan/ptf SaiTestData -c case_invoc
+            python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
+            # python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
 
 
             echo "Save test report for publish artificates"
@@ -1044,6 +1046,10 @@ jobs:
             cp ${BASH_WORKING_FOLDER}/test_reporting/tr.json $(System.DefaultWorkingDirectory)/publish/
 
         env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+            TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+            TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+            TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
             BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
             PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
             OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
