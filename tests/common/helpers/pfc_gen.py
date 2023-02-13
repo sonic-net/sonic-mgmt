@@ -144,7 +144,7 @@ def main():
         class_enable_field = binascii.unhexlify(format(class_enable, '04x'))
 
         packet = packet + class_enable_field
-        for p in range(0, 7):
+        for p in range(0, 8):
             if (class_enable & (1 << p)):
                 packet = packet + binascii.unhexlify(format(options.time, '04x'))
             else:
