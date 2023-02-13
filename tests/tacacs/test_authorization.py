@@ -46,6 +46,18 @@ def check_ssh_output(res, exp_val):
             break
     pytest_assert(content_exist)
 
+
+def check_ssh_output_any_of(res, exp_vals):
+    content_exist = False
+    for line in res:
+        for exp_val in exp_vals:
+            if exp_val in line:
+                content_exist = True
+                break
+
+    pytest_assert(content_exist)
+
+
 @pytest.fixture
 def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -280,7 +292,9 @@ def test_bypass_authorization(duthosts, enum_rand_one_per_hwsku_hostname, tacacs
     # Verify user can't run 'find' command with '-exec' parameter.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . -exec")
     pytest_assert(exit_code == 1)
-    check_ssh_output(stdout, 'authorize failed by TACACS+ with given arguments, not executing')
+    exp_outputs = ['not authorized by TACACS+ with given arguments, not executing',
+                   'authorize failed by TACACS+ with given arguments, not executing']
+    check_ssh_output_any_of(stdout, exp_outputs)
 
     # Verify user can run 'find' command without '-exec' parameter.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "find . /bin/sh")
