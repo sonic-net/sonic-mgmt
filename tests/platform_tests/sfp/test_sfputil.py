@@ -107,6 +107,10 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             reset_result = duthost.command("{} {}".format(cmd_sfp_reset, intf))
             assert reset_result["rc"] == 0, "'{} {}' failed".format(cmd_sfp_reset, intf)
             time.sleep(5)
+    sleep_time = 60
+    if duthost.shell("show interfaces transceiver eeprom | grep 400ZR", module_ignore_errors=True)['rc'] == 0:
+        sleep_time = 90
+
     logging.info("Wait some time for SFP to fully recover after reset")
     time.sleep(sleep_time)
 
