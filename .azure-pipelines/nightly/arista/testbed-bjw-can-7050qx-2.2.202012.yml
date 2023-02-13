@@ -46,6 +46,13 @@ parameters:
     default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
+  - name: SKIP_SCRIPTS
+    type: string
+    # bjw-can-7050qx-2 uses nokia-7215 as fanout, which doesn't support config tpid and causes
+    # tagged packets dropped. So vlan tests cannot pass on this testbed.
+    default: "vlan/test_vlan.py"
+    displayName: "Skip Scripts"
+
   - name: AGENT_POOL
     type: string
     default: nightly-bjw
