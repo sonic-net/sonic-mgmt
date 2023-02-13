@@ -14,6 +14,7 @@ all:
         ansible_user: root
         ansible_password: root
       hosts:
+        # 10.150.23.<1~48>/23 reserved for server BMC (iDRAC)
         bjw6-1:
           ansible_host: 10.150.23.50
         bjw6-2:
@@ -32,10 +33,11 @@ all:
           ansible_host: 10.150.23.57
         bjw6-9:
           ansible_host: 10.150.23.58
-        bjw6-10:
-          ansible_host: 10.150.23.59
+        # 10.150.23.59 not in use, but it's available
         bjw6-11:
           ansible_host: 10.150.23.60
+        bjw7-1:
+          ansible_host: 10.150.23.61
     pdu:
       hosts:
         bjw-pdu-126-132:
