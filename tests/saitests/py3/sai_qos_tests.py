@@ -216,7 +216,7 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
     if asic_type in ['cisco-8000']:
         queue_counters_base = sai_thrift_read_queue_occupancy(
             test_case.client, dst_port_id)
-        max_packets = 100
+        max_packets = 500
         for packet_i in range(max_packets):
             send_packet(test_case, src_port_id, pkt, 1)
             queue_counters = sai_thrift_read_queue_occupancy(
@@ -3651,6 +3651,12 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl=64
         pkt_dst_mac=router_mac if router_mac != '' else dst_port_mac
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            pkt_dst_mac = def_vlan_mac
+
         pkt=construct_ip_pkt(packet_length,
                                pkt_dst_mac,
                                src_port_mac,

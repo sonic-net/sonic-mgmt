@@ -123,6 +123,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [check_default_route](sonichost_methods/check_default_route.md) - Provides the status of the default route
 
+- [clear_acl_counters](sonichost_methods/clear_acl_counters.md) - Clear ACL counters statistics.
+
 - [critical_process_status](sonichost_methods/critical_process_status.md) - Gets status of service and provides list of exited and running member processes.
 
 - [critical_services](sonichost_methods/critical_services.md) - Provides a list of critical services running on the SONiC host.
@@ -134,6 +136,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 - [delete_container](sonichost_methods/delete_container.md) - Removes a docker container from the DUT.
 
 - [facts](sonichost_methods/facts.md) - Returns platform information facts about the sonic device.
+
+- [get_acl_counter](sonichost_methods/get_acl_counter.md) - Read ACL counter of specific ACL table and ACL rule.
 
 - [get_asic_name](sonichost_methods/get_asic_name.md) - Returns name of current ASIC. For use in multi-ASIC environments.
 

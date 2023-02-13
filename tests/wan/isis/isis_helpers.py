@@ -174,12 +174,12 @@ def get_dev_ports(selected_connections):
     """
     dev_ports = {}
     for item in selected_connections:
-        if item[0] not in dev_ports.keys():
+        if item[0] not in dev_ports:
             dev_ports[item[0]] = [item[1]]
         else:
             dev_ports[item[0]].append(item[1])
 
-        if item[2] not in dev_ports.keys():
+        if item[2] not in dev_ports:
             dev_ports[item[2]] = [item[3]]
         else:
             dev_ports[item[2]].append(item[3])
@@ -211,7 +211,7 @@ def teardown_isis(selected_connections):
         connected_ports: include a list of items such as (dut_host, dut_port, nbr_host, nbr_port)
         which describes the connection between port_channels in different devices.
     """
-    for device in get_dev_ports(selected_connections).keys():
+    for device in get_dev_ports(selected_connections):
         if isinstance(device, EosHost):
             remove_nbr_isis_config(device)
         else:
