@@ -39,7 +39,7 @@ def main():
     parser.add_option('-p', "--priority", type="int", dest="priority", help="PFC class enable bitmap.", metavar="Priority", default=-1)
     parser.add_option("-t", "--time", type="int", dest="time", help="Pause time in quanta for global pause or enabled class",metavar="time")
     parser.add_option("-n", "--num", type="int", dest="num", help="Number of packets to be sent",metavar="number",default=1)
-    parser.add_option("-r", "--rsyslog-server", type="string", dest="rsyslog_server", default="127.0.0.1", help="Rsyslog server IPv4 address",metavar="IPAddress") 
+    parser.add_option("-r", "--rsyslog-server", type="string", dest="rsyslog_server", default="127.0.0.1", help="Rsyslog server IPv4 address",metavar="IPAddress")
     parser.add_option('-g', "--global", action="store_true", dest="global_pf", help="Send global pause frames (not PFC)", default=False)
     (options, args) = parser.parse_args()
 
@@ -122,7 +122,7 @@ def main():
     pause time      |        0x0000         |
                     -------------------------
     """
-    src_addr = "\x00\x01\x02\x03\x04\x05" 
+    src_addr = "\x00\x01\x02\x03\x04\x05"
     dst_addr = "\x01\x80\xc2\x00\x00\x01"
     if options.global_pf:
         opcode = "\x00\x01"
@@ -138,8 +138,8 @@ def main():
         class_enable_field = binascii.unhexlify(format(class_enable, '04x'))
 
         packet = packet + class_enable_field
-        for p in range(0,7):
-            if (class_enable & (1<<p)):
+        for p in range(0, 8):
+            if (class_enable & (1 << p)):
                 packet = packet + binascii.unhexlify(format(options.time, '04x'))
             else:
                 packet = packet + "\x00\x00"
