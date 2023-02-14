@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 TELEMETRY_PORT = 50051
 METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
-
+CONTAINER_NAME = "telemetry"
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
@@ -161,15 +161,15 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count = 3)
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count=3)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
     assert_equal(len(re.findall('Max update count reached 3', result)), 1, 
                  "Streaming update count in:\n{0}".format(result))
     assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, 
-                 "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
-    assert_equal(len(re.findall('timestamp: \d+', result)), 3, 
+                 "Streaming updates for Ethernet0 in:\n{0}".format(result))  #1 for request, 3 for response
+    assert_equal(len(re.findall('timestamp: \\d+', result)), 3, 
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
