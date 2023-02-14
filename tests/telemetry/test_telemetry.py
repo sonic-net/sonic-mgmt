@@ -9,7 +9,7 @@ from tests.common.helpers.dut_utils import check_container_state
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
 from telemetry_utils import backup_monit_config_files, customize_monit_config_files, restart_monit_service
-from telemetry_utils import check_monit_running, restore_monit_config_files, postcheck_critical_processes
+from telemetry_utils import restore_monit_config_files, postcheck_critical_processes
 
 pytestmark = [
     pytest.mark.topology('any')
