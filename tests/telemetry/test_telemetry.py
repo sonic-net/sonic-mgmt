@@ -28,11 +28,11 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', 
-           module_ignore_errors=False)['stdout_lines']
+                         module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
 
     certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"', 
-            module_ignore_errors=False)['stdout_lines']
+                          module_ignore_errors=False)['stdout_lines']
     pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
 
     d = get_dict_stdout(gnmi, certs)
@@ -60,7 +60,7 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"',
-            module_ignore_errors=False)['stdout_lines']
+                           module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
     # Elements in list alternate between key and value. Separate them and combine into a dict.
     status_key_list = status_list[0::2]
@@ -73,7 +73,7 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-        setup_streaming_telemetry, localhost, gnxi_path):
+                         setup_streaming_telemetry, localhost, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -96,7 +96,8 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET, target="OTHERS", xpath="osversion/build")
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET, 
+                              target="OTHERS", xpath="osversion/build")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
@@ -163,12 +164,16 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
-    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
-    assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
+    assert_equal(len(re.findall('Max update count reached 3', result)), 1, 
+                 "Streaming update count in:\n{0}".format(result))
+    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, 
+                 "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
+    assert_equal(len(re.findall('timestamp: \d+', result)), 3, 
+                 "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-@pytest.fixture(params=['if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
+@pytest.fixture(params=['if status == 3 for 1 times within 2 cycles then exec \
+                         "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
                 ids=["monit_config_line"])
 def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_streaming_telemetry, request):
     """Customizes Monit configuration files before testing and restores them after testing.
@@ -232,7 +237,8 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
 
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, xpath="DOCKER_STATS,TEST_STATS", target="STATE_DB", num_connections=9000000)
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, 
+                              xpath="DOCKER_STATS,TEST_STATS", target="STATE_DB", num_connections=9000000)
     client_thread = ThreadPool(processes=1)
     client_thread.apply_async(ptfhost.shell(cmd))
 
