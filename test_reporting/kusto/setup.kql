@@ -44,13 +44,13 @@
         Summary = tostring(cases["summary"]),
         StartTime = todatetime(cases["start"]),
         EndTime = todatetime(cases["end"]),
-        DutCheckResult = tobool(cases["check"])
+        CustomMsg = tostring(cases["CustomMsg"])
 }
 
 .create table TestCases (Feature: string, TestCase: string, ModulePath: string,
                          FilePath: string, StartLine: int, Runtime: double, Result: string,
                          ReportId: string, Error: bool, Summary: string, StartTime: datetime, EndTime: datetime,
-                         DutCheckResult: bool)
+                         CustomMsg: string)
 
 .alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
 
@@ -67,7 +67,7 @@
                                                                      '{"column":"Summary","Properties":{"path":"$.summary"}},'
                                                                      '{"column":"StartTime","Properties":{"path":"$.start"}},'
                                                                      '{"column":"EndTime","Properties":{"path":"$.end"}},'
-                                                                     '{"column":"DutCheckResult","Properties":{"path":"$.check"}},'
+                                                                     '{"column":"CustomMsg","Properties":{"path":"$.CustomMsg"}},'
                                                                      ']'
 
 ###############################################################################
