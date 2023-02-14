@@ -98,6 +98,10 @@ all:
           ansible_host: 10.64.246.246
         vms28-8:
           ansible_host: 10.64.247.9
+        vms28-9:
+          ansible_host: 10.64.246.127
+        vms28-10:
+          ansible_host: 10.64.246.128
         vms29-1:
           ansible_host: 10.64.246.244
         vms29-2:
