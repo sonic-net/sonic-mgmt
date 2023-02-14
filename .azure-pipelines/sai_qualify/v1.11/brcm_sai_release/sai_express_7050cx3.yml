@@ -1,57 +1,47 @@
-name: SAI_202205_RELEASE_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-#Pipeline name TEST.EXP.SAI.BRCM.7.1.DMZ
+name: SAI_202211_RELEASE_7050CX3_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+#Pipeline name TEST.EXP.SAI.BRCM.8.1.7050CX3
 trigger: none
 pr: none
 
 resources:
  pipelines:
-   - pipeline: bcm_sai_external_sug
-     source: bcm_sai_external_sug
+   - pipeline: bcm_sai_external_sug_8.1
+     source: bcm_sai_external_sug_8.1
      project: broadcom
-     trigger:
-        enabled: true
-        branches:
-          include:
-          - SAI_PRE_7.1.0_*
 
 variables:
   - template: ../../templates/template_variables.yml
 
 parameters:
-  - name: LOCK_TESTBED_REASON
-    displayName: "Lock Testbed Reason"
-    type: string
-    default: "SAI 7.1 Release Express Testing"
-
   - name: RUN_SAI_TEST
     type: boolean
     displayName: "Is Run SAI Test"
     default: true
 
-  - name: RECOVER_TB
-    displayName: "Recover Testbed"
-    type: boolean
-    default: true
-
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name for SAI test"
-    default: testbed-bjw-slx-can-3
+    default: vms20-t0-7050cx3-1
+
+  - name: LOCK_TESTBED
+    displayName: "Lock Testbed"
+    type: boolean
+    default: true
+
+  - name: LOCK_TESTBED_REASON
+    displayName: "Lock Testbed Reason"
+    type: string
+    default: "SAI 8.1 Release SAI Express Testing"
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_202205)
+    default: $(TEST_IMG_MASTER_8.1.0.1_ABOOT)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFTV2_BRCM_INTERNAL_202205_BJ)
+    default: $(SAITHRIFTV2_BRCM_202211_8.1_TEST)
     displayName: "py_saithrift URL"
-
-  - name: SDK_ARTIFACT_NAME
-    displayName: "artifact name"
-    type: string
-    default: xgs
 
   # Deploy SAI SDK
   - name: DEPLOY_SAI_SDK
@@ -59,11 +49,18 @@ parameters:
     type: boolean
     default: true
 
-  # WorkFlow parameters
-  - name: LOCK_TESTBED
-    displayName: "Lock Testbed"
-    type: boolean
-    default: true
+  - name: ARTIFACT_PROJECT
+    type: string
+    default: broadcom
+
+  - name: SDK_BUILD_PIPELINE_NAME
+    default: "bcm_sai_external_sug_8.1"
+    type: string
+
+  - name: SDK_ARTIFACT_NAME
+    displayName: "artifact name"
+    type: string
+    default: xgs
 
   - name: ENABLE_PTF_SAI_TEST
     displayName: "Run PTF-SAI Test"
@@ -79,11 +76,6 @@ parameters:
     displayName: "Upload Test Report"
     type: boolean
     default: true
-
-  - name: JOB_CONFIG
-    type: string
-    displayName: "JOB CONFIG"
-    default: " "
 
   # Checkout sai_qualify/ folder from public
   - name: OVERWRITE_INTERNAL_MGMT
@@ -106,19 +98,11 @@ parameters:
   #   default: "internal"
   #   type: string
 
-  - name: SDK_BUILD_PIPELINE_NAME
-    default: "bcm_sai_external_sug"
-    type: string
-
-  - name: ARTIFACT_PROJECT
-    type: string
-    default: broadcom
-
   # Resource agent pool
   - name: AGENT_POOL
     displayName: "Resource agent pool"
     type: string
-    default: nightly-bjw
+    default: nightly
     values:
       - nightly
       - nightly2
@@ -134,7 +118,6 @@ jobs:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
       SDK_ARTIFACT_NAME:  ${{ parameters.SDK_ARTIFACT_NAME }}
       DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
       ENABLE_PTF_SAI_TEST: ${{ parameters.ENABLE_PTF_SAI_TEST }}
@@ -145,7 +128,6 @@ jobs:
       OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
       MGMT_REPO: ${{ parameters.MGMT_REPO }}
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
-      RECOVER_TB: ${{ parameters.RECOVER_TB }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
       ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}

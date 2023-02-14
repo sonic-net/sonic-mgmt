@@ -1,18 +1,19 @@
-name: SAI_202211_RELEASE_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-#Pipeline name TEST.EXP.SONIC.BRCM.8.1
+name: SAI_202211_RELEASE_DX010_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+#Pipeline name TEST.EXP.SONIC.BRCM.8.4.DX010
 trigger: none
 pr: none
 
 resources:
  pipelines:
-   - pipeline: bcm_sai_external_sug
-     source: bcm_sai_external_sug
+   - pipeline: bcm_sai_external_sug_8.4
+     source: bcm_sai_external_sug_8.4
      project: broadcom
      trigger:
         enabled: true
         branches:
           include:
-          - PRE_SAI_8.1.0_*
+          - PRE_SAI_8.4.0_*
+          - SAI_8.4.0_GA
 
 variables:
   - template: ../../templates/template_variables.yml
@@ -26,7 +27,7 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name for SONiC test"
-    default: vms20-t1-dx010-6
+    default: testbed-bjw-slx-can-3
 
   - name: LOCK_TESTBED
     displayName: "Lock Testbed"
@@ -40,12 +41,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_202211_8.1_PUBLIC_TEST)
+    default: $(BJW_TEST_IMG_MASTER_8.1.0.1_BCM)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFTV2_BRCM_202211_8.1_TEST)
+    default: $(BJW_TEST_SAITHRIFTV2_MASTER_8.1.0.1)
     displayName: "py_saithrift URL"
 
   # Deploy SAI SDK
@@ -65,7 +66,7 @@ parameters:
 
   - name: SDK_BUILD_PIPELINE_NAME
     type: string
-    default: "bcm_sai_external_sug"
+    default: "bcm_sai_external_sug_8.4"
 
   # Test report
   - name: UPLOAD_TEST_REPORT
@@ -82,7 +83,7 @@ parameters:
   - name: AGENT_POOL
     displayName: "Resource agent pool"
     type: string
-    default: nightly
+    default: nightly-bjw
     values:
       - nightly
       - nightly2

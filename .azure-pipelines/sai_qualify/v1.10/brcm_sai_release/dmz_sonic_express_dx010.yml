@@ -1,0 +1,107 @@
+name: SAI_202205_RELEASE_DX010_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+#Pipeline name TEST.EXP.SONIC.BRCM.7.1.DMZ.DX010
+trigger: none
+pr: none
+
+resources:
+ pipelines:
+   - pipeline: bcm_sai_external_sug_7.1
+     source: bcm_sai_external_sug_7.1
+     project: broadcom
+     trigger:
+        enabled: true
+        branches:
+          include:
+          - PRE_SAI_7.1.0_*
+          - SAI_7.1.0_GA
+
+variables:
+  - template: ../../templates/template_variables.yml
+
+parameters:
+  - name: RUN_SONiC_TEST
+    type: boolean
+    displayName: "Is Run SONiC Test"
+    default: true
+
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed Name for SONiC test"
+    default: vms20-t1-dx010-6
+
+  - name: LOCK_TESTBED
+    displayName: "Lock Testbed"
+    type: boolean
+    default: true
+
+  - name: LOCK_TESTBED_REASON
+    displayName: "Lock Testbed Reason"
+    type: string
+    default: "SAI 7.1 Release SONiC Express Testing"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_202205)
+    displayName: "Image URL"
+
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202205)
+    displayName: "py_saithrift URL"
+
+  # Deploy SAI SDK
+  - name: DEPLOY_SAI_SDK
+    displayName: "Deploy sai sdk"
+    type: boolean
+    default: true
+
+  - name: ARTIFACT_PROJECT
+    type: string
+    default: broadcom
+
+  - name: SDK_BUILD_PIPELINE_NAME
+    type: string
+    default: "bcm_sai_external_sug_7.1"
+
+  - name: SDK_ARTIFACT_NAME
+    displayName: "artifact name"
+    type: string
+    default: xgs
+
+  # Test report
+  - name: UPLOAD_TEST_REPORT
+    displayName: "Upload Test Report"
+    type: boolean
+    default: true
+
+  # - name: PIPELINE_BRANCH
+  #   displayName: "pipeline running branch(all the buildouts binding to a branch)"
+  #   default: "internal"
+  #   type: string
+
+  # Resource agent pool
+  - name: AGENT_POOL
+    displayName: "Resource agent pool"
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
+jobs:
+- ${{ if parameters.RUN_SONiC_TEST }}:
+    - template: ../../templates/sonic_test_for_sai.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
+        LOCK_TESTBED_REASON: ${{ parameters.LOCK_TESTBED_REASON }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+        UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+        DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
+        SDK_BUILD_PIPELINE_NAME: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
+        ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
+        SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
+        AGENT_POOL: ${{ parameters.AGENT_POOL }}
