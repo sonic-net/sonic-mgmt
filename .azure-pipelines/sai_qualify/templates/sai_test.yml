@@ -586,13 +586,10 @@ jobs:
 
             SAI_ADHOC_PATH=$BASE_PATH/tests/common/sai_adhoc.py
 
-            apt install sshpass
-            echo "saideploy" > saideploy
-
             if [[ "${{ parameters.AGENT_POOL }}" == *"bjw"* ]]; then
-              sshpass -f "./saideploy" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null saideploy@10.150.22.222:/data/vscode/vscode.tar.gz ./
+              wget http://10.150.22.222/pipelines/sai_pipeline/vscode.tar.gz
             else
-              sshpass -f "./saideploy" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null saideploy@10.64.247.30:/data/vscode/vscode.tar.gz ./
+              wget http://10.201.148.43/pipelines/sai_pipeline/vscode.tar.gz
             fi
             python $SAI_ADHOC_PATH -i -t ptf -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=./vscode.tar.gz dest=/root"
             python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "tar -xvzf ./vscode.tar.gz"

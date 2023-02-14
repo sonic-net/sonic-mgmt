@@ -1,5 +1,5 @@
 name: SAI_202211_RELEASE_7050CX3_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-#Pipeline name TEST.EXP.SAI.BRCM.8.4.7050CX3
+#Pipeline name EXP.SAI.8.4.vms20-t0-7050cx3-1
 trigger: none
 pr: none
 

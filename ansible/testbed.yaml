@@ -392,13 +392,13 @@
 
 - conf-name: vms7-t0-dx010-5
   group-name: vms7-12
-  topo: t0
+  topo: t0-56
   ptf_image_name: docker-ptf
   ptf: vms7-12
   ptf_ip: 10.64.246.117/23
   ptf_ipv6:
   server: server_7
-  vm_base: VM07060
+  vm_base: VM07024
   dut:
     - str-dx010-acs-5
   inv_name: str

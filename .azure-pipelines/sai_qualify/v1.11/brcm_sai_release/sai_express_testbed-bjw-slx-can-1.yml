@@ -1,5 +1,5 @@
 name: SAI_202211_RELEASE_DX010_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-#Pipeline name TEST.EXP.SAI.BRCM.8.1.DX010
+#Pipeline name EXP.SAI.8.1.testbed-bjw-slx-can-1
 trigger: none
 pr: none
 

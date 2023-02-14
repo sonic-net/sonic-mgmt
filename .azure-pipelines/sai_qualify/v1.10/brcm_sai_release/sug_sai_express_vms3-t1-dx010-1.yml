@@ -1,5 +1,5 @@
 name: SAI_202205_RELEASE_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-#Pipeline name TEST.EXP.SAI.BRCM.7.1.SUG
+#Pipeline name SUG.EXP.SAI.7.1.vms3-t1-dx010-1
 trigger: none
 pr: none
 

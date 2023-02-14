@@ -821,6 +821,7 @@ sonic_dx010_100:
       model: R0872-F0009-01
       serial: DX010F2B118711MS100008
       base_mac: 00:E0:EC:C2:AF:FD
+      hwsku: Celestica-DX010-D48C8
       syseeprom_info:
         "0x21": "DX010"
         "0x22": "R0872-F0009-01"
