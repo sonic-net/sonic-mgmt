@@ -141,7 +141,7 @@ parameters:
 stages:
 - stage: RunSAITest
   jobs:
-  - template: templates/sai_scan_case.yml
+  - template: templates/sai_test.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       LOCK_TESTBED: ${{ parameters.LOCK_TESTBED }}
