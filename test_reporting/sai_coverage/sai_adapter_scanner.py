@@ -58,5 +58,4 @@ if __name__ == "__main__":
     os.makedirs(PRIORI_RESULT_SAVE_DIR, exist_ok=True)
     save_path = os.path.join(PRIORI_RESULT_SAVE_DIR, SAI_ADAPTER_FILENAME)
     for root_path in parser.path_list:
-        print('====', root_path)
         seach_defalt_parms(root_path, save_path)  # Static Scanning
