@@ -868,8 +868,6 @@ platform_tests/test_memory_exhaustion.py:
     reason: "Unsupported release 20191130"
     conditions:
       - "is_multi_asic==True and release in ['201911']"
-  skip:
     reason: "Skipping the test temporarily on Cisco Distributed Chassis. Will remove the skip once the internal issue is fixed"
     conditions:
       - "platform in ['x86_64-88_lc0_36fh_mo-r0', 'x86_64-8800_lc_48h_o-r0', 'x86_64-8800_rp_o-r0']"
-      
