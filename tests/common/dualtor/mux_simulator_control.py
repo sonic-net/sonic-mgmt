@@ -400,10 +400,12 @@ def _probe_mux_ports(duthosts, ports):
 def _get_mux_ports(duthost, target_status=None, exclude_status=None):
     """Get mux ports that has expected mux status."""
     def _check_status(mux_status):
-        return ((target_status is None or target_status == mux_status) and (exclude_status is None or exclude_status != mux_status))
+        return ((target_status is None or target_status == mux_status) and
+                (exclude_status is None or exclude_status != mux_status))
 
     muxcables = json.loads(duthost.shell("show muxcable status --json")['stdout'])
-    return {port:mux_status for port, mux_status in muxcables['MUX_CABLE'].items() if _check_status(mux_status["STATUS"])}
+    return {port: mux_status for port, mux_status in muxcables['MUX_CABLE'].items()
+            if _check_status(mux_status["STATUS"])}
 
 
 def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux_server_url, tbinfo):
@@ -421,7 +423,8 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
         if probe:
             _probe_mux_ports(duthosts, list(inactive_ports.keys()))
 
-        logger.info('Found muxcables not active on {}: {}'.format(duthost.hostname, json.dumps(list(inactive_ports.keys()))))
+        logger.info('Found muxcables not active on {}: {}'.format(
+            duthost.hostname, json.dumps(list(inactive_ports.keys()))))
         return False
 
     logging.info("Toggling mux cable to {}".format(target_dut_hostname))
@@ -444,7 +447,8 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
             is_toggle_done = True
             break
 
-    if not is_toggle_done and not utilities.wait_until(120, 10, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True):
+    if (not is_toggle_done and
+            not utilities.wait_until(120, 10, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True)):
         pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(target_dut_hostname))
 
 
@@ -541,9 +545,8 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(duthos
     duthosts.shell('config muxcable mode auto all')
 
 
-
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):
+def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):    # noqa F811
     """
     A function level fixture to toggle all ports to a random side.
     """

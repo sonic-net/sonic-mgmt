@@ -86,7 +86,7 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         if k == duthost.hostname:
             dut_type = v['type']
 
-    if  dut_type in ['ToRRouter', 'SpineRouter']:
+    if dut_type in ['ToRRouter', 'SpineRouter']:
         neigh_type = 'LeafRouter'
     else:
         neigh_type = 'ToRRouter'
@@ -216,7 +216,8 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         # handle both multi-sic and single-asic
         bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
         for neighbor in neighbors:
-            is_established &= neighbor.ip in bgp_facts["bgp_neighbors"] and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+            is_established &= neighbor.ip in bgp_facts["bgp_neighbors"] and \
+                bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
 
         return is_established
 
