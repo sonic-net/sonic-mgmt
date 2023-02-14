@@ -4,3 +4,4 @@
 nic_simulator_grpc_port:
   vms-kvm-dual-mixed: 50075
   vmsvc1-dual-t0-7050-1: 50075
+  vms61-dual-mixed-8102: 50075
