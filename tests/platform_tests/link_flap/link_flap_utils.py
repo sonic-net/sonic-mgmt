@@ -218,7 +218,7 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     """
     MAX_DIFF = 5
 
-    sumv4, sumv6 = dut.get_ip_route_summary()
+    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True)
     totalsv4 = sumv4.get('Totals', {})
     totalsv6 = sumv6.get('Totals', {})
     routesv4 = totalsv4.get('routes', 0)
