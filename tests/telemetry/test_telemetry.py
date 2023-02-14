@@ -1,4 +1,5 @@
 import time
+from multiprocessing.pool import ThreadPool
 
 import logging
 import re
@@ -22,7 +23,10 @@ TELEMETRY_PORT = 50051
 METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
 CONTAINER_NAME = "telemetry"
+WAITING_SYSLOG_MSG_SECS = 300
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_CHECK_INTERVAL_SECS = 1
+
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
