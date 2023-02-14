@@ -33,11 +33,11 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', 
+    gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"',
                          module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
 
-    certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"', 
+    certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"',
                           module_ignore_errors=False)['stdout_lines']
     pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
 
@@ -102,13 +102,13 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET, 
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
                               target="OTHERS", xpath="osversion/build")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
     assert_equal(len(re.findall('"build_version": "sonic\\.', result)), 1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall('sonic\\.NA', result, flags=re.IGNORECASE)), 0, 
+    assert_equal(len(re.findall('sonic\\.NA', result, flags=re.IGNORECASE)), 0,
                  "invalid build_version value at {0}".format(result))
 
 
@@ -171,11 +171,11 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall('Max update count reached 3', result)), 1, 
+    assert_equal(len(re.findall('Max update count reached 3', result)), 1,
                  "Streaming update count in:\n{0}".format(result))
-    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, 
+    assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4,
                  "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
-    assert_equal(len(re.findall('timestamp: \\d+', result)), 3, 
+    assert_equal(len(re.findall('timestamp: \\d+', result)), 3,
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
@@ -243,7 +243,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
 
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, 
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               xpath="DOCKER_STATS,TEST_STATS", target="STATE_DB", num_connections=9000000)
     client_thread = ThreadPool(processes=1)
     client_thread.apply_async(ptfhost.shell(cmd))
