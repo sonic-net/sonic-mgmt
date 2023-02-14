@@ -383,6 +383,15 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
 
 #######################################
+#####           gnmi              #####
+#######################################
+gnmi/test_gnmi_configdb.py:
+  skip:
+    reason: "We still have issue for config reload command, and we will enable this test after merging the fix."
+    conditions:
+    - https://github.com/sonic-net/sonic-mgmt/issues/7462
+
+#######################################
 #####           http              #####
 #######################################
 http/test_http_copy.py:
