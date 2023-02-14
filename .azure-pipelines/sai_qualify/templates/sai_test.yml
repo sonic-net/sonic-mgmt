@@ -1008,7 +1008,7 @@ jobs:
 
             echo "Generate scan results"
             python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
-            # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
+            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
             echo "Upload scan results"
             mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
@@ -1016,7 +1016,7 @@ jobs:
             python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
             python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
-            # python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
+            python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
 
             echo "Save test report for publish artificates"
             mkdir -p $(System.DefaultWorkingDirectory)/publish
