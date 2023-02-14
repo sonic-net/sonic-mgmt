@@ -575,7 +575,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                     ifs_status = fanout.host.get_interfaces_status()
                     for key, interface_info in ifs_status.items():
                         fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
-                    logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
+                    logging.info("fanout {} fanout_port_alias_to_name {}"
+                                 .format(fanout_host, fanout.fanout_port_alias_to_name))
 
             fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
@@ -1212,7 +1213,7 @@ def generate_dut_backend_asics(request, duts_selected):
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            dut_asic_list.append([None]) 
+            dut_asic_list.append([None])
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
@@ -1260,7 +1261,7 @@ def pfc_pause_delay_test_params(request):
     try:
         with open(filepath, 'r') as yf:
             info = json.load(yf)
-    except IOError as e:
+    except IOError:
         return empty
 
     if tbname not in info:
@@ -2038,7 +2039,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
         items = request.session.items
         for item in items:
             if item.module.__name__ + ".py" == module_name.split("/")[-1]:
-                item.user_properties.append(('dut_check_pass', False))
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
 
 
 @pytest.fixture(scope="function")
