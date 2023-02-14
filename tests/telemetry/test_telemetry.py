@@ -27,8 +27,8 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"',
-            module_ignore_errors=False)['stdout_lines']
+    gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"', 
+           module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
 
     certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"', 
@@ -43,15 +43,15 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
         if str(key) == "ca_crt":
             ca_crt_value_expected = "/etc/sonic/telemetry/dsmsroot.cer"
             pytest_assert(str(value) == ca_crt_value_expected,
-                    "'ca_crt' value is not '{}'".format(ca_crt_value_expected))
+                          "'ca_crt' value is not '{}'".format(ca_crt_value_expected))
         if str(key) == "server_key":
             server_key_expected = "/etc/sonic/telemetry/streamingtelemetryserver.key"
             pytest_assert(str(value) == server_key_expected,
-                    "'server_key' value is not '{}'".format(server_key_expected))
+                          "'server_key' value is not '{}'".format(server_key_expected))
         if str(key) == "server_crt":
             server_crt_expected = "/etc/sonic/telemetry/streamingtelemetryserver.cer"
             pytest_assert(str(value) == server_crt_expected,
-                    "'server_crt' value is not '{}'".format(server_crt_expected))
+                          "'server_crt' value is not '{}'".format(server_crt_expected))
 
 
 def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
