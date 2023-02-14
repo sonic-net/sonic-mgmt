@@ -81,7 +81,7 @@ def set_ptf_port_mapping_mode(ptfhost, request, tbinfo):
         ptf_port_mapping_mode = getattr(request.module, "PTF_PORT_MAPPING_MODE", constants.PTF_PORT_MAPPING_MODE_DEFAULT)
     else:
         ptf_port_mapping_mode = "use_orig_interface"
-    logging.info("Set ptf port mapping mode: %s", ptf_port_mapping_mode)
+    logger.info("Set ptf port mapping mode: %s", ptf_port_mapping_mode)
     data = {
         "PTF_PORT_MAPPING_MODE": ptf_port_mapping_mode
     }
@@ -126,7 +126,7 @@ def change_mac_addresses(ptfhost):
     # socket read/write operations, so let's restart icmp_responder if it is running
     icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)
     if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
-        logging.debug("restart icmp_responder after change ptf port mac addresses")
+        logger.debug("restart icmp_responder after change ptf port mac addresses")
         ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
@@ -238,7 +238,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
-    logging.info("Start running icmp_responder")
+    logger.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     vlan_intfs = duthost.get_vlan_intfs()
@@ -286,7 +286,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
-    logging.info("Start running icmp_responder")
+    logger.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     vlan_intfs = duthost.get_vlan_intfs()
@@ -304,9 +304,9 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
 
     yield
 
-    logging.info("Stop running icmp_responder")
+    logger.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
-    logging.info("Recover linkmgrd probe interval")
+    logger.info("Recover linkmgrd probe interval")
     recover_linkmgrd_probe_interval(duthosts, tbinfo)
     duthosts.shell("config save -y")
 
