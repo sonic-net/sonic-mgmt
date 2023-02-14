@@ -28,7 +28,6 @@ CONTAINER_RESTART_THRESHOLD_SECS = 180
 CONTAINER_CHECK_INTERVAL_SECS = 1
 
 
-
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
     """
