@@ -9,7 +9,7 @@ from tests.common.helpers.dut_utils import check_container_state
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
 from telemetry_utils import backup_monit_config_files, customize_monit_config_files, restart_monit_service
-from telemetry_utils import check_monit_running, restore_monit_config_files, postcheck_critical_processes 
+from telemetry_utils import check_monit_running, restore_monit_config_files, postcheck_critical_processes
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -225,7 +225,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
 
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, xpath="DOCKER_STATS,TEST_STATS", target="STATE_DB", num_connections=9000000) 
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, xpath="DOCKER_STATS,TEST_STATS", target="STATE_DB", num_connections=9000000)
     client_thread = ThreadPool(processes=1)
     client_thread.apply_async(ptfhost.shell(cmd))
 
