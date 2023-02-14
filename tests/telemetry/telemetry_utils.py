@@ -3,6 +3,7 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,11 @@ METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
 SUBMODE_SAMPLE = 2
+
+MONIT_RESTART_THRESHOLD_SECS = 320
+MONIT_CHECK_INTERVAL_SECS = 5
+CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_CHECK_INTERVAL_SECS = 1
 
 
 def assert_equal(actual, expected, message):
