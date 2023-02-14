@@ -491,6 +491,9 @@ jobs:
             pip install -r requirements.txt
             popd
 
+            echo '!!!!!!!!!!!!!!!!!!!!'
+            pwd
+
             rm -rf ./SAI
             git init SAI
             cd SAI
@@ -973,7 +976,7 @@ jobs:
         displayName: "Public sai test report"
 
       - task: Bash@3
-        condition: ${{ parameters.SCAN_CASES }}
+        condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.SCAN_CASES }}, and(${{ parameters.PREPARE_SAI_TB }}, succeeded()))
         displayName: Scan and Upload
         inputs:
           targetType: 'inline'
