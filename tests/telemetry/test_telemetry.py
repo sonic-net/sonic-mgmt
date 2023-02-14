@@ -101,8 +101,9 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall('"build_version": "sonic\.', result)), 1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall('sonic\.NA', result, flags=re.IGNORECASE)), 0, "invalid build_version value at {0}".format(result))
+    assert_equal(len(re.findall('"build_version": "sonic\\.', result)), 1, "build_version value at {0}".format(result))
+    assert_equal(len(re.findall('sonic\\.NA', result, flags=re.IGNORECASE)), 0, 
+                 "invalid build_version value at {0}".format(result))
 
 
 def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
@@ -173,7 +174,7 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
 
 
 @pytest.fixture(params=['if status == 3 for 1 times within 2 cycles then exec \
-                         "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
+                        "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
                 ids=["monit_config_line"])
 def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_streaming_telemetry, request):
     """Customizes Monit configuration files before testing and restores them after testing.
