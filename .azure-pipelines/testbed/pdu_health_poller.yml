@@ -51,7 +51,7 @@ stages:
 
                 for inv in ${INVS}; do
                     for grp in ${GRPS}; do
-                    ./devutils -i ${inv} -a pdu_status -g ${grp} -j > ${inv}_${grp}_pdu.json
+                    ./devutils -i ${inv} -a pdu_status -g ${grp} -j > ${inv}_${grp}_pdu.json 2>/dev/null
                   done
                 done
 
