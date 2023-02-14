@@ -1855,6 +1855,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
     cur_only_config = {}
     config_db_check_pass = True
 
+    check_result = {}
+
     pytest.DUT_CHECK_RESULT = ""
 
     if check_flag:
@@ -2037,6 +2039,12 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
+
+    if check_result:
+        items = request.session.items
+        for item in items:
+            if item.module.__name__ + ".py" == module_name.split("/")[-1]:
+                item.user_properties.append(('dut_check_result', False))
 
 
 @pytest.fixture(scope="function")
