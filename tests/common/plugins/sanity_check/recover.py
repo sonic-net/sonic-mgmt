@@ -116,16 +116,16 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo, result):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
     if vm_neighbors:
-        if result["check_item"] == "bgp":
-            results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
-            logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
-        elif result["check_item"] == "neighbor_macsec_empty":
+        if result["check_item"] == "neighbor_macsec_empty":
             unhealthy_nbrs = []
             for name, host in nbrhosts.items():
                 if name in result["unhealthy_nbrs"]:
                     unhealthy_nbrs.append(host)
             parallel_run(_neighbor_vm_recover_config, (), {}, unhealthy_nbrs, timeout=300)
             logger.debug('Results of restoring neighbor VMs: {}'.format(unhealthy_nbrs))
+        else:
+            results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
+            logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
     return 'config_reload'  # May still need to do a config reload
 
 
