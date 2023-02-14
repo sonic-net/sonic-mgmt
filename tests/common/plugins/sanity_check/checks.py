@@ -26,7 +26,8 @@ CHECK_ITEMS = [
     'check_dbmemory',
     'check_monit',
     'check_mux_simulator',
-    'check_secureboot']
+    'check_secureboot',
+    'check_neighbor_macsec_empty']
 
 __all__ = CHECK_ITEMS
 
@@ -868,4 +869,40 @@ def check_secureboot(duthosts, request):
             check_results.append(check_result)
 
         return check_results
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_neighbor_macsec_empty(ctrl_links):
+    nodes = []
+    nodes_name = set()
+    dut_nbr_mapping = {}
+    for _, nbr in ctrl_links.items():
+        if nbr["name"] in nodes_name:
+            continue
+        nodes_name.add(nbr["name"])
+        nodes.append({
+            "nbr_host": nbr["host"],
+            "nbr_name": nbr["name"]})
+        dut_nbr_mapping[nbr["name"]] = nbr["dut_name"]
+
+    def _check_macsec_empty(*args, **kwargs):
+        node = kwargs['node']
+        results = kwargs['results']
+        check_result = len(node["nbr_host"].command("ip macsec show")["stdout_lines"]) > 0
+        results[node["nbr_name"]] = check_result
+
+    def _check(*args, **kwargs):
+        init_check_result = {"failed": False, "check_item": "neighbor_macsec_empty", "unhealthy_nbrs": []}
+        check_results = parallel_run(_check_macsec_empty, args, kwargs, nodes, timeout=300)
+        unhealthy_dut = set()
+        for nbr_name, check_result in check_results.items():
+            if check_result:
+                init_check_result["failed"] = True
+                init_check_result["unhealthy_nbrs"].append(nbr_name)
+                unhealthy_dut.add(dut_nbr_mapping[nbr_name])
+        if len(unhealthy_dut) > 0:
+            init_check_result["hosts"] = list(unhealthy_dut)
+        return init_check_result
+
     return _check
