@@ -1,5 +1,5 @@
-name: SAI_202205_RELEASE_S6000_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-#Pipeline name TEST.EXP.SAI.BRCM.7.1.DMZ.S6000
+name: SAI_202205_RELEASE_DX010_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+#Pipeline name TEST.EXP.SAI.BRCM.7.1.DMZ.DX010
 trigger: none
 pr: none
 
@@ -27,7 +27,7 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name for SAI test"
-    default: vms13-4-t0
+    default: testbed-bjw-slx-can-3
 
   - name: LOCK_TESTBED
     displayName: "Lock Testbed"
@@ -37,16 +37,16 @@ parameters:
   - name: LOCK_TESTBED_REASON
     displayName: "Lock Testbed Reason"
     type: string
-    default: "SAI 7.1 Release Express Testing"
+    default: "SAI 7.1 Release SAI Express Testing"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_202205)
+    default: $(BJW_IMAGE_BRCM_202205)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFTV2_BRCM_INTERNAL_202205)
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202205_BJ)
     displayName: "py_saithrift URL"
 
   # Deploy SAI SDK
@@ -108,7 +108,7 @@ parameters:
   - name: AGENT_POOL
     displayName: "Resource agent pool"
     type: string
-    default: nightly
+    default: nightly-bjw
     values:
       - nightly
       - nightly2
@@ -142,4 +142,3 @@ jobs:
       # UPDATE_IMAGE: false
       # CHANGE_TOPO: false
       # PTF_DEPLOY_VSCODE: false
-
