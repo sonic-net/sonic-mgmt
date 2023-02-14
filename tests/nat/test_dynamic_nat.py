@@ -36,6 +36,7 @@ from nat_helpers import generate_and_verify_not_translated_icmp_traffic
 from nat_helpers import generate_and_verify_traffic_dropped
 from nat_helpers import get_cli_show_nat_config_output
 from nat_helpers import write_json
+from nat_helpers import check_peers_by_ping
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 
@@ -396,6 +397,13 @@ class TestDynamicNat(object):
                           network_data.ip_dst, dst_port,
                           network_data.ip_src, src_port + 2,
                           network_data.public_ip)
+        # Define dynamic source port for expected packet
+        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+        l4_ports = get_dynamic_l4_ports(duthost, protocol_type, direction, network_data.public_ip)
+        if l4_ports.exp_src_port != POOL_RANGE_START_PORT:
+            first_exp_src_port = POOL_RANGE_START_PORT + 1
+        else:
+            first_exp_src_port = POOL_RANGE_START_PORT
         # Send TCP/UDP bidirectional traffic(host-tor -> leaf-tor and vice versa) and check
         # Check new translation entry
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, 'host-tor',
@@ -727,6 +735,8 @@ class TestDynamicNat(object):
                       .format(iptables_output, iptables_rules))
         # Enable outer interface
         dut_interface_control(duthost, "enable", setup_data["config_portchannels"][ifname_to_disable]['members'][0])
+        # update arp entries
+        check_peers_by_ping(duthost)
         # Send traffic
         generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type,
                                     direction, protocol_type, nat_type=nat_type)

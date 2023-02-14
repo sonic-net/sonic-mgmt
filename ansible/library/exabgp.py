@@ -218,7 +218,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             name=dict(required=True, type='str'),
-            state=dict(required=True, choices=['started', 'restarted', 'stopped', 'present', 'absent', 'status'], type='str'),
+            state=dict(required=True, choices=['started', 'restarted', 'stopped', 'present', 'absent', 'status', 'configure'], type='str'),
             router_id=dict(required=False, type='str'),
             local_ip=dict(required=False, type='str'),
             peer_ip=dict(required=False, type='str'),
@@ -259,6 +259,9 @@ def main():
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script, passive=passive)
             setup_exabgp_supervisord_conf(name)
             refresh_supervisord(module)
+        elif state == 'configure':
+            setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, port, dump_script=dump_script, passive=passive)
+            setup_exabgp_supervisord_conf(name)
         elif state == 'stopped':
             stop_exabgp(module, name)
         elif state == 'absent':
