@@ -46,7 +46,6 @@ def seach_defalt_parms(root_path, save_path):
                         if a.arg == 'client' or a.arg == 'self':
                             continue
                         args.append(a.arg)
-                        print('-----', a.arg, '-----')
                     if node.name not in functions:
                         functions[node.name] = args
 
