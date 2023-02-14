@@ -6,6 +6,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import check_container_state
+from tests.common.utilities import wait_until
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
 from telemetry_utils import backup_monit_config_files, customize_monit_config_files, restart_monit_service
@@ -21,6 +22,8 @@ TELEMETRY_PORT = 50051
 METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
 CONTAINER_NAME = "telemetry"
+CONTAINER_RESTART_THRESHOLD_SECS = 180
+
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
@@ -168,7 +171,7 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
     assert_equal(len(re.findall('Max update count reached 3', result)), 1, 
                  "Streaming update count in:\n{0}".format(result))
     assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, 
-                 "Streaming updates for Ethernet0 in:\n{0}".format(result))  #1 for request, 3 for response
+                 "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
     assert_equal(len(re.findall('timestamp: \\d+', result)), 3, 
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
@@ -216,7 +219,6 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setu
     logger.info("Starting to test the memory spike issue of '{}' ...".format(CONTAINER_NAME))
 
     duthost = duthosts[rand_one_dut_hostname]
-    dut_ip = duthost.mgmt_ip
 
     logger.info("Checking whether the '{}' container is running before testing...".format(CONTAINER_NAME))
     is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
