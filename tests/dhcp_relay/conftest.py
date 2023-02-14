@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.fixture(scope="module", autouse=True)
 def skip_dhcp_relay_tests(tbinfo):
     """

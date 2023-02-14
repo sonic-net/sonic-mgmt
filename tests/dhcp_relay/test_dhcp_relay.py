@@ -4,9 +4,9 @@ import random
 import time
 import logging
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
@@ -14,7 +14,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -28,14 +27,15 @@ DUAL_TOR_MODE = 'dual'
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
         ignoreRegex = [
-            ".*ERR snmp#snmp-subagent.*",
-            ".*ERR rsyslogd: omfwd: socket (\d+): error (\d+) sending via udp: Network is (unreachable|down).*",
-            ".*ERR rsyslogd: omfwd/udp: socket (\d+): sendto\(\) error: Network is (unreachable|down).*"
+            r".*ERR snmp#snmp-subagent.*",
+            r".*ERR rsyslogd: omfwd: socket (\d+): error (\d+) sending via udp: Network is (unreachable|down).*",
+            r".*ERR rsyslogd: omfwd/udp: socket (\d+): sendto\(\) error: Network is (unreachable|down).*"
         ]
         loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
@@ -78,7 +78,8 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
         downlink_vlan_iface['dhcp_server_addrs'] = mg_facts['dhcp_servers']
 
-        # We choose the physical interface where our DHCP client resides to be index of first interface with alias (ignore PortChannel) in the VLAN
+        # We choose the physical interface where our DHCP client resides to be index of first interface
+        # with alias (ignore PortChannel) in the VLAN
         client_iface = {}
         for port in vlan_members:
             if port in mg_facts['minigraph_port_name_to_alias_map']:
@@ -91,11 +92,12 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
         # Obtain uplink port indicies for this DHCP relay agent
         uplink_interfaces = []
-        uplink_port_indices =[]
+        uplink_port_indices = []
         for iface_name, neighbor_info_dict in mg_facts['minigraph_neighbors'].items():
             if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
                 neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
-                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] in ['LeafRouter', 'MgmtLeafRouter']:
+                if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] in \
+                        ['LeafRouter', 'MgmtLeafRouter']:
                     # If this uplink's physical interface is a member of a portchannel interface,
                     # we record the name of the portchannel interface here, as this is the actual
                     # interface the DHCP relay will listen on.
@@ -106,7 +108,8 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
                             if portchannel_name not in uplink_interfaces:
                                 uplink_interfaces.append(portchannel_name)
                             break
-                    # If the uplink's physical interface is not a member of a portchannel, add it to our uplink interfaces list
+                    # If the uplink's physical interface is not a member of a portchannel,
+                    # add it to our uplink interfaces list
                     if not iface_is_portchannel_member:
                         uplink_interfaces.append(iface_name)
                     uplink_port_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
@@ -115,7 +118,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         for iface_name in vlan_members:
             if mg_facts['minigraph_ptf_indices'][iface_name] == client_iface['port_idx']:
                 pass
-            else :
+            else:
                 other_client_ports_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
 
         dhcp_relay_data = {}
@@ -166,7 +169,7 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
     """Fixture to valid a route to each DHCP server exist
     """
     pytest_assert(check_routes_to_dhcp_server(duthosts[rand_one_dut_hostname], dut_dhcp_relay_data),
-                    "Failed to find route for DHCP server")
+                  "Failed to find route for DHCP server")
 
 
 def restart_dhcp_service(duthost):
@@ -235,11 +238,14 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
             duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
             restart_dhcp_service(duthost)
 
+
 def check_interface_status(duthost):
-    if ":67" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay", module_ignore_errors=True)["stdout"]:
+    if ":67" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay",
+                              module_ignore_errors=True)["stdout"]:
         return True
 
     return False
+
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
@@ -251,11 +257,14 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
     output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay", module_ignore_errors=True)["stdout"]
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
-        assert "{}:67".format(dhcp_relay['downlink_vlan_iface']['name']) in output, "{} is not found in {}".format("{}:67".format(dhcp_relay['downlink_vlan_iface']['name']), output)
+        assert "{}:67".format(dhcp_relay['downlink_vlan_iface']['name']) in output, \
+            "{} is not found in {}".format("{}:67".format(dhcp_relay['downlink_vlan_iface']['name']), output)
         for iface in dhcp_relay['uplink_interfaces']:
             assert "{}:67".format(iface) in output, "{} is not found in {}".format("{}:67".format(iface), output)
 
-def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor_m):
+
+def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                            toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
@@ -272,8 +281,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                    platform_dir="ptftests",
                    params={"hostname": duthost.hostname,
                            "client_port_index": dhcp_relay['client_iface']['port_idx'],
-                           ## This port is introduced to test DHCP relay packet received
-                           ## on other client port
+                           # This port is introduced to test DHCP relay packet received
+                           # on other client port
                            "other_client_port": repr(dhcp_relay['other_client_ports']),
                            "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
@@ -406,7 +415,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
-def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology with unicast mac
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
     """
@@ -433,7 +443,8 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
-                           "dest_mac_address": duthost.facts["router_mac"] if testbed_mode != 'dual_testbed' else str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "dest_mac_address": duthost.facts["router_mac"] if testbed_mode != 'dual_testbed'
+                                else str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
@@ -442,7 +453,8 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
-def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                                 toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
     """Test DHCP relay functionality on T0 topology with random source port (sport)
        If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).
        Verify that DHCP relay works with random high sport.
