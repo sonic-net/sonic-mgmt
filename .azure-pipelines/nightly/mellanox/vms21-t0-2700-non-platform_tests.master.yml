@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 2,5"
+  - cron: "0 4 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "sub_port_interfaces platform_tests"'
+    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
 stages:

@@ -266,10 +266,11 @@ def generate_yaml_files(data_df):
             branch_alias = branch
             if branch == '201911':
                 yaml_file_info[branch]['branches'] = 'internal-202012'
-            elif branch == '202012' or branch.upper() == '202012-SLIM':
+            elif '202012' in branch:
                 branch_alias = '202012'
                 yaml_file_info[branch]['branches'] = 'internal-202012'
-            elif branch == '202205':
+            elif '202205' in branch:
+                branch_alias = '202205'
                 yaml_file_info[branch]['branches'] = 'internal-202205'
             else:
                 yaml_file_info[branch]['branches'] = 'internal'

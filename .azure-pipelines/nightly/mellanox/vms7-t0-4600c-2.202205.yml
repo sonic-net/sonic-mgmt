@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 0,2,3,4"
+  - cron: "0 14 * * 0,2,3,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t0-2700
+    default: vms7-t0-4600c-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -39,6 +39,17 @@ parameters:
     default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "vrf/test_vrf.py vrf/test_vrf_attr.py"
+    displayName: "Skip Scripts"
+
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1920
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -46,3 +57,5 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
