@@ -85,6 +85,7 @@ TESTCASE_PROPERTY_TAG = "property"
 REQUIRED_TESTCASE_PROPERTIES = [
     "start",
     "end",
+    "CustomMsg"
 ]
 
 REQUIRED_TESTCASE_JSON_FIELDS = ["result", "error", "summary"]
@@ -289,6 +290,7 @@ def _validate_test_metadata(root):
     if set(seen_properties) < set(REQUIRED_METADATA_PROPERTIES):
         raise JUnitXMLValidationError("missing metadata element(s)")
 
+
 def _validate_test_case_properties(root):
     testcase_properties_element = root.find(TESTCASE_PROPERTIES_TAG)
 
@@ -322,6 +324,7 @@ def _validate_test_case_properties(root):
     missing_testcase_property = set(REQUIRED_TESTCASE_PROPERTIES) - set(seen_testcase_properties)
     if missing_testcase_property:
         print("missing testcase property: {}".format(list(missing_testcase_property)))
+
 
 def _validate_test_cases(root):
     def _validate_test_case(test_case):
@@ -379,7 +382,7 @@ def _extract_test_summary(test_cases):
     test_result_summary = defaultdict(int)
     for _, cases in test_cases.items():
         for case in cases:
-            # Error may occur along with other test results, to count error separately. 
+            # Error may occur along with other test results, to count error separately.
             # The result field is unique per test case, either error or failure.
             # xfails is the counter for all kinds of xfail results (include success/failure/error/skipped)
             test_result_summary["tests"] += 1
@@ -387,10 +390,9 @@ def _extract_test_summary(test_cases):
             test_result_summary["skipped"] += case["result"] == "skipped"
             test_result_summary["errors"] += case["error"]
             test_result_summary["time"] += float(case["time"])
-            test_result_summary["xfails"] += case["result"] == "xfail_failure" or \
-                                             case["result"] == "xfail_error" or \
-                                             case["result"] == "xfail_skipped" or \
-                                             case["result"] == "xfail_success"
+            test_result_summary["xfails"] += \
+                case["result"] == "xfail_failure" or case["result"] == \
+                "xfail_error" or case["result"] == "xfail_skipped" or case["result"] == "xfail_success"
 
     test_result_summary = {k: str(v) for k, v in test_result_summary.items()}
     return test_result_summary
@@ -409,6 +411,7 @@ def _parse_test_metadata(root):
 
     return test_result_metadata
 
+
 def _parse_testcase_properties(root):
     testcase_properties_element = root.find(TESTCASE_PROPERTIES_TAG)
 
@@ -418,9 +421,17 @@ def _parse_testcase_properties(root):
     testcase_properties = {}
     for testcase_prop in testcase_properties_element.iterfind(TESTCASE_PROPERTY_TAG):
         if testcase_prop.get("value"):
-            testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value")
+            if testcase_prop.get("name") == "CustomMsg":
+                if not testcase_properties.get(testcase_prop.get("name")):
+                    testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value")
+                else:
+                    testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value") + ", " + \
+                                                                     testcase_properties[testcase_prop.get("name")]
+            else:
+                testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value")
 
     return testcase_properties
+
 
 def _parse_test_cases(root):
     test_case_results = defaultdict(list)
@@ -492,10 +503,12 @@ def _update_test_summary(current, update):
 
     new_summary = {}
     for attribute, attr_type in REQUIRED_TESTSUITE_ATTRIBUTES:
-        new_summary[attribute] = str(round(attr_type(current.get(attribute, 0)) + attr_type(update.get(attribute, 0)), 3))
+        new_summary[attribute] = str(round(attr_type(current.get(attribute, 0))
+                                           + attr_type(update.get(attribute, 0)), 3))
 
     for attribute, attr_type in EXTRA_XML_SUMMARY_ATTRIBUTES:
-        new_summary[attribute] = str(round(attr_type(current.get(attribute, 0)) + attr_type(update.get(attribute, 0)), 3))
+        new_summary[attribute] = str(round(attr_type(current.get(attribute, 0))
+                                           + attr_type(update.get(attribute, 0)), 3))
 
     return new_summary
 
@@ -659,7 +672,8 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
         "--json",
         "-j",
         action="store_true",
-        help="Load an existing test result JSON file from path_name. Will perform validation only regardless of --validate-only option.",
+        help="Load an existing test result JSON file from path_name. "
+             "Will perform validation only regardless of --validate-only option.",
     )
 
     args = parser.parse_args()
