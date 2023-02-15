@@ -136,7 +136,7 @@ parameters:
   - name: SCAN_CASES
     displayName: "Scan and Upload"
     type: boolean
-    default: false
+    default: true
 
 stages:
 - stage: RunSAITest
