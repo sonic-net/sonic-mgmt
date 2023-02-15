@@ -491,8 +491,6 @@ jobs:
             pip install -r requirements.txt
             popd
 
-            echo '!!!!!!!!!!!!!!!!!!!!'
-            pwd
 
             rm -rf ./SAI
             git init SAI
@@ -537,6 +535,11 @@ jobs:
 
             #install deb pkg into ptf
             python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "dpkg -i $PTF_RESOURCE_PATH/$PY_SAITHRIFT"
+
+            # Move sai_adapter.py to dut
+            rm -rf ${BASH_WORKING_FOLDER}/test_reporting/sai_adapter
+            mkdir ${BASH_WORKING_FOLDER}/test_reporting/sai_adapter
+            python $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=/usr/lib/python3.7/dist-packages/sai_thrift/sai_adapter.py dest=${BASH_WORKING_FOLDER}/test_reporting/sai_adapter"
 
             #Setup test bed and ptf
 
@@ -983,15 +986,6 @@ jobs:
           script: |
             set -x
 
-            pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
-            if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]
-            then
-              git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
-              git fetch ${{ parameters.MGMT_REPO }}
-              git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }}
-            fi
-            popd
-
             echo "Activate python3 virtual environment"
             source /var/AzDevOps/env-python3/bin/activate
             cd ${BASH_WORKING_FOLDER}/test_reporting
@@ -1007,7 +1001,7 @@ jobs:
 
             echo "Generate scan results"
             python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
-            # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
+            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
             echo "Upload scan results"
             mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
@@ -1015,7 +1009,7 @@ jobs:
             python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
             python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
-            # python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
+            python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
 
             echo "Save test report for publish artificates"
             mkdir -p $(System.DefaultWorkingDirectory)/publish
