@@ -1213,7 +1213,7 @@ def pfc_pause_delay_test_params(request):
     try:
         with open(filepath, 'r') as yf:
             info = json.load(yf)
-    except IOError as e:
+    except IOError:
         return empty
 
     if tbname not in info:
@@ -1752,6 +1752,8 @@ def core_dump_and_config_check(duthosts, request):
     cur_only_config = {}
     config_db_check_pass = True
 
+    check_result = {}
+
     if check_flag:
         for duthost in duthosts:
             logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
@@ -1927,6 +1929,35 @@ def core_dump_and_config_check(duthosts, request):
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
+
+    if check_result:
+        items = request.session.items
+        for item in items:
+            if item.module.__name__ + ".py" == module_name.split("/")[-1]:
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
+
+
+@pytest.fixture(scope="function")
+def on_exit():
+    '''
+    Utility to register callbacks for cleanup. Runs callbacks despite assertion
+    failures. Callbacks are executed in reverse order of registration.
+    '''
+    class OnExit():
+        def __init__(self):
+            self.cbs = []
+
+        def register(self, fn):
+            self.cbs.append(fn)
+
+        def cleanup(self):
+            while len(self.cbs) != 0:
+                self.cbs.pop()()
+
+    on_exit = OnExit()
+    yield on_exit
+    on_exit.cleanup()
+
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """
