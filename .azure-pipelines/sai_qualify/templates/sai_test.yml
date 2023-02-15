@@ -995,7 +995,6 @@ jobs:
             source /var/AzDevOps/env-python3/bin/activate
             cd ${BASH_WORKING_FOLDER}/test_reporting
             pip3 install -r requirements.txt
-            # pip install -r requirements.txt
 
             echo "Generate header"
             cd ${BASH_WORKING_FOLDER}
@@ -1016,22 +1015,13 @@ jobs:
             cp $SAI_ADAPTER_PATH test_reporting/sai_coverage/sai_adapter/
             python3 test_reporting/sai_coverage/sai_adapter_scanner.py test_reporting/sai_coverage/sai_adapter
 
-            echo "Generate scan results"
+            echo "Generate scanning results"
             python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
-            # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
+            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
-            echo "Upload scan results"
-            # mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-            # cd ${BASH_WORKING_FOLDER}/test_reporting
-            # python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
-
+            echo "Upload scanning results"
             python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
-            # python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
-
-            # echo "Save test report for publish artificates"
-            # mkdir -p $(System.DefaultWorkingDirectory)/publish
-            # cp ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}/tr.xml $(System.DefaultWorkingDirectory)/publish/
-            # cp ${BASH_WORKING_FOLDER}/test_reporting/tr.json $(System.DefaultWorkingDirectory)/publish/
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
 
         env:
             TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
