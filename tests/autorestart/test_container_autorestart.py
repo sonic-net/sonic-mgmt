@@ -125,7 +125,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*",
             ".*ERR swss[0-9]*#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled.*",
             ".*ERR swss[0-9]*#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled.*",
-            ".*ERR lldp[0-9]*#lldp-syncd [lldp_syncd].*Could not infer system information from.*",
+            ".*ERR lldp[0-9]*#lldp-syncd \[lldp_syncd\].*Could not infer system information from.*",
             ".*ERR syncd[0-9]*#syncd.*threadFunction: time span WD exceeded.*create:SAI_OBJECT_TYPE_SWITCH.*",
             ".*ERR syncd[0-9]*#syncd.*logEventData:.*SAI_SWITCH_ATTR.*",
             ".*ERR syncd[0-9]*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*",
@@ -135,8 +135,6 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR swss[0-9]*#orchagent: :- doLagMemberTask: Failed to locate port.*",
             ".*ERR swss[0-9]*#orchagent:.*update: Failed to get port by bridge port ID.*",
             ".*ERR swss[0-9]*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*",
-            ".*ERR swss[0-9]*#orchagent:.*pfcFrameCounterCheck: Invalid port oid.*",
-            ".*ERR swss[0-9]*#orchagent: :- mcCounterCheck: Invalid port oid.*",
             ".*ERR swss[0-9]*#orchagent: :- getResAvailability: Failed to get availability counter.*",
             ".*ERR swss[0-9]*#supervisor-proc-exit-listener: Process 'orchagent' is not running in namespace.*",
     ]
