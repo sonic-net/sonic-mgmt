@@ -863,8 +863,13 @@ class LinkFlap(object):
 
         """
         logger.info("Bring up link: %s/%s <-> %s/%s", fanout.hostname, fanport, dut.hostname, dut_intf)
+        sleep_time = 60
         fanout.no_shutdown(fanport)
-        pytest_assert(wait_until(60, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
+        cmd = "show interfaces transceiver eeprom | grep 400ZR"
+        if dut.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            logging.info("sleeping for 90 seconds for ZR optics to come up")
+            sleep_time = 90
+        pytest_assert(wait_until(sleep_time, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
 
     def localport_admindown(self, dut, asic, dut_intf):

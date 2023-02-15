@@ -4,7 +4,6 @@ Check SFP status and configure SFP using sfputil.
 This script covers test case 'Check SFP status and configure SFP' in the SONiC platform test plan:
 https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
-
 import logging
 import time
 import copy
@@ -108,8 +107,12 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             reset_result = duthost.command("{} {}".format(cmd_sfp_reset, intf))
             assert reset_result["rc"] == 0, "'{} {}' failed".format(cmd_sfp_reset, intf)
             time.sleep(5)
+    sleep_time = 60
+    if duthost.shell("show interfaces transceiver eeprom | grep 400ZR", module_ignore_errors=True)['rc'] == 0:
+        sleep_time = 90
+
     logging.info("Wait some time for SFP to fully recover after reset")
-    time.sleep(60)
+    time.sleep(sleep_time)
 
     logging.info("Check sfp presence again after reset")
     sfp_presence = duthost.command(cmd_sfp_presence)
@@ -229,6 +232,11 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
+    cmd = "show interfaces transceiver eeprom {} | grep 400ZR".format(asichost.cli_ns_option)
+    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+        logging.info("sleeping for 60 seconds for ZR optics to come up")
+        time.sleep(60)
+
     namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     # TODO Remove this logic when minigraph facts supports namespace in multi_asic
