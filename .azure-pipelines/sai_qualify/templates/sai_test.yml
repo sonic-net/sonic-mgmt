@@ -536,11 +536,6 @@ jobs:
             #install deb pkg into ptf
             python $SAI_ADHOC_PATH -t ptf -o cmd -n ${{ parameters.TESTBED_NAME }} -c "dpkg -i $PTF_RESOURCE_PATH/$PY_SAITHRIFT"
 
-            # Move sai_adapter.py to dut
-            rm -rf ${BASH_WORKING_FOLDER}/test_reporting/sai_adapter
-            mkdir ${BASH_WORKING_FOLDER}/test_reporting/sai_adapter
-            python $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=/usr/lib/python3.7/dist-packages/sai_thrift/sai_adapter.py dest=${BASH_WORKING_FOLDER}/test_reporting/sai_adapter"
-
             #Setup test bed and ptf
 
             CONFIG_PARAMS=" ${JOB_CONFIG} --disable_loganalyzer --enable_ptf_sai_test"
@@ -979,12 +974,13 @@ jobs:
         displayName: "Public sai test report"
 
       - task: Bash@3
-        condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.SCAN_CASES }}, and(${{ parameters.PREPARE_SAI_TB }}, succeeded()))
+        condition: ${{ parameters.SCAN_CASES }}
         displayName: Scan and Upload
         inputs:
           targetType: 'inline'
           script: |
             set -x
+            BASE_PATH=$(pwd)
 
             echo "Activate python3 virtual environment"
             source /var/AzDevOps/env-python3/bin/activate
@@ -997,6 +993,15 @@ jobs:
             python3 test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
             
             echo "Generate SAI definitions"
+            RESOURCE_PATH=$BASE_PATH/resources
+            PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')
+            mkdir -p $RESOURCE_PATH
+            wget -P $RESOURCE_PATH $PY_SAITHRIFT_URL
+            dpkg -i $RESOURCE_PATH/$PY_SAITHRIFT
+            SAI_ADAPTER_PATH = $(find / -name "sai_adapter.py")
+            rm -rf test_reporting/sai_coverage/sai_adapter
+            mkdir test_reporting/sai_coverage/sai_adapter
+            cp $SAI_ADAPTER_PATH test_reporting/sai_coverage/sai_adapter/
             python3 test_reporting/sai_coverage/sai_adapter_scanner.py test_reporting/sai_coverage/sai_adapter
 
             echo "Generate scan results"
@@ -1004,17 +1009,17 @@ jobs:
             # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
             echo "Upload scan results"
-            mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
-            cd ${BASH_WORKING_FOLDER}/test_reporting
-            python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
+            # mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
+            # cd ${BASH_WORKING_FOLDER}/test_reporting
+            # python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
             python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
             # python3 report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
 
-            echo "Save test report for publish artificates"
-            mkdir -p $(System.DefaultWorkingDirectory)/publish
-            cp ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}/tr.xml $(System.DefaultWorkingDirectory)/publish/
-            cp ${BASH_WORKING_FOLDER}/test_reporting/tr.json $(System.DefaultWorkingDirectory)/publish/
+            # echo "Save test report for publish artificates"
+            # mkdir -p $(System.DefaultWorkingDirectory)/publish
+            # cp ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}/tr.xml $(System.DefaultWorkingDirectory)/publish/
+            # cp ${BASH_WORKING_FOLDER}/test_reporting/tr.json $(System.DefaultWorkingDirectory)/publish/
 
         env:
             TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
@@ -1025,3 +1030,4 @@ jobs:
             PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
             OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
             SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
+            PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
