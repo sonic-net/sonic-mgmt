@@ -999,7 +999,8 @@ jobs:
 
             echo "Generate header"
             cd ${BASH_WORKING_FOLDER}
-            SAI_PATH=../SAI
+            git clone https://github.com/opencomputeproject/SAI.git
+            SAI_PATH=${BASH_WORKING_FOLDER}/SAI
             python3 test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
             
             echo "Generate SAI definitions"
