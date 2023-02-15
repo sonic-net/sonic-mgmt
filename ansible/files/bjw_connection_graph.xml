@@ -497,7 +497,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet9/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet10/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="433-480,552"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="433-480,552,587"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="485-516"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet14/1" vlanids="517-547"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet15/1" vlanids="553-583"/>
@@ -615,7 +615,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet47" vlanids="480"/>
       <InterfaceVlan mode="Access" portname="Ethernet49" vlanids="552"/>
       <InterfaceVlan mode="Access" portname="Ethernet50" vlanids="587"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="433-480,552"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="433-480,552,587"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-7215-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.110/23"/>
