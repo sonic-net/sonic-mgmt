@@ -53,7 +53,8 @@ class QosBase:
         return self.buffer_model
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, dut_test_params, tbinfo):
+    def dutTestParams(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                      dut_test_params, tbinfo):
         """
             Prepares DUT host test params
             Returns:
@@ -63,6 +64,7 @@ class QosBase:
         if dut_test_params["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params["basicParams"]["router_mac"] = ''
 
+        dut_test_params["basicParams"]["asic_id"] = enum_frontend_asic_index
         # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
         # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
         if "dualtor" in tbinfo["topo"]["name"]:
@@ -504,6 +506,7 @@ class QosSaiBase(QosBase):
             duthost = lower_tor_host
         else:
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+            dut_asic = duthost.asic_instance(enum_frontend_asic_index)
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dutLagInterfaces = []
@@ -617,7 +620,7 @@ class QosSaiBase(QosBase):
                     if "." in iface:
                         iface, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][iface]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface }
                     if vlan_id is not None:
                         portIpMap['vlan_id'] = vlan_id
                     dutPortIps.update({portIndex: portIpMap})
@@ -626,7 +629,7 @@ class QosSaiBase(QosBase):
                         iter(mgFacts["minigraph_portchannels"][iface]["members"])
                     )
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName }
                     dutPortIps.update({portIndex: portIpMap})
 
             testPortIds = sorted(dutPortIps.keys())
@@ -657,7 +660,7 @@ class QosSaiBase(QosBase):
             # Default topo is any
             dutTopo = dutTopo + "any"
 
-        # Support of passing source and dest ptf port id from qos.yml
+        # Support of passing source aswapSyncdnd dest ptf port id from qos.yml
         # This is needed when on some asic port are distributed across
         # multiple buffer pipes.
         src_port_ids = None
@@ -686,9 +689,15 @@ class QosSaiBase(QosBase):
             "downlink_port_names": downlinkPortNames
             })
         dutinterfaces = {}
-        for port, index in mgFacts["minigraph_ptf_indices"].items():
-            if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
-                dutinterfaces[index] = port
+
+        if tbinfo["topo"]["type"] == "t2":
+            for ptf_port, ptf_val in dutPortIps.items():
+                dutinterfaces[ptf_port] = ptf_val['port']
+        else:
+            for port, index in mgFacts["minigraph_ptf_indices"].items():
+                if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
+                    dutinterfaces[index] = port
+
         yield {
             "dutInterfaces": dutinterfaces,
             "testPortIds": testPortIds,
@@ -1007,34 +1016,37 @@ class QosSaiBase(QosBase):
             qosParams = qpm.run()
 
         elif 'broadcom' in duthost.facts['asic_type'].lower():
-            bufferConfig = self.dutBufferConfig(duthost)
-            pytest_assert(len(bufferConfig) == 4, "buffer config is incompleted")
-            pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL is not exist in bufferConfig')
-            pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
-            pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
-            pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
+            if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
+                logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
+                qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
+            else:
+                bufferConfig = self.dutBufferConfig(duthost)
+                pytest_assert(len(bufferConfig) == 4, "buffer config is incompleted")
+                pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL is not exist in bufferConfig')
+                pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
+                pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
+                pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
 
-            current_file_dir = os.path.dirname(os.path.realpath(__file__))
-            sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
-            if sub_folder_dir not in sys.path:
-                sys.path.append(sub_folder_dir)
-            import qos_param_generator
-            qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                       dutAsic,
-                                                       portSpeedCableLength,
-                                                       dutConfig,
-                                                       ingressLosslessProfile,
-                                                       ingressLossyProfile,
-                                                       egressLosslessProfile,
-                                                       egressLossyProfile,
-                                                       sharedHeadroomPoolSize,
-                                                       dutConfig["dualTor"],
-                                                       dutTopo,
-                                                       bufferConfig,
-                                                       duthost,
-                                                       tbinfo["topo"]["name"])
-            qosParams = qpm.run()
-
+                current_file_dir = os.path.dirname(os.path.realpath(__file__))
+                sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
+                if sub_folder_dir not in sys.path:
+                    sys.path.append(sub_folder_dir)
+                import qos_param_generator
+                qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                           dutAsic,
+                                                           portSpeedCableLength,
+                                                           dutConfig,
+                                                           ingressLosslessProfile,
+                                                           ingressLossyProfile,
+                                                           egressLosslessProfile,
+                                                           egressLossyProfile,
+                                                           sharedHeadroomPoolSize,
+                                                           dutConfig["dualTor"],
+                                                           dutTopo,
+                                                           bufferConfig,
+                                                           duthost,
+                                                           tbinfo["topo"]["name"])
+                qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
