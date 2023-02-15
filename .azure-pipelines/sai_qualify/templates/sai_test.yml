@@ -986,6 +986,7 @@ jobs:
             source /var/AzDevOps/env-python3/bin/activate
             cd ${BASH_WORKING_FOLDER}/test_reporting
             pip3 install -r requirements.txt
+            pip install -r requirements.txt
 
             echo "Generate header"
             cd ${BASH_WORKING_FOLDER}
@@ -998,7 +999,7 @@ jobs:
             mkdir -p $RESOURCE_PATH
             wget -P $RESOURCE_PATH $PY_SAITHRIFT_URL
             dpkg -i $RESOURCE_PATH/$PY_SAITHRIFT
-            SAI_ADAPTER_PATH = $(find / -name "sai_adapter.py")
+            SAI_ADAPTER_PATH = $(echo find / -name "sai_adapter.py")
             rm -rf test_reporting/sai_coverage/sai_adapter
             mkdir test_reporting/sai_coverage/sai_adapter
             cp $SAI_ADAPTER_PATH test_reporting/sai_coverage/sai_adapter/
