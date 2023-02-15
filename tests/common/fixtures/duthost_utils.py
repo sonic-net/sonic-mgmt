@@ -216,7 +216,7 @@ def shutdown_ebgp(duthosts):
     # increase timeout for check_orch_cpu_utilization to 120sec for chassis
     # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
     is_chassis = duthost.get_facts().get("modular_chassis")
-    orch_cpu_timeout = 60 if is_chassis else 120
+    orch_cpu_timeout = 120 if is_chassis else 60
     for duthost in duthosts.frontend_nodes:
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = duthost.get_ip_route_summary()
