@@ -421,7 +421,14 @@ def _parse_testcase_properties(root):
     testcase_properties = {}
     for testcase_prop in testcase_properties_element.iterfind(TESTCASE_PROPERTY_TAG):
         if testcase_prop.get("value"):
-            testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value")
+            if testcase_prop.get("name") == "CustomMsg":
+                if not testcase_properties.get(testcase_prop.get("name")):
+                    testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value")
+                else:
+                    testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value") + ", " + \
+                                                                     testcase_properties[testcase_prop.get("name")]
+            else:
+                testcase_properties[testcase_prop.get("name")] = testcase_prop.get("value")
 
     return testcase_properties
 
