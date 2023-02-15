@@ -37,4 +37,3 @@
 - Look at every line of code that you have been assigned to review.
 - Log levels should be properly set.
 - Use allure steps for better visualization.
-
