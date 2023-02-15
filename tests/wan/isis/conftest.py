@@ -6,6 +6,14 @@ from isis_helpers import setup_isis
 from isis_helpers import teardown_isis
 
 
+def pytest_addoption(parser):
+    """
+    Adds pytest options that are used by swan agent tests
+    """
+    parser.addoption("--swan_agent", action="store_true", default=False,
+                     help="Enable swan agent test on wan testbed")
+
+
 def get_target_dut_port(mg_facts, dut_intf):
     for k, v in mg_facts['minigraph_portchannels'].items():
         if dut_intf in v['members']:
@@ -86,10 +94,13 @@ def isis_dpg_topo(duthosts, nbrhosts, duts_interconnects, tbinfo):
 def isis_common_setup_teardown(isis_dpg_topo, request, rand_selected_dut):
     dut_host = rand_selected_dut
     selected_connections = []
-    for item in isis_dpg_topo:
-        if dut_host == item[0]:
-            selected_connections.append(item)
-            break
+    if request.config.getoption("--swan_agent"):
+        selected_connections = isis_dpg_topo
+    else:
+        for item in isis_dpg_topo:
+            if dut_host == item[0]:
+                selected_connections.append(item)
+                break
 
     if not selected_connections:
         pytest.skip('No target device found in isis testcase {}.'.format(request.node.name))
