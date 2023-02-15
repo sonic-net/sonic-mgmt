@@ -133,7 +133,6 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*logEventData:.*SAI_SWITCH_ATTR.*",
             ".*ERR syncd[0-9]*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*",
             ".*ERR syncd[0-9]*#syncd.*setEndTime:.*SAI_OBJECT_TYPE_SWITCH.*",
-            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:brcm_sai_get_port_stats:.*Multi stats get failed with error Invalid parameter.*",
             ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_port_wred_stats_get:.*port gport get failed with error Feature unavailable.*",
             ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_get_recycle_port_attribute.*Error processing port attributes for attr_id.*",
             ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_get_recycle_port_attribute.*Unknown port attribute.*",
@@ -142,6 +141,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR swss[0-9]*#orchagent:.*update: Failed to get port by bridge port ID.*",
             ".*ERR swss[0-9]*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*",
             ".*ERR swss[0-9]*#orchagent: :- decreaseNextHopRefCount: Ref count cannot be negative for next_hop_id: 0x104000000003613 with ip: 3.3.3.1 and alias: Ethernet-IB1",
+            ".*ERR swss[0-9]*#orchagent: :- doLagMemberTask: Failed to locate port.*",
             ".*ERR swss[0-9]*#orchagent: :- getResAvailability: Failed to get availability counter.*",
             ".*ERR swss[0-9]*#supervisor-proc-exit-listener: Process 'orchagent' is not running in namespace.*",
     ]
