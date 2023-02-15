@@ -11,8 +11,8 @@ from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import mux_server_url                                                           # noqa F811
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m    # noqa F811
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
@@ -44,7 +44,7 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
-    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
     stop_pcap = "sudo pkill -f '%s%s'" % (duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
     start_pcap = "nohup {}{} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
     duthost.shell(start_pcap)
@@ -83,7 +83,7 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, i
         if k == duthost.hostname:
             dut_type = v['type']
 
-    if 'ToRRouter' in dut_type:
+    if dut_type in ['ToRRouter', 'SpineRouter']:
         neigh_type = 'LeafRouter'
     else:
         neigh_type = 'ToRRouter'
@@ -146,7 +146,7 @@ def constants(is_quagga, setup_interfaces):
 
 
 def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                          toggle_all_simulator_ports_to_rand_selected_tor_m):
+                          toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):   # noqa F811
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""
@@ -198,6 +198,17 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
             return withdrawn_len_valid and withdrawn_route_valid
         else:
             return False
+
+    def is_neighbor_sessions_established(duthost, neighbors):
+        is_established = True
+
+        # handle both multi-sic and single-asic
+        bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
+        for neighbor in neighbors:
+            is_established &= neighbor.ip in bgp_facts["bgp_neighbors"] and \
+                bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+
+        return is_established
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
