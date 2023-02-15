@@ -183,7 +183,7 @@ def _ptf_portmap_file(duthost, ptfhost, tbinfo):
             filename (str): returns the filename copied to PTF host
     """
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
+    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up' and intfInfo[port]['admin_state'] == 'up']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
@@ -529,11 +529,16 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                     if target_dut_port in mg_facts['minigraph_port_indices'].values():
                         router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][idx]['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
+                        for a_dut_port, a_dut_port_index in mg_facts['minigraph_port_indices'].items():
+                            if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
+                                    "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
+                                dut_port = a_dut_port
                         break
             ports_map[ptf_port] = {
                 'target_dut': [target_dut_index],
                 'target_dest_mac': router_mac,
                 'target_src_mac': [router_mac],
+                'dut_port': dut_port,
                 'asic_idx': asic_idx
             }
 

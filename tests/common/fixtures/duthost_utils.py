@@ -458,16 +458,21 @@ def dut_qos_maps(rand_selected_dut):
     """
     maps = {}
     try:
+        if rand_selected_dut.is_multi_asic:
+            sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
+        else:
+            sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
+
         # port_qos_map
-        maps['port_qos_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'PORT_QOS_MAP'")['stdout'])
+        maps['port_qos_map'] = json.loads(rand_selected_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout'])
         # dscp_to_tc_map
-        maps['dscp_to_tc_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'")['stdout'])
+        maps['dscp_to_tc_map'] = json.loads(rand_selected_dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout'])
         # tc_to_queue_map
-        maps['tc_to_queue_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_QUEUE_MAP'")['stdout'])
+        maps['tc_to_queue_map'] = json.loads(rand_selected_dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout'])
         # tc_to_priority_group_map
-        maps['tc_to_priority_group_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_PRIORITY_GROUP_MAP'")['stdout'])
+        maps['tc_to_priority_group_map'] = json.loads(rand_selected_dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout'])
         # tc_to_dscp_map
-        maps['tc_to_dscp_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_DSCP_MAP'")['stdout'])
+        maps['tc_to_dscp_map'] = json.loads(rand_selected_dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout'])
     except:
         pass
     return maps

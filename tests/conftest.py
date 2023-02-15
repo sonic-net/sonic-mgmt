@@ -1665,7 +1665,7 @@ def duts_running_config_facts(duthosts):
 
 @pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
-                    ptf_portmap_file, lower_tor_host):   # noqa F811
+                    ptf_portmap_file, lower_tor_host, creds):   # noqa F811
     """
         Prepares DUT host test params
 
@@ -1685,7 +1685,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["name"]
 
-    yield {
+    rtn_dict = {
         "topo": topo,
         "hwsku": mgFacts["minigraph_hwsku"],
         "basicParams": {
@@ -1695,10 +1695,15 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ).vars['ansible_host'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
-            "sonic_version": duthost.os_version
+            "sonic_version": duthost.os_version,
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         }
     }
+    if 'platform_asic' in duthost.facts:
+        rtn_dict['basicParams']["platform_asic"] = duthost.facts['platform_asic']
 
+    yield rtn_dict
 
 @pytest.fixture(scope='module')
 def duts_minigraph_facts(duthosts, tbinfo):
