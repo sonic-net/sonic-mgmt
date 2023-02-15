@@ -815,6 +815,12 @@ show_techsupport/test_techsupport.py::test_techsupport:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.33'"
 
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
+  skip:
+    reason: "Test supported only on Nvidia(Mellanox) devices"
+    conditions:
+      - "asic_type not in ['mellanox']"
+
 #######################################
 #####            snmp             #####
 #######################################
