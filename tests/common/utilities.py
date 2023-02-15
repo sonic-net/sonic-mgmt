@@ -26,6 +26,7 @@ from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -701,7 +702,10 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     """
 
     reboot_dict = dict()
-    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
     if 'plt_reboot_dict' in dut_vars:
         for key in dut_vars['plt_reboot_dict'].keys():
             if key in tc_name:
@@ -731,7 +735,7 @@ def get_image_type(duthost):
 
 def find_duthost_on_role(duthosts, role, tbinfo):
     role_set = False
-
+    role_host = None
     for duthost in duthosts:
         if role_set:
             break
@@ -743,6 +747,7 @@ def find_duthost_on_role(duthosts, role, tbinfo):
             if role in neighbor["name"]:
                 role_host = duthost
                 role_set = True
+    pytest_assert(role_host, "Could not find {} duthost".format(role))
     return role_host
 
 

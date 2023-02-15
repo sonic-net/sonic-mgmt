@@ -47,6 +47,10 @@ class snmpPduController(PduControllerBase):
         VERTIV_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.4"
         VERTIV_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.5.1.6"
         VERTIV_PORT_POWER_BASE_OID = "1.3.6.1.4.1.21239.5.2.3.6.1.12"
+        # MIB OID for APC controller rPDU
+        APC_RPDU_PORT_NAME_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.2"
+        APC_RPDU_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.5.1.1.4"
+        APC_RPDU_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.318.1.1.12.3.3.1.1.4"
         self.STATUS_ON = "1"
         self.STATUS_OFF = "0"
         self.CONTROL_ON = "1"
@@ -84,6 +88,12 @@ class snmpPduController(PduControllerBase):
             self.CONTROL_OFF = "4"
             self.has_lanes = False
             self.max_lanes = 1
+        elif self.pduType == "ApcRPDU":
+            self.PORT_NAME_BASE_OID = APC_RPDU_PORT_NAME_BASE_OID
+            self.PORT_STATUS_BASE_OID = APC_RPDU_PORT_STATUS_BASE_OID
+            self.PORT_CONTROL_BASE_OID = APC_RPDU_PORT_CONTROL_BASE_OID
+            self.has_lanes = False
+            self.max_lanes = 1
         else:
             pass
 
@@ -103,7 +113,7 @@ class snmpPduController(PduControllerBase):
             cmdgen.MibVariable(query_oid)
         )
         if errorIndication:
-            logging.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
+            logger.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
         else:
             for varBinds in varTable:
                 for oid, val in varBinds:
@@ -121,7 +131,7 @@ class snmpPduController(PduControllerBase):
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
         if not self.pduType:
-            logging.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
+            logger.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
 
         cmdGen = cmdgen.CommandGenerator()
@@ -131,7 +141,7 @@ class snmpPduController(PduControllerBase):
             self._probe_lane(lane_id, cmdGen, snmp_auth)
 
     def __init__(self, controller, pdu, hwsku):
-        logging.info("Initializing " + self.__class__.__name__)
+        logger.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
@@ -141,7 +151,7 @@ class snmpPduController(PduControllerBase):
         self.port_label_dict = {}
         self.pduCntrlOid()
         self._get_pdu_ports()
-        logging.info("Initialized " + self.__class__.__name__)
+        logger.info("Initialized " + self.__class__.__name__)
 
     def turn_on_outlet(self, outlet):
         """
@@ -157,7 +167,7 @@ class snmpPduController(PduControllerBase):
         @return: Return true if successfully execute the command for turning on power. Otherwise return False.
         """
         if not self.pduType:
-            logging.error('Unable to turn on: PDU type is unknown: pdu_ip {}'.format(self.controller))
+            logger.error('Unable to turn on: PDU type is unknown: pdu_ip {}'.format(self.controller))
             return False
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
@@ -168,7 +178,7 @@ class snmpPduController(PduControllerBase):
                 (port_oid, rfc1902.Integer(self.CONTROL_ON))
             )
         if errorIndication or errorStatus != 0:
-            logging.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
+            logger.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
         return True
 
@@ -186,7 +196,7 @@ class snmpPduController(PduControllerBase):
         @return: Return true if successfully execute the command for turning off power. Otherwise return False.
         """
         if not self.pduType:
-            logging.error('Unable to turn off: PDU type is unknown: pdu_ip {}'.format(self.controller))
+            logger.error('Unable to turn off: PDU type is unknown: pdu_ip {}'.format(self.controller))
             return False
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
@@ -197,7 +207,7 @@ class snmpPduController(PduControllerBase):
                 (port_oid, rfc1902.Integer(self.CONTROL_OFF))
             )
         if errorIndication or errorStatus != 0:
-            logging.debug("Failed to turn off outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
+            logger.debug("Failed to turn off outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
         return True
 
@@ -212,7 +222,7 @@ class snmpPduController(PduControllerBase):
             cmdgen.MibVariable(query_id)
         )
         if errorIndication:
-            logging.debug("Failed to get outlet power level of DUT outlet, exception: " + str(errorIndication))
+            logger.debug("Failed to get outlet power level of DUT outlet, exception: " + str(errorIndication))
 
         for oid, val in varBinds:
             oid = oid.getOid() if hasattr(oid, 'getoid') else oid
@@ -231,7 +241,7 @@ class snmpPduController(PduControllerBase):
             cmdgen.MibVariable(query_id)
         )
         if errorIndication:
-            logging.debug("Failed to outlet status of PDU, exception: " + str(errorIndication))
+            logger.debug("Failed to outlet status of PDU, exception: " + str(errorIndication))
 
         for oid, val in varBinds:
             oid = oid.getOid() if hasattr(oid, 'getoid') else oid
@@ -263,7 +273,7 @@ class snmpPduController(PduControllerBase):
         """
         results = []
         if not self.pduType:
-            logging.error('Unable to retrieve status: PDU type is unknown: pdu_ip {}'.format(self.controller))
+            logger.error('Unable to retrieve status: PDU type is unknown: pdu_ip {}'.format(self.controller))
             return results
 
         if not outlet and not hostname:
@@ -272,12 +282,12 @@ class snmpPduController(PduControllerBase):
         elif outlet:
             ports = [oid for oid in self.port_oid_dict.keys() if oid.endswith(outlet)]
             if not ports:
-                logging.error("Outlet ID {} doesn't belong to PDU {}".format(outlet, self.controller))
+                logger.error("Outlet ID {} doesn't belong to PDU {}".format(outlet, self.controller))
         elif hostname:
             hn = hostname.lower()
             ports = [self.port_label_dict[label]['port_oid'] for label in self.port_label_dict.keys() if hn in label]
             if not ports:
-                logging.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
+                logger.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
 
         cmdGen = cmdgen.CommandGenerator()
         snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
@@ -287,7 +297,7 @@ class snmpPduController(PduControllerBase):
             if status:
                 results.append(status)
 
-        logging.info("Got outlet status: %s" % str(results))
+        logger.info("Got outlet status: %s" % str(results))
         return results
 
     def close(self):

@@ -258,7 +258,7 @@ def get_reboot_cause(dut):
     @summary: get the reboot cause on DUT.
     @param dut: The AnsibleHost object of DUT.
     """
-    logging.info('Getting reboot cause from dut {}'.format(dut.hostname))
+    logger.info('Getting reboot cause from dut {}'.format(dut.hostname))
     output = dut.shell('show reboot-cause')
     cause = output['stdout']
 
@@ -276,7 +276,7 @@ def check_reboot_cause(dut, reboot_cause_expected):
     @param reboot_cause_expected: The expected reboot cause.
     """
     reboot_cause_got = get_reboot_cause(dut)
-    logging.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
+    logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
     return reboot_cause_got == reboot_cause_expected
 
 
@@ -294,7 +294,7 @@ def sync_reboot_history_queue_with_dut(dut):
 
     # Skip this function if sonic image is 201811 or 201911
     if "201811" in dut.os_version or "201911" in dut.os_version:
-        logging.info("Skip sync reboot-cause history for version before 202012")
+        logger.info("Skip sync reboot-cause history for version before 202012")
         return
 
     # IF control is here it means the SONiC image version is > 201911
@@ -312,9 +312,9 @@ def sync_reboot_history_queue_with_dut(dut):
             break
         except Exception:
             e_type, e_value, e_traceback = sys.exc_info()
-            logging.info("Exception type: %s" % e_type.__name__)
-            logging.info("Exception message: %s" % e_value)
-            logging.info("Backing off for %d seconds before retrying", ((retry_count + 1) * RETRY_BACKOFF_TIME))
+            logger.info("Exception type: %s" % e_type.__name__)
+            logger.info("Exception message: %s" % e_value)
+            logger.info("Backing off for %d seconds before retrying", ((retry_count + 1) * RETRY_BACKOFF_TIME))
 
             time.sleep(((retry_count + 1) * RETRY_BACKOFF_TIME))
             continue
@@ -322,7 +322,7 @@ def sync_reboot_history_queue_with_dut(dut):
     # If retry logic did not yield reboot cause history from DUT,
     # return without clearing the existing reboot history queue.
     if not dut_reboot_history_received:
-        logging.warn("Unable to sync reboot history queue")
+        logger.warn("Unable to sync reboot history queue")
         return
 
     # If the reboot cause history is received from DUT,
@@ -343,12 +343,12 @@ def sync_reboot_history_queue_with_dut(dut):
         dict_iter_found = False
         for dict_iter in (reboot_ctrl_dict):
             if re.search(reboot_ctrl_dict[dict_iter]["cause"], reboot_type["cause"]):
-                logging.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(dict_iter))
+                logger.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(dict_iter))
                 REBOOT_TYPE_HISTOYR_QUEUE.appendleft(dict_iter)
                 dict_iter_found = True
                 break
         if not dict_iter_found:
-            logging.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(REBOOT_TYPE_UNKNOWN))
+            logger.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(REBOOT_TYPE_UNKNOWN))
             REBOOT_TYPE_HISTOYR_QUEUE.appendleft(REBOOT_TYPE_UNKNOWN)
 
 
@@ -371,34 +371,34 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     2021_09_09_13_24_17  reboot         Thu 09 Sep 2021 01:23:17 PM UTC  admin   N/A
     """
     reboot_cause_history_got = dut.show_and_parse("show reboot-cause history")
-    logging.debug("dut {} reboot-cause history {}. reboot type history queue is {}".format(
+    logger.debug("dut {} reboot-cause history {}. reboot type history queue is {}".format(
         dut.hostname, reboot_cause_history_got, reboot_type_history_queue))
 
-    logging.info("Verify reboot-cause history title")
+    logger.info("Verify reboot-cause history title")
     if reboot_cause_history_got:
         if not set(REBOOT_CAUSE_HISTORY_TITLE) == set(reboot_cause_history_got[0].keys()):
-            logging.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".
+            logger.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".
                           format(REBOOT_CAUSE_HISTORY_TITLE, reboot_cause_history_got[0].keys()))
             return False
 
-    logging.info("Verify reboot-cause output are sorted in reverse chronological order")
+    logger.info("Verify reboot-cause output are sorted in reverse chronological order")
     reboot_type_history_len = len(reboot_type_history_queue)
     if reboot_type_history_len <= len(reboot_cause_history_got):
         for index, reboot_type in enumerate(reboot_type_history_queue):
             if reboot_type not in reboot_ctrl_dict:
-                logging.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
+                logger.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
                              format(reboot_type))
                 continue
-            logging.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
+            logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
                          (index, reboot_ctrl_dict[reboot_type]["cause"],
                           reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
             if not re.search(reboot_ctrl_dict[reboot_type]["cause"],
                              reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
-                logging.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
+                logger.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
                     index, reboot_ctrl_dict[reboot_type]["cause"],
                     reboot_cause_history_got[reboot_type_history_len - index]["cause"]))
                 return False
         return True
-    logging.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
+    logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
         reboot_type_history_len, len(reboot_type_history_queue)))
     return False

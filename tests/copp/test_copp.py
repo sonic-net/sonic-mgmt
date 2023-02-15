@@ -34,6 +34,8 @@ from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import find_duthost_on_role
+from tests.common.utilities import get_upstream_neigh_type
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -215,21 +217,24 @@ def copp_testbed(
     creds,
     ptfhost,
     tbinfo,
+    duts_minigraph_facts,
     request
 ):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    test_params = _gather_test_params(tbinfo, duthost, request)
+    test_params = _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts)
+    upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
+
 
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
-        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo)
+        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
         yield test_params
     finally:
         _teardown_multi_asic_proxy(duthost, creds, test_params, tbinfo)
-        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo)
+        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -285,7 +290,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
     return True
 
 
-def _gather_test_params(tbinfo, duthost, request):
+def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
     """
         Fetches the test parameters from pytest.
     """
@@ -293,34 +298,38 @@ def _gather_test_params(tbinfo, duthost, request):
     swap_syncd = request.config.getoption("--copp_swap_syncd")
     send_rate_limit = request.config.getoption("--send_rate_limit")
     topo = tbinfo["topo"]["name"]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
-    # filter out server peer port and only bgp peer ports remain, to support T0 topologies
-    bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
-    # get the port_index_map using the ptf_indicies to support multi DUT topologies
-    port_index_map = {
-        k: v
-        for k, v in mg_facts["minigraph_ptf_indices"].items()
-        if k in mg_facts["minigraph_ports"] and mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
-    }
+    mg_fact = duts_minigraph_facts[duthost.hostname]
+
+    port_index_map = {}
+    for index, mg_facts in enumerate(mg_fact):
+        # filter out server peer port and only bgp peer ports remain, to support T0 topologies
+        bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
+        # get the port_index_map using the ptf_indicies to support multi DUT topologies
+        port_index_map.update({
+           k: v
+           for k, v in mg_facts["minigraph_ptf_indices"].items()
+           if k in mg_facts["minigraph_ports"] and not duthost.is_backend_port(k, mg_facts) and mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
+        })
     # use randam sonic interface for testing
     nn_target_interface = random.choice(port_index_map.keys())
     #get the  ptf port for choosen port
     nn_target_port = port_index_map[nn_target_interface]
     myip = None
     peerip = None
+    nn_target_vlanid = None
 
-    for bgp_peer in mg_facts["minigraph_bgp"]:
-        if bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
-            myip = bgp_peer["addr"]
-            peerip = bgp_peer["peer_addr"]
-            break
-
-    nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
-    if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
-        nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
-    else:
-        nn_target_vlanid = None
+    for index, mg_facts in enumerate(mg_fact):
+        if nn_target_interface not in mg_facts["minigraph_neighbors"]:
+            continue
+        for bgp_peer in mg_facts["minigraph_bgp"]:
+            if bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
+                myip = bgp_peer["addr"]
+                peerip = bgp_peer["peer_addr"]
+                nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
+                is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+	        if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
+		    nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
+                break
 
 
     logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}".format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
@@ -335,7 +344,7 @@ def _gather_test_params(tbinfo, duthost, request):
                                send_rate_limit=send_rate_limit,
                                nn_target_vlanid=nn_target_vlanid)
 
-def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
+def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     """
         Sets up the testbed to run the COPP tests.
     """
@@ -349,9 +358,9 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
     copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
 
     # Multi-asic will not support this mode as of now.
-    if test_params.swap_syncd and not dut.is_multi_asic:
+    if test_params.swap_syncd:
         logging.info("Swap out syncd to use RPC image...")
-        docker.swap_syncd(dut, creds)
+        docker.swap_syncd(dut, creds, test_params.nn_target_namespace)
     else:
         # Set sysctl RCVBUF parameter for tests
         dut.command("sysctl -w net.core.rmem_max=609430500")
@@ -364,12 +373,14 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo):
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
+    # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
+    upStreamDuthost.command("sudo config bgp shutdown all")
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
                                test_params.nn_target_namespace, test_params.nn_target_vlanid,
                                test_params.swap_syncd, creds)
 
-def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
+def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     """
         Tears down the testbed, returning it to its initial state.
     """
@@ -379,13 +390,15 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo):
     logging.info("Restore COPP policer to default settings")
     copp_utils.restore_policer(dut, test_params.nn_target_namespace)
 
-    if test_params.swap_syncd and not dut.is_multi_asic:
+    if test_params.swap_syncd:
         logging.info("Restore default syncd docker...")
-        docker.restore_default_syncd(dut, creds)
+        docker.restore_default_syncd(dut, creds, test_params.nn_target_namespace)
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
+    
+    upStreamDuthost.command("sudo config bgp startup all")
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
@@ -395,19 +408,16 @@ def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
         return
 
     logging.info("Adding iptables rules and enabling eth0 port forwarding")
-    http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
     # Add IP Table rule for http and ptf nn_agent traffic.
     dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=1")
-    mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
-    # Add Rule to communicate to http/s proxy from namespace
-    dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-    dut.command("sudo ip -n {} rule add from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
-    if http_proxy != https_proxy:
-        dut.command("sudo ip -n {} rule add from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+
+    if not test_params.swap_syncd:
+        mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+        # Add Rule to communicate to http/s proxy from namespace
+        dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
     # Add Rule to communicate to ptf nn agent client from namespace
     ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
-    dut.command("sudo ip -n {} rule add from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
 
 def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
@@ -417,19 +427,15 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
         return
 
     logging.info("Removing iptables rules and disabling eth0 port forwarding")
-    http_proxy, https_proxy = copp_utils._get_http_and_https_proxy_ip(creds)
     dut.command("sudo sysctl net.ipv4.conf.eth0.forwarding=0")
-    # Delete IP Table rule for http and ptf nn_agent traffic.
-    mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
-    # Delete Rule to communicate to http/s proxy from namespace
-    dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
-    dut.command("sudo ip -n {} rule delete from all to {} pref 1 lookup default".format(test_params.nn_target_namespace, http_proxy))
-    if http_proxy != https_proxy:
-        dut.command("sudo ip -n {} rule delete from all to {} pref 2 lookup default".format(test_params.nn_target_namespace, https_proxy))
+    if not test_params.swap_syncd:
+        # Delete IP Table rule for http and ptf nn_agent traffic.
+        mgmt_ip = dut.host.options["inventory_manager"].get_host(dut.hostname).vars["ansible_host"]
+        # Delete Rule to communicate to http/s proxy from namespace
+        dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
     # Delete Rule to communicate to ptf nn agent client from namespace
     ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
-    dut.command("sudo ip -n {} rule delete from {} to {} pref 3 lookup default".format(test_params.nn_target_namespace, ns_ip, tbinfo["ptf_ip"]))
 
 
 @pytest.fixture(scope="function", autouse=False)
@@ -439,7 +445,6 @@ def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
     yield
     copp_utils.restore_config_db(duthost)
-
 
 def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):
     copp_utils.install_trap(duthost, feature_name)

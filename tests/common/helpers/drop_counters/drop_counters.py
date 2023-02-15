@@ -92,14 +92,18 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
     def _get_drops_across_all_duthosts():
         drop_list = []
         for duthost in duthosts.frontend_nodes:
-            drop_list.append(int(get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)[dut_iface][column_key]
-                                 .replace(",", "")))
+            pkt_drops = get_pkt_drops(duthost, get_cnt_cli_cmd, asic_index)
+            # we cannot assume the iface name will be same on all the devices for SONiC chassis
+            # if the dut_iface is not found ignore this device
+            if dut_iface not in pkt_drops:
+                continue
+            drop_list.append(int(pkt_drops[dut_iface][column_key].replace(",", "")))
         return drop_list
 
     def _check_drops_on_dut():
         return packets_count in _get_drops_across_all_duthosts()
 
-    if not wait_until(25, 1, 0, _check_drops_on_dut()):
+    if not wait_until(25, 1, 0, _check_drops_on_dut):
         # The actual Drop count should always be equal or 1 or 2 packets more than what is expected
         # due to some other drop may occur over the interface being examined.
         # When that happens if looking onlyu for exact count it will be a false positive failure.
