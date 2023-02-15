@@ -125,6 +125,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*",
             ".*ERR swss[0-9]*#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled.*",
             ".*ERR swss[0-9]*#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled.*",
+            ".*ERR swss[0-9]*#orchagent:.*pfcFrameCounterCheck: Invalid port oid.*",
+            ".*ERR swss[0-9]*#orchagent: :- mcCounterCheck: Invalid port oid.*",
             ".*ERR lldp[0-9]*#lldp-syncd \[lldp_syncd\].*Could not infer system information from.*",
             ".*ERR lldp[0-9]*#lldpmgrd.*Port init timeout reached (300 seconds), resuming lldpd...",
             ".*ERR syncd[0-9]*#syncd.*threadFunction: time span WD exceeded.*create:SAI_OBJECT_TYPE_SWITCH.*",
