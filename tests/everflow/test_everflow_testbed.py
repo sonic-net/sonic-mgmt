@@ -491,6 +491,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
         if vendor == 'innovium':
             everflow_tolerance = 11
 
+        rate_limit = 100
+        if vendor == "marvell":
+            rate_limit = 125
+
         for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
             if vendorAsic in hostvars.keys() and everflow_dut.facts['hwsku'] in hostvars[vendorAsic]:
@@ -554,8 +558,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                dst_mirror_ports=mirror_port_id,
                                dst_ports=tx_port_ptf_id,
                                meter_type="packets",
-                               cir="100",
-                               cbs="100",
+                               cir=rate_limit,
+                               cbs=rate_limit,
                                send_time="10",
                                tolerance=everflow_tolerance)
         finally:
