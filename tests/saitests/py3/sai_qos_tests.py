@@ -15,6 +15,7 @@ from ptf.testutils import (ptf_ports,
                            simple_arp_packet,
                            send_packet,
                            simple_tcp_packet,
+                           simple_udp_packet,
                            simple_qinq_tcp_packet,
                            simple_ip_packet,
                            simple_ipv4ip_packet)
@@ -215,7 +216,7 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
     if asic_type in ['cisco-8000']:
         queue_counters_base = sai_thrift_read_queue_occupancy(
             test_case.client, dst_port_id)
-        max_packets = 100
+        max_packets = 500
         for packet_i in range(max_packets):
             send_packet(test_case, src_port_id, pkt, 1)
             queue_counters = sai_thrift_read_queue_occupancy(
@@ -1828,7 +1829,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         if is_dualtor and def_vlan_mac != None:
             self.dst_port_mac = def_vlan_mac
 
-        if self.testbed_type in ['dualtor', 't0', 't0-64', 't0-116']:
+        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
             # populate ARP
             for idx, ptid in enumerate(self.src_port_ids):
 
@@ -2471,6 +2472,13 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         q_cnt_sum = sum(q_pkt_cnt)
         # Send packets to leak out
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            sys.stderr.write("Since it's dual-TOR testbed, modify pkt_dst_mac from {} to {}\n".format(pkt_dst_mac, def_vlan_mac))
+            pkt_dst_mac = def_vlan_mac
+
         pkt = construct_ip_pkt(64,
                                pkt_dst_mac,
                                src_port_mac,
@@ -3161,6 +3169,10 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy = (default_packet_length + cell_size - 1) // cell_size
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            pkt_dst_mac = def_vlan_mac
         pkt = construct_ip_pkt(default_packet_length,
                                pkt_dst_mac,
                                src_port_mac,
@@ -3194,8 +3206,15 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
 
+        xmit_counters_base, _ = sai_thrift_read_port_counters(self.client, port_list[dst_port_id])
+
         # send packets
         try:
+            # Starting with zero pkts_num_leak_out and trying to find
+            # actual leakout by sending packets and reading actual leakout from HW.
+            if check_leackout_compensation_support(asic_type, hwsku):
+                pkts_num_leak_out = 0
+
             # send packets to trigger pfc but not trek into headroom
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
@@ -3205,6 +3224,10 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             pkts_num_trig_pfc) // cell_occupancy - margin)
 
             time.sleep(8)
+
+            if check_leackout_compensation_support(asic_type, hwsku):
+                dynamically_compensate_leakout(self.client, sai_thrift_read_port_counters, port_list[dst_port_id], TRANSMITTED_PKTS, xmit_counters_base, self, src_port_id, pkt, 30)
+
             q_wm_res, pg_shared_wm_res, pg_headroom_wm_res = sai_thrift_read_port_watermarks(
                 self.client, port_list[src_port_id])
             assert(pg_headroom_wm_res[pg] == 0)
@@ -3456,6 +3479,12 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl=64
         pkt_dst_mac=router_mac if router_mac != '' else dst_port_mac
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            pkt_dst_mac = def_vlan_mac
+
         pkt=construct_ip_pkt(packet_length,
                                pkt_dst_mac,
                                src_port_mac,

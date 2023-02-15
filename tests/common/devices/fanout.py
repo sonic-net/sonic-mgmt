@@ -23,6 +23,7 @@ class FanoutHost(object):
         self.fanout_to_host_port_map = {}
         if os == 'sonic':
             self.os = os
+            self.fanout_port_alias_to_name = {}
             self.host = SonicHost(ansible_adhoc, hostname,
                                   shell_user=shell_user,
                                   shell_passwd=shell_passwd)
@@ -66,6 +67,9 @@ class FanoutHost(object):
                 raise AttributeError("Host of type {} does not contain a"
                                      "'shutdown_multiple' method"
                                      .format(type(self.host)))
+        if self.os == 'sonic':
+            if interface_name in self.fanout_port_alias_to_name.keys():
+                return self.host.shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.shutdown(interface_name)
 
@@ -85,6 +89,10 @@ class FanoutHost(object):
                 raise AttributeError("Host of type {} does not contain a"
                                      "'no_shutdown_multiple' method"
                                      .format(type(self.host)))
+
+        if self.os == 'sonic':
+            if interface_name in self.fanout_port_alias_to_name.keys():
+                return self.host.no_shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.no_shutdown(interface_name)
 
@@ -172,9 +180,6 @@ class FanoutHost(object):
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
         return self.host.get_speed(interface_name)
-
-    def is_intf_status_down(self, interface_name):
-        return self.host.is_intf_status_down(interface_name)
 
     def links_status_down(self, ports):
         """Get interface status

@@ -535,6 +535,13 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
                                         shell_passwd=shell_password)
                     fanout.dut_hostnames = [dut_host]
                     fanout_hosts[fanout_host] = fanout
+
+                    if fanout.os == 'sonic':
+                        ifs_status = fanout.host.get_interfaces_status()
+                        for key, interface_info in ifs_status.items():
+                            fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
+                        logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
+
                 fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
                 # Add port name to fanout port mapping port if dut_port is alias.
@@ -1153,12 +1160,12 @@ def generate_dut_backend_asics(request, duts_selected):
     metadata = get_testbed_metadata(request)
 
     if metadata is None:
-        return [[None]]
+        return [[None]]*len(duts_selected)
 
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            continue
+            dut_asic_list.append([None])
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
@@ -1191,6 +1198,36 @@ def generate_priority_lists(request, prio_scope):
             ret.append('{}|{}'.format(dut, p))
 
     return ret if ret else empty
+
+
+def pfc_pause_delay_test_params(request):
+    empty = []
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'pfc_headroom_test_params'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError as e:
+        return empty
+
+    if tbname not in info:
+        return empty
+
+    dut_pfc_delay_params = info[tbname]
+    ret = []
+
+    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
+        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+            ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
+
+    return ret if ret else empty
+
 
 _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
@@ -1300,6 +1337,8 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
+        metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
 
 def parametrise_autoneg_tests():
@@ -1780,7 +1819,7 @@ def core_dump_and_config_check(duthosts, request):
             EXCLUDE_CONFIG_KEY_NAMES = [
                 'MUX_LINKMGR|LINK_PROBER'
             ]
-            
+
             def _remove_entry(table_name, key_name, config):
                 if table_name in config and key_name in config[table_name]:
                     config[table_name].pop(key_name)

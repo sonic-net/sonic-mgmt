@@ -128,7 +128,7 @@ class TestSfpApi(PlatformApiTestBase):
         'tx1power'
     ]
 
-    EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+    EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS = [
         'txpowerlowwarning',
         'temphighwarning',
         'temphighalarm',
@@ -149,6 +149,98 @@ class TestSfpApi(PlatformApiTestBase):
         'rxpowerhighalarm',
         'templowwarning',
         'txpowerlowalarm'
+    ]
+
+    # To get all the keys supported by QSFP-DD modules
+    # below list should be appended with
+    # EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS
+    QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+        'lasertemphighwarning',
+        'lasertemplowwarning',
+        'lasertemplowalarm',
+        'lasertemphighalarm'
+    ]
+
+    # To get all the keys supported by QSFP-ZR modules
+    # below list should be appended with
+    # EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS + QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+    QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+        'prefecberhighalarm',
+        'prefecberlowalarm',
+        'prefecberhighwarning',
+        'prefecberlowwarning',
+        'postfecberhighalarm',
+        'postfecberlowalarm',
+        'postfecberhighwarning',
+        'postfecberlowwarning',
+        'biasxihighalarm',
+        'biasxilowalarm',
+        'biasxihighwarning',
+        'biasxilowwarning',
+        'biasxqhighalarm',
+        'biasxqlowalarm',
+        'biasxqhighwarning',
+        'biasxqlowwarning',
+        'biasxphighalarm',
+        'biasxplowalarm',
+        'biasxphighwarning',
+        'biasxplowwarning',
+        'biasyihighalarm',
+        'biasyilowalarm',
+        'biasyihighwarning',
+        'biasyilowwarning',
+        'biasyqhighalarm',
+        'biasyqlowalarm',
+        'biasyqhighwarning',
+        'biasyqlowwarning',
+        'biasyphighalarm',
+        'biasyplowalarm',
+        'biasyphighwarning',
+        'biasyplowwarning',
+        'cdshorthighalarm',
+        'cdshortlowalarm',
+        'cdshorthighwarning',
+        'cdshortlowwarning',
+        'cdlonghighalarm',
+        'cdlonglowalarm',
+        'cdlonghighwarning',
+        'cdlonglowwarning',
+        'dgdhighalarm',
+        'dgdlowalarm',
+        'dgdhighwarning',
+        'dgdlowwarning',
+        'sopmdhighalarm',
+        'sopmdlowalarm',
+        'sopmdhighwarning',
+        'sopmdlowwarning',
+        'pdlhighalarm',
+        'pdllowalarm',
+        'pdlhighwarning',
+        'pdllowwarning',
+        'osnrhighalarm',
+        'osnrlowalarm',
+        'osnrhighwarning',
+        'osnrlowwarning',
+        'esnrhighalarm',
+        'esnrlowalarm',
+        'esnrhighwarning',
+        'esnrlowwarning',
+        'cfohighalarm',
+        'cfolowalarm',
+        'cfohighwarning',
+        'cfolowwarning',
+        'txcurrpowerhighalarm',
+        'txcurrpowerlowalarm',
+        'txcurrpowerhighwarning',
+        'txcurrpowerlowwarning',
+        'rxtotpowerhighalarm',
+        'rxtotpowerlowalarm',
+        'rxtotpowerhighwarning',
+        'rxtotpowerlowwarning',
+        'rxsigpowerhighalarm',
+        'rxsigpowerlowalarm',
+        'rxsigpowerhighwarning',
+        'rxsigpowerlowwarning'
     ]
 
     chassis_facts = None
@@ -263,7 +355,6 @@ class TestSfpApi(PlatformApiTestBase):
             if self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 if self.expect(isinstance(info_dict, dict), "Transceiver {} info appears incorrect".format(i)):
                     actual_keys = info_dict.keys()
-                    
                     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
                     # NOTE: No more releases to be added here. Platform should use SFP-refactor.
                     # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
@@ -323,16 +414,29 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+
+            if not self.is_xcvr_optical(info_dict):
+                logger.info("test_get_transceiver_threshold_info: \
+                               Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
+
             thold_info_dict = sfp.get_transceiver_threshold_info(platform_api_conn, i)
             if self.expect(thold_info_dict is not None, "Unable to retrieve transceiver {} threshold info".format(i)):
                 if self.expect(isinstance(thold_info_dict, dict), "Transceiver {} threshold info appears incorrect".format(i)):
                     actual_keys = thold_info_dict.keys()
 
-                    missing_keys = set(self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS) - set(actual_keys)
+                    expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
+                    if info_dict["type_abbrv_name"] == "QSFP-DD":
+                        expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                        if 'ZR' in info_dict["media_interface_code"]:
+                            expected_keys += self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+
+                    missing_keys = set(expected_keys) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(False, "Transceiver {} threshold info does not contain field: '{}'".format(i, key))
 
-                    unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS)
+                    unexpected_keys = set(actual_keys) - set(expected_keys)
                     for key in unexpected_keys:
                         self.expect(False, "Transceiver {} threshold info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
@@ -543,11 +647,19 @@ class TestSfpApi(PlatformApiTestBase):
                 logger.warning("test_tx_disable_channel: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
                 continue
 
-            # Test all TX disable combinations for a four-channel transceiver (i.e., 0x0 through 0xF)
+            if info_dict["type_abbrv_name"] == "QSFP-DD" or info_dict["type_abbrv_name"] == "OSFP-8X":
+                # Test all channels for a eight-channel transceiver
+                all_channel_mask = 0xFF
+                expected_mask = 0x80
+            else:
+                # Test all channels for a four-channel transceiver
+                all_channel_mask = 0XF
+                expected_mask = 0x8
+
             # We iterate in reverse here so that we end with 0x0 (no channels disabled)
-            for expected_mask in range(0xF, -1, -1):
+            while expected_mask >= 0:
                 # Enable TX on all channels
-                ret = sfp.tx_disable_channel(platform_api_conn, i, 0xF, False)
+                ret = sfp.tx_disable_channel(platform_api_conn, i, all_channel_mask, False)
                 self.expect(ret is True, "Failed to enable TX on all channels for transceiver {}".format(i))
 
                 ret = sfp.tx_disable_channel(platform_api_conn, i, expected_mask, True)
@@ -556,6 +668,11 @@ class TestSfpApi(PlatformApiTestBase):
                 tx_disable_chan_mask = sfp.get_tx_disable_channel(platform_api_conn, i)
                 if self.expect(tx_disable_chan_mask is not None, "Unable to retrieve transceiver {} TX disabled channel data".format(i)):
                     self.expect(tx_disable_chan_mask == expected_mask, "Transceiver {} TX disabled channel data is incorrect".format(i))
+
+                if expected_mask == 0:
+                    break
+                else:
+                    expected_mask = expected_mask >> 1
         self.assert_expectations()
 
     def _check_lpmode_status(self, sfp,platform_api_conn, i, state):

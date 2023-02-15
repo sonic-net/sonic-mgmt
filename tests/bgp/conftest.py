@@ -17,34 +17,15 @@ from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from tests.common import config_reload
-from bgp_helpers import define_config
-from bgp_helpers import apply_default_bgp_config
-from bgp_helpers import DUT_TMP_DIR
-from bgp_helpers import TEMPLATE_DIR
-from bgp_helpers import BGP_PLAIN_TEMPLATE
-from bgp_helpers import BGP_NO_EXPORT_TEMPLATE
-from bgp_helpers import DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
+    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
+    BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 
 
 logger = logging.getLogger(__name__)
-
-@pytest.fixture(scope='module')
-def setup_keepalive_and_hold_timer(duthosts, rand_one_dut_hostname, nbrhosts):
-    duthost = duthosts[rand_one_dut_hostname]
-    # incrase the keepalive and hold timer
-    duthost.command("vtysh -c \"configure terminal\" \
-                           -c \"router bgp {}\" \
-                           -c \"neighbor {} timers 60 180\"".format(
-                               metadata['localhost']['bgp_asn'], \
-                               bgp_nbr_ip))
-
-    for k, nbr in nbrhosts.items():
-        nbr['host'].eos_config(lines=["timers 60 180"], parents=["router bgp {}".format(bgp_nbr['asn'])])
-
-    yield
 
 
 def check_results(results):
@@ -395,25 +376,26 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             if num_intfs < peer_count:
                 pytest.skip("Found {} IPv4 interfaces or lags with 1 port member, but require {} interfaces".format(num_intfs, peer_count))
 
-            for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces, peer_count), subnets):
+            for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces,
+                                                  peer_count), subnets):
+                def _get_namespace(minigraph_config, intf):
+                    namespace = DEFAULT_NAMESPACE
+                    if intf in minigraph_config and 'namespace' in minigraph_config[intf] and \
+                            minigraph_config[intf]['namespace']:
+                        namespace = minigraph_config[intf]['namespace']
+                    return namespace
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
                 conn["local_intf"] = "%s" % intf
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
                 conn["loopback_ip"] = loopback_ip
-
-                if intf in mg_facts['minigraph_neighbors'] and \
-                        'namespace' in mg_facts['minigraph_neighbors'][intf] and \
-                        mg_facts['minigraph_neighbors'][intf]['namespace']:
-                    conn["namespace"] = mg_facts['minigraph_neighbors'][intf]['namespace']
-                else:
-                    conn["namespace"] = DEFAULT_NAMESPACE
+                conn["namespace"] = _get_namespace(mg_facts['minigraph_neighbors'], intf)
 
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_ptf_indices"][member_intf]
-                    conn["namespace"] = mg_facts["minigraph_portchannels"][intf]["namespace"]
+                    conn["namespace"] = _get_namespace(mg_facts["minigraph_portchannels"], intf)
                 elif constants.VLAN_SUB_INTERFACE_SEPARATOR in intf:
                     orig_intf, vlan_id = intf.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
                     ptf_port_index = str(mg_facts["minigraph_port_indices"][orig_intf])

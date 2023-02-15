@@ -9,8 +9,8 @@
 - fail: msg="please provide testbed_type for bgp_multipath_relax test"
   when: testbed_type is not defined 
 
-- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-64-lag, t1-64-lag-clet"
-  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
+- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag"
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet', 't1-56-lag']
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}

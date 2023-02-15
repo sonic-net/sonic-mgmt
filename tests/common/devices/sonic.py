@@ -14,6 +14,7 @@ from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
@@ -32,7 +33,6 @@ class SonicHost(AnsibleHostBase):
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
     """
-    DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
@@ -1266,7 +1266,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1274,8 +1274,38 @@ Totals               6450                 6449
         """
         ipv4_output = self.shell("show ip route sum")["stdout_lines"]
         ipv4_summary = self._parse_route_summary(ipv4_output)
+
+        if skip_kernel_tunnel == True:
+            ipv4_route_kernel_output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_count = 0
+            for string in ipv4_route_kernel_output:
+                if re.search('tun', string):
+                    ipv4_route_kernel_count += 1
+            logging.debug("IPv4 kernel tun route {}, {}".format(ipv4_route_kernel_count, ipv4_route_kernel_output))
+
+            if ipv4_route_kernel_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['kernel']['FIB'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
+
+        if skip_kernel_tunnel == True:
+            ipv6_route_kernel_output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_count = 0
+            for string in ipv6_route_kernel_output:
+                if re.search('tun', string):
+                    ipv6_route_kernel_count += 1
+            logging.debug("IPv6 kernel tun route {}, {}".format(ipv6_route_kernel_count, ipv6_route_kernel_output))
+
+            if ipv6_route_kernel_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['kernel']['FIB'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
+
         return ipv4_summary, ipv6_summary
 
     def get_dut_iface_mac(self, iface_name):
@@ -2018,6 +2048,70 @@ Totals               6450                 6449
 
         return ip_ifaces
 
+    def show_syslog(self):
+        """
+        Show syslog config
+
+        Args:
+            dut (SonicHost): The target device
+        Return: Syslog config like below
+            [{
+                "server": "2.2.2.2",
+                "source": "1.1.1.1",
+                "port": "514",
+                "vrf": "default",
+              },
+              {
+                "server": "3.3.3.3",
+                "source": "4.4.4.4",
+                "port": "514",
+                "vrf": "mgmt",
+              },
+              ...
+            ]
+        """
+        return self.show_and_parse('show syslog')
+
+    def clear_acl_counters(self):
+        """
+        Clear ACL counters statistics.
+        """
+        self.command('aclshow -c')
+
+    def get_acl_counter(self, acl_table_name, acl_rule_name,
+                        timeout=ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC * 2,
+                        interval=ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC):
+        """
+        Read ACL counter of specific ACL table and ACL rule.
+
+        Args:
+            acl_table_name (str): Name of ACL table.
+            acl_rule_name (str): Name of ACL rule.
+            timeout (int): Maximum time (in second) wait for ACL counter available.
+            interval (int): Retry interval (in second) between read ACL counter.
+
+        Return:
+            packets_count (int): count of packets hit the specific ACL rule.
+        """
+        assert timeout >= 0 and interval > 0  # Validate arguments to avoid infinite loop
+        while timeout >= 0:
+            time.sleep(interval)  # Wait for orchagent to update the ACL counters
+            timeout -= interval
+            result = self.show_and_parse('aclshow -a')
+            for rule in result:
+                if acl_table_name == rule['table name'] and acl_rule_name == rule['rule name']:
+                    try:
+                        packets_count = int(rule['packets count'])
+                        return packets_count
+                    except ValueError:
+                        if rule['packets count'] == 'N/A':
+                            logging.warning("ACL counters are not ready yet, will retry after {} seconds"
+                                            .format(interval))
+                        else:
+                            raise ValueError('Got invalid packets count "{}" for {}|{}'
+                                             .format(acl_table_name, acl_rule_name, rule['packets count']))
+        raise Exception("Failed to read acl counter for {}|{}".format(acl_table_name, acl_rule_name))
+
     def remove_acl_table(self, acl_table):
         """
         Remove acl table
@@ -2097,10 +2191,6 @@ Totals               6450                 6449
         commond_output = self.command("docker exec -i teamd teamdctl {} state dump".format(port_channel_name))
         json_info = json.loads(commond_output["stdout"])
         return json_info
-
-    def is_intf_status_down(self, interface_name):
-        show_int_result = self.command("show interface status {}".format(interface_name))
-        return 'down' in show_int_result['stdout_lines'][2].lower()
 
     def links_status_down(self, ports):
         show_int_result = self.command("show interface status")
