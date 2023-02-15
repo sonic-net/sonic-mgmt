@@ -223,12 +223,12 @@ sonic_cisco_8101_C64:
         "0x23": "FLM263405R6"
         "0x24": "DC:05:39:C2:94:00"
         "0x26": "2"
-        "0x28": "x86_64-8101_32fh_o-r2"
+        "0x28": "x86_64-8101_32fh_o-r0"
         "0x2A": "512"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x42D92D54"
+        "0xFE": "0xA61D2C29"
 
 sonic_cisco_8101_C48T8:
   vars:
@@ -246,12 +246,12 @@ sonic_cisco_8101_C48T8:
         "0x23": "FLM26400HE3"
         "0x24": "98:A2:C0:26:EA:00"
         "0x26": "2"
-        "0x28": "x86_64-8101_32fh_o-r2"
+        "0x28": "x86_64-8101_32fh_o-r0"
         "0x2A": "512"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x5FFB8963"
+        "0xFE": "0xBB3F881E"
 
 sonic_cisco_lc_100G:
   vars:
