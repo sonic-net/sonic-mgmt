@@ -17,40 +17,8 @@ parameters:
     default: $(SAITHRIFTV2_BRCM_INTERNAL_202012)
     displayName: "py_saithrift URL"
 
-  - name: SAI_REPO
-    type: string
-    displayName: "SAI Dev Repo"
-    default: "opencomputeproject"
-
-  - name: SAI_BRANCH
-    type: string
-    displayName: "SAI Dev Branch"
-    default: "master"
-
-  - name: JOB_CONFIG
-    type: string
-    displayName: "JOB CONFIG"
-    default: " "
-
-  #Resource agent pool
-  - name: AGENT_POOL
-    displayName: "Resource agent pool"
-    type: string
-    default: nightly
-    values:
-      - nightly
-      - nightly2
-      - nightly-svc
-      - nightly-bjw
-
-  - name: SCAN_CASES
-    displayName: "Scan and Upload"
-    type: boolean
-    default: true
-
 jobs:
   - job: SAITest
-    pool: ${{ parameters.AGENT_POOL }}
     variables:
       - group: TBSHARE_SECRETS
       - group: KUSTO_SAI_SECRETS
@@ -61,7 +29,6 @@ jobs:
       - template: ../nightly/templates/get_secrets.yml
 
       - task: Bash@3
-        condition: ${{ parameters.SCAN_CASES }}
         displayName: Scan and Upload
         inputs:
           targetType: 'inline'
