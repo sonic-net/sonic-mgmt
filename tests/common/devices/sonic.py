@@ -1345,7 +1345,7 @@ Totals               6450                 6449
         ipv4_output = self.shell("show ip route sum")["stdout_lines"]
         ipv4_summary = self._parse_route_summary(ipv4_output)
 
-        if skip_kernel_tunnel == True:
+        if skip_kernel_tunnel is True:
             ipv4_route_kernel_output = self.shell("show ip route kernel")["stdout_lines"]
             ipv4_route_kernel_count = 0
             for string in ipv4_route_kernel_output:
@@ -1362,7 +1362,7 @@ Totals               6450                 6449
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
 
-        if skip_kernel_tunnel == True:
+        if skip_kernel_tunnel is True:
             ipv6_route_kernel_output = self.shell("show ipv6 route kernel")["stdout_lines"]
             ipv6_route_kernel_count = 0
             for string in ipv6_route_kernel_output:
