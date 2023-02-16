@@ -61,13 +61,6 @@ jobs:
       - template: ../nightly/templates/get_secrets.yml
 
       - task: Bash@3
-        displayName: Get Bash Env Param
-        inputs:
-          targetType: 'inline'
-          script: |
-              echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
-
-      - task: Bash@3
         condition: ${{ parameters.SCAN_CASES }}
         displayName: Scan and Upload
         inputs:
@@ -75,6 +68,7 @@ jobs:
           script: |
             set -x
             BASE_PATH=$(pwd)
+            BASH_WORKING_FOLDER=$(pwd)
 
             echo "Activate python3 virtual environment"
             source /var/AzDevOps/env-python3/bin/activate
@@ -114,7 +108,4 @@ jobs:
             TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
             TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
             TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
-            BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
-            PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
-            SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
             PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
