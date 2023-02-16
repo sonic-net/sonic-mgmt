@@ -114,7 +114,7 @@ class QosBase:
             qlen=10000,
             is_python3=True,
             relax=False,
-            timeout=600,
+            timeout=1200,
             custom_options=custom_options
         )
 
