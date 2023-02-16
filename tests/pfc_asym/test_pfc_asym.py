@@ -74,7 +74,6 @@ def test_pfc_asym_on_handle_pfc_all_prio(ptfhost, setup, enable_pfc_asym, pfc_st
     @param pfc_storm_runner: Fixture which start/stop PFC generator on Fanout switch
     @param enable_pfc_asym: Fixture which enable/disable asymmetric PFC on all server interfaces
     """
-    import pdb; pdb.set_trace()
     pfc_storm_runner.server_ports = True
     pfc_storm_runner.run()
 
