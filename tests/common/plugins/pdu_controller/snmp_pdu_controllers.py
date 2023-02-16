@@ -141,7 +141,7 @@ class snmpPduController(PduControllerBase):
             self._probe_lane(lane_id, cmdGen, snmp_auth)
 
     def __init__(self, controller, pdu, hwsku, psu_peer_type):
-        logging.info("Initializing " + self.__class__.__name__)
+        logger.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
