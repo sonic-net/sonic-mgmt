@@ -93,14 +93,14 @@ jobs:
             set -x
             BASE_PATH=$(pwd)
 
-            pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
-            if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]  # modify on internal sonic-mgmt repo
-            then
-              git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
-              git fetch ${{ parameters.MGMT_REPO }}
-              git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }}
-            fi
-            popd
+            # pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
+            # if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]  # modify on internal sonic-mgmt repo
+            # then
+            #   git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
+            #   git fetch ${{ parameters.MGMT_REPO }}
+            #   git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }}
+            # fi
+            # popd
 
             echo "Activate python3 virtual environment"
             source /var/AzDevOps/env-python3/bin/activate
