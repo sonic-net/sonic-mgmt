@@ -108,35 +108,22 @@ class QosBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        params = [
-                  "/root/env-python3/bin/ptf",
-                  "--test-dir",
-                  "saitests/py3",
-                  testCase,
-                  "--platform-dir",
-                  "ptftests",
-                  "--platform",
-                  "remote",
-                  "-t",
-                  ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
-                  "--qlen",
-                  "10000",
-                  "--disable-ipv6",
-                  "--disable-vxlan",
-                  "--disable-geneve",
-                  "--disable-erspan",
-                  "--disable-mpls",
-                  "--disable-nvgre",
-                  "--log-file",
-                  "/tmp/{0}.log".format(testCase),
-                  "--test-case-timeout",
-                  "600"
-              ]
-        result = ptfhost.shell(
-                      argv=params,
-                      chdir="/root",
-                      )
-        pytest_assert(result["rc"] == 0, "Failed when running test '{0}'".format(testCase))
+        custom_options = " --disable-ipv6 --disable-vxlan --disable-geneve" \
+                         " --disable-erspan --disable-mpls --disable-nvgre"
+        ptf_runner(
+            ptfhost,
+            "saitests",
+            testCase,
+            platform_dir="ptftests",
+            params=testParams,
+            log_file="/tmp/{0}.log".format(testCase),
+            qlen=10000,
+            is_python3=True,
+            relax=False,
+            timeout=1200,
+            custom_options=custom_options
+        )
+
 
 class QosSaiBase(QosBase):
     """
