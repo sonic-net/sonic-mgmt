@@ -2097,7 +2097,7 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -2105,6 +2105,7 @@ Totals               6450                 6449
         Returns:
             Dict of Interfaces and their IPv4 address
         """
+        active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
         for k, v in ip_ifs.items():
@@ -2120,6 +2121,10 @@ Totals               6450                 6449
                         "peer_ipv4": v["peer_ipv4"],
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
+                    active_ip_intf_cnt += 1
+
+                if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
+                    break
 
         return ip_ifaces
 
@@ -2293,9 +2298,9 @@ Totals               6450                 6449
                 # Either oper or admin status 'down' means link down
                 if 'down' in output_line:
                     logging.info("Interface {} is down on {}".format(output_port, self.hostname))
-                    return False    
-                logging.info("Interface {} is up on {}".format(output_port, self.hostname))                             
-        return True   
+                    return False
+                logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+        return True
 
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
