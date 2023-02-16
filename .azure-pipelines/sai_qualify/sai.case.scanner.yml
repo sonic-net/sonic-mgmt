@@ -17,8 +17,20 @@ parameters:
     default: $(SAITHRIFTV2_BRCM_INTERNAL_202012)
     displayName: "py_saithrift URL"
 
+  #Resource agent pool
+  - name: AGENT_POOL
+    displayName: "Resource agent pool"
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
 jobs:
   - job: SAITest
+    pool: ${{ parameters.AGENT_POOL }}
     variables:
       - group: TBSHARE_SECRETS
       - group: KUSTO_SAI_SECRETS
