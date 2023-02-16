@@ -1,4 +1,5 @@
 t0:
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved
+  - bgp/bgp_helpers.py
   - test_features.py
