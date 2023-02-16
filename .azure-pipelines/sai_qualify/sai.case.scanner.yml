@@ -12,12 +12,10 @@ parameters:
     displayName: "Testbed Name"
     default: vms11-t0-s6000
 
-
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFTV2_BRCM_INTERNAL_202012)
     displayName: "py_saithrift URL"
-
 
   - name: SAI_REPO
     type: string
@@ -29,27 +27,10 @@ parameters:
     displayName: "SAI Dev Branch"
     default: "master"
 
-
   - name: JOB_CONFIG
     type: string
     displayName: "JOB CONFIG"
     default: " "
-
-  # Checkout sai_qualify/ folder from public
-  - name: OVERWRITE_INTERNAL_MGMT
-    displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
-    type: boolean
-    default: true
-
-  - name: MGMT_REPO
-    displayName: "sonic-mgmt repo"
-    type: string
-    default: "sonic-net"
-
-  - name: MGMT_BRANCH
-    displayName: "sonic-mgmt branch"
-    type: string
-    default: "master"
 
   #Resource agent pool
   - name: AGENT_POOL
@@ -77,8 +58,5 @@ stages:
       SAI_REPO: ${{ parameters.SAI_REPO }}
       SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
       JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
-      OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
-      MGMT_REPO: ${{ parameters.MGMT_REPO }}
-      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
       SCAN_CASES: ${{ parameters.SCAN_CASES }}
