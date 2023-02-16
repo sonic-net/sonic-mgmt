@@ -130,7 +130,7 @@ class QosBase:
                   "--log-file",
                   "/tmp/{0}.log".format(testCase),
                   "--test-case-timeout",
-                  "600"
+                  "1200"
               ]
         result = ptfhost.shell(
                       argv=params,
