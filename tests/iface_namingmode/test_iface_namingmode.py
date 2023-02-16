@@ -566,7 +566,8 @@ class TestShowVlan():
         yield
 
         logger.info('Cleaning up the test vlan 100')
-        res = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config vlan del 100'.format(ifmode))
+        res = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config vlan del 100'
+                                 .format(ifmode), module_ignore_errors=True)
         if res["rc"] != 0 and "Restart service dhcp_relay failed with error" not in res["stderr"]:
             pytest.fail("Del vlan failed in teardown")
 
