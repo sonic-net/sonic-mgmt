@@ -215,6 +215,7 @@ def shutdown_ebgp(duthosts):
     orch_cpu_threshold = 10
     # increase timeout for check_orch_cpu_utilization to 120sec for chassis
     # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
+    duthost = duthosts[rand_one_dut_hostname]
     is_chassis = duthost.get_facts().get("modular_chassis")
     orch_cpu_timeout = 120 if is_chassis else 60
     for duthost in duthosts.frontend_nodes:
