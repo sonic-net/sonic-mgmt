@@ -44,22 +44,6 @@ parameters:
     type: string
     default: "tests"
 
-  # Checkout sai_qualify/ folder from public
-  - name: OVERWRITE_INTERNAL_MGMT
-    displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
-    type: boolean
-    default: true
-
-  - name: MGMT_REPO
-    displayName: "sonic-mgmt repo"
-    type: string
-    default: "sonic-net"
-
-  - name: MGMT_BRANCH
-    displayName: "sonic-mgmt branch"
-    type: string
-    default: "master"
-
   - name: SCAN_CASES
     displayName: "Scan and Upload"
     type: boolean
@@ -92,15 +76,6 @@ jobs:
           script: |
             set -x
             BASE_PATH=$(pwd)
-
-            # pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
-            # if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]  # modify on internal sonic-mgmt repo
-            # then
-            #   git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
-            #   git fetch ${{ parameters.MGMT_REPO }}
-            #   git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }}
-            # fi
-            # popd
 
             echo "Activate python3 virtual environment"
             source /var/AzDevOps/env-python3/bin/activate
@@ -141,6 +116,5 @@ jobs:
             TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
             BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
             PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
-            OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
             SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
             PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
