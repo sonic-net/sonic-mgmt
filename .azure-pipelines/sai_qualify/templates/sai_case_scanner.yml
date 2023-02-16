@@ -78,6 +78,13 @@ jobs:
       - template: ../../nightly/templates/get_secrets.yml
 
       - task: Bash@3
+        displayName: Get Bash Env Param
+        inputs:
+          targetType: 'inline'
+          script: |
+              echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
+
+      - task: Bash@3
         condition: ${{ parameters.SCAN_CASES }}
         displayName: Scan and Upload
         inputs:
