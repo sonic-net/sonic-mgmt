@@ -103,11 +103,11 @@ jobs:
 
             echo "Generate scanning results"
             python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
-            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
+            # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
 
             echo "Upload scanning results"
             python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
-            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
+            # python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
 
         env:
             TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
