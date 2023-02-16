@@ -2325,6 +2325,7 @@ Totals               6450                 6449
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
 
+
 def assert_exit_non_zero(shell_output):
     if shell_output['rc'] != 0:
         raise Exception(shell_output['stderr'])
