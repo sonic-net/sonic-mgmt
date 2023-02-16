@@ -58,7 +58,7 @@ jobs:
         value: true
 
     steps:
-      - template: ../../nightly/templates/get_secrets.yml
+      - template: ../nightly/templates/get_secrets.yml
 
       - task: Bash@3
         displayName: Get Bash Env Param
