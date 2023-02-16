@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 15 * * 0,2,4"
+  - cron: "0 4 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal-202205
     always: true
 
 variables:
@@ -18,35 +18,37 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-dual-t0-7260
+    default: vms28-dual-t0-7260
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: $(IMAGE_BRCM_ABOOT_202205)
     displayName: "Image URL"
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202205)
+    displayName: "py_saithrift URL"
 
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
     default: false
 
-  # Test Parameters
-  - name: PY_SAITHRIFT_URL
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
     type: string
-    default: $(SAITHRIFT_BRCM_202012)
-    displayName: "py_saithrift URL"
+    default: '-I "dualtor_io platform_tests"'
+    displayName: Testbed specific
 
+  # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
     default: "platform_tests/test_cont_warm_reboot.py"
     displayName: "Skip Scripts"
-
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-S "span sub_port_interfaces dualtor_io platform_tests"'
-    displayName: Testbed specific
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
@@ -60,6 +62,6 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
