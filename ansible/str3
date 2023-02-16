@@ -24,6 +24,8 @@ all:
           ansible_host: 10.64.246.37
         vms62-1:
           ansible_host: 10.64.246.38
+        vms62-2:
+          ansible_host: 10.64.246.39
         vms61-5:
           ansible_host: 10.64.247.37
         vms61-6:
@@ -574,7 +576,7 @@ sonic_arista_7800_lc_100G:
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
       slot_num: slot6
-      switchids: [16]
+      switchids: [2]
       voq_inband_ip: [3.3.3.4/32]
       voq_inband_ipv6: [3333::3:4/128]
       loopback4096_ip: [192.0.0.4/32]
@@ -589,7 +591,7 @@ sonic_arista_7800_lc_100G:
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
       slot_num: slot7
-      switchids: [14]
+      switchids: [2]
       voq_inband_ip: [3.3.3.5/32]
       voq_inband_ipv6: [3333::3:5/128]
       loopback4096_ip: [192.0.0.5/32]
@@ -639,8 +641,8 @@ sonic_arista_7800_lc_400G:
     frontend_asics: [0,1]
   hosts:
     str3-7800-lc8-1:
-      hwsku: Arista-7800R3A-36DM2-C36
-      sonic_hwsku: Arista-7800R3A-36DM2-C36
+      hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hwsku: Arista-7800R3A-36DM2-D36
       sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
       model: 7800R3A-36DM2-LC
       slot_num: slot8
