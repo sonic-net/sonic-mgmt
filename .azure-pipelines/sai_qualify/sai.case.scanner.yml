@@ -46,7 +46,6 @@ jobs:
           targetType: 'inline'
           script: |
             set -x
-            BASE_PATH=$(pwd)
             BASH_WORKING_FOLDER=$(pwd)
 
             echo "Activate python3 virtual environment"
@@ -62,7 +61,7 @@ jobs:
             python3 test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
             
             echo "Generate SAI definitions"
-            RESOURCE_PATH=$BASE_PATH/resources
+            RESOURCE_PATH=$BASH_WORKING_FOLDER/resources
             PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')
             mkdir -p $RESOURCE_PATH
             wget -P $RESOURCE_PATH $PY_SAITHRIFT_URL
