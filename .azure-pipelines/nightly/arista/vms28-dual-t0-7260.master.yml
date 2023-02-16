@@ -27,26 +27,33 @@ parameters:
     default: $(IMAGE_BRCM_ABOOT_PUBLIC)
     displayName: "Image URL"
 
-  # Deploy parameters
-  - name: ENABLE_DATAACL
-    type: boolean
-    default: false
-
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFT_BRCM_PUBLIC)
     displayName: "py_saithrift URL"
 
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "dualtor_io platform_tests"'
+    displayName: Testbed specific
+
+  # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
     default: "platform_tests/test_cont_warm_reboot.py"
     displayName: "Skip Scripts"
 
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-I "dualtor_io platform_tests"'
-    displayName: Testbed specific
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -55,5 +62,6 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
