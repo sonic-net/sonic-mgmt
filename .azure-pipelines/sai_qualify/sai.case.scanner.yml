@@ -70,7 +70,7 @@ parameters:
 stages:
 - stage: RunSAITest
   jobs:
-  - template: templates/sai_test.yml
+  - template: templates/sai_case_scanner.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
