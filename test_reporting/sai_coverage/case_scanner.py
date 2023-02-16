@@ -7,6 +7,8 @@ import argparse
 import ast
 import json
 import os
+import datetime
+import random
 
 from datetime import date
 from multipledispatch import dispatch
@@ -226,6 +228,7 @@ class SAICoverageScanner(object):
         if header_key not in header_data:
             return
         test_invocation = TestInvocation(
+            id = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + str(random.randint(0, 500)),
             file_name=file_name,
             class_name=class_name,
             case_name=method_name,
