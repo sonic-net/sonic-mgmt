@@ -100,7 +100,7 @@ class KustoConnector(ReportDBConnector):
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
     PIPELINE_TABLE = "TestReportPipeline"
-    CASE_INVOC_TABLE = "CaseInvocationStaging"
+    CASE_INVOC_TABLE = "CaseInvocationStaging_del"
     SAI_HEADER_INVOC_TABLE = "SAIHeaderDefinition"
 
     TABLE_FORMAT_LOOKUP = {
