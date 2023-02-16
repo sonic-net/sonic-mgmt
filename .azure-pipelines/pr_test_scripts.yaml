@@ -1,3 +1,4 @@
 t0:
   - bgp/test_bgp_fact.py
+  - bgp/bgp_helpers.py
   - test_features.py
