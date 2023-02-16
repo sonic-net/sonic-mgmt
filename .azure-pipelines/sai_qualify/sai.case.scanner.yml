@@ -48,15 +48,73 @@ parameters:
     type: boolean
     default: true
 
-stages:
-- stage: RunSAITest
-  jobs:
-  - template: templates/sai_case_scanner.yml
-    parameters:
-      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      SAI_REPO: ${{ parameters.SAI_REPO }}
-      SAI_BRANCH: ${{ parameters.SAI_BRANCH }}
-      JOB_CONFIG: ${{ parameters.JOB_CONFIG }}
-      AGENT_POOL: ${{ parameters.AGENT_POOL }}
-      SCAN_CASES: ${{ parameters.SCAN_CASES }}
+jobs:
+  - job: SAITest
+    pool: ${{ parameters.AGENT_POOL }}
+    variables:
+      - group: TBSHARE_SECRETS
+      - group: KUSTO_SAI_SECRETS
+      - name: skipComponentGovernanceDetection
+        value: true
+
+    steps:
+      - template: ../../nightly/templates/get_secrets.yml
+
+      - task: Bash@3
+        displayName: Get Bash Env Param
+        inputs:
+          targetType: 'inline'
+          script: |
+              echo "##vso[task.setvariable variable=BASH_WORKING_FOLDER;]`pwd`"
+
+      - task: Bash@3
+        condition: ${{ parameters.SCAN_CASES }}
+        displayName: Scan and Upload
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+            BASE_PATH=$(pwd)
+
+            echo "Activate python3 virtual environment"
+            source /var/AzDevOps/env-python3/bin/activate
+            cd ${BASH_WORKING_FOLDER}/test_reporting
+            pip3 install -r requirements.txt
+
+            echo "Generate header"
+            cd ${BASH_WORKING_FOLDER}
+            rm -rf SAI
+            git clone https://github.com/opencomputeproject/SAI.git
+            SAI_PATH=${BASH_WORKING_FOLDER}/SAI
+            python3 test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
+            
+            echo "Generate SAI definitions"
+            RESOURCE_PATH=$BASE_PATH/resources
+            PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')
+            mkdir -p $RESOURCE_PATH
+            wget -P $RESOURCE_PATH $PY_SAITHRIFT_URL
+            dpkg -i $RESOURCE_PATH/$PY_SAITHRIFT
+            SAI_ADAPTER_PATH=$(find / -name "sai_adapter.py")
+            echo $SAI_ADAPTER_PATH
+            rm -rf test_reporting/sai_coverage/sai_adapter
+            mkdir test_reporting/sai_coverage/sai_adapter
+            cp $SAI_ADAPTER_PATH test_reporting/sai_coverage/sai_adapter/
+            python3 test_reporting/sai_coverage/sai_adapter_scanner.py test_reporting/sai_coverage/sai_adapter
+
+            echo "Generate scanning results"
+            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
+            # python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
+
+            echo "Upload scanning results"
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
+            # python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
+
+        env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+            TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+            TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+            TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+            BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
+            PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
+            SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
+            PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
