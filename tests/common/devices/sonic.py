@@ -1336,7 +1336,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1344,8 +1344,38 @@ Totals               6450                 6449
         """
         ipv4_output = self.shell("show ip route sum")["stdout_lines"]
         ipv4_summary = self._parse_route_summary(ipv4_output)
+
+        if skip_kernel_tunnel == True:
+            ipv4_route_kernel_output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_count = 0
+            for string in ipv4_route_kernel_output:
+                if re.search('tun', string):
+                    ipv4_route_kernel_count += 1
+            logging.debug("IPv4 kernel tun route {}, {}".format(ipv4_route_kernel_count, ipv4_route_kernel_output))
+
+            if ipv4_route_kernel_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['kernel']['FIB'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
+
+        if skip_kernel_tunnel == True:
+            ipv6_route_kernel_output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_count = 0
+            for string in ipv6_route_kernel_output:
+                if re.search('tun', string):
+                    ipv6_route_kernel_count += 1
+            logging.debug("IPv6 kernel tun route {}, {}".format(ipv6_route_kernel_count, ipv6_route_kernel_output))
+
+            if ipv6_route_kernel_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['kernel']['FIB'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
+
         return ipv4_summary, ipv6_summary
 
     def get_dut_iface_mac(self, iface_name):
