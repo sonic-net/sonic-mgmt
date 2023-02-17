@@ -46,12 +46,6 @@ parameters:
     default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
-  # Custom skip scripts
-  - name: SKIP_SCRIPTS
-    type: string
-    default: "vlan/test_vlan.py"
-    displayName: "Skip Scripts"
-
   - name: AGENT_POOL
     type: string
     default: nightly-bjw
@@ -64,5 +58,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
