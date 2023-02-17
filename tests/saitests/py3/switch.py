@@ -720,7 +720,7 @@ def sai_thrift_port_tx_enable(client, asic_type, port_ids):
         client.sai_thrift_set_port_attribute(port_list[port_id], attr)
 
 
-def sai_thrift_read_port_counters(client, port):
+def sai_thrift_read_port_counters(client, asic_type, port):
     port_cnt_ids = []
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_DISCARDS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_IN_DISCARDS)
@@ -739,11 +739,14 @@ def sai_thrift_read_port_counters(client, port):
     port_cnt_ids.append(SAI_PORT_STAT_IF_IN_UCAST_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS)
-    port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_QLEN)
+    if asic_type != 'mellanox':
+        port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_QLEN)
 
     counters_results = []
     counters_results = client.sai_thrift_get_port_stats(
         port, port_cnt_ids, len(port_cnt_ids))
+    if asic_type == 'mellanox':
+        counters_results.append(0)
 
     queue_list = []
     port_attr_list = client.sai_thrift_get_port_attribute(port)

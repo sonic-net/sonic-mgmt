@@ -231,7 +231,8 @@ def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minig
             "router_mac": None,
             "pfc_to_dscp": None,
             "lossless_priorities": None,
-            "lossy_priorities": None
+            "lossy_priorities": None,
+            "sonic_asic_type": duthost.facts['asic_type']
             },
         "server_ports_oids": [],
         "fanout_inventory": request.config.getoption("--fanout_inventory")
