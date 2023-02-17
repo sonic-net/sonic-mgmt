@@ -136,7 +136,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_port_wred_stats_get:.*port gport get failed with error Feature unavailable.*",
             ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_get_recycle_port_attribute.*Error processing port attributes for attr_id.*",
             ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_get_recycle_port_attribute.*Unknown port attribute.*",
-            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_port_wred_stats_get:15102 Hardware failure -16 in getting WRED stat 68 for port.*"
+            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_port_wred_stats_get:15102 Hardware failure -16 in getting WRED stat 68 for port.*",
             ".*ERR swss[0-9]*#orchagent: :- doLagMemberTask: Failed to locate port.*",
             ".*ERR swss[0-9]*#orchagent:.*update: Failed to get port by bridge port ID.*",
             ".*ERR swss[0-9]*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*",
