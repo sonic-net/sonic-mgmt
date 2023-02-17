@@ -962,6 +962,18 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
+voq/test_voq_init.py:
+  skip:
+    reason: cisco-8000 platform is not VOQ based thus all VOQ testcases are not applicable to this platform and should be skipped
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+voq/test_voq_intfs.py:
+  skip:
+    reason: cisco-8000 platform is not VOQ based thus all VOQ testcases are not applicable to this platform and should be skipped
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 voq/test_voq_ipfwd.py:
   skip:
     reason: "Did not find any asic in the DUTs (linecards) that are connected to T1 VM's."
