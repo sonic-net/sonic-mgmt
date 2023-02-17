@@ -140,7 +140,6 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR swss[0-9]*#orchagent: :- doLagMemberTask: Failed to locate port.*",
             ".*ERR swss[0-9]*#orchagent:.*update: Failed to get port by bridge port ID.*",
             ".*ERR swss[0-9]*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*",
-            ".*ERR swss[0-9]*#orchagent: :- doLagMemberTask: Failed to locate port.*",
             ".*ERR swss[0-9]*#orchagent: :- getResAvailability: Failed to get availability counter.*",
             ".*ERR swss[0-9]*#supervisor-proc-exit-listener: Process 'orchagent' is not running in namespace.*",
     ]
