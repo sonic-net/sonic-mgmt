@@ -354,6 +354,9 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
+    if dut.facts["asic_type"] == "marvell":
+        _TEST_RATE_LIMIT = 625
+
     logging.info("Update the rate limit for the COPP policer")
     copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
 
