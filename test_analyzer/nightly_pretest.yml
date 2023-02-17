@@ -232,15 +232,20 @@ stages:
                 #     fi
                 # fi
 
-                # if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
-                #     ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
-                #         -i $(INVENTORY_NAME) \
-                #         -e testbed_name=${{ parameters.TESTBED_NAME }} \
-                #         -e image_url="$PREV_IMAGE_URL" \
-                #         -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
-                #         --vault-password-file password.txt \
-                #         -e pause_time=60 -vv || true
-                # fi
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
+                    ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                        -i $(INVENTORY_NAME) \
+                        -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                        -e image_url="$PREV_IMAGE_URL" \
+                        -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
+                        --vault-password-file password.txt \
+                        -e pause_time=60 -vv || true
+                fi
+
+                SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+                BUILD_VERSION_PRE=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
+                echo "previous image: $BUILD_VERSION_PRE"
+
                 ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
                     -i $(INVENTORY_NAME) \
                     -e testbed_name=${{ parameters.TESTBED_NAME }} \
@@ -249,34 +254,42 @@ stages:
                     --vault-password-file password.txt \
                     -e pause_time=${{ parameters.PAUSE_TIME }} -vv
 
+                SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+                BUILD_VERSION=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
+                echo "current image: $BUILD_VERSION"
+
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$BUILD_VERSION" == "$BUILD_VERSION_PRE" ]]; then
+                  echo "sonic image build version not change after upgrading image"
+                  exit 1
+                fi
                 sleep 180
             env:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
               PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
 
-          # - task: Bash@3
-          #   displayName: Deploy Minigraph
-          #   timeoutInMinutes: 30
-          #   inputs:
-          #     targetType: 'inline'
-          #     script: |
-          #       set -x
+          - task: Bash@3
+            displayName: Deploy Minigraph
+            timeoutInMinutes: 30
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
 
-          #       if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
-          #           CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"
-          #       else
-          #           CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=false"
-          #       fi
-          #       cd ansible
+                if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"
+                else
+                    CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=false"
+                fi
+                cd ansible
 
-          #       http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
-          #       # If restart-ptf failed, try to redeploy the topology
-          #       if [[ $? != 0 ]]; then
-          #           http_proxy='' https_proxy='' ./testbed-cli.sh redeploy-topo ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
-          #       fi
+                http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
+                # If restart-ptf failed, try to redeploy the topology
+                if [[ $? != 0 ]]; then
+                    http_proxy='' https_proxy='' ./testbed-cli.sh redeploy-topo ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
+                fi
 
-          #       http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt $CONFIG_PARAMS || exit 1
-          #       sleep 180
+                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt $CONFIG_PARAMS || exit 1
+                sleep 180
 
           - task: Bash@3
             displayName: Run Tests
