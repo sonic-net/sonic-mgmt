@@ -44,8 +44,8 @@ Arista	vms18-t1-7050qx-acs-03	vms18-t1-7050qx-acs-03	202012-SLIM	202012-SLIM	202
 Arista	testbed-bjw-can-7050qx-2.1	testbed-bjw-can-7050qx-2	202012-SLIM		202012-SLIM		202012-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10		vlan/test_vlan.py	nightly-bjw						
 Arista	testbed-bjw-can-7050qx-2.2	testbed-bjw-can-7050qx-2		202012-SLIM		202012-SLIM		202012-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 10		vlan/test_vlan.py	nightly-bjw						
 Arista	vms24-dual-t0-7050-1	vms24-dual-t0-7050-1	202012	internal	202012	202205	202012	master		-I "dualtor qos pc generic_config_updater acl drop_packets snmp"'	Non-platform	0 10		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE	
-Arista	vms21-dual-t0-7260	vms21-dual-t0-7260	202205	internal	202205	internal	202205	master		-S "span sub_port_interfaces dualtor_io platform_tests"'	Non-platform	0 15		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE	
-Arista	vms28-dual-t0-7260	vms28-dual-t0-7260	202205	internal	202205	internal	202205	master		-I "dualtor_io platform_tests"'	Platform	0 4		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE	
+Arista	vms21-dual-t0-7260	vms21-dual-t0-7260	202205	internal	202205	internal	202205	202012		-S "span sub_port_interfaces dualtor_io platform_tests"'	Non-platform	0 15		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE	
+Arista	vms28-dual-t0-7260	vms28-dual-t0-7260	202205	internal	202205	internal	202205	202012		-I "dualtor_io platform_tests"'	Platform	0 4		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE	
 Celestica	vms3-t1-dx010-1	vms3-t1-dx010-1	202205	internal	202205	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 4						TRUE	FALSE		
 Celestica	vms7-t0-dx010-4	vms7-t0-dx010-4	202012	internal	202012	internal	202205	master		-I "platform_tests generic_config_updater"'	Platform	0 2						TRUE	FALSE		
 Celestica	vms7-t0-dx010-5	vms7-t0-dx010-5	202012	internal	202012	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 11						TRUE	FALSE		

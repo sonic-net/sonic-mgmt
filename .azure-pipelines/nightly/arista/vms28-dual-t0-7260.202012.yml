@@ -3,12 +3,19 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
-  - cron: "0 15 * * 5"
+  - cron: "0 4 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal
+        - internal-202012
     always: true
 
 variables:
@@ -18,19 +25,19 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-dual-t0-7260
+    default: vms28-dual-t0-7260
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
+    default: $(IMAGE_BRCM_ABOOT_202012)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_PUBLIC)
+    default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
   # Deploy parameters
@@ -41,7 +48,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "span sub_port_interfaces dualtor_io platform_tests"'
+    default: '-I "dualtor_io platform_tests"'
     displayName: Testbed specific
 
   # Custom skip scripts
