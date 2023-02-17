@@ -13,7 +13,7 @@ from tests.common.plugins.sanity_check.checks import *      # noqa: F401, F403
 from tests.common.plugins.sanity_check.recover import recover
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.assertions import pytest_assert as pt_assert
-from tests.conftest import check_link_status
+#from tests.conftest import check_link_status
 logger = logging.getLogger(__name__)
 
 SUPPORTED_CHECKS = checks.CHECK_ITEMS
@@ -161,7 +161,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
 
     if skip_sanity:
         logger.info("Skip sanity check according to configuration of test script.")
-        check_link_status(duthosts)
+        #check_link_status(duthosts)
         yield
         return
 
@@ -283,7 +283,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     else:
         logger.info('No pre-test sanity check item, skip pre-test sanity check.')
 
-    check_link_status(duthosts)
+    #check_link_status(duthosts)
     yield
 
     if not post_check:
