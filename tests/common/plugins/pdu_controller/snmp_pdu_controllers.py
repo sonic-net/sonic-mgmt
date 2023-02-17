@@ -140,13 +140,13 @@ class snmpPduController(PduControllerBase):
         for lane_id in range(1, self.max_lanes + 1):
             self._probe_lane(lane_id, cmdGen, snmp_auth)
 
-    def __init__(self, controller, pdu, hwsku):
+    def __init__(self, controller, pdu, hwsku, psu_peer_type):
         logger.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
         self.snmp_rwcommunity = pdu['snmp_rwcommunity']
-        self.pduType = hwsku
+        self.pduType = 'Sentry4' if hwsku == 'Sentry' and psu_peer_type == 'Pdu' else hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
         self.pduCntrlOid()
@@ -304,9 +304,9 @@ class snmpPduController(PduControllerBase):
         pass
 
 
-def get_pdu_controller(controller_ip, pdu, hwsku):
+def get_pdu_controller(controller_ip, pdu, hwsku, psu_peer_type):
     """
     @summary: Factory function to create the actual PDU controller object.
     @return: The actual PDU controller object. Returns None if something went wrong.
     """
-    return snmpPduController(controller_ip, pdu, hwsku)
+    return snmpPduController(controller_ip, pdu, hwsku, psu_peer_type)
