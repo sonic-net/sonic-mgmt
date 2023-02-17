@@ -1,6 +1,26 @@
 class TestInvocation(object):
     """
     Structure of invocation
+
+    Args:
+        id: unique identifier for each record
+        file_name: file name
+        class_name: class name
+        case_name: method name
+        case_invoc: SAI interface
+        sai_header: file name
+        saiintf_id: SAI interface groupname
+        saiintf_method_table: SAI interface groupalias
+        saiintf_name: SAI interface name
+        saiintf_alias: SAI interface alias
+        test_set: distinguish test set ("t0" or "ptf")
+        test_platform: the platform used for running cases
+        platform_purpose_attr: platform
+        attr_name: Attribute name
+        attr_value: Attribute value
+        runnable: distinguish whether case runnable
+        sai_folder: folder name of the scanning file
+        upload_time: upload time
     """
 
     def __init__(self, id, file_name, class_name, case_name, case_invoc, sai_header, saiintf_id,
