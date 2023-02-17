@@ -962,17 +962,11 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
-voq/test_voq_init.py:
+voq:
   skip:
     reason: cisco-8000 platform is not VOQ based thus all VOQ testcases are not applicable to this platform and should be skipped
     conditions:
-      - "asic_type in ['cisco-8000']"
-
-voq/test_voq_intfs.py:
-  skip:
-    reason: cisco-8000 platform is not VOQ based thus all VOQ testcases are not applicable to this platform and should be skipped
-    conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000'] and len(VOQ_INBAND_INTERFACE) == 0"
 
 voq/test_voq_ipfwd.py:
   skip:
