@@ -243,6 +243,7 @@ class SAICoverageScanner(object):
             saiintf_name=header_data[header_key]["intf_name"],
             saiintf_alias=header_data[header_key]["intf_alias"],
             test_set=test_set,
+            # TODO: test_platform is unknown during static scanning, and will be obtained in runtime scanning.
             test_platform="vms3-t1-dx010-1" if runnable else "",
             platform_purpose_attr="",
             attr_name=attr_key,
