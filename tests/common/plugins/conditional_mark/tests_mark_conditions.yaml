@@ -964,9 +964,9 @@ vlan/test_vlan_ping.py:
 #######################################
 voq:
   skip:
-    reason: cisco-8000 platform is not VOQ based thus all VOQ testcases are not applicable to this platform and should be skipped
+    reason: Skip all HW SKUs that are not VOQ based (No Inband interface present) from running VOQ test cases
     conditions:
-      - "asic_type in ['cisco-8000'] and len(VOQ_INBAND_INTERFACE) == 0"
+      - "len(VOQ_INBAND_INTERFACE) == 0"
 
 voq/test_voq_ipfwd.py:
   skip:
