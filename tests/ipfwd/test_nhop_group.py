@@ -531,7 +531,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
-    SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP = {"th": "172.16.0.16", "tl7": "172.16.0.13"}
+    SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP = {"th": "172.16.0.16", "tl7": "172.16.0.13", "gb": "172.16.0.18"}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]

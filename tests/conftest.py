@@ -529,71 +529,72 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
-    try:
-        for dut_host, value in dev_conn.items():
-            duthost = duthosts[dut_host]
-            mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-            for dut_port in value.keys():
-                fanout_rec = value[dut_port]
-                fanout_host = str(fanout_rec['peerdevice'])
-                fanout_port = str(fanout_rec['peerport'])
+    for dut_host, value in dev_conn.items():
+        duthost = duthosts[dut_host]
+        if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            continue  # skip for kvm platform which has no fanout
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        for dut_port in value.keys():
+            fanout_rec = value[dut_port]
+            fanout_host = str(fanout_rec['peerdevice'])
+            fanout_port = str(fanout_rec['peerport'])
 
-                if fanout_host in fanout_hosts.keys():
-                    fanout = fanout_hosts[fanout_host]
-                else:
-                    host_vars = ansible_adhoc().options[
-                        'inventory_manager'].get_host(fanout_host).vars
-                    os_type = host_vars.get('os', 'eos')
-                    admin_user = creds['fanout_admin_user']
-                    admin_password = creds['fanout_admin_password']
-                    # `fanout_network_user` and `fanout_network_password` are for
-                    # accessing the non-shell CLI of fanout.
-                    # Ansible will use this set of credentail for establishing
-                    # `network_cli` connection with device when applicable.
-                    network_user = creds.get('fanout_network_user', admin_user)
-                    network_password = creds.get('fanout_network_password',
-                                                 admin_password)
-                    shell_user = creds.get('fanout_shell_user', admin_user)
-                    shell_password = creds.get('fanout_shell_pass', admin_password)
-                    if os_type == 'sonic':
-                        shell_user = creds.get('fanout_sonic_user', None)
-                        shell_password = creds.get('fanout_sonic_password', None)
+            if fanout_host in fanout_hosts.keys():
+                fanout = fanout_hosts[fanout_host]
+            else:
+                host_vars = ansible_adhoc().options[
+                    'inventory_manager'].get_host(fanout_host).vars
+                os_type = host_vars.get('os', 'eos')
+                admin_user = creds['fanout_admin_user']
+                admin_password = creds['fanout_admin_password']
+                # `fanout_network_user` and `fanout_network_password` are for
+                # accessing the non-shell CLI of fanout.
+                # Ansible will use this set of credentail for establishing
+                # `network_cli` connection with device when applicable.
+                network_user = creds.get('fanout_network_user', admin_user)
+                network_password = creds.get('fanout_network_password',
+                                             admin_password)
+                shell_user = creds.get('fanout_shell_user', admin_user)
+                shell_password = creds.get('fanout_shell_pass', admin_password)
+                if os_type == 'sonic':
+                    shell_user = creds.get('fanout_sonic_user', None)
+                    shell_password = creds.get('fanout_sonic_password', None)
 
-                    fanout = FanoutHost(ansible_adhoc,
-                                        os_type,
-                                        fanout_host,
-                                        'FanoutLeaf',
-                                        network_user,
-                                        network_password,
-                                        shell_user=shell_user,
-                                        shell_passwd=shell_password)
-                    fanout.dut_hostnames = [dut_host]
-                    fanout_hosts[fanout_host] = fanout
+                fanout = FanoutHost(ansible_adhoc,
+                                    os_type,
+                                    fanout_host,
+                                    'FanoutLeaf',
+                                    network_user,
+                                    network_password,
+                                    shell_user=shell_user,
+                                    shell_passwd=shell_password)
+                fanout.dut_hostnames = [dut_host]
+                fanout_hosts[fanout_host] = fanout
 
-                    if fanout.os == 'sonic':
-                        ifs_status = fanout.host.get_interfaces_status()
-                        for key, interface_info in ifs_status.items():
-                            fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
-                        logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
+                if fanout.os == 'sonic':
+                    ifs_status = fanout.host.get_interfaces_status()
+                    for key, interface_info in ifs_status.items():
+                        fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
+                    logging.info("fanout {} fanout_port_alias_to_name {}"
+                                 .format(fanout_host, fanout.fanout_port_alias_to_name))
 
-                fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+            fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
-                # Add port name to fanout port mapping port if dut_port is alias.
-                if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
-                    mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
-                    # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
-                    # it happens when an interface has the same name with another alias, for example:
-                    # Interface     Alias
-                    # --------------------
-                    # Ethernet108   Ethernet32
-                    # Ethernet32    Ethernet13/1
-                    if mapped_port not in value.keys():
-                        fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+            # Add port name to fanout port mapping port if dut_port is alias.
+            if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+                mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
+                # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
+                # it happens when an interface has the same name with another alias, for example:
+                # Interface     Alias
+                # --------------------
+                # Ethernet108   Ethernet32
+                # Ethernet32    Ethernet13/1
+                if mapped_port not in value.keys():
+                    fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
 
-                if dut_host not in fanout.dut_hostnames:
-                    fanout.dut_hostnames.append(dut_host)
-    except Exception:
-        pass
+            if dut_host not in fanout.dut_hostnames:
+                fanout.dut_hostnames.append(dut_host)
+
     return fanout_hosts
 
 
@@ -1212,7 +1213,7 @@ def generate_dut_backend_asics(request, duts_selected):
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            dut_asic_list.append([None]) 
+            dut_asic_list.append([None])
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
@@ -1243,6 +1244,35 @@ def generate_priority_lists(request, prio_scope):
     for dut, priorities in dut_prio.items():
         for p in priorities:
             ret.append('{}|{}'.format(dut, p))
+
+    return ret if ret else empty
+
+
+def pfc_pause_delay_test_params(request):
+    empty = []
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'pfc_headroom_test_params'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError:
+        return empty
+
+    if tbname not in info:
+        return empty
+
+    dut_pfc_delay_params = info[tbname]
+    ret = []
+
+    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
+        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+            ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
 
     return ret if ret else empty
 
@@ -1384,6 +1414,8 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
+        metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
 
 def get_autoneg_tests_data():
@@ -1633,7 +1665,7 @@ def duts_running_config_facts(duthosts):
 
 @pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
-                    ptf_portmap_file, lower_tor_host):   # noqa F811
+                    ptf_portmap_file, lower_tor_host, creds):   # noqa F811
     """
         Prepares DUT host test params
 
@@ -1653,7 +1685,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["name"]
 
-    yield {
+    rtn_dict = {
         "topo": topo,
         "hwsku": mgFacts["minigraph_hwsku"],
         "basicParams": {
@@ -1663,10 +1695,15 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ).vars['ansible_host'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
-            "sonic_version": duthost.os_version
+            "sonic_version": duthost.os_version,
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         }
     }
+    if 'platform_asic' in duthost.facts:
+        rtn_dict['basicParams']["platform_asic"] = duthost.facts['platform_asic']
 
+    yield rtn_dict
 
 @pytest.fixture(scope='module')
 def duts_minigraph_facts(duthosts, tbinfo):
@@ -1797,7 +1834,7 @@ def __dut_reload(duts_data, node=None, results=None):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def core_dump_and_config_check(duthosts, request):
+def core_dump_and_config_check(duthosts, tbinfo, request):
     '''
     Check if there are new core dump files and if the running config is modified after the test case running.
     If so, we will reload the running config after test case running.
@@ -1820,6 +1857,8 @@ def core_dump_and_config_check(duthosts, request):
     pre_only_config = {}
     cur_only_config = {}
     config_db_check_pass = True
+
+    check_result = {}
 
     if check_flag:
         for duthost in duthosts:
@@ -1889,14 +1928,16 @@ def core_dump_and_config_check(duthosts, request):
             EXCLUDE_CONFIG_TABLE_NAMES = set([])
             # The keys that we don't care
             # Current skipped keys:
-            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture
+            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder_session` fixture in dualtor-mixed
             # to account for the lower performance of the ICMP responder/mux simulator,
             # compared to real servers and mux cables. It's appropriate to persist this change
-            # since the testbed will always be using the ICMP responder and mux simulator.
-            # Linkmgrd is the only service to consume this table so it should not affect other test cases.
-            EXCLUDE_CONFIG_KEY_NAMES = [
-                'MUX_LINKMGR|LINK_PROBER'
-            ]
+            # since the testbed will always be using the ICMP responder and mux simulator in dualtor-mixed.
+            if "mixed" in tbinfo["topo"]["name"]:
+                EXCLUDE_CONFIG_KEY_NAMES = [
+                    'MUX_LINKMGR|LINK_PROBER'
+                ]
+            else:
+                EXCLUDE_CONFIG_KEY_NAMES = []
 
             def _remove_entry(table_name, key_name, config):
                 if table_name in config and key_name in config[table_name]:
@@ -1998,6 +2039,12 @@ def core_dump_and_config_check(duthosts, request):
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
+
+    if check_result:
+        items = request.session.items
+        for item in items:
+            if item.module.__name__ + ".py" == module_name.split("/")[-1]:
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
 
 
 @pytest.fixture(scope="function")

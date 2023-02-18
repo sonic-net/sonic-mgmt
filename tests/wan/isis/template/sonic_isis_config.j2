@@ -6,7 +6,8 @@
             "level-capability": "{{ level_capability | default('level-2') }}",
             "dynamic-hostname": "{{ dynamic_hostname | default('true') }}",
             "lsp-mtu-size": "{{ lsp_mtu_size | default('1497') }}",
-            "log-adjacency-changes": "{{ log_adjacency_changes | default('false') }}"
+            "log-adjacency-changes": "{{ log_adjacency_changes | default('false') }}",
+            "set-overload-bit": "{{ isis_overload_bit | default('false') }}"
         }
 {%- endif %}
     },

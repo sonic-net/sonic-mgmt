@@ -28,7 +28,7 @@
       - net_admin
     privileged: yes
     memory: 2G
-    memory_swap: 2G
+    memory_swap: 4G
     env:
       CEOS=1
       container=docker
