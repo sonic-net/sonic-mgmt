@@ -206,11 +206,13 @@ class AnsibleLogAnalyzer:
         last_check_pos = 0
         syslog_file = "/var/log/syslog"
         prev_syslog_file = "/var/log/syslog.1"
-        last_dt = os.path.getctime(syslog_file)
+        prev_size = os.path.getsize(syslog_file)
         while wait_time <= timeout:
             with open(syslog_file, 'r') as fp:
-                dt = os.path.getctime(syslog_file)
-                if last_dt != dt:
+                new_size = os.path.getsize(syslog_file)
+                if prev_size > new_size:
+                    # if new syslog's size is lesser than old size, then logs are rotated
+                    # start looking at syslog.1 file
                     try:
                         with open(prev_syslog_file, 'r') as pfp:
                             pfp.seek(last_check_pos)
@@ -220,7 +222,7 @@ class AnsibleLogAnalyzer:
                     except FileNotFoundError:
                         print("cannot find file {}".format(prev_syslog_file))
                     last_check_pos = 0
-                    last_dt = dt
+                    prev_size = new_size
                 # resume from last search position
                 if last_check_pos:
                     fp.seek(last_check_pos)
