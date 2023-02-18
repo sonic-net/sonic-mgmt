@@ -314,7 +314,6 @@ def get_cacl_tables_and_rules(duthost):
 def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules, asic_index):
     INTERFACE_TABLE_NAME_LIST = [
         "LOOPBACK_INTERFACE",
-        "MGMT_INTERFACE",
         "VLAN_INTERFACE",
         "PORTCHANNEL_INTERFACE",
         "INTERFACE"

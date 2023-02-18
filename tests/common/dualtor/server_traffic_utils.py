@@ -49,7 +49,8 @@ class ServerTrafficMonitor(object):
 
     VLAN_INTERFACE_TEMPLATE = "{external_port}.{vlan_id}"
 
-    def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface, conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
+    def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface,
+                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
         """
         @summary: Initialize the monitor.
 

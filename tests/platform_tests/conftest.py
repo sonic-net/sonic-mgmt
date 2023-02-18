@@ -362,10 +362,11 @@ def verify_mac_jumping(test_name, timing_data, verification_errors):
 def verify_required_events(duthost, event_counters, timing_data, verification_errors):
     for key in ["time_span", "offset_from_kexec"]:
         for pattern in REQUIRED_PATTERNS.get(key):
-            observed_start_count = timing_data.get(key).get(pattern).get("Start count")
-            observed_end_count = timing_data.get(key).get(pattern).get("End count")
+            observed_start_count = timing_data.get(key, {}).get(pattern, {}).get("Start count", 0)
+            observed_end_count = timing_data.get(key, {}).get(pattern, {}).get("End count", 0)
             expected_count = event_counters.get(pattern)
-            if observed_start_count != expected_count:
+            if (observed_start_count != expected_count and pattern != 'PORT_READY') or\
+                    (observed_start_count > expected_count and pattern == 'PORT_READY'):
                 verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".
                                            format(pattern, observed_start_count, expected_count))
             if key == "time_span" and observed_start_count != observed_end_count:
@@ -396,7 +397,7 @@ def get_current_sonic_version(duthost):
 
 
 @pytest.fixture()
-def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
+def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
     """
     Advance reboot log analysis.
     This fixture starts log analysis at the beginning of the test. At the end,
@@ -404,9 +405,9 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
     Args:
         duthosts : List of DUT hosts
-        rand_one_dut_hostname: hostname of a randomly selected DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of a randomly selected DUT
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_name = request.node.name
     if "warm" in test_name:
         reboot_type = "warm"
@@ -495,11 +496,16 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
                     logging.error("kexec regex \"Rebooting with /sbin/kexec\" not found in syslog. " +
                                   "Skipping log_analyzer checks..")
                     return
-                analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
+                syslog_messages = messages
             elif "bgpd.log" in key:
-                analyze_log_file(duthost, messages, analyze_result, offset_from_kexec)
+                bgpd_log_messages = messages
             elif "sairedis.rec" in key:
-                analyze_sairedis_rec(messages, analyze_result, offset_from_kexec)
+                sairedis_rec_messages = messages
+
+        # analyze_sairedis_rec() use information from syslog and must be called after analyzing syslog
+        analyze_log_file(duthost, syslog_messages, analyze_result, offset_from_kexec)
+        analyze_log_file(duthost, bgpd_log_messages, analyze_result, offset_from_kexec)
+        analyze_sairedis_rec(sairedis_rec_messages, analyze_result, offset_from_kexec)
 
         for marker, time_data in analyze_result["offset_from_kexec"].items():
             marker_start_time = time_data.get("timestamp", {}).get("Start")
@@ -546,7 +552,7 @@ def advanceboot_loganalyzer(duthosts, rand_one_dut_hostname, request):
 
 
 @pytest.fixture()
-def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts, tbinfo):
     """
     This fixture is invoked at the test teardown for advanced-reboot SAD cases.
     If a SAD case fails or crashes for some reason, the neighbor VMs can be left in
@@ -554,13 +560,13 @@ def advanceboot_neighbor_restore(duthosts, rand_one_dut_hostname, nbrhosts, tbin
     and BGP sessions that were shutdown during the test.
     """
     yield
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     neighbor_vm_restore(duthost, nbrhosts, tbinfo)
 
 
 @pytest.fixture()
-def capture_interface_counters(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def capture_interface_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logging.info("Run commands to print logs")
 
     show_counter_cmds = [

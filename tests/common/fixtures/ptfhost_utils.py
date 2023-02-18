@@ -11,7 +11,8 @@ from jinja2 import Template
 
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
-from tests.common.dualtor.dual_tor_utils import increase_linkmgrd_probe_interval
+from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
+
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
 GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
+PROBER_INTERVAL_MS = 1000
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -79,7 +81,7 @@ def set_ptf_port_mapping_mode(ptfhost, request, tbinfo):
         ptf_port_mapping_mode = getattr(request.module, "PTF_PORT_MAPPING_MODE", constants.PTF_PORT_MAPPING_MODE_DEFAULT)
     else:
         ptf_port_mapping_mode = "use_orig_interface"
-    logging.info("Set ptf port mapping mode: %s", ptf_port_mapping_mode)
+    logger.info("Set ptf port mapping mode: %s", ptf_port_mapping_mode)
     data = {
         "PTF_PORT_MAPPING_MODE": ptf_port_mapping_mode
     }
@@ -121,9 +123,11 @@ def change_mac_addresses(ptfhost):
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.change_mac_addresses()
     # NOTE: up/down ptf interfaces in change_mac_address will interrupt icmp_responder
-    # socket read/write operations, so let's restart icmp_responder
-    logging.debug("restart icmp_responder after change ptf port mac addresses")
-    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
+    # socket read/write operations, so let's restart icmp_responder if it is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)
+    if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
+        logger.debug("restart icmp_responder after change ptf port mac addresses")
+        ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -179,7 +183,7 @@ def _ptf_portmap_file(duthost, ptfhost, tbinfo):
             filename (str): returns the filename copied to PTF host
     """
     intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up']
+    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up' and intfInfo[port]['admin_state'] == 'up']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
@@ -227,13 +231,14 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     global icmp_responder_session_started
 
-    increase_linkmgrd_probe_interval(duthosts, tbinfo)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    duthosts.shell("config save -y")
 
     duthost = duthosts[0]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
-    logging.info("Start running icmp_responder")
+    logger.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     vlan_intfs = duthost.get_vlan_intfs()
@@ -257,11 +262,15 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request):
     """Run icmp_responder.py over ptfhost."""
     # No vlan is available on non-t0 testbed, so skip this fixture
     if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
+        yield
+        return
+    elif 'dualtor' not in tbinfo['topo']['name'] and "test_advanced_reboot" in request.node.name:
+        logger.info("Skip ICMP responder for advanced-reboot test on non dualtor devices")
         yield
         return
 
@@ -270,13 +279,14 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         yield
         return
 
-    increase_linkmgrd_probe_interval(duthosts, tbinfo)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    duthosts.shell("config save -y")
 
     duthost = duthosts[rand_one_dut_hostname]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
 
-    logging.info("Start running icmp_responder")
+    logger.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
     ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
     vlan_intfs = duthost.get_vlan_intfs()
@@ -294,8 +304,11 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     yield
 
-    logging.info("Stop running icmp_responder")
+    logger.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
+    logger.info("Recover linkmgrd probe interval")
+    recover_linkmgrd_probe_interval(duthosts, tbinfo)
+    duthosts.shell("config save -y")
 
 
 @pytest.fixture
@@ -352,6 +365,10 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
         ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
         if 'dualtor' not in tbinfo['topo']['name']:
+            if "test_advanced_reboot" in request.node.name:
+                logger.info("Skip GARP service for advanced-reboot test on non dualtor devices")
+                yield
+                return
             # For mocked dualtor testbed
             mux_cable_table = {}
             server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')
@@ -512,11 +529,16 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                     if target_dut_port in mg_facts['minigraph_port_indices'].values():
                         router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][idx]['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
+                        for a_dut_port, a_dut_port_index in mg_facts['minigraph_port_indices'].items():
+                            if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
+                                    "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
+                                dut_port = a_dut_port
                         break
             ports_map[ptf_port] = {
                 'target_dut': [target_dut_index],
                 'target_dest_mac': router_mac,
                 'target_src_mac': [router_mac],
+                'dut_port': dut_port,
                 'asic_idx': asic_idx
             }
 

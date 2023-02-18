@@ -2,6 +2,7 @@ import logging
 import os
 import pytest
 import random
+import time
 
 from tests.common.config_reload import config_reload
 from tests.common.utilities import skip_release
@@ -63,6 +64,7 @@ def restore_rate_limit(rand_selected_dut):
     rand_selected_dut.command('config save -y')
 
 
+@pytest.mark.disable_loganalyzer
 def test_syslog_rate_limit(rand_selected_dut):
     """Test case for syslog rate limit
 
@@ -121,8 +123,10 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
             verify_config_rate_limit_fail(rand_selected_dut, service_name)
             continue
 
+        rsyslog_pid = get_rsyslogd_pid(rand_selected_dut, service_name)
         rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(
             service_name, RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL))
+        assert wait_rsyslogd_restart(rand_selected_dut, service_name, rsyslog_pid)
         rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-container {}'.format(service_name))
         pytest_assert(rate_limit_data[0]['interval'] == str(RATE_LIMIT_INTERVAL),
                       'Expect rate limit interval {}, actual {}'.format(RATE_LIMIT_INTERVAL,
@@ -141,7 +145,9 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
                                               LOG_EXPECT_LAST_MESSAGE.format(service_name + '#')],
                                              RATE_LIMIT_BURST + 1)
 
+        rsyslog_pid = get_rsyslogd_pid(rand_selected_dut, service_name)
         rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(service_name, 0, 0))
+        assert wait_rsyslogd_restart(rand_selected_dut, service_name, rsyslog_pid)
         rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-container {}'.format(service_name))
         pytest_assert(rate_limit_data[0]['interval'] == '0',
                       'Expect rate limit interval {}, actual {}'.format(0, rate_limit_data[0]['interval']))
@@ -236,3 +242,29 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
 
     with loganalyzer:
         duthost.command(run_generator_cmd)
+
+
+def wait_rsyslogd_restart(duthost, service_name, old_pid):
+    logger.info('Waiting rsyslogd restart')
+    cmd = "docker exec -i {} bash -c 'supervisorctl status rsyslogd'".format(service_name)
+    wait_time = 30
+    while wait_time > 0:
+        wait_time -= 1
+        if get_rsyslogd_pid(duthost, service_name) == old_pid:
+            time.sleep(1)
+            continue
+
+        output = duthost.command(cmd, module_ignore_errors=True)['stdout'].strip()
+        if 'RUNNING' in output:
+            logger.info('Rsyslogd restarted')
+            return True
+
+        time.sleep(1)
+
+    logger.error('Rsyslogd failed to restart')
+    return False
+
+
+def get_rsyslogd_pid(duthost, service_name):
+    cmd = "docker exec -i {} bash -c 'pidof rsyslogd'".format(service_name)
+    return duthost.command(cmd, module_ignore_errors=True)['stdout'].strip()

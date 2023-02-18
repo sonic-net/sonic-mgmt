@@ -16,6 +16,7 @@ from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -44,20 +45,6 @@ DEFAULT_SERVER_IP = "192.168.0.3"
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
-# Describe upstream neighbor of dut in different topos
-UPSTREAM_NEIGHBOR_MAP = {
-    "t0": "t1",
-    "t1": "t2",
-    "m0": "m1",
-    "t2": "t3"
-}
-# Describe downstream neighbor of dut in different topos
-DOWNSTREAM_NEIGHBOR_MAP = {
-    "t0": "server",
-    "t1": "t0",
-    "m0": "mx",
-    "t2": "t1"
-}
 # Topo that downstream neighbor of DUT are servers
 DOWNSTREAM_SERVER_TOPO = ["t0"]
 
@@ -290,6 +277,12 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
                 "server_dest_ports_ptf_id": downstream_dest_ports_ptf_id
             }
         )
+    # Update the VLAN MAC for dualtor testbed. The VLAN MAC will be used as dst MAC in upstream traffic
+    if 'dualtor' in topo:
+        vlan_name = mg_facts_list[0]['minigraph_vlans'].keys()[0]
+        vlan_mac = downStreamDutHost.get_dut_iface_mac(vlan_name)
+        setup_information.update({"dualtor": True})
+        setup_information[UP_STREAM]['ingress_router_mac'] = vlan_mac
 
     return setup_information
 
@@ -316,9 +309,10 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
 
     """
     topo = tbinfo['topo']['name']
-    if 't1' in topo or 't0' in topo:
+    if 't1' in topo or 't0' in topo or 'm0' in topo or 'mx' in topo or 'dualtor' in topo:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
     elif 't2' in topo:
+        pytest_assert(len(duthosts) > 1, "Test must run on whole chassis")
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
         
     setup_information = gen_setup_information(downstream_duthost, upstream_duthost, tbinfo)
@@ -459,18 +453,6 @@ class BaseEverflowTest(object):
     Contains common methods for setting up the mirror session and describing the
     mirror and ACL stage for the tests.
     """
-    @pytest.fixture(scope="class", autouse=True)
-    def skip_on_dualtor(self, tbinfo):
-        """
-        Skip dualtor topo for now
-        """
-        if 'dualtor' in tbinfo['topo']['name']:
-            pytest.skip("Dualtor testbed is not supported yet")
-        
-        self.is_t0 = False
-        if 't0' in tbinfo['topo']['name']:
-            self.is_t0 = True
-
     @pytest.fixture(scope="class", params=[CONFIG_MODE_CLI])
     def config_method(self, request):
         """Get the configuration method for this set of test cases.
@@ -740,14 +722,18 @@ class BaseEverflowTest(object):
         src_port_set = set()
         src_port_metadata_map = {}
 
-    
+
         if 't2' in setup['topo']:
             if valid_across_namespace is True:
                 src_port_set.add(src_port)
                 src_port_metadata_map[src_port] = (None, 1)
-
-            src_port_set.add(dest_ports[0])
-            src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
+                if duthost.facts['switch_type'] == "voq":
+                    if self.mirror_type() != "egress":  # no egress route on the other node/namespace
+                        src_port_set.add(dest_ports[0])
+                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
+                else:
+                    src_port_set.add(dest_ports[0])
+                    src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
 
         else:
             src_port_namespace = setup[direction]["everflow_namespace"]
@@ -786,10 +772,11 @@ class BaseEverflowTest(object):
             if expect_recv:
                 time.sleep(STABILITY_BUFFER)
                 _, received_packet = testutils.verify_packet_any_port(
-                    ptfadapter,
-                    expected_mirror_packet,
-                    ports=dest_ports
+                ptfadapter,
+                expected_mirror_packet,
+                ports=dest_ports
                 )
+
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
                 inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent))
@@ -808,7 +795,11 @@ class BaseEverflowTest(object):
                 # mask off the DMAC and IP Checksum to verify the packet contents.
                 if self.mirror_type() == "egress":
                     mirror_packet_sent[packet.IP].ttl -= 1
-                    mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
+                    if 't2' in setup['topo']:
+                        if duthost.facts['switch_type'] == "voq":
+                            mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                    else:
+                        mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
 
                     inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
                     inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
@@ -826,7 +817,8 @@ class BaseEverflowTest(object):
         if duthost.facts["asic_type"] in ["mellanox"]:
             payload = binascii.unhexlify("0" * 44) + str(payload)
 
-        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000" , "innovium"]:
+        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"] or duthost.facts.get(
+                "platform_asic") in ["broadcom-dnx"]:
             payload = binascii.unhexlify("0" * 24) + str(payload)
 
         expected_packet = testutils.simple_gre_packet(
@@ -847,7 +839,9 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
-        if duthost.facts["asic_type"] in ["cisco-8000","innovium"]:
+        if duthost.facts["asic_type"] == 'marvell':
+            expected_packet.set_do_not_care_scapy(packet.IP, "id")
+        if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
