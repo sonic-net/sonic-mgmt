@@ -227,7 +227,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
 
         # Mock the power as well.
         # This is to make sure the power will be a fixed value because it can flucuate if it was read from a sensor.
-        logger.info('Mock PSU power to {} which is in normal range'.format(power/1000000)) 
+        logger.info('Mock PSU power to {} which is in normal range'.format(power/1000000))
         mocker.mock_psu_power(psu_index, power)
 
         power_warning_suppress_threshold = None
