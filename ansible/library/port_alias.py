@@ -4,9 +4,13 @@ import re
 import os
 import traceback
 import subprocess
+import json
+import ast
+import csv
 from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
+from collections import OrderedDict
 
 try:
     from sonic_py_common import multi_asic
@@ -51,6 +55,9 @@ PORTMAP_FILE = 'port_config.ini'
 ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', 'speed',
                   'coreid', 'coreportid', 'numvoq']
 
+PLATFORM_FILE = 'platform.json'
+HWSKU_FILE = 'hwsku.json'
+LINKS_FILE = '/tmp/sonic_lab_links.csv'
 MACHINE_CONF = '/host/machine.conf'
 ONIE_PLATFORM_KEY = 'onie_platform'
 ABOOT_PLATFORM_KEY = 'aboot_platform'
@@ -95,8 +102,96 @@ class SonicPortAliasMap():
             return portconfig
         return None
 
+    def get_platform_path(self):
+        platform = self.get_platform_type()
+        if platform is None:
+            return None
+        platform_path = os.path.join(FILE_PATH, platform, PLATFORM_FILE)
+        if os.path.exists(platform_path):
+            return platform_path
+        return None
+
+    def get_hwsku_path(self):
+        platform = self.get_platform_type()
+        if platform is None:
+            return None
+        hwsku_path = os.path.join(FILE_PATH, platform, self.hwsku, HWSKU_FILE)
+        if os.path.exists(hwsku_path):
+            return hwsku_path
+        return None
+
+    def get_portmap_from_platform_hwsku(self, platform_file, hwsku_file, aliases, portmap, aliasmap, portspeed, speeds_list):
+        decoder = json.JSONDecoder(object_pairs_hook=OrderedDict)
+        brkout_pattern = r'(\d{1,3})x(\d{1,3}G)(\[\d{1,3}G\])?(\((\d{1,3})\))?'
+        with open(platform_file) as f:
+            data = json.load(f, object_pairs_hook=OrderedDict)
+            platform_dict = decoder.decode(json.dumps(data))
+        with open(hwsku_file) as f:
+            data = json.load(f)
+            hwsku_dict = ast.literal_eval(json.dumps(data))
+        for interface in platform_dict["interfaces"]:
+            if interface not in hwsku_dict["interfaces"]:
+                raise Exception("interface {} not in hwsku dict".format(interface))
+            lanes = platform_dict["interfaces"][interface]['lanes']
+            breakout_mode = hwsku_dict["interfaces"][interface]["default_brkout_mode"]
+            alias_list = platform_dict["interfaces"][interface]['breakout_modes'][breakout_mode]
+
+            # Asymmetric breakout mode
+            if re.search("\+", breakout_mode) is not None:
+                breakout_parts = breakout_mode.split("+")
+                match_list = [re.match(brkout_pattern, i).groups() for i in breakout_parts]
+            # Symmetric breakout mode
+            else:
+                match_list = [re.match(brkout_pattern, breakout_mode).groups()]
+
+            offset = 0
+            parent_intf_id = int(re.search("Ethernet(\d+)", interface).group(1))
+            for k in match_list:
+                if k is not None:
+                    num_lane_used, speed, assigned_lane = k[0], k[1], k[4]
+
+                    # In case of symmetric mode
+                    if assigned_lane is None:
+                        assigned_lane = len(lanes.split(","))
+
+                    parent_intf_id = int(offset)+int(parent_intf_id)
+                    alias_position = 0 + int(offset)//int(num_lane_used)
+
+                    step = int(assigned_lane)//int(num_lane_used)
+                    for i in range(0,int(assigned_lane), step):
+
+                        intf_name = "Ethernet" + str(parent_intf_id)
+                        alias = alias_list[alias_position]
+
+                        alias_indexes = platform_dict["interfaces"][interface]['index'].split(",")
+                        aliases.append((str(alias), alias_indexes[0]))
+
+                        portmap[intf_name] = str(alias)
+                        aliasmap[str(alias)] = intf_name
+
+                        if speeds_list:
+                            portspeed[alias] = speeds_list.get(alias)
+                        else:
+                            if speed:
+                                speed_pat = re.search("^((\d+)G|\d+)$", speed.upper())
+                                if speed_pat is None:
+                                    raise Exception('{} speed is not Supported...'.format(speed))
+                                speed_G, speed_orig = speed_pat.group(2), speed_pat.group(1)
+                                if speed_G:
+                                    portspeed[alias] = str(int(speed_G)*1000)
+                                else:
+                                    portspeed[alias] = speed_orig
+                            else:
+                                raise Exception('Regex return for speed is None...')
+
+                        parent_intf_id += step
+                        alias_position += 1
+
+                    parent_intf_id = 0
+                    offset = int(assigned_lane) + int(offset)
+
     def get_portmap(self, asic_id=None, include_internal=False,
-                    hostname=None, switchid=None, slotid=None):
+                    hostname=None, switchid=None, slotid=None, speeds_list=None):
         aliases = []
         portmap = {}
         aliasmap = {}
@@ -111,7 +206,14 @@ class SonicPortAliasMap():
         num_voq_index = -1
         # default to Asic0 as minigraph.py parsing code has that assumption.
         asic_name = "Asic0" if asic_id is None else "asic" + str(asic_id)
-
+        # if platform.json and hwsku.json exist, than get portmap from hwsku
+        platform_file = self.get_platform_path()
+        hwsku_file = self.get_hwsku_path()
+        if platform_file and hwsku_file:
+            self.get_portmap_from_platform_hwsku(platform_file, hwsku_file, aliases, portmap, aliasmap, portspeed, speeds_list)
+            return (aliases, portmap, aliasmap, portspeed, front_panel_asic_ifnames, asic_if_names,
+                sysports)
+        # platform.json or hwsku.json does not exist so get portmap from port_config.ini
         filename = self.get_portconfig_path(slotid, asic_id)
         if filename is None:
             raise Exception("Something wrong when trying to find the portmap file, either the hwsku is not available or file location is not correct")
@@ -246,6 +348,11 @@ def main():
         allmap = SonicPortAliasMap(m_args['hwsku'])
         switchids = None
         slotid = None
+        speeds_list = None
+        if os.path.exists(LINKS_FILE):
+            with open(LINKS_FILE) as f:
+                data = csv.DictReader(f)
+                speeds_list = {row['StartPort']:row['BandWidth'] for row in data if row['StartDevice'] == m_args['hostname']}
         if 'switchids' in m_args and m_args['switchids'] != None and len(m_args['switchids']):
            switchids = m_args['switchids']
 
@@ -282,7 +389,7 @@ def main():
             if num_asic == 1:
                 asic_id = None
             (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, asicifnames_asic,
-             sysport_asic) = allmap.get_portmap(asic_id, include_internal, hostname, switchid, slotid)
+             sysport_asic) = allmap.get_portmap(asic_id, include_internal, hostname, switchid, slotid, speeds_list)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
             if portmap_asic is not None:

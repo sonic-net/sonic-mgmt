@@ -41,6 +41,11 @@
         testbed_file: testbed.csv
       when: testbed_file is not defined
 
+    - name: Copy port speed config file
+      copy: src=files/sonic_lab_links.csv
+            dest=/tmp/sonic_lab_links.csv
+      delegate_to: localhost
+
     - name: Gathering testbed information
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
       delegate_to: localhost
