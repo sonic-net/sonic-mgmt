@@ -314,7 +314,7 @@ sonic_cisco_lc_100G:
         "0x23": "FOC2420NC30"
         "0x24": "AC:7A:56:71:EB:70"
         "0x26": "2"
-        "0x28": "x86_64-8800_lc_48h_o-r2"
+        "0x28": "x86_64-8800_lc_48h_o-r0"
         "0x2A": "200"
         "0x2B": "Cisco"
         "0x2C": "US"
@@ -350,7 +350,7 @@ sonic_cisco_lc_100G:
         "0x23": "FOC2425NC97"
         "0x24": "3C:13:CC:83:34:E0"
         "0x26": "2"
-        "0x28": "x86_64-8800_lc_48h_o-r2"
+        "0x28": "x86_64-8800_lc_48h_o-r0"
         "0x2A": "200"
         "0x2B": "Cisco"
         "0x2C": "US"
@@ -385,14 +385,14 @@ sonic_cisco_lc_400G:
       ansible_host: 10.3.146.98
       serial: FOC2533NMVZ
       base_mac: 20:CF:AE:B2:BF:50
-      model: '88-LC0-36FH-M'
+      model: '88-LC0-36FH-MO'
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
         "0x22": "1B0020"
         "0x23": "FOC2533NMVZ"
         "0x24": "20:CF:AE:B2:BF:50"
         "0x26": "3"
-        "0x28": "x86_64-88_lc0_36fh_mo-r3"
+        "0x28": "x86_64-88_lc0_36fh_mo-r0"
         "0x2A": "296"
         "0x2B": "Cisco"
         "0x2C": "US"
@@ -423,7 +423,7 @@ sonic_cisco_sup:
     str3-8800-sup-1:
       ansible_host: 10.3.147.95
       hwsku: 8800-RP-O
-      model: '8800-RP'
+      model: '8800-RP-O'
       num_asics: 16
       asic_name: Q200
       serial: FOC2428P4F3
@@ -434,7 +434,7 @@ sonic_cisco_sup:
         "0x23": "FOC2428P4F3"
         "0x24": "80:2D:BF:A5:C1:00"
         "0x26": "1"
-        "0x28": "x86_64-8800_rp_o-r1"
+        "0x28": "x86_64-8800_rp_o-r0"
         "0x2A": "8"
         "0x2B": "Cisco"
         "0x2C": "US"
@@ -448,8 +448,8 @@ sonic_cisco_sup:
             - LINE-CARD6
             - LINE-CARD7
           'fabric-cards':
-            - FABRIC-CARD5
-            - FABRIC-CARD6
+            - FABRIC-CARD1
+            - FABRIC-CARD3
             - FABRIC-CARD7
           'supervisor':
             - SUPERVISOR1

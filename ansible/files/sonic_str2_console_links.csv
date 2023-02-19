@@ -8,6 +8,8 @@ console-212,45,str2-7050cx3-acs-08,ssh,sonic
 console-194,24,str2-7050cx3-acs-09,ssh,sonic
 console-199,15,str2-7050cx3-acs-10,ssh,sonic
 console-182,2,str2-7050cx3-acs-12,ssh,admin
+console-212,24,str2-7050cx3-acs-13,ssh,sonic
+console-194,13,str2-7050cx3-acs-14,ssh,sonic
 console-212,19,str2-7050qx-32s-acs-01,ssh,sonic
 console-212,21,str2-7060cx-32s-29,ssh,sonic
 console-212,2006,str2-7060-spy-1,ssh,sonic

@@ -3,12 +3,19 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
-  - cron: "0 12 * * 0"
+  - cron: "30 2 * * 1,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal
+        - internal-202012
     always: true
 
 variables:
@@ -18,26 +25,31 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms6-t1-7060
+    default: testbed-bjw-can-7050qx-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205-SLIM)
+    default: $(BJW_IMAGE_BRCM_ABOOT_202012_SLIM)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205-SLIM)
+    default: $(BJW_SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly-bjw
+    displayName: "Agent pool"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -46,3 +58,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
