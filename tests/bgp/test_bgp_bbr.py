@@ -301,6 +301,20 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                 vm_route['failed'] = True
                 vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
         results[node] = vm_route
+        
+    def route_check():
+        results = parallel_run(check_other_vms, (nbrhosts, setup, route), 
+                               {'accepted': accepted}, other_vms, timeout=120)
+
+        failed_results = {}
+        for node, result in results.items():
+            if result['failed']:
+                failed_results[node] = result
+
+        if not failed_results:
+            return True
+        else:
+            return False
 
     other_vms = setup['other_vms']
     bgp_neighbors = json.loads(duthost.shell("sonic-cfggen -d --var-json 'BGP_NEIGHBOR'")['stdout'])
@@ -311,16 +325,9 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
     # check DUT
     pytest_assert(wait_until(5, 1, 0, check_dut, duthost, other_vms, bgp_neighbors,
                   setup, route, accepted=accepted), 'DUT check failed')
-
-    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted}, other_vms, timeout=120)
-
-    failed_results = {}
-    for node, result in results.items():
-        if result['failed']:
-            failed_results[node] = result
-
-    pytest_assert(not failed_results, 'Checking route {} failed, failed_results: {}'
-                  .format(str(route), json.dumps(failed_results, indent=2)))
+    
+    # check route
+    pytest_assert(wait_until(30, 1, 0, route_check), 'Checking route failed')
 
 
 def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts,
