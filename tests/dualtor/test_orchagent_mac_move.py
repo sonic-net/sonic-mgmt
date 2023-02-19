@@ -142,7 +142,7 @@ def test_mac_move(
     tor.shell("fdbclear")
     server_traffic_monitor = ServerTrafficMonitor(
         tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
+        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
