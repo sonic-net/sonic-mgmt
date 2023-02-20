@@ -81,25 +81,17 @@
       dest: "/etc/supervisor/conf.d/exabgpv6.conf"
     delegate_to: "{{ ptf_host }}"
 
-  - name: Reread supervisor
-    shell: supervisorctl reread
+  - name: Add exabgpv4 supervisor config and start related processes
+    supervisorctl:
+      name: "exabgpv4:"
+      state: present  # present contains `supervisorctl reread` and `supervisorctl add`
     delegate_to: "{{ ptf_host }}"
 
-  - name: Update supervisor
-    shell: supervisorctl update
+  - name: Add exabgpv6 supervisor config and start related processes
+    supervisorctl:
+      name: "exabgpv6:"
+      state: present  # present contains `supervisorctl reread` and `supervisorctl add`
     delegate_to: "{{ ptf_host }}"
-
-  - name: Restart v4 Exabgp 
-    shell: supervisorctl restart exabgpv4:*
-    delegate_to: "{{ ptf_host }}"
-  
-  - name: Restart v6 Exabgp 
-    shell: supervisorctl restart exabgpv6:*
-    delegate_to: "{{ ptf_host }}"
-
-  - name: Wait for exabgp to (re)start
-    pause:
-      seconds: "{{ 2 * topology['VMs']|dict2items|length }}"
 
   - name: Verify that exabgp processes for IPv4 are started
     wait_for:
@@ -141,20 +133,14 @@
 
 - block:
   - name: Stop exabgp processes for IPv4 on PTF
-    exabgp:
-      name: "{{ vm_item.key }}"
-      state: "stopped"
-    loop: "{{ topology['VMs']|dict2items }}"
-    loop_control:
-      loop_var: vm_item
+    supervisorctl:
+      name: "exabgpv4:"
+      state: stopped
     delegate_to: "{{ ptf_host }}"
 
   - name: Stop exabgp processes for IPv6 on PTF
-    exabgp:
-      name: "{{ vm_item.key }}-v6"
-      state: "stopped"
-    loop: "{{ topology['VMs']|dict2items }}"
-    loop_control:
-      loop_var: vm_item
+    supervisorctl:
+      name: "exabgpv6:"
+      state: stopped
     delegate_to: "{{ ptf_host }}"
   when: exabgp_action == 'stop' and ptf_accessible is defined and not ptf_accessible.failed
