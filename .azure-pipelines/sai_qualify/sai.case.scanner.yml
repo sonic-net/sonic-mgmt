@@ -1,0 +1,114 @@
+name: $(Build.DefinitionName)_Running_Init_$(Build.BuildId)_$(Date:yyyyMMdd)
+
+trigger: none
+pr: none
+
+variables:
+  - template: ./templates/template_variables.yml
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed Name"
+    default: vms11-t0-s6000
+
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202012)
+    displayName: "py_saithrift URL"
+
+  #Resource agent pool
+  - name: AGENT_POOL
+    displayName: "Resource agent pool"
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
+  # Checkout sai_qualify/ folder from public
+  - name: OVERWRITE_INTERNAL_MGMT
+    displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
+    type: boolean
+    default: true
+
+  - name: MGMT_REPO
+    displayName: "sonic-mgmt repo"
+    type: string
+    default: "sonic-net"
+
+  - name: MGMT_BRANCH
+    displayName: "sonic-mgmt branch"
+    type: string
+    default: "master"
+
+jobs:
+  - job: SAITest
+    pool: ${{ parameters.AGENT_POOL }}
+    variables:
+      - group: TBSHARE_SECRETS
+      - group: KUSTO_SAI_SECRETS
+      - name: skipComponentGovernanceDetection
+        value: true
+
+    steps:
+      - template: ../nightly/templates/get_secrets.yml
+
+      - task: Bash@3
+        displayName: Scan and Upload
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+            BASH_WORKING_FOLDER=$(pwd)
+
+            pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
+            if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]  # modify on internal sonic-mgmt repo
+            then
+              git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
+              git fetch ${{ parameters.MGMT_REPO }}
+              git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }}
+            fi
+            popd
+
+            echo "Activate python3 virtual environment"
+            source /var/AzDevOps/env-python3/bin/activate
+            cd ${BASH_WORKING_FOLDER}/test_reporting
+            pip3 install -r requirements.txt
+
+            echo "Generate header"
+            cd ${BASH_WORKING_FOLDER}
+            rm -rf SAI
+            git clone https://github.com/opencomputeproject/SAI.git
+            SAI_PATH=${BASH_WORKING_FOLDER}/SAI
+            python3 test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
+            
+            echo "Generate SAI definitions"
+            RESOURCE_PATH=$BASH_WORKING_FOLDER/resources
+            PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')
+            mkdir -p $RESOURCE_PATH
+            wget -P $RESOURCE_PATH $PY_SAITHRIFT_URL
+            dpkg -i $RESOURCE_PATH/$PY_SAITHRIFT
+            SAI_ADAPTER_PATH=$(find / -name "sai_adapter.py")
+            echo $SAI_ADAPTER_PATH
+            rm -rf test_reporting/sai_coverage/sai_adapter
+            mkdir test_reporting/sai_coverage/sai_adapter
+            cp $SAI_ADAPTER_PATH test_reporting/sai_coverage/sai_adapter/
+            python3 test_reporting/sai_coverage/sai_adapter_scanner.py test_reporting/sai_coverage/sai_adapter
+
+            echo "Generate scanning results"
+            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/test/sai_test -sp result/scan/sai_test
+            python3 test_reporting/sai_coverage/case_scanner.py -p $SAI_PATH/ptf -sp result/scan/ptf
+
+            echo "Upload scanning results"
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/sai_test SaiTestData -c case_invoc
+            python3 ${BASH_WORKING_FOLDER}/test_reporting/report_uploader.py ${BASH_WORKING_FOLDER}/result/scan/ptf SaiTestData -c case_invoc
+
+        env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+            TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+            TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+            TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+            PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
