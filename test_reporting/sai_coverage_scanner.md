@@ -33,11 +33,11 @@ python3 test_reporting/sai_coverage/case_scanner.py -p ptf
 
 ## 2. Upload results to Kusto
 
-### a) Upload StaticCaseInvocation
+### a) Upload CaseInvocationCoverage
 
 Firstly, the corresponding table and mapping should be created in Kusto by the following Kusto commands.
 ```kql
-.create table StaticCaseInvocation
+.create table CaseInvocationCoverage
 (
 id: string,
 is_azure_used: bool,
@@ -61,8 +61,8 @@ upload_time: string
 )
 
 
-.create table StaticCaseInvocation ingestion json mapping
-'StaticCaseInvocationMapping' '['
+.create table CaseInvocationCoverage ingestion json mapping
+'CaseInvocationCoverageMapping' '['
 '{"column":"id","Properties":{"path":"$.id"}},'
 '{"column":"is_azure_used","Properties":{"path":"$.is_azure_used"}},'
 '{"column":"file_name","Properties":{"path":"$.file_name"}},'
@@ -84,7 +84,7 @@ upload_time: string
 '{"column":"upload_time","Properties":{"path":"$.upload_time"}}]'
 ```
 
-Then, connect to the `StaticCaseInvocation` table and ingest data into it.
+Then, connect to the `CaseInvocationCoverage` table and ingest data into it.
 ```bash
 # 4. upload the results (json files) to Kusto
 python3 test_reporting/report_uploader.py result/scan SaiTestData -c case_invoc

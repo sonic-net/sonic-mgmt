@@ -5,10 +5,10 @@
 
 ###############################################################################
 # TESTCASE TABLE SETUP                                                        #
-# 1. Create a StaticCaseInvocation table                                      #
+# 1. Create a CaseInvocationCoverage table                                      #
 # 2. Setup a policy to automatically ingest data from local JSON results      #
 ###############################################################################
-.create table StaticCaseInvocation
+.create table CaseInvocationCoverage
 (
 id: string,
 is_azure_used: bool,
@@ -32,8 +32,8 @@ upload_time: string
 )
 
 # See: https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats#ingest-json-records-containing-arrays
-.create table StaticCaseInvocation ingestion json mapping
-'StaticCaseInvocationMapping' '['
+.create table CaseInvocationCoverage ingestion json mapping
+'CaseInvocationCoverageMapping' '['
 '{"column":"id","Properties":{"path":"$.id"}},'
 '{"column":"is_azure_used","Properties":{"path":"$.is_azure_used"}},'
 '{"column":"file_name","Properties":{"path":"$.file_name"}},'
