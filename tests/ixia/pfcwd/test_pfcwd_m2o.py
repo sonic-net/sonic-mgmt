@@ -13,6 +13,7 @@ from files.helper import skip_pfcwd_test
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
+
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_many_to_one(ixia_api,
                            ixia_testbed_config,
@@ -20,6 +21,7 @@ def test_pfcwd_many_to_one(ixia_api,
                            fanout_graph_facts,
                            duthosts,
                            rand_one_dut_hostname,
+                           setup_cgm_alpha_cisco,
                            rand_one_dut_portname_oper_up,
                            rand_one_dut_lossless_prio,
                            lossy_prio_list,
