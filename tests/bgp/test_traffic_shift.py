@@ -261,7 +261,7 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
                     if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
                         for aspath in aspaths:
                             if str(neigh_hosts[hostname]['conf']['bgp']['asn']) in aspath:
-                                logger.info("Skipping route {} on host {}".format(route, hostname))
+                                logger.debug("Skipping route {} on host {}".format(route, hostname))
                                 skip = True
                                 break
                         if not skip:
