@@ -21,7 +21,7 @@ def parse(dir_path):
     Args:
         dir_path: path of SAI headers
     """
-    sai_apis = list()
+    sai_apis = dict()
     for (root, _, filenames) in os.walk(dir_path):
         for filename in filenames:
             if filename.endswith(".h") and filename not in IGNORE_HEADER_FILE_LIST:
@@ -32,7 +32,8 @@ def parse(dir_path):
                         intf_groupname = "SAI_API_" + \
                             filename.split(".")[0].split("sai")[1].upper()
                         intf_groupalias = key[1:]
-                        generate_sai_header_json(
+                        filename = filename.split(".")[0]
+                        sai_apis = generate_sai_header_json(
                             intf_groupname, intf_groupalias, sai_api_list, filename, sai_apis)
     os.makedirs(PRIORI_RESULT_SAVE_DIR, exist_ok=True)
     store_result(sai_apis, os.path.join(
@@ -50,7 +51,9 @@ def generate_sai_header_json(intf_groupname, intf_groupalias, intf_list, filenam
         for (intf_alias, intf_name) in element.items():
             sai_intf = SAIInterfaceHeader(
                 intf_groupname, intf_groupalias, intf_name, intf_alias, filename)
-            sai_apis.append(sai_intf.__dict__)
+            sai_apis[intf_name] = sai_intf.__dict__
+
+    return sai_apis
 
 
 def _parse_api_list_struct(parser, key):
