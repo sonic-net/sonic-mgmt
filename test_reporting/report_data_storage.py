@@ -100,7 +100,7 @@ class KustoConnector(ReportDBConnector):
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
     PIPELINE_TABLE = "TestReportPipeline"
-    CASE_INVOC_TABLE = "CaseInvocationReport"
+    CASE_INVOC_TABLE = "CaseInvocationStaging"
     SAI_HEADER_INVOC_TABLE = "SAIHeaderDefinition"
 
     TABLE_FORMAT_LOOKUP = {
@@ -133,7 +133,7 @@ class KustoConnector(ReportDBConnector):
         TEST_CASE_TABLE: "TestCasesMappingV1",
         EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
         PIPELINE_TABLE: "FlatPipelineMappingV1",
-        CASE_INVOC_TABLE: "CaseInvocationReportMapping",
+        CASE_INVOC_TABLE: "CaseInvocationStagingMapping",
         SAI_HEADER_INVOC_TABLE: "SAIHeaderDefinitionMapping",
     }
 
