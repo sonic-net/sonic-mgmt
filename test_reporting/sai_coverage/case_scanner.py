@@ -7,6 +7,7 @@ import argparse
 import ast
 import json
 import os
+import uuid
 
 from datetime import date
 from multipledispatch import dispatch
@@ -39,9 +40,12 @@ class SAICoverageScanner(object):
     def __init__(self, parser):
         self.case_path = parser.path
         self.save_path = parser.save_path
+        os.makedirs(self.save_path, exist_ok=True)
+
         self.header_path = os.path.join(
             PRIORI_RESULT_SAVE_DIR, SAI_HEADER_FILENAME)
         self.final_coverage = list()
+        self.file_dict = dict()
 
     def parse(self):
         '''
@@ -57,6 +61,7 @@ class SAICoverageScanner(object):
                         code = f.read()
                         f_ast = ast.parse(code)
                         self.parse_class(f_ast, filename, test_set, root)
+                        self.file_dict[filename[:-3]] = self.final_coverage
                         self.final_coverage = []
 
     def parse_class(self, raw_ast, file_name, test_set, sai_folder):
@@ -226,6 +231,7 @@ class SAICoverageScanner(object):
         if header_key not in header_data:
             return
         test_invocation = TestInvocation(
+            id=str(uuid.uuid4()),
             file_name=file_name,
             class_name=class_name,
             case_name=method_name,
@@ -236,7 +242,8 @@ class SAICoverageScanner(object):
             saiintf_name=header_data[header_key]["intf_name"],
             saiintf_alias=header_data[header_key]["intf_alias"],
             test_set=test_set,
-            test_platform="vms3-t1-dx010-1" if runnable else "",
+            # TODO: test_platform is unknown during static scanning, and will be obtained in runtime scanning.
+            test_platform="static",
             platform_purpose_attr="",
             attr_name=attr_key,
             attr_value=attr_val,
@@ -246,9 +253,12 @@ class SAICoverageScanner(object):
         )
         self.final_coverage.append(test_invocation.__dict__)
 
-        os.makedirs(self.save_path, exist_ok=True)
-        with open(os.path.join(self.save_path, file_name[:-2]+'json'), 'w+') as f:
-            json.dump(self.final_coverage, f, indent=4)
+    def store_result(self):
+        for (file_name, res) in self.file_dict.items():
+            if len(res) == 0:
+                continue
+            with open(os.path.join(self.save_path, file_name+'.json'), 'w+') as f:
+                json.dump(res, f, indent=4)
 
     @dispatch(ast.Name)
     def get_attr_and_values_arg(self, arg: ast.Name) -> str:  # noqa: F811
@@ -353,3 +363,4 @@ if __name__ == '__main__':
     parser = get_parser()
     scanner = SAICoverageScanner(parser)
     scanner.parse()
+    scanner.store_result()

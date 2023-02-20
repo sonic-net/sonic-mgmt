@@ -2,3 +2,7 @@ azure-kusto-data==3.1.3
 azure-kusto-ingest==3.1.3
 defusedxml==0.7.1
 PyYAML==6.0
+
+pyclibrary==0.1.7
+multipledispatch==0.6.0
+defusedxml==0.7.1
