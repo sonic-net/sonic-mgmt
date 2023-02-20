@@ -297,7 +297,8 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
             "Set drop recover on port %s, mux server %s, portid %s",
             interface_name, nic_address, portid,
         )
-    _call_set_drop_nic_simulator(_nic_addresses, _portids, _directions, recover=True)
+    if _nic_addresses:
+        _call_set_drop_nic_simulator(_nic_addresses, _portids, _directions, recover=True)
 
 
 @pytest.fixture(scope="function")
