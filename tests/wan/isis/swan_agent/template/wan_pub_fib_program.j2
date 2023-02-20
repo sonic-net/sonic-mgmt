@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ForwardingTableList xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" timestamp="2021-08-18T20:20:32.5606969Z" version="0.3.1" xmlns="http://www.w3.org/XMLSchema.xsd">
+  <ForwardingTable {{ DeviceName_1_1 }} TableId="0" Sequence="687775099" {{ Family_1_1 }} xmlns="" />
+  <ForwardingTable {{ DeviceName_1_2 }} TableId="0" Sequence="687775099" {{ Family_1_2 }} xmlns="">
+    <Flow Type="Ingress" FlowId="99000003">
+      <MatchSet>
+        <Match Type="MPLS_LABEL" {{ Label_1_1 }} />
+      </MatchSet>
+      <ActionSet>
+        <Action Type="POP_LABEL" />
+        <Action Type="GROUP" {{ GroupId_1 }} />
+      </ActionSet>
+    </Flow>
+  </ForwardingTable>
+  <ForwardingTable {{ DeviceName_1_3 }} TableId="0" Sequence="687775099" {{ Family_2_1 }} xmlns="" />
+  <ForwardingTable {{ DeviceName_1_4 }} TableId="0" Sequence="687775099" {{ Family_2_2 }} xmlns="" />
+  <GroupTable {{ DeviceName_2_1 }} TableId="0" Sequence="687775099" xmlns="">
+    <Group Type="WCMP" {{ GroupId_2 }} Metric="0">
+      <ActionSet ActionId="9" Weight="16" {{ EgressIpv4_1 }} TrafficClass="Default">
+        <Action Type="PUSH_LABEL" {{ Label_2_1 }} />
+        <Action Type="OUTPUT" {{ Interface_1 }} {{ NhopIpv4_1 }} />
+      </ActionSet>
+      <ActionSet ActionId="10" Weight="16" {{ EgressIpv4_2 }} TrafficClass="Default">
+        <Action Type="PUSH_LABEL" {{ Label_2_2 }} />
+        <Action Type="OUTPUT" {{ Interface_2 }} {{ NhopIpv4_2 }} />
+      </ActionSet>
+      <ActionSet ActionId="11" Weight="21" {{ EgressIpv4_3 }} TrafficClass="Scavenger">
+        <Action Type="PUSH_LABEL" {{ Label_2_3 }} />
+        <Action Type="OUTPUT" {{ Interface_3 }} {{ NhopIpv4_3 }} />
+      </ActionSet>
+      <ActionSet ActionId="12" Weight="11" {{ EgressIpv4_4 }} TrafficClass="Scavenger">
+        <Action Type="PUSH_LABEL" {{ Label_2_4 }} />
+        <Action Type="OUTPUT" {{ Interface_4 }} {{ NhopIpv4_4 }} />
+      </ActionSet>
+    </Group>
+  </GroupTable>
+</ForwardingTableList>
