@@ -1,4 +1,5 @@
 import logging
+import time
 
 import pytest
 
@@ -34,6 +35,10 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
             Find logs match following format: "tacacs_rw_user ... cmd=command"
             Print matched logs with /P command.
     """
+    
+    # On some hardware, syslog write to log file very slow, wait 3 seconds untill log file ready.
+    time.sleep(3)
+    
     sed_command = "sed -nE '/	{0}	.*	cmd=.*{1}/P' /var/log/tac_plus.acct".format(username, command)
     res = ptfhost.command(sed_command)
     logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
@@ -59,6 +64,9 @@ def check_local_log_exist(duthost, tacacs_creds, command):
             Find logs match following format: "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
             Print matched logs with /P command.
     """
+    
+    # On some hardware, syslog write to log file very slow, wait 3 seconds untill log file ready.
+    time.sleep(3)
 
     username = tacacs_creds['tacacs_rw_user']
     expected_log_pattern = "INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},".format(username, command)
