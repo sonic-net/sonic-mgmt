@@ -137,12 +137,10 @@
       name: "exabgpv4:"
       state: stopped
     delegate_to: "{{ ptf_host }}"
-    ignore_errors: True
 
   - name: Stop exabgp processes for IPv6 on PTF
     supervisorctl:
       name: "exabgpv6:"
       state: stopped
     delegate_to: "{{ ptf_host }}"
-    ignore_errors: True
   when: exabgp_action == 'stop' and ptf_accessible is defined and not ptf_accessible.failed
