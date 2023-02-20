@@ -28,6 +28,22 @@ parameters:
       - nightly-svc
       - nightly-bjw
 
+  # Checkout sai_qualify/ folder from public
+  - name: OVERWRITE_INTERNAL_MGMT
+    displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
+    type: boolean
+    default: true
+
+  - name: MGMT_REPO
+    displayName: "sonic-mgmt repo"
+    type: string
+    default: "sonic-net"
+
+  - name: MGMT_BRANCH
+    displayName: "sonic-mgmt branch"
+    type: string
+    default: "master"
+
 jobs:
   - job: SAITest
     pool: ${{ parameters.AGENT_POOL }}
@@ -47,6 +63,15 @@ jobs:
           script: |
             set -x
             BASH_WORKING_FOLDER=$(pwd)
+
+            pushd ${BASH_WORKING_FOLDER}/${PYTEST_PATH}
+            if [[ "$OVERWRITE_INTERNAL_MGMT" == "True" ]]  # modify on internal sonic-mgmt repo
+            then
+              git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
+              git fetch ${{ parameters.MGMT_REPO }}
+              git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }}
+            fi
+            popd
 
             echo "Activate python3 virtual environment"
             source /var/AzDevOps/env-python3/bin/activate
