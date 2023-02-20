@@ -1399,13 +1399,15 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
-        recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, asic_type, port_list[self.src_port_id])
+        recv_counters_base, queue_counters = sai_thrift_read_port_counters(
+            self.client, self.asic_type, port_list[self.src_port_id])
 
         logging.info("Disabling xmit ports: {}".format(self.dst_port_id))
         self.sai_thrift_port_tx_disable(
             self.client, self.asic_type, [self.dst_port_id])
 
-        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(self.client, asic_type, port_list[self.dst_port_id])
+        xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
+            self.client, self.asic_type, port_list[self.dst_port_id])
         num_pkts = (pkts_num_trig_pfc + pkts_num_private_headrooom) // self.cell_occupancy
         logging.info("Send {} pkts to egress out of {}".format(num_pkts, self.dst_port_id))
         # send packets to dst port 1, to cross into shared headrooom
@@ -1415,8 +1417,10 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
         time.sleep(8)
         # get a snapshot of counter values at recv and transmit ports
         # queue counters value is not of our interest here
-        recv_counters, queue_counters = sai_thrift_read_port_counters(self.client, asic_type, port_list[self.src_port_id])
-        xmit_counters, queue_counters = sai_thrift_read_port_counters(self.client, asic_type, port_list[self.dst_port_id])
+        recv_counters, queue_counters = sai_thrift_read_port_counters(
+            self.client, self.asic_type, port_list[self.src_port_id])
+        xmit_counters, queue_counters = sai_thrift_read_port_counters(
+            self.client, self.asic_type, port_list[self.dst_port_id])
 
         logging.debug("Recv Counters: {}, Base: {}".format(recv_counters, recv_counters_base))
         logging.debug("Xmit Counters: {}, Base: {}".format(xmit_counters, xmit_counters_base))
