@@ -460,9 +460,10 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
             target_dut_port = int(list(dut_intf_map.values())[0])
             router_mac = router_macs[target_dut_index]
             if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
-                for idx, mg_facts in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+                for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+                    idx, mg_facts = mg_facts_tuple
                     if target_dut_port in mg_facts['minigraph_port_indices'].values():
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][idx]['DEVICE_METADATA']['localhost']['mac'].lower()
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
                         break
             ports_map[ptf_port] = {
@@ -525,9 +526,10 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             target_dut_port = int(list(dut_intf_map.values())[0])
             router_mac = router_macs[target_dut_index]
             if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
-                for idx, mg_facts in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+                for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
+                    idx, mg_facts = mg_facts_tuple
                     if target_dut_port in mg_facts['minigraph_port_indices'].values():
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][idx]['DEVICE_METADATA']['localhost']['mac'].lower()
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
                         for a_dut_port, a_dut_port_index in mg_facts['minigraph_port_indices'].items():
                             if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
