@@ -103,7 +103,7 @@ def check_leackout_compensation_support(asic, hwsku):
 def dynamically_compensate_leakout(thrift_client, asic_type, counter_checker, check_port, check_field, base, ptf_test, compensate_port, compensate_pkt, max_retry):
     prev = base
     time.sleep(1.5)
-    curr, _ = counter_checker(thrift_client, check_port)
+    curr, _ = counter_checker(thrift_client, asic_type, check_port)
     leakout_num = curr[check_field] - prev[check_field]
     retry = 0
     num = 0
