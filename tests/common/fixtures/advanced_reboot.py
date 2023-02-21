@@ -35,7 +35,7 @@ class AdvancedReboot:
     Test cases can trigger test start utilizing runRebootTestcase API.
     """
 
-    def __init__(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
+    def __init__(self, request, duthosts, duthost, other_duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
         """
         Class constructor.
         @param request: pytest request object
@@ -78,6 +78,7 @@ class AdvancedReboot:
         self.request = request
         self.duthosts = duthosts
         self.duthost = duthost
+        self.other_duthost = other_duthost
         self.ptfhost = ptfhost
         self.localhost = localhost
         self.tbinfo = tbinfo
@@ -165,6 +166,7 @@ class AdvancedReboot:
         """
 
         self.mgFacts = self.duthost.get_extended_minigraph_facts(tbinfo)
+        self.other_mgFacts = self.other_duthost.get_extended_minigraph_facts(tbinfo)
 
         self.rebootData['arista_vms'] = [
             attr['mgmt_addr'] for dev, attr in self.mgFacts['minigraph_devices'].items() if attr['hwsku'] == 'Arista-VM'
@@ -182,9 +184,20 @@ class AdvancedReboot:
         if vlan_table:
             vlan_name = list(vlan_table.keys())[0]
             vlan_mac = vlan_table[vlan_name].get('mac', self.rebootData['dut_mac'])
-        self.rebootData['vlan_mac'] = vlan_mac
-        self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
-                                                  self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+
+        is_dualtor = 'dualtor' in tbinfo['topo']['name']
+        if is_dualtor:
+            self.rebootData['other_dut_mac'] = self.other_duthost.facts['router_mac']
+            other_vlan_mac = self.rebootData['dut_mac']
+            config_facts = self.other_duthost.get_running_config_facts()
+            other_vlan_table = config_facts.get('VLAN', None)
+            if other_vlan_table:
+                other_vlan_name = list(other_vlan_table.keys())[0]
+                other_vlan_mac = other_vlan_table[other_vlan_name].get('mac', self.rebootData['other_dut_mac'])
+            self.rebootData['vlan_mac'] = vlan_mac
+            self.rebootData['other_vlan_mac'] = other_vlan_mac
+            self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
+                                                    self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
@@ -671,7 +684,9 @@ class AdvancedReboot:
             "vlan_ports_file": self.rebootData['vlan_interfaces_file'],
             "ports_file": self.rebootData['ports_file'],
             "dut_mac": self.rebootData['dut_mac'],
+            "other_dut_mac": self.rebootData['other_dut_mac'],
             "vlan_mac": self.rebootData['vlan_mac'],
+            "other_vlan_mac": self.rebootData['other_vlan_mac'],
             "lo_prefix": self.rebootData['lo_prefix'],
             "default_ip_range": self.rebootData['default_ip_range'],
             "vlan_ip_range": self.rebootData['vlan_ip_range'],
@@ -811,7 +826,7 @@ class AdvancedReboot:
 
 
 @pytest.fixture
-def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo,
+def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, rand_unselected_dut, ptfhost, localhost, tbinfo,
                         creds):
     """
     Pytest test fixture that provides access to AdvancedReboot test fixture
@@ -822,6 +837,7 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         @param tbinfo: fixture provides information about testbed
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    other_duthost = rand_unselected_dut
     instances = []
 
     def get_advanced_reboot(**kwargs):
@@ -829,7 +845,7 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         API that returns instances of AdvancedReboot class
         """
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthosts, duthost, other_duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

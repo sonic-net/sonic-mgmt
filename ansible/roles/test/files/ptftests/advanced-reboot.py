@@ -139,7 +139,9 @@ class ReloadTest(BaseTest):
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
         self.check_param('dut_mac', '', required=True)
+        self.check_param('other_dut_mac', '', required=False)
         self.check_param('vlan_mac', '', required=True)
+        self.check_param('other_vlan_mac', '', required=False)
         self.check_param('default_ip_range', '', required=True)
         self.check_param('vlan_ip_range', '', required=True)
         self.check_param('lo_prefix', '', required=False)
@@ -1564,12 +1566,12 @@ class ReloadTest(BaseTest):
         This method filters packets which are unique (i.e. no floods).
         """
         if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and \
-        (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac):
+        (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.other_dut_mac or packet[scapyall.Ether].src == self.vlan_mac or packet[scapyall.Ether].src == self.other_vlan_mac):
             # This is a unique (no flooded) received packet.
             # for dualtor, t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
             self.unique_id.append(int(str(packet[scapyall.TCP].payload)))
             return True
-        elif packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
+        elif (packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.other_dut_mac or packet[scapyall.Ether].dst == self.vlan_mac or packet[scapyall.Ether].dst == self.other_vlan_mac):
             # This is a sent packet.
             # for dualtor, t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
             return True
@@ -1637,7 +1639,7 @@ class ReloadTest(BaseTest):
             missed_t1_to_vlan = 0
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
-                if packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
+                if (packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.other_dut_mac or packet[scapyall.Ether].dst == self.vlan_mac or packet[scapyall.Ether].dst == self.other_vlan_mac):
                     # This is a sent packet - keep track of it as payload_id:timestamp.
                     # for dualtor both MACs are needed:
                     #   t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
@@ -1645,7 +1647,7 @@ class ReloadTest(BaseTest):
                     sent_packets[sent_payload] = packet.time
                     sent_counter += 1
                     continue
-                if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:
+                if (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.other_dut_mac or packet[scapyall.Ether].src == self.vlan_mac or packet[scapyall.Ether].src == self.other_dut_mac):
                     # This is a received packet.
                     # for dualtor both MACs are needed:
                     #   t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
