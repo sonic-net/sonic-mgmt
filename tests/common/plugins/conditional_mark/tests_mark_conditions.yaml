@@ -670,21 +670,15 @@ qos:
 
 qos/test_buffer.py:
   skip:
-    reason: "These tests don't apply to cisco 8000 platforms, since they support only traditional model."
+    reason: "These tests don't apply to cisco 8000 platforms or T2, since they support only traditional model."
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000'] or 't2' in topo_name"
 
 qos/test_buffer_traditional.py:
   skip:
     reason: "Buffer traditional test is only supported 201911 branch and not yet supported on multi-ASIC platform."
     conditions:
       - "is_multi_asic==True or release not in ['201911']"
-
-qos/test_buffer.py:
-  skip:
-    reason: "Tests are relevant to dynamic buffering not required on T2"
-    conditions:
-      - "'t2' in topo_name"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -962,6 +956,12 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
+voq:
+  skip:
+    reason: Skip all HW SKUs that are not VOQ based (No Inband interface present) from running VOQ test cases
+    conditions:
+      - "len(VOQ_INBAND_INTERFACE) == 0"
+
 voq/test_voq_ipfwd.py:
   skip:
     reason: "Did not find any asic in the DUTs (linecards) that are connected to T1 VM's."
