@@ -386,5 +386,5 @@ class TestPsuFans(PlatformApiTestBase):
 
         if psus_skipped == self.num_psus:
             pytest.skip("skipped as all PSU fans' LED is not available/controllable")
-
-        self.assert_expectations()
+        else:
+            self.assert_expectations()
