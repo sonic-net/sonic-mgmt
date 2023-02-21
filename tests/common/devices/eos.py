@@ -4,6 +4,8 @@ import logging
 import re
 import os
 
+from collections import namedtuple
+
 from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,7 @@ class EosHost(AnsibleHostBase):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local',
                                        host_pattern="localhost")["localhost"]
+        self.directflow = DirectFlow(self)
 
     def __getattr__(self, module_name):
         if module_name.startswith('eos_'):
@@ -491,3 +494,145 @@ class EosHost(AnsibleHostBase):
                 }
             )
         return not self._has_cli_cmd_failed(out)
+
+    @property
+    def version_info(self):
+        """
+        Get software image version of EOS fanout
+
+        Returns:
+            namedtuple wich contains image version
+        """
+        Version = namedtuple("Version", "major minor micro")
+        try:
+            output = self.eos_command(commands=['show version'])['stdout'][0]
+            version_info = re.search('Software\s+image\s+version:\s+(.*)', output).group(1)
+            major, minor, micro = tuple(version_info.split('.'))
+
+            return Version(major, minor, micro)
+        except Exception as e:
+            logger.error('Failed to get software image version of EOS fanout, exception: {}'.format(repr(e)))
+            return None
+
+
+class DirectFlow(object):
+    """
+    DirectFlow class for activation of DirectFlow on the switch
+    """
+
+    def __init__(self, host):
+        """
+        Initialize DirectFlow object
+
+        Args:
+            host: EOS fanout object
+        """
+        self.host = host
+
+    def _execute(self, lines, flow_name=None):
+        """
+        Place the switch in DirectFlow configuration mode and execute a command
+
+        Args:
+            lines: list of commands
+            flow_name: name of the flow
+
+        Returns:
+            Output of commands execution
+        """
+        parents = ['directflow']
+
+        if flow_name:
+            parents.append('flow {}'.format(flow_name))
+
+        out = self.host.eos_config(lines=lines, parents=parents)
+
+        return out
+
+    def set_flow(self, flow_name):
+        """
+        Create the flow
+
+        Args:
+            flow_name: name of flow
+
+        Returns:
+            Output of commands execution
+        """
+        return self._execute(lines=['flow {}'.format(flow_name)])
+
+    def add_match_criteria(self, flow_name, match_criteria):
+        """
+        Create the DirectFlow match criteria
+
+        Args:
+            flow_name: name of flow
+            match_criteria: match statement
+
+        Returns:
+            Output of commands execution
+        """
+        return self._execute(lines=['match {}'.format(match_criteria)], flow_name=flow_name)
+
+    def add_action(self, flow_name, action):
+        """
+        Add the action for packets to the flow
+
+        Args:
+            flow_name: name of flow
+            action: action
+
+        Returns:
+            Output of commands execution
+        """
+        return self._execute(lines=['action {}'.format(action)], flow_name=flow_name)
+
+    def remove_flow(self, flow_name):
+        """
+        Remove the flow
+
+        Args:
+            flow_name: name of flow
+
+        Returns:
+            Output of commands execution
+        """
+        return self._execute(lines=['no flow {}'.format(flow_name)])
+
+    def remove_match_criteria(self, flow_name, match_criteria):
+        """
+        Remove the DirectFlow match criteria
+
+        Args:
+            flow_name: name of flow
+            match_criteria: match statement
+
+        Returns:
+            Output of commands execution
+        """
+        return self._execute(lines=['no match {}'.format(match_criteria)], flow_name=flow_name)
+
+    def remove_action(self, flow_name, action):
+        """
+        Remove the action for packets from the flow
+
+        Args:
+            flow_name: name of flow
+            action: action
+
+        Returns:
+            Output of commands execution
+        """
+        return self._execute(lines=['no action {}'.format(action)], flow_name=flow_name)
+
+    def start_directflow(self):
+        """
+        Activate DirectFlow on the switch
+        """
+        return self._execute(lines=['no shutdown'])
+
+    def stop_directflow(self):
+        """
+        Disable DirectFlow on the switch
+        """
+        return self._execute(lines=['shutdown'])

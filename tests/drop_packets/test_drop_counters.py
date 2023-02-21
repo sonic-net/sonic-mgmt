@@ -255,7 +255,7 @@ def do_test(duthosts):
     return do_counters_test
 
 
-def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthost, pkt_fields, ports_info):
+def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthost, eos_fanouthosts, pkt_fields, ports_info):
     """
     @summary: Verify that packet with reserved DMAC is dropped and L2 drop counter incremented
     @used_mac_address:
@@ -263,7 +263,7 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         01:80:C2:00:00:08 - provider Bridge group address
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if not fanouthost:
+    if not fanouthost and not eos_fanouthosts:
         pytest.skip("Test case requires explicit fanout support")
 
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
@@ -275,6 +275,16 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
             dst_mac = "00:00:00:00:00:11"
             # Prepare openflow rule
             fanouthost.update_config(template_path=MELLANOX_MAC_UPDATE_SCRIPT, match_mac=dst_mac, set_mac=reserved_dmac, eth_field="eth_dst")
+
+        if eos_fanouthosts:
+            # Add DirectFlow rule which matches packets by specific destination MAC address (00:00:00:00:00:11)
+            # and change on multicast destination mac before forwarding
+            dst_mac = "00:00:00:00:00:11"
+            flow_name, fanouthosts = eos_fanouthosts
+
+            for fanout in fanouthosts:
+                fanout.directflow.add_match_criteria(flow_name, 'destination mac {}'.format(dst_mac))
+                fanout.directflow.add_action(flow_name, 'set destination mac {}'.format(reserved_dmac))
 
         log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], reserved_dmac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
         pkt = testutils.simple_tcp_packet(

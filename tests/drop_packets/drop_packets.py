@@ -67,6 +67,36 @@ def sai_acl_drop_adj_enabled(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     return True
 
 
+def eos_fanouthosts(request, fanouthosts):
+    """
+    Fixture that allows configuring forwarding action for specific traffic by DirectFlow on the EOS fanouts.
+    For example, by default EOS fanout hosts drop IGMP packets before they reach the DUT. So should be added
+    specific flow to DirectFlow which allows forwarding all IGMP packets without dropping.
+
+    Args:
+        request: pytest request object
+        fanouthosts: dictionary of fanout hosts
+
+    Yield:
+        Tuple with flow name and list of EOS fanout objects
+    """
+    flow_name = request.node.name
+    # Define list of EOS fanout objects
+    fanouts = [fanout for fanout in fanouthosts.values() if fanout.os == 'eos']
+
+    for fanout in fanouts:
+        # Activate DirectFlow on the switch
+        fanout.directflow.start_directflow()
+        fanout.directflow.set_flow(flow_name)
+
+    yield (flow_name, fanouts) if fanouts else None
+
+    for fanout in fanouts:
+        # Disable DirectFlow on the switch and remove all rules
+        fanout.directflow.remove_flow(flow_name)
+        fanout.directflow.stop_directflow()
+
+
 @pytest.fixture
 def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, conn_graph_facts, localhost):
     """
@@ -251,6 +281,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         intf_per_namespace[ns if ns is not DEFAULT_NAMESPACE else ''] = duthost.interface_facts(namespace=ns)['ansible_facts']['ansible_interface_facts']
 
     # Gather ansible facts
+    host_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for port_channel, interfaces in mg_facts['minigraph_portchannels'].items():
@@ -271,7 +302,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     for po_member in set(l2_port_channel_members):
         port_channel_members.pop(po_member)
 
-    rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
+    rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"] if host_facts[item["attachto"]]['active']}
     # Compose list of sniff ports
     neighbor_sniff_ports = []
     for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
@@ -509,7 +540,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     src_mac = ports_info["dst_mac"]
 
-    if fanouthost.os == 'onyx':
+    if fanouthost and fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
@@ -537,11 +568,11 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields
     group = "L2"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
 
-def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, fanout_graph_facts):
+def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, eos_fanouthosts, pkt_fields, ports_info, fanout_graph_facts):
     """
     @summary: Create a packet with multicast SMAC.
     """
-    if not fanouthost:
+    if not fanouthost and not eos_fanouthosts:
         pytest.skip("Test case requires explicit fanout support")
 
     multicast_smac = "01:00:5e:00:01:02"
@@ -549,12 +580,21 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields,
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac, pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
-    if fanouthost.os == 'onyx':
+    if fanouthost and fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
         fanouthost.prepare_drop_counter_config(
             fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
+
+    if eos_fanouthosts:
+        flow_name, fanouthosts = eos_fanouthosts
+
+        for fanout in fanouthosts:
+            # Add DirectFlow rule which matches packets by multicast source mac
+            # and allows forwarding for those packets
+            fanout.directflow.add_match_criteria(flow_name, 'source mac {}'.format(multicast_smac))
+            fanout.directflow.add_action(flow_name, 'output all')
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
@@ -942,7 +982,7 @@ def test_unicast_ip_incorrect_eth_dst(do_test, ptfadapter, setup, tx_dut_ports, 
 
 @pytest.mark.parametrize("igmp_version,msg_type", [("v1", "general_query"), ("v3", "general_query"), ("v1", "membership_report"),
 ("v2", "membership_report"), ("v3", "membership_report"), ("v2", "leave_group")])
-def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
+def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, eos_fanouthosts, tx_dut_ports, pkt_fields, igmp_version, msg_type, ports_info):
     """
     @summary: Create an IGMP non-routable packets.
     """
@@ -971,10 +1011,20 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
     # records=[gr_obj]).build()
     # The rest packets are build like "simple_igmp_packet" function from PTF testutils.py
 
-    # FIXME: Need some sort of configuration for EOS and SONiC fanout hosts to
+    # FIXME: Need some sort of configuration for SONiC fanout hosts to
     # not drop IGMP packets before they reach the DUT
-    if not fanouthost:
+    if not fanouthost and not eos_fanouthosts:
         pytest.skip("Test case requires explicit fanout support")
+
+    if eos_fanouthosts:
+        flow_name, fanouthosts = eos_fanouthosts
+
+        for fanout in fanouthosts:
+            # Add DirectFlow rule which matches packets by IGMP protocol
+            # and allows forwarding for those packets
+            if int(fanout.version_info.minor) <= 23:
+                fanout.directflow.add_match_criteria(flow_name, 'ip protocol 2')
+                fanout.directflow.add_action(flow_name, 'output interface cpu')
 
     from scapy.contrib.igmp import IGMP
     Ether = testutils.scapy.Ether
