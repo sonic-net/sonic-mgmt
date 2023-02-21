@@ -83,7 +83,7 @@ def loopback_ips(duthosts, duts_running_config_facts):
         lo_ip = None
         lo_ipv6 = None
         # Loopback0 ip is same on all ASICs
-        for addr in cfg_facts[0]["LOOPBACK_INTERFACE"]["Loopback0"]:
+        for addr in cfg_facts[0][1]["LOOPBACK_INTERFACE"]["Loopback0"]:
             ip = IPNetwork(addr).ip
             if ip.version == 4 and not lo_ip:
                 lo_ip = str(ip)

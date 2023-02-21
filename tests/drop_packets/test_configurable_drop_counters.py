@@ -247,7 +247,8 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
         try:
             for duthost in duthosts:
                 cfg_facts = duts_running_config_facts[duthost.hostname]
-                for asic_index, asic_cfg_facts in enumerate(cfg_facts):
+                for asic_cfg_facts_tuple in cfg_facts:
+                    asic_index, asic_cfg_facts = asic_cfg_facts_tuple
                     asic = duthost.asic_instance(asic_index)
                     bgp_neighbors = asic_cfg_facts["BGP_NEIGHBOR"]
                     ipv4_cmd_parts = ["ip route add default"]

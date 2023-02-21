@@ -302,7 +302,8 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
     mg_fact = duts_minigraph_facts[duthost.hostname]
 
     port_index_map = {}
-    for index, mg_facts in enumerate(mg_fact):
+    for mg_facts_tuple in mg_fact:
+        index, mg_facts = mg_facts_tuple
         # filter out server peer port and only bgp peer ports remain, to support T0 topologies
         bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
         # get the port_index_map using the ptf_indicies to support multi DUT topologies
@@ -319,7 +320,8 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
     peerip = None
     nn_target_vlanid = None
 
-    for index, mg_facts in enumerate(mg_fact):
+    for mg_facts_tuple in mg_fact:
+        index, mg_facts = mg_facts_tuple
         if nn_target_interface not in mg_facts["minigraph_neighbors"]:
             continue
         for bgp_peer in mg_facts["minigraph_bgp"]:
