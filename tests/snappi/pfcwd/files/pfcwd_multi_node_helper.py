@@ -125,8 +125,8 @@ def run_pfcwd_multi_node_test(api,
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
 
-    """ Retrieve platform information for DUT """
-    platform = duthost.facts['platform']
+    """ Retrieve ASIC information for DUT """
+    asic_type = duthost.facts['asic_type']
 
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
@@ -140,7 +140,7 @@ def run_pfcwd_multi_node_test(api,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=port_id,
                      tolerance=TOLERANCE_THRESHOLD,
-                     platform=platform)
+                     asic_type=asic_type)
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
@@ -522,7 +522,7 @@ def __verify_results(rows,
                      trigger_pfcwd,
                      pause_port_id,
                      tolerance,
-                     platform):
+                     asic_type):
     """
     Verify if we get expected experiment results
 
@@ -539,14 +539,14 @@ def __verify_results(rows,
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
         tolerance (float): maximum allowable deviation
-        platform (str): platform information for DUT
+        asic_type (str): asic_type information for DUT
 
     Returns:
         N/A
     """
 
-    """ Check for whether DUT is a Mellanox 4600c device """
-    is_mlnx_4600c = True if "mlnx" and "4600c" in platform.lower() else False
+    """ Check for whether DUT is a Mellanox device """
+    is_mlnx_device = True if "mellanox" in asic_type.lower() else False
 
     for row in rows:
         flow_name = row.name
@@ -584,10 +584,10 @@ def __verify_results(rows,
                               '{} should have dropped packets'.format(flow_name))
             
             elif trigger_pfcwd and src_port_id == pause_port_id:
-                if is_mlnx_4600c:
-                    """ During a pfc storm with pfcwd triggered, Mellanox 4600c does not drop Rx packets """
+                if is_mlnx_device:
+                    """ During a pfc storm with pfcwd triggered, Mellanox devices do not drop Rx packets """
                     pytest_assert(tx_frames == rx_frames,
-                                  '{} should not have dropped packets for Mlnx 4600c'.format(flow_name))
+                                  '{} should not have dropped packets for Mellanox device'.format(flow_name))
 
             elif not trigger_pfcwd and dst_port_id == pause_port_id:
                 """ This test flow is delayed by PFC storm """
