@@ -28,6 +28,11 @@ parameters:
       - nightly-svc
       - nightly-bjw
 
+  #SAI test root folder on agent
+  - name: PYTEST_PATH
+    type: string
+    default: "tests"
+
   # Checkout sai_qualify/ folder from public
   - name: OVERWRITE_INTERNAL_MGMT
     displayName: "overwrite internal sonic-mgmt sai_qualify/ folder"
@@ -112,3 +117,5 @@ jobs:
             TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
             TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
             PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+            PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
+            OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
