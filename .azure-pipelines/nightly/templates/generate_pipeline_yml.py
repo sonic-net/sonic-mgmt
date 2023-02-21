@@ -315,6 +315,9 @@ def generate_yaml_files(data_df):
             elif branch.upper() == '202012-SLIM':
                 BRANCH = '202012_SLIM'
                 SAI_BRANCH = '202012'
+            elif branch.upper() == '202205-SLIM':
+                BRANCH = '202205_SLIM'
+                SAI_BRANCH = '202205'                
             else:
                 BRANCH = branch.upper()
                 SAI_BRANCH = BRANCH

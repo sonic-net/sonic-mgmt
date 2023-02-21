@@ -24,13 +24,13 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205-SLIM)
+    default: $(IMAGE_BRCM_ABOOT_202205_SLIM)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205-SLIM)
+    default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories

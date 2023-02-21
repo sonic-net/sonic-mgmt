@@ -3,19 +3,12 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
-resources:
-  repositories:
-  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
-    type: git
-    name: sonic-metadata
-    ref: master
-
 schedules:
-  - cron: "30 2 * * 0,2,4"
+  - cron: "30 10 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal-202205
     always: true
 
 variables:
@@ -25,31 +18,36 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: testbed-bjw-can-7050qx-1
+    default: vms24-t1-7050qx-acs-01
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_ABOOT_202012_SLIM)
+    default: $(IMAGE_BRCM_ABOOT_202205_SLIM)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(BJW_SAITHRIFT_BRCM_202012)
+    default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
-  - name: AGENT_POOL
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
     type: string
-    default: nightly-bjw
-    displayName: "Agent pool"
+    default: "pfcwd/test_pfcwd_warm_reboot.py \
+              platform_tests/test_advanced_reboot.py \
+              platform_tests/test_cont_warm_reboot.py \
+              platform_tests/test_reboot.py::test_warm_reboot \
+              platform_tests/test_reboot.py::test_fast_reboot"
+    displayName: "Skip Scripts"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -58,4 +56,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
