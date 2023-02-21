@@ -288,6 +288,7 @@ class KustoConnector(object):
         | where not(BranchName has_any(ExcludeBranchList))
         | where BranchName has_any(ProdQualOSList)
         | where ReproCount >= {}
+        | where ModulePath != ""
         | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
         | sort by ReproCount, ModulePath, opTestCase, Result
         '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
@@ -508,7 +509,6 @@ class Analyzer(object):
                         temp_uploading_list.extend(new_icm_table)
                         # For loop every uploading IcM title, avoid generating smaller level IcM for same failure
                         for uploading_new_icm in temp_uploading_list:
-                            # import pdb;pdb.set_trace()
                             # For platform_test, we aggregate branches, don't trigger same IcM for different branches
                             if 'platform_tests' in icm['module_path']:
                                 icm_branch = icm['branch']
