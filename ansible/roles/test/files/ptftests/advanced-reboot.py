@@ -622,8 +622,8 @@ class ReloadTest(BaseTest):
         self.generate_from_t1()
         self.generate_from_vlan()
         self.generate_ping_dut_lo(self.lo_prefix)
-        #if self.lo_prefix2 != '':
-        #    self.generate_ping_dut_lo(self.lo_prefix2)
+        if self.lo_prefix2 != '':
+            self.generate_ping_dut_lo(self.lo_prefix2)
         self.generate_arp_ping_packet()
 
         if 'warm-reboot' in self.reboot_type:

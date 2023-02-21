@@ -50,10 +50,6 @@ class AdvancedReboot:
                                            'service-warm-restart' in kwargs['rebootType']), \
             "Please set rebootType var."
 
-        sonic_hwsku = duthost.sonichost.facts["hwsku"]
-        if "SN3800" in sonic_hwsku and kwargs['rebootType'] == 'fast-reboot':
-            pytest.skip("Not supported on Mellanox 3800")
-
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             # Fast and Warm-reboot procedure now test if "docker exec" works.
             # The timeout for check_docker_exec test is 1s. This timeout is good
@@ -189,9 +185,10 @@ class AdvancedReboot:
         self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
                                                   self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
-        if len(self.mgFacts['minigraph_lo_interfaces']) > 1:
-            self.rebootData['lo_prefix2'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][1]['addr'],
-                                                    self.mgFacts['minigraph_lo_interfaces'][1]['prefixlen'])
+        self.rebootData['lo_prefix2'] = ""
+        for data in self.mgFacts['minigraph_lo_interfaces'][1:]:
+            if (data['prefixlen'] == 32):
+                self.rebootData['lo_prefix2'] = "%s/%s" % (data['addr'], data['prefixlen'])
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
