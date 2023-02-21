@@ -208,11 +208,16 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
 
 
 @pytest.fixture(scope="module")
-def shutdown_ebgp(duthosts):
+def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # To store the original number of eBGP v4 and v6 routes.
     v4ebgps = {}
     v6ebgps = {}
     orch_cpu_threshold = 10
+    # increase timeout for check_orch_cpu_utilization to 120sec for chassis
+    # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
+    duthost = duthosts[rand_one_dut_hostname]
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    orch_cpu_timeout = 120 if is_chassis else 60
     for duthost in duthosts.frontend_nodes:
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = duthost.get_ip_route_summary()
@@ -223,7 +228,7 @@ def shutdown_ebgp(duthosts):
         # Verify that the total eBGP routes are 0.
         pytest_assert(wait_until(30, 2, 0, check_ebgp_routes, 0, 0, duthost),
                       "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-        pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
@@ -241,7 +246,7 @@ def shutdown_ebgp(duthosts):
         pytest_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
                       "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
                       "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
-        pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
@@ -277,7 +282,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
             if 'tagging_mode' not in vlan_members[k][port]:
                 continue
             mode = vlan_members[k][port]['tagging_mode']
-            config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip': ip, 'tagging_mode': mode})
+            config_ports_vlan[port].append({'vlanid': int(vlanid), 'ip': ip, 'tagging_mode': mode})
 
     if config_portchannels:
         for po in config_portchannels:
@@ -376,7 +381,7 @@ def utils_vlan_intfs_dict_add(vlan_intfs_dict, add_cnt):
         }
     '''
     vlan_cnt = 0
-    for i in xrange(0, 255):
+    for i in range(0, 255):
         vid = 100 + i
         if vid in vlan_intfs_dict:
             continue
@@ -407,7 +412,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     cmds = []
     logger.info("Add vlans, assign IPs")
     for k, v in vlan_intfs_dict.items():
-        if v['orig'] == True:
+        if v['orig']:
             continue
         cmds.append('config vlan add {}'.format(k))
         cmds.append("config interface ip add Vlan{} {}".format(k, v['ip'].upper()))
@@ -428,7 +433,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     logger.info("Add members to Vlans")
     for vlan_port in vlan_ports_list:
         for permit_vlanid in vlan_port['permit_vlanid']:
-            if vlan_intfs_dict[int(permit_vlanid)]['orig'] == True:
+            if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
