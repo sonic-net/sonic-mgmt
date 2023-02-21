@@ -57,7 +57,8 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "nn_target_vlanid"])
 
 _TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
-_TEST_RATE_LIMIT = 600
+_TEST_RATE_LIMIT_DEFAULT = 600
+_TEST_RATE_LIMIT_MARVELL = 625
 
 logger = logging.getLogger(__name__)
 
@@ -354,11 +355,12 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
+    rate_limit = _TEST_RATE_LIMIT_DEFAULT
     if dut.facts["asic_type"] == "marvell":
-        _TEST_RATE_LIMIT = 625
+        rate_limit = _TEST_RATE_LIMIT_MARVELL
 
     logging.info("Update the rate limit for the COPP policer")
-    copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
+    copp_utils.limit_policer(dut, rate_limit, test_params.nn_target_namespace)
 
     # Multi-asic will not support this mode as of now.
     if test_params.swap_syncd:
