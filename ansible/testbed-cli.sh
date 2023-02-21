@@ -20,6 +20,7 @@ function usage
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
   echo "    $0 [options] install-image <testbed-name> <inventory> <image-url>"
+  echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
@@ -75,6 +76,9 @@ function usage
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
   echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
   echo "To install an image on all DUTs in a testbed: $0 install-image 'testbed-name' 'inventory' 'image-url'"
+  echo "To collect show techsupport result of a testbed: $0 collect-show-tech 'testbed-name' 'inventory' ~/.password"
+  echo "    collect-show-tech supports specify output path for dumped files"
+  echo "        -e output_path=<user-specified-path>"
   echo
   echo "You should define your testbed in testbed CSV file"
   echo
@@ -615,6 +619,23 @@ function install_image
   echo Done
 }
 
+function collect_show_tech
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Collect show techsupport result on testbed '$testbed_name'"
+
+  ansible-playbook -i "$inventory" collect_show_tech.yml --vault-password-file="$passfile" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
+
+  echo Done
+
+}
+
 function read_topologies_from_csv_file
 {
   topologies_by_setup_name=$(cat $tbfile | grep $setup_name | awk 'BEGIN { FS = "," } ; {print $1}')
@@ -804,6 +825,8 @@ case "${subcmd}" in
   restart-ptf) restart_ptf $@
                ;;
   install-image) install_image $@
+               ;;
+  collect-show-tech) collect_show_tech $@
                ;;
   *)           usage
                ;;
