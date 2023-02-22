@@ -288,7 +288,10 @@ class MultiAsicSonicHost(object):
     def get_asic_or_sonic_host(self, asic_id):
         if asic_id == DEFAULT_ASIC_ID:
             return self.sonichost
-        return self.asics[asic_id]
+        for asic in self.asics:
+            if asic.asic_index == asic_id:
+                return asic
+        return None
 
     def get_asic_or_sonic_host_from_namespace(self, namespace=DEFAULT_NAMESPACE):
         if not namespace:
