@@ -11,6 +11,7 @@ IGNORE_FILE_LIST = ["sai_adapter.py",
 IGNORE_HEADER_FILE_LIST = ["sai.h", "saiobject.h", "saistatus.h", "saitypes.h"]
 
 SAI_HEADER_FILENAME = "sai_header_scan_result.json"
+SAI_HEADER_FILENAME_UPLOAD = "sai_header.json"
 SAI_ADAPTER_FILENAME = "sai_adapter_scan_result.json"
 
 UNRUNNABLE_TAG_LIST = ["draft"]

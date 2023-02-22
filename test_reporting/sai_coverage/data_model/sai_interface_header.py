@@ -5,13 +5,16 @@ class SAIInterfaceHeader(object):
     Args:
         intf_groupname: SAI interface groupname
         intf_groupalias: SAI interface groupalias
-        intf_name: SAI interface name
         intf_alias: SAI interface alias
         file_name: file name
     """
-    def __init__(self, intf_groupname, intf_groupalias, intf_name, intf_alias, file_name):
-        self.intf_groupname = intf_groupname
-        self.intf_groupalias = intf_groupalias
-        self.intf_name = intf_name
-        self.intf_alias = intf_alias
-        self.file_name = file_name
+    def __init__(self, intf_groupname, intf_groupalias, intf_alias, file_name):
+        sai_method_table_split = intf_groupalias.split('_')
+        sai_feature = sai_method_table_split[1: len(sai_method_table_split)-2]
+
+        self.sai_header = file_name
+        self.sai_id = intf_groupname
+        self.sai_method_table = intf_groupalias
+        self.sai_feature = ''.join(sai_feature)
+        self.sai_api = intf_alias[:-10] if 'attribute' in intf_alias else intf_alias
+        self.sai_alias = intf_alias
