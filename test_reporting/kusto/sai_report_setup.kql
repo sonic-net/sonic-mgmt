@@ -53,3 +53,28 @@ upload_time: string
 '{"column":"runnable","Properties":{"path":"$.runnable"}},'
 '{"column":"sai_folder","Properties":{"path":"$.sai_folder"}},'
 '{"column":"upload_time","Properties":{"path":"$.upload_time"}}]'
+
+###############################################################################
+# SAI HEADER TABLE SETUP                                                        #
+# 1. Create a SAIHeaderDefinition table                                      #
+# 2. Setup a policy to automatically ingest data from local JSON results      #
+###############################################################################
+.create table SAIHeaderDefinition
+(
+sai_header: string,
+sai_id: string,
+sai_method_table: string,
+sai_feature: string,
+sai_api: string,
+sai_alias: string
+)
+
+# See: https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats#ingest-json-records-containing-arrays
+.create table SAIHeaderDefinition ingestion json mapping
+'SAIHeaderDefinitionMapping' '['
+'{"column":"sai_header","Properties":{"path":"$.sai_header"}},'
+'{"column":"sai_id","Properties":{"path":"$.sai_id"}},'
+'{"column":"sai_method_table","Properties":{"path":"$.sai_method_table"}},'
+'{"column":"sai_feature","Properties":{"path":"$.sai_feature"}},'
+'{"column":"sai_api","Properties":{"path":"$.sai_api"}},'
+'{"column":"sai_alias","Properties":{"path":"$.sai_alias"}}]'
