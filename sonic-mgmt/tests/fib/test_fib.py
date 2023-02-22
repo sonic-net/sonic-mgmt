@@ -134,9 +134,9 @@ def get_vlan_untag_ports(duthosts, duts_running_config_facts):
         ports = []
         for asic_cfg_facts in duts_running_config_facts[duthost.hostname]:
 
-            vlans = asic_cfg_facts.get('VLAN_INTERFACE', {}).keys()
+            vlans = asic_cfg_facts[1].get('VLAN_INTERFACE', {}).keys()
             for vlan in vlans:
-                vlan_member_info = asic_cfg_facts.get('VLAN_MEMBER', {}).get(vlan, {})
+                vlan_member_info = asic_cfg_facts[1].get('VLAN_MEMBER', {}).get(vlan, {})
                 if vlan_member_info:
                     for port_name, tag_mode in vlan_member_info.items():
                         if tag_mode['tagging_mode'] == 'untagged':
@@ -244,7 +244,8 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
         try:
             for duthost in duthosts:
                 cfg_facts = duts_running_config_facts[duthost.hostname]
-                for asic_index, asic_cfg_facts in enumerate(cfg_facts):
+                for asic_cfg_facts_tuple in (cfg_facts):
+                    asic_index, asic_cfg_facts = asic_cfg_facts_tuple
                     asic = duthost.asic_instance(asic_index)
                     bgp_neighbors = asic_cfg_facts["BGP_NEIGHBOR"]
                     ipv4_cmd_parts = ["ip route add default"]

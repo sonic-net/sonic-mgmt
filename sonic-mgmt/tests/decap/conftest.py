@@ -17,9 +17,12 @@ def build_ttl_dscp_params(uniform_support_info):
         params.append(both_pipe_vxlan)
     return params
 
+
 def pytest_generate_tests(metafunc):
-  ttl = metafunc.config.getoption("ttl_uniform")
-  dscp = metafunc.config.getoption("dscp_uniform")
-  if "supported_ttl_dscp_params" in metafunc.fixturenames:
-      params = build_ttl_dscp_params({'ttl': ttl, 'dscp': dscp})
-      metafunc.parametrize("supported_ttl_dscp_params", params, ids=lambda p: "ttl=%s, dscp=%s, vxlan=%s" % (p['ttl'], p['dscp'], p['vxlan']), scope="module")
+    ttl = metafunc.config.getoption("ttl_uniform")
+    dscp = metafunc.config.getoption("dscp_uniform")
+    if "supported_ttl_dscp_params" in metafunc.fixturenames:
+        params = build_ttl_dscp_params({'ttl': ttl, 'dscp': dscp})
+        metafunc.parametrize("supported_ttl_dscp_params", params,
+                             ids=lambda p: "ttl=%s, dscp=%s, vxlan=%s" % (p['ttl'], p['dscp'], p['vxlan']),
+                             scope="module")

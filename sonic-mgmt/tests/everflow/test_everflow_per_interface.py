@@ -156,11 +156,15 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
     BaseEverflowTest.remove_acl_rule_config(setup_info[UP_STREAM]['everflow_dut'], table_name)
 
 
-def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup):
-    packet = testutils.simple_tcp_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
-            eth_dst=router_mac
-        )
+def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, ip_ver):
+    if ip_ver == 'ipv4':
+        packet = \
+            testutils.simple_tcp_packet(eth_src=ptfadapter.dataplane.get_mac(0,
+                0), eth_dst=router_mac)
+    else:
+        packet = \
+            testutils.simple_tcpv6_packet(eth_src=ptfadapter.dataplane.get_mac(0,
+                0), eth_dst=router_mac)
 
     dec_ttl = 0
 
@@ -182,13 +186,13 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
         testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
-def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor):
+def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor, ip_ver):
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
     everflow_config = apply_acl_rule
     packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'], everflow_config['mirror_session_info'], 
-                                                 setup_info[UP_STREAM]['ingress_router_mac'], setup_info)
+                                                 setup_info[UP_STREAM]['ingress_router_mac'], setup_info, ip_ver)
     uplink_ports = everflow_config["monitor_port_ptf_ids"]
 
     # Verify that packet ingressed from INPUT_PORTS (candidate ports) are mirrored

@@ -47,6 +47,13 @@
   become: yes
   when: host_distribution_version.stdout == "20.04" and docker_repo.matched == 0
 
+- name: Add docker repository for 22.04
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
+    state: present
+  become: yes
+  when: host_distribution_version.stdout == "22.04" and docker_repo.matched == 0
+
 # In ansible 2.8, there isn't update_cache_retries option in apt module, we can manually run update as a seperate and retryable step
 - name: Run the "apt-get update" as a separate and retryable step
   apt:

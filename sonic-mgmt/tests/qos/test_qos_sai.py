@@ -137,6 +137,11 @@ class TestQosSai(QosSaiBase):
             "hwsku":dutTestParams['hwsku']
         })
 
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
@@ -214,6 +219,12 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_num_private_headrooom": dutQosConfig["param"]["pkts_num_private_headrooom"]
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         if "packet_size" in qosConfig[xonProfile].keys():
             testParams["packet_size"] = qosConfig[xonProfile]["packet_size"]
         if 'cell_size' in qosConfig[xonProfile].keys():
@@ -261,6 +272,8 @@ class TestQosSai(QosSaiBase):
 
         try:
             prev_poll_interval = int(prev_poll_interval)
+            if int(pfcwd_timers['pfc_wd_poll_time']) > prev_poll_interval:
+                pfcwd_timers['pfc_wd_poll_time'] = str(prev_poll_interval)
         except Exception as e:
             logging.debug("Exception: {}, Poll Interval: {}".format(str(e), prev_poll_interval))
             prev_poll_interval = 0
@@ -384,6 +397,11 @@ class TestQosSai(QosSaiBase):
             "hwsku":dutTestParams['hwsku']
         })
 
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
@@ -446,6 +464,11 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         if "pkts_num_margin" in qosConfig[LosslessVoqProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[LosslessVoqProfile]["pkts_num_margin"]
@@ -584,6 +607,11 @@ class TestQosSai(QosSaiBase):
             "hwsku":dutTestParams['hwsku']
         })
 
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         pkts_num_trig_pfc_shp = qosConfig["hdrm_pool_size"].get("pkts_num_trig_pfc_shp")
         if pkts_num_trig_pfc_shp:
             testParams["pkts_num_trig_pfc_shp"] = pkts_num_trig_pfc_shp
@@ -651,6 +679,11 @@ class TestQosSai(QosSaiBase):
             "shared_limit_bytes": qosConfig[sharedResSizeKey]["shared_limit_bytes"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         if "packet_size" in qosConfig[sharedResSizeKey]:
             testParams["packet_size"] = qosConfig[sharedResSizeKey]["packet_size"]
@@ -734,6 +767,11 @@ class TestQosSai(QosSaiBase):
         if dynamic_threshold:
             testParams["dynamic_threshold"] = dynamic_threshold
 
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
@@ -767,7 +805,9 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
-        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
+                ('platform_asic' in dutTestParams["basicParams"] and
+                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             disableTest = False
         if disableTest:
             pytest.skip("Buffer Pool watermark test is disabled")
@@ -803,6 +843,11 @@ class TestQosSai(QosSaiBase):
             "cell_size": qosConfig[bufPool]["cell_size"],
             "buf_pool_roid": buf_pool_roid
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         if "packet_size" in qosConfig[bufPool].keys():
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
@@ -859,6 +904,11 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
@@ -922,6 +972,11 @@ class TestQosSai(QosSaiBase):
                 "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
             })
 
+            if "platform_asic" in dutTestParams["basicParams"]:
+                testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+            else:
+                testParams["platform_asic"] = None
+
             if "packet_size" in qosConfig[LossyVoq].keys():
                 testParams["packet_size"] = qosConfig[LossyVoq]["packet_size"]
                 testParams["cell_size"] = qosConfig[LossyVoq]["cell_size"]
@@ -972,6 +1027,11 @@ class TestQosSai(QosSaiBase):
             "dual_tor": dutConfig['dualTor'],
             "dual_tor_scenario": dutConfig['dualTorScenario']
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpMappingPB",
@@ -1028,6 +1088,11 @@ class TestQosSai(QosSaiBase):
                 })
             testParams.update({"leaf_downstream": False})
 
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpMappingPB",
             testParams=testParams
@@ -1060,6 +1125,12 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "vlan_id": dutConfig["testPorts"]["src_port_vlan"]
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.Dot1pToQueueMapping",
             testParams=testParams
@@ -1092,6 +1163,12 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "vlan_id": dutConfig["testPorts"]["src_port_vlan"]
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.Dot1pToPgMapping",
             testParams=testParams
@@ -1142,6 +1219,11 @@ class TestQosSai(QosSaiBase):
             "topo": dutTestParams["topo"],
             "qos_remap_enable": qos_remap_enable
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         if "lossy_queue_1" in dutQosConfig["param"][portSpeedCableLength].keys():
             testParams["ecn"] = qosConfig[portSpeedCableLength]["lossy_queue_1"]["ecn"]
@@ -1208,6 +1290,11 @@ class TestQosSai(QosSaiBase):
             "hwsku":dutTestParams['hwsku']
         })
 
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
@@ -1216,6 +1303,10 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_margin" in qosConfig[pgProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[pgProfile]["pkts_num_margin"]
+
+        # For J2C+ we need the internal header size in calculating the shared watermarks
+        if "internal_hdr_size" in qosConfig.keys():
+            testParams["internal_hdr_size"] = qosConfig["internal_hdr_size"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest",
@@ -1265,6 +1356,11 @@ class TestQosSai(QosSaiBase):
             "cell_size": qosConfig["wm_pg_headroom"]["cell_size"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
@@ -1322,6 +1418,11 @@ class TestQosSai(QosSaiBase):
             "iterations": qosConfig[pgDropKey]["iterations"],
             "hwsku":dutTestParams['hwsku']
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGDropTest", testParams=testParams
@@ -1383,6 +1484,11 @@ class TestQosSai(QosSaiBase):
             "hwsku":dutTestParams['hwsku']
         })
 
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
@@ -1417,7 +1523,9 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
-        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
+                ('platform_asic' in dutTestParams["basicParams"] and
+                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             disableTest = False
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
@@ -1433,6 +1541,12 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpToPgMapping",
             testParams=testParams
@@ -1484,6 +1598,11 @@ class TestQosSai(QosSaiBase):
             src_port_name = dutConfig["testPorts"]["downlink_port_names"][0]
 
         testParams['dscp_to_pg_map'] = load_dscp_to_pg_map(duthost, src_port_name, dut_qos_maps)
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpToPgMapping",
@@ -1538,6 +1657,12 @@ class TestQosSai(QosSaiBase):
             "topo": dutTestParams["topo"],
             "qos_remap_enable": qos_remap_enable
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )

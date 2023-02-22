@@ -1256,7 +1256,11 @@ class ReloadTest(BaseTest):
                 self.handle_post_reboot_health_check_kvm()
             else:
                 if self.reboot_type == 'fast-reboot':
+                    thr = threading.Thread(target=self.wait_until_control_plane_up)
+                    thr.setDaemon(True)
+                    thr.start()
                     self.handle_fast_reboot_health_check()
+                    thr.join()
                 if 'warm-reboot' in self.reboot_type or 'service-warm-restart' == self.reboot_type:
                     self.handle_warm_reboot_health_check()
                 self.handle_post_reboot_health_check()

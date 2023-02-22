@@ -57,7 +57,8 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "nn_target_vlanid"])
 
 _TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
-_TEST_RATE_LIMIT = 600
+_TEST_RATE_LIMIT_DEFAULT = 600
+_TEST_RATE_LIMIT_MARVELL = 625
 
 logger = logging.getLogger(__name__)
 
@@ -301,7 +302,8 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
     mg_fact = duts_minigraph_facts[duthost.hostname]
 
     port_index_map = {}
-    for index, mg_facts in enumerate(mg_fact):
+    for mg_facts_tuple in mg_fact:
+        index, mg_facts = mg_facts_tuple
         # filter out server peer port and only bgp peer ports remain, to support T0 topologies
         bgp_peer_name_set = set([bgp_peer["name"] for bgp_peer in mg_facts["minigraph_bgp"]])
         # get the port_index_map using the ptf_indicies to support multi DUT topologies
@@ -318,7 +320,8 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
     peerip = None
     nn_target_vlanid = None
 
-    for index, mg_facts in enumerate(mg_fact):
+    for mg_facts_tuple in mg_fact:
+        index, mg_facts = mg_facts_tuple
         if nn_target_interface not in mg_facts["minigraph_neighbors"]:
             continue
         for bgp_peer in mg_facts["minigraph_bgp"]:
@@ -354,8 +357,12 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
+    rate_limit = _TEST_RATE_LIMIT_DEFAULT
+    if dut.facts["asic_type"] == "marvell":
+        rate_limit = _TEST_RATE_LIMIT_MARVELL
+
     logging.info("Update the rate limit for the COPP policer")
-    copp_utils.limit_policer(dut, _TEST_RATE_LIMIT, test_params.nn_target_namespace)
+    copp_utils.limit_policer(dut, rate_limit, test_params.nn_target_namespace)
 
     # Multi-asic will not support this mode as of now.
     if test_params.swap_syncd:

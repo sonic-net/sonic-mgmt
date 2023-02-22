@@ -1231,7 +1231,7 @@ class PsuPowerThresholdMocker(object):
     FAN_AMBIENT_TEMP = '/var/run/hw-management/thermal/fan_amb'
     AMBIENT_TEMP_CRITICAL_THRESHOLD = '/var/run/hw-management/config/amb_tmp_crit_limit'
     AMBIENT_TEMP_WARNING_THRESHOLD = '/var/run/hw-management/config/amb_tmp_warn_limit'
-    PSU_POWER_SLOPE = '/var/run/hw-management/config/psu_power_slope'
+    PSU_POWER_SLOPE = '/var/run/hw-management/config/psu{}_power_slope'
     PSU_POWER_CAPACITY = '/var/run/hw-management/config/psu{}_power_capacity'
     PSU_POWER = '/var/run/hw-management/power/psu{}_power'
 
@@ -1244,7 +1244,6 @@ class PsuPowerThresholdMocker(object):
     def mock_power_threshold(self, number_psus):
         self.mock_helper.mock_value(self.AMBIENT_TEMP_WARNING_THRESHOLD, 65000, True)
         self.mock_helper.mock_value(self.AMBIENT_TEMP_CRITICAL_THRESHOLD, 75000, True)
-        self.mock_helper.mock_value(self.PSU_POWER_SLOPE, 2000, True)
 
         max_power = None
         for i in range(number_psus):
@@ -1253,6 +1252,7 @@ class PsuPowerThresholdMocker(object):
                 # Round up to 100 watt and then double it to avoid noise when power fluctuate
                 max_power = int(round(power / 100000000.0)) * 100000000 * 2
             self.mock_helper.mock_value(self.PSU_POWER_CAPACITY.format(i + 1), max_power, True)
+            self.mock_helper.mock_value(self.PSU_POWER_SLOPE.format(i + 1), 2000, True)
 
         # Also mock ambient temperatures
         self.mock_helper.mock_value(self.PORT_AMBIENT_TEMP, self.read_port_ambient_thermal())
@@ -1270,8 +1270,8 @@ class PsuPowerThresholdMocker(object):
     def read_psu_power_threshold(self, psu):
         return int(self.mock_helper.read_value(self.PSU_POWER_CAPACITY.format(psu)))
 
-    def read_psu_power_slope(self):
-        return int(self.mock_helper.read_value(self.PSU_POWER_SLOPE))
+    def read_psu_power_slope(self, psu):
+        return int(self.mock_helper.read_value(self.PSU_POWER_SLOPE.format(psu)))
 
     def read_psu_power(self, psu):
         return int(self.mock_helper.read_value(self.PSU_POWER.format(psu)))

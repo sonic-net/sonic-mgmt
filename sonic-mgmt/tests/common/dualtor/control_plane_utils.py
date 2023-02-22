@@ -130,7 +130,9 @@ class DBChecker:
             for intf_name in self.intf_names:
                 table_key = '{}{}{}'.format(table, separator, intf_name)
 
-                if db_dump[table_key]['value'][field] != target_value:
+                if table_key not in db_dump:
+                    mismatch_ports[table_key] = {}
+                elif db_dump[table_key]['value'][field] != target_value:
                     mismatch_ports[table_key] = db_dump[table_key]['value']
 
         self.mismatch_ports = mismatch_ports

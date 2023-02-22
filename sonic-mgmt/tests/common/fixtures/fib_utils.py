@@ -45,8 +45,8 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
         for asic_cfg_facts in cfg_facts:
             if duthost.facts['switch_type'] == "voq":
                 switch_type = "voq"
-                dut_inband_intfs.setdefault(duthost.hostname,[]).extend(asic_cfg_facts['VOQ_INBAND_INTERFACE'])
-            dut_port_channels.setdefault(duthost.hostname,{}).update(asic_cfg_facts.get('PORTCHANNEL', {}))
+                dut_inband_intfs.setdefault(duthost.hostname,[]).extend(asic_cfg_facts[1]['VOQ_INBAND_INTERFACE'])
+            dut_port_channels.setdefault(duthost.hostname,{}).update(asic_cfg_facts[1].get('PORTCHANNEL', {}))
     sys_neigh = {}
     if switch_type == "voq":
         voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
@@ -58,7 +58,8 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
     for duthost in duthosts.frontend_nodes:
         cfg_facts = duts_cfg_facts[duthost.hostname]
         mg_facts = duts_mg_facts[duthost.hostname]
-        for asic_index, asic_cfg_facts in  enumerate(cfg_facts):
+        for list_index, asic_cfg_facts_tuple in  enumerate(cfg_facts):
+            asic_index, asic_cfg_facts = asic_cfg_facts_tuple
             asic = duthost.asic_instance(asic_index)
 
             asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
@@ -86,7 +87,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                     if len(oports) == 0:
                                         skip = True
                                 else:
-                                    oports.append([str(mg_facts[asic_index]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                    oports.append([str(mg_facts[list_index][1]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                                     skip = False
                         else:
                             if ifname in ports:
@@ -126,7 +127,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                             if remote_neigh_intf in a_asic_mg_facts['minigraph_port_indices']:
                                                 oports.append([str(a_asic_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])])
                                 else:
-                                    oports.append([str(mg_facts[asic_index]['minigraph_ptf_indices'][ifname])])
+                                    oports.append([str(mg_facts[list_index][1]['minigraph_ptf_indices'][ifname])])
                                     skip = False
                             else:
                                 logger.info("Route point to non front panel port {}:{}".format(k, v))
@@ -170,7 +171,9 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
     """
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     fib_info = {}
-    for asic_index, asic_cfg_facts in enumerate(dut_cfg_facts):
+    for list_index, asic_cfg_facts_tuple in enumerate(dut_cfg_facts):
+
+        asic_index, asic_cfg_facts = asic_cfg_facts_tuple
 
         asic = duthost.asic_instance(asic_index)
 
@@ -198,15 +201,15 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
                             if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
                                 skip = True
                             else:
-                                oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                oports.append([str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                     else:
                         if ifname in sub_interfaces:
-                            oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][ifname.split('.')[0]])])
+                            oports.append([str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][ifname.split('.')[0]])])
                         elif ifname in ports:
                             if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                 skip = True
                             else:
-                                oports.append([str(duts_mg_facts[asic_index]['minigraph_ptf_indices'][ifname])])
+                                oports.append([str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][ifname])])
                         else:
                             logger.info("Route point to non front panel port {}:{}".format(k, v))
                             skip = True

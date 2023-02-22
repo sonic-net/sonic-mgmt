@@ -105,7 +105,7 @@ class PduManager():
 
         if not (shared_pdu and outlet is None):
             if controller is None:
-                controller = get_pdu_controller(pdu_ip, pdu_vars, psu_peer['HwSku'])
+                controller = get_pdu_controller(pdu_ip, pdu_vars, psu_peer['HwSku'], psu_peer['Type'])
                 if not controller:
                     logger.warning('Failed creating pdu controller: {}'.format(psu_peer))
                     return
