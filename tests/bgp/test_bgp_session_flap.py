@@ -60,6 +60,8 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
     # tor1 = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])[0]
     tor1 = natsorted(nbrhosts.keys())[0]
 
+    skip_hosts = duthost.get_asic_namespace_list()
+
     bgp_facts = duthost.bgp_facts(instance_id=enum_rand_one_frontend_asic_index)['ansible_facts']
     neigh_asn = dict()
     for k, v in bgp_facts['bgp_neighbors'].items():
