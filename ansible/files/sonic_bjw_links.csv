@@ -439,3 +439,15 @@ bjw-can-7260-root-1,Ethernet18/1,bjw-can-serv-8,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet19/1,bjw-can-serv-9,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet20/1,bjw-can-serv-10,ens4f1,100000,,Trunk
 bjw-can-serv-11,ens4f0,bjw-can-serv-11,ens4f1,100000,,Trunk
+bjw-can-7215-10,etp1,bjw-can-serv-1,iDRAC,1000,,Access
+bjw-can-7215-10,etp2,bjw-can-serv-2,iDRAC,1000,,Access
+bjw-can-7215-10,etp3,bjw-can-serv-3,iDRAC,1000,,Access
+bjw-can-7215-10,etp4,bjw-can-serv-4,iDRAC,1000,,Access
+bjw-can-7215-10,etp5,bjw-can-serv-5,iDRAC,1000,,Access
+bjw-can-7215-10,etp6,bjw-can-serv-6,iDRAC,1000,,Access
+bjw-can-7215-10,etp7,bjw-can-serv-7,iDRAC,1000,,Access
+bjw-can-7215-10,etp8,bjw-can-serv-8,iDRAC,1000,,Access
+bjw-can-7215-10,etp9,bjw-can-serv-9,iDRAC,1000,,Access
+bjw-can-7215-10,etp10,bjw-can-serv-10,iDRAC,1000,,Access
+bjw-can-7215-10,etp11,bjw-can-serv-11,iDRAC,1000,,Access
+
