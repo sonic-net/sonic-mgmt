@@ -71,7 +71,7 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     """
     log_pattern = "/	{0}	/D;/.*/P".format(username)
     logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
-    pytest_assert(len(logs) == 0)
+    pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
 
 def check_local_log_exist(duthost, tacacs_creds, command):
@@ -106,7 +106,7 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
     logger.info("Found logs: %s", logs)
-    pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found" + logs)
+    pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
 
 @pytest.fixture
