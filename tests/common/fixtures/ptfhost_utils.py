@@ -78,7 +78,8 @@ def copy_ptftests_directory(ptfhost):
 def set_ptf_port_mapping_mode(ptfhost, request, tbinfo):
     """Set per-module ptf port mapping mode used by ptftests on ptf."""
     if "backend" in tbinfo["topo"]["name"]:
-        ptf_port_mapping_mode = getattr(request.module, "PTF_PORT_MAPPING_MODE", constants.PTF_PORT_MAPPING_MODE_DEFAULT)
+        ptf_port_mapping_mode = getattr(request.module, "PTF_PORT_MAPPING_MODE",
+                                        constants.PTF_PORT_MAPPING_MODE_DEFAULT)
     else:
         ptf_port_mapping_mode = "use_orig_interface"
     logger.info("Set ptf port mapping mode: %s", ptf_port_mapping_mode)
@@ -182,8 +183,9 @@ def _ptf_portmap_file(duthost, ptfhost, tbinfo):
         Returns:
             filename (str): returns the filename copied to PTF host
     """
-    intfInfo = duthost.show_interface(command = "status")['ansible_facts']['int_status']
-    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up' and intfInfo[port]['admin_state'] == 'up']
+    intfInfo = duthost.show_interface(command="status")['ansible_facts']['int_status']
+    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up'
+                and intfInfo[port]['admin_state'] == 'up']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:
@@ -348,7 +350,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
             if 'dualtor' in tbinfo['topo']['name']:
                 dut_mac = vlan_details['mac'].lower()
             else:
-                dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
+                dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].\
+                    decode("utf-8")
             break
 
         dst_ipv6 = ''
@@ -376,8 +379,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
                 server_ipv4 = str(server_ipv4_base_addr + i)
                 server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
-                mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)
-                mux_cable_table[intf]['server_ipv6'] = unicode(server_ipv6)
+                mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)    # noqa F821
+                mux_cable_table[intf]['server_ipv6'] = unicode(server_ipv6)    # noqa F821
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
@@ -401,8 +404,10 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
         with open(os.path.join(TEMPLATES_DIR, GARP_SERVICE_CONF_TEMPL)) as f:
             template = Template(f.read())
 
-        ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True), dest=os.path.join(TMP_DIR, 'garp_conf.json'))
-        ptfhost.copy(content=template.render(garp_service_args = '--interval 10'), dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
+        ptfhost.copy(content=json.dumps(garp_config, indent=4, sort_keys=True),
+                     dest=os.path.join(TMP_DIR, 'garp_conf.json'))
+        ptfhost.copy(content=template.render(garp_service_args='--interval 10'),
+                     dest=os.path.join(SUPERVISOR_CONFIG_DIR, 'garp_service.conf'))
         logger.info("Starting GARP Service on PTF host")
         ptfhost.shell('supervisorctl update')
         ptfhost.shell('supervisorctl start garp_service')
@@ -420,7 +425,7 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
     active_dut_map = {}
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.get(mux_server_url)
-        pt_assert(res.status_code==200, 'Failed to get mux status: {}'.format(res.text))
+        pt_assert(res.status_code == 200, 'Failed to get mux status: {}'.format(res.text))
         for mux_status in res.json().values():
             active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
             active_dut_map[str(mux_status['port_index'])] = active_dut_index
@@ -450,7 +455,8 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
             target_dut_index = int(active_dut_map[ptf_port])
             ports_map[ptf_port] = {
                 'target_dut': target_dut_index,
-                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac'],
+                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']
+                ['Vlan1000']['mac'],
                 'target_src_mac': router_macs[target_dut_index],
                 'asic_idx': asic_idx
             }
@@ -463,7 +469,8 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
                     if target_dut_port in mg_facts['minigraph_port_indices'].values():
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]['DEVICE_METADATA']['localhost']['mac'].lower()
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]
+                        ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
                         break
             ports_map[ptf_port] = {
@@ -479,17 +486,19 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
     return PTF_TEST_PORT_MAP
 
 
-def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts, active_active_ports_mux_status=None):
+def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts,
+                                    duts_minigraph_facts, active_active_ports_mux_status=None):
     active_dut_map = {}
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.get(mux_server_url)
-        pt_assert(res.status_code==200, 'Failed to get mux status: {}'.format(res.text))
+        pt_assert(res.status_code == 200, 'Failed to get mux status: {}'.format(res.text))
         for mux_status in res.json().values():
             active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
             active_dut_map[str(mux_status['port_index'])] = [active_dut_index]
         if active_active_ports_mux_status:
             for port_index, port_status in active_active_ports_mux_status.items():
-                active_dut_map[str(port_index)] = [active_dut_index for active_dut_index in (0, 1) if port_status[active_dut_index]]
+                active_dut_map[str(port_index)] = [active_dut_index for active_dut_index in (0, 1)
+                                                   if port_status[active_dut_index]]
 
     disabled_ptf_ports = set()
     for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
@@ -516,7 +525,8 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             target_dut_indexes = list(map(int, active_dut_map[ptf_port]))
             ports_map[ptf_port] = {
                 'target_dut': target_dut_indexes,
-                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']['Vlan1000']['mac'],
+                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']
+                ['Vlan1000']['mac'],
                 'target_src_mac': [router_macs[_] for _ in target_dut_indexes],
                 'asic_idx': asic_idx
             }
@@ -525,11 +535,13 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             target_dut_index = int(list(dut_intf_map.keys())[0])
             target_dut_port = int(list(dut_intf_map.values())[0])
             router_mac = router_macs[target_dut_index]
+            dut_port = None
             if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
                     if target_dut_port in mg_facts['minigraph_port_indices'].values():
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]['DEVICE_METADATA']['localhost']['mac'].lower()
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]
+                        ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
                         for a_dut_port, a_dut_port_index in mg_facts['minigraph_port_indices'].items():
                             if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
