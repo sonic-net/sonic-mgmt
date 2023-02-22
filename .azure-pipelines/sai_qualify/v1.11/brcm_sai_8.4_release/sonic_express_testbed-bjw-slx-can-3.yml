@@ -41,12 +41,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_TEST_IMG_MASTER_8.1.0.1_BCM)
+    default: $(BJW_IMAGE_BRCM_202211)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(BJW_TEST_SAITHRIFTV2_MASTER_8.1.0.1)
+    default: $(SAITHRIFTV2_BRCM_INTERNAL_202211_BJ)
     displayName: "py_saithrift URL"
 
   # Deploy SAI SDK
