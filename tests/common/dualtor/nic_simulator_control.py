@@ -57,7 +57,7 @@ def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=
         kwargs = {}
 
     if timeout > GRPC_CLIENT_TIMEOUT_MAX:
-        raise ValueError("Only allow timeout up to %ss, received %ss." % (GRPC_CLIENT_TIMEOUT_MAX, timeout))
+        timeout = GRPC_CLIENT_TIMEOUT_MAX
 
     kwargs["timeout"] = timeout
     for i in range(retries - 1):
