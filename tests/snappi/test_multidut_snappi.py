@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_dut_base_config, get_multidut_snappi_ports
+    snappi_api, snappi_dut_base_config, get_multidut_snappi_ports, get_multidut_tgen_peer_port_set
 from tests.common.snappi.snappi_helpers import wait_for_arp
 from tests.common.snappi.port import select_ports
 from tests.common.snappi.qos_fixtures import prio_dscp_map
