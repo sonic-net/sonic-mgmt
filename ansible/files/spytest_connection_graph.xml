@@ -6277,10 +6277,10 @@
   </ConsoleGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
-      <DevicePowerControlInfo Hostname="pdu-82" HwSku="Apc" ManagementIp="10.3.155.82" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-83" HwSku="Apc" ManagementIp="10.3.155.83" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-84" HwSku="Apc" ManagementIp="10.3.155.84" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-85" HwSku="Apc" ManagementIp="10.3.155.85" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-82" HwSku="ApcRPDU" ManagementIp="10.3.155.82" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-83" HwSku="ApcRPDU" ManagementIp="10.3.155.83" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-84" HwSku="ApcRPDU" ManagementIp="10.3.155.84" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-85" HwSku="ApcRPDU" ManagementIp="10.3.155.85" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-96" HwSku="Sentry4" ManagementIp="10.3.155.96" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-97" HwSku="Sentry4" ManagementIp="10.3.155.97" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-98" HwSku="Sentry4" ManagementIp="10.3.155.98" Protocol="snmp" Type="Pdu"/>
@@ -6512,8 +6512,8 @@
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u19" EndPort="PSU2" StartDevice="pdu-110" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u21" EndPort="PSU1" StartDevice="pdu-109" StartPort="27"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u21" EndPort="PSU2" StartDevice="pdu-110" StartPort="27"/>
-      <PowerControlLinkInfo EndDevice="str2-pikez-acs-1" EndPort="PSU1" StartDevice="pdu-82" StartPort="4"/>
-      <PowerControlLinkInfo EndDevice="str2-pikez-acs-1" EndPort="PSU2" StartDevice="pdu-83" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str2-pikez-acs-1" EndPort="PSU1" StartDevice="pdu-82" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="str2-pikez-acs-1" EndPort="PSU2" StartDevice="pdu-82" StartPort="7"/>
       <PowerControlLinkInfo EndDevice="str2-7215-acs-5" EndPort="PSU1" StartDevice="pdu-82" StartPort="3"/>
       <PowerControlLinkInfo EndDevice="str2-7215-acs-5" EndPort="PSU2" StartDevice="pdu-83" StartPort="3"/>
       <PowerControlLinkInfo EndDevice="str2-bluefield-host-01" EndPort="PSU1" StartDevice="pdu-118" StartPort="46"/>

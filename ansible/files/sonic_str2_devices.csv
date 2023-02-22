@@ -131,10 +131,10 @@ str2-acs-serv-26,10.64.246.156/23,TestServ,Server,
 str2-acs-serv-27,10.64.246.157/23,TestServ,Server,
 str2-acs-serv-28,10.64.246.225/23,TestServ,Server,
 str2-acs-serv-29,10.64.246.237/23,TestServ,Server,
-pdu-82,10.3.155.82,Apc,Pdu,snmp
-pdu-83,10.3.155.83,Apc,Pdu,snmp
-pdu-84,10.3.155.84,Apc,Pdu,snmp
-pdu-85,10.3.155.85,Apc,Pdu,snmp
+pdu-82,10.3.155.82,ApcRPDU,Pdu,snmp
+pdu-83,10.3.155.83,ApcRPDU,Pdu,snmp
+pdu-84,10.3.155.84,ApcRPDU,Pdu,snmp
+pdu-85,10.3.155.85,ApcRPDU,Pdu,snmp
 pdu-96,10.3.155.96,Sentry4,Pdu,snmp
 pdu-97,10.3.155.97,Sentry4,Pdu,snmp
 pdu-98,10.3.155.98,Sentry4,Pdu,snmp
