@@ -272,6 +272,8 @@ class TestQosSai(QosSaiBase):
 
         try:
             prev_poll_interval = int(prev_poll_interval)
+            if int(pfcwd_timers['pfc_wd_poll_time']) > prev_poll_interval:
+                pfcwd_timers['pfc_wd_poll_time'] = str(prev_poll_interval)
         except Exception as e:
             logging.debug("Exception: {}, Poll Interval: {}".format(str(e), prev_poll_interval))
             prev_poll_interval = 0
