@@ -309,6 +309,10 @@ def check_fan_status(duthost, cmd):
     fan_status_output_lines = duthost.command(cmd)["stdout_lines"]
     fans = verify_show_platform_fan_output(duthost, fan_status_output_lines)
 
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not fans and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+        return True
+
     # Check that all fans are showing valid status and also at-least one PSU is OK.
     num_fan_ok = 0
     for a_fan in fans.values():
