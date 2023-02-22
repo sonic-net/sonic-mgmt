@@ -306,8 +306,3 @@ def get_port_indices_for_asic(asic_id, port_name_list_sorted):
         port_index_map[val] = idx
 
     return port_index_map
-
-
-if __name__ == '__main__':
-    a, _, _ = get_port_alias_to_name_map('Arista-7050-QX-32S')
-    print(a)
