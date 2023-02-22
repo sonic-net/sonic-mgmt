@@ -262,7 +262,7 @@ class TestSfpApi(PlatformApiTestBase):
             spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
             if xcvr_info_dict["type_abbrv_name"] == "SFP":
                 compliance_code = spec_compliance_dict.get("SFP+CableTechnology")
-                if compliance_code == "Passive Cable":
+                if compliance_code in ["Passive Cable", "Unknown"]:
                    return False
             else:
                 compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code", " ")
