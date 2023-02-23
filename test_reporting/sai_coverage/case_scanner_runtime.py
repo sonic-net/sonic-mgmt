@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import re
 import uuid
 
@@ -36,7 +37,7 @@ def parse_log(log_path, save_path, test_platform):
             print('Scanning:', str(cur_cnt)+'/'+str(file_cnt))
             if '** END TEST CASE' in line:
                 continue
-            
+
             pattern = r' - '
             obj = re.split(pattern, line)
             _, fine_data = obj[4].split(' ', 1)
@@ -89,7 +90,8 @@ def parse_log(log_path, save_path, test_platform):
 
                 results.append(data)
 
-    with open(save_path, 'w+') as f:
+    os.makedirs(save_path, exist_ok=True)
+    with open(os.path.join(save_path, 'parsed_log.json'), 'w+') as f:
         json.dump(results, f, indent=4)
 
 
