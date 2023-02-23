@@ -11,6 +11,7 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+
 pytestmark = [
     pytest.mark.topology("any"),
     pytest.mark.device_type('vs')
@@ -104,9 +105,9 @@ def get_ptf_send_ports(duthost, tbinfo, dev_port):
 
 
 def check_route(duthost, asic_idx, route, dev_port, operation):
-    cmd = "show ip route {} json".format(route)
-    ns = duthost.get_namespace_from_asic_id(asic_idx)
-    out = json.loads(duthost.get_vtysh_cmd_for_namespace(cmd, ns)['stdout'])
+    cmd = "vtysh -c 'show ip route {} json'".format(route)
+    ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_idx)) if asic_idx else cmd
+    out = json.loads(duthost.shell(cmd)['stdout'])
     result = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops'] if 'interfaceName' in nexthop.keys()]
     if operation == WITHDRAW:
         pytest_assert(dev_port not in result, "Route {} was not withdraw {}".format(route, result))
@@ -143,9 +144,9 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
 
 
 def get_ip_route_info(duthost, asic_idx):
-    cmd = "show ip bgp ipv4 json"
-    ns = duthost.get_namespace_from_asic_id(asic_idx)
-    out = json.loads(duthost.get_vtysh_cmd_for_namespace(cmd, ns)['stdout'])
+    cmd = "vtysh -c 'show ip bgp ipv4 json'"
+    ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_idx)) if asic_idx else cmd
+    out = json.loads(duthost.shell(cmd)['stdout'])
     return output['routes']
 
 
