@@ -103,21 +103,22 @@ sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
-    sonic_arista_7050qx:
+    sonic_arista_7050qx_32s_q32:
+    sonic_arista_7050qx_32s_s4q31:
     sonic_arista_720dt:
     sonic_celestica_dx010:
     sonic_intel_ec9516:
     sonic_mlnx_sn2700:
     sonic_nokia_7215:
 
-sonic_arista_7050qx:
+sonic_arista_7050qx_32s_q32:
   vars:
-    hwsku: Arista-7050-QX-32S
+    hwsku: Arista-7050QX32S-Q32
     iface_speed: 40000
   hosts:
     bjw-can-7050qx-1:
       ansible_host: 10.150.22.117
-      hwsku: Arista-7050-QX-32S
+      hwsku: Arista-7050QX32S-Q32
       model: DCS-7050QX-32S
       serial: JPE18402553
       base_mac: 74:83:ef:fe:ea:a0
@@ -137,6 +138,12 @@ sonic_arista_7050qx:
         "0x2E": "Aboot-norcal4-4.1.0-3037060"
         "0x2F": "JPE18402553"
         "0xFE": 3735928559
+
+sonic_arista_7050qx_32s_s4q31:
+  vars:
+    hwsku: Arista-7050-QX-32S
+    iface_speed: 40000
+  hosts:
     bjw-can-7050qx-2:
       ansible_host: 10.150.22.119
       hwsku: Arista-7050-QX-32S
