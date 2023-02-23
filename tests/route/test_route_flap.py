@@ -107,7 +107,7 @@ def get_ptf_send_ports(duthost, tbinfo, dev_port):
 def check_route(duthost, asic_idx, route, dev_port, operation):
     cmd = "vtysh -c 'show ip route {} json'".format(route)
     ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_idx)) if asic_idx else cmd
-    out = json.loads(duthost.shell(cmd)['stdout'])
+    out = json.loads(duthost.shell(ns_cmd)['stdout'])
     result = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops'] if 'interfaceName' in nexthop.keys()]
     if operation == WITHDRAW:
         pytest_assert(dev_port not in result, "Route {} was not withdraw {}".format(route, result))
@@ -146,7 +146,7 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
 def get_ip_route_info(duthost, asic_idx):
     cmd = "vtysh -c 'show ip bgp ipv4 json'"
     ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_idx)) if asic_idx else cmd
-    out = json.loads(duthost.shell(cmd)['stdout'])
+    out = json.loads(duthost.shell(ns_cmd)['stdout'])
     return output['routes']
 
 
