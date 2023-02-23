@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import yaml
 
 from . import constants
 
@@ -26,6 +28,36 @@ def reboot_dut(dut, localhost, cmd):
         reboot_type = REBOOT_TYPE_COLD
 
     reboot(dut, localhost, reboot_type=reboot_type)
+
+def _recover_telemetry_certs(dut):
+    CURR_DIR = os.path.abspath(os.path.dirname(__file__))
+    SONIC_MGMT_DIR = os.path.abspath(os.path.join(CURR_DIR, "../../../.."))
+    TELEMETRY_CERTS_FILE = os.path.join(SONIC_MGMT_DIR, "ansible/group_vars/all/telemetry_certs.yml")
+
+    logger.debug('Telemetry certs {}:'.format(TELEMETRY_CERTS_FILE))
+
+    action = 'reboot'
+
+    if os.path.exists(TELEMETRY_CERTS_FILE):
+        with open(TELEMETRY_CERTS_FILE, "r") as f:
+            config = yaml.safe_load(f)
+            if 'telemetry_certs' in config.keys():
+                parameter = config["telemetry_certs"]
+
+                dut.shell("mkdir /etc/sonic/telemetry", module_ignore_errors=True)
+                dut.shell("chomd 0755 /etc/sonic/telemetry", module_ignore_errors=True)
+                
+                CMD_server = "openssl req -x509 -sha256 -nodes -newkey rsa:2048 -keyout '{}' -subj '/CN={}' -out '{}'".format(parameter['server_key'], parameter['subject_server'], parameter['server_cer'])
+                logger.debug('Telemetry certs, CMD_server {}:'.format(CMD_server)) 
+                dut.shell(CMD_server, module_ignore_errors=True)
+
+                CMD_dsmsroot = "openssl req -x509 -sha256 -nodes -newkey rsa:2048 -keyout '{}' -subj '/CN={}' -out '{}'".format(parameter['dsmsroot_key'], parameter['subject_client'], parameter['dsmsroot_cer'])
+                logger.debug('Telemetry certs, CMD_dsmsroot {}:'.format(CMD_dsmsroot)) 
+                dut.shell(CMD_dsmsroot, module_ignore_errors=True)
+
+                action = None
+
+    return action
 
 
 def _recover_interfaces(dut, fanouthosts, result, wait_time):
@@ -146,6 +178,8 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
             elif result['check_item'] in ['processes', 'mux_simulator']:
                 action = 'config_reload'
+            elif result['check_item'] == 'telemetry_certs':
+                action = _recover_telemetry_certs(dut)
             else:
                 action = 'reboot'
 

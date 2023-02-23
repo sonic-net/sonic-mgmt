@@ -3,6 +3,8 @@ import json
 import logging
 import pytest
 import time
+import os
+import yaml
 
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
@@ -27,7 +29,8 @@ CHECK_ITEMS = [
     'check_monit',
     'check_mux_simulator',
     'check_secureboot',
-    'check_neighbor_macsec_empty']
+    'check_neighbor_macsec_empty',
+    'check_telemetry_certs']
 
 __all__ = CHECK_ITEMS
 
@@ -619,6 +622,46 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
 
         return results
 
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_telemetry_certs(duthosts):
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "telemetry_certs"}
+        result = parallel_run(_check_telemetry_certs_on_dut, args, kwargs, duthosts, timeout=600, init_result=init_result)
+        return result.values()
+
+    @reset_ansible_local_tmp
+    def _check_telemetry_certs_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+
+        check_result = {"failed": False, "check_item": "telemetry_certs", "host": dut.hostname}
+
+        CURR_DIR = os.path.abspath(os.path.dirname(__file__))
+        SONIC_MGMT_DIR = os.path.abspath(os.path.join(CURR_DIR, "../../../.."))
+        TELEMETRY_CERTS_FILE = os.path.join(SONIC_MGMT_DIR, "ansible/group_vars/all/telemetry_certs.yml")
+
+        if os.path.exists(TELEMETRY_CERTS_FILE):
+            with open(TELEMETRY_CERTS_FILE, "r") as f:
+                config = yaml.safe_load(f)
+                if 'telemetry_certs' in config.keys():
+                    parameter = config["telemetry_certs"]
+                    shell_result_server_cer = dut.shell("test -e {}".format(parameter['server_cer']), module_ignore_errors=True)
+                    shell_result_server_key = dut.shell("test -e {}".format(parameter['server_key']), module_ignore_errors=True)
+                    shell_result_dsmsroot_cer = dut.shell("test -e {}".format(parameter['dsmsroot_cer']), module_ignore_errors=True)
+                    shell_result_dsmsroot_key = dut.shell("test -e {}".format(parameter['dsmsroot_key']), module_ignore_errors=True)
+                    if shell_result_server_cer['rc'] or shell_result_server_key['rc'] \
+                            or shell_result_dsmsroot_cer['rc'] or shell_result_dsmsroot_key['rc']:
+                        check_result["failed"] = True   
+                else:             
+                    check_result["failed"] = True     
+
+        else:
+            check_result["failed"] = True     
+
+        results[dut.hostname] = check_result
     return _check
 
 
