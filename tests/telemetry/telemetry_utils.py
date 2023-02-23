@@ -11,6 +11,8 @@ METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
 SUBMODE_SAMPLE = 2
+CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_CHECK_INTERVAL_SECS = 1
 
 
 def assert_equal(actual, expected, message):
@@ -81,15 +83,38 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
 
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
-                        intervalms=0, update_count=3):
+                        intervalms=0, update_count=3, create_connections=1):
     """ Generate the py_gnmicli command line based on the given params.
     """
     cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
     cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
 
     if method == METHOD_SUBSCRIBE:
-        cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3}".format(
+        cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3} --create_connections {4}".format(
                 subscribe_mode,
                 submode, intervalms,
-                update_count)
+                update_count, create_connections)
     return cmd
+
+
+def check_critical_processes(duthost, container_name):
+    """Checks whether the critical processes are running after container was restarted.
+    """
+    status_result = duthost.critical_process_status(container_name)
+    if status_result["status"] is False or len(status_result["exited_critical_process"]) > 0:
+        return False
+    return True
+
+
+def postcheck_critical_processes(duthost, container_name):
+    "Checks whether the critical processes are running after container was restarted.
+    """
+    logger.info("Checking the running status of critical processes in '{}' container..."
+                .format(container_name))
+    is_succeeded = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+                              check_critical_processes, duthost, container_name)
+    if not is_succeeded:
+        pytest.fail("Not all critical proccesses in '{}' container are running!"
+                    .format(container_name))
+    logger.info("All critical processes in '{}' container are running"
+                .format(container_name))

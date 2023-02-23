@@ -1,11 +1,14 @@
 import time
-
+import threading
 import logging
 import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
+from tests.common.helpers.dut_utils import check_container_state
+from tests.common.utilities import wait_until
+from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
+from telemetry_utils import generate_client_cli, postcheck_critical_processes
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -16,6 +19,10 @@ logger = logging.getLogger(__name__)
 TELEMETRY_PORT = 50051
 METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
+CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_CHECK_INTERVAL_SECS = 1
+MEMORY_CHECKER_WAIT = 1
+MEMORY_CHECKER_CYCLES = 60
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -150,3 +157,48 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
     assert_equal(len(re.findall('Max update count reached 3', result)), 1, "Streaming update count in:\n{0}".format(result))
     assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4, "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
     assert_equal(len(re.findall('timestamp: \d+', result)), 3, "Timestamp markers for each update message in:\n{0}".format(result))
+
+
+def invoke_py_cli_from_ptf(ptfhost, cmd):
+    ptfhost.shell(cmd)
+
+
+@pytest.mark.disable_loganalyzer
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
+    """Test whether memory usage of telemetry container will exceed threshold
+    if python gNMI client continuously creates channels with gNMI server.
+    """
+    logger.info("Starting to test the memory spike issue of telemetry container")
+    
+    duthost = duthosts[rand_one_dut_hostname]
+
+    logger.info("Checking whether telemetry container is running before testing...")
+    is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                            CONTAINER_CHECK_INTERVAL_SECS,
+                            0,
+                            check_container_state, duthost, "TELEMETRY", True)
+    pytest_assert(is_running, "Telemetry container is not running on DUT!")
+    
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
+                              xpath="DOCKER_STATS", target="STATE_DB", update_count=1, num_connections=2000)
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd,))
+    client_thread.start()
+
+    for i in range(MEMORY_CHECKER_CYCLES):
+        ret = duthost.shell("python3 /usr/bin/memory_checker telemetry 419430400", module_ignore_error=True)
+        assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
+        time.sleep(MEMORY_CHECKER_WAIT)
+
+    client_thread.join()
+
+    duthost.service(name="telemetry", state="restarted")
+
+    logger.info("Checking whether telemetry container is running after testing....")
+    is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                            CONTAINER_CHECK_INTERVAL_SECS,
+                            0,
+                            check_container_state, duthost, "TELEMETRY", True)
+    pytest_assert(is_running, "Telemetry container is not running on DUT!")
+    logger.info("Telemetry container is running on DUT!")
+
+    postcheck_critical_processes(duthost, "TELEMETRY")
