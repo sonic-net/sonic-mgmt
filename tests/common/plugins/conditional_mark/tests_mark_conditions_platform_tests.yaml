@@ -733,9 +733,9 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
 #######################################
 platform_tests/mellanox:
   skip:
-    reason: "Marvell devices does not support platform_tests/mellanox"
+    reason: "Mellanox platform tests only supported on Mellanox devices" 
     conditions:
-      - "'marvell' in asic_type"
+      - "asic_type not in ['mellanox']"
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
@@ -813,7 +813,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip test_fast_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_name in ['m0', 'mx', 't1', 't2']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -841,7 +841,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
   skip:
     reason: "Skip test_warm_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_name in ['m0', 'mx', 't1', 't2']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:

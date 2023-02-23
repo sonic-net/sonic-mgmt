@@ -1663,8 +1663,8 @@ def duts_running_config_facts(duthosts):
     Returns:
         dict: {
             <dut hostname>: [
-                {asic0_cfg_facts},
-                {asic1_cfg_facts}
+                (asic0_idx, {asic0_cfg_facts}),
+                (asic1_idx, {asic1_cfg_facts})
             ]
         }
     """
@@ -1675,7 +1675,7 @@ def duts_running_config_facts(duthosts):
             if asic.is_it_backend():
                 continue
             asic_cfg_facts = asic.config_facts(source='running')['ansible_facts']
-            cfg_facts[duthost.hostname].append(asic_cfg_facts)
+            cfg_facts[duthost.hostname].append((asic.asic_index, asic_cfg_facts))
     return cfg_facts
 
 
@@ -1732,8 +1732,8 @@ def duts_minigraph_facts(duthosts, tbinfo):
     Returns:
         dict: {
             <dut hostname>: [
-                {asic0_mg_facts},
-                {asic1_mg_facts}
+                (asic0_idx, {asic0_mg_facts}),
+                (asic1_idx, {asic1_mg_facts})
             ]
         }
     """
@@ -1744,7 +1744,7 @@ def duts_minigraph_facts(duthosts, tbinfo):
             if asic.is_it_backend():
                 continue
             asic_mg_facts = asic.get_extended_minigraph_facts(tbinfo)
-            mg_facts[duthost.hostname].append(asic_mg_facts)
+            mg_facts[duthost.hostname].append((asic.asic_index, asic_mg_facts))
 
     return mg_facts
 

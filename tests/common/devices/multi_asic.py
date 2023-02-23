@@ -63,7 +63,7 @@ class MultiAsicSonicHost(object):
         active_asics = self.asics
         if self.sonichost.is_supervisor_node() and self.get_facts()['asic_type'] != 'vs':
             active_asics = []
-            sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_ASIC_TABLE|asic*\"")
+            sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
             for a_asic_line in sonic_db_cli_out["stdout_lines"]:
                 a_asic_name = a_asic_line.split("|")[1]
                 a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
@@ -288,7 +288,10 @@ class MultiAsicSonicHost(object):
     def get_asic_or_sonic_host(self, asic_id):
         if asic_id == DEFAULT_ASIC_ID:
             return self.sonichost
-        return self.asics[asic_id]
+        for asic in self.asics:
+            if asic.asic_index == asic_id:
+                return asic
+        return None
 
     def get_asic_or_sonic_host_from_namespace(self, namespace=DEFAULT_NAMESPACE):
         if not namespace:
