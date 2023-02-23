@@ -105,7 +105,7 @@ def get_ptf_send_ports(duthost, tbinfo, dev_port):
 
 def check_route(duthost, asic_idx, route, dev_port, operation):
     cmd = "show ip route {} json".format(route)
-    ns = get_namespace_from_asic_id(asic_idx)
+    ns = duthost.get_namespace_from_asic_id(asic_idx)
     out = json.loads(duthost.get_vtysh_cmd_for_namespace(cmd, ns)['stdout'])
     result = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops'] if 'interfaceName' in nexthop.keys()]
     if operation == WITHDRAW:
@@ -144,7 +144,7 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
 
 def get_ip_route_info(duthost, asic_idx):
     cmd = "show ip bgp ipv4 json"
-    ns = get_namespace_from_asic_id(asic_idx)
+    ns = duthost.get_namespace_from_asic_id(asic_idx)
     out = json.loads(duthost.get_vtysh_cmd_for_namespace(cmd, ns)['stdout'])
     return output['routes']
 
