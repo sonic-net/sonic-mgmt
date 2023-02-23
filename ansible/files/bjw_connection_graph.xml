@@ -34,8 +34,8 @@
       <Device Hostname="bjw-slx-can-1" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
       <Device Hostname="bjw-slx-can-3" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
       <Device Hostname="bjw-can-7215-1" HwSku="Nokia-7215" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7050qx-1" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7050qx-2" HwSku="Arista-7050QX-32S-S4Q31" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7050qx-1" HwSku="Arista-7050QX32S-Q32" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7050qx-2" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-3" EndPort="Ethernet0" StartDevice="bjw-can-720dt-1" StartPort="Ethernet0"/>
