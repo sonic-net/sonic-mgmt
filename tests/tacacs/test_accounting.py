@@ -2,13 +2,17 @@ import logging
 import time
 from tests.common.devices.ptf import PTFHost
 
+
 import pytest
 
-from .test_authorization import ssh_connect_remote, ssh_run_command, per_command_check_skip_versions, remove_all_tacacs_server
+
+from .test_authorization import ssh_connect_remote, ssh_run_command, \
+        per_command_check_skip_versions, remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
+
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -16,7 +20,9 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+
 logger = logging.getLogger(__name__)
+
 
 def cleanup_tacacs_log(ptfhost, rw_user_client):
     try:
@@ -77,7 +83,8 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
 def check_local_log_exist(duthost, tacacs_creds, command):
     """
         Find logs run by tacacs_rw_user from syslog:
-            Find logs match following format: "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
+            Find logs match following format:
+                "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
             Print matched logs with /P command.
     """
     username = tacacs_creds['tacacs_rw_user']
@@ -96,8 +103,14 @@ def check_local_log_exist(duthost, tacacs_creds, command):
 def check_local_no_other_user_log(duthost, tacacs_creds):
     """
         Find logs not run by tacacs_rw_user from syslog:
-            Remove all tacacs_rw_user's log with /D command, which will match following format: "INFO audisp-tacplus: Accounting: user: tacacs_rw_user"
-            Find all other user's log, which will match following format: "INFO audisp-tacplus: Accounting: user:"
+
+            Remove all tacacs_rw_user's log with /D command, 
+            which will match following format: 
+                "INFO audisp-tacplus: Accounting: user: tacacs_rw_user"
+
+            Find all other user's log, which will match following format:
+                "INFO audisp-tacplus: Accounting: user:"
+
             Print matched logs with /P command, which are not run by tacacs_rw_user.
     """
     username = tacacs_creds['tacacs_rw_user']
@@ -118,6 +131,7 @@ def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     yield ssh_client
     ssh_client.close()
 
+
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202112
@@ -128,7 +142,14 @@ def check_image_version(duthost):
     """
     skip_release(duthost, per_command_check_skip_versions)
 
-def test_accounting_tacacs_only(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, rw_user_client):
+
+def test_accounting_tacacs_only(
+                            ptfhost,
+                            duthosts,
+                            enum_rand_one_per_hwsku_hostname,
+                            tacacs_creds,
+                            check_tacacs,
+                            rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell("sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -141,7 +162,13 @@ def test_accounting_tacacs_only(ptfhost, duthosts, enum_rand_one_per_hwsku_hostn
     check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds)
 
 
-def test_accounting_tacacs_only_all_tacacs_server_down(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, rw_user_client):
+def test_accounting_tacacs_only_all_tacacs_server_down(
+                                                    ptfhost,
+                                                    duthosts,
+                                                    enum_rand_one_per_hwsku_hostname,
+                                                    tacacs_creds,
+                                                    check_tacacs,
+                                                    rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell("sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -171,7 +198,14 @@ def test_accounting_tacacs_only_all_tacacs_server_down(ptfhost, duthosts, enum_r
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
 
-def test_accounting_tacacs_only_some_tacacs_server_down(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, rw_user_client):
+
+def test_accounting_tacacs_only_some_tacacs_server_down(
+                                                    ptfhost,
+                                                    duthosts,
+                                                    enum_rand_one_per_hwsku_hostname,
+                                                    tacacs_creds,
+                                                    check_tacacs,
+                                                    rw_user_client):
     """
         Setup multiple tacacs server for this UT.
         Tacacs server 127.0.0.1 not accessible.
@@ -197,7 +231,14 @@ def test_accounting_tacacs_only_some_tacacs_server_down(ptfhost, duthosts, enum_
     # Cleanup
     duthost.shell("sudo config tacacs delete %s" % invalid_tacacs_server_ip)
 
-def test_accounting_local_only(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, rw_user_client):
+
+def test_accounting_local_only(
+                            ptfhost,
+                            duthosts,
+                            enum_rand_one_per_hwsku_hostname,
+                            tacacs_creds,
+                            check_tacacs,
+                            rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell("sudo config aaa accounting local")
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -210,7 +251,14 @@ def test_accounting_local_only(ptfhost, duthosts, enum_rand_one_per_hwsku_hostna
     # Verify syslog not have any command record which not run by user.
     check_local_no_other_user_log(duthost, tacacs_creds)
 
-def test_accounting_tacacs_and_local(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, rw_user_client):
+
+def test_accounting_tacacs_and_local(
+                                    ptfhost,
+                                    duthosts,
+                                    enum_rand_one_per_hwsku_hostname,
+                                    tacacs_creds,
+                                    check_tacacs,
+                                    rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell('sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -224,7 +272,14 @@ def test_accounting_tacacs_and_local(ptfhost, duthosts, enum_rand_one_per_hwsku_
     check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds)
     check_local_no_other_user_log(duthost, tacacs_creds)
 
-def test_accounting_tacacs_and_local_all_tacacs_server_down(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs, rw_user_client):
+
+def test_accounting_tacacs_and_local_all_tacacs_server_down(
+                                                        ptfhost,
+                                                        duthosts,
+                                                        enum_rand_one_per_hwsku_hostname,
+                                                        tacacs_creds,
+                                                        check_tacacs,
+                                                        rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.shell('sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -245,3 +300,4 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(ptfhost, duthosts, e
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
+
