@@ -243,33 +243,30 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
         return False
     
     routes_dut = parse_rib(duthost, ip_ver)
+    all_diffs_in_host_aspath = True
     for hostname in orig_routes_on_all_nbrs.keys():
-        if orig_routes_on_all_nbrs[hostname] != cur_routes_on_all_nbrs[hostname]:            
-            routes_diff =set(orig_routes_on_all_nbrs[hostname]) ^ set(cur_routes_on_all_nbrs[hostname])                
-        all_diffs_in_host_aspath = True
-        for hostname in orig_routes_on_all_nbrs.keys():
-            if orig_routes_on_all_nbrs[hostname] != cur_routes_on_all_nbrs[hostname]:
-                routes_diff =set(orig_routes_on_all_nbrs[hostname]) ^ set(cur_routes_on_all_nbrs[hostname])
-                for route in routes_diff:
-                    if route not in routes_dut.keys():
-                            all_diffs_in_host_aspath = False
+        if orig_routes_on_all_nbrs[hostname] != cur_routes_on_all_nbrs[hostname]:
+            routes_diff =set(orig_routes_on_all_nbrs[hostname]) ^ set(cur_routes_on_all_nbrs[hostname])
+            for route in routes_diff:
+                if route not in routes_dut.keys():
+                    all_diffs_in_host_aspath = False
+                    logger.warn("Missing route on host {}: {}".format(hostname, route))
+                    continue
+                aspaths = routes_dut[route]
+                # Filter out routes announced by this neigh
+                skip = False
+                if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
+                    for aspath in aspaths:
+                        if str(neigh_hosts[hostname]['conf']['bgp']['asn']) in aspath:
+                            logger.debug("Skipping route {} on host {}".format(route, hostname))
+                            skip = True
+                            break
+                    if not skip:
+                        all_diffs_in_host_aspath = False
+                        if route in orig_routes_on_all_nbrs[hostname]:
                             logger.warn("Missing route on host {}: {}".format(hostname, route))
-                            continue
-                    aspaths = routes_dut[route]
-                    # Filter out routes announced by this neigh
-                    skip = False
-                    if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
-                        for aspath in aspaths:
-                            if str(neigh_hosts[hostname]['conf']['bgp']['asn']) in aspath:
-                                logger.debug("Skipping route {} on host {}".format(route, hostname))
-                                skip = True
-                                break
-                        if not skip:
-                            all_diffs_in_host_aspath = False
-                            if route in orig_routes_on_all_nbrs[hostname]:
-                                logger.warn("Missing route on host {}: {}".format(hostname, route))
-                            else:
-                                logger.warn("Additional route on host {}: {}".format(hostname, route))
+                        else:
+                            logger.warn("Additional route on host {}: {}".format(hostname, route))
 
     return all_diffs_in_host_aspath
 
