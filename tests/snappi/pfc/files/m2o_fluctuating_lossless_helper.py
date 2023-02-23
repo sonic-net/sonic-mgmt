@@ -26,20 +26,21 @@ TOLERANCE_THRESHOLD = 0.05
 PORT_SPEED = 'speed_100_gbps'
 
 def run_pfc_test(api,
-                testbed_config,
-                port_config_list,
-                conn_data,
-                fanout_data,
-                duthost1,
-                rx_port,
-                rx_port_id_list,
-                duthost2, tx_port,
-                tx_port_id_list,
-                dut_port,
-                pause_prio_list,
-                test_prio_list,
-                bg_prio_list,
-                prio_dscp_map):
+                 testbed_config,
+                 port_config_list,
+                 conn_data,
+                 fanout_data,
+                 duthost1,
+                 rx_port,
+                 rx_port_id_list,
+                 duthost2, 
+                 tx_port,
+                 tx_port_id_list,
+                 dut_port,
+                 pause_prio_list,
+                 test_prio_list,
+                 bg_prio_list,
+                 prio_dscp_map):
     """
     Run PFC watchdog test in a multi-node (>=3) topoology
 
@@ -324,6 +325,8 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
     duthost.command("sonic-clear counters \n")
     logger.info('Starting transmit on all flows ...')
     start_traffic(api,all_flow_names)
+    #time.sleep(5)
+    #start_traffic(api,test_traffic)
 
     logger.info('Stop Traffic..')
     stop_traffic(api,all_flow_names)
@@ -370,6 +373,8 @@ def __verify_results(rows,
                     '{} should not have any dropped packet'.format(row.name))
         pytest_assert(row.loss == 0,
                     '{} should not have traffic loss'.format(row.name))
+        pytest_assert(int(int(rx_frames)/int(tx_frames)) == 18, 'Rx did not receive 18 percent of trasnmitted frames in {}'.format(row.name))
+
         sum+=int(row.frames_rx)
     logger.info('Total Frames Received on Rx Port : {}'.format(sum))
     with open('myfile.txt') as f:

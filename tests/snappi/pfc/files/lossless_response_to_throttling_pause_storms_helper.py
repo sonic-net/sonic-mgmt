@@ -26,20 +26,21 @@ TOLERANCE_THRESHOLD = 0.05
 PORT_SPEED = 'speed_100_gbps'
 
 def run_pfc_test(api,
-                testbed_config,
-                port_config_list,
-                conn_data,
-                fanout_data,
-                duthost1,
-                rx_port,
-                rx_port_id_list,
-                duthost2, tx_port,
-                tx_port_id_list,
-                dut_port,
-                pause_prio_list,
-                test_prio_list,
-                bg_prio_list,
-                prio_dscp_map):
+                 testbed_config,
+                 port_config_list,
+                 conn_data,
+                 fanout_data,
+                 duthost1,
+                 rx_port,
+                 rx_port_id_list,
+                 duthost2, 
+                 tx_port,
+                 tx_port_id_list,
+                 dut_port,
+                 pause_prio_list,
+                 test_prio_list,
+                 bg_prio_list,
+                 prio_dscp_map):
     """
     Run PFC watchdog test in a multi-node (>=3) topoology
 
@@ -264,10 +265,11 @@ def __gen_data_flow(testbed_config,
         """ PFC Pause Storm """
         pause_time = []
         for x in range(8):
-            if x == prio:
-                pause_time.append(int('ffff', 16))
-            else:
-                pause_time.append(int('0000', 16))
+            for fp in flow_prio:
+                if x == fp:
+                    pause_time.append(int('a', 16))
+                else:
+                    pause_time.append(int('0000', 16))
 
         vector = pfc_class_enable_vector([prio])
 
@@ -387,6 +389,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
                         '{} should have dropped packets'.format(row.name))
             pytest_assert(row.loss != 0,
                         '{} should have traffic loss'.format(row.name))
+            pytest_assert(int(int(rx_frames)/int(tx_frames)) == 90, 'Rx did not receive 90 percent of trasnmitted frames in {}'.format(row.name))
             sum+=int(row.frames_rx)
 
     logger.info('Stop Traffic..')
