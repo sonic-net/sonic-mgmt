@@ -146,11 +146,11 @@ def get_t2_info(duthosts, tbinfo):
             for interface, neighbor in mg_facts["minigraph_neighbors"].items():
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
                 if "T1" in neighbor["name"]:
-                    downstream_ports_per_dut[neighbor['namespace']].append(interface)
+                    downstream_ports_per_dut[namespace].append(interface)
                     downstream_port_ids.append(port_id)
                     downstream_port_id_to_router_mac_map[port_id] = router_mac
                 elif "T3" in neighbor["name"]:
-                    upstream_ports_per_dut[neighbor['namespace']].append(interface)
+                    upstream_ports_per_dut[namespace].append(interface)
                     upstream_port_ids.append(port_id)
                     upstream_port_id_to_router_mac_map[port_id] = router_mac
                 mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
@@ -175,13 +175,13 @@ def get_t2_info(duthosts, tbinfo):
                     acl_table_ports[namespace].append(port)
                     # This code is commented due to a bug which restricts rif interfaces to
                     # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
-                    # acl_table_ports[''].append(port)
+                    acl_table_ports[''].append(port)
             else:
                 for port in downstream_rifs:
                     acl_table_ports[namespace].append(port)
                     # This code is commented due to a bug which restricts rif interfaces to
                     # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
-                    # acl_table_ports[''].append(port)
+                    acl_table_ports[''].append(port)
 
         acl_table_ports_per_dut[duthost] = acl_table_ports
         downstream_ports[duthost] = downstream_ports_per_dut
