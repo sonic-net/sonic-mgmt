@@ -110,7 +110,6 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#SDK.*validate_port: Can't add port which is under bridge.*",
             ".*ERR syncd[0-9]*#SDK.*listFailedAttributes.*",
             ".*ERR syncd[0-9]*#SDK.*processSingleVid: failed to create object SAI_OBJECT_TYPE_LAG_MEMBER: SAI_STATUS_INVALID_PARAMETER.*",
-            ".*ERR syncd[0-9]*#SDK.*run: Runtime error during syncd init: :- processSingleVid: failed to create object SAI_OBJECT_TYPE_LAG_MEMBER: SAI_STATUS_INVALID_PARAMETER.*",
             # Known issue, captured here: https://github.com/sonic-net/sonic-buildimage/issues/10000 , ignore it for now
             ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
