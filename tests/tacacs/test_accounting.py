@@ -104,8 +104,8 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
     """
         Find logs not run by tacacs_rw_user from syslog:
 
-            Remove all tacacs_rw_user's log with /D command, 
-            which will match following format: 
+            Remove all tacacs_rw_user's log with /D command,
+            which will match following format:
                 "INFO audisp-tacplus: Accounting: user: tacacs_rw_user"
 
             Find all other user's log, which will match following format:
@@ -126,8 +126,9 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    ssh_client = ssh_connect_remote(dutip, tacacs_creds['tacacs_rw_user'],
-                                   tacacs_creds['tacacs_rw_user_passwd'])
+    ssh_client = ssh_connect_remote(dutip,
+                                    tacacs_creds['tacacs_rw_user'],
+                                    tacacs_creds['tacacs_rw_user_passwd'])
     yield ssh_client
     ssh_client.close()
 
