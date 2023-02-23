@@ -89,7 +89,7 @@ def check_local_log_exist(duthost, tacacs_creds, command):
     """
     username = tacacs_creds['tacacs_rw_user']
     log_pattern = "/INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
-                           .format(username, command)
+                  .format(username, command)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
     pytest_assert(len(logs) > 0)
 
@@ -115,7 +115,7 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
     """
     username = tacacs_creds['tacacs_rw_user']
     log_pattern = "/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P" \
-                           .format(username)
+                  .format(username)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
     logger.info("Found logs: %s", logs)
@@ -127,7 +127,7 @@ def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     ssh_client = ssh_connect_remote(dutip, tacacs_creds['tacacs_rw_user'],
-                         tacacs_creds['tacacs_rw_user_passwd'])
+                                   tacacs_creds['tacacs_rw_user_passwd'])
     yield ssh_client
     ssh_client.close()
 
@@ -300,4 +300,3 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
-
