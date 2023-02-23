@@ -15,7 +15,7 @@ from tests.common.snappi.snappi_helpers import wait_for_arp
 logger = logging.getLogger(__name__)
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 30
+TEST_FLOW_AGGR_RATE_PERCENT = 25
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 25
 DATA_PKT_SIZE = 1024
@@ -25,21 +25,21 @@ SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 PORT_SPEED = 'speed_100_gbps'
 
-def run_pfcwd_multi_node_test(api,
-                              testbed_config,
-                              port_config_list,
-                              conn_data,
-                              fanout_data,
-                              duthost1,
-                              rx_port,
-                              rx_port_id_list,
-                              duthost2, tx_port,
-                              tx_port_id_list,
-                              dut_port,
-                              pause_prio_list,
-                              test_prio_list,
-                              bg_prio_list,
-                              prio_dscp_map):
+def run_pfc_test(api,
+                testbed_config,
+                port_config_list,
+                conn_data,
+                fanout_data,
+                duthost1,
+                rx_port,
+                rx_port_id_list,
+                duthost2, tx_port,
+                tx_port_id_list,
+                dut_port,
+                pause_prio_list,
+                test_prio_list,
+                bg_prio_list,
+                prio_dscp_map):
     """
     Run PFC watchdog test in a multi-node (>=3) topoology
 
@@ -84,22 +84,15 @@ def run_pfcwd_multi_node_test(api,
                 data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                 data_pkt_size=DATA_PKT_SIZE,
                 prio_dscp_map=prio_dscp_map)
-    
+
     flows = testbed_config.flows
     all_flow_names = [ flow.name for flow in flows ]
-    flow_stats = __run_traffic(api=api, 
-                                config=testbed_config, 
-                                all_flow_names=all_flow_names,
-                                exp_dur_sec=exp_dur_sec,
-                                duthost=duthost1)
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
+    __run_traffic(api=api, 
+                  config=testbed_config, 
+                  all_flow_names=all_flow_names,
+                  exp_dur_sec=exp_dur_sec,
+                  duthost=duthost1)
 
-    __verify_results(rows=flow_stats,
-                     test_flow_name=TEST_FLOW_NAME,
-                     bg_flow_name=BG_FLOW_NAME,
-                     rx_port=rx_port)
-                     
 
 def __gen_traffic(testbed_config,
                 port_config_list,
@@ -267,6 +260,49 @@ def __gen_data_flow(testbed_config,
 
     flow.metrics.enable = True
     flow.metrics.loss = True
+    if 'Test Flow' in flow_name_prefix:
+        """ PFC Pause Storm """
+        pause_time = []
+        for x in range(8):
+            if x == prio:
+                pause_time.append(int('ffff', 16))
+            else:
+                pause_time.append(int('0000', 16))
+
+        vector = pfc_class_enable_vector([prio])
+
+        pause_flow = testbed_config.flows.flow(name='{}->{} {}'.format(dst_port_id,src_port_id,PAUSE_FLOW_NAME)[-1]
+
+        """ Pause frames are sent from the RX port """
+        pause_flow.tx_rx.port.tx_name = testbed_config.ports[dst_port_id].name
+        pause_flow.tx_rx.port.rx_name = testbed_config.ports[src_port_id].name
+
+        pause_pkt = pause_flow.packet.pfcpause()[-1]
+
+        pause_pkt.src.value = '00:00:fa:ce:fa:ce'
+        pause_pkt.dst.value = '01:80:C2:00:00:01'
+        pause_pkt.class_enable_vector.value = vector
+        pause_pkt.pause_class_0.value = pause_time[0]
+        pause_pkt.pause_class_1.value = pause_time[1]
+        pause_pkt.pause_class_2.value = pause_time[2]
+        pause_pkt.pause_class_3.value = pause_time[3]
+        pause_pkt.pause_class_4.value = pause_time[4]
+        pause_pkt.pause_class_5.value = pause_time[5]
+        pause_pkt.pause_class_6.value = pause_time[6]
+        pause_pkt.pause_class_7.value = pause_time[7]
+
+        speed_str = testbed_config.layer1[0].speed
+        speed_gbps = int(speed_str.split('_')[1])
+        pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
+        pps = int(2 / pause_dur)
+
+        pause_flow.rate.pps = pps
+        pause_flow.size.fixed = 64
+        pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
+        pause_flow.metrics.enable = True
+        pause_flow.metrics.loss = True
+    pass
+
 
 def start_traffic(api,flow_names):
     logger.info("Starting traffic on :{}".format(flow_names))
@@ -274,6 +310,7 @@ def start_traffic(api,flow_names):
     ts.flow_names = flow_names
     ts.state = ts.START
     api.set_transmit_state(ts)
+
 
 def stop_traffic(api,flow_names):
     logger.info("Stopping traffic on :{}".format(flow_names))
@@ -295,7 +332,8 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
     Returns:
         per-flow statistics (list)
     """
-    test_traffic,bg_traffic=[],[]
+    bg_test_traffic, pause_traffic=[], []
+    sum=1
     api.set_config(config)
 
     logger.info('Wait for Arp to Resolve ...')
@@ -303,70 +341,68 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
     duthost.command("sonic-clear counters \n")
     logger.info('Starting transmit on all flows ...')
     for flow in all_flow_names:
-        if 'Test Flow' in flow:
-            test_traffic.append(flow)
+        if 'Test Flow' in flow or 'Background Flow' in flow:
+            bg_test_traffic.append(flow)
         else:
-            bg_traffic.append(flow)
-    logger.info('Start Traffic..')
-    start_traffic(api,bg_traffic)
-    time.sleep(5)
-    start_traffic(api,test_traffic)
+            pause_traffic.append(flow)
+    logger.info('Starting Background and Test Traffic..')
+    start_traffic(api,bg_test_traffic)
+
+    request = api.metrics_request()
+    request.flow.flow_names = all_flow_names
+    rows = api.get_metrics(request).flow_metrics
+    for row in rows:
+        if 'pause' not in row:
+            tx_frames = row.frames_tx
+            rx_frames = row.frames_rx
+            logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+            pytest_assert(tx_frames == rx_frames,
+                        '{} should not have any dropped packet'.format(row.name))
+            pytest_assert(row.loss == 0,
+                        '{} should not have traffic loss'.format(row.name))
+            sum+=int(row.frames_rx)
+    
+    logger.info('Starting Pause Storm..')
+    start_traffic(api,pause_traffic)
+    time.sleep(exp_dur_sec)
+
+    request = api.metrics_request()
+    request.flow.flow_names = all_flow_names
+    rows = api.get_metrics(request).flow_metrics
+    for row in rows:
+        if 'Background' in row:
+            tx_frames = row.frames_tx
+            rx_frames = row.frames_rx
+            logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+            pytest_assert(tx_frames == rx_frames,
+                        '{} should not have any dropped packet'.format(row.name))
+            pytest_assert(row.loss == 0,
+                        '{} should not have traffic loss'.format(row.name))
+            sum+=int(row.frames_rx)
+        else:
+            tx_frames = row.frames_tx
+            rx_frames = row.frames_rx
+            logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+            pytest_assert(tx_frames != rx_frames,
+                        '{} should have dropped packets'.format(row.name))
+            pytest_assert(row.loss != 0,
+                        '{} should have traffic loss'.format(row.name))
+            sum+=int(row.frames_rx)
 
     logger.info('Stop Traffic..')
     stop_traffic(api,all_flow_names)
     var = duthost.shell("show interface counters")['stdout']
-    """ Dump per-flow statistics """
-    request = api.metrics_request()
-    request.flow.flow_names = all_flow_names
-    rows = api.get_metrics(request).flow_metrics
     file1 = open('myfile.txt', 'w+')
     file1.writelines(var)
-    return rows
-
-def __verify_results(rows,
-                     test_flow_name,
-                     bg_flow_name,
-                     rx_port):
-    """
-    Verify if we get expected experiment results
-
-    Args:
-        rows (list): per-flow statistics
-        speed_gbps (int): link speed in Gbps
-        pause_flow_name (str): name of pause storm
-        test_flow_name (str): name of test flows
-        bg_flow_name (str): name of background flows
-        test_flow_rate_percent (int): rate percentage for each test flow
-        bg_flow_rate_percent (int): rate percentage for each background flow
-        data_pkt_size (int): packet size of data flows in byte
-        test_flow_pause (bool): if test flows are expected to be paused
-        trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
-        pause_port_id (int): ID of the port to send PFC pause frames
-        tolerance (float): maximum allowable deviation
-
-    Returns:
-        N/A
-    """
-    sum=1
-    for row in rows:
-        tx_frames = row.frames_tx
-        rx_frames = row.frames_rx
-        logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-        pytest_assert(tx_frames == rx_frames,
-                    '{} should not have any dropped packet'.format(row.name))
-        pytest_assert(row.loss == 0,
-                    '{} should not have traffic loss'.format(row.name))
-        sum+=int(row.frames_rx)
     logger.info('Total Frames Received on Rx Port : {}'.format(sum))
-    
-    with open('myfile.txt') as f:
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            if rx_port['peer_port'] in line:
-                logger.info('DUT Counter for {} : {}'.format(rx_port['peer_port'],line))
-                if str(format(sum, ',')) in line.split(' '):
-                    logger.info('PASS: DUT counters match with the total frames received on Rx port')
-                else:
-                    pytest_assert(False,"FAIL: DUT counters doesn't match with the total frames received on Rx port")
+        with open('myfile.txt') as f:
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+                if rx_port['peer_port'] in line:
+                    logger.info('DUT Counter for {} : {}'.format(rx_port['peer_port'],line))
+                    if str(format(sum, ',')) in line.split(' '):
+                        logger.info('PASS: DUT counters match with the total frames received on Rx port')
+                    else:
+                        pytest_assert(False,"FAIL: DUT counters doesn't match with the total frames received on Rx port")

@@ -7,7 +7,7 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
 from tests.common.snappi.qos_fixtures import prio_dscp_map_dut_base,\
     lossless_prio_list_dut_base
 from tests.snappi.variables import config_set, line_card_choice
-from files.m2o_oversubscribe_lossless_helper import run_pfcwd_multi_node_test
+from files.m2o_oversubscribe_lossless_helper import run_pfc_test
 
 pytestmark = [pytest.mark.topology('snappi')]
 
@@ -18,7 +18,8 @@ def test_pfcwd_many_to_one(snappi_api,
                            conn_graph_facts,
                            fanout_graph_facts,
                            line_card_choice,
-                           duthost,
+                           duthosts,
+                           rand_select_two_dut,
                            linecard_configuration_set,
                            get_multidut_snappi_ports,):
 
@@ -45,7 +46,7 @@ def test_pfcwd_many_to_one(snappi_api,
     """
     if line_card_choice not in linecard_configuration_set.keys():
         assert False, "Invalid line_card_choice value passed in parameter"
-    duts = [duthost]
+    duts = rand_select_two_dut
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
         duthost1 = duts[0]
         duthost2 = duts[1]
@@ -80,21 +81,21 @@ def test_pfcwd_many_to_one(snappi_api,
     test_prio_list = [lossless_prio_list_dut_base(duthost1)][0]
     pause_prio_list = test_prio_list
     bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
-    run_pfcwd_multi_node_test(api=snappi_api,
-                              testbed_config=testbed_config,
-                              port_config_list=port_config_list,
-                              conn_data=conn_graph_facts,
-                              fanout_data=fanout_graph_facts,
-                              duthost1=duthost1,
-                              rx_port=snappi_ports[0],
-                              rx_port_id_list=[snappi_ports[0]["port_id"]],
-                              duthost2=duthost2,
-                              tx_port=[snappi_ports[1], snappi_ports[2]],
-                              tx_port_id_list=[snappi_ports[1]["port_id"], snappi_ports[2]["port_id"]],
-                              dut_port=dut_port,
-                              pause_prio_list=pause_prio_list,
-                              test_prio_list=test_prio_list,
-                              bg_prio_list=bg_prio_list,
-                              prio_dscp_map=prio_dscp_map,)
+    run_pfc_test(api=snappi_api,
+                testbed_config=testbed_config,
+                port_config_list=port_config_list,
+                conn_data=conn_graph_facts,
+                fanout_data=fanout_graph_facts,
+                duthost1=duthost1,
+                rx_port=snappi_ports[0],
+                rx_port_id_list=[snappi_ports[0]["port_id"]],
+                duthost2=duthost2,
+                tx_port=[snappi_ports[1], snappi_ports[2]],
+                tx_port_id_list=[snappi_ports[1]["port_id"], snappi_ports[2]["port_id"]],
+                dut_port=dut_port,
+                pause_prio_list=pause_prio_list,
+                test_prio_list=test_prio_list,
+                bg_prio_list=bg_prio_list,
+                prio_dscp_map=prio_dscp_map,)
 
-    #cleanup_config(dut_list, snappi_ports)
+    cleanup_config(dut_list, snappi_ports)

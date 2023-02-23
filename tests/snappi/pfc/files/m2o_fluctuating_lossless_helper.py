@@ -25,21 +25,21 @@ SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 PORT_SPEED = 'speed_100_gbps'
 
-def run_pfcwd_multi_node_test(api,
-                              testbed_config,
-                              port_config_list,
-                              conn_data,
-                              fanout_data,
-                              duthost1,
-                              rx_port,
-                              rx_port_id_list,
-                              duthost2, tx_port,
-                              tx_port_id_list,
-                              dut_port,
-                              pause_prio_list,
-                              test_prio_list,
-                              bg_prio_list,
-                              prio_dscp_map):
+def run_pfc_test(api,
+                testbed_config,
+                port_config_list,
+                conn_data,
+                fanout_data,
+                duthost1,
+                rx_port,
+                rx_port_id_list,
+                duthost2, tx_port,
+                tx_port_id_list,
+                dut_port,
+                pause_prio_list,
+                test_prio_list,
+                bg_prio_list,
+                prio_dscp_map):
     """
     Run PFC watchdog test in a multi-node (>=3) topoology
 
@@ -324,8 +324,6 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
     duthost.command("sonic-clear counters \n")
     logger.info('Starting transmit on all flows ...')
     start_traffic(api,all_flow_names)
-    #time.sleep(5)
-    #start_traffic(api,test_traffic)
 
     logger.info('Stop Traffic..')
     stop_traffic(api,all_flow_names)
@@ -365,7 +363,6 @@ def __verify_results(rows,
     """
     sum=1
     for row in rows:
-        import pdb;pdb.set_trace()
         tx_frames = row.frames_tx
         rx_frames = row.frames_rx
         logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
