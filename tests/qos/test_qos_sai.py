@@ -118,6 +118,16 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        srcport = dutConfig["testPorts"]["src_port_id"]
+        dstport = dutConfig["testPorts"]["dst_port_id"]
+        srcport, dstport = self.correctPortIds(dutConfig["testPortIds"], srcport, dstport)
+        pytest_assert(srcport != None and dstport != None, "No enough test ports")
+        dutConfig["testPorts"]["src_port_id"] = srcport
+        dutConfig["testPorts"]["dst_port_id"] = dstport
+        dutConfig["testPorts"]["src_port_ip"] = dutConfig["testPortIps"][srcport]['peer_addr']
+        dutConfig["testPorts"]["dst_port_ip"] = dutConfig["testPortIps"][dstport]['peer_addr']
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -365,6 +375,16 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
 
+        srcport = dutConfig["testPorts"]["src_port_id"]
+        dstports = [dutConfig["testPorts"]["dst_port_id"], dutConfig["testPorts"]["dst_port_2_id"], dutConfig["testPorts"]["dst_port_3_id"]]
+        srcport, dstports = self.correctPortIds(dutConfig["testPortIds"], srcport, dstports)
+        pytest_assert(srcport != None and dstports != None, "No enough test ports")
+        dutConfig["testPorts"]["src_port_id"] = srcport
+        dutConfig["testPorts"]["dst_port_id"], dutConfig["testPorts"]["dst_port_2_id"], dutConfig["testPorts"]["dst_port_3_id"] = dstports
+        dutConfig["testPorts"]["src_port_ip"] = dutConfig["testPortIps"][srcport]['peer_addr']
+        dutConfig["testPorts"]["dst_port_ip"] = dutConfig["testPortIps"][dstports[0]]['peer_addr']
+        dutConfig["testPorts"]["dst_port_2_ip"] = dutConfig["testPortIps"][dstports[1]]['peer_addr']
+        dutConfig["testPorts"]["dst_port_3_ip"] = dutConfig["testPortIps"][dstports[2]]['peer_addr']
 
         dst_port_count = set([
             dutConfig["testPorts"]["dst_port_id"],
@@ -448,6 +468,14 @@ class TestQosSai(QosSaiBase):
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
+
+        srcports = [qosConfig[LosslessVoqProfile]["src_port_1_id"], qosConfig[LosslessVoqProfile]["src_port_2_id"]]
+        dstport = qosConfig[LosslessVoqProfile]["dst_port_id"]
+        srcports, dstport = self.correctPortIds(dutConfig["testPortIds"], srcports, dstport)
+        pytest_assert(srcports != None and dstport != None, "No enough test ports")
+        qosConfig[LosslessVoqProfile]["src_port_1_id"], qosConfig[LosslessVoqProfile]["src_port_2_id"] = srcports
+        qosConfig[LosslessVoqProfile]["dst_port_id"] = dstport
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -584,9 +612,12 @@ class TestQosSai(QosSaiBase):
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
 
-        qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"] = self.correctPortIds(
-            dutConfig["testPortIds"], qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"])
-        pytest_assert(qosConfig["hdrm_pool_size"]["src_port_ids"] != None and qosConfig["hdrm_pool_size"]["dst_port_id"] != None, "No enough test ports")
+        srcports = qosConfig["hdrm_pool_size"]["src_port_ids"]
+        dstport = qosConfig["hdrm_pool_size"]["dst_port_id"]
+        srcports, dstport = self.correctPortIds(dutConfig["testPortIds"], srcports, dstport)
+        pytest_assert(srcports != None and dstport != None, "No enough test ports")
+        qosConfig["hdrm_pool_size"]["src_port_ids"] = srcports
+        qosConfig["hdrm_pool_size"]["dst_port_id"] = dstport
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -662,6 +693,13 @@ class TestQosSai(QosSaiBase):
 
         if not sharedResSizeKey in qosConfig.keys():
             pytest.skip("Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
+
+        srcports = qosConfig[sharedResSizeKey]["src_port_ids"]
+        dstports = qosConfig[sharedResSizeKey]["dst_port_ids"]
+        srcports, dstports = self.correctPortIds(dutConfig["testPortIds"], srcports, dstports)
+        pytest_assert(srcports != None and dstports != None, "No enough test ports")
+        qosConfig[sharedResSizeKey]["src_port_ids"] = srcports
+        qosConfig[sharedResSizeKey]["dst_port_ids"] = dstports
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -884,6 +922,15 @@ class TestQosSai(QosSaiBase):
         else:
             qosConfig = dutQosConfig["param"]
 
+        srcport = dutConfig["testPorts"]["src_port_id"]
+        dstports = [dutConfig["testPorts"]["dst_port_id"], dutConfig["testPorts"]["dst_port_2_id"]]
+        srcport, dstports = self.correctPortIds(dutConfig["testPortIds"], srcport, dstports)
+        pytest_assert(srcport != None and dstports != None, "No enough test ports")
+        dutConfig["testPorts"]["src_port_id"] = srcport
+        dutConfig["testPorts"]["dst_port_id"], dutConfig["testPorts"]["dst_port_2_id"] = dstports
+        dutConfig["testPorts"]["src_port_ip"] = dutConfig["testPortIps"][srcport]['peer_addr']
+        dutConfig["testPorts"]["dst_port_ip"] = dutConfig["testPortIps"][dstports[0]]['peer_addr']
+        dutConfig["testPorts"]["dst_port_2_ip"] = dutConfig["testPortIps"][dstports[1]]['peer_addr']
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -957,6 +1004,13 @@ class TestQosSai(QosSaiBase):
             original_voq_markings = get_markings_dut(duthost)
             setup_markings_dut(duthost, localhost, voq_allocation_mode="default")
 
+        srcport = qosConfig[LossyVoq]["src_port_id"]
+        dstport = qosConfig[LossyVoq]["dst_port_id"]
+        srcport, dstport = self.correctPortIds(dutConfig["testPortIds"], srcport, dstport)
+        pytest_assert(srcport != None and dstport != None, "No enough test ports")
+        qosConfig[LossyVoq]["src_port_id"] = srcport
+        qosConfig[LossyVoq]["dst_port_id"] = dstport
+
         try:
             testParams = dict()
             testParams.update(dutTestParams["basicParams"])
@@ -1015,6 +1069,15 @@ class TestQosSai(QosSaiBase):
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
         if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
+
+        srcport = dutConfig["testPorts"]["src_port_id"]
+        dstport = dutConfig["testPorts"]["dst_port_id"]
+        srcport, dstport = self.correctPortIds(dutConfig["testPortIds"], srcport, dstport)
+        pytest_assert(srcport != None and dstport != None, "No enough test ports")
+        dutConfig["testPorts"]["src_port_id"] = srcport
+        dutConfig["testPorts"]["dst_port_id"] = dstport
+        dutConfig["testPorts"]["src_port_ip"] = dutConfig["testPortIps"][srcport]['peer_addr']
+        dutConfig["testPorts"]["dst_port_ip"] = dutConfig["testPortIps"][dstport]['peer_addr']
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1197,6 +1260,16 @@ class TestQosSai(QosSaiBase):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
         qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
+
+        srcport = dutConfig["testPorts"]["src_port_id"]
+        dstport = dutConfig["testPorts"]["dst_port_id"]
+        srcport, dstport = self.correctPortIds(dutConfig["testPortIds"], srcport, dstport)
+        pytest_assert(srcport != None and dstport != None, "No enough test ports")
+        dutConfig["testPorts"]["src_port_id"] = srcport
+        dutConfig["testPorts"]["dst_port_id"] = dstport
+        dutConfig["testPorts"]["src_port_ip"] = dutConfig["testPortIps"][srcport]['peer_addr']
+        dutConfig["testPorts"]["dst_port_ip"] = dutConfig["testPortIps"][dstport]['peer_addr']
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -1272,6 +1345,16 @@ class TestQosSai(QosSaiBase):
         elif "wm_pg_shared_lossy" in pgProfile:
             pktsNumFillShared = int(qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
+        srcport = dutConfig["testPorts"]["src_port_id"]
+        dstport = dutConfig["testPorts"]["dst_port_id"]
+        srcport, dstport = self.correctPortIds(dutConfig["testPortIds"], srcport, dstport)
+        pytest_assert(srcport != None and dstport != None, "No enough test ports")
+        dutConfig["testPorts"]["src_port_id"] = srcport
+        dutConfig["testPorts"]["dst_port_id"] = dstport
+
+        dutConfig["testPorts"]["src_port_ip"] = dutConfig["testPortIps"][srcport]['peer_addr']
+        dutConfig["testPorts"]["dst_port_ip"] = dutConfig["testPortIps"][dstport]['peer_addr']
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -1338,6 +1421,15 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        srcport = dutConfig["testPorts"]["src_port_id"]
+        dstport = dutConfig["testPorts"]["dst_port_id"]
+        srcport, dstport = self.correctPortIds(dutConfig["testPortIds"], srcport, dstport)
+        pytest_assert(srcport != None and dstport != None, "No enough test ports")
+        dutConfig["testPorts"]["src_port_id"] = srcport
+        dutConfig["testPorts"]["dst_port_id"] = dstport
+        dutConfig["testPorts"]["src_port_ip"] = dutConfig["testPortIps"][srcport]['peer_addr']
+        dutConfig["testPorts"]["dst_port_ip"] = dutConfig["testPortIps"][dstport]['peer_addr']
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1465,6 +1557,15 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_egr_drp"]
+
+        srcport = dutConfig["testPorts"]["src_port_id"]
+        dstport = dutConfig["testPorts"]["dst_port_id"]
+        srcport, dstport = self.correctPortIds(dutConfig["testPortIds"], srcport, dstport)
+        pytest_assert(srcport != None and dstport != None, "No enough test ports")
+        dutConfig["testPorts"]["src_port_id"] = srcport
+        dutConfig["testPorts"]["dst_port_id"] = dstport
+        dutConfig["testPorts"]["src_port_ip"] = dutConfig["testPortIps"][srcport]['peer_addr']
+        dutConfig["testPorts"]["dst_port_ip"] = dutConfig["testPortIps"][dstport]['peer_addr']
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
