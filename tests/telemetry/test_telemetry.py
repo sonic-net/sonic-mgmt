@@ -56,6 +56,7 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
             pytest_assert(str(value) == server_crt_expected,
                           "'server_crt' value is not '{}'".format(server_crt_expected))
 
+
 def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verify telemetry should be enabled by default
     """
@@ -72,6 +73,7 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
         if str(k) == "status":
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
+
 
 def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                          setup_streaming_telemetry, localhost, gnxi_path):
@@ -91,6 +93,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
+
 def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """ Test osbuild/version query.
     """
@@ -105,6 +108,7 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
     assert_equal(len(re.findall('sonic\\.NA', result, flags=re.IGNORECASE)), 0,
                  "invalid build_version value at {0}".format(result))
 
+
 def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
@@ -115,7 +119,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
-    cmd = 'python '+ gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
+    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
            -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
@@ -150,6 +154,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
 
+
 def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
@@ -159,14 +164,14 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count = 3)
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count=3)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
     assert_equal(len(re.findall('Max update count reached 3', result)), 1,
                  "Streaming update count in:\n{0}".format(result))
     assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4,
-                 "Streaming updates for Ethernet0 in:\n{0}".format(result)) # 1 for request, 3 for response
+                 "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
     assert_equal(len(re.findall('timestamp: \\d+', result)), 3,
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
