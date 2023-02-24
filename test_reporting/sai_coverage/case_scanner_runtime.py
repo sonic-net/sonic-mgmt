@@ -32,10 +32,11 @@ def parse_log(log_path, save_path, test_platform):
     with open(log_path, 'r') as f:
         file_cnt = len(open(log_path, 'r').readlines())
         cur_cnt = 0
+
         for line in f:
             cur_cnt += 1
             print('Scanning:', str(cur_cnt)+'/'+str(file_cnt))
-            if '** END TEST CASE' in line:
+            if '** END TEST CASE' in line or 'retval' in line:
                 continue
 
             pattern = r' - '
@@ -45,21 +46,14 @@ def parse_log(log_path, save_path, test_platform):
             pattern2 = r'\[(.*?)\]'
             obj2 = re.split(pattern2, fine_data)
 
-            key_val_pairs = obj2[3][1:-1] if 'retval:[None]' not in line else obj2[3]
-            k_v = key_val_pairs.split(', \'') if key_val_pairs != 'None' else ['None']
+            key_val_pairs = obj2[3][1:-1]
+            k_v = key_val_pairs.split(', \'')
             print(k_v)
 
             for kv in k_v:
-                if kv == 'None':
-                    k, v = 'retval', '[None]'
-                elif kv.isdigit():
-                    k, v = 'retval', kv
-                elif len(kv) == 0 or kv == '.':
-                    k, v = 'retval', '[0]'
-                else:
-                    k, v = kv.split('\':')
-                    k = re.sub('[\' ]', '', k)
-                    v = re.sub('[\' ]', '', v)
+                k, v = kv.split('\':')
+                k = re.sub('[\' ]', '', k)
+                v = re.sub('[\' ]', '', v)
 
                 data = {}
                 data['id'] = str(uuid.uuid4())
@@ -72,10 +66,13 @@ def parse_log(log_path, save_path, test_platform):
                 data['case_invoc'] = obj2[1]
 
                 data['sai_alias'] = data['case_invoc'][11:]
-                data['sai_api'] = data['sai_alias'][:len(data['sai_alias'])-10] if 'attribute' in data['sai_alias'] else data['sai_alias']
+                if 'attribute' in data['sai_alias']:
+                    data['sai_api'] = data['sai_alias'][:len(data['sai_alias'])-10]
+                else:
+                    data['sai_api'] = data['sai_alias']
                 idx = data['sai_api'].find('_') + 1
-                sai_feature = data['sai_api'][idx:]
-                data['sai_feature'] = sai_feature.split('entry')[0].replace('_', '').replace('table', '').replace('trap', '')
+                sai_feature = data['sai_api'][idx:].split('entry')[0].replace('_', '')
+                data['sai_feature'] = sai_feature.replace('table', '').replace('trap', '')
 
                 data['test_set'] = 't0' if 'sai_test' in sai_path else 'ptf'
                 data['test_platform'] = test_platform
@@ -98,5 +95,4 @@ def parse_log(log_path, save_path, test_platform):
 if __name__ == "__main__":
     parser = get_parser()
     test_platform = get_test_platform(parser.platform_path)
-    print(test_platform)
     parse_log(parser.log_path, parser.save_path, test_platform)
