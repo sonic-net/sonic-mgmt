@@ -600,6 +600,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         dscp_to_pg_map = self.test_params.get('dscp_to_pg_map', None)
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
 
         print("dst_port_id: %d, src_port_id: %d" %
               (dst_port_id, src_port_id), file=sys.stderr)
@@ -631,6 +632,9 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     pg_dscp_map[int(pg)] = [int(dscp)]
 
         print(pg_dscp_map, file=sys.stderr)
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip)
+        print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
 
         try:
             for pg, dscps in list(pg_dscp_map.items()):
@@ -641,8 +645,8 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 for dscp in dscps:
                     tos = (dscp << 2)
                     tos |= 1
-                    pkt = simple_tcp_packet(pktlen=64,
-                                            eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                    pkt = simple_ip_packet(pktlen=64,
+                                            eth_dst=pkt_dst_mac,
                                             eth_src=src_port_mac,
                                             ip_src=src_port_ip,
                                             ip_dst=dst_port_ip,
