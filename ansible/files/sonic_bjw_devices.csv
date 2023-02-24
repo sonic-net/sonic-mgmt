@@ -32,7 +32,7 @@ bjw-can-2700-2,10.150.22.115/23,Mellanox-SN2700,DevSonic,
 bjw-slx-can-1,10.150.22.104/23,Celestica-DX010-C32,DevSonic,
 bjw-slx-can-3,10.150.22.106/23,Celestica-DX010-C32,DevSonic,
 bjw-can-7215-1,10.150.22.110/23,Nokia-7215,DevSonic,
-bjw-can-7050qx-1,10.150.22.117/12,Arista-7050-QX-32S,DevSonic,
+bjw-can-7050qx-1,10.150.22.117/23,Arista-7050QX32S-Q32,DevSonic,
 bjw-can-7050qx-2,10.150.22.119/23,Arista-7050-QX-32S,DevSonic,
 bjw-pdu-126-132,10.150.126.132,Vertiv,Pdu,snmp
 bjw-pdu-126-133,10.150.126.133,Vertiv,Pdu,snmp
@@ -40,5 +40,5 @@ bjw-pdu-126-134,10.150.126.134,Vertiv,Pdu,snmp
 bjw-pdu-126-135,10.150.126.135,Vertiv,Pdu,snmp
 bjw-pdu-126-136,10.150.126.136,Vertiv,Pdu,snmp
 bjw-pdu-126-137,10.150.126.137,Vertiv,Pdu,snmp
-bjw-can-7215-10,10.150.22.10,Nokia-7215,ConsoleServer,ssh
-bjw-can-7215-9,10.150.22.11,Nokia-7215,ConsoleServer,ssh
+bjw-e1031-can-1,10.150.22.10,Celestica-E1031-E48C48,ConsoleServer,ssh
+bjw-e1031-can-2,10.150.22.11,Celestica-E1031-E48C48,ConsoleServer,ssh
