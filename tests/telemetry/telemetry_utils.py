@@ -64,7 +64,8 @@ def setup_telemetry_forpyclient(duthost):
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
     if client_auth == "true":
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"', module_ignore_errors=False)
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"',
+                      module_ignore_errors=False)
         duthost.service(name="telemetry", state="restarted")
     else:
         logger.info('client auth is false. No need to restart telemetry')
@@ -107,7 +108,7 @@ def check_critical_processes(duthost, container_name):
 
 
 def postcheck_critical_processes(duthost, container_name):
-    "Checks whether the critical processes are running after container was restarted.
+    """Checks whether the critical processes are running after container was restarted.
     """
     logger.info("Checking the running status of critical processes in '{}' container..."
                 .format(container_name))
