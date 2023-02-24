@@ -21,6 +21,10 @@ bjw-can-7215-10,19,bjw-can-slx-7,ssh,admin
 bjw-can-7215-10,20,bjw-can-7050qx-1,ssh,admin
 bjw-can-7215-10,21,bjw-can-slx-8,ssh,admin
 bjw-can-7215-10,22,bjw-can-7050qx-2,ssh,admin
+bjw-can-7215-10,23,bjw-can-7215-7,ssh,admin
+bjw-can-7215-10,24,bjw-can-7215-6,ssh,admin
+bjw-can-7215-10,25,bjw-can-7215-5,ssh,admin
+bjw-can-7215-10,26,bjw-can-e1031-3,ssh,admin
 bjw-can-7215-10,45,bjw-can-ec9516-2,ssh,admin
 bjw-can-7215-10,46,bjw-can-z9332f-2,ssh,admin
 bjw-can-7215-9,48,bjw-can-7215-10,ssh,admin

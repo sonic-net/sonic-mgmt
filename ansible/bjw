@@ -38,6 +38,10 @@ all:
           ansible_host: 10.150.23.60
         bjw7-1:
           ansible_host: 10.150.23.61
+        bjw7-2:
+          ansible_host: 10.150.23.62
+        bjw7-3:
+          ansible_host: 10.150.23.63
     pdu:
       hosts:
         bjw-pdu-126-132:
@@ -98,6 +102,12 @@ fanout:
     bjw-can-7215-4:
       ansible_host: 10.150.22.102
       os: sonic
+    bjw-can-7215-5:
+      ansible_host: 10.150.22.122
+      os: sonic
+    bjw-can-7215-7:
+      ansible_host: 10.150.22.123
+      os: sonic
 
 sonic:
   vars:
@@ -110,6 +120,7 @@ sonic:
     sonic_intel_ec9516:
     sonic_mlnx_sn2700:
     sonic_nokia_7215:
+    sonic_e1031:
 
 sonic_arista_7050qx_32s_q32:
   vars:
@@ -363,6 +374,50 @@ sonic_nokia_7215:
         "0x2F": "CSM9W00FRA"
         "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
         "0xFE": "0xF02FB771"
+    bjw-can-7215-6:
+      ansible_host: 10.150.22.124
+      model: 3HE16794AARD01
+      serial: NK223210818
+      base_mac: AC:8F:F8:77:20:D7
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARD01"
+        "0x23": "NK223210818"
+        "0x24": "AC:8F:F8:77:20:D7"
+        "0x25": "08/03/2022 14:21:20"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.1"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0x83B269BF"
+
+sonic_e1031:
+  vars:
+    hwsku: Celestica-E1031-T48S4
+    iface_speed: 1000
+  hosts:
+    bjw-can-e1031-3:
+      ansible_host: 10.150.22.125
+      model: R0882-F4111-01
+      serial: R0882F2B029505BY000010
+      base_mac: 00:E0:EC:84:61:D3
+      syseeprom_info:
+        "0x21": "E1031"
+        "0x23": "R0882F2B029505BY000010"
+        "0x24": "00:E0:EC:84:61:D3"
+        "0x25": "05/10/2019 04:27:25"
+        "0x26": "2"
+        "0x27": "Celestica"
+        "0x28": "Rangeley_7"
+        "0x29": "2015.05.0.0.3"
+        "0x2A": "53"
+        "0x2B": "Celestica"
+        "0x2C": "CN"
+        "0x2D": "Celestica"
+        "0x2E": "3.0.6"
+        "0x2F": "LB"
+        "0xFE": "0xADA1AD5C"
 
 server:
   hosts:
