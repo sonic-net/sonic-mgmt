@@ -70,7 +70,8 @@ def test_thermal_state_db(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     num_thermals = get_expected_num_thermals(duthosts, enum_rand_one_per_hwsku_hostname)
     thermal_out = duthost.command("redis-dump -d 6 -y -k \"TEMP*\"")
     out_dict = json.loads(thermal_out['stdout'])
-    pytest_assert(len(out_dict.keys()) == num_thermals, "number of thermal sensors incorrect expected  {} but got {}".format(num_thermals, len(out_dict.keys())))
+    pytest_assert(len(out_dict.keys()) == num_thermals, 
+                  "number of thermal sensors incorrect expected  {} but got {}".format(num_thermals, len(out_dict.keys())))
     result = check_therm_data(out_dict)
     pytest_assert(not result,
                   "Warning status incorrect for following thermal sensors:\n{}".format("\n".join(result)))
@@ -100,9 +101,11 @@ def test_thermal_global_state_db(duthosts, enum_supervisor_dut_hostname, tbinfo)
     for thermal in thermal_skip_list:
         skip_thermal = duthost.command("redis-dump -H {} -p 6380 -d 13 -y -k \"{}|*\"".format(chassis_db_ip, thermal))
         skip_dict = json.loads(skip_thermal['stdout'])
-        #delete each key from the global dictionary
+        """
+        delete all keys that we know should not be checked from the global dictionary
+        """
         for skip_sensor_key in skip_dict.keys():
-            if out_dict.has_key(skip_sensor_key):
+            if skip_sensor_key in out_dict.keys():
                 del out_dict[skip_sensor_key]
 
     actual_num_thermal_sensors = len(out_dict.keys())
