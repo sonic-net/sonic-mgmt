@@ -107,6 +107,9 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#SDK.*sai_get_attributes: Failed attribs dispatch.*",
             ".*ERR syncd[0-9]*#SDK.*Failed command read at communication channel: Connection reset by peer.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
+            ".*ERR syncd[0-9]*#SDK.*validate_port: Can't add port which is under bridge.*",
+            ".*ERR syncd[0-9]*#SDK.*listFailedAttributes.*",
+            ".*ERR syncd[0-9]*#SDK.*processSingleVid: failed to create object SAI_OBJECT_TYPE_LAG_MEMBER: SAI_STATUS_INVALID_PARAMETER.*",
             # Known issue, captured here: https://github.com/sonic-net/sonic-buildimage/issues/10000 , ignore it for now
             ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
@@ -155,6 +158,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
             ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
             ".*ERR pmon#xcvrd.*Could not establish the active side.*",
+            ".*ERR pmon#xcvrd.*sx_api_host_ifc_trap_id_register_set exited with error.*",
+            ".*ERR pmon#xcvrd.*sx_api_host_ifc_close exited with error.*"
         ],
         'eventd': [
             ".*ERR eventd#eventd.*The eventd service started.*",
