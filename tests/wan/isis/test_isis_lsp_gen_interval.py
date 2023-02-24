@@ -72,6 +72,7 @@ def test_isis_lsp_gen_interval(isis_common_setup_teardown, isis_setup_teardown_l
     dut_host.shell("pkill -f '{}'".format(cmd), module_ignore_errors=True)
 
     dut_host.fetch(src="/var/tmp/isis.pcap", dest="/var/tmp/isis.pcap", flat=True)
+    dut_host.file(path="/var/tmp/isis.pcap", state="absent")
     stream = os.popen('sudo tcpdump -ttttnnr /var/tmp/isis.pcap')
 
     output = stream.readlines()
