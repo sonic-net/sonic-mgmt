@@ -24,6 +24,7 @@
       <Device Hostname="str3-8101-01" HwSku="Cisco-8101-C64" Type="DevSonic"/>
       <Device Hostname="str3-8101-02" HwSku="Cisco-8101-C48T8" Type="DevSonic"/>
       <Device Hostname="str3-8800-sup-1" HwSku="8800-RP-O" Type="DevSonic"/>
+      <Device Hostname="str3-8800-sup-2" HwSku="8800-RP-O" Type="DevSonic"/>
       <Device Hostname="str3-8800-lc1-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
       <Device Hostname="str3-8800-lc2-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
       <Device Hostname="str3-8800-lc3-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
@@ -1552,6 +1553,10 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.191/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8800-sup-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.95/23"/>
+    </DevicesL3Info>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="str3-8800-sup-2">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.95/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8800-lc1-1">
