@@ -147,7 +147,7 @@ def get_ip_route_info(duthost, asic_idx):
     cmd = "vtysh -c 'show ip bgp ipv4 json'"
     ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_idx)) if asic_idx else cmd
     out = json.loads(duthost.shell(ns_cmd)['stdout'])
-    return output['routes']
+    return out['routes']
 
 
 def get_exabgp_port(duthost, tbinfo, dev_port):
