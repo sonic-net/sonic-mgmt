@@ -98,8 +98,6 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: FDB notification was not sent since it contain invalid "
             "OIDs.*",
             ".*ERR syncd[0-9]*#syncd.*saiGetMacAddress: failed to get mac address: SAI_STATUS_ITEM_NOT_FOUND.*",
-            ".*ERR syncd[0-9]*#syncd.*logEventData.*",
-            ".*ERR syncd[0-9]*#syncd.*setEndTime.*",
             ".*ERR syncd[0-9]*#syncd.*getSupportedBufferPoolCounters.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_lag_or_port_get: Invalid port type - 2.*",
@@ -121,8 +119,6 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR teamd[0-9]*#teamsyncd.*readData.*Unable to initialize team socket.*",
             ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
-            ".*ERR swss[0-9]*#orchagent.*handlePortStatusChangeNotification.*",
-            ".*ERR swss[0-9]*#orchagent.*Failed to get port by bridge port ID.*",
             ".*ERR swss[0-9]*#orchagent.*applyDscpToTcMapToSwitch.*",
             ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
@@ -179,11 +175,20 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
 
     feature = enum_dut_feature
 
+    impacted_duts = []
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        impacted_duts = duthosts
+    else:
+        impacted_duts = [duthost]
+
+    logger.info("Impacted DUTs: '{}'".format(impacted_duts))
+
     if loganalyzer:
-        for duthost in duthosts:
-            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict['common'])
+        for a_dut in impacted_duts:
+            loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex_dict['common'])
             if feature in ignore_regex_dict:
-                loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict[feature])
+                loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex_dict[feature])
 
 
 def get_group_program_info(duthost, container_name, group_name):
