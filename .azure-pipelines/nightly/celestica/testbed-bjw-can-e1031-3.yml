@@ -1,0 +1,101 @@
+# Celestica
+
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+schedules:
+  - cron: "0 12 * * 0-5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal-202012
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: testbed-bjw-can-e1031-3
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(BJW_IMAGE_BRCM_202012_SLIM)
+    displayName: "Image URL"
+
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(BJW_SAITHRIFT_BRCM_202012)
+    displayName: "py_saithrift URL"
+
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--no_dscp_uniform"
+    displayName: "Extra pytest params"
+
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "memory_checker/test_memory_checker.py \
+              arp/test_arp_extended.py \
+              arp/test_wr_arp.py \
+              iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup
+              platform_tests/api/test_psu.py::TestPsuApi::test_power \
+              platform_tests/api/test_psu.py::TestPsuApi::test_temperature \
+              platform_tests/api/test_psu.py::TestPsuApi::test_led \
+              platform_tests/link_flap/test_cont_link_flap.py \
+              platform_tests/test_advanced_reboot.py \
+              platform_tests/test_cont_warm_reboot.py \
+              platform_tests/test_reboot.py \
+              pfc/test_unknown_mac.py \
+              route/test_route_perf.py \
+              vxlan/test_vnet_vxlan.py \
+              vxlan/test_vxlan_decap.py \
+              vxlan/test_vnet_route_leak.py \
+              console/test_console_availability.py \
+              pc/test_po_cleanup.py \
+              bgp/test_bgp_slb.py \
+              bgp/test_bgp_speaker.py \
+              platform_tests/test_memory_exhaustion.py" # skip test_memory_exhaustion because this hardware has some issue and we cannot replace a new one
+    displayName: "Skip test scripts"
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox qos restapi snappi span sub_port_interfaces vlan vrf console"'
+    displayName: Testbed specific
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly-bjw
+    displayName: "Agent pool"
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
