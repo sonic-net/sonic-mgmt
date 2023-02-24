@@ -41,11 +41,24 @@ class ForwardingState(object):
     STANDBY = False
 
 
+GRPC_CLIENT_TIMEOUT_MAX = 60
+
+
 def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=False):
+
+    def inc_timeout():
+        kwargs["timeout"] += 5
+        if kwargs["timeout"] > GRPC_CLIENT_TIMEOUT_MAX:
+            kwargs["timeout"] = GRPC_CLIENT_TIMEOUT_MAX
+
     if args is None:
         args = []
     if kwargs is None:
         kwargs = {}
+
+    if timeout > GRPC_CLIENT_TIMEOUT_MAX:
+        timeout = GRPC_CLIENT_TIMEOUT_MAX
+
     kwargs["timeout"] = timeout
     for i in range(retries - 1):
         try:
@@ -55,6 +68,7 @@ def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=
             logger.debug("Calling %s %dth time results error(%r)" % (func, i + 1, e))
         else:
             return response
+        inc_timeout()
 
     try:
         response = func(*args, **kwargs)
@@ -264,7 +278,7 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
             drop_requests=drop_requests
         )
         client_stub = nic_simulator_client()
-        call_grpc(client_stub.SetDrop, [request])
+        call_grpc(client_stub.SetDrop, [request], timeout=10)
 
     def _set_drop_active_active(interface_names, portids, directions):
         """

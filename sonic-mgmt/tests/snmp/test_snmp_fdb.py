@@ -2,6 +2,7 @@ import pytest
 import ptf.testutils as testutils
 import logging
 import pprint
+import time
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # lgtm[py/unused-import]
@@ -83,6 +84,7 @@ def test_snmp_fdb_send_tagged(ptfadapter, utils_vlan_ports_list, toggle_all_simu
     # Flush dataplane
     ptfadapter.dataplane.flush()
 
+    time.sleep(10)
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     assert 'snmp_fdb' in snmp_facts

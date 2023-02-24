@@ -341,9 +341,13 @@ ecmp/test_fgnhg.py:
 #######################################
 everflow/test_everflow_per_interface.py:
   skip:
-    reason: "Skip running on unsupported platforms."
+    reason: "Skip running on dualtor testbed/unsupported platforms or 
+                  multi-asic due to https://github.com/sonic-net/sonic-buildimage/issues/11776"
+    conditions_logical_operator: or
     conditions:
+      - "'dualtor' in topo_name"
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
+      - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:

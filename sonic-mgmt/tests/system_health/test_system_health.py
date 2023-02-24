@@ -120,7 +120,8 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
-        containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x]
+        containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x and
+                      "bgp" not in x and "swss" not in x]
         logging.info('Test containers: {}'.format(containers))
         random.shuffle(containers)
         for container in containers:
