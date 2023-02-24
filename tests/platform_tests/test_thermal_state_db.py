@@ -2,6 +2,7 @@
 import json
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from tests.platform_tests.cli.util import get_skip_mod_list
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -89,6 +90,21 @@ def test_thermal_global_state_db(duthosts, enum_supervisor_dut_hostname, tbinfo)
     expected_num_thermals = get_expected_num_thermals(duthosts)
     thermal_out = duthost.command("redis-dump -H {} -p 6380 -d 13 -y -k \"TEMP*\"".format(chassis_db_ip))
     out_dict = json.loads(thermal_out['stdout'])
+    """
+     For Logical Chassis we need to skip Thermal info from LCs that are physically there but logically
+     not part of this logical chassis. This can be found from the skip_module "thermals" list.
+     To handle logical chassis remove those known thermal info from the dictionary that was gathered from the
+     global state DB before continuing
+    """
+    thermal_skip_list = get_skip_mod_list(duthost, ['thermals'])
+    for thermal in thermal_skip_list:
+        skip_thermal = duthost.command("redis-dump -H {} -p 6380 -d 13 -y -k \"{}|*\"".format(chassis_db_ip, thermal))
+        skip_dict = json.loads(skip_thermal['stdout'])
+        #delete each key from the global dictionary
+        for skip_sensor_key in skip_dict.keys():
+            if out_dict.has_key(skip_sensor_key):
+                del out_dict[skip_sensor_key]
+
     actual_num_thermal_sensors = len(out_dict.keys())
     pytest_assert(actual_num_thermal_sensors == expected_num_thermals,
                   "got {} thermal sensors expected {}".format(actual_num_thermal_sensors, expected_num_thermals))
