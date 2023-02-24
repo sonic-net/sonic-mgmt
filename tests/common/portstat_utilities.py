@@ -74,6 +74,10 @@ def parse_portstat(content_lines):
             portstats.append(portstat)
 
         intf = portstats[0]
+        # skip lines that are not port stat.
+        if not intf.strip().startswith( 'Ethernet' ):
+            continue
+
         results[intf] = {}
         for idx in range(1, len(portstats)):    # Skip the first column interface name
             results[intf][headers[idx]] = portstats[idx]
