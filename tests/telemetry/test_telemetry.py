@@ -197,7 +197,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
     pytest_assert(is_running, "Telemetry container is not running on DUT!")
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              xpath="DOCKER_STATS", target="STATE_DB", update_count=1, num_connections=2000)
+                              xpath="DOCKER_STATS", target="STATE_DB", update_count=1, create_connections=2000)
     client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd,))
     client_thread.start()
 
