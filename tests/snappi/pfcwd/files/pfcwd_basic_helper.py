@@ -15,8 +15,10 @@ from tests.common.snappi.snappi_helpers import wait_for_arp
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = "Pause Storm"
+WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 DATA_FLOW1_NAME = "Data Flow 1"
 DATA_FLOW2_NAME = "Data Flow 2"
+WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.25
@@ -68,15 +70,20 @@ def run_pfcwd_basic_test(api,
     detect_time_sec = get_pfcwd_detect_time(host_ans=duthost, intf=dut_port) / 1000.0
     restore_time_sec = get_pfcwd_restore_time(host_ans=duthost, intf=dut_port) / 1000.0
 
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd 
+    fake alerts caused by non-incremented packet counters during pfcwd detection periods"""
+    warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
+    warm_up_traffic_delay_sec = 0
+
     if trigger_pfcwd:
         """ Large enough to trigger PFC watchdog """
         pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
 
-        flow1_delay_sec = restore_time_sec / 2
+        flow1_delay_sec = restore_time_sec / 2 + WARM_UP_TRAFFIC_DUR
         flow1_dur_sec = pfc_storm_dur_sec
 
         """ Start data traffic 2 after PFC is restored """
-        flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + poll_interval_sec
+        flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + poll_interval_sec + WARM_UP_TRAFFIC_DUR
         flow2_dur_sec = 1
 
         flow1_max_loss_rate = 1
@@ -84,11 +91,11 @@ def run_pfcwd_basic_test(api,
 
     else:
         pfc_storm_dur_sec = detect_time_sec * 0.5
-        flow1_delay_sec = pfc_storm_dur_sec * 0.1
+        flow1_delay_sec = pfc_storm_dur_sec * 0.1 + WARM_UP_TRAFFIC_DUR
         flow1_dur_sec = ceil(pfc_storm_dur_sec)
 
         """ Start data traffic 2 after the completion of data traffic 1 """
-        flow2_delay_sec = flow1_delay_sec + flow1_dur_sec + 0.1
+        flow2_delay_sec = flow1_delay_sec + flow1_dur_sec + WARM_UP_TRAFFIC_DUR + 0.1
         flow2_dur_sec = 1
 
         flow1_max_loss_rate = 0
@@ -102,9 +109,9 @@ def run_pfcwd_basic_test(api,
                   port_id=port_id,
                   pause_flow_name=PAUSE_FLOW_NAME,
                   pause_flow_dur_sec=pfc_storm_dur_sec,
-                  data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                  data_flow_delay_sec_list=[flow1_delay_sec, flow2_delay_sec],
-                  data_flow_dur_sec_list=[flow1_dur_sec, flow2_dur_sec],
+                  data_flow_name_list=[WARM_UP_TRAFFIC_NAME, DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                  data_flow_delay_sec_list=[warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
+                  data_flow_dur_sec_list=[warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map)
@@ -123,7 +130,10 @@ def run_pfcwd_basic_test(api,
                      data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
                      data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
 
-sec_to_nanosec = lambda x : x * 1e9
+
+def sec_to_nanosec(secs):
+    """ Convert seconds to nanoseconds """
+    return secs * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -214,7 +224,7 @@ def __gen_traffic(testbed_config,
     pause_flow.rate.pps = pps
     pause_flow.size.fixed = 64
     pause_flow.duration.fixed_packets.packets = int(pause_pkt_cnt)
-    pause_flow.duration.fixed_packets.delay.nanoseconds = 0
+    pause_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec(WARM_UP_TRAFFIC_DUR))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
