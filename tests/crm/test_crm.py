@@ -28,6 +28,7 @@ CRM_POLLING_INTERVAL = 1
 CRM_UPDATE_TIME = 10
 SONIC_RES_UPDATE_TIME = 50
 CISCO_8000_ADD_NEIGHBORS = 3000
+ACL_TABLE_NAME = "DATAACL"
 
 THR_VERIFY_CMDS = OrderedDict([
     ("exceeded_used", "bash -c \"crm config thresholds {{crm_cli_res}}  type used; crm config thresholds {{crm_cli_res}} low {{crm_used|int - 1}}; crm config thresholds {{crm_cli_res}} high {{crm_used|int}}\""),
@@ -808,6 +809,14 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
 
 
+def recreate_acl_table(duthost, ports):
+    cmds = [
+        "config acl remove table {}".format(ACL_TABLE_NAME),
+        "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME, ports)
+    ]
+    duthost.shell_cmds(cmds=cmds)
+
+
 def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
@@ -815,15 +824,13 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     if duthost.facts["asic_type"] == "marvell":
         # Remove DATA ACL Table and add it again with ports in same port group
-        ACL_TABLE_NAME = "DATAACL"
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        ports = ",".join(mg_facts["minigraph_portchannels"].keys())
-        cmds = [
-        "config acl remove table {}".format(ACL_TABLE_NAME),
-        "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME, ports)
-        ]
-        duthost.shell_cmds(cmds=cmds)
-    
+        if tbinfo["topo"]["type"] == "mx":
+            ports = ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"])
+        else:
+            ports = ",".join(mg_facts["minigraph_portchannels"].keys())
+        recreate_acl_table(duthost, ports)
+
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
@@ -874,12 +881,8 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     if duthost.facts["asic_type"] == "marvell":
         # Rebind DATA ACL at end to recover original config
-        table_port = ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"])
-        cmds = [
-         "config acl remove table {}".format(ACL_TABLE_NAME),
-         "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME, table_port)
-        ]
-        duthost.shell_cmds(cmds=cmds)
+        ports = ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"])
+        recreate_acl_table(duthost, ports)
         apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
         duthost.command("acl-loader delete")
 
