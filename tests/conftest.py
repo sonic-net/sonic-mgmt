@@ -1421,7 +1421,7 @@ def pytest_generate_tests(metafunc):        # noqa E302
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
             metafunc.parametrize('topo_scenario', ['m0_t0_scenario', 'm0_t1_scenario'], scope='module')
         else:
-            metafunc.parametrize('topo_scenario', [None], scope='module')
+            metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
 
 def get_autoneg_tests_data():
