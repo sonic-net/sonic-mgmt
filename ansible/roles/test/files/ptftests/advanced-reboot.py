@@ -1,5 +1,5 @@
 #
-# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";peer_portchannel_ports_file="/tmp/peer_portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";peer_ports_file="/tmp/peer_ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
 #
 #
 # This test checks that DUT is able to make FastReboot procedure
@@ -132,12 +132,15 @@ class ReloadTest(BaseTest):
         self.check_param('dut_username', '', required=True)
         self.check_param('dut_password', '', required=True)
         self.check_param('dut_hostname', '', required=True)
+        self.check_param('is_dualtor', False, required=True)
         self.check_param('reboot_limit_in_seconds', 30, required=False)
         self.check_param('reboot_type', 'fast-reboot', required=False)
         self.check_param('graceful_limit', 240, required=False)
         self.check_param('portchannel_ports_file', '', required=True)
+        self.check_param('peer_portchannel_ports_file', '', required=False)
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
+        self.check_param('peer_ports_file', '', required=False)
         self.check_param('dut_mac', '', required=True)
         self.check_param('other_dut_mac', '', required=False)
         self.check_param('vlan_mac', '', required=True)
@@ -277,11 +280,15 @@ class ReloadTest(BaseTest):
 
     def read_port_indices(self):
         port_indices = self.read_json('ports_file')
+        if self.test_params['is_dualtor']:
+            peer_port_indices = self.read_json('peer_ports_file')
+            return port_indices, peer_port_indices
 
         return port_indices
 
     def read_vlan_portchannel_ports(self):
         portchannel_content = self.read_json('portchannel_ports_file')
+        peer_portchannel_content = self.read_json('peer_portchannel_ports_file')
         portchannel_names = [pc['name'] for pc in portchannel_content.values()]
 
         vlan_content = self.read_json('vlan_ports_file')
@@ -305,6 +312,16 @@ class ReloadTest(BaseTest):
         for pc in portchannel_content.values():
             if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
                 pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
+
+        if self.test_params['is_dualtor']:
+            peer_active_portchannels = list()
+            for neighbor_info in list(self.peer_vm_dut_map.values()):
+                peer_active_portchannels.append(neighbor_info["dut_portchannel"])
+            dualtor_pc_ifaces = pc_ifaces
+            for pc in peer_portchannel_content.values():
+                if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
+                    dualtor_pc_ifaces.extend([self.peer_port_indices[member] for member in pc['members']])
+            return ports_per_vlan, pc_ifaces, dualtor_pc_ifaces
 
         return ports_per_vlan, pc_ifaces
 
@@ -410,6 +427,16 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[key]['neigh_ports'] = []
                 self.vm_dut_map[key]['ptf_ports'] = []
 
+        peer_content = self.read_json('other_duthost_peer_dev_info')
+        for key in peer_content.keys():
+            if 'ARISTA' in key:
+                self.peer_vm_dut_map[key] = dict()
+                self.peer_vm_dut_map[key]['mgmt_addr'] = content[key]['mgmt_addr']
+                # initialize all the port mapping
+                self.peer_vm_dut_map[key]['dut_ports'] = []
+                self.peer_vm_dut_map[key]['neigh_ports'] = []
+                self.peer_vm_dut_map[key]['ptf_ports'] = []
+
     def get_portchannel_info(self):
         content = self.read_json('portchannel_ports_file')
         for key in content.keys():
@@ -419,14 +446,29 @@ class ReloadTest(BaseTest):
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
+        
+        peer_content = self.read_json('peer_portchannel_ports_file')
+        for key in peer_content.keys():
+            for member in peer_content[key]['members']:
+                for vm_key in self.peer_vm_dut_map.keys():
+                    if member in self.peer_vm_dut_map[vm_key]['dut_ports']:
+                        self.peer_vm_dut_map[vm_key]['dut_portchannel'] = str(key)
+                        self.peer_vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
+                        break
 
     def get_neigh_port_info(self):
         content = self.read_json('neigh_port_info')
+        peer_content = self.read_json('peer_neigh_port_info')
         for key in content.keys():
             if content[key]['name'] in self.vm_dut_map.keys():
                 self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
                 self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
+        for key in peer_content.keys():
+            if content[key]['name'] in self.peer_vm_dut_map.keys():
+                self.peer_vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
+                self.peer_vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
+                self.peer_vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
 
     def build_peer_mapping(self):
         '''
@@ -440,6 +482,7 @@ class ReloadTest(BaseTest):
                                     }
         '''
         self.vm_dut_map = {}
+        self.peer_vm_dut_map = {}
         for file in self.test_params['preboot_files'].split(','):
             self.test_params[file] = '/tmp/' + file + '.json'
         self.get_peer_dev_info()
@@ -553,10 +596,16 @@ class ReloadTest(BaseTest):
 
     def setUp(self):
         self.fails['dut'] = set()
-        self.port_indices = self.read_port_indices()
+        if self.test_params['is_dualtor']:
+            self.port_indices, self.peer_port_indices = self.read_port_indices()
+        else:
+            self.port_indices = self.read_port_indices()
         self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
         self.build_peer_mapping()
-        self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
+        if self.test_params['is_dualtor']:
+            self.ports_per_vlan, self.portchannel_ports, self.dualtor_portchannel_ports = self.read_vlan_portchannel_ports()
+        else:
+            self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
             self.vlan_ports += ports
@@ -600,7 +649,7 @@ class ReloadTest(BaseTest):
         self.from_server_src_addr  = random.choice(self.vlan_host_map[self.random_vlan].keys())
         self.from_server_src_mac   = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
         self.from_server_dst_addr  = self.random_ip(self.test_params['default_ip_range'])
-        self.from_server_dst_ports = self.portchannel_ports
+        self.from_server_dst_ports = self.dualtor_portchannel_ports if self.test_params['is_dualtor'] else self.portchannel_ports
 
         self.log("Test params:")
         self.log("DUT ssh: %s@%s" % (self.test_params['dut_username'], self.test_params['dut_hostname']))
