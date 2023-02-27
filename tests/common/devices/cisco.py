@@ -1,7 +1,14 @@
 import re
+import os
+import sys
 import logging
 import functools
 from tests.common.devices.base import AnsibleHostBase
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +59,8 @@ def adapt_interface_name(func):
         new_list = []
         for item in args_list:
             new_item = item
-            if isinstance(new_item, str):
-                if 'Ethernet' in new_item:
+            if isinstance(new_item, str) or isinstance(new_item, unicode) or isinstance(new_item, AnsibleUnsafeText):
+                if 'Ethernet' in new_item and 'GigabitEthernet' not in new_item:
                     new_item = re.sub(r'(^|\s)Ethernet', 'GigabitEthernet0/0/0/', new_item)
                 elif 'Port-Channel' in new_item:
                     new_item = re.sub(r'(^|\s)Port-Channel', 'Bundle-Ether', new_item)
@@ -298,3 +305,52 @@ class CiscoHost(AnsibleHostBase):
                             result.append(sub_result)
         help(json_data, lookup_key, result)
         return result
+
+    def _has_cli_cmd_failed(self, cmd_output_obj):
+        err_out = False
+        if 'stdout' in cmd_output_obj:
+            stdout = cmd_output_obj['stdout']
+            msg = stdout[-1] if type(stdout) == list else stdout
+            err_out = 'Cannot advertise' in msg
+
+        return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out
+
+    def load_configuration(self, config_file, backup_file=None):
+        if backup_file is None:
+            out = self.config(
+                src=config_file,
+                replace='config',
+            )
+        else:
+            out = self.config(
+                src=config_file,
+                replace='line',
+                backup='yes',
+                backup_options={
+                    'filename': os.path.basename(backup_file),
+                    'dir_path': os.path.dirname(backup_file),
+                }
+            )
+        return not self._has_cli_cmd_failed(out)
+
+    @adapt_interface_name
+    def get_portchannel_by_member(self, member_intf):
+        try:
+            command = 'show lacp {}'.format(member_intf)
+            output = self.commands(commands=[command])['stdout'][0]
+            regex_pc = re.compile(r'Bundle-Ether([0-9]+)', re.U)
+            for line in [item.strip().rstrip() for item in output.splitlines()]:
+                if regex_pc.match(line):
+                    return re.sub('Bundle-Ether', 'Port-Channel', line)
+        except Exception as e:
+            logger.error('Failed to get PortChannel for member interface "{}", exception: {}'.format(
+                        member_intf, repr(e)
+                        ))
+            return None
+
+    @adapt_interface_name
+    def no_isis_interface(self, isis_instance, interface):
+        out = self.config(
+            lines=['no interface {}'.format(interface)],
+            parents=['router isis {}'.format(isis_instance)])
+        return not self._has_cli_cmd_failed(out)

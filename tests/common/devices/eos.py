@@ -491,3 +491,9 @@ class EosHost(AnsibleHostBase):
                 }
             )
         return not self._has_cli_cmd_failed(out)
+
+    def no_isis_interface(self, isis_instance, interface):
+        out = self.eos_config(
+            lines=['no isis enable'],
+            parents=['interface {}'.format(interface)])
+        return not self._has_cli_cmd_failed(out)

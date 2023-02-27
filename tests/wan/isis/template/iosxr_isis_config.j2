@@ -1,0 +1,31 @@
+{% set ethernet_intf_pattern = "GigabitEthernet0/0/0/" %}
+{% set port_channel_pattern = "Bundle-Ether" %}
+{% if isis_instance is defined %}
+router isis {{ isis_instance }}
+{% if isis_net is defined %}
+ net {{ isis_net }}
+{% endif %}
+ is-type level-2-only
+ address-family ipv4 unicast
+ !
+ address-family ipv6 unicast
+ !
+{% if isis_intfs is defined %}
+{% for name in isis_intfs %}
+{% if name.startswith('Ethernet') %}
+interface {{ ethernet_intf_pattern }}{{ name | regex_replace('Ethernet', '') | int }}
+{% elif name.startswith('Port-Channel') %}
+interface {{ port_channel_pattern }}{{ name | regex_replace('Port-Channel', '') | int }}
+{% else %}
+interface {{ name }}
+{% endif %}
+ circuit-type level-2-only
+ point-to-point
+ address-family ipv4 unicast
+ !
+ address-family ipv6 unicast
+ !
+{% endfor %}
+{% endif %}
+!
+{% endif %}
