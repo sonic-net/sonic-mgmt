@@ -208,6 +208,8 @@ class TestPlanManager(object):
         except Exception as exception:
             raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
                             .format(tp_url, str(raw_resp), str(exception)))
+        if not resp["data"]:
+            raise Exception("Pre deploy action failed with error: {}".format(resp["errmsg"]))
         if not resp["success"]:
             raise Exception("Create test plan failed with error: {}".format(resp["errmsg"]))
 
