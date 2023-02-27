@@ -3,7 +3,7 @@ import shutil
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import GNMI_CONTAINER_NAME, apply_cert_config, create_ext_conf
+from tests.gnmi.helper import GNMI_CONTAINER_NAME, apply_cert_config, recover_cert_config, create_ext_conf
 from tests.generic_config_updater.gu_utils import create_checkpoint, rollback
 
 SETUP_ENV_CP = "test_setup_checkpoint"
@@ -128,4 +128,4 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
 
     # Rollback configuration
     rollback(duthost, SETUP_ENV_CP)
-    duthost.shell("systemctl restart %s" % GNMI_CONTAINER_NAME)
+    recover_cert_config(duthost)
