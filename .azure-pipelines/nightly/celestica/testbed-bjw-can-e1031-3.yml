@@ -54,34 +54,8 @@ parameters:
 
   - name: SKIP_SCRIPTS
     type: string
-    default: "memory_checker/test_memory_checker.py \
-              arp/test_arp_extended.py \
-              arp/test_wr_arp.py \
-              iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup
-              platform_tests/api/test_psu.py::TestPsuApi::test_power \
-              platform_tests/api/test_psu.py::TestPsuApi::test_temperature \
-              platform_tests/api/test_psu.py::TestPsuApi::test_led \
-              platform_tests/link_flap/test_cont_link_flap.py \
-              platform_tests/test_advanced_reboot.py \
-              platform_tests/test_cont_warm_reboot.py \
-              platform_tests/test_reboot.py \
-              pfc/test_unknown_mac.py \
-              route/test_route_perf.py \
-              vxlan/test_vnet_vxlan.py \
-              vxlan/test_vxlan_decap.py \
-              vxlan/test_vnet_route_leak.py \
-              console/test_console_availability.py \
-              pc/test_po_cleanup.py \
-              bgp/test_bgp_slb.py \
-              bgp/test_bgp_speaker.py \
-              platform_tests/test_memory_exhaustion.py" # skip test_memory_exhaustion because this hardware has some issue and we cannot replace a new one
+    default: "platform_tests/link_flap/test_cont_link_flap.py"
     displayName: "Skip test scripts"
-
-  # Testbed specific, to skip and/or include directories
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-S "ecmp drop_packets dualtor mvrf nat pfc_asym pfcwd platform_tests/mellanox qos restapi snappi span sub_port_interfaces vlan vrf console"'
-    displayName: Testbed specific
 
   - name: AGENT_POOL
     type: string
@@ -96,6 +70,5 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
