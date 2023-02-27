@@ -458,6 +458,14 @@ if __name__ == "__main__":
         required=False,
         help="Pullrequest ID from Azure Pipelines"
     )
+    parser_create.add_argument(
+        "--repo-name",
+        type=str,
+        dest="repo_name",
+        default="",
+        required=False,
+        help="Repository name from Azure Pipelines"
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -538,7 +546,7 @@ if __name__ == "__main__":
             reason = os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
-            repo_name = os.environ.get("BUILD_REPOSITORY_NAME")
+            repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
 
             test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
