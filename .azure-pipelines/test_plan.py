@@ -134,7 +134,7 @@ class TestPlanManager(object):
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope":  "api://sonic-testbed-tools-prod/.default" if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net" else "api://sonic-testbed-tools-dev/.default"
+            "scope": "api://sonic-testbed-tools-prod/.default" if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net" else "api://sonic-testbed-tools-dev/.default"
         }
         try:
             resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
