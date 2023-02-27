@@ -1068,7 +1068,7 @@
 
 - conf-name: testbed-str2-7215-acs-3
   group-name: vms21-9
-  topo: m0
+  topo: mx
   ptf_image_name: docker-ptf
   ptf: vms21-9
   ptf_ip: 10.64.246.236/23
