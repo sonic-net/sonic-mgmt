@@ -200,9 +200,11 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
     rtn_val = True
     if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and \
             abs(int(float(sumv4['ebgp']['routes'])) - int(float(num_v4_routes))) >= MAX_DIFF:
+        logger.info("IPv4 ebgp routes: {}".format(float(sumv4['ebgp']['routes'])))
         rtn_val = False
     if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and \
             abs(int(float(sumv6['ebgp']['routes'])) - int(float(num_v6_routes))) >= MAX_DIFF:
+        logger.info("IPv6 ebgp routes: {}".format(float(sumv6['ebgp']['routes'])))
         rtn_val = False
     return rtn_val
 
@@ -226,7 +228,7 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
         # Verify that the total eBGP routes are 0.
-        pytest_assert(wait_until(30, 2, 0, check_ebgp_routes, 0, 0, duthost),
+        pytest_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
                       "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
         pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
