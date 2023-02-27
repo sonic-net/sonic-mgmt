@@ -341,7 +341,7 @@ ecmp/test_fgnhg.py:
 #######################################
 everflow/test_everflow_per_interface.py:
   skip:
-    reason: "Skip running on dualtor testbed/unsupported platforms or 
+    reason: "Skip running on dualtor testbed/unsupported platforms or
                   multi-asic due to https://github.com/sonic-net/sonic-buildimage/issues/11776"
     conditions_logical_operator: or
     conditions:
@@ -385,15 +385,6 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
     reason: "This test was not run on this hwsku type currently"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
-
-#######################################
-#####           gnmi              #####
-#######################################
-gnmi/test_gnmi_configdb.py:
-  skip:
-    reason: "We still have issue for config reload command, and we will enable this test after merging the fix."
-    conditions:
-    - https://github.com/sonic-net/sonic-mgmt/issues/7462
 
 #######################################
 #####           http              #####
