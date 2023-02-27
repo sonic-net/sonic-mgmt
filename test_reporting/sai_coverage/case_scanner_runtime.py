@@ -10,12 +10,12 @@ def get_parser(description="Runtime Scanner"):
     Parse command line
     """
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--log_path", "-lp", type=str,
-                        default="log", help="directory to scan.")
-    parser.add_argument("--platform_path", "-pp", type=str,
-                        default="log", help="directory to scan.")
-    parser.add_argument("--save_path", "-sp", type=str, default="result",
-                        help="directory to save the parsered results.")
+    parser.add_argument("--log_path", "-l", type=str,
+                        default="log", help="log path to scan.")
+    parser.add_argument("--info_file", "-i", type=str,
+                        default="log", help="test platform info file path to scan.")
+    parser.add_argument("--result_path", "-r", type=str, default="result",
+                        help="path of the parsed result.")
     args = parser.parse_args()
     return args
 
@@ -27,7 +27,7 @@ def get_test_platform(path):
                 return line.split()[1]
 
 
-def parse_log(log_path, save_path, test_platform):
+def parse_log(log_path, result_path, test_platform):
     results = []
     with open(log_path, 'r') as f:
         file_cnt = len(open(log_path, 'r').readlines())
@@ -87,12 +87,12 @@ def parse_log(log_path, save_path, test_platform):
 
                 results.append(data)
 
-    os.makedirs(save_path, exist_ok=True)
-    with open(os.path.join(save_path, 'parsed_log.json'), 'w+') as f:
+    os.makedirs(result_path, exist_ok=True)
+    with open(os.path.join(result_path, 'parsed_log.json'), 'w+') as f:
         json.dump(results, f, indent=4)
 
 
 if __name__ == "__main__":
     parser = get_parser()
-    test_platform = get_test_platform(parser.platform_path)
-    parse_log(parser.log_path, parser.save_path, test_platform)
+    test_platform = get_test_platform(parser.info_file)
+    parse_log(parser.log_path, parser.result_path, test_platform)
