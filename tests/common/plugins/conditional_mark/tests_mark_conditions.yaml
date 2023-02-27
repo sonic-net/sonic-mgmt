@@ -614,18 +614,26 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
 pfcwd/test_pfcwd_warm_reboot.py:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
+    conditions:
+        - "asic_type in ['cisco-8000']"
 
 pfcwd/test_pfcwd_timer_accuracy.py:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
+    conditions:
+        - "asic_type in ['cisco-8000']"
 
 pfcwd/test_pfcwd_function.py:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
+    conditions:
+        - "asic_type in ['cisco-8000']"
 
 pfcwd/test_pfcwd_all_port_storm.py:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
+    conditions:
+        - "asic_type in ['cisco-8000']"
 
 #######################################
 #####         platform_tests      #####
@@ -783,14 +791,20 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
 qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
+    conditions:
+        - "asic_type in ['cisco-8000']"
 
 qos/test_tunnel_qos_remap.py::test_pfc_pause_extra_lossless_active:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
+    conditions:
+        - "asic_type in ['cisco-8000']"
 
 qos/test_tunnel_qos_remap.py::test_pfc_pause_extra_lossless_standby:
   xfail:
     reason: "The fanout script(pfc_gen.py) is not reliable."
+    conditions:
+        - "asic_type in ['cisco-8000']"
 
 #######################################
 #####         restapi             #####
