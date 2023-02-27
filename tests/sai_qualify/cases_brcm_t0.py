@@ -151,4 +151,6 @@ TEST_CASE = [
         "sai_tunnel_test.IPInIPTunnelEncapPipeTtlv4Inv4Test",
         "sai_tunnel_test.SviIPInIPTunnelDecapFloodv4Inv4Test",
         "sai_tunnel_test.SviIPInIPTunnelDecapFloodV6InV4Test",
+        "sai_port_test.PortAutoNegTest",
+        "sai_port_test.PortAutoNegLearnTrainingTest",
         ]
