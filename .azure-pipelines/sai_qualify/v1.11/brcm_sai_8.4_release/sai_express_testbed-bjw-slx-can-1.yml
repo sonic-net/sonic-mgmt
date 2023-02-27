@@ -12,7 +12,7 @@ resources:
         enabled: true
         branches:
           include:
-          - PRE_SAI_8.4.0_*
+          - SAI_PRE_8.4.0_*
           - SAI_8.4.0_GA
 
 variables:
@@ -142,4 +142,3 @@ jobs:
       # UPDATE_IMAGE: false
       # CHANGE_TOPO: false
       # PTF_DEPLOY_VSCODE: false
-
