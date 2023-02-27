@@ -122,6 +122,13 @@ parameters:
     default: false
     displayName: "Skip test results uploading to Kusto"
 
+  # Individual nightly test scheduler file could override this variable
+  # to skip collecting and uploading `show techsupport` result of DUTs
+  - name: SKIP_COLLECT_SHOW_TECHSUPPORT
+    type: boolean
+    default: true
+    displayName: "Skip collecting and uploading show techsupport results"
+
 stages:
   - template: ./templates/nightly_test.yml
     parameters:
@@ -143,3 +150,4 @@ stages:
       DEFAULT_SKIP_SCRIPTS: ${{ parameters.DEFAULT_SKIP_SCRIPTS }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+      SKIP_COLLECT_SHOW_TECHSUPPORT: ${{ parameters.SKIP_COLLECT_SHOW_TECHSUPPORT }}

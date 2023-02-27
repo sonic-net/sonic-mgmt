@@ -109,6 +109,12 @@ parameters:
     type: boolean
     default: false
 
+  # Individual nightly test scheduler file could override this variable
+  # to skip collecting and uploading `show techsupport` result of DUTs
+  - name: SKIP_COLLECT_SHOW_TECHSUPPORT
+    type: boolean
+    default: true
+
   - name: RUN_BSL_TEST
     type: boolean
     default: false
@@ -438,6 +444,22 @@ stages:
               timeoutInMinutes: 30
               condition: always()
 
+          - ${{ if eq(parameters.SKIP_COLLECT_SHOW_TECHSUPPORT, False) }}:
+            - task: Bash@3
+              displayName: Collect show techsupport results
+              inputs:
+                targetType: 'inline'
+                script: |
+                  set -x
+
+                  cd ansible
+                  mkdir show_tech_results
+                  ./testbed-cli.sh -t testbed.yaml collect-show-tech ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt -e "output_path=show_tech_results" || exit 0
+
+            - publish: ansible/show_tech_results
+              displayName: Upload show techsupport results
+              artifact: ${{ parameters.TESTBED_NAME}}.nightly.show_tech_results@$(System.JobAttempt)
+
           - publish: tests/logs
             displayName: "Archive test logs"
             artifact: ${{ parameters.TESTBED_NAME}}.nightly.log@$(System.JobAttempt)
@@ -577,4 +599,5 @@ stages:
                 # Cleanup test logs and collected dumps to free disk space
                 # Otherwise, the host server may have disk pressure and cause container being evicted by k8s.
                 rm -fr tests/logs
+                rm -fr ansible/show_tech_results
             condition: always()
