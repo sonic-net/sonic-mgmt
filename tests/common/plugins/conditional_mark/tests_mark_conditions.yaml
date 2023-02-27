@@ -341,7 +341,7 @@ ecmp/test_fgnhg.py:
 #######################################
 everflow/test_everflow_per_interface.py:
   skip:
-    reason: "Skip running on dualtor testbed/unsupported platforms or 
+    reason: "Skip running on dualtor testbed/unsupported platforms or
                   multi-asic due to https://github.com/sonic-net/sonic-buildimage/issues/11776"
     conditions_logical_operator: or
     conditions:
