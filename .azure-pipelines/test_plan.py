@@ -123,9 +123,9 @@ class TestPlanManager(object):
         self.client_id = client_id
         self.client_secret = client_secret
         if self.tenant_id and self.client_id and self.client_secret:
-            self._get_token()
+            self._get_token(url)
 
-    def _get_token(self):
+    def _get_token(self, testbed_tools_url):
         token_url = "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.tenant_id)
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
@@ -134,7 +134,7 @@ class TestPlanManager(object):
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": "api://sonic-testbed-tools-prod/.default"
+            "scope":  "api://sonic-testbed-tools-prod/.default" if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net" else "api://sonic-testbed-tools-dev/.default"
         }
         try:
             resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
