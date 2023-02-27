@@ -9,7 +9,7 @@ import sys
 from pyclibrary import CParser
 
 from constant import (IGNORE_HEADER_FILE_LIST, PRIORI_RESULT_SAVE_DIR,
-                      SAI_HEADER_FILENAME)
+                      SAI_HEADER_FILENAME, SAI_HEADER_FILENAME_UPLOAD)
 from data_model.sai_interface_header import SAIInterfaceHeader
 from sai_report_utils import store_result
 
@@ -21,7 +21,8 @@ def parse(dir_path):
     Args:
         dir_path: path of SAI headers
     """
-    sai_apis = list()
+    sai_apis = dict()
+    sai_apis_upload = list()
     for (root, _, filenames) in os.walk(dir_path):
         for filename in filenames:
             if filename.endswith(".h") and filename not in IGNORE_HEADER_FILE_LIST:
@@ -32,11 +33,16 @@ def parse(dir_path):
                         intf_groupname = "SAI_API_" + \
                             filename.split(".")[0].split("sai")[1].upper()
                         intf_groupalias = key[1:]
-                        generate_sai_header_json(
+                        filename = filename.split(".")[0]
+                        sai_apis = generate_sai_header_json(
                             intf_groupname, intf_groupalias, sai_api_list, filename, sai_apis)
+                        generate_sai_header_upload_json(
+                            intf_groupname, intf_groupalias, sai_api_list, filename, sai_apis_upload)
     os.makedirs(PRIORI_RESULT_SAVE_DIR, exist_ok=True)
     store_result(sai_apis, os.path.join(
         PRIORI_RESULT_SAVE_DIR, SAI_HEADER_FILENAME))
+    store_result(sai_apis_upload, os.path.join(
+        PRIORI_RESULT_SAVE_DIR, SAI_HEADER_FILENAME_UPLOAD))
 
 
 def generate_sai_header_json(intf_groupname, intf_groupalias, intf_list, filename, sai_apis):
@@ -49,7 +55,23 @@ def generate_sai_header_json(intf_groupname, intf_groupalias, intf_list, filenam
     for element in intf_list:
         for (intf_alias, intf_name) in element.items():
             sai_intf = SAIInterfaceHeader(
-                intf_groupname, intf_groupalias, intf_name, intf_alias, filename)
+                intf_groupname, intf_groupalias, intf_alias, filename)
+            sai_apis[intf_name] = sai_intf.__dict__
+
+    return sai_apis
+
+
+def generate_sai_header_upload_json(intf_groupname, intf_groupalias, intf_list, filename, sai_apis):
+    """
+    Generate SAI header json file
+
+    Args:
+        dir_path: path of SAI headers
+    """
+    for element in intf_list:
+        for (intf_alias, _) in element.items():
+            sai_intf = SAIInterfaceHeader(
+                intf_groupname, intf_groupalias, intf_alias, filename)
             sai_apis.append(sai_intf.__dict__)
 
 

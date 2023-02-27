@@ -1310,8 +1310,8 @@ def pytest_generate_tests(metafunc):        # noqa E302
     asics_selected = None
     asic_fixture_name = None
 
+    tbname, tbinfo = get_tbinfo(metafunc)
     if duts_selected is None:
-        tbname, tbinfo = get_tbinfo(metafunc)
         duts_selected = [tbinfo["duts"][0]]
 
     possible_asic_enums = ["enum_asic_index", "enum_frontend_asic_index", "enum_backend_asic_index",
@@ -1416,6 +1416,12 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
     if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
         metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
+
+    if 'topo_scenario' in metafunc.fixturenames:
+        if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
+            metafunc.parametrize('topo_scenario', ['m0_t0_scenario', 'm0_t1_scenario'], scope='module')
+        else:
+            metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
 
 def get_autoneg_tests_data():
@@ -1647,8 +1653,8 @@ def duts_running_config_facts(duthosts):
     Returns:
         dict: {
             <dut hostname>: [
-                {asic0_cfg_facts},
-                {asic1_cfg_facts}
+                (asic0_idx, {asic0_cfg_facts}),
+                (asic1_idx, {asic1_cfg_facts})
             ]
         }
     """
@@ -1659,7 +1665,7 @@ def duts_running_config_facts(duthosts):
             if asic.is_it_backend():
                 continue
             asic_cfg_facts = asic.config_facts(source='running')['ansible_facts']
-            cfg_facts[duthost.hostname].append(asic_cfg_facts)
+            cfg_facts[duthost.hostname].append((asic.asic_index, asic_cfg_facts))
     return cfg_facts
 
 
@@ -1716,8 +1722,8 @@ def duts_minigraph_facts(duthosts, tbinfo):
     Returns:
         dict: {
             <dut hostname>: [
-                {asic0_mg_facts},
-                {asic1_mg_facts}
+                (asic0_idx, {asic0_mg_facts}),
+                (asic1_idx, {asic1_mg_facts})
             ]
         }
     """
@@ -1728,7 +1734,7 @@ def duts_minigraph_facts(duthosts, tbinfo):
             if asic.is_it_backend():
                 continue
             asic_mg_facts = asic.get_extended_minigraph_facts(tbinfo)
-            mg_facts[duthost.hostname].append(asic_mg_facts)
+            mg_facts[duthost.hostname].append((asic.asic_index, asic_mg_facts))
 
     return mg_facts
 
