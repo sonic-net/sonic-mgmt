@@ -15,14 +15,6 @@ pytestmark = [
 ]
 
 
-def disable_neighbor_isis(nbr_host, interface_name):
-    out = nbr_host.eos_config(
-                              lines=['no isis enable'],
-                              parents=['interface {}'.format(interface_name)])
-    logging.info('Disable neighbor isis config')
-    return out
-
-
 def check_isis_neighbor(duthost, nbr_name, state):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
     if isis_instance not in isis_facts['neighbors']:
@@ -51,8 +43,8 @@ def test_isis_holdtime(isis_common_setup_teardown, nbrhosts):
     pytest_assert(wait_until(10, 2, 0, check_isis_neighbor, dut_host, nbr_name, 'Up'),
                   "ISIS Neighbor {} is not Up state".format(nbr_name))
 
-    # Disable IS-IS config under PortChannel in neighbor device
-    disable_neighbor_isis(nbr_host, nbr_port)
+    # No PortChannel interface from IS-IS config in neighbor device
+    nbr_host.no_isis_interface(isis_instance, nbr_port)
 
     pytest_assert(wait_until(30, 2, 1, check_isis_neighbor, dut_host, nbr_name, 'Down'),
                   "ISIS Neighbor {} is not Down state".format(nbr_name))
