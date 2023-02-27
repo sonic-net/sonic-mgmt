@@ -261,7 +261,7 @@ class IsisModule(object):
 
     def _parse_route_per_area(self, route_items):
         routes = {'ipv4': {}, 'ipv6': {}}
-        reg = r'(\s*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d+)(\s+\d+\s+)(\S+\s+)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+        reg = r'\s*(\d+\.\d+\.\d+\.\d+\/\d+)\s+(\d+)\s+(\S*)\s+(\d+\.\d+\.\d+\.\d+|-).*'
         regex_v4route = re.compile(reg)
         regex_v6route = re.compile(r'(\s*[0-9a-fA-F:]+\/\d+)(\s+\d+\s+)(\S+\s+)([0-9a-fA-F:\-]+)')
         for line in [item.strip() for item in route_items if item.strip()]:
