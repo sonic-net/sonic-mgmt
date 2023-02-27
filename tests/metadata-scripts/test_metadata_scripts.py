@@ -24,17 +24,22 @@ def upload_metadata_scripts(duthost):
         duthost.copy(src=metadata_scripts_path + "/", dest="/tmp/anpscripts/")
 
 
-def test_mirror_session_script(duthost):
+def test_mirror_session_script(duthost, request):
+    metadata_process = request.config.getoption('metadata_process')
+    if not metadata_process:
+        # this test case is only for sonic-metadata script test
+        return
+
     # upload scripts
     upload_metadata_scripts(duthost)
 
     duthost.command("chmod +x /tmp/anpscripts/mirror_session.py")
-    
+
     # create empty entry json file.
     logger.info("create empty entry json file")
     out = duthost.command("bash -c 'echo {}>/tmp/test_session.json'")
     pytest_assert(out['rc'] == 0, out['stderr'])
-    
+
     # create test entry
     logger.info("create new test mirror session")
     out = duthost.command("python /tmp/anpscripts/mirror_session.py create /tmp/test_session")
