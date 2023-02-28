@@ -1,6 +1,5 @@
 '''This script is to test BGP session flapping on SONiC and monitor
 the CPU.
-
 '''
 import logging
 
