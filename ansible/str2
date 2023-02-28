@@ -1484,6 +1484,7 @@ sonic_arista_sup:
       skip_modules:
           'line-cards':
             - LINE-CARD1
+            - LINE-CARD3
             - LINE-CARD5
             - LINE-CARD6
             - LINE-CARD7
