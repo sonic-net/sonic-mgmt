@@ -131,11 +131,23 @@
   ignore_errors: true
   delegate_to: localhost
 
-- block:
+- name: Check and stop exabgp processes on PTF
+  block:
+  - name: Check exabgp processes for IPv4 running on PTF
+    shell: "supervisorctl status exabgpv4:* | grep RUNNING | wc -l"
+    register: exabgpv4_running
+    delegate_to: "{{ ptf_host }}"
+
   - name: Stop exabgp processes for IPv4 on PTF
     supervisorctl:
       name: "exabgpv4:"
       state: stopped
+    delegate_to: "{{ ptf_host }}"
+    when: exabgpv4_running.stdout|int > 0
+
+  - name: Check exabgp processes for IPv6 running on PTF
+    shell: "supervisorctl status exabgpv6:* | grep RUNNING | wc -l"
+    register: exabgpv6_running
     delegate_to: "{{ ptf_host }}"
 
   - name: Stop exabgp processes for IPv6 on PTF
@@ -143,4 +155,43 @@
       name: "exabgpv6:"
       state: stopped
     delegate_to: "{{ ptf_host }}"
+    when: exabgpv6_running.stdout|int > 0
+
+  - name: Check and stop exabgp processes on PTF (for old naming convention)
+    block:
+    - name: Check if exabgp processes running on PTF (for old naming convention)
+      shell: "supervisorctl status | grep RUNNING | grep ^exabgp-.* | wc -l"
+      register: exabgp_running_old
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Stop exabgp processes for IPv4 on PTF (for old naming convention)
+      exabgp:
+        name: "{{ vm_item.key }}"
+        state: "stopped"
+      loop: "{{ topology['VMs']|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: "{{ ptf_host }}"
+      when: exabgp_running_old.stdout|int > 0
+
+    - name: Stop exabgp processes for IPv6 on PTF (for old naming convention)
+      exabgp:
+        name: "{{ vm_item.key }}-v6"
+        state: "stopped"
+      loop: "{{ topology['VMs']|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: "{{ ptf_host }}"
+      when: exabgp_running_old.stdout|int > 0
+
+  - name: Get count of exabgp processes running on PTF
+    shell: "supervisorctl status | grep RUNNING | grep ^exabgp.* | wc -l"
+    register: exabgp_running
+    delegate_to: "{{ ptf_host }}"
+
+  - name: Verify no exabgp processes running on PTF
+    assert:
+      that: exabgp_running.stdout|int == 0
+      fail_msg: "exabgp processes are still running on PTF, please check manually"
+
   when: exabgp_action == 'stop' and ptf_accessible is defined and not ptf_accessible.failed
