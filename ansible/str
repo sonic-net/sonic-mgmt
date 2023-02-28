@@ -335,25 +335,25 @@ sonic_dell64_40:
     str-s6100-acs-2:
       ansible_host: 10.64.247.225
       model: 0F6N2R
-      serial: BLNRG02
-      base_mac: D8:9E:F3:A5:E9:20
+      serial: 44010Q2
+      base_mac: 54:BF:64:F2:A5:C1
       syseeprom_info:
         "0x21": "S6100-ON"
         "0x22": "0F6N2R"
-        "0x23": "CN0F6N2RCES007BNI008"
-        "0x24": "D8:9E:F3:A5:E9:20"
-        "0x25": "11/24/2017 06:35:02"
+        "0x23": "CN0F6N2RCES0088KI024"
+        "0x24": "54:BF:64:F2:A5:C1"
+        "0x25": "08/20/2018 14:00:05"
         "0x26": "1"
         "0x27": "A11"
         "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.15.1.0"
+        "0x29": "3.25.1.2-0"
         "0x2A": "384"
         "0x2B": "CES00"
         "0x2C": "CN"
         "0x2D": "DELL"
         "0x2E": "3.25.4.1"
-        "0x2F": "BLNRG02"
-        "0xFE": "0xB144AE2D"
+        "0x2F": "44010Q2"
+        "0xFE": "0x59B2DD79"
     str-s6100-acs-4:
       ansible_host: 10.64.246.226
       model: 0F6N2R
@@ -378,26 +378,26 @@ sonic_dell64_40:
         "0xFE": "0x7F2C83D9"
     str-s6100-acs-5:
       ansible_host: 10.64.246.66
-      model: 0F6N2R
-      serial: 4NKD9Z2
-      base_mac: 8C:04:BA:D2:19:40
+      model: 0T7X1X
+      serial: 62QZZP2
+      base_mac: 3C:2C:30:13:4C:80
       syseeprom_info:
         "0x21": "S6100-ON"
-        "0x22": "0F6N2R"
-        "0x23": "TH0F6N2RCET009CE001X"
-        "0x24": "8C:04:BA:D2:19:40"
-        "0x25": "11/15/2022 21:18:54"
+        "0x22": "0T7X1X"
+        "0x23": "MX0T7X1XCEM008CE03PY"
+        "0x24": "3C:2C:30:13:4C:80"
+        "0x25": "09/16/2019 14:32:17"
         "0x26": "1"
-        "0x27": "A11"
+        "0x27": "A01"
         "0x28": "x86_64-dell_s6100_c2538-r0"
         "0x29": "3.15.1.0"
         "0x2A": "384"
-        "0x2B": "CET00"
-        "0x2C": "TH"
+        "0x2B": "CEM00"
+        "0x2C": "MX"
         "0x2D": "DELL"
         "0x2E": "3.25.4.1"
-        "0x2F": "4NKD9Z2"
-        "0xFE": "0x5D973705"
+        "0x2F": "62QZZP2"
+        "0xFE": "0x9562F454"
       pdu_host: pdu-102
   vars:
     hwsku: Force10-S6100
