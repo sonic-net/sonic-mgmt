@@ -274,21 +274,27 @@ def compose_sai_ptfv2_running_param(dut_ip, request):
        or request.config.option.enable_ptf_warmboot_test:
         warm_param = WARM_TEST_ARGS
 
-    test_param = "--test-dir {}".format(test_set)
-    test_param += " \"--test-params=thrift_server='{}'; ".format(dut_ip)
-
     port_config_file = SAI_TEST_RESOURCE_ON_PTF_DIR + '/port_config.ini'
+    config_db_file = SAI_TEST_RESOURCE_ON_PTF_DIR + '/config_db.json'
     if request.config.option.sai_port_config_file:
         port_config_file = request.config.option.sai_port_config_file
-        test_param += " port_config_ini='{}'; ".format(port_config_file)
-
-    config_db_file = SAI_TEST_RESOURCE_ON_PTF_DIR + '/config_db.json'
     if request.config.option.sai_config_db_file:
         config_db_file = request.config.option.sai_config_db_file
 
-    test_param += " config_db_json='{}';{}\"".format(
-        config_db_file,
-        warm_param)
+    test_param = "--test-dir {}".format(test_set)
+    if request.config.option.sai_port_config_file:
+        test_param += " \"--test-params=thrift_server='{}';\
+            port_config_ini='{}';config_db_json='{}';{}\"".format(
+            dut_ip,
+            port_config_file,
+            config_db_file,
+            warm_param)
+    else:
+        test_param += " \"--test-params=thrift_server='{}';\
+            config_db_json='{}';{}\"".format(
+            dut_ip,
+            config_db_file,
+            warm_param)
     return test_param
 
 
