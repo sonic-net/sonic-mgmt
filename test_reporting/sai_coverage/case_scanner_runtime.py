@@ -1,3 +1,40 @@
+"""
+This script parses the published artifacts, and outputs a json format result.
+
+Examples:
+  - Input
+    1) log example:
+        02/24/2023 03:34:54 AM - /tmp/sai_qualify/SAI/ptf/sairif.py:SviLagHostTest - \
+        sai_adapter.py - INFO - sai_adapter_invoke func:[sai_thrift_create_switch] \
+        args: [{'client': '<sai_thrift.sai_rpc.Client object at 0x7f7adac58a58>', \
+                'init_switch': 'True', 'src_mac_address': '00:77:66:55:44:00'}]
+
+    2) info_file example:
+        Platform: x86_64-dell_s6000_s1220-r0
+        HwSKU: Force10-S6000
+
+  - Output:
+    parsed_log.json:
+    {
+        "id": "f1595a05-14a8-4df2-afe1-c453c4efa179",
+        "is_azure_used": false,
+        "file_name": "sairif.py",
+        "case_name": "SviLagHostTest",
+        "class_name": "SviLagHostTest",
+        "case_invoc": "sai_thrift_create_switch",
+        "sai_alias": "create_switch",
+        "sai_api": "create_switch",
+        "sai_feature": "switch",
+        "test_set": "ptf",
+        "test_platform": "x86_64-cel_seastone-r0",
+        "sai_obj_attr_key": "client",
+        "sai_obj_attr_val": "<sai_thrift.sai_rpc.Clientobjectat0x7f7adac58a58>",
+        "runnable": true,
+        "sai_folder": "/tmp/sai_qualify/SAI/ptf",
+        "upload_time": "2023-02-28"
+    }
+"""
+
 import argparse
 import json
 import os
@@ -21,6 +58,12 @@ def get_parser(description="Runtime Scanner"):
 
 
 def get_test_platform(path):
+    """
+    Parse the info_file, and extract test_platform info
+
+    Arg:
+      path: path of info_file
+    """
     with open(path, 'r') as f:
         for line in f:
             if 'Platform:' in line:
@@ -28,6 +71,14 @@ def get_test_platform(path):
 
 
 def parse_log(log_path, result_path, test_platform):
+    """
+    Parse the log and info_file, and output result json
+
+    Arg:
+      log_path: path of log
+      result_path: path to save the json result
+      test_platform: platform of running cases
+    """
     results = []
     with open(log_path, 'r') as f:
         file_cnt = len(open(log_path, 'r').readlines())
