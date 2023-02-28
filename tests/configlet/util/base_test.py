@@ -6,7 +6,7 @@ import os
 from helpers import set_log_prefix_msg, get_prefix_lvl, set_prefix_lvl, append_log_prefix_msg,\
                     log_info, log_debug
 from common import base_dir, data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir, managed_files,\
-                   patch_add_t0_dir, patch_rm_t0_dir, files_dir, tor_data,\
+                   patch_add_t0_dir, patch_rm_t0_dir, files_dir, tor_data, init_data,\
                    RELOAD_WAIT_TIME, PAUSE_INTF_DOWN, PAUSE_INTF_UP, PAUSE_CLET_APPLY, DB_COMP_WAIT_TIME,\
                    do_pause, db_comp, chk_bgp_session, chk_for_pfc_wd, report_error, take_DB_dumps, init_global_data
 import strip

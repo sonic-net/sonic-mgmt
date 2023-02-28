@@ -3,11 +3,9 @@
 import pytest
 import sys
 from tests.common.utilities import skip_release
-
-from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
-from helpers import log_info
-
-sys.path.append("./configlet/util")
+from util.base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
+from util.helpers import log_info
+from util.common import data_dir, orig_db_dir, clet_db_dir, files_dir
 
 pytestmark = [
         pytest.mark.topology("t1")
