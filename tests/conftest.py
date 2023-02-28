@@ -575,7 +575,8 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                     ifs_status = fanout.host.get_interfaces_status()
                     for key, interface_info in ifs_status.items():
                         fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
-                    logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
+                    logging.info("fanout {} fanout_port_alias_to_name {}"
+                                 .format(fanout_host, fanout.fanout_port_alias_to_name))
 
             fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
@@ -1212,7 +1213,7 @@ def generate_dut_backend_asics(request, duts_selected):
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            dut_asic_list.append([None]) 
+            dut_asic_list.append([None])
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
@@ -1260,7 +1261,7 @@ def pfc_pause_delay_test_params(request):
     try:
         with open(filepath, 'r') as yf:
             info = json.load(yf)
-    except IOError as e:
+    except IOError:
         return empty
 
     if tbname not in info:
@@ -1309,8 +1310,8 @@ def pytest_generate_tests(metafunc):        # noqa E302
     asics_selected = None
     asic_fixture_name = None
 
+    tbname, tbinfo = get_tbinfo(metafunc)
     if duts_selected is None:
-        tbname, tbinfo = get_tbinfo(metafunc)
         duts_selected = [tbinfo["duts"][0]]
 
     possible_asic_enums = ["enum_asic_index", "enum_frontend_asic_index", "enum_backend_asic_index",
@@ -1415,6 +1416,12 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
     if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
         metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
+
+    if 'topo_scenario' in metafunc.fixturenames:
+        if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
+            metafunc.parametrize('topo_scenario', ['m0_t0_scenario', 'm0_t1_scenario'], scope='module')
+        else:
+            metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
 
 def get_autoneg_tests_data():
@@ -1646,8 +1653,8 @@ def duts_running_config_facts(duthosts):
     Returns:
         dict: {
             <dut hostname>: [
-                {asic0_cfg_facts},
-                {asic1_cfg_facts}
+                (asic0_idx, {asic0_cfg_facts}),
+                (asic1_idx, {asic1_cfg_facts})
             ]
         }
     """
@@ -1658,13 +1665,13 @@ def duts_running_config_facts(duthosts):
             if asic.is_it_backend():
                 continue
             asic_cfg_facts = asic.config_facts(source='running')['ansible_facts']
-            cfg_facts[duthost.hostname].append(asic_cfg_facts)
+            cfg_facts[duthost.hostname].append((asic.asic_index, asic_cfg_facts))
     return cfg_facts
 
 
 @pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
-                    ptf_portmap_file, lower_tor_host):   # noqa F811
+                    ptf_portmap_file, lower_tor_host, creds):   # noqa F811
     """
         Prepares DUT host test params
 
@@ -1684,7 +1691,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["name"]
 
-    yield {
+    rtn_dict = {
         "topo": topo,
         "hwsku": mgFacts["minigraph_hwsku"],
         "basicParams": {
@@ -1694,10 +1701,15 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ).vars['ansible_host'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
-            "sonic_version": duthost.os_version
+            "sonic_version": duthost.os_version,
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         }
     }
+    if 'platform_asic' in duthost.facts:
+        rtn_dict['basicParams']["platform_asic"] = duthost.facts['platform_asic']
 
+    yield rtn_dict
 
 @pytest.fixture(scope='module')
 def duts_minigraph_facts(duthosts, tbinfo):
@@ -1710,8 +1722,8 @@ def duts_minigraph_facts(duthosts, tbinfo):
     Returns:
         dict: {
             <dut hostname>: [
-                {asic0_mg_facts},
-                {asic1_mg_facts}
+                (asic0_idx, {asic0_mg_facts}),
+                (asic1_idx, {asic1_mg_facts})
             ]
         }
     """
@@ -1722,7 +1734,7 @@ def duts_minigraph_facts(duthosts, tbinfo):
             if asic.is_it_backend():
                 continue
             asic_mg_facts = asic.get_extended_minigraph_facts(tbinfo)
-            mg_facts[duthost.hostname].append(asic_mg_facts)
+            mg_facts[duthost.hostname].append((asic.asic_index, asic_mg_facts))
 
     return mg_facts
 
@@ -1851,6 +1863,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
     pre_only_config = {}
     cur_only_config = {}
     config_db_check_pass = True
+
+    check_result = {}
 
     if check_flag:
         for duthost in duthosts:
@@ -2031,6 +2045,12 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
+
+    if check_result:
+        items = request.session.items
+        for item in items:
+            if item.module.__name__ + ".py" == module_name.split("/")[-1]:
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
 
 
 @pytest.fixture(scope="function")

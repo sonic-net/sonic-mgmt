@@ -11,8 +11,8 @@ import logging
 import logging.handlers
 from socket import socket, AF_PACKET, SOCK_RAW
 
-my_logger = logging.getLogger('MyLogger')
-my_logger.setLevel(logging.DEBUG)
+logger = logging.getLogger('MyLogger')
+logger.setLevel(logging.DEBUG)
 
 
 def checksum(msg):
@@ -83,7 +83,7 @@ def main():
 
     # Configure logging
     handler = logging.handlers.SysLogHandler(address=(options.rsyslog_server, 514))
-    my_logger.addHandler(handler)
+    logger.addHandler(handler)
 
     for s, interface in zip(sockets, interfaces):
         s.bind((interface, 0))
@@ -144,7 +144,7 @@ def main():
         class_enable_field = binascii.unhexlify(format(class_enable, '04x'))
 
         packet = packet + class_enable_field
-        for p in range(0, 7):
+        for p in range(0, 8):
             if (class_enable & (1 << p)):
                 packet = packet + binascii.unhexlify(format(options.time, '04x'))
             else:
@@ -152,13 +152,13 @@ def main():
 
     pre_str = 'GLOBAL_PF' if options.global_pf else 'PFC'
     print("Generating %s Packet(s)" % options.num)
-    my_logger.debug(pre_str + '_STORM_START')
+    logger.debug(pre_str + '_STORM_START')
     iteration = options.num
     while iteration > 0:
         for s in sockets:
             s.send(packet)
         iteration -= 1
-    my_logger.debug(pre_str + '_STORM_END')
+    logger.debug(pre_str + '_STORM_END')
 
 
 if __name__ == "__main__":
