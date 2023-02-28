@@ -8,14 +8,23 @@
       </MatchSet>
       <ActionSet>
         <Action Type="POP_LABEL" />
-        <Action Type="GROUP" {{ GroupId_1 }} />
+        <Action Type="GROUP" {{ GroupId_1_1 }} />
+      </ActionSet>
+    </Flow>
+    <Flow Type="Ingress" FlowId="99000006">
+      <MatchSet>
+        <Match Type="MPLS_LABEL" {{ Label_1_2 }} />
+      </MatchSet>
+      <ActionSet>
+        <Action Type="POP_LABEL" />
+        <Action Type="GROUP" {{ GroupId_1_2 }} />
       </ActionSet>
     </Flow>
   </ForwardingTable>
   <ForwardingTable {{ DeviceName_1_3 }} TableId="0" Sequence="687775099" {{ Family_2_1 }} xmlns="" />
   <ForwardingTable {{ DeviceName_1_4 }} TableId="0" Sequence="687775099" {{ Family_2_2 }} xmlns="" />
   <GroupTable {{ DeviceName_2_1 }} TableId="0" Sequence="687775099" xmlns="">
-    <Group Type="WCMP" {{ GroupId_2 }} Metric="0">
+    <Group Type="WCMP" {{ GroupId_2_1 }} Metric="0">
       <ActionSet ActionId="9" Weight="16" {{ EgressIpv4_1 }} TrafficClass="Default">
         <Action Type="PUSH_LABEL" {{ Label_2_1 }} />
         <Action Type="OUTPUT" {{ Interface_1 }} {{ NhopIpv4_1 }} />
@@ -31,6 +40,24 @@
       <ActionSet ActionId="12" Weight="11" {{ EgressIpv4_4 }} TrafficClass="Scavenger">
         <Action Type="PUSH_LABEL" {{ Label_2_4 }} />
         <Action Type="OUTPUT" {{ Interface_4 }} {{ NhopIpv4_4 }} />
+      </ActionSet>
+    </Group>
+    <Group Type="WCMP" {{ GroupId_2_2 }} Metric="0">
+      <ActionSet ActionId="13" Weight="16" {{ EgressIpv6_1 }} TrafficClass="Default">
+        <Action Type="PUSH_LABEL" {{ Label_2_5 }} />
+        <Action Type="OUTPUT" {{ Interface_5 }} {{ NhopIpv6_1 }} />
+      </ActionSet>
+      <ActionSet ActionId="14" Weight="16" {{ EgressIpv6_2 }} TrafficClass="Default">
+        <Action Type="PUSH_LABEL" {{ Label_2_6 }} />
+        <Action Type="OUTPUT" {{ Interface_6 }} {{ NhopIpv6_2 }} />
+      </ActionSet>
+      <ActionSet ActionId="15" Weight="21" {{ EgressIpv6_3 }} TrafficClass="Scavenger">
+        <Action Type="PUSH_LABEL" {{ Label_2_7 }} />
+        <Action Type="OUTPUT" {{ Interface_7 }} {{ NhopIpv6_3 }} />
+      </ActionSet>
+      <ActionSet ActionId="16" Weight="11" {{ EgressIpv6_4 }} TrafficClass="Scavenger">
+        <Action Type="PUSH_LABEL" {{ Label_2_8 }} />
+        <Action Type="OUTPUT" {{ Interface_8 }} {{ NhopIpv6_4 }} />
       </ActionSet>
     </Group>
   </GroupTable>

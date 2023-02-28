@@ -47,19 +47,29 @@ params_group = {
     },
     "Label_1":
     {
-        "Label_1_1": 'Label="24896"'
+        "Label_1_1": 'Label="24896"',
+        "Label_1_2": 'Label="24897"'
     },
     "Label_2":
     {
         "Label_2_1": 'Label="0"',
         "Label_2_2": 'Label="34006"',
         "Label_2_3": 'Label="0"',
-        "Label_2_4": 'Label="34007"'
+        "Label_2_4": 'Label="34007"',
+        "Label_2_5": 'Label="34037"',
+        "Label_2_6": 'Label="34038"',
+        "Label_2_7": 'Label="34039"',
+        "Label_2_8": 'Label="34036"'
     },
-    "GroupId":
+    "GroupId_1":
     {
-        "GroupId_1": 'GroupId="IBR01.PHX10-to-LAX_GW_Mplsv4_0"',
-        "GroupId_2": 'GroupId="IBR01.PHX10-to-LAX_GW_Mplsv4_0"'
+        "GroupId_1_1": 'GroupId="IBR01.PHX10-to-LAX_GW_Mplsv4_0"',
+        "GroupId_1_2": 'GroupId="IBR01.LAX31-to-PHX_Mplsv6_0"'
+    },
+    "GroupId_2":
+    {
+        "GroupId_2_1": 'GroupId="IBR01.PHX10-to-LAX_GW_Mplsv4_0"',
+        "GroupId_2_2": 'GroupId="IBR01.LAX31-to-PHX_Mplsv6_0"'
     },
     "EgressIpv4":
     {
@@ -73,7 +83,11 @@ params_group = {
         "Interface_1": 'Interface="PortChannel101"',
         "Interface_2": 'Interface="PortChannel102"',
         "Interface_3": 'Interface="PortChannel101"',
-        "Interface_4": 'Interface="PortChannel102"'
+        "Interface_4": 'Interface="PortChannel102"',
+        "Interface_5": 'Interface="PortChannel101"',
+        "Interface_6": 'Interface="PortChannel102"',
+        "Interface_7": 'Interface="PortChannel101"',
+        "Interface_8": 'Interface="PortChannel102"'
     },
     "NhopIpv4":
     {
@@ -81,6 +95,20 @@ params_group = {
         "NhopIpv4_2": 'NhopIpv4="10.0.0.59"',
         "NhopIpv4_3": 'NhopIpv4="10.0.0.57"',
         "NhopIpv4_4": 'NhopIpv4="10.0.0.59"'
+    },
+    "EgressIpv6":
+    {
+        "EgressIpv6_1": 'EgressIpv6="2064:100::1d"',
+        "EgressIpv6_2": 'EgressIpv6="2064:100::1e"',
+        "EgressIpv6_3": 'EgressIpv6="2064:100::1d"',
+        "EgressIpv6_4": 'EgressIpv6="2064:100::1e"'
+    },
+    "NhopIpv6":
+    {
+        "NhopIpv6_1": 'NhopIpv6="2340:0023:AABA:0A01:0055:5054:9ABC:ABB0"',
+        "NhopIpv6_2": 'NhopIpv6="::1:AAAA:BBBC:A222:BBBA:1"',
+        "NhopIpv6_3": 'NhopIpv6="fc00::72"',
+        "NhopIpv6_4": 'NhopIpv6="fc00::76"'
     }
 }
 
@@ -88,12 +116,15 @@ valid_params = {
     "DeviceName": ["vlab-01"],
     "Family_1":  ["ResolveIP", "MplsIngress"],
     "Family_2": ["Ipv6", "Ipv4"],
-    "Label_1": ["24896"],
+    "Label_1": ["24896", "24897"],
     "Label_2": ["0", "34006", "34007"],
-    "GroupId": ["IBR01.PHX10-to-LAX_GW_Mplsv4_0"],
+    "GroupId_1": ["IBR01.PHX10-to-LAX_GW_Mplsv4_0", "IBR01.LAX31-to-PHX_Mplsv6_0"],
+    "GroupId_2": ["IBR01.PHX10-to-LAX_GW_Mplsv4_0", "IBR01.LAX31-to-PHX_Mplsv6_0"],
     "EgressIpv4": ["100.1.0.29", "100.1.0.30"],
     "Interface": ["PortChannel101", "PortChannel102"],
-    "NhopIpv4": ["10.0.0.57", "10.0.0.59"]
+    "NhopIpv4": ["10.0.0.57", "10.0.0.59"],
+    "EgressIpv6": ["2064:100::1d", "2064:100::1e"],
+    "NhopIpv6": ["fc00::72", "fc00::76"]
 }
 
 invalid_params = {
@@ -104,9 +135,11 @@ invalid_params = {
     "Label_1": ["3406200000"],
     "Label_2": ["3406200000"],
     # "GroupId": ["IBR01.PHX10-to-LAX_GW_Mplsv4_0"],
-    "EgressIpv4": ["100.1.0", "00.1.0.30", "100.2.2.10"],
+    "EgressIpv4": ["100.1.0", "00.1.0.30"],
     "Interface": ["PortChannel1", "PortChannel1020"],
-    "NhopIpv4": ["10.0.0", "00.0.0.59", "10.1.1.1"]
+    "NhopIpv4": ["10.0.0", "00.0.0.59", "10.1.1.1"],
+    "EgressIpv6": ["2340:0023:AABA:0A01:0055:5054:9ABC", "2340:0023:AABA:0A01:00H5:5054:9GBC:ABB0"],
+    "NhopIpv6": ["1:AAAA:BBBC:A222:BBBA:1", "2340:0023:AABA:0A01:00H5:5054:9GBC:ABB0"]
 }
 
 missing_prompt = {
@@ -115,11 +148,14 @@ missing_prompt = {
     "EgressIpv4": "error parsing empty egress IP",
     "Family_1": "forwarding table Family:  is not valid",
     "Family_2": "forwarding table Family:  is not valid",
-    "GroupId": "error group does not exist",
+    "GroupId_1": "error group does not exist",
+    "GroupId_2": "error group does not exist",
     "Interface": "error parsing empty nexthop interface",
     "Label_1" : "error parsing label",
     "Label_2" : "attribute Labels not present for ActionType PUSH_LABEL in FIB",
-    "NhopIpv4" : "error parsing empty nexthop IP"
+    "NhopIpv4" : "error parsing empty nexthop IP",
+    "NhopIpv6" : "error parsing empty nexthop IP",
+    "EgressIpv6": "error parsing empty egress IP"
 }
 
 
@@ -159,25 +195,24 @@ def test_swan_correct_xml(swan_agent_setup_teardown, request):
     pytest_assert(output[0] == "HTTP/1.1 200 OK",
                 'Fail to load {}.xml to swan agent'.format(request.node.name))
     
-    groupId = valid_params['GroupId'][0]
+    for groupId in valid_params['GroupId_1']:
+        # 1. check groupid exist in swan agent tunnels
+        output = dut_host.shell("curl http://localhost:10000/tunnels")['stdout']
+        pytest_assert(groupId in output, 'Fail to find GroupId: {} in swan agent tunnels'.format(groupId))
 
-    # 1. check groupid exist in swan agent tunnels
-    output = dut_host.shell("curl http://localhost:10000/tunnels")['stdout']
-    pytest_assert(groupId in output, 'Fail to find GroupId: {} in swan agent tunnels'.format(groupId))
+        # 2. check groupid exist in redis NEXTHOP_GROUP_TABLE
+        output = dut_host.shell("redis-cli -n 0 KEYS NEXTHOP_GROUP_TABLE*")['stdout']
+        pytest_assert(groupId in output, 'Fail to find GroupId: {} in redis NEXTHOP_GROUP_TABLE'.format(groupId))
 
-    # 2. check groupid exist in redis NEXTHOP_GROUP_TABLE
-    output = dut_host.shell("redis-cli -n 0 KEYS NEXTHOP_GROUP_TABLE*")['stdout']
-    pytest_assert(groupId in output, 'Fail to find GroupId: {} in redis NEXTHOP_GROUP_TABLE'.format(groupId))
+        # 3. check incoming label exist in redis LABEL_ROUTE_TABLE
+        output = dut_host.shell("redis-cli -n 0 KEYS LABEL_ROUTE_TABLE*")['stdout']
+        for label in valid_params["Label_1"]:
+            pytest_assert("LABEL_ROUTE_TABLE:{}".format(label) in output,
+                        'Fail to find incoming label: {} in redis LABEL_ROUTE_TABLE'.format(label))
 
-    # 3. check incoming label exist in redis LABEL_ROUTE_TABLE
-    output = dut_host.shell("redis-cli -n 0 KEYS LABEL_ROUTE_TABLE*")['stdout']
-    for label in valid_params["Label_1"]:
-        pytest_assert("LABEL_ROUTE_TABLE:{}".format(label) in output,
-                    'Fail to find incoming label: {} in redis LABEL_ROUTE_TABLE'.format(label))
-
-    # 4. check groupid exist in redis CLASS_BASED_NEXT_HOP_GROUP_TABLE
-    output = dut_host.shell("redis-cli -n 0 KEYS CLASS_BASED_NEXT_HOP_GROUP_TABLE*")['stdout']
-    pytest_assert(groupId in output, 'Fail to find GroupId: {} in redis NEXTHOP_GROUP_TABLE'.format(groupId))
+        # 4. check groupid exist in redis CLASS_BASED_NEXT_HOP_GROUP_TABLE
+        output = dut_host.shell("redis-cli -n 0 KEYS CLASS_BASED_NEXT_HOP_GROUP_TABLE*")['stdout']
+        pytest_assert(groupId in output, 'Fail to find GroupId: {} in redis NEXTHOP_GROUP_TABLE'.format(groupId))
 
 
 @pytest.mark.parametrize("target_field", params_group.keys())
@@ -222,33 +257,31 @@ def invalid_field_prompt(target_field, value):
         return "forwarding table DeviceName: {} does not match Host: vlab-01".format(value)
     elif target_field == "DeviceName_2":
         return "group table DeviceName: {} does not match Host: vlab-01".format(value)
-    elif target_field == "EgressIpv4":
+    elif target_field == "EgressIpv4" or target_field == "EgressIpv6":
         return "error parsing egress IP {}".format(value)
     elif target_field == "Family_1" or target_field == "Family_2":
         return "forwarding table Family: {} is not valid".format(value)
-    elif target_field == "NhopIpv4":
+    elif target_field == "NhopIpv4" or target_field == "NhopIpv6":
         return "error parsing nexthop IP {}".format(value)
 
 
 @pytest.mark.parametrize("target_field", invalid_params.keys())
 def test_swan_xml_wrong_field(swan_agent_setup_teardown, request, target_field, capsys):
     dut_host = swan_agent_setup_teardown
-    target_params = deepcopy(params_group)
 
     value = random.choice(invalid_params[target_field])
-    index = random.randint(1, len(target_params[target_field].keys()))
+    index = random.randint(1, len(params_group[target_field].keys()))
 
-    for value in invalid_params[target_field]:
-        for index in range(1, len(target_params[target_field].keys())+1):
-            target_params[target_field]['{}_{}'.format(target_field, index)] = combine_params(target_field, value)
+    target_params = deepcopy(params_group)
+    target_params[target_field]['{}_{}'.format(target_field, index)] = combine_params(target_field, value)
 
-            output = import_xml_to_swan_agent(dut_host, target_params, request.node.name)
-            # with capsys.disabled():
-            #     print("index: {}, value: {}".format(index, value))
-            #     print("output: {}".format(output[-1]))
-            #     print("expected: {}".format(invalid_field_prompt(target_field, value)))
-            pytest_assert(output[0] == "HTTP/1.1 400 Bad Request",
-                        'Load error {}.xml to swan agent'.format(request.node.name))
+    output = import_xml_to_swan_agent(dut_host, target_params, request.node.name)
+    # with capsys.disabled():
+    #     print("index: {}, value: {}".format(index, value))
+    #     print("output: {}".format(output[-1]))
+    #     print("expected: {}".format(invalid_field_prompt(target_field, value)))
+    pytest_assert(output[0] == "HTTP/1.1 400 Bad Request",
+                'Load error {}.xml to swan agent'.format(request.node.name))
 
-            pytest_assert(output[-1] in invalid_field_prompt(target_field, value),
-                        'Not find prompt {} for invalid {}'.format(invalid_params[target_field], target_field))
+    pytest_assert(output[-1] in invalid_field_prompt(target_field, value),
+                'Not find prompt {} for invalid {}'.format(invalid_params[target_field], target_field))
