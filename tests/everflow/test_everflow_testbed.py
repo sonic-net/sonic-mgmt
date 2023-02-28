@@ -493,7 +493,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         rate_limit = 100
         if vendor == "marvell":
-            rate_limit = 125
+            rate_limit = rate_limit * 1.25
 
         for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
