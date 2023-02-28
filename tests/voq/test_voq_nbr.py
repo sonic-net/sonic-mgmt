@@ -584,7 +584,8 @@ def test_neighbor_clear_one(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     pos_cfg = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
     nbr_to_test = []
     if eth_cfg != {}:
-        nbr_to_test.extend(select_neighbors(eth_cfg, cfg_facts))
+        eth_ports = [intf for intf in eth_cfg if "ethernet" in intf.lower() and eth_cfg[intf] != {}]
+        nbr_to_test.extend(select_neighbors(eth_ports, cfg_facts))
 
     if pos_cfg != {}:
         nbr_to_test.extend(select_neighbors(pos_cfg, cfg_facts))
@@ -740,7 +741,7 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         return
 
     eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
-    eth_ports = [intf for intf in eth_cfg]
+    eth_ports = [intf for intf in eth_cfg if "ethernet" in intf.lower() and eth_cfg[intf] != {}]
     local_port = random.choice(eth_ports)
 
     logger.info("We will test port: %s on host %s, asic %s", local_port, per_host.hostname, asic.asic_index)
@@ -927,7 +928,7 @@ def pick_ports(cfg_facts):
     if "PORTCHANNEL_INTERFACE" in cfg_facts:
         intfs.update(cfg_facts['PORTCHANNEL_INTERFACE'])
 
-    eths = [intf for intf in intfs if "ethernet" in intf.lower()]
+    eths = [intf for intf in intfs if "ethernet" in intf.lower() and intfs[intf] != {}]
     pos = [intf for intf in intfs if "portchannel" in intf.lower()]
 
     intfs_to_test = []
@@ -1159,7 +1160,7 @@ class TestGratArp(object):
             return
 
         eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
-        eth_ports = [intf for intf in eth_cfg]
+        eth_ports = [intf for intf in eth_cfg if "ethernet" in intf.lower() and eth_cfg[intf] != {}]
         local_port = random.choice(eth_ports)
 
         logger.info("We will test port: %s on host %s, asic %s", local_port, duthost.hostname, asic.asic_index)
