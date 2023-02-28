@@ -67,7 +67,7 @@ def backup_and_restore_config_db_module(duthosts, rand_one_dut_hostname):
         yield func
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def backup_and_restore_config_db_package(duthosts):
 
     for func in _backup_and_restore_config_db(duthosts, "package"):
