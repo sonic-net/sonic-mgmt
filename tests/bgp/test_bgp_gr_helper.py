@@ -104,7 +104,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    portchannels = config_facts.get('PORTCHANNEL', {})
+    portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     configurations = tbinfo['topo']['properties']['configuration_properties']
     exabgp_ips = [configurations['common']['nhipv4'], configurations['common']['nhipv6']]
@@ -130,7 +130,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     # get neighbor device connected ports
     nbr_ports = []
     if test_interface.startswith("PortChannel"):
-        for member in portchannels[test_interface]['members']:
+        for member in portchannels[test_interface].keys():
             nbr_ports.append(dev_nbrs[member]['port'])
         test_neighbor_name = dev_nbrs[member]['name']
     else:
