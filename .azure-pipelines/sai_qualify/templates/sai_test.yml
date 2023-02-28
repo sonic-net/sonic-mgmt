@@ -204,6 +204,11 @@ parameters:
     type: string
     default: "master"
 
+  - name: RUNTIME_SCAN
+    displayName: "runtime scan"
+    type: boolean
+    default: false
+
 jobs:
   - job: SAITest
     pool: ${{ parameters.AGENT_POOL }}
@@ -475,7 +480,7 @@ jobs:
             then
               git remote add ${{ parameters.MGMT_REPO }} https://github.com/${{ parameters.MGMT_REPO }}/sonic-mgmt.git
               git fetch ${{ parameters.MGMT_REPO }}
-              git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }} -- sai_qualify/ scripts/sai_qualify/
+              git checkout ${{ parameters.MGMT_REPO }}/${{ parameters.MGMT_BRANCH }} -- sai_qualify/ scripts/sai_qualify/ ../test_reporting/
             fi
             popd
 
@@ -966,3 +971,39 @@ jobs:
         condition: ${{ parameters.RUN_TEST }}
         artifact: sai_test_report
         displayName: "Public sai test report"
+
+      - task: Bash@3
+        condition: ${{ parameters.RUNTIME_SCAN}}
+        displayName: Runtime Scanning
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+
+            echo "Activate python3 virtual environment"
+            source /var/AzDevOps/env-python3/bin/activate
+            pip3 install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
+
+            SCAN_FILE_PATH=/tmp/scan
+            mkdir -p $SCAN_FILE_PATH
+            cp -r $(System.DefaultWorkingDirectory)/publish $SCAN_FILE_PATH
+            cd $SCAN_FILE_PATH/publish
+            tar -xvzf invocation.tar.gz
+
+            LOG_PATH=$SCAN_FILE_PATH/publish/PTF/output.log
+            PLATFOTM_PATH=$SCAN_FILE_PATH/publish/version.txt
+
+            cd ${BASH_WORKING_FOLDER}
+            python3 test_reporting/sai_coverage/case_scanner_runtime.py -l $LOG_PATH -i $PLATFOTM_PATH -r result
+
+            echo "Upload runtime scanning result"
+            python3 test_reporting/report_uploader.py result SaiTestData -c case_invoc
+
+        env:
+          TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+          TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+          TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+          TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+          PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
+          OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
+          

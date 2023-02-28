@@ -133,6 +133,11 @@ parameters:
       - nightly-svc
       - nightly-bjw
 
+  - name: RUNTIME_SCAN
+    displayName: "runtime scan"
+    type: boolean
+    default: false
+
 stages:
 - stage: RunSAITest
   jobs:
@@ -162,3 +167,4 @@ stages:
       MGMT_REPO: ${{ parameters.MGMT_REPO }}
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      RUNTIME_SCAN: ${{ parameters.RUNTIME_SCAN }}
