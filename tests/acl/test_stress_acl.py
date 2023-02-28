@@ -1,16 +1,15 @@
 import logging
-import re
+import random
 import pytest
 import ptf.testutils as testutils
 from ptf import mask, packet
-from collections import namedtuple
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from collections import defaultdict
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.utilities import wait
-from tests.route.test_route_flap import get_ip_route_info, get_route_prefix_len
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx")
+    pytest.mark.topology("t0", "t1", "m0", "mx"),
+    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)
@@ -24,8 +23,10 @@ LOOP_TIMES_LEVEL_MAP = {
 # Template json file used to test scale rules
 STRESS_ACL_TABLE_TEMPLATE = "acl/templates/acltb_test_stress_acl_table.j2"
 STRESS_ACL_RULE_TEMPLATE = "acl/templates/acltb_test_stress_acl_rules.j2"
+STRESS_ACL_READD_RULE_TEMPLATE = "acl/templates/acltb_test_stress_acl_readd_rules.j2"
 STRESS_ACL_TABLE_JSON_FILE = "/tmp/acltb_test_stress_acl_table.json"
 STRESS_ACL_RULE_JSON_FILE = "/tmp/acltb_test_stress_acl_rules.json"
+STRESS_ACL_READD_RULE_JSON_FILE = "/tmp/acltb_test_stress_acl_readd_rules.json"
 
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
@@ -40,55 +41,11 @@ def prepare_test_file(rand_selected_dut):
     rand_selected_dut.shell("sonic-cfggen -j {} -w".format(STRESS_ACL_TABLE_JSON_FILE))
     # Copy acl rules
     rand_selected_dut.template(src=STRESS_ACL_RULE_TEMPLATE, dest=STRESS_ACL_RULE_JSON_FILE)
+    rand_selected_dut.template(src=STRESS_ACL_READD_RULE_TEMPLATE, dest=STRESS_ACL_READD_RULE_JSON_FILE)
 
 
 @pytest.fixture(scope='module')
-def prepare_dst_ip(rand_selected_dut, tbinfo):
-    routes = namedtuple('routes', ['route', 'aspath'])
-    common_config = tbinfo['topo']['properties']['configuration_properties'].get('common', {})
-    iproute_info = get_ip_route_info(rand_selected_dut)
-    dst_prefix_list = []
-    route_prefix_len = get_route_prefix_len(tbinfo, common_config)
-    for route_prefix in iproute_info:
-        if "/{}".format(route_prefix_len) in route_prefix:
-            multipath = iproute_info[route_prefix][0].get('multipath', False)
-            if multipath:
-                out = iproute_info[route_prefix][0].get('path').split(' ')
-                aspath = out[1:]
-                entry = routes(route_prefix, ' '.join(aspath))
-                dst_prefix_list.append(entry)
-                break
-
-    route_to_send = dst_prefix_list[0].route
-    dst_ip_addr = route_to_send.strip('/{}'.format(route_prefix_len))
-
-    return dst_ip_addr
-
-
-def parse_interfaces(output_lines, pc_ports_map):
-    """
-    Parse the inerfaces from 'show ip route' into an array
-    """
-    route_targets = []
-    ifaces = []
-    output_lines = output_lines[3:]
-
-    for item in output_lines:
-        match = re.search(r"(Ethernet\d+|PortChannel\d+)", item)
-        if match:
-            route_targets.append(match.group(0))
-
-    for route_target in route_targets:
-        if route_target.startswith("Ethernet"):
-            ifaces.append(route_target)
-        elif route_target.startswith("PortChannel") and route_target in pc_ports_map:
-            ifaces.extend(pc_ports_map[route_target])
-
-    return ifaces
-
-
-@pytest.fixture(scope='module')
-def prepare_test_port(rand_selected_dut, tbinfo, prepare_dst_ip):
+def prepare_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     if tbinfo["topo"]["type"] == "mx":
         dut_port = rand_selected_dut.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
@@ -102,75 +59,41 @@ def prepare_test_port(rand_selected_dut, tbinfo, prepare_dst_ip):
         dut_eth_port = mg_facts["minigraph_portchannels"][dut_port]["members"][0]
     ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
 
-    pc_ports_map = {pc: mg_facts["minigraph_portchannels"][pc]["members"] for pc in
-                    mg_facts["minigraph_portchannels"].keys()}
+    topo = tbinfo["topo"]["type"]
+    # Get the list of upstream ports
+    upstream_ports = defaultdict(list)
+    upstream_port_ids = []
+    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+        port_id = mg_facts["minigraph_ptf_indices"][interface]
+        if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
+                (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]):
+            upstream_ports[neighbor['namespace']].append(interface)
+            upstream_port_ids.append(port_id)
 
-    out_ifaces = parse_interfaces(rand_selected_dut.command("show ip route {}"
-                                                            .format(prepare_dst_ip))["stdout_lines"], pc_ports_map)
-
-    out_ptf_indices = []
-    for iface in out_ifaces:
-        out_ptf_indices.append(mg_facts["minigraph_ptf_indices"][iface])
-
-    return ptf_src_port, out_ptf_indices, dut_port
-
-
-@pytest.fixture(scope='module')
-def setup_stress_acl_table(rand_selected_dut, prepare_test_file, prepare_test_port):
-    ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
-
-    # Create an ACL table and bind to Vlan1000 interface
-    cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p {}".format(dut_port)
-    cmd_remove_table = "config acl remove table STRESS_ACL"
-    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="stress_acl")
-    loganalyzer.load_common_config()
-
-    try:
-        logger.info("Creating ACL table STRESS_ACL with type L3")
-        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-        # Ignore any other errors to reduce noise
-        loganalyzer.ignore_regex = [r".*"]
-        with loganalyzer:
-            rand_selected_dut.shell(cmd_create_table)
-    except LogAnalyzerError as err:
-        # Cleanup Config DB if table creation failed
-        logger.error("ACL table creation failed, attempting to clean-up...")
-        rand_selected_dut.shell(cmd_remove_table)
-        raise err
-
-    yield
-    logger.info("Removing ACL table STRESS_ACL")
-    # Remove ACL table
-    rand_selected_dut.shell(cmd_remove_table)
+    return ptf_src_port, upstream_port_ids, dut_port
 
 
-@pytest.fixture(scope='module')
-def setup_stress_acl_rules(rand_selected_dut, setup_stress_acl_table):
-    cmd_add_rules = "sonic-cfggen -j {} -w".format(STRESS_ACL_RULE_JSON_FILE)
-    cmd_rm_rules = "acl-loader delete STRESS_ACL"
-
-    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="stress_acl")
-    loganalyzer.match_regex = [LOG_EXPECT_ACL_RULE_FAILED_RE]
-    try:
-        logger.info("Creating ACL rules in STRESS_ACL")
-        with loganalyzer:
-            rand_selected_dut.shell(cmd_add_rules)
-    except LogAnalyzerError as err:
-        # Cleanup Config DB if failed
-        logger.error("ACL rule creation failed, attempting to clean-up...")
-        rand_selected_dut.shell(cmd_rm_rules)
-        raise err
-    yield
-    # Remove testing rules
-    logger.info("Removing testing ACL rules")
-    rand_selected_dut.shell(cmd_rm_rules)
+def generate_readd_rules(rand_selected_dut, loops):
+    readd_key = loops + ACL_RULE_NUMS
+    ip_key1 = readd_key / 256
+    ip_key2 = readd_key % 256
+    readd_rule_name = 's/RULE_[0-9]+/RULE_{}/g'.format(readd_key)
+    readd_src_ip = 's/20.0.[0-9]+.[0-9]+/20.0.{}.{}/g'.format(ip_key1, ip_key2)
+    readd_prio = 's/"PRIORITY": "[0-9]+"/"PRIORITY": "{}"/g'.format(readd_key)
+    rand_selected_dut.shell("sed -E -i '{}' {}".format(readd_rule_name, STRESS_ACL_READD_RULE_JSON_FILE))
+    rand_selected_dut.shell("sed -E -i '{}' {}".format(readd_src_ip, STRESS_ACL_READD_RULE_JSON_FILE))
+    rand_selected_dut.shell("sed -E -i '{}' {}".format(readd_prio, STRESS_ACL_READD_RULE_JSON_FILE))
 
 
-def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, dst_ip_addr, verity_status):
-    acl_nums = 0
-    while(acl_nums < ACL_RULE_NUMS):
-        acl_nums += 1
-        src_ip_addr = "20.0.0.{}".format(acl_nums)
+def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
+                     ptf_dst_ports, acl_rule_list, del_rule_id, verity_status):
+
+    for acl_id in acl_rule_list:
+        ip_key1 = acl_id / 256
+        ip_key2 = acl_id % 256
+
+        src_ip_addr = "20.0.{}.{}".format(ip_key1, ip_key2)
+        dst_ip_addr = "10.0.0.1"
         pkt = testutils.simple_ip_packet(
             eth_dst=rand_selected_dut.facts['router_mac'],
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
@@ -200,35 +123,55 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
 
         ptfadapter.dataplane.flush()
         testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
-        if verity_status == "forward":
+        if verity_status == "forward" or acl_id == del_rule_id:
             testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
-        elif verity_status == "drop":
+        elif verity_status == "drop" and acl_id != del_rule_id:
             testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
 
 
-def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_dst_ip, prepare_test_port,
-                            setup_stress_acl_rules, get_function_conpleteness_level,
+def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_file,
+                            prepare_test_port, get_function_conpleteness_level,
                             toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
 
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
 
-    normalized_level = get_function_conpleteness_level
+    cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p {}".format(dut_port)
+    cmd_remove_table = "config acl remove table STRESS_ACL"
     cmd_add_rules = "sonic-cfggen -j {} -w".format(STRESS_ACL_RULE_JSON_FILE)
-    cmd_rm_rules = "acl-loader delete STRESS_ACL"
+    cmd_readd_rules = "sonic-cfggen -j {} -w".format(STRESS_ACL_READD_RULE_JSON_FILE)
+    cmd_rm_all_rules = "acl-loader delete STRESS_ACL"
+
+    normalized_level = get_function_conpleteness_level
     if normalized_level is None:
         normalized_level = 'basic'
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
     wait_time = 2
 
-    verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, prepare_dst_ip, "drop")
-    while loop_times > 0:
-        logger.info("loop_times: {}".format(loop_times))
-        rand_selected_dut.shell(cmd_rm_rules)
-        wait(wait_time, "Waiting {} sec acl rules to be removed".format(wait_time))
-        verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, prepare_dst_ip, "forward")
-        rand_selected_dut.shell(cmd_add_rules)
-        wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
-        verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, prepare_dst_ip, "drop")
-        loop_times -= 1
+    rand_selected_dut.shell(cmd_create_table)
+    acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
+    verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "forward")
 
+    loops = 0
+    while loops < loop_times:
+        logger.info("loops: {}".format(loops))
+        if loops == 0:
+            rand_selected_dut.shell(cmd_add_rules)
+        else:
+            generate_readd_rules(rand_selected_dut, loops)
+            rand_selected_dut.shell(cmd_readd_rules)
+            acl_rule_list.append(loops + ACL_RULE_NUMS)
+
+        wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
+        verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "drop")
+
+        del_rule_id = random.choice(acl_rule_list)
+        rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
+        wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
+        verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, del_rule_id, "drop")
+        acl_rule_list.remove(del_rule_id)
+
+        loops += 1
+
+    rand_selected_dut.shell(cmd_rm_all_rules)
+    rand_selected_dut.shell(cmd_remove_table)
     logger.info("End")
