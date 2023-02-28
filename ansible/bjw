@@ -443,3 +443,13 @@ server:
       ansible_host: 10.150.22.231
     bjw-can-serv-11:
       ansible_host: 10.150.22.232
+    bjw-can-serv-12:
+      ansible_host: 10.150.22.233
+    bjw-can-serv-13:
+      ansible_host: 10.150.22.234
+    bjw-can-serv-14:
+      ansible_host: 10.150.22.235
+    bjw-can-serv-15:
+      ansible_host: 10.150.22.236
+    bjw-can-serv-16:
+      ansible_host: 10.150.22.237

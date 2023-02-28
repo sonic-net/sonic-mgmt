@@ -73,6 +73,16 @@ bjw-pdu-126-132,29,bjw-can-serv-10,PSU1
 bjw-pdu-126-133,29,bjw-can-serv-10,PSU2
 bjw-pdu-126-132,30,bjw-can-serv-11,PSU1
 bjw-pdu-126-133,30,bjw-can-serv-11,PSU2
+bjw-pdu-126-136,29,bjw-can-serv-12,PSU1
+bjw-pdu-126-137,29,bjw-can-serv-12,PSU2
+bjw-pdu-126-136,30,bjw-can-serv-13,PSU1
+bjw-pdu-126-137,30,bjw-can-serv-13,PSU2
+bjw-pdu-126-136,31,bjw-can-serv-14,PSU1
+bjw-pdu-126-137,31,bjw-can-serv-14,PSU2
+bjw-pdu-126-136,33,bjw-can-serv-15,PSU1
+bjw-pdu-126-137,33,bjw-can-serv-15,PSU2
+bjw-pdu-126-136,35,bjw-can-serv-16,PSU1
+bjw-pdu-126-137,35,bjw-can-serv-16,PSU2
 bjw-pdu-126-135,29,bjw-can-7060-fanout-1,PSU1
 bjw-pdu-126-134,29,bjw-can-7060-fanout-1,PSU2
 bjw-pdu-126-135,30,bjw-can-7260-root-1,PSU1

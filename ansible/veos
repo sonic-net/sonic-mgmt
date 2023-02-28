@@ -30,6 +30,11 @@ all:
         vm_bjw_host_9:
         vm_bjw_host_10:
         vm_bjw_host_11:
+        vm_bjw_host_12:
+        vm_bjw_host_13:
+        vm_bjw_host_14:
+        vm_bjw_host_15:
+        vm_bjw_host_16:
     eos:
       children:
         vms_1:
@@ -60,6 +65,11 @@ all:
         vms_bjw_9:
         vms_bjw_10:
         vms_bjw_11:
+        vms_bjw_12:
+        vms_bjw_13:
+        vms_bjw_14:
+        vms_bjw_15:
+        vms_bjw_16:
     servers:
       children:
         server_1:
@@ -90,6 +100,11 @@ all:
         server_bjw_9:
         server_bjw_10:
         server_bjw_11:
+        server_bjw_12:
+        server_bjw_13:
+        server_bjw_14:
+        server_bjw_15:
+        server_bjw_16:
       vars:
         topologies:
           - t1
@@ -248,6 +263,26 @@ vm_bjw_host_11:
   hosts:
     BJW-CAN-SERV-11:
       ansible_host: 10.150.22.232
+vm_bjw_host_12:
+  hosts:
+    BJW-CAN-SERV-12:
+      ansible_host: 10.150.22.233
+vm_bjw_host_13:
+  hosts:
+    BJW-CAN-SERV-13:
+      ansible_host: 10.150.22.234
+vm_bjw_host_14:
+  hosts:
+    BJW-CAN-SERV-14:
+      ansible_host: 10.150.22.235
+vm_bjw_host_15:
+  hosts:
+    BJW-CAN-SERV-15:
+      ansible_host: 10.150.22.236
+vm_bjw_host_16:
+  hosts:
+    BJW-CAN-SERV-16:
+      ansible_host: 10.150.22.237
 
 vms_1:
   hosts:
@@ -5218,3 +5253,33 @@ server_bjw_11:
   children:
     vm_bjw_host_11:
     vms_bjw_11:
+server_bjw_12:
+  vars:
+    host_var_file: host_vars/BJW-CAN-SERV-12.yml
+  children:
+    vm_bjw_host_12:
+    vms_bjw_12:
+server_bjw_13:
+  vars:
+    host_var_file: host_vars/BJW-CAN-SERV-13.yml
+  children:
+    vm_bjw_host_13:
+    vms_bjw_13:
+server_bjw_14:
+  vars:
+    host_var_file: host_vars/BJW-CAN-SERV-14.yml
+  children:
+    vm_bjw_host_14:
+    vms_bjw_14:
+server_bjw_15:
+  vars:
+    host_var_file: host_vars/BJW-CAN-SERV-15.yml
+  children:
+    vm_bjw_host_15:
+    vms_bjw_15:
+server_bjw_16:
+  vars:
+    host_var_file: host_vars/BJW-CAN-SERV-16.yml
+  children:
+    vm_bjw_host_16:
+    vms_bjw_16:

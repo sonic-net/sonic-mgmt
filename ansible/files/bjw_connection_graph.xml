@@ -27,6 +27,11 @@
       <Device Hostname="bjw-can-serv-9" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-10" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-serv-11" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-12" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-13" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-14" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-15" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="bjw-can-serv-16" HwSku="TestServ" Type="Server"/>
       <Device Hostname="bjw-can-720dt-1" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
       <Device Hostname="bjw-can-720dt-2" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
       <Device Hostname="bjw-can-ec9516-1" HwSku="newport" Type="DevSonic"/>
@@ -585,6 +590,11 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-5" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet21/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-7" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet21/3"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-11" EndPort="ens4f1" StartDevice="bjw-can-serv-11" StartPort="ens4f0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-12" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet22/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-13" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet23/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-14" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet24/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-15" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet25/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-16" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet26/1"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -615,6 +625,11 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet20/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet21/1" vlanids="671-718"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet21/3" vlanids="619-666"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet22/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet23/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet24/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids=""/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-7215-3">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.103/23"/>
@@ -1191,11 +1206,26 @@
       <InterfaceVlan mode="Access" portname="Ethernet27/4" vlanids="722"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="249-252,316,348,380,429-432,481-484,548,552,584-587,667-670,719-722"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="bjw-can-serv-14">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.235/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-serv-15">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.236/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-serv-16">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.237/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-serv-10">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.231/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-serv-11">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.232/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-serv-12">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.233/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-serv-13">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.234/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-2700-2">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.115/23"/>
