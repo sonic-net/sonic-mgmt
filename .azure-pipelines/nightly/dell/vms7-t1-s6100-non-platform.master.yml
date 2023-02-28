@@ -33,11 +33,6 @@ parameters:
     default: $(SAITHRIFT_BRCM_PUBLIC)
     displayName: "py_saithrift URL"
 
-  - name: ALWAYS_POWER_CYCLE_DUTS
-    type: boolean
-    default: true
-    displayName: "Always power cycle DUTs"
-
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
@@ -50,5 +45,4 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      ALWAYS_POWER_CYCLE_DUTS: ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
