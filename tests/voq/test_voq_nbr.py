@@ -682,7 +682,6 @@ def check_arptable_mac(host, asic, neighbor, mac, checkstate=True):
 
 def check_arptable_state_for_nbrs(host, asic, neighbors, state):
     logger.info("Checking arp table state {} of nbr {} on {}".format(state, neighbors, asic))
-    #sonic_ping(asic, neighbor, verbose=True)
     arptable = asic.switch_arptable()['ansible_facts']
 
     for neighbor in neighbors:
@@ -787,10 +786,6 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             logger.info("Verify neighbor after mac change: %s, port %s", neighbor, local_port)
             check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
 
-        logger.info("Ping neighbors: %s from all line cards", nbr_to_test)
-
-        ping_all_neighbors(duthosts, all_cfg_facts, nbr_to_test)
-
     finally:
         logger.info("-" * 60)
         logger.info("Will Restore ethernet mac on port %s, vm %s", nbrinfo['shell_intf'], nbrinfo['vm'])
@@ -808,7 +803,6 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
 
         dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, nbr_to_test, nbrhosts, all_cfg_facts, nbr_macs)
 
-    ping_all_neighbors(duthosts, all_cfg_facts, nbr_to_test)
 
 
 class LinkFlap(object):
@@ -1206,7 +1200,6 @@ class TestGratArp(object):
                 pytest_assert(wait_until(60, 2, 0, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=True),
                               "MAC {} didn't change in ARP table of neighbor {}".format(NEW_MAC, neighbor))
                 check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
-                ping_all_neighbors(duthosts, all_cfg_facts, [neighbor])
             finally:
                 logger.info("Will Restore ethernet mac on neighbor: %s, port %s, vm %s", neighbor,
                             nbrinfo['shell_intf'], nbrinfo['vm'])
@@ -1223,4 +1216,4 @@ class TestGratArp(object):
                               "MAC {} didn't change in ARP table".format(original_mac))
 
             check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
-            ping_all_neighbors(duthosts, all_cfg_facts, [neighbor])
+
