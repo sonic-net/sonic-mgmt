@@ -64,6 +64,8 @@ def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
     for name, asic in bgp_name_to_ns_mapping.items():
         if neigh_type not in name:
             continue
+        if neigh_type == 'T3' and device_neigh_metadata[name]['type'] == 'AZNGHub':
+            continue
         asics.add(asic)
     return asics
 
@@ -176,7 +178,7 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
     # Get uplink namespaces/asics for multi-asic
     if duthost.is_multi_asic:
         bgp_name_to_ns_mapping = duthost.get_bgp_name_to_ns_mapping()
-        uplink_ns = get_uplink_ns(tbinfo, bgp_name_to_ns_mapping)
+        uplink_ns = get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, config_facts['DEVICE_NEIGHBOR_METADATA'])
     
     af_list = ['ipv4', 'ipv6']
 
