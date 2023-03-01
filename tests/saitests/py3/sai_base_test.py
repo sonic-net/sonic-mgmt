@@ -161,6 +161,12 @@ class ThriftInterface(BaseTest):
 
         return stdOut, stdErr, retValue
 
+    def print_cmd_out(self, out, msg):
+        print(msg, file=sys.stderr)
+        for a_line in out:
+            print(a_line.strip(), file=sys.stderr)
+        print ("********", file=sys.stderr)
+
     def sai_thrift_port_tx_enable(self, client, asic_type, port_list, target='dst', last_port=True):
         if self.platform_asic and self.platform_asic == "broadcom-dnx" and last_port:
             # need to enable watchdog on the source asic using cint script

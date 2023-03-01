@@ -233,9 +233,11 @@ def dynamically_compensate_leakout(thrift_client, asic_type, counter_checker, ch
     retry = 0
     num = 0
     while leakout_num > 0 and retry < max_retry:
+        sys.stderr.write("On try {}, leakout_num is: {}\n".format(retry, leakout_num))
         send_packet(ptf_test, compensate_port, compensate_pkt, leakout_num)
         num += leakout_num
         prev = curr
+        time.sleep(1.5)
         curr, _ = counter_checker(thrift_client, asic_type, check_port)
         leakout_num = curr[check_field] - prev[check_field]
         retry += 1
@@ -2211,6 +2213,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
     def runTest(self):
         platform_asic = self.test_params['platform_asic']
+        asic_type = self.test_params['sonic_asic_type']
+        hwsku = self.test_params['hwsku']
 
         margin = self.test_params.get('margin')
         if not margin:
@@ -2223,6 +2227,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
+
+        self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                self.test_params['dut_password'],
+                                "bcmcmd -n {} \"clear counter\"".format(self.src_asic_index))
+
+        self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                self.test_params['dut_password'],
+                                "bcmcmd -n {} \"clear counter\"".format(self.dst_asic_index))
         recv_counters_bases = [sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][sid])[0] for sid in self.src_port_ids]
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type, port_list['dst'][self.dst_port_id])
 
@@ -2250,6 +2262,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 send_packet(
                     self, self.src_port_ids[sidx], pkt, self.pkts_num_leak_out)
+            time.sleep(8)
 
             # send packets to all pgs to fill the service pool
             # and trigger PFC on all pgs
@@ -2266,6 +2279,12 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_dst=self.dst_port_ip,
                                         ip_tos=tos,
                                         ip_ttl=ttl)
+
+                if check_leackout_compensation_support(asic_type, hwsku):
+                    dynamically_compensate_leakout(self.dst_client, asic_type,
+                                                    sai_thrift_read_port_counters,port_list['dst'][self.dst_port_id],
+                                                    TRANSMITTED_PKTS,xmit_counters_base,
+                                                    self,self.src_port_ids[sidx_dscp_pg_tuples[i][0]],pkt, 10)
                 if self.pkts_num_trig_pfc:
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc
                 else:
@@ -2283,6 +2302,25 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            "bcmcmd -n {} \"show counter\"".format(self.src_asic_index))
+            self.print_cmd_out(stdOut, "Show Counter on source: ")
+
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            "bcmcmd -n {} \"show counter\"".format(self.dst_asic_index))
+            self.print_cmd_out(stdOut, "Show Counter on dst: ")
+
+            cmd = "bcmcmd -n {} \"tm ing q non\"".format(self.src_asic_index)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip,self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],cmd)
+            self.print_cmd_out(stdOut, "tm ing q non on src: ")
+
+            cmd = "bcmcmd -n {} \"tm ing vsq non g=f\"".format(self.src_asic_index)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip,self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],cmd)
+            self.print_cmd_out(stdOut, "tm ing output on src: ")
 
             for i in range(0, self.pgs_num):
                 # Prepare TCP packet data
@@ -2318,8 +2356,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 if pkt_cnt == 10:
-                    sys.exit("Too many pkts needed to trigger pfc: %d" %
-                             (pkt_cnt))
+                    self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+                    sys.exit("Too many pkts needed to trigger pfc: %d" %(pkt_cnt))
                 assert(recv_counters[sidx_dscp_pg_tuples[i][2]] >
                        recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
