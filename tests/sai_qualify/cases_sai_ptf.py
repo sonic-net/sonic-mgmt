@@ -66,4 +66,12 @@ TEST_CASE = [
         "saiswitch.AvailableAclTableTest",
         "saiswitch.AvailableIPv4NexthopEntryTest",
         "saiswitch.AvailableIPv6NexthopEntryTest",
+        "saiqueue.queueCreateTest",
+        "saiqueue.portQueueQueryTest",
+        "saiqueue.bufferQueueTest",
+        "saiqueue.schedulerQueueTest",
+        "saiqueue.pfcPriorityQueueTest",
+        "saiqueue.cpuPortQueueObjectTest",
+        "saiqueue.wredQueueTest",
+        "saiqueue.strictPriorityQueueTest",
         ]
