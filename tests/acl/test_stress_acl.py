@@ -26,7 +26,6 @@ STRESS_ACL_RULE_TEMPLATE = "acl/templates/acltb_test_stress_acl_rules.j2"
 STRESS_ACL_READD_RULE_TEMPLATE = "acl/templates/acltb_test_stress_acl_readd_rules.j2"
 STRESS_ACL_TABLE_JSON_FILE = "/tmp/acltb_test_stress_acl_table.json"
 STRESS_ACL_RULE_JSON_FILE = "/tmp/acltb_test_stress_acl_rules.json"
-STRESS_ACL_READD_RULE_JSON_FILE = "/tmp/acltb_test_stress_acl_readd_rules.json"
 
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
@@ -41,7 +40,6 @@ def prepare_test_file(rand_selected_dut):
     rand_selected_dut.shell("sonic-cfggen -j {} -w".format(STRESS_ACL_TABLE_JSON_FILE))
     # Copy acl rules
     rand_selected_dut.template(src=STRESS_ACL_RULE_TEMPLATE, dest=STRESS_ACL_RULE_JSON_FILE)
-    rand_selected_dut.template(src=STRESS_ACL_READD_RULE_TEMPLATE, dest=STRESS_ACL_READD_RULE_JSON_FILE)
 
 
 @pytest.fixture(scope='module')
@@ -73,26 +71,14 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     return ptf_src_port, upstream_port_ids, dut_port
 
 
-def generate_readd_rules(rand_selected_dut, loops):
-    readd_key = loops + ACL_RULE_NUMS
-    ip_key1 = readd_key / 256
-    ip_key2 = readd_key % 256
-    readd_rule_name = 's/RULE_[0-9]+/RULE_{}/g'.format(readd_key)
-    readd_src_ip = 's/20.0.[0-9]+.[0-9]+/20.0.{}.{}/g'.format(ip_key1, ip_key2)
-    readd_prio = 's/"PRIORITY": "[0-9]+"/"PRIORITY": "{}"/g'.format(readd_key)
-    rand_selected_dut.shell("sed -E -i '{}' {}".format(readd_rule_name, STRESS_ACL_READD_RULE_JSON_FILE))
-    rand_selected_dut.shell("sed -E -i '{}' {}".format(readd_src_ip, STRESS_ACL_READD_RULE_JSON_FILE))
-    rand_selected_dut.shell("sed -E -i '{}' {}".format(readd_prio, STRESS_ACL_READD_RULE_JSON_FILE))
-
-
 def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
                      ptf_dst_ports, acl_rule_list, del_rule_id, verity_status):
 
     for acl_id in acl_rule_list:
-        ip_key1 = acl_id / 256
-        ip_key2 = acl_id % 256
+        ip_addr1 = acl_id % 256
+        ip_addr2 = acl_id / 256
 
-        src_ip_addr = "20.0.{}.{}".format(ip_key1, ip_key2)
+        src_ip_addr = "20.0.{}.{}".format(ip_addr2, ip_addr1)
         dst_ip_addr = "10.0.0.1"
         pkt = testutils.simple_ip_packet(
             eth_dst=rand_selected_dut.facts['router_mac'],
@@ -110,15 +96,7 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
         exp_pkt = mask.Mask(pkt_copy)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
-        exp_pkt.set_do_not_care_scapy(packet.IP, "dst")
-        exp_pkt.set_do_not_care_scapy(packet.IP, "ihl")
-        exp_pkt.set_do_not_care_scapy(packet.IP, "tos")
-        exp_pkt.set_do_not_care_scapy(packet.IP, "len")
-        exp_pkt.set_do_not_care_scapy(packet.IP, "id")
-        exp_pkt.set_do_not_care_scapy(packet.IP, "flags")
-        exp_pkt.set_do_not_care_scapy(packet.IP, "frag")
         exp_pkt.set_do_not_care_scapy(packet.IP, "ttl")
-        exp_pkt.set_do_not_care_scapy(packet.IP, "proto")
         exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
 
         ptfadapter.dataplane.flush()
@@ -138,7 +116,6 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     cmd_create_table = "config acl add table STRESS_ACL L3 -s ingress -p {}".format(dut_port)
     cmd_remove_table = "config acl remove table STRESS_ACL"
     cmd_add_rules = "sonic-cfggen -j {} -w".format(STRESS_ACL_RULE_JSON_FILE)
-    cmd_readd_rules = "sonic-cfggen -j {} -w".format(STRESS_ACL_READD_RULE_JSON_FILE)
     cmd_rm_all_rules = "acl-loader delete STRESS_ACL"
 
     normalized_level = get_function_conpleteness_level
@@ -152,14 +129,18 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "forward")
 
     loops = 0
-    while loops < loop_times:
+    while loops <= loop_times:
         logger.info("loops: {}".format(loops))
         if loops == 0:
             rand_selected_dut.shell(cmd_add_rules)
         else:
-            generate_readd_rules(rand_selected_dut, loops)
-            rand_selected_dut.shell(cmd_readd_rules)
-            acl_rule_list.append(loops + ACL_RULE_NUMS)
+            readd_id = loops + ACL_RULE_NUMS
+            ip_addr1 = readd_id % 256
+            ip_addr2 = readd_id / 256
+            rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
+                                    "SRC_IP" "20.0.{}.{}/32" "PACKET_ACTION" "DROP" "PRIORITY" "{}"'
+                                    .format(readd_id, ip_addr2, ip_addr1, readd_id))
+            acl_rule_list.append(readd_id)
 
         wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
         verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "drop")
