@@ -22,7 +22,7 @@ Examples:
   - Output:
     parsed_log.json:
     {
-        "id": "f1595a05-14a8-4df2-afe1-c453c4efa179",
+        "id": "c3be2806-6c1b-495a-b33e-a531ca477e67",
         "is_azure_used": false,
         "file_name": "sairif.py",
         "case_name": "SviLagHostTest",
@@ -33,11 +33,11 @@ Examples:
         "sai_feature": "switch",
         "test_set": "ptf",
         "test_platform": "x86_64-cel_seastone-r0",
-        "sai_obj_attr_key": "client",
-        "sai_obj_attr_val": "<sai_thrift.sai_rpc.Clientobjectat0x7f7adac58a58>",
+        "sai_obj_attr_key": "init_switch",
+        "sai_obj_attr_val": "True",
         "runnable": true,
         "sai_folder": "/tmp/sai_qualify/SAI/ptf",
-        "upload_time": "2023-02-28"
+        "upload_time": "2023-02-24"
     }
 """
 
@@ -97,47 +97,24 @@ def parse_log(log_path, result_path, test_platform):
             pattern2 = r'\[(.*?)\]'  # extract items in `[]`
             obj2 = re.split(pattern2, fine_data)
 
-            key_val_pairs = obj2[3][1:-1]  # get args
+            key_val_pairs = obj2[3][1:-1] if obj2[3][-1] == '}' else obj2[3][1:]  # get args
             k_v = key_val_pairs.split(', \'')
 
             for kv in k_v:
                 k, v = kv.split('\':')
                 if 'client' in k:
                     continue
-                k = re.sub('[\' ]', '', k)
-                v = re.sub('[\' ]', '', v)
-
-                data = {}
-                data['id'] = str(uuid.uuid4())
-                data['is_azure_used'] = False
-
-                sai_path, case_name = obj[1].split(':')
-                data['file_name'] = sai_path.split('/')[-1]
-                data['case_name'] = case_name
-                data['class_name'] = case_name
-                data['case_invoc'] = obj2[1]
-
-                data['sai_alias'] = data['case_invoc'][11:]
-                if 'attribute' in data['sai_alias']:
-                    data['sai_api'] = data['sai_alias'][:len(data['sai_alias'])-10]
+                if '\'[' in v:  # if `v` is a list
+                    v_list = v.split(', ')
+                    v = []
+                    print(v_list)
+                    for v_i in v_list:
+                        v_i = re.findall(r'\.(.*?)\:', v_i)
+                        data = construct_data(obj, obj2, k, v_i[0], test_platform)
+                        results.append(data)
                 else:
-                    data['sai_api'] = data['sai_alias']
-                idx = data['sai_api'].find('_') + 1
-                sai_feature = data['sai_api'][idx:].split('entry')[0].replace('_', '')
-                data['sai_feature'] = sai_feature.replace('table', '').replace('trap', '')
-
-                data['test_set'] = 't0' if 'sai_test' in sai_path else 'ptf'
-                data['test_platform'] = test_platform
-
-                data['sai_obj_attr_key'] = k
-                data['sai_obj_attr_val'] = v
-
-                data['runnable'] = True
-                data['sai_folder'] = '/'.join(sai_path.split('/')[:-1])
-                formatted_time = obj[0].split()[0].split('/')
-                data['upload_time'] = formatted_time[2]+'-'+formatted_time[0]+'-'+formatted_time[1]
-
-                results.append(data)
+                    data = construct_data(obj, obj2, k, v, test_platform)
+                    results.append(data)
 
     """
     `data` stores each item of the parsed log, and `result` stores all `data` items.
@@ -148,6 +125,44 @@ def parse_log(log_path, result_path, test_platform):
     os.makedirs(result_path, exist_ok=True)
     with open(os.path.join(result_path, 'parsed_log.json'), 'w+') as f:
         json.dump(results, f, indent=4)
+
+
+def construct_data(obj, obj2, k, v, test_platform):
+    data = {}
+
+    k = re.sub('[\' ]', '', k)
+    v = re.sub('[\' ]', '', v)
+
+    data['id'] = str(uuid.uuid4())
+    data['is_azure_used'] = False
+
+    sai_path, case_name = obj[1].split(':')
+    data['file_name'] = sai_path.split('/')[-1]
+    data['case_name'] = case_name
+    data['class_name'] = case_name
+    data['case_invoc'] = obj2[1]
+
+    data['sai_alias'] = data['case_invoc'][11:]
+    if 'attribute' in data['sai_alias']:
+        data['sai_api'] = data['sai_alias'][:len(data['sai_alias'])-10]
+    else:
+        data['sai_api'] = data['sai_alias']
+    idx = data['sai_api'].find('_') + 1
+    sai_feature = data['sai_api'][idx:].split('entry')[0].replace('_', '')
+    data['sai_feature'] = sai_feature.replace('table', '').replace('trap', '')
+
+    data['test_set'] = 't0' if 'sai_test' in sai_path else 'ptf'
+    data['test_platform'] = test_platform
+
+    data['sai_obj_attr_key'] = k
+    data['sai_obj_attr_val'] = v
+
+    data['runnable'] = True
+    data['sai_folder'] = '/'.join(sai_path.split('/')[:-1])
+    formatted_time = obj[0].split()[0].split('/')
+    data['upload_time'] = formatted_time[2]+'-'+formatted_time[0]+'-'+formatted_time[1]
+
+    return data
 
 
 if __name__ == "__main__":
