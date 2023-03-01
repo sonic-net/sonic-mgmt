@@ -5008,80 +5008,80 @@ vms_bjw_6:
     VM56085:
       ansible_host: 172.16.190.117
 
-vms_bjw_7:
+vms_bjw_12:
   hosts:
-    VM57000:
-      ansible_host: 172.16.193.32
-    VM57001:
-      ansible_host: 172.16.193.33
-    VM57002:
-      ansible_host: 172.16.193.34
-    VM57003:
-      ansible_host: 172.16.193.35
-    VM57004:
-      ansible_host: 172.16.193.36
-    VM57005:
-      ansible_host: 172.16.193.37
-    VM57006:
-      ansible_host: 172.16.193.38
-    VM57007:
-      ansible_host: 172.16.193.39
-    VM57008:
-      ansible_host: 172.16.193.40
-    VM57009:
-      ansible_host: 172.16.193.41
-    VM57010:
-      ansible_host: 172.16.193.42
-    VM57011:
-      ansible_host: 172.16.193.43
-    VM57012:
-      ansible_host: 172.16.193.44
-    VM57013:
-      ansible_host: 172.16.193.45
-    VM57014:
-      ansible_host: 172.16.193.46
-    VM57015:
-      ansible_host: 172.16.193.47
-    VM57016:
-      ansible_host: 172.16.193.48
-    VM57017:
-      ansible_host: 172.16.193.49
-    VM57018:
-      ansible_host: 172.16.193.50
-    VM57019:
-      ansible_host: 172.16.193.51
-    VM57020:
-      ansible_host: 172.16.193.52
-    VM57021:
-      ansible_host: 172.16.193.53
-    VM57022:
-      ansible_host: 172.16.193.54
-    VM57023:
-      ansible_host: 172.16.193.55
-    VM57024:
-      ansible_host: 172.16.193.56
-    VM57025:
-      ansible_host: 172.16.193.57
-    VM57026:
-      ansible_host: 172.16.193.58
-    VM57027:
-      ansible_host: 172.16.193.59
-    VM57028:
-      ansible_host: 172.16.193.60
-    VM57029:
-      ansible_host: 172.16.193.61
-    VM57030:
-      ansible_host: 172.16.193.62
-    VM57031:
-      ansible_host: 172.16.193.63
-    VM57032:
-      ansible_host: 172.16.193.64
-    VM57033:
-      ansible_host: 172.16.193.65
-    VM57034:
-      ansible_host: 172.16.193.66
-    VM57035:
-      ansible_host: 172.16.193.67
+    VM72000:
+      ansible_host: 172.16.198.32
+    VM72001:
+      ansible_host: 172.16.198.33
+    VM72002:
+      ansible_host: 172.16.198.34
+    VM72003:
+      ansible_host: 172.16.198.35
+    VM72004:
+      ansible_host: 172.16.198.36
+    VM72005:
+      ansible_host: 172.16.198.37
+    VM72006:
+      ansible_host: 172.16.198.38
+    VM72007:
+      ansible_host: 172.16.198.39
+    VM72008:
+      ansible_host: 172.16.198.40
+    VM72009:
+      ansible_host: 172.16.198.41
+    VM72010:
+      ansible_host: 172.16.198.42
+    VM72011:
+      ansible_host: 172.16.198.43
+    VM72012:
+      ansible_host: 172.16.198.44
+    VM72013:
+      ansible_host: 172.16.198.45
+    VM72014:
+      ansible_host: 172.16.198.46
+    VM72015:
+      ansible_host: 172.16.198.47
+    VM72016:
+      ansible_host: 172.16.198.48
+    VM72017:
+      ansible_host: 172.16.198.49
+    VM72018:
+      ansible_host: 172.16.198.50
+    VM72019:
+      ansible_host: 172.16.198.51
+    VM72020:
+      ansible_host: 172.16.198.52
+    VM72021:
+      ansible_host: 172.16.198.53
+    VM72022:
+      ansible_host: 172.16.198.54
+    VM72023:
+      ansible_host: 172.16.198.55
+    VM72024:
+      ansible_host: 172.16.198.56
+    VM72025:
+      ansible_host: 172.16.198.57
+    VM72026:
+      ansible_host: 172.16.198.58
+    VM72027:
+      ansible_host: 172.16.198.59
+    VM72028:
+      ansible_host: 172.16.198.60
+    VM72029:
+      ansible_host: 172.16.198.61
+    VM72030:
+      ansible_host: 172.16.198.62
+    VM72031:
+      ansible_host: 172.16.198.63
+    VM72032:
+      ansible_host: 172.16.198.64
+    VM72033:
+      ansible_host: 172.16.198.65
+    VM72034:
+      ansible_host: 172.16.198.66
+    VM72035:
+      ansible_host: 172.16.198.67
 
 
 # The groups below are helpers to limit running playbooks to a specific server only
