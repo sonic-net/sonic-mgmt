@@ -24,6 +24,7 @@ import logging
 import pytest
 import time
 import json
+import re
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map # lgtm[py/unused-import]
@@ -117,10 +118,9 @@ class TestQosSai(QosSaiBase):
             if re.match('(?:src|dst)_port\S+id', idName):
                 portIdNames.append(idName)
                 ipName = idName.replace('id', 'ip')
-                if ipName not in dutConfig["testPorts"]:
-                    assert False, 'Not find {} for {} in dutConfig'.format(ipName, idName)
+                pytest_assert(ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
                 portIds.append(dutConfig["testPorts"][idName])
-        assert (True == replaceNonExistentPortId(dutConfig["testPortIds"], portIds)), "No enough test ports"
+        pytest_assert(self.replaceNonExistentPortId(dutConfig["testPortIds"], portIds), "No enough test ports")
         for idx, idName in enumerate(portIdNames):
             dutConfig["testPorts"][idName] = portIds[idx]
             ipName = idName.replace('id', 'ip')
@@ -142,14 +142,14 @@ class TestQosSai(QosSaiBase):
                         portIds.append(ids)
                         # record None to indicate it's just one port
                         portNumbers.append(None)
-            assert(True == replaceNonExistentPortId(dutConfig["testPortIds"], portIds)), "No enough test ports"
+            pytest_assert(self.replaceNonExistentPortId(dutConfig["testPortIds"], portIds), "No enough test ports")
             startPos = 0
             for idx, idName in enumerate(portIdNames):
                 if portNumbers[idx] != None:    # port list
                     qosParams[idName] = [portId for portId in portIds[startPos:startPos + portNumbers[idx]]]
                     startPos += portNumbers[idx]
                 else:   # not list, just one port
-                    qosParams[idName] = portIds[startPos:startPos + 1]
+                    qosParams[idName] = portIds[startPos]
                     startPos += 1
 
     def testParameter(
