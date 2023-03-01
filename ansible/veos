@@ -5008,6 +5008,21 @@ vms_bjw_6:
     VM56085:
       ansible_host: 172.16.190.117
 
+vms_bjw_7:
+  hosts:
+    VM57000:
+      ansible_host: 172.16.193.32
+    VM57001:
+      ansible_host: 172.16.193.33
+    VM57002:
+      ansible_host: 172.16.193.34
+    VM57003:
+      ansible_host: 172.16.193.35
+    VM57004:
+      ansible_host: 172.16.193.36
+    VM57005:
+      ansible_host: 172.16.193.37
+
 vms_bjw_12:
   hosts:
     VM72000:
@@ -5070,19 +5085,6 @@ vms_bjw_12:
       ansible_host: 172.16.198.60
     VM72029:
       ansible_host: 172.16.198.61
-    VM72030:
-      ansible_host: 172.16.198.62
-    VM72031:
-      ansible_host: 172.16.198.63
-    VM72032:
-      ansible_host: 172.16.198.64
-    VM72033:
-      ansible_host: 172.16.198.65
-    VM72034:
-      ansible_host: 172.16.198.66
-    VM72035:
-      ansible_host: 172.16.198.67
-
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
