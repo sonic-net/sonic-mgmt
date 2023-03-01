@@ -333,7 +333,7 @@ jobs:
             python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec -u root syncd chmod +x /download/install_saibcm.sh"
             python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec -u root syncd /download/install_saibcm.sh"
             python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd apt list --installed | grep sai"
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "sudo reboot"
+            python $SAI_ADHOC_PATH -i -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "sudo reboot"
             sleep 180
 
         displayName: "install ${{ parameters.SDK_ARTIFACT_NAME }}"
