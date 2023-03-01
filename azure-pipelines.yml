@@ -103,7 +103,6 @@ stages:
     - t0_2vlans_testbedv2
     condition: always()
     continueOnError: false
-    pool: ubuntu-20.04
     variables:
       resultOfPart1: $[ dependencies.t0_part1.result ]
       resultOfPart2: $[ dependencies.t0_part2.result ]
