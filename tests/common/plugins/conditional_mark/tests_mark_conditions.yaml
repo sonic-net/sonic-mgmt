@@ -440,13 +440,13 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_dr
   skip:
     reason: "Broadcom, Cisco, Barefoot and Marvell Asic will tolorate IP packets with 0xffff checksum"
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot'] and hwsku not in ['Arista-7280CR3-C40']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot'] and asic_subtype not in ['broadcom-dnx']"
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
   skip:
-    reason: "Mellanox Asic will drop IP packets with 0xffff checksum"
+    reason: "Mellanox and Broadcom DNX Asic will drop IP packets with 0xffff checksum"
     conditions:
-      - "asic_type in ['mellanox'] or hwsku in ['Arista-7280CR3-C40']"
+      - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
 
 #######################################
 #####            ipfwd            #####
