@@ -99,10 +99,11 @@ def parse_log(log_path, result_path, test_platform):
 
             key_val_pairs = obj2[3][1:-1]  # get args
             k_v = key_val_pairs.split(', \'')
-            print(k_v)
 
             for kv in k_v:
                 k, v = kv.split('\':')
+                if 'client' in k:
+                    continue
                 k = re.sub('[\' ]', '', k)
                 v = re.sub('[\' ]', '', v)
 
@@ -143,6 +144,7 @@ def parse_log(log_path, result_path, test_platform):
     After traversing the input log file, all parsed items are stored in `result`.
     The `result` will be saved in `result_path/parsed_log.json`
     """
+    print('Scan complete, parsed log generating...')
     os.makedirs(result_path, exist_ok=True)
     with open(os.path.join(result_path, 'parsed_log.json'), 'w+') as f:
         json.dump(results, f, indent=4)
