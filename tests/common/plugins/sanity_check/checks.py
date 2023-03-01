@@ -25,8 +25,8 @@ CHECK_ITEMS = [
     'check_bgp',
     'check_dbmemory',
     'check_monit',
-    'check_mux_simulator',
-    'check_secureboot']
+    'check_secureboot',
+    'check_mux_simulator',]
 
 __all__ = CHECK_ITEMS
 
