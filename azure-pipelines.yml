@@ -29,6 +29,7 @@ stages:
     displayName: "pre-commit-check"
     timeoutInMinutes: 10
     continueOnError: true
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
