@@ -397,7 +397,6 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
     def runTest(self):
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         router_mac = self.test_params['router_mac']
@@ -539,7 +538,6 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -654,7 +652,6 @@ class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
 class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -788,7 +785,6 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         mapped to expected PGs.
         """
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -865,7 +861,6 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 class Dot1pToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -977,7 +972,6 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -1182,7 +1176,6 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -1394,7 +1387,6 @@ class PtfFillBuffer(PfcStormTestWithSharedHeadroom):
 
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         self.parse_test_params()
@@ -1459,7 +1451,6 @@ class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
     def runTest(self):
         time.sleep(1)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         self.parse_test_params()
@@ -1513,7 +1504,6 @@ class PtfEnableDstPorts(PfcStormTestWithSharedHeadroom):
     def runTest(self):
         time.sleep(1)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
         self.parse_test_params()
         show_stats(self.__class__.__name__, self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), bases=stats)
@@ -1536,7 +1526,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
         last_pfc_counter = 0
         recv_port_counters = []
@@ -1892,7 +1881,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         self.stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
          # Parse input parameters
@@ -2221,7 +2209,6 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
          # Parse input parameters
@@ -2366,7 +2353,6 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -2501,7 +2487,6 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
 class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -2683,7 +2668,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -2831,7 +2815,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -2967,7 +2950,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -3203,7 +3185,6 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -3339,7 +3320,6 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -3435,7 +3415,6 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -3720,7 +3699,6 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
@@ -3962,7 +3940,6 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         Tx is disabled on the egress port to trigger PFC pause.
         """
         switch_init(self.client)
-        time.sleep(5)
         stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
