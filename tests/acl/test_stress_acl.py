@@ -36,10 +36,10 @@ ACL_RULE_NUMS = 10
 @pytest.fixture(scope='module')
 def prepare_test_file(rand_selected_dut):
     # Define a custom table type CUSTOM_TYPE by loading a json configuration
-    rand_selected_dut.template(src=STRESS_ACL_TABLE_TEMPLATE, dest=STRESS_ACL_TABLE_JSON_FILE)
+    rand_selected_dut.copy(src=STRESS_ACL_TABLE_TEMPLATE, dest=STRESS_ACL_TABLE_JSON_FILE, mode="0755")
     rand_selected_dut.shell("sonic-cfggen -j {} -w".format(STRESS_ACL_TABLE_JSON_FILE))
     # Copy acl rules
-    rand_selected_dut.template(src=STRESS_ACL_RULE_TEMPLATE, dest=STRESS_ACL_RULE_JSON_FILE)
+    rand_selected_dut.copy(src=STRESS_ACL_RULE_TEMPLATE, dest=STRESS_ACL_RULE_JSON_FILE, mode="0755")
 
 
 @pytest.fixture(scope='module')
@@ -93,10 +93,10 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
         )
 
         pkt_copy = pkt.copy()
+        pkt_copy.ttl = pkt_copy.ttl - 1
         exp_pkt = mask.Mask(pkt_copy)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
-        exp_pkt.set_do_not_care_scapy(packet.IP, "ttl")
         exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
 
         ptfadapter.dataplane.flush()
