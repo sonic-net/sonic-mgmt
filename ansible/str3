@@ -442,6 +442,68 @@ sonic_cisco_sup:
         "0xFE": "0x1026B8C6"
       skip_modules:
           'line-cards':
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'fabric-cards':
+            - FABRIC-CARD1
+            - FABRIC-CARD3
+            - FABRIC-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - psu2.0
+            - psu2.1
+            - psu2.2
+            - psu3.0
+            - psu3.1
+            - psu3.2
+            - psu4.0
+            - psu4.1
+            - psu4.2
+            - psu5.0
+            - psu5.1
+            - psu5.2
+          'thermals':
+            - TEMPERATURE_INFO_8
+      asics_present: [0,1,4,5,8,9,10,12,13] 
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
+    str3-8800-sup-2:
+      ansible_host: 10.3.147.95
+      hwsku: 8800-RP-O
+      model: '8800-RP-O'
+      num_asics: 16
+      asic_name: Q200
+      serial: FOC2428P4F3
+      base_mac: 80:2D:BF:A5:C1:00
+      syseeprom_info:
+        "0x21": "8800-RP-O"
+        "0x22": "1A4841"
+        "0x23": "FOC2428P4F3"
+        "0x24": "80:2D:BF:A5:C1:00"
+        "0x26": "1"
+        "0x28": "x86_64-8800_rp_o-r0"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x1026B8C6"
+      skip_modules:
+          'line-cards':
             - LINE-CARD0
             - LINE-CARD4
             - LINE-CARD5
@@ -466,6 +528,8 @@ sonic_cisco_sup:
             - psu5.0
             - psu5.1
             - psu5.2
+          'thermals':
+            - TEMPERATURE_INFO_2
       asics_present: [0,1,4,5,8,9,10,12,13] 
       plt_reboot_dict:
         cold:
@@ -480,7 +544,6 @@ sonic_cisco_sup:
         install_image/install_image.py::test_install_image:
           timeout: 600
           wait: 900
-
 sonic_arista_7800_sup:
   vars:
     HwSku:  Arista-7808R3A-FM
