@@ -1555,7 +1555,6 @@
     <DevicesL3Info Hostname="str3-8800-sup-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.95/23"/>
     </DevicesL3Info>
-    </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8800-sup-2">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.95/23"/>
     </DevicesL3Info>
