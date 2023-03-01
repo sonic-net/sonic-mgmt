@@ -1,3 +1,9 @@
+import argparse
+import json
+import os
+import re
+import uuid
+
 """
 This script parses the published artifacts, and outputs a json format result.
 
@@ -34,12 +40,6 @@ Examples:
         "upload_time": "2023-02-28"
     }
 """
-
-import argparse
-import json
-import os
-import re
-import uuid
 
 
 def get_parser(description="Runtime Scanner"):
@@ -90,14 +90,14 @@ def parse_log(log_path, result_path, test_platform):
             if '** END TEST CASE' in line or 'retval' in line:
                 continue
 
-            pattern = r' - '
+            pattern = r' - '  # split each line by ` - `
             obj = re.split(pattern, line)
-            _, fine_data = obj[4].split(' ', 1)
+            _, fine_data = obj[4].split(' ', 1)  # fine_data stores func and args
 
-            pattern2 = r'\[(.*?)\]'
+            pattern2 = r'\[(.*?)\]'  # extract items in `[]`
             obj2 = re.split(pattern2, fine_data)
 
-            key_val_pairs = obj2[3][1:-1]
+            key_val_pairs = obj2[3][1:-1]  # get args
             k_v = key_val_pairs.split(', \'')
             print(k_v)
 
@@ -138,6 +138,11 @@ def parse_log(log_path, result_path, test_platform):
 
                 results.append(data)
 
+    """
+    `data` stores each item of the parsed log, and `result` stores all `data` items.
+    After traversing the input log file, all parsed items are stored in `result`.
+    The `result` will be saved in `result_path/parsed_log.json`
+    """
     os.makedirs(result_path, exist_ok=True)
     with open(os.path.join(result_path, 'parsed_log.json'), 'w+') as f:
         json.dump(results, f, indent=4)
