@@ -20,6 +20,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
+from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
@@ -179,21 +180,34 @@ class SonicHost(AnsibleHostBase):
         """
         Gather facts about the platform for this SONiC device.
         """
+        facts = self._get_platform_info()
 
-        facts = dict()
-        facts.update(self._get_platform_info())
-        facts["num_asic"] = self._get_asic_count(facts["platform"])
-        facts["router_mac"] = self._get_router_mac()
-        facts["modular_chassis"] = self._get_modular_chassis()
-        facts["mgmt_interface"] = self._get_mgmt_interface()
-        facts["switch_type"] = self._get_switch_type()
-        facts["router_type"] = self._get_router_type()
-        asics_present = self.get_asics_present_from_inventory()
-        facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
+        results = parallel_run_threaded(
+            [
+                lambda: self._get_asic_count(facts["platform"]),
+                self._get_router_mac,
+                self._get_modular_chassis,
+                self._get_mgmt_interface,
+                self._get_switch_type,
+                self._get_router_type,
+                self.get_asics_present_from_inventory,
+                lambda: self._get_platform_asic(facts["platform"])
+            ],
+            timeout=120,
+            thread_count=5
+        )
 
-        platform_asic = self._get_platform_asic(facts["platform"])
-        if platform_asic:
-            facts["platform_asic"] = platform_asic
+        facts["num_asic"] = results[0]
+        facts["router_mac"] = results[1]
+        facts["modular_chassis"] = results[2]
+        facts["mgmt_interface"] = results[3]
+        facts["switch_type"] = results[4]
+        facts["router_type"] = results[5]
+
+        facts["asics_present"] = results[6] if len(results[6]) != 0 else list(range(facts["num_asic"]))
+
+        if results[7]:
+            facts["platform_asic"] = results[7]
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -1207,12 +1221,17 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
             m = re.match(r"^(default|\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m2 = re.match(r"^(default|\S+) nhid (\d+) proto (zebra|bgp|186) src (\S+)", rt[0])
+            # For case when there is no ecmp (below is example on Bullseye)
+            # default nhid 2270 via fc00::2 dev PortChannel102 proto bgp src fc00:10::1 metric 20 pref medium
+            m3 = re.match(r"^(default|\S+) nhid (\d+) via\s+(\S+)\s+dev\s+(\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             if m:
                 rtinfo['set_src'] = ipaddress.ip_address((m.group(3)).encode().decode())
             elif m1:
                 rtinfo['set_src'] = ipaddress.ip_address((m1.group(5)).encode().decode())
             elif m2:
                 rtinfo['set_src'] = ipaddress.ip_address((m2.group(4)).encode().decode())
+            elif m3:
+                rtinfo['set_src'] = ipaddress.ip_address((m3.group(6)).encode().decode())
 
             # parse nexthops
             for route_entry in rt:
@@ -1322,7 +1341,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1330,8 +1349,38 @@ Totals               6450                 6449
         """
         ipv4_output = self.shell("show ip route sum")["stdout_lines"]
         ipv4_summary = self._parse_route_summary(ipv4_output)
+
+        if skip_kernel_tunnel == True:
+            ipv4_route_kernel_output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_count = 0
+            for string in ipv4_route_kernel_output:
+                if re.search('tun', string):
+                    ipv4_route_kernel_count += 1
+            logging.debug("IPv4 kernel tun route {}, {}".format(ipv4_route_kernel_count, ipv4_route_kernel_output))
+
+            if ipv4_route_kernel_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['kernel']['FIB'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
+
+        if skip_kernel_tunnel == True:
+            ipv6_route_kernel_output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_count = 0
+            for string in ipv6_route_kernel_output:
+                if re.search('tun', string):
+                    ipv6_route_kernel_count += 1
+            logging.debug("IPv6 kernel tun route {}, {}".format(ipv6_route_kernel_count, ipv6_route_kernel_output))
+
+            if ipv6_route_kernel_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['kernel']['FIB'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
+
         return ipv4_summary, ipv6_summary
 
     def get_dut_iface_mac(self, iface_name):

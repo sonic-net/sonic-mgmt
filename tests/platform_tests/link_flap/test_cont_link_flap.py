@@ -55,7 +55,10 @@ class TestContLinkFlap(object):
         logging.info("Redis Memory: %s M", start_time_redis_memory)
 
         # Record ipv4 route counts at start
-        sumv4, sumv6 = duthost.get_ip_route_summary()
+        sumv4, sumv6 = duthost.get_ip_route_summary(skip_kernel_tunnel=True)
+        logging.debug("sumv4  {} ".format(sumv4))
+        logging.debug("sumv6  {} ".format(sumv6))
+
         totalsv4 = sumv4.get('Totals', {})
         totalsv6 = sumv6.get('Totals', {})
         start_time_ipv4_route_counts = totalsv4.get('routes', 0)
@@ -86,7 +89,7 @@ class TestContLinkFlap(object):
 
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
         if not wait_until(120, 2, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
-            endv4, endv6 = duthost.get_ip_route_summary()
+            endv4, endv6 = duthost.get_ip_route_summary(skip_kernel_tunnel=True)
             failmsg = []
             failmsg.append(
                 "IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}".format(sumv4,
