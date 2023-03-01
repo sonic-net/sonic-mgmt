@@ -8,6 +8,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
 from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 
+from tests.common.ixia.common_helpers import get_vlan_subnet
 from files.helper import run_ecn_test, is_ecn_marked
 from tests.common.cisco_data import get_markings_dut, setup_markings_dut
 
@@ -64,6 +65,8 @@ def test_red_accuracy(request,
     pkt_cnt = 2100
     iters = 100
     result_file_name = 'result.txt'
+    if cisco_platform and get_vlan_subnet(duthost):
+        pytest.skip("ECN marking is not supported over Vlan members in cisco-8000")
 
     if cisco_platform:
         original_ecn_markings = get_markings_dut(duthost)
