@@ -95,9 +95,9 @@ def parse_log(log_path, result_path, test_platform):
             _, fine_data = obj[4].split(' ', 1)  # fine_data stores func and args
 
             pattern2 = r'\[(.*?)\]'  # extract items in `[]`
-            obj2 = re.split(pattern2, fine_data)
+            obj_args = re.split(pattern2, fine_data)
 
-            key_val_pairs = obj2[3][1:-1] if obj2[3][-1] == '}' else obj2[3][1:]  # get args
+            key_val_pairs = obj_args[3][1:-1] if obj_args[3][-1] == '}' else obj_args[3][1:]  # get args
             k_v = key_val_pairs.split(', \'')
 
             for kv in k_v:
@@ -110,10 +110,10 @@ def parse_log(log_path, result_path, test_platform):
                     print(v_list)
                     for v_i in v_list:
                         v_i = re.findall(r'\.(.*?)\:', v_i)
-                        data = construct_data(obj, obj2, k, v_i[0], test_platform)
+                        data = construct_data(obj, obj_args, k, v_i[0], test_platform)
                         results.append(data)
                 else:
-                    data = construct_data(obj, obj2, k, v, test_platform)
+                    data = construct_data(obj, obj_args, k, v, test_platform)
                     results.append(data)
 
     """
@@ -127,7 +127,17 @@ def parse_log(log_path, result_path, test_platform):
         json.dump(results, f, indent=4)
 
 
-def construct_data(obj, obj2, k, v, test_platform):
+def construct_data(obj, obj_args, k, v, test_platform):
+    """
+    Contruct data item
+
+    Arg:
+      obj: main body of each log
+      obj_args: args of each log
+      k: key
+      v: value
+      test_platform: platform of running cases
+    """
     data = {}
 
     k = re.sub('[\' ]', '', k)
@@ -140,7 +150,7 @@ def construct_data(obj, obj2, k, v, test_platform):
     data['file_name'] = sai_path.split('/')[-1]
     data['case_name'] = case_name
     data['class_name'] = case_name
-    data['case_invoc'] = obj2[1]
+    data['case_invoc'] = obj_args[1]
 
     data['sai_alias'] = data['case_invoc'][11:]
     if 'attribute' in data['sai_alias']:
