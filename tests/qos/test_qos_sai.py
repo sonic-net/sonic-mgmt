@@ -120,6 +120,7 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[xoffProfile]["dscp"],
             "ecn": qosConfig[xoffProfile]["ecn"],
@@ -198,6 +199,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[xonProfile]["dscp"],
             "ecn": qosConfig[xonProfile]["ecn"],
@@ -357,6 +359,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[xonProfile]["dscp"],
             "ecn": qosConfig[xonProfile]["ecn"],
@@ -422,6 +425,7 @@ class TestQosSai(QosSaiBase):
         testPortIps = dutConfig["testPortIps"]
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[LosslessVoqProfile]["dscp"],
             "ecn": qosConfig[LosslessVoqProfile]["ecn"],
@@ -559,6 +563,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "testbed_type": dutTestParams["topo"],
             "dscps": qosConfig["hdrm_pool_size"]["dscps"],
@@ -631,6 +636,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "testbed_type": dutTestParams["topo"],
             "dscps": qosConfig[sharedResSizeKey]["dscps"],
@@ -698,6 +704,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "testbed_type": dutTestParams["topo"],
             "dscps": qosConfig["hdrm_pool_size"]["dscps"],
@@ -781,6 +788,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[bufPool]["dscp"],
             "ecn": qosConfig[bufPool]["ecn"],
@@ -835,6 +843,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig["lossy_queue_1"]["dscp"],
             "ecn": qosConfig["lossy_queue_1"]["ecn"],
@@ -903,6 +912,7 @@ class TestQosSai(QosSaiBase):
         try:
             testParams = dict()
             testParams.update(dutTestParams["basicParams"])
+            testParams.update({"test_port_ids": dutConfig["testPortIds"]})
             testParams.update({
                 "dscp": qosConfig[LossyVoq]["dscp"],
                 "ecn": qosConfig[LossyVoq]["ecn"],
@@ -959,6 +969,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
@@ -1003,6 +1014,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "hwsku": dutTestParams['hwsku'],
             "dual_tor_scenario": True
@@ -1052,6 +1064,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
@@ -1086,6 +1099,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
@@ -1123,6 +1137,7 @@ class TestQosSai(QosSaiBase):
         qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
@@ -1193,6 +1208,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[pgProfile]["dscp"],
             "ecn": qosConfig[pgProfile]["ecn"],
@@ -1251,6 +1267,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig["wm_pg_headroom"]["dscp"],
             "ecn": qosConfig["wm_pg_headroom"]["ecn"],
@@ -1305,6 +1322,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         pgDropKey = "pg_drop"
         testParams.update({
             "dscp": qosConfig[pgDropKey]["dscp"],
@@ -1367,6 +1385,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[queueProfile]["dscp"],
             "ecn": qosConfig[queueProfile]["ecn"],
@@ -1428,6 +1447,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
@@ -1467,6 +1487,7 @@ class TestQosSai(QosSaiBase):
             
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         if direction == "downstream":
             testParams.update({
                 "dst_port_id": dutConfig["testPorts"]["downlink_port_ids"][0],
@@ -1521,6 +1542,7 @@ class TestQosSai(QosSaiBase):
         qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "ecn": qosConfig["wrr_chg"]["ecn"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
