@@ -205,7 +205,8 @@ def prepare_ptf_server(ptfhost, duthost, tbinfo, enum_asic_index, request):
         request: Pytest request.
     """
     if not request.config.option.sai_test_skip_setup_env:
-        update_saithrift_ptf(request, ptfhost)
+        #prepared saithrift in pipeline
+        #update_saithrift_ptf(request, ptfhost)
         __create_sai_port_map_file(
             ptfhost, duthost, tbinfo, enum_asic_index)
     yield
