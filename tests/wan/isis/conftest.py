@@ -23,12 +23,6 @@ def get_target_dut_port(mg_facts, dut_intf):
     return dut_port
 
 
-def get_dut_port_p2p(mg_facts, dut_port):
-    for p2p in mg_facts['minigraph_portchannel_interfaces']:
-        if p2p['attachto'] == dut_port:
-            return (p2p['subnet'], p2p['peer_addr'])
-
-
 def parse_vm_vlan_port(vlan):
     if isinstance(vlan, int):
         dut_index = 0
