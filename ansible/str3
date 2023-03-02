@@ -208,7 +208,10 @@ sonic_cisco_8101:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x66350FBA"
-
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 90
 sonic_cisco_8101_C64:
   vars:
     hwsku: Cisco-8101-C64
@@ -231,7 +234,10 @@ sonic_cisco_8101_C64:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xA61D2C29"
-
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 90
 sonic_cisco_8101_C48T8:
   vars:
     hwsku: Cisco-8101-C48T8
@@ -254,7 +260,10 @@ sonic_cisco_8101_C48T8:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xBB3F881E"
-
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 90
 sonic_cisco_lc_100G:
   vars:
     switch_type: chassis-packet
