@@ -4,7 +4,7 @@ import json
 
 from tempfile import mkstemp
 from helpers import log_info, log_debug
-from common import tor_data, init_data, config_db_data_orig
+from common import tor_data, init_data, config_db_data_orig, managed_files
 
 import strip
 

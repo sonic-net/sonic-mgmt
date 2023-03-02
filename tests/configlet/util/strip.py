@@ -5,7 +5,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from helpers import log_info, log_debug
-from common import tor_data, config_db_data_orig, report_error
+from common import tor_data, config_db_data_orig, managed_files, report_error
 from tempfile import mkstemp
 
 ns_val = "Microsoft.Search.Autopilot.Evolution"
