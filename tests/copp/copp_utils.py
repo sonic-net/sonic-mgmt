@@ -212,9 +212,13 @@ def _install_nano(dut, creds,  syncd_docker_name):
             dut (SonicHost): The target device.
             creds (dict): Credential information according to the dut inventory
     """
-    output = dut.command(
-        "docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] && [ -d /opt/ptf ] || echo copp'".format(
-            syncd_docker_name))
+
+    if dut.facts["asic_type"] == "cisco-8000":
+        output = dut.command("docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] || \
+            echo copp'".format(syncd_docker_name))
+    else:
+        output = dut.command("docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] && [ -d /opt/ptf ] || \
+            echo copp'".format(syncd_docker_name))
 
     if output["stdout"] == "copp":
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')

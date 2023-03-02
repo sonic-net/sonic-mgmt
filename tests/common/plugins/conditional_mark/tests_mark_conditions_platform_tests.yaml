@@ -668,6 +668,7 @@ platform_tests/broadcom/test_ser.py:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type not in ['broadcom']"
       - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
+      - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -733,9 +734,9 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
 #######################################
 platform_tests/mellanox:
   skip:
-    reason: "Marvell devices does not support platform_tests/mellanox"
+    reason: "Mellanox platform tests only supported on Mellanox devices" 
     conditions:
-      - "'marvell' in asic_type"
+      - "asic_type not in ['mellanox']"
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
@@ -803,7 +804,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip test_fast_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_name in ['m0', 'mx', 't1', 't2']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -831,7 +832,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
   skip:
     reason: "Skip test_warm_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_name in ['m0', 'mx', 't1', 't2']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:

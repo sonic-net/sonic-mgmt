@@ -41,25 +41,39 @@ class ForwardingState(object):
     STANDBY = False
 
 
+GRPC_CLIENT_TIMEOUT_MAX = 60
+
+
 def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=False):
+
+    def inc_timeout():
+        kwargs["timeout"] += 5
+        if kwargs["timeout"] > GRPC_CLIENT_TIMEOUT_MAX:
+            kwargs["timeout"] = GRPC_CLIENT_TIMEOUT_MAX
+
     if args is None:
         args = []
     if kwargs is None:
         kwargs = {}
+
+    if timeout > GRPC_CLIENT_TIMEOUT_MAX:
+        timeout = GRPC_CLIENT_TIMEOUT_MAX
+
     kwargs["timeout"] = timeout
     for i in range(retries - 1):
         try:
             response = func(*args, **kwargs)
         except grpc.RpcError as e:
             # first retries - 1 tries errors are all ignored
-            logging.debug("Calling %s %dth time results error(%r)" % (func, i + 1, e))
+            logger.debug("Calling %s %dth time results error(%r)" % (func, i + 1, e))
         else:
             return response
+        inc_timeout()
 
     try:
         response = func(*args, **kwargs)
     except grpc.RpcError as e:
-        logging.debug("Calling %s %dth time results error(%r)" % (func, retries, e))
+        logger.debug("Calling %s %dth time results error(%r)" % (func, retries, e))
         if not ignore_errors:
             raise
 
@@ -264,7 +278,7 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
             drop_requests=drop_requests
         )
         client_stub = nic_simulator_client()
-        call_grpc(client_stub.SetDrop, [request])
+        call_grpc(client_stub.SetDrop, [request], timeout=10)
 
     def _set_drop_active_active(interface_names, portids, directions):
         """
@@ -277,7 +291,7 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
         nic_addresses = []
         for interface_name, portid, direction in zip(interface_names, portids, directions):
             nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
-            logging.debug(
+            logger.debug(
                 "Set drop on port %s, mux server %s, portid %s, direction %s",
                 interface_name, nic_address, portid, direction
             )
@@ -293,10 +307,11 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
     yield _set_drop_active_active
 
     for (interface_name, nic_address, portid, _) in zip(_interface_names, _nic_addresses, _portids, _directions):
-        logging.debug(
+        logger.debug(
             "Set drop recover on port %s, mux server %s, portid %s",
             interface_name, nic_address, portid,
         )
+    if _nic_addresses:
         _call_set_drop_nic_simulator(_nic_addresses, _portids, _directions, recover=True)
 
 
@@ -305,7 +320,7 @@ def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulat
     """Toggle nic_simulator forwarding state."""
 
     def _toggle_active_active_simulator_ports(mux_ports, portid, state):
-        logging.info("Toggle simulator ports %s to %s", mux_ports, state)
+        logger.info("Toggle simulator ports %s to %s", mux_ports, state)
         if not mux_ports:
             return
 
