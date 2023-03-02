@@ -9,7 +9,6 @@ from mock_for_switch import get_duthost
 
 from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
 from helpers import log_error, set_print
-from common import data_dir, orig_db_dir, clet_db_dir, files_dir
 
 # To run test in switch:
 # Copy all files in this dir (tests/configlet/util) into switch
