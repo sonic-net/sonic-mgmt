@@ -268,6 +268,31 @@ def add_vlan_member(dut, vlan, port_list, tagging_mode=False, skip_error=False, 
     port_li = make_list(port_list)
     for each_port in port_li:
         if cli_type == "click":
+
+            command_switchport = "config switchport mode trunk {}".format(each_port)
+
+            # Here handling the error while configuring switchport mode
+            switchport_out = st.config(dut, command_switchport, skip_error_check=True)
+
+            if "cannot find port name for alias" in switchport_out:
+                st.error("cannot find port name for alias {}".format(each_port))
+                return False
+            
+            if f"{each_port} does not exist" in switchport_out:
+                st.error("{} does not exist".format(each_port))
+                return False
+            if "is part of portchannel!" in switchport_out:
+                st.error("{} is part of portchannel!".format(each_port))
+                return False
+            
+            if "is a router interface in routed mode!\nRemove IP assigned to it to switch mode!" in switchport_out:
+                st.error("{} is a router interface in routed mode!\nRemove IP assigned to it to switch mode!".format(each_port))
+                return False
+            
+            if "is already in the trunk mode" in switchport_out:
+                st.error("{} is already in the trunk mode".format(each_port))
+                return False
+
             if tagging_mode:
                 command = "config vlan member add {} {}".format(vlan, each_port)
             else:
