@@ -1243,15 +1243,15 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                                      ip_ecn=ecn,
                                      ip_ttl=ttl)
 
-        print >> sys.stderr, "test dst_port_id: {}, src_port_1_id: {}".format(
+        print("test dst_port_id: {}, src_port_1_id: {}".format(
             dst_port_id, src_port_1_id
-        )
+        ), file=sys.stderr)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
             self, 0, src_port_1_id, pkt_dst_mac, dst_port_ip, src_port_1_ip
         )
-        print >> sys.stderr, "actual dst_port_id: {}".format(dst_port_id)
+        print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
 
         # get a snapshot of counter values at recv and transmit ports
         recv_counters_base1, queue_counters = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_1_id])
