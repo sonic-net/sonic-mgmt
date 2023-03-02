@@ -676,8 +676,9 @@ class TestQosSai(QosSaiBase):
         self.updateTestPortIdIp(dutConfig, qosConfig[sharedResSizeKey])
 
         port_idx_to_id = testPortIps.keys()
-        src_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_ids"]]
-        dst_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_ids"]]
+        # Translate requested port indices to available port IDs
+        src_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
+        dst_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
