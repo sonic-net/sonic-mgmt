@@ -135,11 +135,15 @@ def apply_acl_rule(rand_selected_dut, tbinfo, apply_mirror_session, ip_ver):
     BaseEverflowTest.remove_acl_rule_config(rand_selected_dut, table_name)
 
 
-def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac):
-    packet = testutils.simple_tcp_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
-            eth_dst=router_mac
-        )
+def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, ip_ver):
+    if ip_ver == 'ipv4':
+        packet = \
+            testutils.simple_tcp_packet(eth_src=ptfadapter.dataplane.get_mac(0,
+                0), eth_dst=router_mac)
+    else:
+        packet = \
+            testutils.simple_tcpv6_packet(eth_src=ptfadapter.dataplane.get_mac(0,
+                0), eth_dst=router_mac)
     setup = {}
     setup["router_mac"] = router_mac
     exp_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session_info, setup, duthost, packet, False)
@@ -172,12 +176,12 @@ def send_and_verify_packet(ptfadapter, packet, expected_packet, tx_port, rx_port
         testutils.verify_no_packet_any(ptfadapter, pkt=expected_packet, ports=rx_ports)
 
 
-def test_everflow_per_interface(ptfadapter, rand_selected_dut, apply_acl_rule, tbinfo):
+def test_everflow_per_interface(ptfadapter, rand_selected_dut, apply_acl_rule, tbinfo, ip_ver):
     """Verify packet ingress from candidate ports are captured by EVERFLOW, while packets
     ingress from unselected ports are not captured
     """
     everflow_config = apply_acl_rule
-    packet, exp_packet = generate_testing_packet(ptfadapter, rand_selected_dut, everflow_config['mirror_session_info'], rand_selected_dut.facts["router_mac"])
+    packet, exp_packet = generate_testing_packet(ptfadapter, rand_selected_dut, everflow_config['mirror_session_info'], rand_selected_dut.facts["router_mac"], ip_ver)
     uplink_ports = get_uplink_ports(rand_selected_dut, tbinfo)
     # Verify that packet ingressed from INPUT_PORTS (candidate ports) are mirrored
     for port, ptf_idx in everflow_config['candidate_ports'].items():
