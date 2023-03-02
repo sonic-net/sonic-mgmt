@@ -81,6 +81,8 @@ def get_skip_mod_list(duthost, mod_key=None):
         'psus':
           - PSU4
           - PSU5
+        'thermals':
+          - TEMPERATURE_INFO_2
     @return a list of modules/peripherals to be skipped in check for platform test
     """
 
