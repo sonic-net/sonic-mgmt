@@ -769,7 +769,7 @@ sonic_arista:
       hwsku: Arista-7800R3-48CQ2-C48
     str2-7804-lc5-1:
       ansible_host: 10.3.147.27
-      hwsku: Arista-7800R3A-36D2-C72
+      hwsku: Arista-7800R3A-36D2-C36
     str2-7804-lc6-1:
       ansible_host: 10.3.147.16
       hwsku: Arista-7800R3-48CQM2-C48
