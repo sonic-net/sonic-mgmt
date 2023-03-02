@@ -3,12 +3,19 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
 schedules:
-  - cron: "30 10 * * 1,3,5"
+  - cron: "30 7 * * 1,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202205
+        - internal-202012
     always: true
 
 variables:
@@ -24,19 +31,19 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205_SLIM)
+    default: $(IMAGE_BRCM_ABOOT_202012_SLIM)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym"'
     displayName: Testbed specific
 
   # Custom skip scripts
