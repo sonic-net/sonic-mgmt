@@ -19,10 +19,10 @@ SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
-def test_cacl_function(duthosts, rand_one_dut_hostname, localhost, creds):
+def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
     """Test control plane ACL functionality on a SONiC device"""
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_mgmt_ip = duthost.mgmt_ip
 
     # Start an NTP client

@@ -243,7 +243,6 @@
       <DataAcls/>
       <AclInterfaces>
 {% if switch_type is not defined or switch_type != 'dpu' %}
-{% if card_type is not defined or card_type != 'supervisor' %}
         <AclInterface>
           <InAcl>NTP_ACL</InAcl>
           <AttachTo>NTP</AttachTo>
@@ -255,6 +254,12 @@
           <Type>SNMP</Type>
         </AclInterface>
         <AclInterface>
+          <AttachTo>VTY_LINE</AttachTo>
+          <InAcl>ssh-only</InAcl>
+          <Type>SSH</Type>
+        </AclInterface>
+{% if card_type is not defined or card_type != 'supervisor' %}
+        <AclInterface>
           <AttachTo>ERSPAN</AttachTo>
           <InAcl>Everflow</InAcl>
           <Type>Everflow</Type>
@@ -263,11 +268,6 @@
           <AttachTo>ERSPANV6</AttachTo>
           <InAcl>EverflowV6</InAcl>
           <Type>EverflowV6</Type>
-        </AclInterface>
-        <AclInterface>
-          <AttachTo>VTY_LINE</AttachTo>
-          <InAcl>ssh-only</InAcl>
-          <Type>SSH</Type>
         </AclInterface>
 {% if enable_data_plane_acl|default('true')|bool and vm_topo_config['topo_type'] != 'wan' %}
         <AclInterface>
