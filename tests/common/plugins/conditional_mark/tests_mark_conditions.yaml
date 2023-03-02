@@ -16,6 +16,15 @@ acl/test_acl_outer_vlan.py:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####          cutsom_acl         #####
+#######################################
+acl/custom_acl_table/test_custom_acl_table.py:
+  skip:
+    reason: "Custom ACL not supported on older releases"
+    conditions:
+      - "release in ['201811', '201911', '202012']"
+
+#######################################
 #####            arp              #####
 #######################################
 arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
