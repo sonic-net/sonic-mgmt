@@ -15,30 +15,35 @@ BASE_MAC_PREFIX = "02:11:22"
 
 logger = logging.getLogger(__name__)
 
+
 def MacToInt(mac):
     mac = mac.replace(":", "")
     return int(mac, 16)
+
 
 def IntToMac(intMac):
     hexStr = hex(intMac)[2:]
     hexStr = MAC_STR[0:12-len(hexStr)] + hexStr
     return ":".join(re.findall(r'.{2}|.+', hexStr))
 
+
 def get_crm_resources(duthost, resource, status):
     return duthost.get_crm_resources().get("main_resources").get(resource).get(status)
+
 
 def get_fdb_dynamic_mac_count(duthost):
     res = duthost.command('show mac')
     logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
     total_mac_count = 0
-    for l in res['stdout_lines']:
-        if "dynamic" in l.lower() and BASE_MAC_PREFIX in l.lower():
+    for output_mac in res['stdout_lines']:
+        if "dynamic" in output_mac.lower() and BASE_MAC_PREFIX in output_mac.lower():
             total_mac_count += 1
     return total_mac_count
 
 
 def fdb_table_has_no_dynamic_macs(duthost):
     return (get_fdb_dynamic_mac_count(duthost) == 0)
+
 
 def fdb_cleanup(duthosts, rand_one_dut_hostname):
     """ cleanup FDB before and after test run """
@@ -48,6 +53,7 @@ def fdb_cleanup(duthosts, rand_one_dut_hostname):
     else:
         duthost.command('sonic-clear fdb all')
         pytest_assert(wait_until(100, 2, 0, fdb_table_has_no_dynamic_macs, duthost), "FDB Table Cleanup failed")
+
 
 def simple_eth_packet(
     pktlen=60,
@@ -60,12 +66,13 @@ def simple_eth_packet(
     if vlan_vid or vlan_pcp:
         pktlen += 4
         pkt /= scapy.Dot1Q(vlan=vlan_vid, prio=vlan_pcp)
-        pkt[scapy.Dot1Q : 1].type = DEFAULT_FDB_ETHERNET_TYPE
+        pkt[scapy.Dot1Q: 1].type = DEFAULT_FDB_ETHERNET_TYPE
     else:
         pkt.type = DEFAULT_FDB_ETHERNET_TYPE
     pkt = pkt / ("0" * (pktlen - len(pkt)))
 
     return pkt
+
 
 def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     """
@@ -82,7 +89,8 @@ def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
         eth_src=source_mac,
         vlan_vid=vlan_id
     )
-    logger.debug('send packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
+    logger.debug('send packet source port id {} smac: {} dmac: {} vlan: {}'
+                 .format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
 
 
@@ -96,19 +104,22 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     :param vlan_id: VLAN id
     :return:
     """
-    pkt = testutils.simple_arp_packet(pktlen=60,
-                eth_dst=dest_mac,
-                eth_src=source_mac,
-                vlan_vid=vlan_id,
-                vlan_pcp=0,
-                arp_op=1,
-                ip_snd='10.10.1.3',
-                ip_tgt='10.10.1.2',
-                hw_snd=source_mac,
-                hw_tgt='ff:ff:ff:ff:ff:ff',
-                )
-    logger.debug('send ARP request packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
+    pkt = testutils.simple_arp_packet(
+        pktlen=60,
+        eth_dst=dest_mac,
+        eth_src=source_mac,
+        vlan_vid=vlan_id,
+        vlan_pcp=0,
+        arp_op=1,
+        ip_snd='10.10.1.3',
+        ip_tgt='10.10.1.2',
+        hw_snd=source_mac,
+        hw_tgt='ff:ff:ff:ff:ff:ff',
+    )
+    logger.debug('send ARP request packet source port id {} smac: {} dmac: {} vlan: {}'
+                 .format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
+
 
 def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     """
@@ -120,18 +131,21 @@ def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     :param vlan_id: VLAN id
     :return:
     """
-    pkt = testutils.simple_arp_packet(eth_dst=dest_mac,
-                eth_src=source_mac,
-                vlan_vid=vlan_id,
-                vlan_pcp=0,
-                arp_op=2,
-                ip_snd='10.10.1.2',
-                ip_tgt='10.10.1.3',
-                hw_tgt=dest_mac,
-                hw_snd=source_mac,
-                )
-    logger.debug('send ARP reply packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
+    pkt = testutils.simple_arp_packet(
+        eth_dst=dest_mac,
+        eth_src=source_mac,
+        vlan_vid=vlan_id,
+        vlan_pcp=0,
+        arp_op=2,
+        ip_snd='10.10.1.2',
+        ip_tgt='10.10.1.3',
+        hw_tgt=dest_mac,
+        hw_snd=source_mac,
+    )
+    logger.debug('send ARP reply packet source port id {} smac: {} dmac: {} vlan: {}'
+                 .format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
+
 
 def send_recv_eth(ptfadapter, source_ports, source_mac, dest_ports, dest_mac, src_vlan, dst_vlan):
     """
