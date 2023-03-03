@@ -120,8 +120,8 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                             for a_member in dut_port_channels[
                                                     remote_duthost_name][remote_neigh_intf].keys():
                                                 for a_asic_mg_facts in remote_dut_mg_facts:
-                                                    if a_member in a_asic_mg_facts['minigraph_port_indices']:
-                                                        oport_list.append(str(a_asic_mg_facts['minigraph_ptf_indices'][a_member]))
+                                                    if a_member in a_asic_mg_facts[1]['minigraph_port_indices']:
+                                                        oport_list.append(str(a_asic_mg_facts[1]['minigraph_ptf_indices'][a_member]))
                                             oports.append(oport_list)
                                         else:
                                             pytest_assert(False, "Coundn't find {} in the config of {}".format(
@@ -129,8 +129,8 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                     else:
                                         # The nexthop is a system neighbor.
                                         for a_asic_mg_facts in remote_dut_mg_facts:
-                                            if remote_neigh_intf in a_asic_mg_facts['minigraph_port_indices']:
-                                                oports.append([str(a_asic_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])])
+                                            if remote_neigh_intf in a_asic_mg_facts[1]['minigraph_port_indices']:
+                                                oports.append([str(a_asic_mg_facts[1]['minigraph_ptf_indices'][remote_neigh_intf])])
                                 else:
                                     oports.append([str(mg_facts[list_index][1]['minigraph_ptf_indices'][ifname])])
                                     skip = False
