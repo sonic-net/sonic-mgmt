@@ -44,6 +44,11 @@ parameters:
     default: nightly-bjw
     displayName: "Agent pool"
 
+  - name: PREV_IMAGE_URL
+    type: string
+    default: $(BJW_IMAGE_BRCM_ABOOT_201811)
+    displayName: "Previous Image URL"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -52,3 +57,4 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
