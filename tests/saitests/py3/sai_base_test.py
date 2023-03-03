@@ -47,7 +47,7 @@ class ThriftInterface(BaseTest):
             self.server = 'localhost'
         self.platform_asic = self.test_params.get('platform_asic', None)
 
-        self.asic_id = self.test_params['asic_id']
+        self.asic_id = self.test_params.get('asic_id', None)
         if "port_map" in self.test_params:
             user_input = self.test_params['port_map']
             splitted_map = user_input.split(",")
