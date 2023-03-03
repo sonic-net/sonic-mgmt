@@ -375,6 +375,13 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
 
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6]:
+  skip:
+    reason: "IN_PORTs ACL match criteria not supported on EVERFLOWV6"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/7626
+
+
 #######################################
 #####            fdb              #####
 #######################################
