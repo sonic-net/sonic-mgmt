@@ -37,7 +37,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         Remove the route as part of cleanup.
         """
         duthost = duthosts[rand_one_dut_hostname]
-        if setup_info['topo'] == 't0':
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
             # On T0 testbed, the collector IP is routed to T1
             namespace = setup_info[UP_STREAM]['namespace']
             tx_port = setup_info[UP_STREAM]["dest_port"][0]

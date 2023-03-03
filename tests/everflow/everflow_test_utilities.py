@@ -45,10 +45,10 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
 # Topo that downstream neighbor of DUT are servers
-DOWNSTREAM_SERVER_TOPO = ["t0"]
+DOWNSTREAM_SERVER_TOPO = ["t0", "m0_vlan"]
 
 @pytest.fixture(scope="module")
-def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo, topo_scenario):
     """
     Gather all required test information.
 
@@ -74,6 +74,8 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo):
     acl_capability_facts = duthost.acl_capabilities_facts()["ansible_facts"]
 
     topo_type = tbinfo["topo"]["type"]
+    if topo_type == "m0":
+        topo_type = "m0_vlan" if "m0_vlan_scenario" in topo_scenario else "m0_l3"
     # Get the list of T0/T2 ports
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
         pytest_assert(topo_type in UPSTREAM_NEIGHBOR_MAP and topo_type in DOWNSTREAM_NEIGHBOR_MAP, "Unsupported topo")
@@ -274,7 +276,7 @@ def remove_route(duthost, prefix, nexthop, namespace):
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_arp_responder(duthost, ptfhost, setup_info):
-    if setup_info['topo'] != 't0':
+    if setup_info['topo'] not in ['t0', 'm0_vlan']:
         yield
         return
     ip_list = [TARGET_SERVER_IP, DEFAULT_SERVER_IP]
