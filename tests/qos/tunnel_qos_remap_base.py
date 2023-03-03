@@ -136,6 +136,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     asic_type = duthost.facts["asic_type"]
+    platform_asic = duthost.facts['platform_asic']
     # Always use the first portchannel member
     lag_port_name = list(mg_facts['minigraph_portchannels'].values())[0]['members'][0]
     lag_port_ptf_id = mg_facts['minigraph_ptf_indices'][lag_port_name]
@@ -157,6 +158,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
 
     return {
         "asic_type": asic_type,
+        "platform_asic": platform_asic,
         "lag_port_name": lag_port_name,
         "lag_port_ptf_id": lag_port_ptf_id,
         "server_port_name": server_port_name,
