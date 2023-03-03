@@ -17,7 +17,7 @@ def tacacs_creds(creds_all_duts):
 
 
 @pytest.fixture(scope="module")
-def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, request):
+def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     logger.info('tacacs_creds: {}'.format(str(tacacs_creds)))
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.mgmt_ip
@@ -27,11 +27,11 @@ def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_cre
     yield
 
     cleanup_tacacs(ptfhost, tacacs_creds, duthost)
-    restore_tacacs_servers(duthost, request)
+    restore_tacacs_servers(duthost)
 
 
 @pytest.fixture(scope="module")
-def check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, request):
+def check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' not in ptfhost_vars:
@@ -43,4 +43,4 @@ def check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_
     yield
 
     cleanup_tacacs(ptfhost, tacacs_creds, duthost)
-    restore_tacacs_servers(duthost, request)
+    restore_tacacs_servers(duthost)

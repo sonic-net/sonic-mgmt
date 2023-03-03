@@ -74,7 +74,7 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     return default_tacacs_servers
 
 
-def restore_tacacs_servers(duthost, request):
+def restore_tacacs_servers(duthost):
     # Restore the TACACS plus server in config_db.json
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")["ansible_facts"]
     for tacacs_server in config_facts.get("TACPLUS_SERVER", {}):
