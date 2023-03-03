@@ -4,7 +4,6 @@ import re
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release
-from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -81,22 +80,47 @@ def restore_tacacs_servers(duthost, request):
     for tacacs_server in config_facts.get("TACPLUS_SERVER", {}):
         duthost.shell("sudo config tacacs add %s" % tacacs_server)
 
-    # Follow the same logic in "config_sonic_basedon_testbed.yml" to configure tacacs and aaa
-    inv_files = get_inventory_files(request)
-    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
-    tacacs_enabled_by_default = dut_vars.get("tacacs_enabled_by_default", False)
-    if tacacs_enabled_by_default:
-        tacacs_passkey = dut_vars.get("tacacs_passkey", "")
-        cmds = [
-            "config tacacs passkey %s" % tacacs_passkey,
-            "config tacacs authtype pap",
-            "config tacacs timeout 5",
-            "config aaa authentication login tacacs+",
-            "config aaa authentication failthrough default",
-            "config aaa authorization tacacs+",
-            "config aaa accounting tacacs+"
-        ]
-        duthost.shell_cmds(cmds=cmds, module_ignore_errors=True)
+    cmds = []
+    aaa_config = config_facts.get("AAA", {})
+    if aaa_config:
+        cfg = aaa_config.get("authentication", {}).get("login", "")
+        if cfg:
+            cmds.append("config aaa authentication login %s" % cfg)
+
+        cfg = aaa_config.get("authentication", {}).get("failthrough", "")
+        if cfg.lower() == "true":
+            cmds.append("config aaa authentication failthrough enable")
+        elif cfg.lower() == "false":
+            cmds.append("config aaa authentication failthrough disable")
+
+        cfg = aaa_config.get("authorization", {}).get("login", "")
+        if cfg:
+            cmds.append("config aaa authorization %s" % cfg)
+
+        cfg = aaa_config.get("accounting", {}).get("login", "")
+        if cfg:
+            cmds.append("config aaa accounting %s" % cfg)
+
+    tacplus_config = config_facts.get("TACPLUS", {})
+    if tacplus_config:
+        cfg = tacplus_config.get("global", {}).get("auth_type", "")
+        if cfg:
+            cmds.append("config tacacs authtype %s" % cfg)
+
+        cfg = tacplus_config.get("global", {}).get("passkey", "")
+        if cfg:
+            cmds.append("config tacacs passkey %s" % cfg)
+
+        cfg = tacplus_config.get("global", {}).get("timeout", "")
+        if cfg:
+            cmds.append("config tacacs timeout %s" % cfg)
+
+    # Cleanup AAA and TACPLUS config
+    duthost.copy(src="./tacacs/templates/del_tacacs_config.json", dest='/tmp/del_tacacs_config.json')
+    duthost.shell("configlet -d -j {}".format("/tmp/del_tacacs_config.json"))
+
+    # Restore AAA and TACPLUS config
+    duthost.shell_cmds(cmds=cmds)
 
 
 def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path, path_to_be_fix=None):
