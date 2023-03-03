@@ -2290,6 +2290,24 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.src_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in self.src_port_ids]
 
+        # Correct any destination ports that may be in a lag
+        for i in range(len(self.dst_port_ids)):
+            src_port_id = self.src_port_ids[i]
+            dst_port_id = self.dst_port_ids[i]
+            dst_port_mac = self.dst_port_macs[i]
+            src_port_ip = self.src_port_ips[i]
+            dst_port_ip = self.dst_port_ips[i]
+            real_dst_port_id = get_rx_port(
+                self,
+                0,
+                src_port_id,
+                self.router_mac if self.router_mac != '' else dst_port_mac,
+                dst_port_ip, src_port_ip
+            )
+            if real_dst_port_id != dst_port_id:
+                print("Corrected dst port from {} to {}".format(dst_port_id, real_dst_port_id), file=sys.stderr)
+                self.dst_port_ids[i] = real_dst_port_id
+
         time.sleep(8)
 
     def tearDown(self):
@@ -2321,8 +2339,8 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                    self.cell_size >= self.shared_limit_bytes
 
         # get a snapshot of counter values at recv and transmit ports
-        recv_counters_bases = [sai_thrift_read_port_counters(self.client, asic_type, port_list[sid])[0] for sid in self.src_port_ids]
-        xmit_counters_bases = [sai_thrift_read_port_counters(self.client, asic_type, port_list[sid])[0] for sid in self.dst_port_ids]
+        recv_counters_bases = [sai_thrift_read_port_counters(self.client, self.asic_type, port_list[sid])[0] for sid in self.src_port_ids]
+        xmit_counters_bases = [sai_thrift_read_port_counters(self.client, self.asic_type, port_list[sid])[0] for sid in self.dst_port_ids]
 
         # Disable all dst ports
         uniq_dst_ports = list(set(self.dst_port_ids))
@@ -2341,15 +2359,16 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 dst_port_ip = self.dst_port_ips[i]
                 pkt_count = self.pkt_counts[i]
 
-                tos = (dscp << 2) | self.ecn
                 ttl = 64
-                pkt = simple_tcp_packet(pktlen=self.packet_size,
-                                        eth_dst=self.router_mac if self.router_mac != '' else dst_port_mac,
-                                        eth_src=src_port_mac,
-                                        ip_src=src_port_ip,
-                                        ip_dst=dst_port_ip,
-                                        ip_tos=tos,
-                                        ip_ttl=ttl)
+                pkt = construct_ip_pkt(self.packet_size,
+                                       self.router_mac if self.router_mac != '' else dst_port_mac,
+                                       src_port_mac,
+                                       src_port_ip,
+                                       dst_port_ip,
+                                       dscp,
+                                       None,
+                                       ecn=self.ecn,
+                                       ttl=64)
 
                 if i == len(self.src_port_ids) - 1:
                     # Verify XOFF has not been triggered on final port before sending traffic
@@ -2357,7 +2376,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         "Verifying XOFF hasn't been triggered yet on final iteration", file=sys.stderr)
                     sys.stderr.flush()
                     time.sleep(8)
-                    recv_counters = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])[0]
+                    recv_counters = sai_thrift_read_port_counters(self.client, self.asic_type, port_list[src_port_id])[0]
                     xoff_txd = recv_counters[self.pg_cntr_indices[i]] - \
                         recv_counters_bases[i][self.pg_cntr_indices[i]]
                     assert xoff_txd == 0, "XOFF triggered too early on final iteration, XOFF count is %d" % xoff_txd
@@ -2379,14 +2398,14 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         "Verifying XOFF has now been triggered on final iteration", file=sys.stderr)
                     sys.stderr.flush()
                     time.sleep(8)
-                    recv_counters = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])[0]
+                    recv_counters = sai_thrift_read_port_counters(self.client, self.asic_type, port_list[src_port_id])[0]
                     xoff_txd = recv_counters[self.pg_cntr_indices[i]] - \
                         recv_counters_bases[i][self.pg_cntr_indices[i]]
                     assert xoff_txd > 0, "Failed to trigger XOFF on final iteration"
 
             # Verify no ingress/egress drops for all ports
-            recv_counters_list = [sai_thrift_read_port_counters(self.client, asic_type, port_list[sid])[0] for sid in self.src_port_ids]
-            xmit_counters_list = [sai_thrift_read_port_counters(self.client, asic_type, port_list[sid])[0] for sid in self.dst_port_ids]
+            recv_counters_list = [sai_thrift_read_port_counters(self.client, self.asic_type, port_list[sid])[0] for sid in self.src_port_ids]
+            xmit_counters_list = [sai_thrift_read_port_counters(self.client, self.asic_type, port_list[sid])[0] for sid in self.dst_port_ids]
             for i in range(len(self.src_port_ids)):
                 for cntr in self.ingress_counters:
                     drops = recv_counters_list[i][cntr] - \
