@@ -452,7 +452,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
         setup_func = _setup_interfaces_t1_or_t2
     elif tbinfo["topo"]["type"] == "m0":
-        if topo_scenario == "m0_t1_scenario":
+        if topo_scenario == "m0_l3_scenario":
             setup_func = _setup_interfaces_t1_or_t2
         else:
             setup_func = _setup_interfaces_t0_or_mx
