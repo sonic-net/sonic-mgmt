@@ -12,7 +12,7 @@ syslog_servers: ['10.0.0.5', '10.0.0.6']
 dns_servers: ['10.0.0.5', '10.0.0.6']
 
 # forced_mgmt_routes
-forced_mgmt_routes: ['172.17.0.1']
+forced_mgmt_routes: ['172.17.0.1/24']
 
 # ErspanDestinationIpv4
 erspan_dest: ['10.0.0.7']
@@ -21,12 +21,16 @@ radius_servers: []
 
 radius_passkey: testing123
 
-tacacs_servers: ['10.0.20.9', '10.0.20.8']
-
+# It can be a real lab tacacs server.
+tacacs_servers: ['172.17.0.6']
 tacacs_passkey: testing123
 
 # tacacs grous
 tacacs_group: 'testlab'
+
+# Determine whether enable tacacs authentication during deploy-minigraph. If false, use local authentication.
+# If yes, authenticate using servers configured in `tacacs_servers`
+tacacs_enabled_by_default: false
 
 # snmp servers
 snmp_servers: ['10.0.0.9']

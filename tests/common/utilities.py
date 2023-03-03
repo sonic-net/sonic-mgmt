@@ -320,8 +320,10 @@ def get_host_visible_vars(inv_files, hostname):
     The variable could be defined in host_vars or in group_vars that the host belongs to.
 
     Args:
-        inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
+        inv_files (list or string): List of inventory file paths, or string of a single inventory file path. In tests,
             it can be get from request.config.getoption("ansible_inventory").
+            MUST use the inventory file under the ansible folder, otherwise host_vars and group_vars would not be
+            visible.
         hostname (string): Hostname
 
     Returns:
