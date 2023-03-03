@@ -64,6 +64,7 @@ TEST_CASE = [
         "saiswitch.AvailableNexthopGroupEntryTest",
         "saiswitch.AvailableNexthopGroupMemberEntryTest",
         "saiswitch.AvailableAclTableTest",
+        "saiswitch.AvailableAclTableGroupTest",
         "saiswitch.AvailableIPv4NexthopEntryTest",
         "saiswitch.AvailableIPv6NexthopEntryTest",
         "saiqueue.queueCreateTest",
