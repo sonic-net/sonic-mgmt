@@ -203,15 +203,11 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
         if "/{}".format(route_prefix_len) in route_prefix:
             # multia-asics can have more than 1 routes in iproute_info[route_prefix], even single-asics have only 1
             for route_per_prefix in iproute_info[route_prefix]:
-                #route_type = route_per_prefix.get('pathFrom', 'external')
-                #if route_type == 'external':
-                #    import pdb; pdb.set_trace()
                 # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
                 multipath = route_per_prefix.get('multipath', False)
                 if multipath:
                     out = route_per_prefix.get('path').split(' ')
                     aspath = out[1:]
-                    # every asic could have only 1 external route??
                     entry = routes(route_prefix, ' '.join(aspath))
                     dst_prefix_list.append(entry)
     route_to_ping = dst_prefix_list[0].route
