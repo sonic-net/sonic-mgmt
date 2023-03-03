@@ -111,12 +111,14 @@ def check_route(duthost, route, dev_port, operation):
         cmd = ' -c "show ip route {} json"'.format(route)
         for asichost in duthost.frontend_asics:
             out = json.loads(asichost.run_vtysh(cmd)['stdout'])
-            routes_per_asic = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops'] if 'interfaceName' in nexthop.keys()]
+            nexthops = out[route][0]['nexthops']
+            routes_per_asic = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
             result.extend(routes_per_asic)
     else:
         cmd = 'vtysh -c "show ip route {} json"'.format(route)
         out = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
-        result = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops'] if 'interfaceName' in nexthop.keys()]
+            nexthops = out[route][0]['nexthops']
+            result = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
     if operation == WITHDRAW:
         pytest_assert(dev_port not in result, "Route {} was not withdraw {}".format(route, result))
     else:
@@ -132,13 +134,13 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     ext_pkt['Ether'].src = exp_src_mac
 
     masked_exp_pkt = Mask(ext_pkt)
-    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"flags")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"frag")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"ttl")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "frag")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
 
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "code")
@@ -146,7 +148,8 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "id")
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "seq")
 
-    logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
+    logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'
+                .format(ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
     testutils.send(ptfadapter, ptf_send_port, pkt)
     testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
@@ -163,9 +166,11 @@ def get_exabgp_port(duthost, tbinfo, dev_port):
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     return tor1_exabgp_port
 
+
 def is_dualtor(tbinfo):
     """Check if the testbed is dualtor."""
     return "dualtor" in tbinfo["topo"]["name"]
+
 
 def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes, enum_rand_one_frontend_asic_index):
@@ -192,9 +197,9 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                         break
         pytest_assert(vlan_mac, 'dual-tor without vlan mac !!!')
     else:
-       vlan_mac = dut_mac
+        vlan_mac = dut_mac
 
-    #get dst_prefix_list and aspath
+    # get dst_prefix_list and aspath
     routes = namedtuple('routes', ['route', 'aspath'])
     iproute_info = get_ip_route_info(asichost)
     dst_prefix_list = []
@@ -238,7 +243,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     route_nums = len(dst_prefix_list)
     logger.info("route_nums = %d" % route_nums)
 
-    #choose one ptf port to send msg
+    # choose one ptf port to send msg
     ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
     ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
 
@@ -251,7 +256,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
         normalized_level = 'basic'
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    #accommadate for multi-asic which could have ~5k routes
+    # accommadate for multi-asic which could have ~5k routes
     divisor = 100 if duthost.is_multi_asic else 10
     while loop_times > 0:
         logger.info("Round %s" % loop_times)
