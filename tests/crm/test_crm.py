@@ -808,10 +808,21 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
 
 
-def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
+def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
+
+    if duthost.facts["asic_type"] == "marvell":
+        # Remove DATA ACL Table and add it again with ports in same port group
+        ACL_TABLE_NAME = "DATAACL"
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        ports = ",".join(mg_facts["minigraph_portchannels"].keys())
+        cmds = [
+        "config acl remove table {}".format(ACL_TABLE_NAME),
+        "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME, ports)
+        ]
+        duthost.shell_cmds(cmds=cmds)
     
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
     acl_tbl_key = asic_collector["acl_tbl_key"]
@@ -860,6 +871,18 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
                                    crm_stats_acl_entry_used,
                                    crm_stats_acl_entry_available)
+
+    if duthost.facts["asic_type"] == "marvell":
+        # Rebind DATA ACL at end to recover original config
+        table_port = ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"])
+        cmds = [
+         "config acl remove table {}".format(ACL_TABLE_NAME),
+         "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME, table_port)
+        ]
+        duthost.shell_cmds(cmds=cmds)
+        apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+        duthost.command("acl-loader delete")
+
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_acl_entry_used\" counter was not decremented or "
                   "\"crm_stats_acl_entry_available\" counter was not incremented")

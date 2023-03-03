@@ -1,4 +1,6 @@
 import logging
+import time
+from tests.common.devices.ptf import PTFHost
 
 import pytest
 
@@ -27,6 +29,27 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
 
     ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
 
+
+def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
+    wait_time = 0
+    while wait_time <= timeout:
+        sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
+        logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+        if isinstance(host, PTFHost):
+            res = host.command(sed_command)
+        else:
+            res = host.shell(sed_command)
+
+        logger.info(res["stdout_lines"])
+        if len(res["stdout_lines"]) > 0:
+            return res["stdout_lines"]
+
+        time.sleep(check_interval)
+        wait_time += check_interval
+
+    return []
+
+
 def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
     username = tacacs_creds['tacacs_rw_user']
     """
@@ -34,11 +57,10 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
             Find logs match following format: "tacacs_rw_user ... cmd=command"
             Print matched logs with /P command.
     """
-    sed_command = "sed -nE '/	{0}	.*	cmd=.*{1}/P' /var/log/tac_plus.acct".format(username, command)
-    res = ptfhost.command(sed_command)
-    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-    logger.info(res["stdout_lines"])
-    pytest_assert(len(res["stdout_lines"]) > 0)
+    log_pattern = "/	{0}	.*	cmd=.*{1}/P".format(username, command)
+    logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
+    pytest_assert(len(logs) > 0)
+
 
 def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
     username = tacacs_creds['tacacs_rw_user']
@@ -47,11 +69,10 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
             Remove all tacacs_rw_user's log with /D command.
             Print logs not removed by /D command, which are not run by tacacs_rw_user.
     """
-    sed_command = "sed -nE '/	{0}	/D;/.*/P' /var/log/tac_plus.acct".format(username)
-    res = ptfhost.command(sed_command)
-    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-    logger.info(res["stdout_lines"])
-    pytest_assert(len(res["stdout_lines"]) == 0)
+    log_pattern = "/	{0}	/D;/.*/P".format(username)
+    logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
+    pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
+
 
 def check_local_log_exist(duthost, tacacs_creds, command):
     """
@@ -59,20 +80,18 @@ def check_local_log_exist(duthost, tacacs_creds, command):
             Find logs match following format: "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
             Print matched logs with /P command.
     """
-
     username = tacacs_creds['tacacs_rw_user']
-    expected_log_pattern = "INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},".format(username, command)
-    sed_command = "sudo sed -nE '/{}/P' /var/log/syslog".format(expected_log_pattern)
-    output = duthost.shell(sed_command)
-    exit_code, stdout_lines = output['rc'], output['stdout_lines']
+    log_pattern = "/INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
+                           .format(username, command)
+    logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
+    pytest_assert(len(logs) > 0)
 
     # exclude logs of the sed command produced by Ansible
-    stdout_lines = list(filter(lambda line: 'sudo sed' not in line, stdout_lines))
-    logger.info("Searched for accounting logs with the command: %s", sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-    logger.info("Found logs: %s", stdout_lines)
+    logs = list(filter(lambda line: 'sudo sed' not in line, logs))
+    logger.info("Found logs: %s", logs)
 
-    pytest_assert(exit_code == 0)
-    pytest_assert(stdout_lines, 'Failed to find an expected log message by pattern: ' + expected_log_pattern)
+    pytest_assert(logs, 'Failed to find an expected log message by pattern: ' + log_pattern)
+
 
 def check_local_no_other_user_log(duthost, tacacs_creds):
     """
@@ -81,16 +100,14 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
             Find all other user's log, which will match following format: "INFO audisp-tacplus: Accounting: user:"
             Print matched logs with /P command, which are not run by tacacs_rw_user.
     """
-
     username = tacacs_creds['tacacs_rw_user']
-    sed_command = "sudo sed -nE '/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P' /var/log/syslog".format(username)
-    output = duthost.shell(sed_command)
-    exit_code, stdout = output['rc'], output['stdout']
+    log_pattern = "/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P" \
+                           .format(username)
+    logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
-    pytest_assert(exit_code == 0)
-    logger.info("Searched for accounting logs with the command: %s", sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-    logger.info("Found logs: %s", stdout)
-    pytest_assert(len(stdout) == 0, "Expected to find no accounting logs but found" + stdout)
+    logger.info("Found logs: %s", logs)
+    pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
+
 
 @pytest.fixture
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
