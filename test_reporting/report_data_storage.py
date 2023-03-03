@@ -98,6 +98,7 @@ class KustoConnector(ReportDBConnector):
     RAW_REBOOT_TIMING_TABLE = "RawRebootTimingData"
     REBOOT_TIMING_TABLE = "RebootTimingData"
     TEST_CASE_TABLE = "TestCases"
+    TESTBED_TABLE = "TestBeds"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
     PIPELINE_TABLE = "TestReportPipeline"
     CASE_INVOC_TABLE = "CaseInvocationCoverage"
@@ -114,6 +115,7 @@ class KustoConnector(ReportDBConnector):
         RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
         TEST_CASE_TABLE: DataFormat.JSON,
+        TESTBED_TABLE: DataFormat.JSON,
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
         PIPELINE_TABLE: DataFormat.JSON,
         CASE_INVOC_TABLE: DataFormat.MULTIJSON,
@@ -131,6 +133,7 @@ class KustoConnector(ReportDBConnector):
         RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
         TEST_CASE_TABLE: "TestCasesMappingV1",
+        TESTBED_TABLE: "TestBedsMappingV1",
         EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
         PIPELINE_TABLE: "FlatPipelineMappingV1",
         CASE_INVOC_TABLE: "CaseInvocationCoverageMapping",
@@ -206,6 +209,7 @@ class KustoConnector(ReportDBConnector):
         self._upload_metadata(report_json, external_tracking_id, report_guid)
         self._upload_summary(report_json, report_guid)
         self._upload_test_cases(report_json, report_guid)
+        self._upload_testbeds(report_json, report_guid)
 
     def upload_reachability_data(self, ping_output: List) -> None:
         ping_time = str(datetime.utcnow())
@@ -337,6 +341,13 @@ class KustoConnector(ReportDBConnector):
                 test_cases.append(case)
         print("Upload test case")
         self._ingest_data(self.TEST_CASE_TABLE, test_cases)
+
+    def _upload_testbeds(self, report_json, report_guid):
+        testbeds = []
+        for tb, tbinfo in report_json["testbeds"].items():
+            testbeds.append(tbinfo)
+        print("Upload testbeds info")
+        self._ingest_data(self.TESTBED_TABLE, testbeds)
 
     def _ingest_data(self, table, data):
         props = IngestionProperties(
