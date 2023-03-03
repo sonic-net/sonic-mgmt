@@ -326,8 +326,6 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
               ignore_ttl, single_fib_for_duts):
     # Skip test on none T1 testbed
     pytest_require('t1' == tbinfo['topo']['type'], "The test case runs on T1 topology")
-    # Skip test on None Cisco testbed
-    pytest_require(duthost.facts['asic_type'] == 'cisco-8000', "The tese case runs on Cisco-8000 platform")
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)

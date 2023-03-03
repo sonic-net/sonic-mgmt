@@ -461,7 +461,6 @@ class HashTest(BaseTest):
         @summary: Send packet for each range of both IPv4 and IPv6 spaces and
         expect the packet to be received from one of the expected ports
         """
-
         for hash_key in self.hash_keys:
             logging.info("hash test hash_key: {}".format(hash_key))
             self.check_hash(hash_key)
@@ -594,7 +593,7 @@ class IPinIPHashTest(HashTest):
         exp_pkt['IP'].ttl -= 1
 
         if hash_key == 'ip-proto':
-            pkt['IPv6'].nh = ip_proto
+            ipinip_pkt['IP'].payload['IPv6'].nh = ip_proto
             exp_pkt['IP'].payload['IPv6'].nh = ip_proto
 
         masked_exp_pkt = Mask(exp_pkt)
@@ -674,7 +673,7 @@ class IPinIPHashTest(HashTest):
             # The egress port should never change
             for _ in range(0, self.balancing_test_times*len(exp_port_list)):
                 logging.info('Checking hash key {}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'\
-                            .format(hash_key, exp_port_list, outer_src_ip, outer_dst_ip))
+                         .format(hash_key, exp_port_list, outer_src_ip, outer_dst_ip))
                 (matched_index, _) = self.check_ip_route(hash_key, src_port, exp_port_list, outer_src_ip, outer_dst_ip)
                 hit_count_map[matched_index] = hit_count_map.get(matched_index, 0) + 1
             logging.info("hit count map: {}".format(hit_count_map))
