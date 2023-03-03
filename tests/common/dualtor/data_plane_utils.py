@@ -141,7 +141,7 @@ def run_test(
         activehost, peerhost, ptfhost, ptfadapter, tbinfo,
         io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type
     )
-    
+
     send_and_sniff = InterruptableThread(
         target=tor_IO.start_io_test,
         kwargs={'traffic_direction': traffic_direction}
@@ -187,7 +187,7 @@ def cleanup(ptfadapter, duthosts_list):
 
 
 @pytest.fixture
-def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):   # noqa F811
+def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):       # noqa F811
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -317,13 +317,13 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
 
 
 @pytest.fixture
-def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):
+def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):      # noqa F811
 
     arp_setup(ptfhost)
 
     def soc_to_t1_io_test(activehost, tor_vlan_port=None,
-                             delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                             stop_after=None):
+                          delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
+                          stop_after=None):
 
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
                           action, tbinfo, tor_vlan_port, send_interval,
@@ -341,13 +341,13 @@ def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type
 
 
 @pytest.fixture
-def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):
+def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):      # noqa F811
 
     arp_setup(ptfhost)
 
     def t1_to_soc_io_test(activehost, tor_vlan_port=None,
-                             delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                             stop_after=None):
+                          delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
+                          stop_after=None):
 
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
                           action, tbinfo, tor_vlan_port, send_interval,

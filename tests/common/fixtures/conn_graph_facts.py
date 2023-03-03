@@ -23,6 +23,7 @@ def fanout_graph_facts(localhost, duthosts, rand_one_dut_hostname, conn_graph_fa
             facts[fanout] = {k: v[fanout] for k, v in get_graph_facts(duthost, localhost, fanout).items()}
     return facts
 
+
 @pytest.fixture(scope="module")
 def enum_fanout_graph_facts(localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn_graph_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -102,7 +103,7 @@ def key_convert2str(conn_graph_facts):
 
     # Else, convert
     result = copy.deepcopy(conn_graph_facts)
-    result['device_conn']={}
+    result['device_conn'] = {}
     for key, value in conn_graph_facts['device_conn'].items():
         result['device_conn'][str(key)] = value
 

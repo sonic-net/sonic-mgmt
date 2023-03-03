@@ -167,7 +167,9 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
-    ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
+    ptf_ports_available_in_topo = {
+        port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()
+    }
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
@@ -471,17 +473,27 @@ def dut_qos_maps(rand_selected_dut):
             sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
 
         # port_qos_map
-        maps['port_qos_map'] = json.loads(rand_selected_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout'])
+        maps['port_qos_map'] = json.loads(
+            rand_selected_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
         # dscp_to_tc_map
-        maps['dscp_to_tc_map'] = json.loads(rand_selected_dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout'])
+        maps['dscp_to_tc_map'] = json.loads(
+            rand_selected_dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
         # tc_to_queue_map
-        maps['tc_to_queue_map'] = json.loads(rand_selected_dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout'])
+        maps['tc_to_queue_map'] = json.loads(
+            rand_selected_dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
         # tc_to_priority_group_map
-        maps['tc_to_priority_group_map'] = json.loads(rand_selected_dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout'])
+        maps['tc_to_priority_group_map'] = json.loads(
+            rand_selected_dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
         # tc_to_dscp_map
-        maps['tc_to_dscp_map'] = json.loads(rand_selected_dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout'])
-    except:
-        pass
+        maps['tc_to_dscp_map'] = json.loads(
+            rand_selected_dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
+    except Exception as e:
+        logger.error("Got exception: " + repr(e))
     return maps
 
 
@@ -519,7 +531,7 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
         for dscp, tc in dscp_to_tc_map.items():
             dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
         return dscp_to_pg_map
-    except:
+    except:     # noqa E722
         logger.error("Failed to retrieve dscp to pg map for port {} on {}".format(port, duthost.hostname))
         return {}
 
@@ -543,6 +555,6 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
         for dscp, tc in dscp_to_tc_map.items():
             dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
         return dscp_to_queue_map
-    except:
+    except:     # noqa E722
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}

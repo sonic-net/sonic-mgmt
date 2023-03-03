@@ -6,6 +6,7 @@ from tests.ptf_runner import ptf_runner
 
 logger = logging.getLogger(__name__)
 
+
 class PopulateFdb:
     """
         PopulateFdb populates DUT FDB entries
@@ -15,8 +16,9 @@ class PopulateFdb:
         address pool.
 
         Command line sample:
-            pytest testbed_setup/test_populate_fdb.py --testbed=<testbed> --inventory=<inventory> --testbed_file=<testbed fiel> \
-            --host-pattern={<dut>|all} --module-path=<ansible library path> --mac_to_ip_ratio=100:1 --packet_count=8000
+            pytest testbed_setup/test_populate_fdb.py --testbed=<testbed> --inventory=<inventory> \
+                --testbed_file=<testbed fiel> --host-pattern={<dut>|all} --module-path=<ansible library path> \
+                --mac_to_ip_ratio=100:1 --packet_count=8000
 
             where:
                 mac_to_ip_ratio: Ratio of distinct MAC addresses to distinct IP addresses assigned to VM
@@ -110,6 +112,7 @@ class PopulateFdb:
             },
             log_file="/tmp/populate_fdb.PopulateFdb.log"
         )
+
 
 @pytest.fixture
 def populate_fdb(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):

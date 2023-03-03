@@ -170,7 +170,7 @@ class DualTorIO:
         """
         Create mapping of soc IPs to PTF interfaces
         """
-        if self.cable_type == CableType.active_standby: 
+        if self.cable_type == CableType.active_standby:
             return {}
 
         soc_ip_list = []
