@@ -78,14 +78,9 @@ def test_active_tor_reboot_upstream(
         verify_tor_states(
             expected_active_host=[upper_tor_host, lower_tor_host],
             expected_standby_host=None,
-<<<<<<< HEAD
             cable_type=cable_type,
             verify_db_timeout=60
     )
-=======
-            cable_type=cable_type
-        )
->>>>>>> ab57f8c26d2597db0bf85243629b792b4b2d412c
 
 
 @pytest.mark.disable_loganalyzer
