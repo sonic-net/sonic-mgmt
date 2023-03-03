@@ -583,6 +583,8 @@ class BaseEverflowTest(object):
         duthost.command(command)
 
     def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
+        if duthost.facts["asic_type"] == "marvell":
+            rate_limit = rate_limit * 1.25
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
                 sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
