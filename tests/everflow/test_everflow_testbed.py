@@ -531,7 +531,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 pytest.skip("Skipping test since mirror policing is not supported on {0} {1} platforms"
                             .format(vendor, asic))
 
-        if setup_info['topo'] == 't0':
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
             default_tarffic_port_type = dest_port_type
             # Use the second portchannel as missor session nexthop
             tx_port = setup_info[dest_port_type]["dest_port"][1]
@@ -557,7 +557,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             bind_interface_namespace = setup_info[dest_port_type]["everflow_namespace"]
             rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
             tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-            if setup_info['topo'] == 't0' and self.acl_stage() == "egress":
+            if setup_info['topo'] in ['t0', 'm0_vlan'] and self.acl_stage() == "egress":
                 # For T0 upstream, the EVERFLOW_DSCP table is binded to one of portchannels
                 bind_interface = setup_info[dest_port_type]["dest_port_lag_name"][0]
                 mirror_port_id = setup_info[dest_port_type]["dest_port_ptf_id"][1]
@@ -616,7 +616,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         tx_port_ids = self._get_tx_port_id_list(tx_ports)
         target_ip = "30.0.0.10"
         default_ip = self.DEFAULT_DST_IP
-        if 't0' == setup['topo'] and direction == DOWN_STREAM:
+        if setup['topo'] in ['t0', 'm0_vlan'] and direction == DOWN_STREAM:
             target_ip = TARGET_SERVER_IP
             default_ip = DEFAULT_SERVER_IP
 

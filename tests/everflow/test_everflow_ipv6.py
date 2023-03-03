@@ -38,7 +38,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         Setup the route for mirror session destination ip and update monitor port list.
         Remove the route as part of cleanup.
         """
-        if setup_info['topo'] == 't0':
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
             # On T0 testbed, the collector IP is routed to T1
             namespace = setup_info[UP_STREAM]['remote_namespace']
             tx_port = setup_info[UP_STREAM]["dest_port"][0]
@@ -68,7 +68,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
     @pytest.fixture(scope='class')
     def everflow_dut(self, setup_info):             # noqa F811
-        if setup_info['topo'] == 't0':
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
             dut = setup_info[UP_STREAM]['everflow_dut']
         else:
             dut = setup_info[DOWN_STREAM]['everflow_dut']
@@ -77,7 +77,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
     @pytest.fixture(scope='class')
     def everflow_direction(self, setup_info):       # noqa F811
-        if setup_info['topo'] == 't0':
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
             direction = UP_STREAM
         else:
             direction = DOWN_STREAM
@@ -598,7 +598,7 @@ class TestIngressEverflowIPv6(EverflowIPv6Tests):
     @pytest.fixture(scope='class',  autouse=True)
     def setup_acl_table(self, setup_info, setup_mirror_session, config_method):         # noqa F811
 
-        if setup_info['topo'] == 't0':
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
             everflow_dut = setup_info[UP_STREAM]['everflow_dut']
             remote_dut = setup_info[UP_STREAM]['remote_dut']
         else:
