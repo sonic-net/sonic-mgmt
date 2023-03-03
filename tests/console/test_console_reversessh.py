@@ -1,6 +1,5 @@
 import pytest
 import pexpect
-import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -8,6 +7,7 @@ from tests.common.utilities import wait_until
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
 
 @pytest.mark.parametrize("target_line", ["1", "2"])
 def test_console_reversessh_connectivity(duthost, creds, target_line):
@@ -25,7 +25,8 @@ def test_console_reversessh_connectivity(duthost, creds, target_line):
 
     ressh_user = "{}:{}".format(dutuser, target_line)
     try:
-        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'.format(ressh_user, dutip))
+        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+                               .format(ressh_user, dutip))
         client.expect('[Pp]assword:')
         client.sendline(dutpass)
 
@@ -44,6 +45,7 @@ def test_console_reversessh_connectivity(duthost, creds, target_line):
         wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
         "Target line {} is busy after exited reverse SSH session".format(target_line))
 
+
 @pytest.mark.parametrize("target_line", ["1", "2"])
 def test_console_reversessh_force_interrupt(duthost, creds, target_line):
     """
@@ -60,7 +62,8 @@ def test_console_reversessh_force_interrupt(duthost, creds, target_line):
 
     ressh_user = "{}:{}".format(dutuser, target_line)
     try:
-        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'.format(ressh_user, dutip))
+        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+                               .format(ressh_user, dutip))
         client.expect('[Pp]assword:')
         client.sendline(dutpass)
 
@@ -86,6 +89,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, target_line):
         client.expect("Picocom was killed")
     except Exception as e:
         pytest.fail("Console session not exit correctly: {}".format(e))
+
 
 def check_target_line_status(duthost, line, expect_status):
     console_facts = duthost.console_facts()['ansible_facts']['console_facts']

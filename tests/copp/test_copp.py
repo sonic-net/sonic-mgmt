@@ -38,8 +38,8 @@ from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
 
 # Module-level fixtures
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0", "mx")
@@ -74,7 +74,8 @@ class TestCOPP(object):
                                           "IP2ME",
                                           "SNMP",
                                           "SSH"])
-    def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
+    def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                     ptfhost, copp_testbed, dut_type):
         """
             Validates that rate-limited COPP groups work as expected.
 
@@ -94,7 +95,8 @@ class TestCOPP(object):
                                           "LACP",
                                           "LLDP",
                                           "UDLD"])
-    def test_no_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, copp_testbed, dut_type):
+    def test_no_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                        ptfhost, copp_testbed, dut_type):
         """
             Validates that non-rate-limited COPP groups work as expected.
 
@@ -109,7 +111,8 @@ class TestCOPP(object):
                      dut_type)
 
     @pytest.mark.disable_loganalyzer
-    def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db):
+    def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                          ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db):
         """
         Validates that one new trap(bgp) can be installed
 
@@ -141,7 +144,9 @@ class TestCOPP(object):
     @pytest.mark.disable_loganalyzer
     @pytest.mark.parametrize("remove_trap_type", ["delete_feature_entry",
                                                   "disable_feature_status"])
-    def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, check_image_version, copp_testbed, dut_type, backup_restore_config_db, remove_trap_type):
+    def test_remove_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                         ptfhost, check_image_version, copp_testbed, dut_type,
+                         backup_restore_config_db, remove_trap_type):
         """
         Validates that The trap(bgp) can be uninstalled after deleting the corresponding entry from the feature table
 
@@ -163,17 +168,21 @@ class TestCOPP(object):
 
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         pytest_assert(
-            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type, has_trap=False),
+            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(),
+                       copp_testbed, dut_type, has_trap=False),
             "uninstalling {} trap fail".format(self.trap_id))
 
     @pytest.mark.disable_loganalyzer
-    def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,check_image_version, copp_testbed, dut_type, backup_restore_config_db, request):
+    def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
+                                           ptfhost, check_image_version, copp_testbed, dut_type,
+                                           backup_restore_config_db, request):
         """
         Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
 
         1. Set always_enabled of a trap(e.g. bgp) to true
         2. Config save -y
-        3. Do reboot according to the specified parameter of copp_reboot_type (reboot/warm-reboot/fast-reboot/soft-reboot)
+        3. Do reboot according to the specified parameter of
+               copp_reboot_type (reboot/warm-reboot/fast-reboot/soft-reboot)
         4. Verify configuration are saved successfully
         5. Verify the trap status is installed by sending traffic
         """
@@ -201,7 +210,8 @@ class TestCOPP(object):
 @pytest.fixture(scope="class")
 def dut_type(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])  # return config db contents(running-config)
+    # return config db contents(running-config)
+    cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
     dut_type = None
 
     if "DEVICE_METADATA" in cfg_facts:
@@ -210,6 +220,7 @@ def dut_type(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 dut_type = cfg_facts["DEVICE_METADATA"]["localhost"]["type"]
 
     return dut_type
+
 
 @pytest.fixture(scope="class")
 def copp_testbed(
@@ -226,8 +237,7 @@ def copp_testbed(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts)
-    upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
-
+    upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
 
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
@@ -236,6 +246,7 @@ def copp_testbed(
     finally:
         _teardown_multi_asic_proxy(duthost, creds, test_params, tbinfo)
         _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
+
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -280,8 +291,9 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
     ptf_runner(host=ptf,
                testdir="ptftests",
                # Special Handling for DHCP if we are using T1 Topo
-               testname="copp_tests.{}Test".format((protocol+"TopoT1")
-                         if protocol in _TOR_ONLY_PROTOCOL and dut_type not in ["ToRRouter", "MgmtToRRouter", "BmcMgmtToRRouter"] else protocol),
+               testname="copp_tests.{}Test".format((protocol+"TopoT1") if protocol in _TOR_ONLY_PROTOCOL and
+                                                   dut_type not in ["ToRRouter", "MgmtToRRouter", "BmcMgmtToRRouter"]
+                                                   else protocol),
                platform="nn",
                qlen=100000,
                params=params,
@@ -310,11 +322,13 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
         port_index_map.update({
            k: v
            for k, v in mg_facts["minigraph_ptf_indices"].items()
-           if k in mg_facts["minigraph_ports"] and not duthost.is_backend_port(k, mg_facts) and mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
+           if k in mg_facts["minigraph_ports"] and
+           not duthost.is_backend_port(k, mg_facts) and
+           mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
         })
     # use randam sonic interface for testing
     nn_target_interface = random.choice(port_index_map.keys())
-    #get the  ptf port for choosen port
+    # get the  ptf port for choosen port
     nn_target_port = port_index_map[nn_target_interface]
     myip = None
     peerip = None
@@ -325,17 +339,18 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
         if nn_target_interface not in mg_facts["minigraph_neighbors"]:
             continue
         for bgp_peer in mg_facts["minigraph_bgp"]:
-            if bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
+            if bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] \
+                                   and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
                 myip = bgp_peer["addr"]
                 peerip = bgp_peer["peer_addr"]
                 nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
                 is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
-	        if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
-		    nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
-                break
+                if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
+                    nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
+            break
 
-
-    logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}".format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
+    logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}"
+                 .format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                swap_syncd=swap_syncd,
@@ -346,6 +361,7 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                                nn_target_namespace=nn_target_namespace,
                                send_rate_limit=send_rate_limit,
                                nn_target_vlanid=nn_target_vlanid)
+
 
 def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     """
@@ -387,6 +403,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
                                test_params.nn_target_namespace, test_params.nn_target_vlanid,
                                test_params.swap_syncd, creds)
 
+
 def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     """
         Tears down the testbed, returning it to its initial state.
@@ -404,8 +421,9 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
-    
+
     upStreamDuthost.command("sudo config bgp startup all")
+
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
@@ -423,8 +441,10 @@ def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
         # Add Rule to communicate to http/s proxy from namespace
         dut.command("sudo iptables -t nat -A POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
     # Add Rule to communicate to ptf nn agent client from namespace
-    ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
+    ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace)
+                      + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -A PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
+
 
 def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
@@ -441,7 +461,8 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
         # Delete Rule to communicate to http/s proxy from namespace
         dut.command("sudo iptables -t nat -D POSTROUTING -p tcp --dport 8080 -j SNAT --to-source {}".format(mgmt_ip))
     # Delete Rule to communicate to ptf nn agent client from namespace
-    ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace) + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
+    ns_ip = dut.shell("sudo ip -n {} -4 -o addr show eth0".format(test_params.nn_target_namespace)
+                      + " | awk '{print $4}' | cut -d'/' -f1")["stdout"]
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
 
 
@@ -452,6 +473,7 @@ def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
     yield
     copp_utils.restore_config_db(duthost)
+
 
 def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):
     copp_utils.install_trap(duthost, feature_name)

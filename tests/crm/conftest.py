@@ -27,7 +27,7 @@ def pytest_runtest_teardown(item, nextitem):
         if crm_threshold_name:
             crm_thresholds = item.funcargs["crm_thresholds"]
             cmd = restore_cmd.format(threshold_name=crm_threshold_name, high=crm_thresholds[crm_threshold_name]["high"],
-                low=crm_thresholds[crm_threshold_name]["low"])
+                                     low=crm_thresholds[crm_threshold_name]["low"])
             logger.info("Restore CRM thresholds. Execute: {}".format(cmd))
             # Restore default CRM thresholds
             item.funcargs["duthost"].command(cmd)
@@ -36,7 +36,7 @@ def pytest_runtest_teardown(item, nextitem):
         duthosts = item.funcargs['duthosts']
         hostname = item.funcargs['enum_rand_one_per_hwsku_frontend_hostname']
         dut = None
-        if duthosts and hostname: # unable to test hostname in duthosts
+        if duthosts and hostname:   # unable to test hostname in duthosts
             dut = duthosts[hostname]
 
         if not dut:
@@ -53,8 +53,8 @@ def pytest_runtest_teardown(item, nextitem):
             try:
                 dut.shell(cmd)
             except RunAnsibleModuleFail as err:
-                failures.append("Failure during command execution '{command}':\n{error}".format(command=cmd,
-                    error=str(err)))
+                failures.append("Failure during command execution '{command}':\n{error}"
+                                .format(command=cmd, error=str(err)))
 
         RESTORE_CMDS[test_name] = []
 
@@ -71,8 +71,8 @@ def pytest_runtest_teardown(item, nextitem):
 def crm_thresholds(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
-    crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor",
-        "ipv6_neighbor", "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
+    crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor", "ipv6_neighbor"
+                    "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
     res = {}
     for item in crm_res_list:
         high = duthost.command(cmd.format(threshold_name=item, type="high"))["stdout_lines"][0]
@@ -130,6 +130,7 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
     if crm_intf1 is None or crm_intf2 is None:
         pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,
                                                                                           asichost.asic_index))
+
 
 @pytest.fixture(scope="module", autouse=True)
 def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
