@@ -80,7 +80,7 @@ def test_active_tor_reboot_upstream(
             expected_standby_host=None,
             cable_type=cable_type,
             verify_db_timeout=60
-    )
+        )
 
 
 @pytest.mark.disable_loganalyzer
