@@ -46,10 +46,10 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
 # Topo that downstream neighbor of DUT are servers
-DOWNSTREAM_SERVER_TOPO = ["t0"]
+DOWNSTREAM_SERVER_TOPO = ["t0", "m0_vlan"]
 
 
-def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
+def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scenario):
     """
     Generate setup information dictionary for T0 and T1/ T2 topologies.
     """
@@ -80,6 +80,8 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
         upstream_acl_capability_facts = upStreamDutHost.acl_capabilities_facts()["ansible_facts"]
 
     topo_type = tbinfo["topo"]["type"]
+    if topo_type == "m0":
+        topo_type = "m0_vlan" if "m0_vlan_scenario" in topo_scenario else "m0_l3"
     # Get the list of T0/T2 ports
     for mg_facts in mg_facts_list:
         for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
@@ -318,7 +320,7 @@ def get_t2_duthost(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
     Gather all required test information.
 
@@ -337,7 +339,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
         pytest_assert(len(duthosts) > 1, "Test must run on whole chassis")
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
 
-    setup_information = gen_setup_information(downstream_duthost, upstream_duthost, tbinfo)
+    setup_information = gen_setup_information(downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
 
     # Disable BGP so that we don't keep on bouncing back mirror packets
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
@@ -399,7 +401,7 @@ def remove_route(duthost, prefix, nexthop, namespace):
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_arp_responder(duthost, ptfhost, setup_info):
-    if setup_info['topo'] != 't0':
+    if setup_info['topo'] not in ['t0', 'm0_vlan']:
         yield
         return
     ip_list = [TARGET_SERVER_IP, DEFAULT_SERVER_IP]
