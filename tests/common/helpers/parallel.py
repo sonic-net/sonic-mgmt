@@ -255,7 +255,7 @@ def reset_ansible_local_tmp(target):
 def parallel_run_threaded(target_functions, timeout=10, thread_count=2):
     """
     Run target functions with a thread pool.
-    
+
     @param target_functions: list of target functions to execute
     @param timeout: timeout seconds, default 10
     @param thread_count: thread count, default 2
