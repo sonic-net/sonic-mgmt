@@ -421,3 +421,17 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     verify_show_platform_firmware_status_output(firmware_output_lines, duthost.hostname)
 
     # TODO: Test values against platform-specific expected data
+
+
+def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of `show platform pcieinfo`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = "show platform pcieinfo"
+
+    logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
+    pcieinfo_output = duthost.command(cmd)["stdout"]
+
+    line_regexp = '=+Display PCIe Device=+'
+    pytest_assert(re.search(line_regexp, pcieinfo_output), "Failed to validate output of command '{}'".format(cmd))
