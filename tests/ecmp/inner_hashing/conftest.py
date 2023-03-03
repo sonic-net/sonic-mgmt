@@ -9,14 +9,16 @@ from datetime import datetime
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, change_mac_addresses   # noqa F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
 
-# Standard HASH_KEYs of 'src-ip', 'dst-ip', 'src-port', 'dst-port', 'ip-proto' varied in the inner packets sent and used to validate hashing
-# outer-tuples is also used as a HASH_KEY to validate that varying any outer tuples for encap traffic does not affect inner hashing
+# Standard HASH_KEYs of 'src-ip', 'dst-ip', 'src-port', 'dst-port', 'ip-proto' varied
+# in the inner packets sent and used to validate hashing
+# outer-tuples is also used as a HASH_KEY to validate that
+# varying any outer tuples for encap traffic does not affect inner hashing
 HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ip-proto', 'outer-tuples']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
@@ -30,7 +32,7 @@ FIB_INFO_FILE_DST = '/root/fib_info.txt'
 VXLAN_PORT = 13330
 DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
 
-ACL_DEPENDENCY_TABLES = ["EVERFLOW","EVERFLOWV6"]
+ACL_DEPENDENCY_TABLES = ["EVERFLOW", "EVERFLOWV6"]
 
 T0_VLAN = "1000"
 IP_VERSIONS_LIST = ["ipv4", "ipv6"]
@@ -161,10 +163,10 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
 
             oports = []
             for ifname in ifnames:
-                if po.has_key(ifname):
+                if ifname in po:
                     oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
                 else:
-                    if ports.has_key(ifname):
+                    if ifname in ports:
                         oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
                     else:
                         logger.info("Route point to non front panel port {}:{}".format(k, v))
@@ -433,7 +435,8 @@ def get_src_dst_ip_range(ipver):
     return src_ip_range, dst_ip_range
 
 
-def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times, symmetric_hashing, hash_keys, ports_groups):
+def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times,
+                       symmetric_hashing, hash_keys, ports_groups):
     logging.info('Verify PBH counters')
     with allure.step('Verify PBH counters'):
         symmetric_multiplier = 2 if symmetric_hashing else 1
@@ -553,6 +556,7 @@ def update_rule(duthost, outer_ipver, inner_ipver):
 
         update_rule_del(swapped_outer_ipver, swapped_inner_ipver, prot)
         update_rule_set(swapped_outer_ipver, swapped_inner_ipver, swapped_update_set_dict)
+
 
 @pytest.fixture(scope='module')
 def get_function_completeness_level(pytestconfig):
