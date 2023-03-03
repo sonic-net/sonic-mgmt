@@ -446,6 +446,7 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
             "inner_dscp_to_pg_map": tunnel_qos_map["inner_dscp_to_pg_map"],
             "port_map_file": dut_config["port_map_file"],
             "sonic_asic_type": dut_config["asic_type"],
+            "platform_asic": dut_config["platform_asic"],
             "cell_size": cell_size
         })
     
@@ -482,6 +483,7 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
             "standby_tor_ip": dut_config["unselected_tor_loopback"],
             "server": dut_config["selected_tor_mgmt"],
             "port_map_file": dut_config["port_map_file"],
+            "platform_asic": dut_config["platform_asic"],
             "sonic_asic_type": dut_config["asic_type"],
         })
     # Update qos config into test_params
