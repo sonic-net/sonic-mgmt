@@ -16,10 +16,11 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-NTP_CONF         = "/etc/ntp.conf"
-NTP_SERVER_INIT  = "10.0.0.1"
+NTP_CONF = "/etc/ntp.conf"
+NTP_SERVER_INIT = "10.0.0.1"
 NTP_SERVER_DUMMY = "10.0.0.2"
-NTP_SERVER_RE    = "server {} iburst"
+NTP_SERVER_RE = "server {} iburst"
+
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
@@ -42,8 +43,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
 
         cur_ntp_servers = running_ntp_servers(duthost)
         pytest_assert(cur_ntp_servers == init_ntp_servers,
-            "ntp servers {} do not match {}.".format(cur_ntp_servers, init_ntp_servers)
-        )
+                      "ntp servers {} do not match {}.".format(cur_ntp_servers, init_ntp_servers))
     finally:
         delete_checkpoint(duthost)
 

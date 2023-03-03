@@ -52,17 +52,15 @@ def setup_env(duthosts, rand_one_dut_hostname):
 
 
 def get_aaa_sub_options_value(duthost, aaa_type, option):
-    """ Verify if AAA sub type's options match with expected value
+    r""" Verify if AAA sub type's options match with expected value
 
     Sample output:
     admin@vlab-01:~$ show aaa | grep -Po "AAA authentication login \K.*"
     local (default)
     """
-    output = duthost.shell('show aaa | grep -Po "AAA {} {} \K.*"'.format(aaa_type, option))
+    output = duthost.shell(r'show aaa | grep -Po "AAA {} {} \K.*"'.format(aaa_type, option))
 
-    pytest_assert(not output['rc'],
-        "Failed to grep AAA {}".format(option)
-    )
+    pytest_assert(not output['rc'], "Failed to grep AAA {}".format(option))
     return output['stdout']
 
 
@@ -77,23 +75,19 @@ def aaa_add_init_config_without_table(duthost):
     cmds = 'sonic-db-cli CONFIG_DB keys "AAA|*" | xargs -r sonic-db-cli CONFIG_DB del'
 
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "AAA init config failed"
-    )
+    pytest_assert(not output['rc'], "AAA init config failed")
 
 
 def get_tacacs_global_type_value(duthost, tacacs_global_type):
-    """ Get tacacs global config by type
+    r""" Get tacacs global config by type
 
     Sample output in t0:
     admin@vlab-01:~$ show tacacs | grep -Po "TACPLUS global auth_type \K.*"
     pap (default)
     """
-    output = duthost.shell('show tacacs | grep -Po "TACPLUS global {} \K.*"'.format(tacacs_global_type))
+    output = duthost.shell(r'show tacacs | grep -Po "TACPLUS global {} \K.*"'.format(tacacs_global_type))
 
-    pytest_assert(not output['rc'],
-        "Failed to grep TACACS {}".format(tacacs_global_type)
-    )
+    pytest_assert(not output['rc'], "Failed to grep TACACS {}".format(tacacs_global_type))
     return output['stdout']
 
 
@@ -107,9 +101,7 @@ def tacacs_add_init_config_without_table(duthost):
     cmds = 'sonic-db-cli CONFIG_DB keys "TACPLUS|*" | xargs -r sonic-db-cli CONFIG_DB del'
 
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "TACACS init config failed"
-    )
+    pytest_assert(not output['rc'], "TACACS init config failed")
 
 
 def cleanup_tacacs_server(duthost):
@@ -118,16 +110,14 @@ def cleanup_tacacs_server(duthost):
     cmds = 'sonic-db-cli CONFIG_DB keys "TACPLUS_SERVER|*" | xargs -r sonic-db-cli CONFIG_DB del'
 
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "Cleanup TACPLUS_SERVER failed"
-    )
+    pytest_assert(not output['rc'], "Cleanup TACPLUS_SERVER failed")
 
 
 def parse_tacacs_server(duthost):
     """ Parse tacacs server
 
     Sample output in kvm t0:
-    {u'10.0.0.9': {u'priority': u'1', u'tcp_port': u'49'}, 
+    {u'10.0.0.9': {u'priority': u'1', u'tcp_port': u'49'},
     u'10.0.0.8': {u'priority': u'1', u'tcp_port': u'49'}}
     """
     output = duthost.shell("show tacacs")
@@ -300,15 +290,11 @@ def aaa_tc1_remove(duthost):
         expect_op_success(duthost, output)
 
         output = duthost.shell('show aaa')
-        pytest_assert(not output['rc'],
-            "AAA show command failed"
-        )
+        pytest_assert(not output['rc'], "AAA show command failed")
 
         for line in output['stdout'].splitlines():
             logger.info(line)
-            pytest_assert(line.endswith("(default)"),
-                "AAA config deletion failed!"
-            )
+            pytest_assert(line.endswith("(default)"), "AAA config deletion failed!")
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -344,10 +330,8 @@ def tacacs_global_tc2_add_config(duthost):
         expect_op_success(duthost, output)
 
         for tacacs_global_type, value in TACACS_ADD_CONFIG.items():
-            pytest_assert(
-                get_tacacs_global_type_value(duthost, tacacs_global_type) == value,
-                "TACACS global {} failed to apply".format(tacacs_global_type)
-            )
+            pytest_assert(get_tacacs_global_type_value(duthost, tacacs_global_type) == value,
+                          "TACACS global {} failed to apply".format(tacacs_global_type))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -433,13 +417,9 @@ def tacacs_global_tc2_remove(duthost):
         expect_op_success(duthost, output)
 
         output = duthost.shell('show tacacs | grep "TACPLUS global"')
-        pytest_assert(not output['rc'],
-            "AAA show command failed"
-        )
+        pytest_assert(not output['rc'], "AAA show command failed")
         for line in output['stdout'].splitlines():
-            pytest_assert(line.endswith("(default)"),
-                "AAA config deletion failed!"
-            )
+            pytest_assert(line.endswith("(default)"), "AAA config deletion failed!")
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -489,8 +469,7 @@ def tacacs_server_tc3_add_init(duthost):
             options = tacacs_servers[tacacs_server]
             for opt, value in TACACS_SERVER_OPTION.items():
                 pytest_assert(opt in options and options[opt] == value,
-                    "tacacs server failed to add to config completely."
-                )
+                              "tacacs server failed to add to config completely.")
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -560,6 +539,7 @@ def tacacs_server_tc3_replace_invalid(duthost):
         finally:
             delete_tmpfile(duthost, tmpfile)
 
+
 def tacacs_server_tc3_add_duplicate(duthost):
     """ Test tacacs server add duplicate server
     """
@@ -579,12 +559,11 @@ def tacacs_server_tc3_add_duplicate(duthost):
         expect_op_success(duthost, output)
 
         tacacs_servers = parse_tacacs_server(duthost)
-        pytest_assert(DEFAULT_TACACS_SERVER in tacacs_servers,
-            "tacacs server add duplicate failed."
-        )
+        pytest_assert(DEFAULT_TACACS_SERVER in tacacs_servers, "tacacs server add duplicate failed.")
 
     finally:
         delete_tmpfile(duthost, tmpfile)
+
 
 def tacacs_server_tc3_remove(duthost):
     """ Test tacasc server removal
@@ -604,9 +583,7 @@ def tacacs_server_tc3_remove(duthost):
         expect_op_success(duthost, output)
 
         tacacs_servers = parse_tacacs_server(duthost)
-        pytest_assert(not tacacs_servers,
-            "tacacs server failed to remove."
-        )
+        pytest_assert(not tacacs_servers, "tacacs server failed to remove.")
     finally:
         delete_tmpfile(duthost, tmpfile)
 
