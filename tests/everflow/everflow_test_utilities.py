@@ -46,7 +46,7 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
 # Topo that downstream neighbor of DUT are servers
-DOWNSTREAM_SERVER_TOPO = ["t0", "m0_t0"]
+DOWNSTREAM_SERVER_TOPO = ["t0", "m0_vlan"]
 
 
 def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scenario):
@@ -79,7 +79,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
 
     topo_type = tbinfo["topo"]["type"]
     if topo_type == "m0":
-        topo_type = "m0_t0" if "m0_t0_scenario" in topo_scenario else "m0_t1"
+        topo_type = "m0_vlan" if "m0_vlan_scenario" in topo_scenario else "m0_l3"
     # Get the list of T0/T2 ports
     for mg_facts in mg_facts_list:
         for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
@@ -376,7 +376,7 @@ def remove_route(duthost, prefix, nexthop, namespace):
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_arp_responder(duthost, ptfhost, setup_info):
-    if setup_info['topo'] not in ['t0', 'm0_t0']:
+    if setup_info['topo'] not in ['t0', 'm0_vlan']:
         yield
         return
     ip_list = [TARGET_SERVER_IP, DEFAULT_SERVER_IP]
