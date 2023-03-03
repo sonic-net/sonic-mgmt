@@ -5,15 +5,15 @@ import pytest
 import random
 import time
 
-from tests.common.dualtor.dual_tor_common import active_active_ports                            # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_active_ports                            # noqa F401
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
-from tests.common.dualtor.dual_tor_utils import upper_tor_host                                  # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import lower_tor_host                                  # lgtm[py/unused-import]
-from tests.common.dualtor.icmp_responder_control import pause_icmp_responder
+from tests.common.dualtor.dual_tor_utils import upper_tor_host                                  # noqa F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host                                  # noqa F401
+from tests.common.dualtor.icmp_responder_control import pause_icmp_responder                    # noqa F401
 from tests.common.dualtor.nic_simulator_control import ForwardingState
-from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator            # lgtm[py/unused-import]
-from tests.common.dualtor.nic_simulator_control import toggle_active_active_simulator_ports     # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder                              # lgtm[py/unused-import]
+from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator            # noqa F401
+from tests.common.dualtor.nic_simulator_control import toggle_active_active_simulator_ports     # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                              # noqa F401
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -26,7 +26,7 @@ TEST_COUNT = 4
 
 
 @pytest.fixture(scope="module")
-def test_duthost(upper_tor_host, lower_tor_host):
+def test_duthost(upper_tor_host, lower_tor_host):           # noqa F811
     today = datetime.datetime.fromtimestamp(time.time())
     if today.day % 2 == 1:
         duthost = upper_tor_host
@@ -38,7 +38,7 @@ def test_duthost(upper_tor_host, lower_tor_host):
 
 
 @pytest.fixture(scope="module")
-def test_mux_ports(active_active_ports):
+def test_mux_ports(active_active_ports):                    # noqa F811
     if not active_active_ports:
         pytest.skip("Skip as no 'active-active' mux ports available")
     test_ports = random.sample(active_active_ports, min(len(active_active_ports), TEST_COUNT))
@@ -52,7 +52,8 @@ def init_port_state(request):
 
 
 @pytest.fixture
-def setup_test_ports(init_port_state, mux_status_from_nic_simulator, pause_icmp_responder, test_mux_ports):
+def setup_test_ports(init_port_state, mux_status_from_nic_simulator,    # noqa F811
+                     pause_icmp_responder, test_mux_ports):             # noqa F811
 
     def check_forwarding_state(mux_ports, upper_tor_forwarding_state, lower_tor_forwarding_state):
         mux_status = mux_status_from_nic_simulator(mux_ports)
@@ -82,9 +83,8 @@ def setup_test_ports(init_port_state, mux_status_from_nic_simulator, pause_icmp_
     return test_mux_ports
 
 
-def test_grpc_server_failure(
-    init_port_state, setup_test_ports, test_duthost, toggle_active_active_simulator_ports
-):
+def test_grpc_server_failure(init_port_state, setup_test_ports, test_duthost,
+                             toggle_active_active_simulator_ports):             # noqa F811
     """
     This testcase aims to verify that, if the nic_simulator arbitrarily toggles a
     port, SONiC could detect and recover the mux status.
