@@ -34,7 +34,7 @@ DUT_RUN_DIR = "/tmp/everflow"
 EVERFLOW_RULE_CREATE_FILE = "acl-erspan.json"
 EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
 
-STABILITY_BUFFER = 0.05 #50msec
+STABILITY_BUFFER = 0.05     # 50msec
 
 OUTER_HEADER_SIZE = 38
 
@@ -67,8 +67,10 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
     # Gather test facts
     if downStreamDutHost == upStreamDutHost:
         mg_facts_list.append(downStreamDutHost.get_extended_minigraph_facts(tbinfo))
-        downstream_switch_capability_facts = upstream_switch_capability_facts = downStreamDutHost.switch_capabilities_facts()["ansible_facts"]
-        downstream_acl_capability_facts = upstream_acl_capability_facts = downStreamDutHost.acl_capabilities_facts()["ansible_facts"]
+        downstream_switch_capability_facts = upstream_switch_capability_facts = \
+            downStreamDutHost.switch_capabilities_facts()["ansible_facts"]
+        downstream_acl_capability_facts = upstream_acl_capability_facts = \
+            downStreamDutHost.acl_capabilities_facts()["ansible_facts"]
     else:
         mg_facts_list.append(downStreamDutHost.get_extended_minigraph_facts(tbinfo))
         mg_facts_list.append(upStreamDutHost.get_extended_minigraph_facts(tbinfo))
@@ -81,7 +83,8 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
     # Get the list of T0/T2 ports
     for mg_facts in mg_facts_list:
         for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
-            pytest_assert(topo_type in UPSTREAM_NEIGHBOR_MAP and topo_type in DOWNSTREAM_NEIGHBOR_MAP, "Unsupported topo")
+            pytest_assert(topo_type in UPSTREAM_NEIGHBOR_MAP and
+                          topo_type in DOWNSTREAM_NEIGHBOR_MAP, "Unsupported topo")
             if UPSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
                 upstream_ports_namespace_map[neigh['namespace']].append(dut_port)
                 upstream_ports_namespace.add(neigh['namespace'])
@@ -95,14 +98,14 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
     for ns, neigh_set in upstream_neigh_namespace_map.items():
         if len(neigh_set) < 2:
             upstream_ports_namespace.remove(ns)
-    
+
     for ns, neigh_set in downstream_neigh_namespace_map.items():
         if len(neigh_set) < 2:
             downstream_ports_namespace.remove(ns)
 
     if not upstream_ports_namespace or not downstream_ports_namespace:
         pytest.skip("Not enough ports for upstream or downstream neighbors to run this test")
-   
+
     if 't1' in topo:
         # Set of downstream ports only Namespace
         downstream_only_namespace = downstream_ports_namespace.difference(upstream_ports_namespace)
@@ -125,16 +128,16 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
     random.shuffle(downstream_ports)
     random.shuffle(upstream_ports)
 
-
     upstream_switch_capabilities = upstream_switch_capability_facts["switch_capabilities"]["switch"]
     upstream_acl_capabilities = upstream_acl_capability_facts["acl_capabilities"]
 
     downstream_switch_capabilities = downstream_switch_capability_facts["switch_capabilities"]["switch"]
     downstream_acl_capabilities = downstream_acl_capability_facts["acl_capabilities"]
 
-
-    test_mirror_v4 = upstream_switch_capabilities["MIRROR"] == "true" and downstream_switch_capabilities["MIRROR"] == "true"
-    test_mirror_v6 = upstream_switch_capabilities["MIRRORV6"] == "true" and  downstream_switch_capabilities["MIRRORV6"] == "true"
+    test_mirror_v4 = upstream_switch_capabilities["MIRROR"] == "true" \
+        and downstream_switch_capabilities["MIRROR"] == "true"
+    test_mirror_v6 = upstream_switch_capabilities["MIRRORV6"] == "true" \
+        and downstream_switch_capabilities["MIRRORV6"] == "true"
 
     # NOTE: Older OS versions don't have the ACL_ACTIONS table, and those same devices
     # do not support egress ACLs or egress mirroring. Once we branch out the sonic-mgmt
@@ -145,30 +148,48 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
         test_egress_mirror_on_egress_acl = False
         test_egress_mirror_on_ingress_acl = False
     elif upstream_acl_capabilities and downstream_acl_capabilities:
-        test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in upstream_acl_capabilities["INGRESS"]["action_list"] and \
-                                             "MIRROR_INGRESS_ACTION" in downstream_acl_capabilities["INGRESS"]["action_list"] 
-        test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in upstream_acl_capabilities["EGRESS"]["action_list"] and \
-                                            "MIRROR_INGRESS_ACTION" in downstream_acl_capabilities["EGRESS"]["action_list"]
-        test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in upstream_acl_capabilities["EGRESS"]["action_list"] and \
-                                           "MIRROR_EGRESS_ACTION" in downstream_acl_capabilities["EGRESS"]["action_list"]
-        test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in upstream_acl_capabilities["INGRESS"]["action_list"] and \
-                                            "MIRROR_EGRESS_ACTION" in downstream_acl_capabilities["INGRESS"]["action_list"] 
+        test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in \
+                                             upstream_acl_capabilities["INGRESS"]["action_list"] and \
+                                             "MIRROR_INGRESS_ACTION" in \
+                                             downstream_acl_capabilities["INGRESS"]["action_list"]
+        test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in \
+                                            upstream_acl_capabilities["EGRESS"]["action_list"] and \
+                                            "MIRROR_INGRESS_ACTION" in \
+                                            downstream_acl_capabilities["EGRESS"]["action_list"]
+        test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in \
+                                           upstream_acl_capabilities["EGRESS"]["action_list"] and \
+                                           "MIRROR_EGRESS_ACTION" in \
+                                           downstream_acl_capabilities["EGRESS"]["action_list"]
+        test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in \
+                                            upstream_acl_capabilities["INGRESS"]["action_list"] and \
+                                            "MIRROR_EGRESS_ACTION" in \
+                                            downstream_acl_capabilities["INGRESS"]["action_list"]
     else:
         logging.info("Fallback to the old source of ACL capabilities (assuming SONiC release is < 202111)")
-        test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in upstream_switch_capabilities["ACL_ACTIONS|INGRESS"] and \
-                                             "MIRROR_INGRESS_ACTION" in downstream_switch_capabilities["ACL_ACTIONS|INGRESS"]
-        test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in upstream_switch_capabilities["ACL_ACTIONS|EGRESS"] and \
-                                            "MIRROR_INGRESS_ACTION" in downstream_switch_capabilities["ACL_ACTIONS|EGRESS"]
-        test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in upstream_switch_capabilities["ACL_ACTIONS|EGRESS"] and \
-                                           "MIRROR_EGRESS_ACTION" in downstream_switch_capabilities["ACL_ACTIONS|EGRESS"]
-        test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in upstream_switch_capabilities["ACL_ACTIONS|INGRESS"] and \
-                                            "MIRROR_EGRESS_ACTION" in downstream_switch_capabilities["ACL_ACTIONS|INGRESS"]
+        test_ingress_mirror_on_ingress_acl = "MIRROR_INGRESS_ACTION" in \
+                                             upstream_switch_capabilities["ACL_ACTIONS|INGRESS"] and \
+                                             "MIRROR_INGRESS_ACTION" in \
+                                             downstream_switch_capabilities["ACL_ACTIONS|INGRESS"]
+        test_ingress_mirror_on_egress_acl = "MIRROR_INGRESS_ACTION" in \
+                                            upstream_switch_capabilities["ACL_ACTIONS|EGRESS"] and \
+                                            "MIRROR_INGRESS_ACTION" in \
+                                            downstream_switch_capabilities["ACL_ACTIONS|EGRESS"]
+        test_egress_mirror_on_egress_acl = "MIRROR_EGRESS_ACTION" in \
+                                           upstream_switch_capabilities["ACL_ACTIONS|EGRESS"] and \
+                                           "MIRROR_EGRESS_ACTION" in \
+                                           downstream_switch_capabilities["ACL_ACTIONS|EGRESS"]
+        test_egress_mirror_on_ingress_acl = "MIRROR_EGRESS_ACTION" in \
+                                            upstream_switch_capabilities["ACL_ACTIONS|INGRESS"] and \
+                                            "MIRROR_EGRESS_ACTION" in \
+                                            downstream_switch_capabilities["ACL_ACTIONS|INGRESS"]
 #
     # NOTE: Disable egress mirror test on broadcom platform even SAI claim EGRESS MIRRORING is supported
     # There is a known issue in SAI 7.1 for XGS that SAI claims the capability of EGRESS MIRRORING incorrectly.
     # Hence we override the capability query with below logic. Please remove it after the issue is fixed.
-    if (downStreamDutHost.facts["asic_type"] == "broadcom" or upStreamDutHost.facts["asic_type"] == "broadcom") and \
-       (downStreamDutHost.facts.get("platform_asic") != 'broadcom-dnx' and upStreamDutHost.facts.get("platform_asic") != 'broadcom-dnx'):
+    if (downStreamDutHost.facts["asic_type"] == "broadcom" or
+        upStreamDutHost.facts["asic_type"] == "broadcom") and \
+        (downStreamDutHost.facts.get("platform_asic") != 'broadcom-dnx'
+         and upStreamDutHost.facts.get("platform_asic") != 'broadcom-dnx'):
         test_egress_mirror_on_egress_acl = False
         test_egress_mirror_on_ingress_acl = False
 
@@ -182,12 +203,12 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
             if port not in out_port_list and port not in out_port_exclude_list and len(out_port_list) < 4:
                 ptf_port_id = str(mg_facts["minigraph_ptf_indices"][port])
                 out_port_list.append(port)
-                if out_port_lag_name != None:
+                if out_port_lag_name is not None:
                     out_port_lag_name.append("Not Applicable")
 
                 for portchannelinfo in mg_facts["minigraph_portchannels"].items():
                     if port in portchannelinfo[1]["members"]:
-                        if out_port_lag_name != None:
+                        if out_port_lag_name is not None:
                             out_port_lag_name[-1] = portchannelinfo[0]
                         for lag_member in portchannelinfo[1]["members"]:
                             if port == lag_member:
@@ -197,16 +218,14 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
 
                 out_port_ptf_id_list.append(ptf_port_id)
 
-
     asic_id = upStreamDutHost.get_asic_id_from_namespace(upstream_namespace)
     upstream_router_mac = upStreamDutHost.asic_instance(asic_id).get_router_mac()
     asic_id = downStreamDutHost.get_asic_id_from_namespace(downstream_namespace)
     downstream_router_mac = downStreamDutHost.asic_instance(asic_id).get_router_mac()
 
-
     setup_information = {
-       "test_mirror_v4": test_mirror_v4,
-       "test_mirror_v6": test_mirror_v6,
+        "test_mirror_v4": test_mirror_v4,
+        "test_mirror_v6": test_mirror_v6,
         "ingress": {
             "ingress": test_ingress_mirror_on_ingress_acl,
             "egress": test_egress_mirror_on_ingress_acl
@@ -220,13 +239,15 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
     downstream_dest_ports = []
     downstream_dest_ports_ptf_id = []
     downstream_dest_lag_name = None if topo_type in DOWNSTREAM_SERVER_TOPO else []
-    get_port_info(downstream_ports, downstream_dest_ports, downstream_dest_ports_ptf_id, downstream_dest_lag_name,  mg_facts_list[0])
+    get_port_info(downstream_ports, downstream_dest_ports, downstream_dest_ports_ptf_id,
+                  downstream_dest_lag_name,  mg_facts_list[0])
 
     # Upstream traffic
     upstream_dest_ports = []
     upstream_dest_ports_ptf_id = []
     upstream_dest_lag_name = []
-    get_port_info(upstream_ports, upstream_dest_ports, upstream_dest_ports_ptf_id, upstream_dest_lag_name, mg_facts_list[1] if len(mg_facts_list) == 2 else mg_facts_list[0])
+    get_port_info(upstream_ports, upstream_dest_ports, upstream_dest_ports_ptf_id,
+                  upstream_dest_lag_name, mg_facts_list[1] if len(mg_facts_list) == 2 else mg_facts_list[0])
 
     setup_information.update(
         {
@@ -238,17 +259,17 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
                 "egress_router_mac": downstream_router_mac,
                 "src_port": upstream_ports[0],
                 "src_port_lag_name": upstream_dest_lag_name[0],
-                "src_port_ptf_id": str(mg_facts_list[1]["minigraph_ptf_indices"][upstream_ports[0]]) \
-                                   if len(mg_facts_list) == 2 else \
-                                   str(mg_facts_list[0]["minigraph_ptf_indices"][upstream_ports[0]]),
+                "src_port_ptf_id": (str(mg_facts_list[1]["minigraph_ptf_indices"][upstream_ports[0]])
+                                    if len(mg_facts_list) == 2 else
+                                    str(mg_facts_list[0]["minigraph_ptf_indices"][upstream_ports[0]])),
                 # For T0 topo, downstream traffic ingress from the first portchannel,
                 # and mirror packet egress from other portchannels
-                "dest_port": upstream_dest_ports[1:] \
-                if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_ports,
-                "dest_port_ptf_id": upstream_dest_ports_ptf_id[1:] \
-                if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_ports_ptf_id,
-                "dest_port_lag_name": upstream_dest_lag_name[1:] \
-                if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_lag_name,
+                "dest_port": (upstream_dest_ports[1:]
+                              if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_ports),
+                "dest_port_ptf_id": (upstream_dest_ports_ptf_id[1:]
+                                     if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_ports_ptf_id),
+                "dest_port_lag_name": (upstream_dest_lag_name[1:]
+                                       if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_lag_name),
                 "remote_namespace": upstream_namespace if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_namespace,
                 "everflow_namespace": upstream_namespace
             },
@@ -286,6 +307,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo):
 
     return setup_information
 
+
 def get_t2_duthost(duthosts, tbinfo):
     """
     Generate setup information dictionary for T2 topologies.
@@ -314,7 +336,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request):
     elif 't2' in topo:
         pytest_assert(len(duthosts) > 1, "Test must run on whole chassis")
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
-        
+
     setup_information = gen_setup_information(downstream_duthost, upstream_duthost, tbinfo)
 
     # Disable BGP so that we don't keep on bouncing back mirror packets
@@ -355,7 +377,8 @@ def add_route(duthost, prefix, nexthop, namespace):
         namespace: namsespace/asic to add the route
 
     """
-    duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"ip route {} {} tag 1\"".format(prefix, nexthop), namespace))
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+        "vtysh -c \"configure terminal\" -c \"ip route {} {} tag 1\"".format(prefix, nexthop), namespace))
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -370,7 +393,9 @@ def remove_route(duthost, prefix, nexthop, namespace):
         namespace: namsespace/asic to remove the route
 
     """
-    duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"configure terminal\" -c \"no ip route {} {} tag 1\"".format(prefix, nexthop), namespace))
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+        "vtysh -c \"configure terminal\" -c \"no ip route {} {} tag 1\"".format(prefix, nexthop), namespace))
+
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_arp_responder(duthost, ptfhost, setup_info):
@@ -429,7 +454,8 @@ def get_neighbor_info(duthost, dest_port, tbinfo, resolved=True):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     for bgp_peer in mg_facts["minigraph_bgp"]:
-        if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
+        if bgp_peer["name"] == mg_facts["minigraph_neighbors"][dest_port]["name"] \
+                and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
             peer_ip = bgp_peer["addr"]
             break
 
@@ -509,8 +535,6 @@ class BaseEverflowTest(object):
             dict: Information about the mirror session configuration.
         """
         duthost_set = BaseEverflowTest.get_duthost_set(setup_info)
-
-       
 
         policer = "TEST_POLICER"
         # Create a mirror session with the TEST_POLICER attached
@@ -602,7 +626,8 @@ class BaseEverflowTest(object):
             if self.acl_stage() == "egress":
                 inst_list = duthost.get_sonic_host_and_frontend_asic_instance()
                 for inst in inst_list:
-                    self.apply_acl_table_config(duthost, table_name, "MIRROR", config_method, bind_namespace=getattr(inst, 'namespace', None))
+                    self.apply_acl_table_config(duthost, table_name, "MIRROR", config_method,
+                                                bind_namespace=getattr(inst, 'namespace', None))
 
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method)
 
@@ -613,9 +638,11 @@ class BaseEverflowTest(object):
             if self.acl_stage() == "egress":
                 inst_list = duthost.get_sonic_host_and_frontend_asic_instance()
                 for inst in inst_list:
-                    self.remove_acl_table_config(duthost, "EVERFLOW_EGRESS", config_method, bind_namespace=getattr(inst, 'namespace', None))
+                    self.remove_acl_table_config(duthost, "EVERFLOW_EGRESS", config_method,
+                                                 bind_namespace=getattr(inst, 'namespace', None))
 
-    def apply_acl_table_config(self, duthost, table_name, table_type, config_method, bind_ports_list=None, bind_namespace=None):
+    def apply_acl_table_config(self, duthost, table_name, table_type, config_method,
+                               bind_ports_list=None, bind_namespace=None):
         if config_method == CONFIG_MODE_CLI:
             command = "config acl add table {} {}".format(table_name, table_type)
 
@@ -718,10 +745,8 @@ class BaseEverflowTest(object):
         # namespace are different then traffic mirror will go across namespace via (backend asic)
         # else via same namespace(asic)
 
-
         src_port_set = set()
         src_port_metadata_map = {}
-
 
         if 't2' in setup['topo']:
             if valid_across_namespace is True:
@@ -748,18 +773,17 @@ class BaseEverflowTest(object):
                 src_port_set.add(dest_ports[0])
                 src_port_metadata_map[dest_ports[0]] = (None, 2)
 
-
         # Loop through Source Port Set and send traffic on each source port of the set
         for src_port in src_port_set:
             expected_mirror_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
-                                                                  setup,
-                                                                  duthost,
-                                                                  direction,
-                                                                  mirror_packet,
-                                                                  src_port_metadata_map[src_port][1])
+                                                                                 setup,
+                                                                                 duthost,
+                                                                                 direction,
+                                                                                 mirror_packet,
+                                                                                 src_port_metadata_map[src_port][1])
 
             if src_port_metadata_map[src_port][0]:
-                
+
                 mirror_packet_sent = mirror_packet.copy()
 
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
@@ -771,11 +795,9 @@ class BaseEverflowTest(object):
 
             if expect_recv:
                 time.sleep(STABILITY_BUFFER)
-                _, received_packet = testutils.verify_packet_any_port(
-                ptfadapter,
-                expected_mirror_packet,
-                ports=dest_ports
-                )
+                _, received_packet = testutils.verify_packet_any_port(ptfadapter,
+                                                                      expected_mirror_packet,
+                                                                      ports=dest_ports)
 
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
@@ -805,7 +827,8 @@ class BaseEverflowTest(object):
                     inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
 
                 logging.info("Expected inner packet: %s", mirror_packet_sent.summary())
-                pytest_assert(inner_packet.pkt_match(mirror_packet_sent), "Mirror payload does not match received packet")
+                pytest_assert(inner_packet.pkt_match(mirror_packet_sent),
+                              "Mirror payload does not match received packet")
             else:
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
 
@@ -841,7 +864,8 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
         if duthost.facts["asic_type"] == 'marvell':
             expected_packet.set_do_not_care_scapy(packet.IP, "id")
-        if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
+        if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or \
+                duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
 
         # The fanout switch may modify this value en route to the PTF so we should ignore it, even
