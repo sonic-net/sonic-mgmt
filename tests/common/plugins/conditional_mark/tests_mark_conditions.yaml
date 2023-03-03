@@ -364,6 +364,16 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms."
     conditions:
       - "asic_type=='cisco-8000'"
+  skip:
+    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
 
 #######################################
 #####            fdb              #####
