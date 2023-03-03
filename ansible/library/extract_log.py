@@ -150,6 +150,7 @@ def convert_date(fct, s):
 
     return dt
 
+
 def comparator(l, r):
     nl = extract_number(l[0])
     nr = extract_number(r[0])
