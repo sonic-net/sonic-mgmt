@@ -3,7 +3,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, utils_vlan_intfs_dict_add, utils_create_test_vlans
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, \
+                                                utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
@@ -14,14 +15,14 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-DHCP_RELAY_TIMEOUT   = 120
-DHCP_RELAY_INTERVAL  = 10
-SETUP_ENV_CP         = "test_setup_checkpoint"
-CONFIG_ADD_DEFAULT   = "config_add_default"
+DHCP_RELAY_TIMEOUT = 120
+DHCP_RELAY_INTERVAL = 10
+SETUP_ENV_CP = "test_setup_checkpoint"
+CONFIG_ADD_DEFAULT = "config_add_default"
 
 
 @pytest.fixture(scope="module")
-def vlan_intfs_dict(utils_vlan_intfs_dict_orig):
+def vlan_intfs_dict(utils_vlan_intfs_dict_orig):        # noqa F811
     """ Add two new vlan for test
 
     If added vlan_id is 108 and 109, it will add a dict as below
@@ -73,8 +74,8 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
     logger.info("CREATE TEST VLANS START")
     vlan_ports_list = [{
         'dev': first_avai_vlan_port,
-        'port_index' : 'unused',
-        'permit_vlanid' : [ key for key, value in vlan_intfs_dict.items() ],
+        'port_index': 'unused',
+        'permit_vlanid': [key for key, value in vlan_intfs_dict.items()],
         'pvid': 0
     }]
 
@@ -130,14 +131,13 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
     Sample output for CONFIG_ADD_DEFAULT:
     admin@vlab-01:~$ sonic-db-cli CONFIG_DB keys "VLAN|*" | xargs -I {} sonic-db-cli CONFIG_DB hgetall "{}"
     {'vlanid': '108', 'dhcp_servers@': '192.0.108.1,192.0.108.2,192.0.108.3,192.0.108.4'}
-    {'dhcp_servers@': '192.0.0.1,192.0.0.2,192.0.0.3,192.0.0.4', 'dhcpv6_servers@': 'fc02:2000::1,fc02:2000::2,fc02:2000::3,fc02:2000::4', 'vlanid': '1000'}
+    {'dhcp_servers@': '192.0.0.1,192.0.0.2,192.0.0.3,192.0.0.4',
+     'dhcpv6_servers@': 'fc02:2000::1,fc02:2000::2,fc02:2000::3,fc02:2000::4', 'vlanid': '1000'}
     {'vlanid': '109', 'dhcp_servers@': '192.0.109.1,192.0.109.2,192.0.109.3,192.0.109.4'}
     """
     cmds = 'sonic-db-cli CONFIG_DB keys "VLAN|*" | xargs -I {} sonic-db-cli CONFIG_DB hgetall "{}"'
     dhcp_server_info = duthost.shell(cmds)
-    pytest_assert(not dhcp_server_info['rc'],
-        "Failed to get dhcp relay info from all vlan"
-    )
+    pytest_assert(not dhcp_server_info['rc'], "Failed to get dhcp relay info from all vlan")
     return dhcp_server_info['stdout']
 
 
@@ -182,7 +182,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
 
 @pytest.fixture(scope="module")
 def vlan_intfs_list(vlan_intfs_dict):
-    return [ key for key, value in vlan_intfs_dict.items() if not value['orig'] ]
+    return [key for key, value in vlan_intfs_dict.items() if not value['orig']]
 
 
 def ensure_dhcp_server_up(duthost):
@@ -216,7 +216,10 @@ def dhcp_severs_by_vlanid(duthost, vlanid):
     Sample output
     admin@vlab-01:~$ docker exec dhcp_relay ps -fp 73
     UID          PID    PPID  C STIME TTY          TIME CMD
-    root          73       1  0 06:39 pts/0    00:00:00 /usr/sbin/dhcrelay -d -m discard -a %h:%p %P --name-alias-map-file /tmp/port-name-alias-map.txt -id Vlan1000 -iu Vlan100 -iu PortChannel0001 -iu PortChannel0002 -iu PortChannel0003 -iu PortChannel0004 192.0.0.1 192.0.0.2 192.0.0.3 192.0.0.4
+    root          73       1  0 06:39 pts/0    00:00:00 /usr/sbin/dhcrelay -d -m discard -a %h:%p %P \
+                                               --name-alias-map-file /tmp/port-name-alias-map.txt -id Vlan1000 \
+                                               -iu Vlan100 -iu PortChannel0001 -iu PortChannel0002 -iu PortChannel0003 \
+                                               -iu PortChannel0004 192.0.0.1 192.0.0.2 192.0.0.3 192.0.0.4
     """
     cmds = "docker exec dhcp_relay supervisorctl status \
         | grep 'dhcpv4-relay-Vlan{} ' | awk '{{print $4}}'".format(vlanid)
@@ -252,7 +255,7 @@ def test_dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
     dhcp_rm_nonexist_json = [
         {
             "op": "remove",
-            "path": "/VLAN/Vlan"+ str(vlan_intfs_list[0]) + "/dhcp_servers/5"
+            "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/5"
         }]
 
     tmpfile = generate_tmpfile(rand_selected_dut)
@@ -371,6 +374,7 @@ def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
 
         expected_content_list = ["192.0." + str(vlan_intfs_list[0]) + ".8"]
         unexpected_content_list = ["192.0." + str(vlan_intfs_list[0]) + ".1"]
-        expect_res_success_by_vlanid(rand_selected_dut, vlan_intfs_list[0], expected_content_list, unexpected_content_list)
+        expect_res_success_by_vlanid(rand_selected_dut, vlan_intfs_list[0],
+                                     expected_content_list, unexpected_content_list)
     finally:
         delete_tmpfile(rand_selected_dut, tmpfile)

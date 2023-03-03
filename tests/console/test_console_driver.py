@@ -6,6 +6,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 def test_console_driver(duthost):
     """
     Test console driver are well installed.
