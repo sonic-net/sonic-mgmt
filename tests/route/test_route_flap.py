@@ -37,6 +37,7 @@ TOR_SUBNET_SIZE = 128
 M0_SUBNET_SIZE = 64
 MX_SUBNET_SIZE = 64
 
+
 def get_prefix_len_by_net_size(net_size):
     return 32 - int(math.log(net_size, 2))
 
@@ -241,7 +242,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
     ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
 
-    exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)   
+    exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)
     logger.info("exabgp_port = %d" % exabgp_port)
     ping_ip = route_to_ping.strip('/{}'.format(route_prefix_len))
 
