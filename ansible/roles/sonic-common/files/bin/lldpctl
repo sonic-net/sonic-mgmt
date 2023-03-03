@@ -1,2 +1,2 @@
 #!/bin/bash
-docker exec -it lldp lldpctl "$@"
+docker exec -t lldp lldpctl "$@"
