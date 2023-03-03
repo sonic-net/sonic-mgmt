@@ -42,7 +42,7 @@ DB_CHECK_FIELD_MAP = {
 class DBChecker:
 
     def __init__(self, duthost, state, health, intf_names='all',
-        cable_type=CableType.default_type, verify_db_timeout=30):
+                 cable_type=CableType.default_type, verify_db_timeout=30):
         """
         Create a DBChecker object
         Args:
