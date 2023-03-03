@@ -37,7 +37,6 @@ TOR_SUBNET_SIZE = 128
 M0_SUBNET_SIZE = 64
 MX_SUBNET_SIZE = 64
 
-
 def get_prefix_len_by_net_size(net_size):
     return 32 - int(math.log(net_size, 2))
 
@@ -53,6 +52,7 @@ def get_route_prefix_len(tbinfo, common_config):
 
 
 @pytest.fixture(scope="module")
+@pytest.mark.topology('t0', 'm0', 'mx')
 def announce_default_routes(localhost, tbinfo):
     """
     Fixture that will withdraw and announce default routes at teardown
@@ -104,11 +104,18 @@ def get_ptf_send_ports(duthost, tbinfo, dev_port):
     return send_port
 
 
-def check_route(duthost, asic_idx, route, dev_port, operation):
-    cmd = "vtysh -c 'show ip route {} json'".format(route)
-    ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_idx)) if asic_idx else cmd
-    out = json.loads(duthost.shell(ns_cmd)['stdout'])
-    result = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops'] if 'interfaceName' in nexthop.keys()]
+def check_route(duthost, route, dev_port, operation):
+    result = []
+    if duthost.is_multi_asic:
+        cmd = ' -c "show ip route {} json"'.format(route)
+        for asichost in duthost.frontend_asics:
+            out = json.loads(asichost.run_vtysh(cmd)['stdout'])
+            routes_per_asic = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops'] if 'interfaceName' in nexthop.keys()]
+            result.extend(routes_per_asic)
+    else:
+        cmd = 'vtysh -c "show ip route {} json"'.format(route)
+        out = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
+        result = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops'] if 'interfaceName' in nexthop.keys()]
     if operation == WITHDRAW:
         pytest_assert(dev_port not in result, "Route {} was not withdraw {}".format(route, result))
     else:
@@ -143,11 +150,10 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
-def get_ip_route_info(duthost, asic_idx):
-    cmd = "vtysh -c 'show ip bgp ipv4 json'"
-    ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(asic_idx)) if asic_idx else cmd
-    out = json.loads(duthost.shell(ns_cmd)['stdout'])
-    return out['routes']
+def get_ip_route_info(asichost):
+    cmd = " -c 'show ip bgp ipv4 json'"
+    output = json.loads(asichost.run_vtysh(cmd)['stdout'])
+    return output['routes']
 
 
 def get_exabgp_port(duthost, tbinfo, dev_port):
@@ -160,12 +166,12 @@ def is_dualtor(tbinfo):
     """Check if the testbed is dualtor."""
     return "dualtor" in tbinfo["topo"]["name"]
 
-def test_route_flap(duthost, enum_rand_one_frontend_asic_index, tbinfo, ptfhost, ptfadapter,
-                    get_function_conpleteness_level, announce_default_routes):
+def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
+                    get_function_conpleteness_level, announce_default_routes, enum_rand_one_frontend_asic_index):
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get('common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
-
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
     # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
@@ -189,31 +195,49 @@ def test_route_flap(duthost, enum_rand_one_frontend_asic_index, tbinfo, ptfhost,
 
     #get dst_prefix_list and aspath
     routes = namedtuple('routes', ['route', 'aspath'])
-    iproute_info = get_ip_route_info(duthost, enum_rand_one_frontend_asic_index)
+    iproute_info = get_ip_route_info(asichost)
     dst_prefix_list = []
     route_prefix_len = get_route_prefix_len(tbinfo, common_config)
+    
     for route_prefix in iproute_info:
         if "/{}".format(route_prefix_len) in route_prefix:
-            route_type = iproute_info[route_prefix][0].get('pathfrom', 'external')
-            if route_type == 'internal':
-                continue
-            # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
-            multipath = iproute_info[route_prefix][0].get('multipath', False)
-            if multipath:
-                out = iproute_info[route_prefix][0].get('path').split(' ')
-                aspath = out[1:]
-                entry = routes(route_prefix, ' '.join(aspath))
-                dst_prefix_list.append(entry)
-
+            # multia-asics can have more than 1 routes in iproute_info[route_prefix], even single-asics have only 1
+            for route_per_prefix in iproute_info[route_prefix]:
+                #route_type = route_per_prefix.get('pathFrom', 'external')
+                #if route_type == 'external':
+                #    import pdb; pdb.set_trace()
+                # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
+                multipath = route_per_prefix.get('multipath', False)
+                if multipath:
+                    out = route_per_prefix.get('path').split(' ')
+                    aspath = out[1:]
+                    # every asic could have only 1 external route??
+                    entry = routes(route_prefix, ' '.join(aspath))
+                    dst_prefix_list.append(entry)
     route_to_ping = dst_prefix_list[0].route
-    dev = json.loads(duthost.shell('show ip route {} json'.format(route_to_ping))['stdout'])
-    nexthops = dev[route_to_ping][0]['nexthops']
-    for nexthop in nexthops:
-        if 'interfaceName' in nexthop.keys() and 'IB' not in nexthop['interfaceName']:
-            dev_port = nexthop['interfaceName']
-            break
-    pytest_assert(dev_port, "dev_port not exist")
+    cmd = ' -c "show ip route {} json"'.format(route_to_ping)
+    dev_port = None
+    if duthost.is_multi_asic:
+        for asic in duthost.frontend_asics:
+            dev = json.loads(asic.run_vtysh(cmd)['stdout'])
+            nexthops = dev[route_to_ping][0]['nexthops']
+            internal_peers = duthost.get_internal_bgp_peers()
+            for hop in nexthops:
+                is_internal_hop = hop['ip'] in internal_peers.keys()
+                if 'interfaceName' in hop.keys() and 'IB' not in hop['interfaceName'] and not is_internal_hop:
+                    dev_port = hop['interfaceName']
+                    break
+            if dev_port:
+                break
+    else:
+        dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
+        nexthops = dev[route_to_ping][0]['nexthops']
+        for hop in nexthops:
+            if 'interfaceName' in hop.keys() and 'IB' not in hop['interfaceName']:
+                dev_port = hop['interfaceName']
+                break
 
+    pytest_assert(dev_port, "dev_port not exist")
     route_nums = len(dst_prefix_list)
     logger.info("route_nums = %d" % route_nums)
 
@@ -221,7 +245,7 @@ def test_route_flap(duthost, enum_rand_one_frontend_asic_index, tbinfo, ptfhost,
     ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
     ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
 
-    exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)
+    exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)   
     logger.info("exabgp_port = %d" % exabgp_port)
     ping_ip = route_to_ping.strip('/{}'.format(route_prefix_len))
 
@@ -230,11 +254,12 @@ def test_route_flap(duthost, enum_rand_one_frontend_asic_index, tbinfo, ptfhost,
         normalized_level = 'basic'
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-
+    #accommadate for multi-asic which could have ~5k routes
+    divisor = 100 if duthost.is_multi_asic else 10
     while loop_times > 0:
         logger.info("Round %s" % loop_times)
         route_index = 1
-        while route_index < route_nums/10:
+        while route_index < route_nums/divisor:
             dst_prefix = dst_prefix_list[route_index].route
             aspath = dst_prefix_list[route_index].aspath
 
@@ -245,14 +270,14 @@ def test_route_flap(duthost, enum_rand_one_frontend_asic_index, tbinfo, ptfhost,
             # Check if route is withdraw with first 3 routes
             if route_index < 4:
                 time.sleep(1)
-                check_route(duthost, enum_rand_one_frontend_asic_index, dst_prefix, dev_port, WITHDRAW)
+                check_route(duthost, dst_prefix, dev_port, WITHDRAW)
             send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             announce_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is announced with first 3 routes
             if route_index < 4:
                 time.sleep(1)
-                check_route(duthost, enum_rand_one_frontend_asic_index, dst_prefix, dev_port, ANNOUNCE)
+                check_route(duthost, dst_prefix, dev_port, ANNOUNCE)
             send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             route_index += 1
