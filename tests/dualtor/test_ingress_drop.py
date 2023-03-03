@@ -3,19 +3,19 @@ import json
 import pytest
 import random
 
-from tests.common.dualtor.dual_tor_common import active_active_ports
-from tests.common.dualtor.dual_tor_common import active_standby_ports
+from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa F401
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
-from tests.common.dualtor.dual_tor_common import cable_type
+from tests.common.dualtor.dual_tor_common import cable_type                 # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.dual_tor_utils import upper_tor_host
-from tests.common.dualtor.dual_tor_utils import lower_tor_host
+from tests.common.dualtor.dual_tor_utils import upper_tor_host              # noqa F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host              # noqa F401
 from tests.common.dualtor.dual_tor_utils import verify_upstream_traffic
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor      # noqa F401
 from tests.common.dualtor.nic_simulator_control import ForwardingState
-from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator
-from tests.common.dualtor.nic_simulator_control import stop_nic_simulator
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder
+from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator    # noqa F401
+from tests.common.dualtor.nic_simulator_control import stop_nic_simulator               # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                      # noqa F401
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -28,11 +28,11 @@ pytestmark = [
 
 @pytest.fixture
 def setup_mux(
-    active_active_ports, cable_type,
-    mux_status_from_nic_simulator,
-    stop_nic_simulator,
-    toggle_all_simulator_ports_to_lower_tor,
-    upper_tor_host, lower_tor_host
+    active_active_ports, cable_type,            # noqa F811
+    mux_status_from_nic_simulator,              # noqa F811
+    stop_nic_simulator,                         # noqa F811
+    toggle_all_simulator_ports_to_lower_tor,    # noqa F811
+    upper_tor_host, lower_tor_host              # noqa F811
 ):
 
     def _check_active_active_mux_status_from_nic_simulator(upper_tor_forwarding_state, lower_tor_forwarding_state):
@@ -69,8 +69,9 @@ def setup_mux(
             lower_tor_host.shell("config mux mode standby all")
 
             pytest_assert(
-                wait_until(15, 3, 3, _check_active_active_mux_status_from_nic_simulator, ForwardingState.ACTIVE, ForwardingState.STANDBY),
-                "failed to toggle the lower ToR 'active-active' ports to standby" 
+                wait_until(15, 3, 3, _check_active_active_mux_status_from_nic_simulator,
+                           ForwardingState.ACTIVE, ForwardingState.STANDBY),
+                "failed to toggle the lower ToR 'active-active' ports to standby"
             )
 
             stop_nic_simulator()
@@ -79,7 +80,7 @@ def setup_mux(
 
             pytest_assert(
                 wait_until(15, 3, 3, _check_active_active_mux_status_from_dut, upper_tor_host, ForwardingState.STANDBY),
-                "failed to toggle the lower ToR 'active-active' ports to standby" 
+                "failed to toggle the lower ToR 'active-active' ports to standby"
             )
     except Exception:
         _restore_mux_config_auto()
@@ -91,7 +92,7 @@ def setup_mux(
 
 
 @pytest.fixture
-def selected_mux_port(cable_type, active_active_ports, active_standby_ports):
+def selected_mux_port(cable_type, active_active_ports, active_standby_ports):       # noqa F811
     all_ports = []
     if cable_type == CableType.active_active:
         all_ports = active_active_ports
@@ -102,7 +103,7 @@ def selected_mux_port(cable_type, active_active_ports, active_standby_ports):
 
 
 @pytest.mark.enable_active_active
-def test_ingress_drop(cable_type, ptfadapter, setup_mux, tbinfo, selected_mux_port, upper_tor_host):
+def test_ingress_drop(cable_type, ptfadapter, setup_mux, tbinfo, selected_mux_port, upper_tor_host):    # noqa F811
     """
     Aims to verify if orchagent installs ingress drop ACL when the port comes to standby.
 
@@ -118,7 +119,8 @@ def test_ingress_drop(cable_type, ptfadapter, setup_mux, tbinfo, selected_mux_po
 
     'active-active':
         1) make the lower ToR standby
-        2) stop the nic simulator to freeze the forwarding behavior(for upstream packet, the mux only send packet to the upper ToR)
+        2) stop the nic simulator to freeze the forwarding behavior
+            (for upstream packet, the mux only send packet to the upper ToR)
         3) make the upper ToR standby
         4) send upstream packets from the ptf
         5) verify those upstream packets could be received from the T1 injected ptf ports connected to the upper ToR
@@ -127,6 +129,8 @@ def test_ingress_drop(cable_type, ptfadapter, setup_mux, tbinfo, selected_mux_po
     server_ip = "10.10.0.100"
 
     if cable_type == CableType.active_active:
-        verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, selected_mux_port, server_ip, pkt_num=10, drop=False)
+        verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, selected_mux_port,
+                                server_ip, pkt_num=10, drop=False)
     elif cable_type == CableType.active_standby:
-        verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, selected_mux_port, server_ip, pkt_num=10, drop=True)
+        verify_upstream_traffic(upper_tor_host, ptfadapter, tbinfo, selected_mux_port,
+                                server_ip, pkt_num=10, drop=True)

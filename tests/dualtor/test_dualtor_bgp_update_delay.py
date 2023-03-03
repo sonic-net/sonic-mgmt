@@ -32,8 +32,8 @@ def log_bgp_updates(duthost, iface, save_path):
         start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
-    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
-    stop_pcap = "sudo pkill -SIGINT -f '%s'" %  start_pcap
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
+    stop_pcap = "sudo pkill -SIGINT -f '%s'" % start_pcap
     start_pcap = "nohup {} &".format(start_pcap)
     duthost.shell(start_pcap)
     try:
@@ -59,7 +59,7 @@ def select_bgp_neighbor(ip_version, duthost):
         elif ip_version == "ipv6" and not is_ipv4_neighbor:
             break
     else:
-        raise ValueError("Failed to find")            
+        raise ValueError("Failed to find")
 
     return bgp_neighbor, neighbor_details
 
@@ -73,14 +73,16 @@ def restore_bgp_sessions(duthost):
 
 def test_dualtor_bgp_update_delay(duthost, ip_version, select_bgp_neighbor):
     """
-    This testcase aims to validate that, for a dualtor T0, after startup BGP sessions, it should always sleep for 10 seconds
-    delay before sending out any BGP updates. And the BGP updates come from T1s should comes earlier than the BGP update to
-    the T1s, so the T0 could always have default route ready before T1 learns any route from T0.
+    This testcase aims to validate that, for a dualtor T0, after startup BGP sessions,
+    it should always sleep for 10 seconds delay before sending out any BGP updates.
+    And the BGP updates come from T1s should comes earlier than the BGP update to the T1s,
+    so the T0 could always have default route ready before T1 learns any route from T0.
     """
 
     def verify_bgp_session(duthost, bgp_neighbor, admin, state):
         bgp_facts = duthost.bgp_facts()["ansible_facts"]["bgp_neighbors"]
-        return bgp_neighbor in bgp_facts and bgp_facts[bgp_neighbor]["admin"] == admin and bgp_facts[bgp_neighbor]["state"] == state
+        return bgp_neighbor in bgp_facts and bgp_facts[bgp_neighbor]["admin"] == admin \
+            and bgp_facts[bgp_neighbor]["state"] == state
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""
