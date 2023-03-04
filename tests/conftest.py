@@ -640,6 +640,7 @@ def creds_on_dut(duthost):
         r'breakout_speed\.yml',
         r'lag_fanout_ports_test_vars\.yml',
         r'qos\.yml',
+        r'sku-sensors-data\.yml',
         r'mux_simulator_http_port_map\.yml'
         ]
     files = glob.glob("../ansible/group_vars/all/*.yml")
@@ -1419,7 +1420,7 @@ def pytest_generate_tests(metafunc):        # noqa E302
 
     if 'topo_scenario' in metafunc.fixturenames:
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
-            metafunc.parametrize('topo_scenario', ['m0_t0_scenario', 'm0_t1_scenario'], scope='module')
+            metafunc.parametrize('topo_scenario', ['m0_vlan_scenario', 'm0_l3_scenario'], scope='module')
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
@@ -1710,6 +1711,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
         rtn_dict['basicParams']["platform_asic"] = duthost.facts['platform_asic']
 
     yield rtn_dict
+
 
 @pytest.fixture(scope='module')
 def duts_minigraph_facts(duthosts, tbinfo):

@@ -45,20 +45,20 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
         for asic_cfg_facts in cfg_facts:
             if duthost.facts['switch_type'] == "voq":
                 switch_type = "voq"
-                dut_inband_intfs.setdefault(duthost.hostname,[]).extend(asic_cfg_facts[1]['VOQ_INBAND_INTERFACE'])
-            dut_port_channels.setdefault(duthost.hostname,{}).update(asic_cfg_facts[1].get('PORTCHANNEL', {}))
+                dut_inband_intfs.setdefault(duthost.hostname, []).extend(asic_cfg_facts[1]['VOQ_INBAND_INTERFACE'])
+            dut_port_channels.setdefault(duthost.hostname, {}).update(asic_cfg_facts[1].get('PORTCHANNEL', {}))
     sys_neigh = {}
     if switch_type == "voq":
         voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
         for entry in voq_db.dump_neighbor_table():
             neigh_key = entry.split('|')
             neigh_ip = neigh_key[-1]
-            sys_neigh[neigh_ip] = {'duthost_name' : neigh_key[-4], 'intf' : neigh_key[-2]}
+            sys_neigh[neigh_ip] = {'duthost_name': neigh_key[-4], 'intf': neigh_key[-2]}
 
     for duthost in duthosts.frontend_nodes:
         cfg_facts = duts_cfg_facts[duthost.hostname]
         mg_facts = duts_mg_facts[duthost.hostname]
-        for list_index, asic_cfg_facts_tuple in  enumerate(cfg_facts):
+        for list_index, asic_cfg_facts_tuple in enumerate(cfg_facts):
             asic_index, asic_cfg_facts = asic_cfg_facts_tuple
             asic = duthost.asic_instance(asic_index)
 
@@ -83,11 +83,15 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                         if ifname in po:
                             # ignore the prefix, if the prefix nexthop is not a frontend port
                             if 'members' in po[ifname]:
-                                if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
+                                if 'role' in ports[po[ifname]['members'][0]] and \
+                                        ports[po[ifname]['members'][0]]['role'] == 'Int':
                                     if len(oports) == 0:
                                         skip = True
                                 else:
-                                    oports.append([str(mg_facts[list_index][1]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                    oports.append(
+                                          [str(mg_facts[list_index][1]['minigraph_ptf_indices'][x])
+                                           for x in po[ifname]['members']]
+                                        )
                                     skip = False
                         else:
                             if ifname in ports:
@@ -105,27 +109,32 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
 
                                     # Skip route for inband neighbors.
                                     if remote_neigh_intf in dut_inband_intfs[remote_duthost_name]:
-                                        skip =True
+                                        skip = True
                                         continue
 
                                     remote_dut_mg_facts = duts_mg_facts[remote_duthost_name]
                                     if remote_neigh_intf.startswith('PortChannel'):
                                         # The nexthop is a system lag.
-                                        if dut_port_channels[remote_duthost_name].has_key(remote_neigh_intf):
+                                        if remote_neigh_intf in dut_port_channels[remote_duthost_name]:
                                             oport_list = []
-                                            for a_member in dut_port_channels[remote_duthost_name][remote_neigh_intf]['members']:
+                                            for a_member in dut_port_channels[
+                                                    remote_duthost_name][remote_neigh_intf]['members']:
                                                 for a_asic_mg_facts in remote_dut_mg_facts:
                                                     if a_member in a_asic_mg_facts['minigraph_port_indices']:
-                                                        oport_list.append(str(a_asic_mg_facts['minigraph_ptf_indices'][a_member]))
+                                                        oport_list.append(
+                                                            str(a_asic_mg_facts['minigraph_ptf_indices'][a_member])
+                                                        )
                                             oports.append(oport_list)
                                         else:
-                                            pytest_assert(False, "Coundn't find {} in the config of {}".format(
-                                               remote_neigh_intf, remote_duthost_name) )
+                                            pytest_assert(False, "Couldn't find {} in the config of {}".format(
+                                               remote_neigh_intf, remote_duthost_name))
                                     else:
                                         # The nexthop is a system neighbor.
                                         for a_asic_mg_facts in remote_dut_mg_facts:
                                             if remote_neigh_intf in a_asic_mg_facts['minigraph_port_indices']:
-                                                oports.append([str(a_asic_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])])
+                                                oports.append(
+                                                    [str(a_asic_mg_facts['minigraph_ptf_indices'][remote_neigh_intf])]
+                                                )
                                 else:
                                     oports.append([str(mg_facts[list_index][1]['minigraph_ptf_indices'][ifname])])
                                     skip = False
@@ -198,13 +207,19 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
                     if ifname in po:
                         # ignore the prefix, if the prefix nexthop is not a frontend port
                         if 'members' in po[ifname]:
-                            if 'role' in ports[po[ifname]['members'][0]] and ports[po[ifname]['members'][0]]['role'] == 'Int':
+                            if 'role' in ports[po[ifname]['members'][0]] and \
+                                    ports[po[ifname]['members'][0]]['role'] == 'Int':
                                 skip = True
                             else:
-                                oports.append([str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                                oports.append(
+                                    [str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][x])
+                                     for x in po[ifname]['members']]
+                                )
                     else:
                         if ifname in sub_interfaces:
-                            oports.append([str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][ifname.split('.')[0]])])
+                            oports.append(
+                                [str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][ifname.split('.')[0]])]
+                            )
                         elif ifname in ports:
                             if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
                                 skip = True
@@ -274,7 +289,9 @@ def fib_info_files(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_
     files = []
     if tbinfo['topo']['type'] != "t2":
         for dut_index, duthost in enumerate(duthosts):
-            fib_info = get_fib_info(duthost, duts_config_facts[duthost.hostname], duts_minigraph_facts[duthost.hostname])
+            fib_info = get_fib_info(
+                duthost, duts_config_facts[duthost.hostname], duts_minigraph_facts[duthost.hostname]
+            )
             if 'test_decap' in testname and 'backend' in tbinfo['topo']['name']:
                 # if it is a storage backend topo and the testcase is test_decap
                 # add default routes with empty nexthops as the prefix matching failover
@@ -315,7 +332,9 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
     files = []
     if tbinfo['topo']['type'] != "t2":
         for dut_index, duthost in enumerate(duthosts):
-            fib_info = get_fib_info(duthost, duts_config_facts[duthost.hostname], duts_minigraph_facts[duthost.hostname])
+            fib_info = get_fib_info(
+                duthost, duts_config_facts[duthost.hostname], duts_minigraph_facts[duthost.hostname]
+            )
             if 'test_basic_fib' in testname and 'backend' in tbinfo['topo']['name']:
                 # if it is a storage backend topology(bt0 or bt1) and testcase is test_basic_fib
                 # add a default route as failover in the prefix matching
