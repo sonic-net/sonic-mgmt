@@ -9,7 +9,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lg
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_portmap_file
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_portmap_file, ptf_test_port_map
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
@@ -322,8 +322,8 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
 # The test case is to verify src-ip, dst-ip, src-port, dst-port and ip-proto of inner_frame in a IPinIP packet are
 # used as hash keys
 def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_per_function, hash_keys, ptfhost, ipver,
-              tbinfo, mux_server_url, router_macs,
-              ignore_ttl, single_fib_for_duts):
+              tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,
+              duts_running_config_facts, duts_minigraph_facts):
     # Skip test on none T1 testbed
     pytest_require('t1' == tbinfo['topo']['type'], "The test case runs on T1 topology")
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -340,11 +340,11 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
             "hash_test.IPinIPHashTest",
             platform_dir="ptftests",
             params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
-                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url),
+                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
+                                                           duts_running_config_facts, duts_minigraph_facts),
                     "hash_keys": hash_keys,
                     "src_ip_range": ",".join(src_ip_range),
                     "dst_ip_range": ",".join(dst_ip_range),
-                    "router_macs": router_macs,
                     "vlan_ids": VLANIDS,
                     "ignore_ttl":ignore_ttl,
                     "single_fib_for_duts": single_fib_for_duts,
@@ -357,8 +357,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
 # The test is to verify the hashing logic is not using unexpected field as keys
 # Only inner frame length is tested at this moment
 def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files_per_function, ptfhost, ipver,
-              tbinfo, mux_server_url, router_macs,
-              ignore_ttl, single_fib_for_duts):
+              tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,
+              duts_running_config_facts, duts_minigraph_facts):
     hash_keys = ['inner_length']
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(ipver, timestamp)
@@ -374,11 +374,11 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
             "hash_test.IPinIPHashTest",
             platform_dir="ptftests",
             params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
-                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url),
+                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
+                                                           duts_running_config_facts, duts_minigraph_facts),
                     "hash_keys": hash_keys,
                     "src_ip_range": ",".join(src_ip_range),
                     "dst_ip_range": ",".join(dst_ip_range),
-                    "router_macs": router_macs,
                     "vlan_ids": VLANIDS,
                     "ignore_ttl":ignore_ttl,
                     "single_fib_for_duts": single_fib_for_duts,
