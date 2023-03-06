@@ -15,7 +15,7 @@ function show_help_and_exit()
     echo ""
     echo "    -h -?              : get this help"
     echo "    -t <token>         : specify the token for accessing the sonic-mgmt-int repository"
-    echo "    -g <github branch> : specify branch of the https://github.com/Azure/sonic-mgmt repository"
+    echo "    -g <github branch> : specify branch of the https://github.com/sonic-net/sonic-mgmt repository"
     echo "    -l <local branch>  : specify local branch of the sonic-mgmt-int repository"
     echo "    -p <push branch>   : specify the targed branch of the sonic-mgmt-int repository to be pushed to after merge"
     echo "    -f                 : force push to target branch after merge"
@@ -64,7 +64,7 @@ function prepare_merge()
 
     git remote remove github  || true
     git remote remove mssonic || true
-    git remote add github  https://github.com/Azure/sonic-mgmt
+    git remote add github  https://github.com/sonic-net/sonic-mgmt
     git remote add mssonic "https://reposync:${TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
     git remote remove origin || true
 
