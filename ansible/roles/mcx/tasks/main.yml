@@ -1,0 +1,26 @@
+##############################################################################################
+### playbook to deploy the mcx switch
+### Use this playbook to deploy the console configurations of mcx switch in SONiC testbed
+################################################################################################
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  delegate_to: localhost
+  tags: always
+
+- name: Check that OS is SONiC
+  fail: msg="Cannot confirm OS is SONiC"
+  when: os is not defined or os != "sonic"
+
+- name: prepare mgmt device admin login info
+  set_fact: ansible_ssh_user={{ mgmt_admin_user }} ansible_ssh_pass={{ mgmt_admin_password }}
+
+- name: Move json config to console server
+  template:
+    src: console_config.j2
+    dst: /tmp/console_config.json
+
+- name: Import config
+  shell: sonic-cfggen -j /tmp/console_config.json --write-to-db
+
+- name: Save config
+  shell: config save -y

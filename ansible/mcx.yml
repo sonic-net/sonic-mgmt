@@ -1,0 +1,9 @@
+#Example:
+# ansible-playbook mcx.yml -i lab --limit str-7215-10 -b --vault-password-file ~/password.txt
+- hosts: [mgmt]
+  gather_facts: no
+  roles:
+    - mcx
+
+
+
