@@ -42,7 +42,7 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     intf_config_facts = duthost.config_facts(source='persistent',
                                              asic_index=intf_asic.asic_index)['ansible_facts']
     portchannel = intf_config_facts['PORTCHANNEL'].keys()[0]
-    portchannel_members = intf_config_facts['PORTCHANNEL'][portchannel].get('members')
+    portchannel_members = intf_config_facts['PORTCHANNEL_MEMBER'][portchannel].keys()
     portchannel_ips = [x.split("/")[0].lower() for x in intf_config_facts['PORTCHANNEL_INTERFACE'][portchannel].keys()]
     bgp_nbrs_to_portchannel = []
     for a_bgp_neighbor in intf_config_facts['BGP_NEIGHBOR']:
