@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.dualtor.mux_simulator_control import check_mux_status, validate_check_result
-from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval
+from tests.common.dualtor.dual_tor_utils import recover_linkmgrd_probe_interval, update_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
 
 
@@ -13,8 +13,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-
-DEFAUL_INTERVAL_V4 = 100
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -45,7 +43,7 @@ def get_interval_v4(duthosts):
 def reset_link_prober_interval_v4(duthosts, get_interval_v4, tbinfo):
     cur_interval_v4 = get_interval_v4
     if cur_interval_v4 is not None:
-        update_linkmgrd_probe_interval(duthosts, tbinfo, DEFAUL_INTERVAL_V4)
+        recover_linkmgrd_probe_interval(duthosts, tbinfo)
 
     # NOTE: as there is no icmp_responder running, the device is stucked in consistently probing
     # the mux status. If there is a previous case that has fixture run_icmp_responder called, the
