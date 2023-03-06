@@ -148,6 +148,7 @@ class ReloadTest(BaseTest):
         self.check_param('default_ip_range', '', required=True)
         self.check_param('vlan_ip_range', '', required=True)
         self.check_param('lo_prefix', '', required=False)
+        self.check_param('peer_lo_prefix', '', required=False)
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
         self.check_param('arista_vms', [], required=True)
         self.check_param('min_bgp_gr_timeout', 15, required=False)
@@ -314,12 +315,13 @@ class ReloadTest(BaseTest):
                 pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
 
         if self.test_params['is_dualtor']:
+            dualtor_pc_ifaces = []
             peer_active_portchannels = list()
             for neighbor_info in list(self.peer_vm_dut_map.values()):
                 peer_active_portchannels.append(neighbor_info["dut_portchannel"])
-            dualtor_pc_ifaces = pc_ifaces
+            dualtor_pc_ifaces.extend(pc_ifaces)
             for pc in peer_portchannel_content.values():
-                if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
+                if not pc['name'] in peer_pc_in_vlan and pc['name'] in peer_active_portchannels:
                     dualtor_pc_ifaces.extend([self.peer_port_indices[member] for member in pc['members']])
             return ports_per_vlan, pc_ifaces, dualtor_pc_ifaces
 
@@ -431,11 +433,8 @@ class ReloadTest(BaseTest):
         for key in peer_content.keys():
             if 'ARISTA' in key:
                 self.peer_vm_dut_map[key] = dict()
-                self.peer_vm_dut_map[key]['mgmt_addr'] = content[key]['mgmt_addr']
                 # initialize all the port mapping
                 self.peer_vm_dut_map[key]['dut_ports'] = []
-                self.peer_vm_dut_map[key]['neigh_ports'] = []
-                self.peer_vm_dut_map[key]['ptf_ports'] = []
 
     def get_portchannel_info(self):
         content = self.read_json('portchannel_ports_file')
@@ -453,7 +452,6 @@ class ReloadTest(BaseTest):
                 for vm_key in self.peer_vm_dut_map.keys():
                     if member in self.peer_vm_dut_map[vm_key]['dut_ports']:
                         self.peer_vm_dut_map[vm_key]['dut_portchannel'] = str(key)
-                        self.peer_vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
 
     def get_neigh_port_info(self):
@@ -465,10 +463,8 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
         for key in peer_content.keys():
-            if content[key]['name'] in self.peer_vm_dut_map.keys():
-                self.peer_vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
-                self.peer_vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
-                self.peer_vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
+            if peer_content[key]['name'] in self.peer_vm_dut_map.keys():
+                self.peer_vm_dut_map[peer_content[key]['name']]['dut_ports'].append(str(key))
 
     def build_peer_mapping(self):
         '''
@@ -603,7 +599,7 @@ class ReloadTest(BaseTest):
         self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
         self.build_peer_mapping()
         if self.test_params['is_dualtor']:
-            self.ports_per_vlan, self.portchannel_ports, self.dualtor_portchannel_ports = self.read_vlan_portchannel_ports()
+            self.ports_per_vlan, self.peer_ports_per_vlan, self.portchannel_ports, self.dualtor_portchannel_ports = self.read_vlan_portchannel_ports()
         else:
             self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
         self.vlan_ports = []
@@ -621,6 +617,8 @@ class ReloadTest(BaseTest):
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_mac = self.test_params['vlan_mac']
         self.lo_prefix = self.test_params['lo_prefix']
+        if "is_dualtor" in self.test_params:
+            self.peer_lo_prefix = self.test_params['peer_lo_prefix']
 
         if self.kvm_test:
             self.log("This test is for KVM platform")
@@ -802,7 +800,10 @@ class ReloadTest(BaseTest):
 
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
+        self.ping_dualtor_dut_packets = []
         dut_lo_ipv4 = self.lo_prefix.split('/')[0]
+        peer_dut_lo_ipv4 = self.peer_lo_prefix.split('/')[0]
+
         for src_port in self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
             src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
@@ -810,7 +811,12 @@ class ReloadTest(BaseTest):
                                         eth_dst=self.vlan_mac,
                                         ip_src=src_addr,
                                         ip_dst=dut_lo_ipv4)
+            peer_packet = simple_icmp_packet(eth_src=src_mac,
+                                        eth_dst=self.vlan_mac,
+                                        ip_src=src_addr,
+                                        ip_dst=peer_dut_lo_ipv4)
             self.ping_dut_packets.append((src_port, str(packet)))
+            self.ping_dut_packets.append((src_port, str(peer_packet)))
 
         exp_packet = simple_icmp_packet(eth_src=self.vlan_mac,
                                         ip_src=dut_lo_ipv4,
@@ -1615,12 +1621,12 @@ class ReloadTest(BaseTest):
         This method filters packets which are unique (i.e. no floods).
         """
         if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and \
-        (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.other_dut_mac or packet[scapyall.Ether].src == self.vlan_mac or packet[scapyall.Ether].src == self.other_vlan_mac):
+        (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac):
             # This is a unique (no flooded) received packet.
             # for dualtor, t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
             self.unique_id.append(int(str(packet[scapyall.TCP].payload)))
             return True
-        elif (packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.other_dut_mac or packet[scapyall.Ether].dst == self.vlan_mac or packet[scapyall.Ether].dst == self.other_vlan_mac):
+        elif (packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac):
             # This is a sent packet.
             # for dualtor, t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
             return True
@@ -2028,9 +2034,14 @@ class ReloadTest(BaseTest):
         return total_rcv_pkt_cnt
 
     def pingDut(self):
+        self.dualtor_ping_dut_pkts = 20
         if "allow_mac_jumping" in self.test_params and self.test_params['allow_mac_jumping']:
             for i in xrange(self.ping_dut_pkts):
                 testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_macjump_packet)
+        elif "is_dualtor" in self.test_params:
+            for i in xrange(self.dualtor_ping_dut_pkts):
+                src_port, packet = random.choice(self.ping_dut_packets)
+                testutils.send_packet(self, src_port, packet)
         else:
             for i in xrange(self.ping_dut_pkts):
                 src_port, packet = random.choice(self.ping_dut_packets)

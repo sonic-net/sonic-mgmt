@@ -189,6 +189,8 @@ class AdvancedReboot:
         self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
                                         self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+        self.rebootData['peer_lo_prefix'] = "%s/%s" % (self.other_mgFacts['minigraph_lo_interfaces'][0]['addr'],
+                                        self.other_mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         if "dualtor" in self.getTestbedType() and self.other_duthost is not None:
             other_config_facts = self.other_duthost.get_running_config_facts()
@@ -641,7 +643,7 @@ class AdvancedReboot:
             'neigh_port_info': copy.deepcopy(self.mgFacts['minigraph_neighbors']),
         }
 
-        dualtor_tesData = {
+        dualtor_testData = {
             'peer_portchannel_interfaces': copy.deepcopy(self.other_mgFacts['minigraph_portchannels']),
             'peer_ports': copy.deepcopy(self.other_mgFacts['minigraph_ptf_indices']),
             'other_duthost_peer_dev_info': copy.deepcopy(self.other_mgFacts['minigraph_devices']),
@@ -649,8 +651,7 @@ class AdvancedReboot:
         }
 
         if "dualtor" in self.getTestbedType():
-            testData.append(dualtor_tesData)
-        
+            testData.update(dualtor_testData)
 
         if isinstance(rebootOper, SadOperation):
             logger.info('Running setup handler for reboot operation {}'.format(rebootOper))
@@ -705,6 +706,7 @@ class AdvancedReboot:
             "vlan_mac": self.rebootData['vlan_mac'],
             "other_vlan_mac": self.rebootData['other_vlan_mac'],
             "lo_prefix": self.rebootData['lo_prefix'],
+            "peer_lo_prefix": self.rebootData['peer_lo_prefix'],
             "default_ip_range": self.rebootData['default_ip_range'],
             "vlan_ip_range": self.rebootData['vlan_ip_range'],
             "lo_v6_prefix": self.rebootData['lo_v6_prefix'],
