@@ -602,18 +602,6 @@ class OVSBridge(object):
             return result
 
 
-def validate_request_certificate(response):
-    """Decorator to validate client certificate."""
-    def _validate_request_certificate(rpc_func):
-        @functools.wraps(rpc_func)
-        def _decorated(nic_simulator, request, context):
-            logging.debug("Validate client certificate")
-            # TODO: Add client authentication
-            return rpc_func(nic_simulator, request, context)
-        return _decorated
-    return _validate_request_certificate
-
-
 class InterruptableThread(threading.Thread):
     """Thread class that can be interrupted by Exception raised."""
 
@@ -662,7 +650,6 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
         self.server = None
         self.thread = None
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
     def QueryAdminForwardingPortState(self, request, context):
         logging.debug("QueryAdminForwardingPortState: request to server %s from client %s\n",
                       self.nic_addr, context.peer())
@@ -675,7 +662,6 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                       context.peer(), self.nic_addr, response)
         return response
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
     def SetAdminForwardingPortState(self, request, context):
         logging.debug("SetAdminForwardingPortState: request to server %s from client %s\n",
                       self.nic_addr, context.peer())
@@ -688,22 +674,18 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                       context.peer(), self.nic_addr, response)
         return response
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.OperationReply())
     def QueryOperationPortState(self, request, context):
         # TODO: Add QueryOperationPortState implementation
         return nic_simulator_grpc_service_pb2.OperationReply()
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.LinkStateReply())
     def QueryLinkState(self, request, context):
         # TODO: add QueryLinkState implementation
         return nic_simulator_grpc_service_pb2.LinkStateReply()
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.ServerVersionReply())
     def QueryServerVersion(self, request, context):
         # TODO: add QueryServerVersion implementation
         return nic_simulator_grpc_service_pb2.ServerVersionReply()
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.DropReply())
     def SetDrop(self, request, context):
         logging.debug("SetDrop: request to server %s from client %s\n", self.nic_addr, context.peer())
         portids, directions, recover = request.portid, request.direction, request.recover

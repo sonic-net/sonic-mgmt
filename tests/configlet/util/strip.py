@@ -4,9 +4,8 @@ import json
 import sys
 import xml.etree.ElementTree as ET
 
-from helpers import *
-from common import *
-
+from helpers import log_info, log_debug
+from common import tor_data, config_db_data_orig, managed_files, report_error   # noqa F401
 from tempfile import mkstemp
 
 ns_val = "Microsoft.Search.Autopilot.Evolution"
@@ -78,19 +77,19 @@ def get_local_ports():
 def get_tor_data(root):
     global tor_data
     tor_name = tor_data["name"]["remote"]
-         
+
     for bgp in root.iter(ns+"BGPSession"):
         ip_start = ""
-        ip_end = "" 
+        ip_end = ""
         holdtime = ""
         keepalive = ""
         found_start = False
         found_end = False
-        for e in bgp: 
-            if e.tag == ns+"StartPeer": 
-                ip_start = e.text 
-            elif e.tag == ns+"EndPeer": 
-                ip_end = e.text 
+        for e in bgp:
+            if e.tag == ns+"StartPeer":
+                ip_start = e.text
+            elif e.tag == ns+"EndPeer":
+                ip_end = e.text
             elif e.tag == ns+"StartRouter":
                 if e.text == tor_name:
                     found_start = True
@@ -101,7 +100,7 @@ def get_tor_data(root):
                 holdtime = e.text
             elif e.tag == ns+"KeepAliveTime":
                 keepalive = e.text
-            
+
         if found_start:
             ip = tor_data["ip"] if ":" not in ip_start else tor_data["ipv6"]
             ip["remote"] = ip_start
@@ -119,8 +118,8 @@ def get_tor_data(root):
         if (tor_data["ip"]["remote"]) and (tor_data["ipv6"]["remote"]):
             break
 
-    log_debug("From BGPSession: ip: {}".format( str(tor_data["ip"])))
-    log_debug("From BGPSession: ipv6: {}".format( str(tor_data["ipv6"])))
+    log_debug("From BGPSession: ip: {}".format(str(tor_data["ip"])))
+    log_debug("From BGPSession: ipv6: {}".format(str(tor_data["ipv6"])))
 
     for e_rtr in root.iter(ns_a+"BGPRouterDeclaration"):
         asn = ""
@@ -137,13 +136,13 @@ def get_tor_data(root):
     log_debug("asn = {}".format(str(tor_data["bgp_info"])))
 
     for dev_link in root.iter(ns+"DeviceLinkBase"):
-        link = { "local": "", "remote": "" }
+        link = {"local": "", "remote": ""}
         port_start = ""
-        port_end = "" 
+        port_end = ""
         found_start = False
         found_end = False
-        for e in dev_link: 
-            if e.tag == ns+"ElementType": 
+        for e in dev_link:
+            if e.tag == ns+"ElementType":
                 if e.text != "DeviceInterfaceLink":
                     found_start = False
                     found_end = False
@@ -154,16 +153,16 @@ def get_tor_data(root):
             elif e.tag == ns+"EndDevice":
                 if e.text == tor_name:
                     found_end = True
-            if e.tag == ns+"StartPort": 
-                port_start = e.text 
-            elif e.tag == ns+"EndPort": 
-                port_end = e.text 
+            if e.tag == ns+"StartPort":
+                port_start = e.text
+            elif e.tag == ns+"EndPort":
+                port_end = e.text
         if found_start:
             link["remote"] = port_start
-            link["local"] = { "alias": port_end }
+            link["local"] = {"alias": port_end}
         elif found_end:
             link["remote"] = port_end
-            link["local"] = { "alias": port_start }
+            link["local"] = {"alias": port_start}
 
         if link["remote"]:
             if not tor_data["links"][0]["remote"]:
@@ -221,14 +220,14 @@ def get_tor_data(root):
                         tor_data["hwsku"]["remote"] = hwsku
                         tor_data["mgmt_ip"]["remote"] = mgmt_ip
                         cnt += 1
-                if cnt == 2:                     
+                if cnt == 2:
                     break
     log_debug("hwsku={}".format(str(tor_data["hwsku"])))
     log_debug("mgmt_ip={}".format(str(tor_data["mgmt_ip"])))
 
     if (not tor_data["hwsku"]["local"]):
         report_error("Failed to find hwsku for local={}".
-                format(tor_data["hwsku"]["local"]))
+                     format(tor_data["hwsku"]["local"]))
 
 
 def remove_bgp_session(root):
@@ -273,7 +272,6 @@ def remove_bgp_router(root):
             break
 
 
-
 def remove_bgp_peer(root):
     host_name = tor_data["name"]["local"]
     to_remove = []
@@ -306,12 +304,12 @@ def remove_bgp_peer(root):
                 if e.text in ip_lst:
                     log_info("Peer remove: {}".format(e.text))
                     to_remove.append(peer)
-    
+
     for peer in to_remove:
         peers.remove(peer)
         log_info("BGPPeer removed")
 
-    
+
 def remove_remote_device_dataplane_info(dpg):
     tor_name = tor_data["name"]["remote"]
 
@@ -429,13 +427,13 @@ def remove_dataplane_entries(dpg):
 
     if info is None:
         report_error("Unable to fnd DeviceDataPlaneInfo for local {}".
-                format(host_name))
+                     format(host_name))
 
     remove_port_channel(info)
     remove_IP_interfaces(info)
     remove_ACL_interfaces(info)
 
-    
+
 def update_cpg(root):
     remove_bgp_session(root)
     remove_bgp_router(root)
@@ -475,7 +473,7 @@ def update_png(root):
                 if e.text == tor_name:
                     to_remove.append(link)
                     break
-    
+
     for link in to_remove:
         lst_links.remove(link)
         log_info("DeviceInterfaceLink removed")
@@ -526,7 +524,7 @@ def main(tmpdir):
         get_tor_name(root)
 
     get_tor_data(root)
-    log_info ("tor_data: {}".format(json.dumps(tor_data, indent=4, default=str)))
+    log_info("tor_data: {}".format(json.dumps(tor_data, indent=4, default=str)))
 
     update_cpg(root)
 
@@ -538,8 +536,3 @@ def main(tmpdir):
     log_debug("managed_files={}".format(json.dumps(managed_files, indent=4)))
 
     return 0
-
-
-
-
-
