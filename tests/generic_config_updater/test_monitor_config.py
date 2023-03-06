@@ -47,8 +47,7 @@ def bgp_monitor_config_cleanup(duthost):
     cmds.append('sonic-db-cli CONFIG_DB del "ACL_RULE|{}|{}"'
                 .format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
     cmds.append('sonic-db-cli CONFIG_DB del "MIRROR_SESSION|{}"'.format(MONITOR_CONFIG_MIRROR_SESSION))
-    cmds.append('sonic-db-cli CONFIG_DB del "POLICER|everflow_static_policer"'      # noqa F523
-                .format(MONITOR_CONFIG_POLICER))
+    cmds.append('sonic-db-cli CONFIG_DB del "POLICER|{}"'.format(MONITOR_CONFIG_POLICER))
 
     output = duthost.shell_cmds(cmds=cmds)['results']
     for res in output:
