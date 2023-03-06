@@ -14,6 +14,7 @@ function show_help_and_exit()
     echo "When -p is not specified, the script will not push any tags"
     echo ""
     echo "    -h -?              : get this help"
+    echo "    -u <username>      : specify the username for accessing the sonic-mgmt-int repository"
     echo "    -t <token>         : specify the token for accessing the sonic-mgmt-int repository"
     echo "    -g <github branch> : specify branch of the https://github.com/sonic-net/sonic-mgmt repository"
     echo "    -l <local branch>  : specify local branch of the sonic-mgmt-int repository"
@@ -27,6 +28,7 @@ function show_help_and_exit()
 function prepare_parameters()
 {
     SCRIPT=$0
+    USERNAME=""
     TOKEN=""
     GITHUB_BRANCH=""
     LOCAL_BRANCH=""
@@ -39,7 +41,7 @@ function prepare_parameters()
 function validate_parameters()
 {
     RET=0
-    if [[ -z ${TOKEN} || -z ${GITHUB_BRANCH} || -z ${LOCAL_BRANCH} ]]; then
+    if [[ -z ${USERNAME} || -z ${TOKEN} || -z ${GITHUB_BRANCH} || -z ${LOCAL_BRANCH} ]]; then
         RET=1
     fi
 
@@ -65,7 +67,7 @@ function prepare_merge()
     git remote remove github  || true
     git remote remove mssonic || true
     git remote add github  https://github.com/sonic-net/sonic-mgmt
-    git remote add mssonic "https://reposync:${TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
+    git remote add mssonic "https://${USERNAME}:${TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
     git remote remove origin || true
 
     git fetch github
@@ -161,10 +163,13 @@ function add_post_merge_tag()
 
 prepare_parameters
 
-while getopts "h?:t:g:l:p:fa" opt; do
+while getopts "h?:u:t:g:l:p:fa" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
+            ;;
+        u )
+            USERNAME=${OPTARG}
             ;;
         t )
             TOKEN=${OPTARG}

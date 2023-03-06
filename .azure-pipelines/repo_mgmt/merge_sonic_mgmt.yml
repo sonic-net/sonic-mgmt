@@ -48,8 +48,9 @@ stages:
                 force="-f"
               fi
 
-              /bin/bash .azure-pipelines/repo_mgmt/merge.sh -t ${MSSONIC_TOKEN} -g ${{ parameters.GITHUB_BRANCH }} -l ${{ parameters.LOCAL_BRANCH }} -p ${{ parameters.PUSH_BRANCH }} ${force}
+              /bin/bash .azure-pipelines/repo_mgmt/merge.sh -u ${MSSONIC_USERNAME} -t ${MSSONIC_TOKEN} -g ${{ parameters.GITHUB_BRANCH }} -l ${{ parameters.LOCAL_BRANCH }} -p ${{ parameters.PUSH_BRANCH }} ${force}
 
             env:
+              MSSONIC_USERNAME: $(MSSONIC_USERNAME)
               MSSONIC_TOKEN: $(MSSONIC_TOKEN)
             displayName: Merge sonic-mgmt
