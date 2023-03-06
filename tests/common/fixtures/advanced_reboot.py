@@ -189,24 +189,21 @@ class AdvancedReboot:
         self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
                                         self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
-        self.rebootData['peer_lo_prefix'] = "%s/%s" % (self.other_mgFacts['minigraph_lo_interfaces'][0]['addr'],
-                                        self.other_mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
-
-        if "dualtor" in self.getTestbedType() and self.other_duthost is not None:
-            other_config_facts = self.other_duthost.get_running_config_facts()
-            self.rebootData['other_dut_mac'] = self.other_duthost.facts['router_mac']
-            other_vlan_mac = self.rebootData['dut_mac']
-            other_vlan_table = other_config_facts.get('VLAN', None)
-            if other_vlan_table:
-                other_vlan_name = list(other_vlan_table.keys())[0]
-                other_vlan_mac = other_vlan_table[other_vlan_name].get('mac', self.rebootData['other_dut_mac'])
-            self.rebootData['other_vlan_mac'] = other_vlan_mac
+        if "dualtor" in self.getTestbedType():
+            self.rebootData['shared_lo_prefix'] = "%s/%s" % (self.other_mgFacts['minigraph_lo_interfaces'][2]['addr'],
+                                        self.other_mgFacts['minigraph_lo_interfaces'][2]['prefixlen'])
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
             if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
                 vlan_ip_range[vlan['attachto']] = vlan['subnet']
         self.rebootData['vlan_ip_range'] = json.dumps(vlan_ip_range)
+
+        peer_vlan_ip_range = dict()
+        for vlan in self.other_mgFacts['minigraph_vlan_interfaces']:
+            if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
+                peer_vlan_ip_range[vlan['attachto']] = vlan['subnet']
+        self.rebootData['peer_vlan_ip_range'] = json.dumps(peer_vlan_ip_range)
 
         self.rebootData['dut_username'] = self.creds['sonicadmin_user']
         self.rebootData['dut_password'] = self.creds['sonicadmin_password']
@@ -644,6 +641,7 @@ class AdvancedReboot:
         }
 
         dualtor_testData = {
+            'peer_vlan_interfaces': copy.deepcopy(self.other_mgFacts['minigraph_vlans']),
             'peer_portchannel_interfaces': copy.deepcopy(self.other_mgFacts['minigraph_portchannels']),
             'peer_ports': copy.deepcopy(self.other_mgFacts['minigraph_ptf_indices']),
             'other_duthost_peer_dev_info': copy.deepcopy(self.other_mgFacts['minigraph_devices']),
@@ -699,16 +697,16 @@ class AdvancedReboot:
             "portchannel_ports_file": self.rebootData['portchannel_interfaces_file'],
             "peer_portchannel_ports_file": self.rebootData['peer_portchannel_interfaces_file'],
             "vlan_ports_file": self.rebootData['vlan_interfaces_file'],
+            "peer_vlan_ports_file": self.rebootData['peer_vlan_interfaces_file'],
             "ports_file": self.rebootData['ports_file'],
             "peer_ports_file": self.rebootData['peer_ports_file'],
             "dut_mac": self.rebootData['dut_mac'],
-            "other_dut_mac": self.rebootData['other_dut_mac'],
             "vlan_mac": self.rebootData['vlan_mac'],
-            "other_vlan_mac": self.rebootData['other_vlan_mac'],
             "lo_prefix": self.rebootData['lo_prefix'],
-            "peer_lo_prefix": self.rebootData['peer_lo_prefix'],
+            "shared_lo_prefix": self.rebootData['shared_lo_prefix'],
             "default_ip_range": self.rebootData['default_ip_range'],
             "vlan_ip_range": self.rebootData['vlan_ip_range'],
+            "peer_vlan_ip_range": self.rebootData['peer_vlan_ip_range'],
             "lo_v6_prefix": self.rebootData['lo_v6_prefix'],
             "arista_vms": self.rebootData['arista_vms'],
             "nexthop_ips": self.rebootData['nexthop_ips'],
