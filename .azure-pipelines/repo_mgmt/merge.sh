@@ -14,8 +14,6 @@ function show_help_and_exit()
     echo "When -p is not specified, the script will not push any tags"
     echo ""
     echo "    -h -?              : get this help"
-    echo "    -u <username>      : specify the username for accessing the sonic-mgmt-int repository"
-    echo "    -t <token>         : specify the token for accessing the sonic-mgmt-int repository"
     echo "    -g <github branch> : specify branch of the https://github.com/sonic-net/sonic-mgmt repository"
     echo "    -l <local branch>  : specify local branch of the sonic-mgmt-int repository"
     echo "    -p <push branch>   : specify the targed branch of the sonic-mgmt-int repository to be pushed to after merge"
@@ -28,8 +26,6 @@ function show_help_and_exit()
 function prepare_parameters()
 {
     SCRIPT=$0
-    USERNAME=""
-    TOKEN=""
     GITHUB_BRANCH=""
     LOCAL_BRANCH=""
     PUSH_BRANCH=""
@@ -41,7 +37,7 @@ function prepare_parameters()
 function validate_parameters()
 {
     RET=0
-    if [[ -z ${USERNAME} || -z ${TOKEN} || -z ${GITHUB_BRANCH} || -z ${LOCAL_BRANCH} ]]; then
+    if [[ -z ${GITHUB_BRANCH} || -z ${LOCAL_BRANCH} ]]; then
         RET=1
     fi
 
@@ -61,24 +57,21 @@ function validate_parameters()
 function prepare_merge()
 {
     echo "=== Prepare git branchs for merge ==="
-    git config --global user.email "svc-acs@microsoft.com"
-    git config --global user.name "Sonic Automation"
+    git config --global user.email "mssonic@microsoft.com"
+    git config --global user.name "Internal Build Service"
 
     git remote remove github  || true
-    git remote remove mssonic || true
     git remote add github  https://github.com/sonic-net/sonic-mgmt
-    git remote add mssonic "https://${USERNAME}:${TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
-    git remote remove origin || true
 
     git fetch github
-    git fetch mssonic
+    git fetch origin
 
     # Checkout a temp branch "foo", so that we can cleanup the branches to be worked on.
-    git checkout -b foo mssonic/internal || true
+    git checkout -b foo origin/internal || true
 
     # Prepare the local branch
     git branch -D ${LOCAL_BRANCH} || true
-    git checkout -b ${LOCAL_BRANCH} mssonic/${LOCAL_BRANCH}
+    git checkout -b ${LOCAL_BRANCH} origin/${LOCAL_BRANCH}
     git branch -D foo || true   # cleanup the temp "foo" branch
 }
 
@@ -97,7 +90,7 @@ function add_pre_merge_tag()
         echo "=== Add a tag ${curr_tag} to current ${LOCAL_BRANCH} before merging ==="
         git tag ${curr_tag}
         RC=0
-        git push mssonic ${curr_tag} || RC=$?
+        git push origin ${curr_tag} || RC=$?
         if [[ ${RC} != 0 ]]; then
             git tag -d ${curr_tag}
             exit 11
@@ -115,7 +108,7 @@ function merge_push()
     RC=0
     git pull github ${GITHUB_BRANCH} --no-edit || RC=$?    # Use git pull to merge from Github
     if [[ ${RC} != 0 ]]; then
-        git reset --hard mssonic/${LOCAL_BRANCH} || true
+        git reset --hard origin/${LOCAL_BRANCH} || true
         echo "=== Merging failed, possibly there are conflicts ==="
         exit 12
     fi
@@ -128,9 +121,9 @@ function merge_push()
     fi
 
     RC=0
-    git push ${force} mssonic HEAD:${PUSH_BRANCH} || RC=$?
+    git push --verbose ${force} origin HEAD:${PUSH_BRANCH} || RC=$?
     if [[ ${RC} != 0 ]]; then
-        git reset --hard mssonic/${LOCAL_BRANCH} || true
+        git reset --hard origin/${LOCAL_BRANCH} || true
         echo "=== Pushing failed ==="
         exit 13
     fi
@@ -153,7 +146,7 @@ function add_post_merge_tag()
         echo "=== Add a tag ${post_tag} to branch ${LOCAL_BRANCH} after mergeing ==="
         git tag ${post_tag}
         RC=0
-        git push mssonic ${post_tag} || RC=$?   # Add a post-merge tag
+        git push origin ${post_tag} || RC=$?   # Add a post-merge tag
         if [[ ${RC} != 0 ]]; then
             git tag -d ${post_tag}
             exit 14
@@ -163,16 +156,10 @@ function add_post_merge_tag()
 
 prepare_parameters
 
-while getopts "h?:u:t:g:l:p:fa" opt; do
+while getopts "h?:g:l:p:fa" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
-            ;;
-        u )
-            USERNAME=${OPTARG}
-            ;;
-        t )
-            TOKEN=${OPTARG}
             ;;
         g )
             GITHUB_BRANCH=${OPTARG}

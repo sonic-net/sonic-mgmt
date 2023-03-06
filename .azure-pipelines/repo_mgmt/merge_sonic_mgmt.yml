@@ -36,11 +36,13 @@ stages:
       - job: sonic_mgmt_merge
         timeoutInMinutes: 30
         variables:
-          - group: GIT_SECRETS
           - name: skipComponentGovernanceDetection
             value: true
 
         steps:
+
+          - checkout: self
+            persistCredentials: true
 
           - script: |
               force=""
@@ -48,9 +50,5 @@ stages:
                 force="-f"
               fi
 
-              /bin/bash .azure-pipelines/repo_mgmt/merge.sh -u ${MSSONIC_USERNAME} -t ${MSSONIC_TOKEN} -g ${{ parameters.GITHUB_BRANCH }} -l ${{ parameters.LOCAL_BRANCH }} -p ${{ parameters.PUSH_BRANCH }} ${force}
-
-            env:
-              MSSONIC_USERNAME: $(MSSONIC_USERNAME)
-              MSSONIC_TOKEN: $(MSSONIC_TOKEN)
+              /bin/bash .azure-pipelines/repo_mgmt/merge.sh -g ${{ parameters.GITHUB_BRANCH }} -l ${{ parameters.LOCAL_BRANCH }} -p ${{ parameters.PUSH_BRANCH }} ${force}
             displayName: Merge sonic-mgmt
