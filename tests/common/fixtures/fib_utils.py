@@ -189,7 +189,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
         asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
         duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
-        po = asic_cfg_facts.get('PORTCHANNEL', {})
+        po = asic_cfg_facts.get('PORTCHANNEL_MEMBER', {})
         ports = asic_cfg_facts.get('PORT', {})
         sub_interfaces = asic_cfg_facts.get('VLAN_SUB_INTERFACE', {})
 
@@ -206,14 +206,14 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
                 for ifname in ifnames:
                     if ifname in po:
                         # ignore the prefix, if the prefix nexthop is not a frontend port
-                        if 'members' in po[ifname]:
-                            if 'role' in ports[po[ifname]['members'][0]] and \
-                                    ports[po[ifname]['members'][0]]['role'] == 'Int':
+                        if len(po[ifname].keys()) > 0:
+                            if 'role' in ports[po[ifname].keys()[0]] and \
+                                    ports[po[ifname].keys()[0]]['role'] == 'Int':
                                 skip = True
                             else:
                                 oports.append(
                                     [str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][x])
-                                     for x in po[ifname]['members']]
+                                     for x in po[ifname].keys()]
                                 )
                     else:
                         if ifname in sub_interfaces:

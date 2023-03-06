@@ -170,8 +170,8 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     ptf_ports_available_in_topo = {
         port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()
     }
-    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
-    config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
+    config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
+    config_port_channel_members = [port_channel.keys() for port_channel in config_portchannels.values()]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
     ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo and
              config_ports[port].get('admin_status', 'down') == 'up' and port not in config_port_channel_member_ports]
@@ -266,7 +266,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
     config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
-    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
+    config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
     config_ports_vlan = collections.defaultdict(list)
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
@@ -292,7 +292,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
         for po in config_portchannels:
             vlan_port = {
                 'dev': po,
-                'port_index': [config_port_indices[member] for member in config_portchannels[po]['members']],
+                'port_index': [config_port_indices[member] for member in config_portchannels[po].keys()],
                 'permit_vlanid': []
             }
             if po in config_ports_vlan:
