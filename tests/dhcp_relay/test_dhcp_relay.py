@@ -14,6 +14,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -263,6 +264,34 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
             assert "{}:67".format(iface) in output, "{} is not found in {}".format("{}:67".format(iface), output)
 
 
+def start_dhcp_monitor_debug_counter(duthost):
+    cmd = duthost.shell("ps aux | grep dhcpmon", module_ignore_errors=True)["stdout"]
+    match = re.search(r'/usr/sbin/dhcpmon.*', cmd)
+
+    program_name = "dhcpmon"
+    program_pid_list = []
+    program_list = duthost.shell("docker exec {} supervisorctl status".format("dhcp_relay"), module_ignore_errors=True)
+    for program_info in program_list["stdout_lines"]:
+        if program_info.find(program_name) != -1:
+            program_status = program_info.split()[1]
+            if program_status == "RUNNING":
+                program_pid = int(program_info.split()[3].strip(','))
+                program_pid_list.append(program_pid)
+
+    for program_pid in program_pid_list:
+        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format("dhcp_relay", program_pid))
+        # Get the exit code of 'kill' command
+        exit_code = kill_cmd_result["rc"]
+        pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
+
+    if match:
+        dhcpmon_cmd = match.group(0)
+        dhcpmon_cmd += " -D"
+        duthost.shell("docker exec -d dhcp_relay %s" % dhcpmon_cmd)
+    else:
+        assert False, "Failed to to start dhcpmon in debug counter mode\n"
+
+
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
@@ -272,6 +301,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
+
+    start_dhcp_monitor_debug_counter(duthost)
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
@@ -298,6 +329,23 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+
+
+def test_dhcp_monitor_counter(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    expected_agg_counter_message = "[    Agg-Vlan1000- Current rx/tx] Discover:         1/        4, Offer:         1/        1, Request:         3/        12, ACK:         1/        1"
+    expected_agg_counter_message = expected_agg_counter_message.replace('[', '\\[').replace(']', '\\]').replace('\\', '\\\\')
+
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_dhcp_monitor_counter")
+    loganalyzer.match_regex = []
+    loganalyzer.match_regex.extend(expected_agg_counter_message)
+    marker = loganalyzer.init()
+    loganalyzer.analyze(marker)
+    logger.info("Found expected aggregated dhcpmon counter in syslog")
+
+    # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
+    restart_dhcp_service(duthost)
+    pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
 def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
