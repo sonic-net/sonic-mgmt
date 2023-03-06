@@ -42,6 +42,10 @@ def apply_cert_config(duthost):
 
 
 def recover_cert_config(duthost):
+    dut_command = "docker exec %s supervisorctl status %s" % (GNMI_CONTAINER_NAME, GNMI_PROGRAM_NAME)
+    output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
+    if 'RUNNING' in output:
+        return
     dut_command = "docker exec %s pkill telemetry" % (GNMI_CONTAINER_NAME)
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl start %s" % (GNMI_CONTAINER_NAME, GNMI_PROGRAM_NAME)
