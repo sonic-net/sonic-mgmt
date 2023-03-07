@@ -413,11 +413,11 @@ class ProcessExitContext:
 
     def __enter__(self):
         logging.info('Stopping {}:{}'.format(self.container_name, self.process_name))
-        self.dut.command('docker exec -it {} bash -c "supervisorctl stop {}"'.format(self.container_name, self.process_name))
+        self.dut.command('docker exec -t {} bash -c "supervisorctl stop {}"'.format(self.container_name, self.process_name))
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logging.info('Starting {}:{}'.format(self.container_name, self.process_name))
-        self.dut.command('docker exec -it {} bash -c "supervisorctl start {}"'.format(self.container_name, self.process_name))
+        self.dut.command('docker exec -t {} bash -c "supervisorctl start {}"'.format(self.container_name, self.process_name))
         # check with delay in which the dockers can be restarted
         pytest_assert(wait_until(300, 20, 8, self.dut.critical_services_fully_started),
                       "Not all critical services are fully started")

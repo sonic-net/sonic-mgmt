@@ -169,7 +169,7 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
 
 
 def check_interface_status(duthost):
-    if ":547" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]:
+    if ":547" in duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]:
         return True
     return False
 
@@ -181,7 +181,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
         config_reload(duthost)
         wait_critical_processes(duthost)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
-    output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
+    output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
         assert ("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) or "*:*" in output,
