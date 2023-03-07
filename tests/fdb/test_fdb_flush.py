@@ -1,10 +1,11 @@
 import logging
 import pytest
-import time
 import json
+import random
+import os
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.ptf_runner import ptf_runner
 from utils import fdb_cleanup
 
@@ -20,6 +21,7 @@ FDB_SET_JSON_FILE = 'fdb_set_test.json'
 FDB_DEL_JSON_FILE = 'fdb_del_test.json'
 FDB_FILES_DIR = '/tmp/'
 DUT_WORKING_DIR = '/etc/sonic/'
+
 
 class TestFdbFlush:
     """
@@ -185,7 +187,7 @@ class TestFdbFlush:
                 None
         """
         duthost = duthosts[rand_one_dut_hostname]
-        fdbAgingTime = request.config.getoption('--fdb_aging_time')
+        fdbAgingTime = 60
 
         self.__deleteTmpSwitchConfig(duthost)
         duthost.shell(argv=["docker", "cp", "swss:/etc/swss/config.d/switch.json", "/tmp"])
@@ -200,6 +202,9 @@ class TestFdbFlush:
 
         yield
 
+        duthost.shell("sudo rm {}".format(os.path.join(DUT_WORKING_DIR, FDB_SET_JSON_FILE)), module_ignore_errors=True)
+        duthost.shell("sudo rm {}".format(os.path.join(DUT_WORKING_DIR, FDB_DEL_JSON_FILE)), module_ignore_errors=True)
+
         result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
         if result["matched"] > 0:
             duthost.shell(argv=["docker", "cp", result["files"][0]["path"], "swss:/etc/swss/config.d/switch.json"])
@@ -211,37 +216,42 @@ class TestFdbFlush:
 
         # Perform FDB clean up before each test
         fdb_cleanup(duthosts, rand_one_dut_hostname)
-   
+
         duthost = duthosts[rand_one_dut_hostname]
 
         # save existing core files list
-        self.checkDutCorefiles(duthost, True)
+        self.checkDutCorefiles(duthost, "before_test")
         logging.info("pre_exist_cores {} ".format(self.pre_exist_cores))
 
         # determine target test port
-        self.target_port = None
+        self.target_port = []
+        up_interfaces = []
         ifs_status = duthost.get_interfaces_status()
         logging.info("ifs_status {} ".format(ifs_status))
-        for interface_key, interface_info in ifs_status.items():
-            if ('N\/A' != interface_info['alias']) and ('N\/A' != interface_info['type']) and ('up' == interface_info['oper']):
-                logging.debug('get interface %s' % (interface_info['interface']))
-                self.target_port = interface_info['interface']
-                break
-        pytest_assert(self.target_port != None, "Test FDB Flush: cannot get target port to test")
+
+        for _, interface_info in ifs_status.items():
+            if (r'N\/A' != interface_info['alias']) and (r'N\/A' != interface_info['type']) \
+                    and ('up' == interface_info['oper']):
+                up_interfaces.append(interface_info['interface'])
+
+        if len(up_interfaces) < 3:
+            pytest.skip('Test FDB Flush: cannot get enough target port to test: {}'.format(up_interfaces))
+
+        self.target_port = random.sample(up_interfaces, 3)
+        logging.info("target interfaces {} ".format(self.target_port))
 
         # create fdb operation json file
         self.create_fdb_oper_files(duthost)
         logging.info("FDB set json file {} ".format(self.fdb_set_json_file))
         logging.info("FDB del json file {} ".format(self.fdb_del_json_file))
 
-
     def checkDutCorefiles(self, duthost, is_before_test):
-        if True == is_before_test:
+        if "before_test" == is_before_test:
             if "20191130" in duthost.os_version:
                 existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
             else:
                 existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
-    
+
             logging.info("duthost {} pre_existing_core_dumps {} ".format(duthost, existing_core_dumps))
             self.pre_exist_cores = existing_core_dumps
         else:
@@ -253,34 +263,39 @@ class TestFdbFlush:
             logging.info("duthost {} curr_exist_cores {} ".format(duthost, existing_core_dumps))
             self.curr_exist_cores = existing_core_dumps
 
-
     def create_fdb_oper_files(self, duthost):
-        fdb_table_item_key = 'FDB_TABLE:Vlan1000:00-11-22-33-55-66'
-        interface = self.target_port
+        mac_addresses = ["00-11-22-33-55-66", "00-11-22-33-55-67", "00-11-22-33-55-68"]
+        vlan_id = 1000
+        fdb_static_set = []
+        fdb_static_del = []
 
-        fdb_static_set = [
-            {
-                fdb_table_item_key: {
-                        "port": interface,
-                        "type": "static"
+        for i in range(3):
+            key = "FDB_TABLE:Vlan{}:{}".format(vlan_id, mac_addresses[i])
+            fdb_entry = {
+                key: {
+                    "port": self.target_port[i],
+                    "type": "static"
                 },
                 "OP": "SET"
             }
-        ]
+            fdb_static_set.append(fdb_entry)
+
         if len(fdb_static_set) >= 0:
             with open(os.path.join(FDB_FILES_DIR, FDB_SET_JSON_FILE), 'w') as outfile:
                 json.dump(fdb_static_set, outfile)
                 logger.info("fdb_static_set {} ".format(fdb_static_set))
 
-        fdb_static_del = [
-            {
-                fdb_table_item_key: {
-                        "port": interface,
-                        "type": "static"
+        for i in range(3):
+            key = "FDB_TABLE:Vlan{}:{}".format(vlan_id, mac_addresses[i])
+            fdb_entry = {
+                key: {
+                    "port": self.target_port[i],
+                    "type": "static"
                 },
                 "OP": "DEL"
             }
-        ]
+            fdb_static_del.append(fdb_entry)
+
         if len(fdb_static_del) >= 0:
             with open(os.path.join(FDB_FILES_DIR, FDB_DEL_JSON_FILE), 'w') as outfile:
                 json.dump(fdb_static_del, outfile)
@@ -301,7 +316,6 @@ class TestFdbFlush:
         self.fdb_set_json_file = os.path.join(DUT_WORKING_DIR, FDB_SET_JSON_FILE)
         self.fdb_del_json_file = os.path.join(DUT_WORKING_DIR, FDB_DEL_JSON_FILE)
 
-
     def dynamic_fdb_oper(self, duthost, tbinfo, ptfhost, create_or_clear):
         if 'create' == create_or_clear:
             # create dynamic fdb by sending packets via ptf
@@ -318,7 +332,6 @@ class TestFdbFlush:
         res = duthost.command('show mac')
         logging.info("show mac {} after {}".format(res['stdout_lines'], create_or_clear))
 
-
     def static_fdb_oper(self, duthost, fdb_oper_file):
         logging.info("fdb_oper_file {} ".format(fdb_oper_file))
 
@@ -327,36 +340,34 @@ class TestFdbFlush:
 
         duthost.shell("docker exec -i swss swssconfig {}".format(fdb_oper_file), module_ignore_errors=True)
 
-
     @pytest.mark.parametrize("flush_type", FLUSH_TYPES)
     def testFdbFlush(self, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request, flush_type):
-        
+
         logging.info("test type {} ".format(flush_type))
         self.prepare_test(duthosts, rand_one_dut_hostname)
 
         if "dynamic" == flush_type or "mix" == flush_type:
             self.dynamic_fdb_oper(duthosts[rand_one_dut_hostname], tbinfo, ptfhost, 'create')
-        
+
         if "static" == flush_type or "mix" == flush_type:
             self.static_fdb_oper(duthosts[rand_one_dut_hostname], self.fdb_set_json_file)
-       
+
         if "interface" == flush_type or "mix" == flush_type:
-            duthosts[rand_one_dut_hostname].shell("sudo config interface shutdown {}".format(self.target_port))
+            for port in self.target_port:
+                duthosts[rand_one_dut_hostname].shell("sudo config interface shutdown {}".format(port))
 
         # clear dynmaic/static fdb and startup interface anyway
         self.dynamic_fdb_oper(duthosts[rand_one_dut_hostname], tbinfo, ptfhost, 'clear')
         self.static_fdb_oper(duthosts[rand_one_dut_hostname], self.fdb_del_json_file)
-        duthosts[rand_one_dut_hostname].shell("sudo config interface startup {}".format(self.target_port))
+        for port in self.target_port:
+            duthosts[rand_one_dut_hostname].shell("sudo config interface startup {}".format(port))
 
         # check the core files after test
-        self.checkDutCorefiles(duthosts[rand_one_dut_hostname], False)
+        self.checkDutCorefiles(duthosts[rand_one_dut_hostname], "after_test")
 
         if list(set(self.curr_exist_cores) - set(self.pre_exist_cores)):
             logging.info("pre_exist_cores {} ".format(self.pre_exist_cores))
             logging.info("curr_exist_cores {} ".format(self.curr_exist_cores))
             pytest_assert(False, "New core file created")
-
-        duthosts[rand_one_dut_hostname].shell("sudo rm {}".format(os.path.join(DUT_WORKING_DIR, FDB_SET_JSON_FILE)), module_ignore_errors=True)
-        duthosts[rand_one_dut_hostname].shell("sudo rm {}".format(os.path.join(DUT_WORKING_DIR, FDB_DEL_JSON_FILE)), module_ignore_errors=True)
 
         logging.info("Test end {} ".format(flush_type))
