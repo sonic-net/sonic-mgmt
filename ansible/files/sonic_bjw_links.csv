@@ -606,7 +606,7 @@ bjw-can-7260-root-1,Ethernet20/1,bjw-can-serv-10,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet21/1,bjw-can-7215-5,etp49,10000,671-718,Trunk
 bjw-can-7260-root-1,Ethernet21/3,bjw-can-7215-7,etp49,10000,619-666,Trunk
 bjw-can-7260-root-1,Ethernet29/1,bjw-can-z9332f-4,etp33,10000,723-754,Trunk
-bjw-can-7260-root-1,Ethernet31/3,bjw-can-z9332f-3,etp33,10000,755-786,Trunk
+bjw-can-7260-root-1,Ethernet29/3,bjw-can-z9332f-3,etp33,10000,755-786,Trunk
 bjw-can-serv-11,ens4f0,bjw-can-serv-11,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet22/1,bjw-can-serv-12,ens4f1,100000,,Trunk
 bjw-can-7260-root-1,Ethernet23/1,bjw-can-serv-13,ens4f1,100000,,Trunk

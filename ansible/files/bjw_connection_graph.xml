@@ -657,7 +657,7 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-5" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet21/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7215-7" EndPort="Ethernet48" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet21/3"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-z9332f-4" EndPort="Ethernet256" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet29/1"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-z9332f-3" EndPort="Ethernet256" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet31/3"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-z9332f-3" EndPort="Ethernet256" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet29/3"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-11" EndPort="ens4f1" StartDevice="bjw-can-serv-11" StartPort="ens4f0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-12" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet22/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-serv-13" EndPort="ens4f1" StartDevice="bjw-can-7260-root-1" StartPort="Ethernet23/1"/>
@@ -695,7 +695,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet21/1" vlanids="671-718"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet21/3" vlanids="619-666"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet29/1" vlanids="723-754"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet31/3" vlanids="755-786"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet29/3" vlanids="755-786"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet22/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet23/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet24/1" vlanids=""/>
