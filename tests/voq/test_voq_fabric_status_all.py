@@ -71,7 +71,7 @@ def test_voq_fabric_link_status(duthosts):
                 lk = int(content[1])
                 status = content[2]
 
-                if asic not in referenceData
+                if asic not in referenceData:
                     pytest_assert(False, "{} is not expected to be up.".format(asic))
                 if lk not in referenceData[asic]:
                     pytest_assert(False, "link {} is not expected to be up.".format(lk))
