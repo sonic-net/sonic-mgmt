@@ -116,7 +116,7 @@ def test_voq_fabric_link_status(duthosts):
                 lk = content[1]
                 status = content[2]
 
-                if asic not in supReferenceData: 
+                if asic not in supReferenceData:
                     pytest_assert(False, "{} is not expected to be up.".format(asic))
                 if lk not in supReferenceData[asic]:
                     if status.lower() == 'down':
