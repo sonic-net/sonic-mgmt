@@ -1,0 +1,12 @@
+snmp/test_snmp_cpu.py
+snmp/test_snmp_default_route.py
+snmp/test_snmp_fdb.py
+snmp/test_snmp_interfaces.py
+snmp/test_snmp_lldp.py
+snmp/test_snmp_loopback.py
+snmp/test_snmp_memory.py
+snmp/test_snmp_pfc_counters.py
+snmp/test_snmp_phy_entity.py
+snmp/test_snmp_psu.py
+snmp/test_snmp_queue.py
+snmp/test_snmp_v2mib.py
