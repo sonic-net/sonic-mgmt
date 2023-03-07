@@ -1006,6 +1006,18 @@ voq/test_voq_nbr.py::test_neighbor_hw_mac_change:
     conditions:
       - "len(INTERFACE) == 0"
 
+voq/test_fabric_reach.py:
+  skip:
+    reason: "Skip test_fabric_reach on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx'])"
+
+voq/test_voq_fabric_status_all.py:
+  skip:
+    reason: "Skip test_voq_fabric_status_all on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx'])"
+
 #######################################
 #####             vrf             #####
 #######################################

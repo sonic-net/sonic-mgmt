@@ -13,13 +13,21 @@ supReferenceData = {}
 localModule = 0
 supervisorAsicBase = 300
 
-keys = []
-# There are 12 asic on Supervisor now.
-# Initialize the reference data dictionary for sup.
-num_asics = 12
-for i in range(num_asics):
-    keys.append('asic' + str(i))
-supReferenceData = {key: {} for key in keys}
+# Added a function to setup the reference data for sup.
+def test_setup_reference_data(duthosts):
+    # supReferenceData has the expected data for sup
+    global supReferenceData
+    keys=[]
+    if len(duthosts.supervisor_nodes) == 0:
+        logger.info("Please run the test on modular systems")
+        return
+    duthost = duthosts.supervisor_nodes[0]
+    logger.info("duthost: {}".format(duthost.hostname))
+    num_asics = duthost.num_asics()
+    logger.info("num_asics: {}".format(num_asics))
+    for asic in range(num_asics):
+        keys.append('asic' + str(asic))
+    supReferenceData = {key: {} for key in keys}
 
 # This test checks the output of the "show fabric reachability" command
 # on one linecard. It is called once for each linecard in the chassis.
@@ -32,12 +40,17 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
     global supReferenceData
     global localModule
     global supervisorAsicBase
+
+    # supReferenceData has the expected data
+    if len(duthosts.supervisor_nodes) == 0:
+        logger.info("Please run the test on modular systems")
+        return
+    duthost = duthosts.supervisor_nodes[0]
+    logger.info("duthost: {}".format(duthost.hostname))
+
     # Get hwSku for Fabriccards from the supervisor.
     fabric_sku = None
-    for duthost in duthosts:
-        if duthost.facts['slot_num'] < 3:
-            fabric_sku = duthost.facts['hwsku']
-            break
+    fabric_sku = duthost.facts['hwsku']
     pytest_assert(fabric_sku, "Need to add hwSku information for sup")
 
     # Load the reference data file.

@@ -22,27 +22,28 @@ def test_voq_fabric_link_status(duthosts):
     logger.info("Checking fabric serdes links")
 
     # Get hwSku for Fabriccards from the supervisor.
+    if len(duthosts.supervisor_nodes) == 0:
+        logger.info("Please run the test on modular systems")
+        return
+    duthost = duthosts.supervisor_nodes[0]
+    logger.info("duthost: {}".format(duthost.hostname))
     fabric_sku = None
-    for duthost in duthosts:
-        if duthost.facts['slot_num'] < 3:
-            fabric_sku = duthost.facts['hwsku']
-            break
+    fabric_sku = duthost.facts['hwsku']
     pytest_assert(fabric_sku, "Need to add hwSku information for sup")
 
     # Test fabric links status in Linecards, and get the expected link
     # information for Fabriccards.
     keys = []
     # There are 12 asic on Supervisor now.
-    totalAsics = 12
+    totalAsics = duthost.num_asics()
     for i in range(totalAsics):
         keys.append('asic' + str(i))
     supReferenceData = {key: {} for key in keys}
 
-    for duthost in duthosts:
+    # skip supervisors, on Linecards now:
+    for duthost in duthosts.frontend_nodes:
         slot = duthost.facts['slot_num']
-        if slot < 3:
-            # skip supervisors
-            continue
+        slot = duthost.facts['slot_num']
         lc_sku = duthost.facts['hwsku']
         fileName = lc_sku + "_" + fabric_sku + "_" + "LC" + str(slot) + ".yaml"
         f = open("voq/fabric_data/{}".format(fileName))
@@ -70,14 +71,14 @@ def test_voq_fabric_link_status(duthosts):
                 lk = int(content[1])
                 status = content[2]
 
-                if asic not in referenceData:
+                if not referenceData.has_key(asic):
                     pytest_assert(False, "{} is not expected to be up.".format(asic))
-                if lk not in referenceData[asic]:
+                if not referenceData[asic].has_key(lk):
                     pytest_assert(False, "link {} is not expected to be up.".format(lk))
                 pytest_assert(status.lower() == 'up',
                               "link {}. is expected to be up.".format(lk))
 
-                # Update link information on suppervisor
+                ##update link information on suppervisor
                 lkData = {'peer slot': slot, 'peer lk': lk, 'peer asic': asic}
                 fabricLk = referenceData[asic][lk]['peer lk']
                 fabricSlot = referenceData[asic][lk]['peer slot']
@@ -85,20 +86,17 @@ def test_voq_fabric_link_status(duthosts):
                 asicId = (fabricSlot - 1) * 2 + asicId
                 fabricAsic = 'asic' + str(asicId)
 
-                asicData.update({fabricLk: lkData})
+                asicData.update({fabricLk : lkData})
                 logger.info("Fabric: {}".format(fabricAsic))
                 logger.info(" data: {}".format(asicData))
-                supReferenceData[fabricAsic].update({fabricLk: lkData})
+                supReferenceData[fabricAsic].update({fabricLk : lkData})
             else:
                 logger.info("Header line {}".format(content))
 
     # Testing fabric link status on the supervisor
 
-    for duthost in duthosts:
+    for duthost in duthosts.supervisor_nodes:
         slot = duthost.facts['slot_num']
-        if slot >= 3:
-            # skip Linecards that checked already
-            continue
 
         output_cli = duthost.shell("show fabric counters port")['stdout_lines']
         logger.info("Checking fabric link status on sup:")
@@ -118,13 +116,13 @@ def test_voq_fabric_link_status(duthosts):
                 lk = content[1]
                 status = content[2]
 
-                if asic not in supReferenceData:
+                if not supReferenceData.has_key(asic):
                     pytest_assert(False, "{} is not expected to be up.".format(asic))
-                if lk not in supReferenceData[asic]:
+                if not supReferenceData[asic].has_key(lk):
                     if status.lower() == 'down':
                         continue
                     else:
-                        # check link status
-                        pytest_assert(False, "link {} is not expected to be up.".format(lk))
+                       # check link status
+                       pytest_assert(False, "link {} is not expected to be up.".format(lk))
                 pytest_assert(status.lower() == 'up',
                               "link {}. is expected to be up.".format(lk))
