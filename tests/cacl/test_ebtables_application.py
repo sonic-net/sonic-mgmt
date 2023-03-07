@@ -17,7 +17,7 @@ def generate_expected_rules(duthost):
     return ebtables_rules
 
 
-def test_ebtables_application(duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
+def test_ebtables_application(duthosts, rand_one_dut_hostname, enum_asic_index):
     """
     Test case to ensure ebtables rules are applied are corectly on DUT during init
 
@@ -25,7 +25,7 @@ def test_ebtables_application(duthosts, enum_rand_one_per_hwsku_hostname, enum_a
     rules based on the DuT's configuration and comparing them against the
     actual ebtables rules on the DuT.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     expected_ebtables_rules = generate_expected_rules(duthost)
 
     stdout = duthost.asic_instance(enum_asic_index).command("sudo ebtables -L FORWARD")["stdout"]
