@@ -123,11 +123,11 @@ docker_cmds = [
 ]
 
 docker_cmds_201911 = [
-    "docker exec -it syncd{} saidump",
+    "docker exec -t syncd{} saidump",
     "docker stats --no-stream",
     "docker ps -a",
     "docker top pmon",
-    "docker exec -it lldp{} lldpcli show statistics",
+    "docker exec -t lldp{} lldpcli show statistics",
     "docker logs bgp{}",
     "docker logs swss{}",
 ]

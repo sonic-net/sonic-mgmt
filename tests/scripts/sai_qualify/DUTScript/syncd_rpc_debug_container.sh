@@ -71,7 +71,7 @@ start_syncd_debugger_docker() {
     echo "Starting syncd debug shell."
     docker exec syncd chmod +x /init_env.sh
     docker exec syncd /init_env.sh
-    docker exec -it syncd /usr/bin/syncd --diag -u -s -p /etc/sai.d/sai.profile -r -m /usr/share/sonic/hwsku/port_config.ini
+    docker exec -t syncd /usr/bin/syncd --diag -u -s -p /etc/sai.d/sai.profile -r -m /usr/share/sonic/hwsku/port_config.ini
 }
 
 check_if_syncd_running() {
