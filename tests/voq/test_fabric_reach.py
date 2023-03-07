@@ -14,10 +14,12 @@ localModule = 0
 supervisorAsicBase = 300
 
 # Added a function to setup the reference data for sup.
+
+
 def test_setup_reference_data(duthosts):
     # supReferenceData has the expected data for sup
     global supReferenceData
-    keys=[]
+    keys = []
     if len(duthosts.supervisor_nodes) == 0:
         logger.info("Please run the test on modular systems")
         return

@@ -71,14 +71,14 @@ def test_voq_fabric_link_status(duthosts):
                 lk = int(content[1])
                 status = content[2]
 
-                if not referenceData.has_key(asic):
+                if asic not in referenceData
                     pytest_assert(False, "{} is not expected to be up.".format(asic))
-                if not referenceData[asic].has_key(lk):
+                if lk not in referenceData[asic]:
                     pytest_assert(False, "link {} is not expected to be up.".format(lk))
                 pytest_assert(status.lower() == 'up',
                               "link {}. is expected to be up.".format(lk))
 
-                ##update link information on suppervisor
+                # update link information on suppervisor
                 lkData = {'peer slot': slot, 'peer lk': lk, 'peer asic': asic}
                 fabricLk = referenceData[asic][lk]['peer lk']
                 fabricSlot = referenceData[asic][lk]['peer slot']
@@ -86,10 +86,10 @@ def test_voq_fabric_link_status(duthosts):
                 asicId = (fabricSlot - 1) * 2 + asicId
                 fabricAsic = 'asic' + str(asicId)
 
-                asicData.update({fabricLk : lkData})
+                asicData.update({fabricLk: lkData})
                 logger.info("Fabric: {}".format(fabricAsic))
                 logger.info(" data: {}".format(asicData))
-                supReferenceData[fabricAsic].update({fabricLk : lkData})
+                supReferenceData[fabricAsic].update({fabricLk: lkData})
             else:
                 logger.info("Header line {}".format(content))
 
@@ -116,13 +116,13 @@ def test_voq_fabric_link_status(duthosts):
                 lk = content[1]
                 status = content[2]
 
-                if not supReferenceData.has_key(asic):
+                if asic not in supReferenceData: 
                     pytest_assert(False, "{} is not expected to be up.".format(asic))
-                if not supReferenceData[asic].has_key(lk):
+                if lk not in supReferenceData[asic]:
                     if status.lower() == 'down':
                         continue
                     else:
-                       # check link status
-                       pytest_assert(False, "link {} is not expected to be up.".format(lk))
+                        # check link status
+                        pytest_assert(False, "link {} is not expected to be up.".format(lk))
                 pytest_assert(status.lower() == 'up',
                               "link {}. is expected to be up.".format(lk))
