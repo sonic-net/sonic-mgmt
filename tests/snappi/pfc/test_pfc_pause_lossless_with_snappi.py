@@ -1,21 +1,16 @@
 import logging
-import pytest
 
+import pytest
 from files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
-from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config
-from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list
-from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
+
 
 def test_pfc_pause_single_lossless_prio(snappi_api,
                                         snappi_testbed_config,
@@ -74,6 +69,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
+
 def test_pfc_pause_multi_lossless_prio(snappi_api,
                                        snappi_testbed_config,
                                        conn_graph_facts,
@@ -126,6 +122,7 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
+
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
@@ -196,6 +193,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
+
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])

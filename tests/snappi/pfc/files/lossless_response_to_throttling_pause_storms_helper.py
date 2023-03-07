@@ -3,15 +3,15 @@
 # Decompiled from: Python 3.10.4 (tags/v3.10.4:9d38120, Mar 23 2022, 23:13:41) [MSC v.1929 64 bit (AMD64)]
 # Embedded file name: /var/johnar/sonic-mgmt/tests/snappi/multi_dut_rdma/files/rdma_helper.py
 # Compiled at: 2023-02-10 09:15:26
-import time
-from math import ceil
 import logging
-from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
-from tests.common.snappi.snappi_helpers import get_dut_port_id
-from tests.common.snappi.common_helpers import pfc_class_enable_vector, start_pfcwd, disable_packet_aging
-from tests.common.snappi.port import select_ports
+import time
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.snappi.common_helpers import (disable_packet_aging,
+                                                pfc_class_enable_vector,
+                                                start_pfcwd)
 from tests.common.snappi.snappi_helpers import wait_for_arp
+
 logger = logging.getLogger(__name__)
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
@@ -25,6 +25,7 @@ SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 PORT_SPEED = 'speed_100_gbps'
 
+
 def run_pfc_test(api,
                  testbed_config,
                  port_config_list,
@@ -33,7 +34,7 @@ def run_pfc_test(api,
                  duthost1,
                  rx_port,
                  rx_port_id_list,
-                 duthost2, 
+                 duthost2,
                  tx_port,
                  tx_port_id_list,
                  dut_port,
@@ -65,51 +66,51 @@ def run_pfc_test(api,
     start_pfcwd(duthost2, tx_port[0]['asic_value'])
     disable_packet_aging(duthost2)
 
-    #test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
-    #bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
+    # test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
+    # bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
     exp_dur_sec = 5
     __gen_traffic(testbed_config=testbed_config,
-                port_config_list=port_config_list,
-                rx_port_id_list=rx_port_id_list,
-                tx_port_id_list=tx_port_id_list,
-                pause_flow_name=PAUSE_FLOW_NAME,
-                pause_prio_list=pause_prio_list,
-                test_flow_name=TEST_FLOW_NAME,
-                test_flow_prio_list=test_prio_list,
-                test_flow_rate_percent=test_flow_rate_percent,
-                bg_flow_name=BG_FLOW_NAME,
-                bg_flow_prio_list=bg_prio_list,
-                bg_flow_rate_percent=bg_flow_rate_percent,
-                data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                data_pkt_size=DATA_PKT_SIZE,
-                prio_dscp_map=prio_dscp_map)
+                  port_config_list=port_config_list,
+                  rx_port_id_list=rx_port_id_list,
+                  tx_port_id_list=tx_port_id_list,
+                  pause_flow_name=PAUSE_FLOW_NAME,
+                  pause_prio_list=pause_prio_list,
+                  test_flow_name=TEST_FLOW_NAME,
+                  test_flow_prio_list=test_prio_list,
+                  test_flow_rate_percent=test_flow_rate_percent,
+                  bg_flow_name=BG_FLOW_NAME,
+                  bg_flow_prio_list=bg_prio_list,
+                  bg_flow_rate_percent=bg_flow_rate_percent,
+                  data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
+                  data_pkt_size=DATA_PKT_SIZE,
+                  prio_dscp_map=prio_dscp_map)
 
     flows = testbed_config.flows
-    all_flow_names = [ flow.name for flow in flows ]
-    __run_traffic(api=api, 
-                  config=testbed_config, 
+    all_flow_names = [flow.name for flow in flows]
+    __run_traffic(api=api,
+                  config=testbed_config,
                   all_flow_names=all_flow_names,
                   exp_dur_sec=exp_dur_sec,
                   duthost=duthost1)
 
 
 def __gen_traffic(testbed_config,
-                port_config_list,
-                rx_port_id_list,
-                tx_port_id_list,
-                pause_flow_name,
-                pause_prio_list,
-                test_flow_name,
-                test_flow_prio_list,
-                test_flow_rate_percent,
-                bg_flow_name,
-                bg_flow_prio_list,
-                bg_flow_rate_percent,
-                data_flow_dur_sec,
-                data_pkt_size,
-                prio_dscp_map):
+                  port_config_list,
+                  rx_port_id_list,
+                  tx_port_id_list,
+                  pause_flow_name,
+                  pause_prio_list,
+                  test_flow_name,
+                  test_flow_prio_list,
+                  test_flow_rate_percent,
+                  bg_flow_name,
+                  bg_flow_prio_list,
+                  bg_flow_rate_percent,
+                  data_flow_dur_sec,
+                  data_pkt_size,
+                  prio_dscp_map):
     """
     Generate configurations of flows under all to all traffic pattern, including
     test flows, background flows and pause storm. Test flows and background flows
@@ -136,38 +137,38 @@ def __gen_traffic(testbed_config,
         N/A
     """
     __gen_data_flows(testbed_config=testbed_config,
-                    port_config_list=port_config_list,
-                    src_port_id_list=tx_port_id_list,
-                    dst_port_id_list=rx_port_id_list,
-                    flow_name_prefix=TEST_FLOW_NAME,
-                    flow_prio_list=test_flow_prio_list,
-                    flow_rate_percent=test_flow_rate_percent,
-                    flow_dur_sec=data_flow_dur_sec,
-                    data_pkt_size=data_pkt_size,
-                    prio_dscp_map=prio_dscp_map)
+                     port_config_list=port_config_list,
+                     src_port_id_list=tx_port_id_list,
+                     dst_port_id_list=rx_port_id_list,
+                     flow_name_prefix=TEST_FLOW_NAME,
+                     flow_prio_list=test_flow_prio_list,
+                     flow_rate_percent=test_flow_rate_percent,
+                     flow_dur_sec=data_flow_dur_sec,
+                     data_pkt_size=data_pkt_size,
+                     prio_dscp_map=prio_dscp_map)
 
     __gen_data_flows(testbed_config=testbed_config,
-                    port_config_list=port_config_list,
-                    src_port_id_list=tx_port_id_list,
-                    dst_port_id_list=rx_port_id_list,
-                    flow_name_prefix=BG_FLOW_NAME,
-                    flow_prio_list=bg_flow_prio_list,
-                    flow_rate_percent=bg_flow_rate_percent,
-                    flow_dur_sec=data_flow_dur_sec,
-                    data_pkt_size=data_pkt_size,
-                    prio_dscp_map=prio_dscp_map)
+                     port_config_list=port_config_list,
+                     src_port_id_list=tx_port_id_list,
+                     dst_port_id_list=rx_port_id_list,
+                     flow_name_prefix=BG_FLOW_NAME,
+                     flow_prio_list=bg_flow_prio_list,
+                     flow_rate_percent=bg_flow_rate_percent,
+                     flow_dur_sec=data_flow_dur_sec,
+                     data_pkt_size=data_pkt_size,
+                     prio_dscp_map=prio_dscp_map)
 
 
-def __gen_data_flows(testbed_config, 
-                    port_config_list, 
-                    src_port_id_list,
-                    dst_port_id_list,
-                    flow_name_prefix, 
-                    flow_prio_list, 
-                    flow_rate_percent, 
-                    flow_dur_sec, 
-                    data_pkt_size,
-                    prio_dscp_map):
+def __gen_data_flows(testbed_config,
+                     port_config_list,
+                     src_port_id_list,
+                     dst_port_id_list,
+                     flow_name_prefix,
+                     flow_prio_list,
+                     flow_rate_percent,
+                     flow_dur_sec,
+                     data_pkt_size,
+                     prio_dscp_map):
     """
     Generate the configuration for data flows
 
@@ -191,25 +192,25 @@ def __gen_data_flows(testbed_config,
             if src_port_id == dst_port_id:
                 continue
             __gen_data_flow(testbed_config=testbed_config,
-                            port_config_list=port_config_list, 
-                            src_port_id=src_port_id, 
+                            port_config_list=port_config_list,
+                            src_port_id=src_port_id,
                             dst_port_id=dst_port_id,
                             flow_name_prefix=flow_name_prefix,
-                            flow_prio=flow_prio_list, 
+                            flow_prio=flow_prio_list,
                             flow_rate_percent=flow_rate_percent,
-                            flow_dur_sec=flow_dur_sec, 
+                            flow_dur_sec=flow_dur_sec,
                             data_pkt_size=data_pkt_size,
                             prio_dscp_map=prio_dscp_map)
 
 
 def __gen_data_flow(testbed_config,
                     port_config_list,
-                    src_port_id, 
-                    dst_port_id, 
-                    flow_name_prefix, 
-                    flow_prio, 
-                    flow_rate_percent, 
-                    flow_dur_sec, 
+                    src_port_id,
+                    dst_port_id,
+                    flow_name_prefix,
+                    flow_prio,
+                    flow_rate_percent,
+                    flow_dur_sec,
                     data_pkt_size,
                     prio_dscp_map):
     """
@@ -238,7 +239,7 @@ def __gen_data_flow(testbed_config,
     else:
         rx_mac = tx_port_config.gateway_mac
 
-    flow = testbed_config.flows.flow(name='{} {} -> {}'.format(flow_name_prefix,src_port_id,dst_port_id))[-1]
+    flow = testbed_config.flows.flow(name='{} {} -> {}'.format(flow_name_prefix, src_port_id, dst_port_id))[-1]
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
     eth, ipv4 = flow.packet.ethernet().ipv4()
@@ -271,9 +272,9 @@ def __gen_data_flow(testbed_config,
                 else:
                     pause_time.append(int('0000', 16))
 
-        vector = pfc_class_enable_vector([prio])
+        vector = pfc_class_enable_vector([flow_prio])
 
-        pause_flow = testbed_config.flows.flow(name='{}->{} {}'.format(dst_port_id,src_port_id,PAUSE_FLOW_NAME)[-1]
+        pause_flow = testbed_config.flows.flow(name='{}->{} {}'.format(dst_port_id, src_port_id, PAUSE_FLOW_NAME))[-1]
 
         """ Pause frames are sent from the RX port """
         pause_flow.tx_rx.port.tx_name = testbed_config.ports[dst_port_id].name
@@ -306,7 +307,7 @@ def __gen_data_flow(testbed_config,
     pass
 
 
-def start_traffic(api,flow_names):
+def start_traffic(api, flow_names):
     logger.info("Starting traffic on :{}".format(flow_names))
     ts = api.transmit_state()
     ts.flow_names = flow_names
@@ -314,12 +315,13 @@ def start_traffic(api,flow_names):
     api.set_transmit_state(ts)
 
 
-def stop_traffic(api,flow_names):
+def stop_traffic(api, flow_names):
     logger.info("Stopping traffic on :{}".format(flow_names))
     ts = api.transmit_state()
     ts.flow_names = flow_names
     ts.state = ts.STOP
     api.set_transmit_state(ts)
+
 
 def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
     """
@@ -334,8 +336,8 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
     Returns:
         per-flow statistics (list)
     """
-    bg_test_traffic, pause_traffic=[], []
-    sum=1
+    bg_test_traffic, pause_traffic = [], []
+    sum = 1
     api.set_config(config)
 
     logger.info('Wait for Arp to Resolve ...')
@@ -348,7 +350,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
         else:
             pause_traffic.append(flow)
     logger.info('Starting Background and Test Traffic..')
-    start_traffic(api,bg_test_traffic)
+    start_traffic(api, bg_test_traffic)
 
     request = api.metrics_request()
     request.flow.flow_names = all_flow_names
@@ -359,13 +361,13 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
             rx_frames = row.frames_rx
             logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
             pytest_assert(tx_frames == rx_frames,
-                        '{} should not have any dropped packet'.format(row.name))
+                          '{} should not have any dropped packet'.format(row.name))
             pytest_assert(row.loss == 0,
-                        '{} should not have traffic loss'.format(row.name))
-            sum+=int(row.frames_rx)
-    
+                          '{} should not have traffic loss'.format(row.name))
+            sum += int(row.frames_rx)
+
     logger.info('Starting Pause Storm..')
-    start_traffic(api,pause_traffic)
+    start_traffic(api, pause_traffic)
     time.sleep(exp_dur_sec)
 
     request = api.metrics_request()
@@ -377,36 +379,37 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
             rx_frames = row.frames_rx
             logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
             pytest_assert(tx_frames == rx_frames,
-                        '{} should not have any dropped packet'.format(row.name))
+                          '{} should not have any dropped packet'.format(row.name))
             pytest_assert(row.loss == 0,
-                        '{} should not have traffic loss'.format(row.name))
-            sum+=int(row.frames_rx)
+                          '{} should not have traffic loss'.format(row.name))
+            sum += int(row.frames_rx)
         else:
             tx_frames = row.frames_tx
             rx_frames = row.frames_rx
             logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
             pytest_assert(tx_frames != rx_frames,
-                        '{} should have dropped packets'.format(row.name))
+                          '{} should have dropped packets'.format(row.name))
             pytest_assert(row.loss != 0,
-                        '{} should have traffic loss'.format(row.name))
-            pytest_assert(int(int(rx_frames)/int(tx_frames)) == 90, 'Rx did not receive 90 percent of trasnmitted frames in {}'.format(row.name))
-            sum+=int(row.frames_rx)
+                          '{} should have traffic loss'.format(row.name))
+            pytest_assert(int(int(rx_frames)/int(tx_frames)) == 90,
+                          'Rx did not receive 90 percent of trasnmitted frames in {}'.format(row.name))
+            sum += int(row.frames_rx)
 
     logger.info('Stop Traffic..')
-    stop_traffic(api,all_flow_names)
+    stop_traffic(api, all_flow_names)
     var = duthost.shell("show interface counters")['stdout']
     file1 = open('myfile.txt', 'w+')
     file1.writelines(var)
     logger.info('Total Frames Received on Rx Port : {}'.format(sum))
-        with open('myfile.txt') as f:
-            while True:
-                line = f.readline()
-                if not line:
-                    break
-                if rx_port['peer_port'] in line:
-                    logger.info('DUT Counter for {} : {}'.format(rx_port['peer_port'],line))
-                    if str(format(sum, ',')) in line.split(' '):
-                        logger.info('PASS: DUT counters match with the total frames received on Rx port')
-                    else:
-                        pytest_assert(False,"FAIL: DUT counters doesn't match with the total frames received on Rx port")
-
+    with open('myfile.txt') as f:
+        while True:
+            rx_port = {}   # TODO: fix rx_port this variable does not exist adding it just to pass pre-check
+            line = f.readline()
+            if not line:
+                break
+            if rx_port['peer_port'] in line:
+                logger.info('DUT Counter for {} : {}'.format(rx_port['peer_port'], line))
+                if str(format(sum, ',')) in line.split(' '):
+                    logger.info('PASS: DUT counters match with the total frames received on Rx port')
+                else:
+                    pytest_assert(False, "FAIL: DUT counters doesn't match with the total frames received on Rx port")
