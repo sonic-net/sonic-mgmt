@@ -48,16 +48,16 @@ def get_isis_spf_summary(dut_host):
 def get_isis_spf_last_run_elapsed(spf_summary):
     regex_time = re.compile(r'(\d+):(\d+):(\d+)')
     match = regex_time.match(spf_summary['IPv4']['last_run_elapsed'])
-    return match.group(3)
+    return int(match.group(3))
 
 
 def wait_isis_spf_stable(dut_host):
     spf_summary = get_isis_spf_summary(dut_host)
-    last_run_elapsed = int(get_isis_spf_last_run_elapsed(spf_summary))
+    last_run_elapsed = get_isis_spf_last_run_elapsed(spf_summary)
 
-    wait_time = int(SPF_INTERVAL) if spf_summary['spf_pending'] else 0
-    if last_run_elapsed < int(SPF_INTERVAL):
-        wait_time += int(SPF_INTERVAL) - last_run_elapsed
+    wait_time = SPF_INTERVAL if spf_summary['spf_pending'] else 0
+    if last_run_elapsed < SPF_INTERVAL:
+        wait_time += SPF_INTERVAL - last_run_elapsed
     if wait_time:
         time.sleep(wait_time)
 
@@ -89,8 +89,8 @@ def test_isis_spf_default_interval(isis_common_setup_teardown):
     check_isis_post_spf_cnt(spf_summary, run_cnt)
 
     # Check spf elapsed time refresh from 0
-    last_run_elapsed = int(get_isis_spf_last_run_elapsed(spf_summary))
-    pytest_assert(last_run_elapsed < int(SPF_INTERVAL),
+    last_run_elapsed = get_isis_spf_last_run_elapsed(spf_summary)
+    pytest_assert(last_run_elapsed < SPF_INTERVAL,
                   'IS-IS SPF last run elapsed is not refreshed ({}).'
                   .format(last_run_elapsed))
 
