@@ -5,8 +5,8 @@
       <Device Hostname="bjw-can-7060-fanout-1" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
       <Device Hostname="bjw-can-z9332f-1" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
       <Device Hostname="bjw-can-z9332f-2" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-z9332f-3" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-z9332f-4" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-z9332f-3" HwSku="DellEMC-Z9332f-C32" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-z9332f-4" HwSku="DellEMC-Z9332f-C32" Type="FanoutLeafSonic"/>
       <Device Hostname="bjw-slx-can-2" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
       <Device Hostname="bjw-slx-can-4" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
       <Device Hostname="bjw-can-slx-5" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
