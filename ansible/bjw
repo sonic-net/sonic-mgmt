@@ -42,6 +42,8 @@ all:
           ansible_host: 10.150.23.61
         bjw12-2:
           ansible_host: 10.150.23.62
+        bjw7-4:
+          ansible_host: 10.150.23.64
 
     pdu:
       hosts:
@@ -75,6 +77,12 @@ fanout:
       os: sonic
     bjw-can-z9332f-2:
       ansible_host: 10.150.22.120
+      os: sonic
+    bjw-can-z9332f-3:
+      ansible_host: 10.150.22.126
+      os: sonic
+    bjw-can-z9332f-4:
+      ansible_host: 10.150.22.127
       os: sonic
     bjw-slx-can-2:
       ansible_host: 10.150.22.105
@@ -122,6 +130,7 @@ sonic:
     sonic_mlnx_sn2700:
     sonic_nokia_7215:
     sonic_e1031:
+    sonic_cisco_8102:
 
 sonic_arista_7050qx_32s_q32:
   vars:
@@ -419,6 +428,29 @@ sonic_e1031:
         "0x2E": "3.0.6"
         "0x2F": "LB"
         "0xFE": "0xADA1AD5C"
+
+sonic_cisco_8102:
+  vars:
+    hwsku: Cisco-8102-C64
+    iface_speed: 100000
+  hosts:
+    bjw-can-8102-1:
+      ansible_host: 10.150.22.128
+      model: 8102-64H-O
+      serial: FLM24500AT6
+      base_mac: E8:EB:34:E7:BD:B4
+      syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "ECI123"
+        "0x23": "FLM24500AT6"
+        "0x24": "E8:EB:34:E7:BD:B4"
+        "0x26": "0"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0xCA54AD10"
 
 server:
   hosts:

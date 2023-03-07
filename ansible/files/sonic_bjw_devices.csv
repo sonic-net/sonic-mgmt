@@ -3,6 +3,8 @@ bjw-can-7260-root-1,10.150.22.20/23,Arista-7260CX3-64,FanoutRoot,
 bjw-can-7060-fanout-1,10.150.22.30/23,Arista-7060CX-32S,FanoutLeaf,
 bjw-can-z9332f-1,10.150.22.108/23,DellEMC-Z9332f-O32,FanoutLeafSonic,
 bjw-can-z9332f-2,10.150.22.120/23,DellEMC-Z9332f-O32,FanoutLeafSonic,
+bjw-can-z9332f-3,10.150.22.126/23,DellEMC-Z9332f-O32,FanoutLeafSonic,
+bjw-can-z9332f-4,10.150.22.127/23,DellEMC-Z9332f-O32,FanoutLeafSonic,
 bjw-slx-can-2,10.150.22.105/23,Celestica-DX010-C32,FanoutLeafSonic,
 bjw-slx-can-4,10.150.22.107/23,Celestica-DX010-C32,FanoutLeafSonic,
 bjw-can-slx-5,10.150.22.100/23,Celestica-DX010-C32,FanoutLeafSonic,
@@ -43,6 +45,7 @@ bjw-can-7215-6,10.150.22.124/23,Nokia-7215,DevSonic,
 bjw-can-7050qx-1,10.150.22.117/23,Arista-7050QX32S-Q32,DevSonic,
 bjw-can-7050qx-2,10.150.22.119/23,Arista-7050-QX-32S,DevSonic,
 bjw-can-e1031-3,10.150.22.125/23,Celestica-E1031-T48S4,DevSonic,
+bjw-can-8102-1,10.150.22.128/23,Cisco-8102-C64,DevSonic,
 bjw-pdu-126-132,10.150.126.132,Vertiv,Pdu,snmp
 bjw-pdu-126-133,10.150.126.133,Vertiv,Pdu,snmp
 bjw-pdu-126-134,10.150.126.134,Vertiv,Pdu,snmp
