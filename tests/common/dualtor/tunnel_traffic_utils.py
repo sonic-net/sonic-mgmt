@@ -98,7 +98,7 @@ def queue_stats_check(dut, exp_queue, packet_count):
     queue_counter = dut.shell('show queue counters | grep "UC"')['stdout']
     logging.debug('queue_counter:\n{}'.format(queue_counter))
     # In case of other noise packets
-    DIFF = 0.1
+    DIFF = max(10, packet_count * 0.1)
 
     """
     regex search will look for following pattern in queue_counter outpute
@@ -111,7 +111,7 @@ def queue_stats_check(dut, exp_queue, packet_count):
 
     if result:
         for number in result:
-            if int(number) <= packet_count * (1 + DIFF) and int(number) >= packet_count:
+            if int(number) <= packet_count + DIFF and int(number) >= packet_count:
                 logging.info("the expected Queue : {} received expected numbers of packet {}"
                              .format(exp_queue, number))
 
