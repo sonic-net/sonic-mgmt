@@ -144,7 +144,7 @@ def get_portchannel_of_port(config_facts, port):
     """
     portchannels = config_facts['PORTCHANNEL'].keys() if 'PORTCHANNEL' in config_facts else []
     for portchannel in portchannels:
-        portchannel_members = config_facts['PORTCHANNEL'][portchannel].get('members')
+        portchannel_members = config_facts['PORTCHANNEL_MEMBER'][portchannel].keys()
         if port in portchannel_members:
             return portchannel
 
