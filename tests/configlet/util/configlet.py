@@ -3,13 +3,15 @@
 import json
 
 from tempfile import mkstemp
-from helpers import *
-from common import *
+from helpers import log_info, log_debug
+from common import tor_data, init_data, config_db_data_orig, managed_files      # noqa F401
+
 import strip
 
 orig_config = None
 
 sonic_local_ports = set()
+
 
 def is_version_2019_higher():
     return '201811' not in init_data["version"]
@@ -44,7 +46,7 @@ def get_vlan_sub_interface():
                 "admin_status": "up"
             },
             port_ip: {},
-            port_ip6: {} }
+            port_ip6: {}}
         })
     log_debug("clet: get_vlan_sub_interface: {}".format(str(ret)))
     return ret
@@ -57,10 +59,10 @@ def get_port_channel():
     pc_name = tor_data["portChannel"]
     if not pc_name:
         log_debug("No portchannel added, as no portchannel info found for ports: {}".
-                format(str(tor_data["links"])))
+                  format(str(tor_data["links"])))
         return ret
 
-    ret.append( {
+    ret.append({
         "PORTCHANNEL": {
             pc_name: {
                 "admin_status": "up",
@@ -74,8 +76,8 @@ def get_port_channel():
     pc_mem = {}
     for port in sonic_local_ports:
         pc_mem["{}|{}".format(pc_name, port)] = {}
-       
-    ret.append({ "PORTCHANNEL_MEMBER": pc_mem })
+
+    ret.append({"PORTCHANNEL_MEMBER": pc_mem})
 
     pc_intf = {}
     if tor_data["ip"]["local"]:
@@ -85,7 +87,7 @@ def get_port_channel():
     if pc_intf:
         if is_version_2019_higher():
             pc_intf[pc_name] = {}
-        ret.append({ "PORTCHANNEL_INTERFACE": pc_intf })
+        ret.append({"PORTCHANNEL_INTERFACE": pc_intf})
 
     log_debug("clet: portchannel: {}".format(str(ret)))
     return ret
@@ -96,8 +98,8 @@ def update_port():
     sonic_port = port_data["local"]["sonic_name"]
     remote_port = port_data["remote"]
 
-    return [ { "PORT": { sonic_port: { "description": "{}:{}".format(
-        tor_data["name"]["remote"], remote_port) }}} ]
+    return [{"PORT": {sonic_port: {"description": "{}:{}".format(
+        tor_data["name"]["remote"], remote_port)}}}]
 
 
 def add_interface():
@@ -110,7 +112,7 @@ def add_interface():
     key_ip = "{}|{}/31".format(sonic_port, tor_data["ip"]["local"])
     key_ipv6 = "{}|{}/126".format(sonic_port, tor_data["ipv6"]["local"])
 
-    return [ { "INTERFACE": { key_ip: {}, key_ipv6:{}, sonic_port: {} } } ]
+    return [{"INTERFACE": {key_ip: {}, key_ipv6: {}, sonic_port: {}}}]
 
 
 def get_acl():
@@ -118,16 +120,14 @@ def get_acl():
     acl_table["EVERFLOW"] = config_db_data_orig["ACL_TABLE"]["EVERFLOW"]
     acl_table["EVERFLOWV6"] = config_db_data_orig["ACL_TABLE"]["EVERFLOWV6"]
 
-    
     lst_ports = set(acl_table["EVERFLOW"]["ports"])
     lst_v6_ports = set(acl_table["EVERFLOWV6"]["ports"])
-            
+
     add_ports = []
     if tor_data["portChannel"]:
         add_ports.append(tor_data["portChannel"])
     else:
         add_ports = list(sonic_local_ports)
-
 
     for port in add_ports:
         lst_ports.add(port)
@@ -135,13 +135,13 @@ def get_acl():
 
     lst_ports = list(lst_ports)
     lst_v6_ports = list(lst_v6_ports)
-    lst_ports.sort(reverse = True)
-    lst_v6_ports.sort(reverse = True)
+    lst_ports.sort(reverse=True)
+    lst_v6_ports.sort(reverse=True)
 
     acl_table["EVERFLOW"]["ports"] = lst_ports
     acl_table["EVERFLOWV6"]["ports"] = lst_v6_ports
 
-    return [{"ACL_TABLE": acl_table }]
+    return [{"ACL_TABLE": acl_table}]
 
 
 def get_device_info():
@@ -155,7 +155,7 @@ def get_device_info():
     for link in tor_data["links"]:
         neighbor[link["local"]["sonic_name"]] = {
                 "name": tor_name,
-                "port": link["remote"] }
+                "port": link["remote"]}
 
     ret.append({"DEVICE_NEIGHBOR": neighbor})
 
@@ -165,7 +165,7 @@ def get_device_info():
                 "lo_addr": "None",
                 "mgmt_addr": tor_data["mgmt_ip"]["remote"],
                 "hwsku": tor_data["hwsku"]["remote"],
-                "type": "ToRRouter" } } } ) 
+                "type": "ToRRouter"}}})
     return ret
 
 
@@ -180,7 +180,7 @@ def get_port_related_data(is_mlnx, is_storage_backend):
     qos = {}
     pfc_wd = {}
     pfc_time = get_pfc_time()
-    
+
     log_debug("is_version_2019_higher={}".format(is_version_2019_higher()))
 
     if "CABLE_LENGTH|AZURE" not in orig_config:
@@ -211,11 +211,11 @@ def get_port_related_data(is_mlnx, is_storage_backend):
         if is_mlnx:
             # "BUFFER_PORT_INGRESS_PROFILE_LIST"
             buffer_port_ingress[local_port] = orig_config["BUFFER_PORT_INGRESS_PROFILE_LIST|{}".
-                    format(local_port)]['value']
+                                                          format(local_port)]['value']
 
             # "BUFFER_PORT_EGRESS_PROFILE_LIST"
             buffer_port_egress[local_port] = orig_config["BUFFER_PORT_EGRESS_PROFILE_LIST|{}".
-                    format(local_port)]['value']
+                                                         format(local_port)]['value']
 
         # "PORT_QOS_MAP"
         qos[local_port] = orig_config["PORT_QOS_MAP|{}".format(local_port)]['value']
@@ -223,20 +223,20 @@ def get_port_related_data(is_mlnx, is_storage_backend):
         if pfc_time:
             pfc_wd[local_port] = orig_config.get("PFC_WD|{}".format(local_port), {}).get("value", {})
 
-    ret.append({ "CABLE_LENGTH": { "AZURE": cable } })
-    ret.append({ "QUEUE": queue })
-    ret.append({ "BUFFER_PG": buffer_pg })
-    ret.append({ "BUFFER_QUEUE": buffer_q })
-    ret.append({ "PORT_QOS_MAP": qos })
+    ret.append({"CABLE_LENGTH": {"AZURE": cable}})
+    ret.append({"QUEUE": queue})
+    ret.append({"BUFFER_PG": buffer_pg})
+    ret.append({"BUFFER_QUEUE": buffer_q})
+    ret.append({"PORT_QOS_MAP": qos})
     if pfc_wd:
-        ret.append({ "PFC_WD": pfc_wd })
+        ret.append({"PFC_WD": pfc_wd})
     if buffer_port_ingress:
-        ret.append({ "BUFFER_PORT_INGRESS_PROFILE_LIST": buffer_port_ingress })
+        ret.append({"BUFFER_PORT_INGRESS_PROFILE_LIST": buffer_port_ingress})
     if buffer_port_egress:
-        ret.append({ "BUFFER_PORT_EGRESS_PROFILE_LIST": buffer_port_egress })
+        ret.append({"BUFFER_PORT_EGRESS_PROFILE_LIST": buffer_port_egress})
 
     return ret
-         
+
 
 def get_bgp_neighbor():
     bgp = {}
@@ -258,7 +258,7 @@ def get_bgp_neighbor():
     bgp[ipv6["remote"].lower()] = bgp[ip["remote"]].copy()
     bgp[ipv6["remote"].lower()]["local_addr"] = ipv6["local"].lower()
 
-    return [ { "BGP_NEIGHBOR": bgp } ]
+    return [{"BGP_NEIGHBOR": bgp}]
 
 
 def write_out(lst, tmpdir):
@@ -277,7 +277,6 @@ def main(tmpdir, is_mlnx, is_storage_backend):
     with open("{}/config-db.json".format(init_data["orig_db_dir"]), "r") as s:
         orig_config = json.load(s)
 
-
     _, sonic_local_ports = strip.get_local_ports()
 
     ret += update_port()
@@ -294,5 +293,3 @@ def main(tmpdir, is_mlnx, is_storage_backend):
     write_out(ret, tmpdir)
 
     return 0
-
-

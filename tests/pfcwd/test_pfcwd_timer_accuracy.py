@@ -66,7 +66,9 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']
     eth0_ip = setup_info['eth0_ip']
-    pfc_wd_test_port = test_ports.keys()[0]
+    # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
+    # So that convert to list explicitly.
+    pfc_wd_test_port = list(test_ports.keys())[0]
     neighbors = setup_info['neighbors']
     fanout_info = enum_fanout_graph_facts
     dut = duthost
@@ -129,7 +131,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     """
     logger.info("Setting up storm params")
     pfc_queue_index = 4
-    pfc_frames_count = 300000
+    pfc_frames_count = 1000000
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
                            pfc_frames_number=pfc_frames_count, peer_info=peer_params)
     storm_handle.deploy_pfc_gen()
@@ -153,7 +155,7 @@ class TestPfcwdAllTimer(object):
         storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
         storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         logger.info("Wait for PFC storm end marker to appear in logs")
-        time.sleep(1)
+        time.sleep(8)
         storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
         storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
         real_detect_time = storm_detect_ms - storm_start_ms

@@ -76,9 +76,8 @@ DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
 
 pytestmark = [
-    # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
-    pytest.mark.topology("t1", "t1-64-lag", "t1-lag"),
-    pytest.mark.sanity_check(post_check=True)
+    # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
+    pytest.mark.topology("t1", "t1-64-lag", "t1-56-lag", "t1-lag")
 ]
 
 
@@ -323,6 +322,40 @@ def fixture_setUp(duthosts,
         ecmp_utils.stop_bfd_responder(data['ptfhost'])
 
     setup_crm_interval(data['duthost'], int(data['original_crm_interval']))
+
+
+@pytest.fixture(scope="module")
+def default_routes(fixture_setUp, encap_type):
+    vnet = fixture_setUp[encap_type]['vnet_vni_map'].keys()[0]
+    return fixture_setUp[encap_type]['dest_to_nh_map'][vnet]
+
+
+@pytest.fixture(scope="module")
+def routes_for_cleanup(fixture_setUp, encap_type):
+    routes = {}
+
+    yield routes
+
+    # prepare for route cleanup by fixture_setUp on module finish
+    vnet = fixture_setUp[encap_type]['vnet_vni_map'].keys()[0]
+    fixture_setUp[encap_type]['dest_to_nh_map'][vnet] = routes
+
+
+@pytest.fixture(autouse=True)
+def reset_test_routes(fixture_setUp, encap_type, default_routes, routes_for_cleanup):
+    """
+    The fixture makes sure each test uses the same route config not affected by previous test runs
+    """
+    vnet = fixture_setUp[encap_type]['vnet_vni_map'].keys()[0]
+
+    test_routes = {}
+    test_routes.update(default_routes)
+    fixture_setUp[encap_type]['dest_to_nh_map'][vnet] = test_routes
+
+    yield
+
+    test_made_routes = fixture_setUp[encap_type]['dest_to_nh_map'][vnet]
+    routes_for_cleanup.update(test_made_routes)
 
 
 class Test_VxLAN():

@@ -225,7 +225,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
         cfg_facts = asic_cfg['ansible_facts']
         cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
         cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
-        eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower()]
+        eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
         pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
         if port_type_a == "ethernet":
             if len(eths) != 0:
@@ -283,7 +283,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
             cfg_facts = asic_cfg['ansible_facts']
             cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
             cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
-            eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower()]
+            eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
             pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
             if len(eths) != 0:
                 if port_type_a == "ethernet":
@@ -1015,9 +1015,14 @@ class TestFPLinkFlap(LinkFlap):
                              dev=nbrhosts[ports["portB"]['nbr_vm']]['host'], size=256, ttl=2, ttl_change=0)
                 check_packet(eos_ping, ports, 'portD', 'portB', dst_ip_fld='nbr_lb', src_ip_fld='nbr_lb',
                              dev=nbrhosts[ports["portB"]['nbr_vm']]['host'], size=256, ttl=2)
-                check_packet(sonic_ping, ports, "portB", "portA", dst_ip_fld='my_ip', src_ip_fld='my_ip',
-                             dev=ports['portA']['asic'], size=256, ttl=2,
-                             ttl_change=0)
+                if version == 4:
+                    check_packet(sonic_ping, ports, "portB", "portA", dst_ip_fld='my_ip', src_ip_fld='my_ip',
+                                dev=ports['portA']['asic'], size=256, ttl=2,
+                                ttl_change=0)
+                else:
+                    logging.info(
+                        "Ingoring local asic ping of ipv6 interfaces when one side is down - "
+                            "get error: ping: bind icmp socket: Cannot assign requested address")
 
             # Make sure VM connected to portA can't ping portA
             with pytest.raises(AssertionError):

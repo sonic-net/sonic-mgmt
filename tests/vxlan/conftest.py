@@ -153,8 +153,8 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--bfd",
         action="store",
-        default=False,
-        type=bool,
+        default=True,
+        type=str2bool,
         help="BFD Status"
     )
 

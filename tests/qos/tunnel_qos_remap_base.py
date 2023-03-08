@@ -73,13 +73,11 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
 
 def check_queue_counter(duthost, intfs, queue, counter):
     output = duthost.shell('show queue counters')['stdout_lines']
-
-    for intf in intfs:
-        for line in output:
-            fields = line.split()
-            if len(fields) == 6 and fields[0] == intf and fields[1] == 'UC{}'.format(queue):
-                if int(fields[2]) >= counter:
-                    return True
+    for line in output:
+        fields = line.split()
+        if len(fields) == 6 and fields[0] in intfs and fields[1] == 'UC{}'.format(queue):
+            if int(fields[2]) >= counter:
+                return True
     
     return False
 
@@ -138,6 +136,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     asic_type = duthost.facts["asic_type"]
+    platform_asic = duthost.facts['platform_asic']
     # Always use the first portchannel member
     lag_port_name = list(mg_facts['minigraph_portchannels'].values())[0]['members'][0]
     lag_port_ptf_id = mg_facts['minigraph_ptf_indices'][lag_port_name]
@@ -159,6 +158,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
 
     return {
         "asic_type": asic_type,
+        "platform_asic": platform_asic,
         "lag_port_name": lag_port_name,
         "lag_port_ptf_id": lag_port_ptf_id,
         "server_port_name": server_port_name,

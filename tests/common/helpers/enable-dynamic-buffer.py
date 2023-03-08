@@ -23,6 +23,7 @@ zero_profiles_to_normal_profiles = {
     }
 logger = Logger()
 
+
 def _replace_buffer_profile_lists(config_db, table):
     ingress_profile_lists = config_db.get_table(table)
     for key, profile_list in ingress_profile_lists.items():
@@ -71,7 +72,8 @@ def stop_traditional_buffer_model(config_db):
                 config_db.set_entry('BUFFER_PG', key, pg)
                 zero_pgs.append(key)
 
-    logger.log_notice("Lossless PGs have been removed from BUFFER_PG and will be applied after dynamic buffer manager starts {}".format(lossless_pgs))
+    logger.log_notice("Lossless PGs have been removed from BUFFER_PG and \
+                      will be applied after dynamic buffer manager starts {}".format(lossless_pgs))
     logger.log_notice("Zero PGs have been replaced by normal profile {}".format(zero_pgs))
 
     queues = config_db.get_table('BUFFER_QUEUE')
@@ -84,7 +86,8 @@ def stop_traditional_buffer_model(config_db):
                 config_db.set_entry('BUFFER_QUEUE', key, queue)
                 zero_queues.append(key)
 
-    logger.log_notice("Queues referencing zero profiles have been removed from BUFFER_QUEUE and will be replaced by normal profile: {}".format(zero_queues))
+    logger.log_notice("Queues referencing zero profiles have been removed from BUFFER_QUEUE and \
+                      will be replaced by normal profile: {}".format(zero_queues))
 
     _replace_buffer_profile_lists(config_db, 'BUFFER_PORT_INGRESS_PROFILE_LIST')
     _replace_buffer_profile_lists(config_db, 'BUFFER_PORT_EGRESS_PROFILE_LIST')
@@ -101,7 +104,8 @@ def stop_traditional_buffer_model(config_db):
             config_db.set_entry('BUFFER_PROFILE', key, None)
             zero_profile.append(key)
 
-    logger.log_notice("Dynamically generated profiles and zero profiles have been removed from BUFFER_PROFILE: {} {}".format(dynamic_profile, zero_profile))
+    logger.log_notice("Dynamically generated profiles and zero profiles have been removed from BUFFER_PROFILE: {} {}"
+                      .format(dynamic_profile, zero_profile))
 
     pools = config_db.get_table('BUFFER_POOL')
     zero_pool = []

@@ -63,19 +63,24 @@ class MultiAsicSonicHost(object):
         active_asics = self.asics
         if self.sonichost.is_supervisor_node() and self.get_facts()['asic_type'] != 'vs':
             active_asics = []
-            sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_ASIC_TABLE|asic*\"")
+            sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
             for a_asic_line in sonic_db_cli_out["stdout_lines"]:
                 a_asic_name = a_asic_line.split("|")[1]
                 a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                 active_asics.append(a_asic_instance)
         service_list += self._DEFAULT_SERVICES
-        # Update the asic service based on feature table state and asic flag
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
-        for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-            if config_facts['FEATURE'][service]['state'] == "disabled":
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+        if self.get_facts().get("modular_chassis"):
+            # Update the asic service based on feature table state and asic flag
+            config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+            for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
+                if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+                    logger.warning("Removing teamd from default services for switch_type DPU")
+                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                    continue
+                if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
+                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                if config_facts['FEATURE'][service]['state'] == "disabled":
+                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
         for asic in active_asics:
             service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)
@@ -283,7 +288,10 @@ class MultiAsicSonicHost(object):
     def get_asic_or_sonic_host(self, asic_id):
         if asic_id == DEFAULT_ASIC_ID:
             return self.sonichost
-        return self.asics[asic_id]
+        for asic in self.asics:
+            if asic.asic_index == asic_id:
+                return asic
+        return None
 
     def get_asic_or_sonic_host_from_namespace(self, namespace=DEFAULT_NAMESPACE):
         if not namespace:

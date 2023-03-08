@@ -29,6 +29,7 @@ stages:
     displayName: "pre-commit-check"
     timeoutInMinutes: 10
     continueOnError: true
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
@@ -66,32 +67,34 @@ stages:
 
   - job: t0_testbedv2
     displayName: "kvmtest-t0 by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
         TOPOLOGY: t0
-        MIN_WORKER: 2
-        MAX_WORKER: 3
+        MIN_WORKER: $(T0_INSTANCE_NUM)
+        MAX_WORKER: $(T0_INSTANCE_NUM)
 
   - job: t0_2vlans_testbedv2
     displayName: "kvmtest-t0-2vlans by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
         TOPOLOGY: t0
         TEST_SET: t0-2vlans
-        MAX_WORKER: 1
+        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
 
   - job:
-    pool:
-      vmImage: 'ubuntu-20.04'
+    pool: ubuntu-20.04
     displayName: "kvmtest-t0"
     dependsOn:
     - t0_part1
@@ -139,15 +142,16 @@ stages:
 
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
-    timeoutInMinutes: 600
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
         TOPOLOGY: t1-lag
-        MIN_WORKER: 2
-        MAX_WORKER: 3
+        MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
+        MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
 
   - job:
     displayName: "kvmtest-t1-lag"
@@ -156,6 +160,7 @@ stages:
     - t1_lag_testbedv2
     condition: always()
     continueOnError: false
+    pool: ubuntu-20.04
     variables:
       resultOfClassic: $[ dependencies.t1_lag_classic.result ]
       resultOfTestbedV2: $[ dependencies.t1_lag_testbedv2.result ]
@@ -186,15 +191,16 @@ stages:
 
   - job: sonic_t0_testbedv2
     displayName: "kvmtest-t0-sonic by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
+    pool: ubuntu-20.04
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
           TOPOLOGY: t0-64-32
-          MIN_WORKER: 1
-          MAX_WORKER: 2
+          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
+          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
           TEST_SET: t0-sonic
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
           VM_TYPE: vsonic
@@ -218,15 +224,16 @@ stages:
 
   - job: dualtor_testbedv2
     displayName: "kvmtest-dualtor-t0 by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
           TOPOLOGY: dualtor
-          MIN_WORKER: 1
-          MAX_WORKER: 1
+          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
 
   - job:
@@ -247,27 +254,29 @@ stages:
 
   - job: multi_asic_testbedv2
     displayName: "kvmtest-multi-asic-t1-lag by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
           TEST_SET: multi-asic-t1-lag
-          MIN_WORKER: 1
-          MAX_WORKER: 1
+          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
           NUM_ASIC: 4
 
   - job: wan_testbedv2
     displayName: "kvmtest-wan by TestbedV2"
-    timeoutInMinutes: 1080
+    timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: true
+    continueOnError: false
+    pool: ubuntu-20.04
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
           TOPOLOGY: wan-pub
-          MIN_WORKER: 1
-          MAX_WORKER: 1
+          MIN_WORKER: $(WAN_INSTANCE_NUM)
+          MAX_WORKER: $(WAN_INSTANCE_NUM)
           COMMON_EXTRA_PARAMS: "--skip_sanity "

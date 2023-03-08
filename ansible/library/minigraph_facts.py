@@ -315,6 +315,8 @@ def parse_dpg(dpg, hname):
                 peer_addr_val = ipaddr_val + 1
             else:
                 peer_addr_val = ipaddr_val - 1
+        else:
+            peer_addr_val = ipaddr_val + 1
 
         if peer_addr_val is not None:
             intf['peer_addr'] = ipaddress.IPAddress(peer_addr_val)
@@ -419,7 +421,7 @@ def parse_dpg(dpg, hname):
             if vintftype is not None:
                 vlan_attributes['type'] = vintftype.text
             vlans[vintfname] = vlan_attributes
-            ports.pop(vintfname)
+            ports.pop(vintfname, None)
 
         aclintfs = child.find(str(QName(ns, "AclInterfaces")))
         acls = {}

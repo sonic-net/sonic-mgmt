@@ -2,6 +2,7 @@ import logging
 import random
 import ipaddr
 import pytest
+import ipaddress
 
 import ptf.testutils as testutils
 import ptf.packet as scapy
@@ -14,6 +15,7 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
 
 class DhcpPktFwdBase:
     """Base class for DHCP packet forwarding test. The test ensure that DHCP packets are going through T1 device."""
@@ -287,6 +289,7 @@ class DhcpPktFwdBase:
             padding_bytes=0,
             set_broadcast_bit=True
         )
+
 
 class TestDhcpPktFwd(DhcpPktFwdBase):
     """DHCP Packet forward test class"""
