@@ -119,7 +119,7 @@ def setup_config_mode(ansible_adhoc, duthosts, enum_rand_one_per_hwsku_frontend_
     mode = request.param
 
     logger.info('Creating a guest user')
-    duthost.user(name='guest', groups='sudo', state ='present', shell='/bin/bash')
+    duthost.user(name='guest', groups='sudo,redis', state ='present', shell='/bin/bash')
     duthost.shell('echo guest:guest | sudo chpasswd')
 
     logger.info('Configuring the interface naming mode as {} for the guest user'.format(mode))
