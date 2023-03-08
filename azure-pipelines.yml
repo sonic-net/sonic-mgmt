@@ -29,6 +29,7 @@ stages:
     displayName: "pre-commit-check"
     timeoutInMinutes: 10
     continueOnError: true
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
@@ -69,6 +70,7 @@ stages:
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
@@ -81,6 +83,7 @@ stages:
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
@@ -91,8 +94,7 @@ stages:
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
 
   - job:
-    pool:
-      vmImage: 'ubuntu-20.04'
+    pool: ubuntu-20.04
     displayName: "kvmtest-t0"
     dependsOn:
     - t0_part1
@@ -143,6 +145,7 @@ stages:
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
@@ -157,6 +160,7 @@ stages:
     - t1_lag_testbedv2
     condition: always()
     continueOnError: false
+    pool: ubuntu-20.04
     variables:
       resultOfClassic: $[ dependencies.t1_lag_classic.result ]
       resultOfTestbedV2: $[ dependencies.t1_lag_testbedv2.result ]
@@ -190,6 +194,7 @@ stages:
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
@@ -222,6 +227,7 @@ stages:
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
@@ -251,6 +257,7 @@ stages:
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:
@@ -265,6 +272,7 @@ stages:
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
+    pool: ubuntu-20.04
     steps:
       - template: .azure-pipelines/run-test-scheduler-template.yml
         parameters:

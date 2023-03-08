@@ -4,7 +4,7 @@
             "acl-set": {
                 "{{ acl_table_name }}": {
                     "acl-entries": {
-                        "acl-entry": { 
+                        "acl-entry": {
                             {% for rule in rules %}
                             "{{ loop.index }}": {
                                 "actions": {

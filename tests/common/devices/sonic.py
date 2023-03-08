@@ -1221,12 +1221,17 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
             m = re.match(r"^(default|\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m2 = re.match(r"^(default|\S+) nhid (\d+) proto (zebra|bgp|186) src (\S+)", rt[0])
+            # For case when there is no ecmp (below is example on Bullseye)
+            # default nhid 2270 via fc00::2 dev PortChannel102 proto bgp src fc00:10::1 metric 20 pref medium
+            m3 = re.match(r"^(default|\S+) nhid (\d+) via\s+(\S+)\s+dev\s+(\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             if m:
                 rtinfo['set_src'] = ipaddress.ip_address((m.group(3)).encode().decode())
             elif m1:
                 rtinfo['set_src'] = ipaddress.ip_address((m1.group(5)).encode().decode())
             elif m2:
                 rtinfo['set_src'] = ipaddress.ip_address((m2.group(4)).encode().decode())
+            elif m3:
+                rtinfo['set_src'] = ipaddress.ip_address((m3.group(6)).encode().decode())
 
             # parse nexthops
             for route_entry in rt:
@@ -1336,7 +1341,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1344,8 +1349,38 @@ Totals               6450                 6449
         """
         ipv4_output = self.shell("show ip route sum")["stdout_lines"]
         ipv4_summary = self._parse_route_summary(ipv4_output)
+
+        if skip_kernel_tunnel is True:
+            ipv4_route_kernel_output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_count = 0
+            for string in ipv4_route_kernel_output:
+                if re.search('tun', string):
+                    ipv4_route_kernel_count += 1
+            logging.debug("IPv4 kernel tun route {}, {}".format(ipv4_route_kernel_count, ipv4_route_kernel_output))
+
+            if ipv4_route_kernel_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['kernel']['FIB'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
+
+        if skip_kernel_tunnel is True:
+            ipv6_route_kernel_output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_count = 0
+            for string in ipv6_route_kernel_output:
+                if re.search('tun', string):
+                    ipv6_route_kernel_count += 1
+            logging.debug("IPv6 kernel tun route {}, {}".format(ipv6_route_kernel_count, ipv6_route_kernel_output))
+
+            if ipv6_route_kernel_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['kernel']['FIB'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
+
         return ipv4_summary, ipv6_summary
 
     def get_dut_iface_mac(self, iface_name):
@@ -2263,9 +2298,9 @@ Totals               6450                 6449
                 # Either oper or admin status 'down' means link down
                 if 'down' in output_line:
                     logging.info("Interface {} is down on {}".format(output_port, self.hostname))
-                    return False    
-                logging.info("Interface {} is up on {}".format(output_port, self.hostname))                             
-        return True   
+                    return False
+                logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+        return True
 
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
@@ -2290,7 +2325,7 @@ Totals               6450                 6449
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
 
+
 def assert_exit_non_zero(shell_output):
     if shell_output['rc'] != 0:
         raise Exception(shell_output['stderr'])
-

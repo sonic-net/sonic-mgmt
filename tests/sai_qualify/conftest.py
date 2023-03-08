@@ -205,7 +205,8 @@ def prepare_ptf_server(ptfhost, duthost, tbinfo, enum_asic_index, request):
         request: Pytest request.
     """
     if not request.config.option.sai_test_skip_setup_env:
-        update_saithrift_ptf(request, ptfhost)
+        # prepared saithrift in pipeline
+        # update_saithrift_ptf(request, ptfhost)
         __create_sai_port_map_file(
             ptfhost, duthost, tbinfo, enum_asic_index)
     yield
@@ -869,11 +870,13 @@ def update_saithrift_ptf(request, ptfhost):
         pytest.fail("No URL specified for python saithrift package")
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
+    logging.info("Download Python saithrift: [{}]".format(py_saithrift_url))
     result = ptfhost.get_url(
         url=py_saithrift_url, dest="/root", module_ignore_errors=True)
     if result["failed"] or "OK" not in result["msg"]:
         pytest.fail("Download failed/error while \
-            installing python saithrift package")
+            installing python saithrift package. failed:{}. msg:{}".format(
+            result["failed"], result["msg"]))
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
 

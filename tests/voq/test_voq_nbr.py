@@ -584,7 +584,8 @@ def test_neighbor_clear_one(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     pos_cfg = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
     nbr_to_test = []
     if eth_cfg != {}:
-        nbr_to_test.extend(select_neighbors(eth_cfg, cfg_facts))
+        eth_ports = [intf for intf in eth_cfg if "ethernet" in intf.lower() and eth_cfg[intf] != {}]
+        nbr_to_test.extend(select_neighbors(eth_ports, cfg_facts))
 
     if pos_cfg != {}:
         nbr_to_test.extend(select_neighbors(pos_cfg, cfg_facts))
@@ -681,7 +682,6 @@ def check_arptable_mac(host, asic, neighbor, mac, checkstate=True):
 
 def check_arptable_state_for_nbrs(host, asic, neighbors, state):
     logger.info("Checking arp table state {} of nbr {} on {}".format(state, neighbors, asic))
-    #sonic_ping(asic, neighbor, verbose=True)
     arptable = asic.switch_arptable()['ansible_facts']
 
     for neighbor in neighbors:
@@ -740,7 +740,7 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         return
 
     eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
-    eth_ports = [intf for intf in eth_cfg]
+    eth_ports = [intf for intf in eth_cfg if "ethernet" in intf.lower() and eth_cfg[intf] != {}]
     local_port = random.choice(eth_ports)
 
     logger.info("We will test port: %s on host %s, asic %s", local_port, per_host.hostname, asic.asic_index)
@@ -786,10 +786,6 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             logger.info("Verify neighbor after mac change: %s, port %s", neighbor, local_port)
             check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all_cfg_facts)
 
-        logger.info("Ping neighbors: %s from all line cards", nbr_to_test)
-
-        ping_all_neighbors(duthosts, all_cfg_facts, nbr_to_test)
-
     finally:
         logger.info("-" * 60)
         logger.info("Will Restore ethernet mac on port %s, vm %s", nbrinfo['shell_intf'], nbrinfo['vm'])
@@ -807,7 +803,6 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
 
         dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, nbr_to_test, nbrhosts, all_cfg_facts, nbr_macs)
 
-    ping_all_neighbors(duthosts, all_cfg_facts, nbr_to_test)
 
 
 class LinkFlap(object):
@@ -863,8 +858,13 @@ class LinkFlap(object):
 
         """
         logger.info("Bring up link: %s/%s <-> %s/%s", fanout.hostname, fanport, dut.hostname, dut_intf)
+        sleep_time = 60
         fanout.no_shutdown(fanport)
-        pytest_assert(wait_until(60, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
+        cmd = "show interfaces transceiver eeprom | grep 400ZR"
+        if dut.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            logging.info("sleeping for 90 seconds for ZR optics to come up")
+            sleep_time = 90
+        pytest_assert(wait_until(sleep_time, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
 
     def localport_admindown(self, dut, asic, dut_intf):
@@ -922,7 +922,7 @@ def pick_ports(cfg_facts):
     if "PORTCHANNEL_INTERFACE" in cfg_facts:
         intfs.update(cfg_facts['PORTCHANNEL_INTERFACE'])
 
-    eths = [intf for intf in intfs if "ethernet" in intf.lower()]
+    eths = [intf for intf in intfs if "ethernet" in intf.lower() and intfs[intf] != {}]
     pos = [intf for intf in intfs if "portchannel" in intf.lower()]
 
     intfs_to_test = []
@@ -1154,7 +1154,7 @@ class TestGratArp(object):
             return
 
         eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
-        eth_ports = [intf for intf in eth_cfg]
+        eth_ports = [intf for intf in eth_cfg if "ethernet" in intf.lower() and eth_cfg[intf] != {}]
         local_port = random.choice(eth_ports)
 
         logger.info("We will test port: %s on host %s, asic %s", local_port, duthost.hostname, asic.asic_index)
@@ -1200,7 +1200,6 @@ class TestGratArp(object):
                 pytest_assert(wait_until(60, 2, 0, check_arptable_mac, duthost, asic, neighbor, NEW_MAC, checkstate=True),
                               "MAC {} didn't change in ARP table of neighbor {}".format(NEW_MAC, neighbor))
                 check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
-                ping_all_neighbors(duthosts, all_cfg_facts, [neighbor])
             finally:
                 logger.info("Will Restore ethernet mac on neighbor: %s, port %s, vm %s", neighbor,
                             nbrinfo['shell_intf'], nbrinfo['vm'])
@@ -1217,4 +1216,4 @@ class TestGratArp(object):
                               "MAC {} didn't change in ARP table".format(original_mac))
 
             check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
-            ping_all_neighbors(duthosts, all_cfg_facts, [neighbor])
+

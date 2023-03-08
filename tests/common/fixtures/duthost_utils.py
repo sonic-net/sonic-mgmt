@@ -67,7 +67,7 @@ def backup_and_restore_config_db_module(duthosts, rand_one_dut_hostname):
         yield func
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def backup_and_restore_config_db_package(duthosts):
 
     for func in _backup_and_restore_config_db(duthosts, "package"):
@@ -167,9 +167,11 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
-    ptf_ports_available_in_topo = {port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()}
-    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
-    config_port_channel_members = [port_channel['members'] for port_channel in config_portchannels.values()]
+    ptf_ports_available_in_topo = {
+        port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()
+    }
+    config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
+    config_port_channel_members = [port_channel.keys() for port_channel in config_portchannels.values()]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
     ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo and
              config_ports[port].get('admin_status', 'down') == 'up' and port not in config_port_channel_member_ports]
@@ -200,19 +202,26 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
     rtn_val = True
     if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and \
             abs(int(float(sumv4['ebgp']['routes'])) - int(float(num_v4_routes))) >= MAX_DIFF:
+        logger.info("IPv4 ebgp routes: {}".format(float(sumv4['ebgp']['routes'])))
         rtn_val = False
     if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and \
             abs(int(float(sumv6['ebgp']['routes'])) - int(float(num_v6_routes))) >= MAX_DIFF:
+        logger.info("IPv6 ebgp routes: {}".format(float(sumv6['ebgp']['routes'])))
         rtn_val = False
     return rtn_val
 
 
 @pytest.fixture(scope="module")
-def shutdown_ebgp(duthosts):
+def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # To store the original number of eBGP v4 and v6 routes.
     v4ebgps = {}
     v6ebgps = {}
     orch_cpu_threshold = 10
+    # increase timeout for check_orch_cpu_utilization to 120sec for chassis
+    # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
+    duthost = duthosts[rand_one_dut_hostname]
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    orch_cpu_timeout = 120 if is_chassis else 60
     for duthost in duthosts.frontend_nodes:
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = duthost.get_ip_route_summary()
@@ -221,9 +230,9 @@ def shutdown_ebgp(duthosts):
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
         # Verify that the total eBGP routes are 0.
-        pytest_assert(wait_until(30, 2, 0, check_ebgp_routes, 0, 0, duthost),
+        pytest_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
                       "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-        pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
@@ -241,7 +250,7 @@ def shutdown_ebgp(duthosts):
         pytest_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
                       "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
                       "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
-        pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
@@ -257,7 +266,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
     config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
-    config_portchannels = cfg_facts.get('PORTCHANNEL', {})
+    config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
     config_ports_vlan = collections.defaultdict(list)
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
@@ -277,13 +286,13 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
             if 'tagging_mode' not in vlan_members[k][port]:
                 continue
             mode = vlan_members[k][port]['tagging_mode']
-            config_ports_vlan[port].append({'vlanid':int(vlanid), 'ip': ip, 'tagging_mode': mode})
+            config_ports_vlan[port].append({'vlanid': int(vlanid), 'ip': ip, 'tagging_mode': mode})
 
     if config_portchannels:
         for po in config_portchannels:
             vlan_port = {
                 'dev': po,
-                'port_index': [config_port_indices[member] for member in config_portchannels[po]['members']],
+                'port_index': [config_port_indices[member] for member in config_portchannels[po].keys()],
                 'permit_vlanid': []
             }
             if po in config_ports_vlan:
@@ -376,7 +385,7 @@ def utils_vlan_intfs_dict_add(vlan_intfs_dict, add_cnt):
         }
     '''
     vlan_cnt = 0
-    for i in xrange(0, 255):
+    for i in range(0, 255):
         vid = 100 + i
         if vid in vlan_intfs_dict:
             continue
@@ -407,7 +416,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     cmds = []
     logger.info("Add vlans, assign IPs")
     for k, v in vlan_intfs_dict.items():
-        if v['orig'] == True:
+        if v['orig']:
             continue
         cmds.append('config vlan add {}'.format(k))
         cmds.append("config interface ip add Vlan{} {}".format(k, v['ip'].upper()))
@@ -428,7 +437,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     logger.info("Add members to Vlans")
     for vlan_port in vlan_ports_list:
         for permit_vlanid in vlan_port['permit_vlanid']:
-            if vlan_intfs_dict[int(permit_vlanid)]['orig'] == True:
+            if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
@@ -458,18 +467,33 @@ def dut_qos_maps(rand_selected_dut):
     """
     maps = {}
     try:
+        if rand_selected_dut.is_multi_asic:
+            sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
+        else:
+            sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
+
         # port_qos_map
-        maps['port_qos_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'PORT_QOS_MAP'")['stdout'])
+        maps['port_qos_map'] = json.loads(
+            rand_selected_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
         # dscp_to_tc_map
-        maps['dscp_to_tc_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'")['stdout'])
+        maps['dscp_to_tc_map'] = json.loads(
+            rand_selected_dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
         # tc_to_queue_map
-        maps['tc_to_queue_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_QUEUE_MAP'")['stdout'])
+        maps['tc_to_queue_map'] = json.loads(
+            rand_selected_dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
         # tc_to_priority_group_map
-        maps['tc_to_priority_group_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_PRIORITY_GROUP_MAP'")['stdout'])
+        maps['tc_to_priority_group_map'] = json.loads(
+            rand_selected_dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
         # tc_to_dscp_map
-        maps['tc_to_dscp_map'] = json.loads(rand_selected_dut.shell("sonic-cfggen -d --var-json 'TC_TO_DSCP_MAP'")['stdout'])
-    except:
-        pass
+        maps['tc_to_dscp_map'] = json.loads(
+            rand_selected_dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        )
+    except Exception as e:
+        logger.error("Got exception: " + repr(e))
     return maps
 
 
@@ -507,7 +531,7 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
         for dscp, tc in dscp_to_tc_map.items():
             dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
         return dscp_to_pg_map
-    except:
+    except:     # noqa E722
         logger.error("Failed to retrieve dscp to pg map for port {} on {}".format(port, duthost.hostname))
         return {}
 
@@ -531,6 +555,6 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
         for dscp, tc in dscp_to_tc_map.items():
             dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
         return dscp_to_queue_map
-    except:
+    except:     # noqa E722
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}
