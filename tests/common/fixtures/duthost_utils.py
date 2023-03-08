@@ -161,10 +161,10 @@ def disable_fdb_aging(duthost):
 
 
 @pytest.fixture(scope="module")
-def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
+def ports_list(duthosts, rand_one_dut_hostname, rand_selected_front_end_dut, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_front_end_dut.get_extended_minigraph_facts(tbinfo)
     config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
     ptf_ports_available_in_topo = {
@@ -257,13 +257,13 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
+def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_front_end_dut, tbinfo, ports_list):
     """
     Get configured VLAN ports
     """
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_front_end_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
     config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
@@ -449,7 +449,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
 
 
 @pytest.fixture(scope='module')
-def dut_qos_maps(rand_selected_dut):
+def dut_qos_maps(rand_selected_front_end_dut):
     """
     A module level fixture to get QoS map from DUT host.
     Return a dict
@@ -467,30 +467,30 @@ def dut_qos_maps(rand_selected_dut):
     """
     maps = {}
     try:
-        if rand_selected_dut.is_multi_asic:
+        if rand_selected_front_end_dut.is_multi_asic:
             sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
         else:
             sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
 
         # port_qos_map
         maps['port_qos_map'] = json.loads(
-            rand_selected_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
+            rand_selected_front_end_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
         )
         # dscp_to_tc_map
         maps['dscp_to_tc_map'] = json.loads(
-            rand_selected_dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
+            rand_selected_front_end_dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
         )
         # tc_to_queue_map
         maps['tc_to_queue_map'] = json.loads(
-            rand_selected_dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
+            rand_selected_front_end_dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
         )
         # tc_to_priority_group_map
         maps['tc_to_priority_group_map'] = json.loads(
-            rand_selected_dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
+            rand_selected_front_end_dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
         )
         # tc_to_dscp_map
         maps['tc_to_dscp_map'] = json.loads(
-            rand_selected_dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
+            rand_selected_front_end_dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
         )
     except Exception as e:
         logger.error("Got exception: " + repr(e))
