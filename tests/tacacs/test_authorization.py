@@ -163,10 +163,9 @@ def test_authorization_tacacs_only_some_server_down(
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
 
-    # The first tacacs server is invalid and tacacs client timeout is set to 1 second.
-    # For tacacs+ authorization to work with the working tacacs server,
-    # need to wait until client timed out with the first invalid tacacs server.
-    # Otherwise, this test will be flaky.
+    # The above "config tacacs add" commands will trigger hostcfgd to regenerate tacacs config.
+    # If we immediately run "show aaa" command, the client may still be using the first invalid tacacs server.
+    # The second valid tacacs may not take effect yet. Wait some time for the valid tacacs server to take effect.
     time.sleep(2)
 
     """
