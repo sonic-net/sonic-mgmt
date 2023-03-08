@@ -22,7 +22,8 @@ FMT_SHORT = "%b %d %H:%M:%S"
 SMALL_DISK_SKUS = [
     "Arista-7060CX-32S-C32",
     "Arista-7060CX-32S-Q32",
-    "Arista-7060CX-32S-D48C8"
+    "Arista-7060CX-32S-D48C8",
+    "Arista-7050CX3-32S-C32"
 ]
 
 
