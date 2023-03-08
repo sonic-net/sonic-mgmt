@@ -2209,7 +2209,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
         time.sleep(5)
         switch_init(self.client)
-        stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
+        self.stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
          # Parse input parameters
         self.testbed_type = self.test_params['testbed_type']
@@ -2346,7 +2346,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     assert drops == 0, "Detected %d egress drops" % drops
 
         finally:
-            show_stats(self.__class__.__name__, self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), bases=stats)
+            show_stats(self.__class__.__name__, self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), bases=self.stats)
             sai_thrift_port_tx_enable(self.client, self.asic_type, uniq_dst_ports)
 
 # TODO: remove sai_thrift_clear_all_counters and change to use incremental counter values
