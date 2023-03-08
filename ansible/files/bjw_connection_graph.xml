@@ -42,8 +42,8 @@
       <Device Hostname="bjw-can-2700-2" HwSku="Mellanox-SN2700" Type="DevSonic"/>
       <Device Hostname="bjw-slx-can-1" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
       <Device Hostname="bjw-slx-can-3" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7215-1" HwSku="Nokia-7215" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7215-6" HwSku="Nokia-7215" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7215-1" HwSku="Nokia-M0-7215" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7215-6" HwSku="Nokia-M0-7215" Type="DevSonic"/>
       <Device Hostname="bjw-can-7050qx-1" HwSku="Arista-7050QX32S-Q32" Type="DevSonic"/>
       <Device Hostname="bjw-can-7050qx-2" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
       <Device Hostname="bjw-can-e1031-3" HwSku="Celestica-E1031-T48S4" Type="DevSonic"/>

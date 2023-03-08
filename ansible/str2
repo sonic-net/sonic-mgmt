@@ -1720,11 +1720,11 @@ sonic_nokia_sup:
 
 sonic_nokia_7215:
   vars:
-    hwsku: Nokia-7215
     iface_speed: 1000
   hosts:
     str2-7215-acs-1:
       ansible_host: 10.3.146.59
+      hwsku: Nokia-M0-7215
       model: 3HE16794AARA01
       serial: NK205210084
       base_mac: 50:E0:EF:7A:F1:D1
@@ -1743,6 +1743,7 @@ sonic_nokia_7215:
         "0xFE": "0x330F7F44"
     str2-7215-acs-3:
       ansible_host: 10.3.147.140
+      hwsku: Nokia-7215
       model: 3HE16794AARA01
       serial: NK205210083
       base_mac: 50:E0:EF:7A:F1:91

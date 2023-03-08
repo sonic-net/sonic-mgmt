@@ -92,7 +92,7 @@
       <Device Hostname="str2-a7280cr3-3" HwSku="Arista-7280CR3-C40" Type="DevSonic"/>
       <Device Hostname="str2-a7280cr3-4" HwSku="Arista-7280CR3-C40" Type="DevSonic"/>
       <Device Hostname="str2-7170-azd" HwSku="Arista-7170-64C" Type="DevSonic"/>
-      <Device Hostname="str2-7215-acs-1" HwSku="Nokia-7215" Type="DevSonic"/>
+      <Device Hostname="str2-7215-acs-1" HwSku="Nokia-M0-7215" Type="DevSonic"/>
       <Device Hostname="str2-7804-sup-1" HwSku="Arista-7808R3A-FM" Type="DevSonic"/>
       <Device Hostname="str2-7804-lc3-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
       <Device Hostname="str2-7804-lc5-1" HwSku="Arista-7800R3A-36DM2-C36" Type="DevSonic"/>

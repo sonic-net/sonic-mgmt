@@ -364,11 +364,11 @@ sonic_mlnx_sn2700:
 
 sonic_nokia_7215:
   vars:
-    hwsku: Nokia-7215
     iface_speed: 1000
   hosts:
     bjw-can-7215-1:
       ansible_host: 10.150.22.110
+      hwsku: Nokia-M0-7215
       model: 3HE16794AARD01
       serial: NK222413040
       base_mac: AC:8F:F8:6A:5D:FD
@@ -386,6 +386,7 @@ sonic_nokia_7215:
         "0xFE": "0xF02FB771"
     bjw-can-7215-6:
       ansible_host: 10.150.22.124
+      hwsku: Nokia-M0-7215
       model: 3HE16794AARD01
       serial: NK223210818
       base_mac: AC:8F:F8:77:20:D7
