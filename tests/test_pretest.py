@@ -407,7 +407,7 @@ def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
        2. Update/add ports2cable mapping
     '''
     duthost = duthosts[enum_dut_hostname]
-    pytest_require(not any(vers in duthost.os_version for vers in ["201811", "201911", "202012"]), "Skip updating templates for {}".format(duthost.os_version))
+    pytest_require(not any(vers in duthost.os_version for vers in ["201811", "201911", "202012", "202205"]), "Skip updating templates for {}".format(duthost.os_version))
 
     hwsku = duthost.facts["hwsku"]
     platform = duthost.facts["platform"]
