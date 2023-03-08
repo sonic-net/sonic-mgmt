@@ -27,11 +27,11 @@ The tests outlined below are targeted towards validating the NAC functionality o
 |**Command**|**Comment**|
 | :-: | :-: |
 |**Configuration Commands**||
-|config nac <enable | disable> |To enable/disable NAC in global mode.|
-|config nac interface enable <interface\_name | all> |To enable/disable NAC in interface mode.|
+|config nac <enable \| disable> |To enable/disable NAC in global mode.|
+|config nac interface enable <interface\_name \| all> |To enable/disable NAC in interface mode.|
 |**Show Commands** ||
 |show nac |To display the NAC admin state, authentication type and NAC type. |
-|show nac interface <interface\_name | all>|To display the NAC status in an interface|
+|show nac interface <interface\_name \| all>|To display the NAC status in an interface|
 
 **Test Case (1.1): NAC Enable in Global Mode:**
 
