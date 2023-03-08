@@ -9,7 +9,6 @@ from isis_helpers import config_sonic_isis
 from isis_helpers import config_nbr_isis
 from isis_helpers import remove_nbr_isis_config
 from isis_helpers import remove_sonic_isis_config
-from conftest import get_dut_port_p2p
 from isis_helpers import get_nbr_name
 
 DOCUMENTATION = '''
@@ -25,6 +24,12 @@ pytestmark = [
 
 ITF_AUTH_PASSWRD = 'itf_auth'
 AREA_AUTH_PASSWRD = 'area_auth'
+
+
+def get_dut_port_p2p(mg_facts, dut_port):
+    for p2p in mg_facts['minigraph_portchannel_interfaces']:
+        if p2p['attachto'] == dut_port:
+            return (p2p['subnet'], p2p['peer_addr'])
 
 
 def test_isis_no_auth(isis_common_setup_teardown, nbrhosts, tbinfo):
