@@ -134,7 +134,7 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
                 # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
                 # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
                 category = '{}:{}'.format(container, critical_process)
-                expected_value = "'{}' is not running".format(critical_process)
+                expected_value = "Process '{}' in container '{}' is not running".format(critical_process, container)
                 result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, category, expected_value)
                 assert result == True, '{} is not recorded'.format(critical_process)
                 summary = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
@@ -413,11 +413,11 @@ class ProcessExitContext:
 
     def __enter__(self):
         logging.info('Stopping {}:{}'.format(self.container_name, self.process_name))
-        self.dut.command('docker exec -it {} bash -c "supervisorctl stop {}"'.format(self.container_name, self.process_name))
+        self.dut.command('docker exec -t {} bash -c "supervisorctl stop {}"'.format(self.container_name, self.process_name))
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         logging.info('Starting {}:{}'.format(self.container_name, self.process_name))
-        self.dut.command('docker exec -it {} bash -c "supervisorctl start {}"'.format(self.container_name, self.process_name))
+        self.dut.command('docker exec -t {} bash -c "supervisorctl start {}"'.format(self.container_name, self.process_name))
         # check with delay in which the dockers can be restarted
         pytest_assert(wait_until(300, 20, 8, self.dut.critical_services_fully_started),
                       "Not all critical services are fully started")
