@@ -161,10 +161,10 @@ def disable_fdb_aging(duthost):
 
 
 @pytest.fixture(scope="module")
-def ports_list(duthosts, rand_one_dut_hostname, rand_selected_front_end_dut, tbinfo):
+def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    mg_facts = rand_selected_front_end_dut.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
     ptf_ports_available_in_topo = {
@@ -257,13 +257,13 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_front_end_dut, tbinfo, ports_list):
+def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
     """
     Get configured VLAN ports
     """
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    mg_facts = rand_selected_front_end_dut.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
     config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
