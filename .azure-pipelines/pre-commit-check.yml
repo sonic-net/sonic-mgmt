@@ -1,7 +1,7 @@
 parameters:
 - name: github_conn
   type: string
-  default: 'sonic-net-comment'
+  default: 'mssonicbld-mgmt'
 
 steps:
 - script: |
