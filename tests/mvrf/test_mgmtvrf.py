@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from pkg_resources import parse_version
 from tests.common.devices.ptf import PTFHost
+from retry import retry
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -107,6 +108,7 @@ def check_ntp_status(host):
         res = execute_dut_command(host, ntpstat_cmd, mvrf=True, ignore_errors=True)
     return res['rc'] == 0
 
+@retry(tries=5, delay=5.0)
 def verify_show_command(duthost, mvrf=True):
     show_mgmt_vrf = duthost.shell("show mgmt-vrf")["stdout"]
     mvrf_interfaces = {}
@@ -220,7 +222,7 @@ class TestServices():
         # SSH definitions
         logger.info("test Service acl")
 
-        duthost.copy(src="mvrf/config_service_acls.sh", dest="/tmp/config_service_acls.sh", mode=0755)
+        duthost.copy(src="mvrf/config_service_acls.sh", dest="/tmp/config_service_acls.sh", mode="0755")
         duthost.shell("nohup /tmp/config_service_acls.sh < /dev/null > /dev/null 2>&1 &")
         time.sleep(5)
         logger.info("waiting for ssh to drop")
