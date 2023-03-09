@@ -121,7 +121,7 @@ class KustoChecker(object):
         query_str = '''
             TestReportPipeline
             | where UploadTimestamp > ago({date})
-            | where FailedTasks contains "Run Tests" or FailedTasks contains "Upgrade Image" or FailedTasks contains "Deploy Minigraph" or CancelledTasks contains "Run Tests"
+            | where FailedTasks contains "Run Tests" or FailedTasks contains "Upgrade Image" or FailedTasks contains "Deploy Minigraph"
             | where TestbedName != ''
             | distinct StartTimestamp, TestbedName, FailedTasks
             '''.format(date=date)
