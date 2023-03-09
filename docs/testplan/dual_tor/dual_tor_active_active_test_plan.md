@@ -89,7 +89,6 @@ For downstream traffic from T1, the ECMP routing behavior is out of the scope of
 
 ### Traffic Verification between SoC IP and T1 
 
-#### downstream traffic verification
 In active-active dualtor setup, we have some special design regarding [SoC traffic forwarding](https://github.com/sonic-net/SONiC/blob/master/doc/dualtor/active_active_hld.md#371-special-cases-of-traffic-forwarding). In a nutshell if a interface is toggled to `standby`, we still expect gRPC communication to go directly through the interface, while regular dataplane traffic should be bounced back to T1 and forwarded through IPinIP tunnel. 
 
 A set of tests is introduced to verify the behavior. 
@@ -97,7 +96,7 @@ A set of tests is introduced to verify the behavior.
 #### upstream traffic verification
 
 | <div style="width:200px">Case</div>           | <div style="width:300px">Goal</div>                                              | <div style="width:300px">Test Steps</div>                                                                          | <div style="width:300px">Action during I/O</div> | <div style="width:300px">Expected Control Plane</div>                                                      | <div style="width:300px">Expected Data Plane</div>                                                                                                                                                                       |
-| normal operation scenario | Verify upstream traffic with SoC IP as src IP. | <br>1. Verify active-active setup. </br><br>2. Start upstream traffic.</br> | None |  Both ToR remain `active` and `healthy` in the whole test. |T1 receives all packets with no disruption. |
+| normal operation scenario | Verify upstream traffic with SoC IP as src IP. | <br>1. Verify active-active setup. <br/><br>2. Start upstream traffic.<br/> | None |  Both ToR remain `active` and `healthy` in the whole test. |T1 receives all packets with no disruption. |
 | ToR-A link down | Verify SoC -> T1 traffic in ToR-A downstream interface down scenario | <br>1. Take down ToR to Server links on ToR-A<br/><br>2. Start upstream traffic. <br/> | None | ToR-A toggles to `standby` after link down and toggles back to `active` after link up. | T1 receives packets with one disruption. |
 
 #### downstream traffic verification
