@@ -1,6 +1,8 @@
 import pytest
 import re
 
+from tests.common.devices.eos import EosHost
+from tests.common.devices.cisco import CiscoHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait
@@ -24,12 +26,6 @@ pytestmark = [
 
 ITF_AUTH_PASSWRD = 'itf_auth'
 AREA_AUTH_PASSWRD = 'area_auth'
-
-
-def get_dut_port_p2p(mg_facts, dut_port):
-    for p2p in mg_facts['minigraph_portchannel_interfaces']:
-        if p2p['attachto'] == dut_port:
-            return (p2p['subnet'], p2p['peer_addr'])
 
 
 def test_isis_no_auth(isis_common_setup_teardown, nbrhosts, tbinfo):
@@ -137,19 +133,34 @@ def config_dut_isis_auth(auth_type, auth_passwd, dut_host, dut_port):
 
 def config_nbr_isis_auth(auth_type, auth_passwd, nbr_host, nbr_port):
     if nbr_port is None:
-        nbr_host.eos_config(
-                              lines=['authentication mode {}'.format(auth_type),
-                                     "authentication key {}".format(auth_passwd)],
-                              parents=['router isis {}'.format(isis_instance)])
+        if isinstance(nbr_host, EosHost):
+            nbr_host.eos_config(
+                                lines=['authentication mode {}'.format(auth_type),
+                                       "authentication key {}".format(auth_passwd)],
+                                parents=['router isis {}'.format(isis_instance)])
+
+        elif isinstance(nbr_host, CiscoHost):
+            auth_type = "hmac-md5" if "md5" == auth_type else "text"
+            nbr_host.config(
+                                lines=['lsp-password {} {}'.format(auth_type, auth_passwd)],
+                                parents=['router isis {}'.format(isis_instance)])
     else:
-        nbr_host.eos_config(
+        if isinstance(nbr_host, EosHost):
+            nbr_host.eos_config(
                                 lines=['isis authentication mode {}'.format(auth_type),
                                        "isis authentication key {}".format(auth_passwd)],
                                 parents=['interface {}'.format(nbr_port)])
+        elif isinstance(nbr_host, CiscoHost):
+            auth_type = "hmac-md5" if "md5" == auth_type else "text"
+            nbr_host.config(
+                                lines=['hello-password {} {}'.format(auth_type, auth_passwd)],
+                                parents=['router isis {}'.format(isis_instance), 'interface {}'.format(nbr_port)])
 
 
 def collect_dut_nbrs(selected_connections, nbrhosts, tbinfo):
     (dut_host, dut_port, nbr_host, nbr_port) = selected_connections[0]
+    if isinstance(nbr_host, CiscoHost):
+        nbr_port = re.sub(r'Port-Channel', 'Bundle-Ether', nbr_port)
     nbr_name = get_nbr_name(nbrhosts, nbr_host)
     mg_facts = dut_host.get_extended_minigraph_facts(tbinfo)
     (dut_p2p, nbr_p2p) = get_dut_port_p2p(mg_facts, dut_port)
@@ -171,3 +182,9 @@ def reset_isis_config(dut_host, nbr_host):
     remove_nbr_isis_config(nbr_host)
     config_sonic_isis(dut_host)
     config_nbr_isis(nbr_host)
+
+
+def get_dut_port_p2p(mg_facts, dut_port):
+    for p2p in mg_facts['minigraph_portchannel_interfaces']:
+        if p2p['attachto'] == dut_port:
+            return (p2p['subnet'], p2p['peer_addr'])

@@ -7,9 +7,10 @@ router isis {{ isis_instance }}
 {% endif %}
  is-type level-2-only
  address-family ipv4 unicast
+ metric-style wide
  !
  address-family ipv6 unicast
- !
+ metric-style wide
 {% if isis_intfs is defined %}
 {% for name in isis_intfs %}
 {% if name.startswith('Ethernet') %}
