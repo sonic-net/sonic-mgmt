@@ -136,9 +136,9 @@ def config_nbr_isis_auth(auth_type, auth_passwd, nbr_host, nbr_port):
         if isinstance(nbr_host, EosHost):
             nbr_host.eos_config(
                                 lines=['authentication mode {}'.format(auth_type),
-                                        "authentication key {}".format(auth_passwd)],
+                                       "authentication key {}".format(auth_passwd)],
                                 parents=['router isis {}'.format(isis_instance)])
-        
+
         elif isinstance(nbr_host, CiscoHost):
             auth_type = "hmac-md5" if "md5" == auth_type else "text"
             nbr_host.config(
