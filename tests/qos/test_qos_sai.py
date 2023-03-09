@@ -504,7 +504,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2",
                              "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
-        self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig
+            self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig, singleMemberPortStaticRoute, nearbySourcePorts
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -527,22 +527,24 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
-        testPortIps = dutConfig["testPortIps"]
-
         self.updateTestPortIdIp(dutConfig, qosConfig[LosslessVoqProfile])
 
+        dst_port_id, dst_port_ip = singleMemberPortStaticRoute
+        src_port_1_id, src_port_2_id = nearbySourcePorts
+
+        testPortIps = dutConfig["testPortIps"]
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
             "dscp": qosConfig[LosslessVoqProfile]["dscp"],
             "ecn": qosConfig[LosslessVoqProfile]["ecn"],
             "pg": qosConfig[LosslessVoqProfile]["pg"],
-            "dst_port_id": qosConfig[LosslessVoqProfile]["dst_port_id"],
-            "dst_port_ip": testPortIps[qosConfig[LosslessVoqProfile]["dst_port_id"]]['peer_addr'],
-            "src_port_1_id": qosConfig[LosslessVoqProfile]["src_port_1_id"],
-            "src_port_1_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_1_id"]]['peer_addr'],
-            "src_port_2_id": qosConfig[LosslessVoqProfile]["src_port_2_id"],
-            "src_port_2_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_2_id"]]['peer_addr'],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dst_port_ip,
+            "src_port_1_id": src_port_1_id,
+            "src_port_1_ip": testPortIps[src_port_1_id]['peer_addr'],
+            "src_port_2_id": src_port_2_id,
+            "src_port_2_ip": testPortIps[src_port_2_id]['peer_addr'],
             "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
@@ -946,7 +948,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, duthost, localhost
+            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -969,26 +971,28 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Lossy Queue Voq test is not supported")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
-        testPortIps = dutConfig["testPortIps"]
-
-        if "lossy_queue_voq_2" in LossyVoq:
+        flow_config = qosConfig[LossyVoq]["flow_config"]
+        assert flow_config in ["shared", "separate"], "Invalid flow config '{}'".format(flow_config)
+        if flow_config == "shared":
             original_voq_markings = get_markings_dut(duthost)
             setup_markings_dut(duthost, localhost, voq_allocation_mode="default")
 
         self.updateTestPortIdIp(dutConfig, qosConfig[LossyVoq])
 
         try:
+            dst_port_id, dst_port_ip = singleMemberPortStaticRoute
             testParams = dict()
             testParams.update(dutTestParams["basicParams"])
             testParams.update({
                 "dscp": qosConfig[LossyVoq]["dscp"],
                 "ecn": qosConfig[LossyVoq]["ecn"],
                 "pg": qosConfig[LossyVoq]["pg"],
-                "src_port_id": qosConfig[LossyVoq]["src_port_id"],
-                "src_port_ip": testPortIps[qosConfig[LossyVoq]["src_port_id"]]['peer_addr'],
-                "dst_port_id": qosConfig[LossyVoq]["dst_port_id"],
-                "dst_port_ip": testPortIps[qosConfig[LossyVoq]["dst_port_id"]]['peer_addr'],
+                "src_port_id": dutConfig["testPorts"]["src_port_id"],
+                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "dst_port_id": dst_port_id,
+                "dst_port_ip": dst_port_ip,
                 "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+                "flow_config": flow_config,
                 "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
             })
 
@@ -1010,7 +1014,7 @@ class TestQosSai(QosSaiBase):
             )
 
         finally:
-            if "lossy_queue_voq_2" in LossyVoq:
+            if flow_config == "shared":
                 setup_markings_dut(duthost, localhost, **original_voq_markings)
 
     def testQosSaiDscpQueueMapping(
