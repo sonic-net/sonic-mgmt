@@ -323,6 +323,10 @@ def duthost(duthosts, request):
 
     return duthost
 
+@pytest.fixture(scope="session")
+def mg_facts(duthost):
+    return duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
@@ -1828,10 +1832,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             EXCLUDE_CONFIG_TABLE_NAMES = set([])
             # The keys that we don't care
             # Current skipped keys:
-            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder_session` fixture in dualtor-mixed 
-            # to account for the lower performance of the ICMP responder/mux simulator, 
-            # compared to real servers and mux cables. It's appropriate to persist this change 
-            # since the testbed will always be using the ICMP responder and mux simulator. 
+            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder_session` fixture in dualtor-mixed
+            # to account for the lower performance of the ICMP responder/mux simulator,
+            # compared to real servers and mux cables. It's appropriate to persist this change
+            # since the testbed will always be using the ICMP responder and mux simulator.
             # Linkmgrd is the only service to consume this table so it should not affect other test cases.
             if "mixed" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
