@@ -131,7 +131,7 @@ def check_server_received(ptfhost, data):
     hex_string = hex.decode()
 
     # Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string
-    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string) # noqa W605 E501
     res = ptfhost.shell(sed_command)
     logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
     logger.info(res["stdout_lines"])
@@ -325,7 +325,7 @@ def test_send_remote_address(
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
                             check_tacacs,
-                            remote_user_client):
+                            rw_user_client):
     """
         Verify TACACS+ send remote address to server.
     """
@@ -334,4 +334,4 @@ def test_send_remote_address(
 
     # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
     remote_address = stdout[0].split(" ")[0]
-    check_server_received(remote_address)
+    check_server_received(ptfhost, remote_address)
