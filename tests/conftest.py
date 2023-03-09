@@ -331,6 +331,9 @@ def duthost(duthosts, request):
 
     return duthost
 
+@pytest.fixture(scope="session")
+def mg_facts(duthost):
+    return duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
