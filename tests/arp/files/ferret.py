@@ -170,7 +170,7 @@ class Responder(object):
         self.vxlan_port = vxlan_port
 
     def hexdump(self, data):
-        print(" ".join("%02x" % ord(d) for d in data))
+        print((" ".join("%02x" % ord(d) for d in data)))
 
     def action(self, interface):
         data = interface.recv()
@@ -206,7 +206,7 @@ class Responder(object):
         elif gre_type_r == 0x8949: # Mellanox
             arp_request = data[0x3c:]
         else:
-            print("GRE type 0x%x is not supported" % gre_type_r)
+            print(("GRE type 0x%x is not supported" % gre_type_r))
             self.hexdump(data)
             print()
             return
@@ -249,7 +249,7 @@ class Responder(object):
             arp_reply = self.generate_arp_reply(binascii.unhexlify(r.mac), remote_mac, request_ip, remote_ip, vlan_id)
             new_pkt += arp_reply
         else:
-            print('Support of family %s is not implemented' % r.family)
+            print(('Support of family %s is not implemented' % r.family))
             return
 
         interface.send(new_pkt)
@@ -327,7 +327,7 @@ def parse_args():
     parser.add_argument('-p', '--vxlan-port', help='VXLAN port', type=int, required=False, default=None)
     args = parser.parse_args()
     if not os.path.isfile(args.config_file):
-        print("Can't open config file '%s'" % args.config_file)
+        print(("Can't open config file '%s'" % args.config_file))
         exit(1)
 
     global ASIC_TYPE

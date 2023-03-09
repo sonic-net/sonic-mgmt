@@ -327,7 +327,7 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
            mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
         })
     # use randam sonic interface for testing
-    nn_target_interface = random.choice(port_index_map.keys())
+    nn_target_interface = random.choice(list(port_index_map.keys()))
     # get the  ptf port for choosen port
     nn_target_port = port_index_map[nn_target_interface]
     myip = None

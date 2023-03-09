@@ -171,7 +171,7 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
         port_index: 'eth{}'.format(port_index) for port_index in list(config_port_indices.values())
     }
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
-    config_port_channel_members = [port_channel.keys() for port_channel in list(config_portchannels.values())]
+    config_port_channel_members = [list(port_channel.keys()) for port_channel in list(config_portchannels.values())]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
     ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo and
              config_ports[port].get('admin_status', 'down') == 'up' and port not in config_port_channel_member_ports]
@@ -292,7 +292,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
         for po in config_portchannels:
             vlan_port = {
                 'dev': po,
-                'port_index': [config_port_indices[member] for member in config_portchannels[po].keys()],
+                'port_index': [config_port_indices[member] for member in list(config_portchannels[po].keys())],
                 'permit_vlanid': []
             }
             if po in config_ports_vlan:
@@ -503,7 +503,7 @@ def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
     downlink/unlink ports.
     """
     dscp_to_tc_map_names = set()
-    for port_name, qos_map in dut_qos_maps['port_qos_map'].items():
+    for port_name, qos_map in list(dut_qos_maps['port_qos_map'].items()):
         if port_name == "global":
             continue
         dscp_to_tc_map_names.add(qos_map.get("dscp_to_tc_map", ""))

@@ -174,7 +174,7 @@ class DualTorIO:
             return {}
 
         soc_ip_list = []
-        for _, config in natsorted(self.mux_cable_table.items()):
+        for _, config in natsorted(list(self.mux_cable_table.items())):
             if "soc_ipv4" in config:
                 soc_ip_list.append(str(config['soc_ipv4'].split("/")[0]))
         logger.info("All soc address:\n {}".format(soc_ip_list))

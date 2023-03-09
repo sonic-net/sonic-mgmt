@@ -14,7 +14,7 @@ from . import configlet
 from . import generic_patch
 
 if os.path.exists("/etc/sonic/sonic-environment"):
-    from mock_for_switch import config_reload, wait_until
+    from .mock_for_switch import config_reload, wait_until
 else:
     from tests.common.config_reload import config_reload
     from tests.common.utilities import wait_until

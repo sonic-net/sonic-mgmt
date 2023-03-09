@@ -543,10 +543,10 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if used_percent < 1:
         routes_num = get_entries_num(new_crm_stats_route_used, new_crm_stats_route_available)
         if ip_ver == "4":
-            routes_list = " ".join([str(ipaddress.IPv4Address(u'2.0.0.1') + item) + "/32"
+            routes_list = " ".join([str(ipaddress.IPv4Address('2.0.0.1') + item) + "/32"
                                     for item in range(1, routes_num + 1)])
         elif ip_ver == "6":
-            routes_list = " ".join([str(ipaddress.IPv6Address(u'2001::') + item) + "/128"
+            routes_list = " ".join([str(ipaddress.IPv6Address('2001::') + item) + "/128"
                                     for item in range(1, routes_num + 1)])
         else:
             pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
@@ -846,7 +846,7 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         if tbinfo["topo"]["type"] == "mx":
             ports = ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"])
         else:
-            ports = ",".join(mg_facts["minigraph_portchannels"].keys())
+            ports = ",".join(list(mg_facts["minigraph_portchannels"].keys()))
         recreate_acl_table(duthost, ports)
 
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)

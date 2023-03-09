@@ -96,7 +96,7 @@ def active_active_ports_config(mux_config, tbinfo):
         return {}
 
     active_active_ports_config = {}
-    for port, port_config in mux_config.items():
+    for port, port_config in list(mux_config.items()):
         if port_config["SERVER"].get("cable_type", CableType.default_type) == CableType.active_active:
             active_active_ports_config[port] = port_config
 

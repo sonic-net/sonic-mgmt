@@ -104,8 +104,8 @@ def test_thermal_global_state_db(duthosts, enum_supervisor_dut_hostname, tbinfo)
         """
         delete all keys that we know should not be checked from the global dictionary
         """
-        for skip_sensor_key in skip_dict.keys():
-            if skip_sensor_key in out_dict.keys():
+        for skip_sensor_key in list(skip_dict.keys()):
+            if skip_sensor_key in list(out_dict.keys()):
                 del out_dict[skip_sensor_key]
 
     actual_num_thermal_sensors = len(list(out_dict.keys()))

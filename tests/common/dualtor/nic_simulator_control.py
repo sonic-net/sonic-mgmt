@@ -348,7 +348,7 @@ def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulat
         reply = call_grpc(client_stub.SetAdminForwardingPortState, [request])
 
         for mux_port, port_status in zip(mux_ports, reply.admin_replies):
-            status = dict(zip(port_status.portid, port_status.state))
+            status = dict(list(zip(port_status.portid, port_status.state)))
             if status[portid] != state:
                 raise ValueError("failed to toggle port %s, portid %s, state %s" % (mux_port, portid, state))
 

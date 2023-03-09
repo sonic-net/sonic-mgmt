@@ -18,7 +18,7 @@ import scapy.arch.pcapdnet
 NEIGH_SOLICIT_ICMP_MSG_TYPE = 135
 
 def hexdump(data):
-    print(" ".join("%02x" % ord(d) for d in data))
+    print((" ".join("%02x" % ord(d) for d in data)))
 
 def get_if(iff, cmd):
     s = socket.socket()
@@ -199,7 +199,7 @@ def main():
     args = parse_args()
 
     if not os.path.exists(args.conf):
-        print("Can't find file %s" % args.conf)
+        print(("Can't find file %s" % args.conf))
         return
 
     with open(args.conf) as fp:

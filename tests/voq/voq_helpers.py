@@ -538,7 +538,7 @@ def get_vm_with_ip(neigh_ip, nbrhosts):
         A dictionary with the vm index for nbrhosts, and port name.
     """
     for a_vm in nbrhosts:
-        for port, a_intf in nbrhosts[a_vm]['conf']['interfaces'].items():
+        for port, a_intf in list(nbrhosts[a_vm]['conf']['interfaces'].items()):
             if 'ipv4' in a_intf and a_intf['ipv4'].split("/")[0] == neigh_ip:
                 return {"vm": a_vm, "port": port}
             if 'ipv6' in a_intf and a_intf['ipv6'].split("/")[0].lower() == neigh_ip.lower():

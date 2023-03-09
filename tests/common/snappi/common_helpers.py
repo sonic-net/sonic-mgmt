@@ -106,13 +106,13 @@ def get_lossless_buffer_size(host_ans):
                                          source="running")['ansible_facts']
     is_cisco_8102 = True if ('Cisco' or 'cisco') and '8102' in host_ans.facts['platform'] else False
 
-    if "BUFFER_POOL" not in config_facts.keys():
+    if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
     profile_name = 'ingress_lossless_pool' if is_cisco_8102 else 'egress_lossless_pool'
 
-    if profile_name not in buffer_pools.keys():
+    if profile_name not in list(buffer_pools.keys()):
         return None
 
     lossless_pool = buffer_pools[profile_name]

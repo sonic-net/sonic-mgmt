@@ -466,7 +466,7 @@ class EosHost(AnsibleHostBase):
         try:
             command = 'show lacp interface {} | json'.format(member_intf)
             output = self.eos_command(commands=[command])['stdout'][0]
-            for port in output['portChannels'].keys():
+            for port in list(output['portChannels'].keys()):
                 return port
         except Exception as e:
             logger.error('Failed to get PortChannel for member interface "{}", exception: {}'.format(

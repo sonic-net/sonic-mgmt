@@ -130,7 +130,7 @@ class TestQosSai(QosSaiBase):
             portIdNames = []
             portNumbers = []
             portIds = []
-            for idName in qosParams.keys():
+            for idName in list(qosParams.keys()):
                 if re.match('(?:src|dst)_port\S+ids?', idName):
                     portIdNames.append(idName)
                     ids = qosParams[idName]
@@ -675,7 +675,7 @@ class TestQosSai(QosSaiBase):
 
         self.updateTestPortIdIp(dutConfig, qosConfig[sharedResSizeKey])
 
-        port_idx_to_id = testPortIps.keys()
+        port_idx_to_id = list(testPortIps.keys())
         # Translate requested port indices to available port IDs
         src_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
         dst_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
@@ -1336,7 +1336,7 @@ class TestQosSai(QosSaiBase):
             testParams["pkts_num_margin"] = qosConfig[pgProfile]["pkts_num_margin"]
 
         # For J2C+ we need the internal header size in calculating the shared watermarks
-        if "internal_hdr_size" in qosConfig.keys():
+        if "internal_hdr_size" in list(qosConfig.keys()):
             testParams["internal_hdr_size"] = qosConfig["internal_hdr_size"]
 
         self.runPtfTest(

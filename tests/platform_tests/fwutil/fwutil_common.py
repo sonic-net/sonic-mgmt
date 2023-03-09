@@ -170,7 +170,7 @@ def get_defined_components(duthost, defined_fw, chassis):
     """
     component = defined_fw["chassis"].get(chassis, {})["component"]
     if "host" in defined_fw and duthost.hostname in defined_fw["host"]:
-        for component_type in defined_fw["host"][duthost.hostname]["component"].keys():
+        for component_type in list(defined_fw["host"][duthost.hostname]["component"].keys()):
             component[component_type] = defined_fw["host"][duthost.hostname]["component"][component_type]
     return component
 
@@ -190,7 +190,7 @@ def generate_config(duthost, cfg, versions):
     # Populate items we are installing
     with open("platform_components.json", "w") as f:
         json.dump({"chassis": {chassis: {"component": {comp: {k: v for k, v in list(dat.items()) if k in valid_keys}
-                                                       for comp, dat in paths.items()}}}}, f, indent=4)
+                                                       for comp, dat in list(paths.items())}}}}, f, indent=4)
 
 
 def upload_platform(duthost, paths, next_image=None):

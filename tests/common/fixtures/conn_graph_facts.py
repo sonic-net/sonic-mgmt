@@ -104,7 +104,7 @@ def key_convert2str(conn_graph_facts):
     # Else, convert
     result = copy.deepcopy(conn_graph_facts)
     result['device_conn'] = {}
-    for key, value in conn_graph_facts['device_conn'].items():
+    for key, value in list(conn_graph_facts['device_conn'].items()):
         result['device_conn'][str(key)] = value
 
     return result

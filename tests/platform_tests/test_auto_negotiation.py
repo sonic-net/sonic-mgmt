@@ -204,7 +204,7 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
     logger.info('Checking the actual speed is equal to highest speed')
     int_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
     common_supported_speeds = enum_dut_portname_module_fixture['speeds']
-    highest_speed = max(map(lambda p: int(p), common_supported_speeds))
+    highest_speed = max([int(p) for p in common_supported_speeds])
     actual_speed = int(int_status[dut_port]['speed'][:-1] + '000')
     pytest_assert(actual_speed == highest_speed, 'Actual speed is not the highest speed')
 

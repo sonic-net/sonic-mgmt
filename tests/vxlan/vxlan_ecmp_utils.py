@@ -240,7 +240,7 @@ class Ecmp_Utils(object):
                 {index['attachto']: index['addr']}
 
         ret_list = {}
-        for index, entry in peer_addr_map.items():
+        for index, entry in list(peer_addr_map.items()):
             if bgp_neigh_list[index]['state'] == 'established' and \
                     pattern.search(bgp_neigh_list[index]['description']):
                 ret_list[index] = entry
@@ -261,7 +261,7 @@ class Ecmp_Utils(object):
         return_dict = {}
 
         config_list = []
-        for intf, addr in intf_to_ip_map.items():
+        for intf, addr in list(intf_to_ip_map.items()):
             # If the given address is "net.1", the return address is "net.101"
             # THE ASSUMPTION HERE IS THAT THE DUT ADDRESSES ARE ENDING IN ".1".
             # addr.decode is only in python2.7

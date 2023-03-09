@@ -266,7 +266,7 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
             logger.info("RIF: %s is on system LAG: %s", rif, lagid)
 
 
-            for lag, sysid in systemlagtable['SYSTEM_LAG_ID_TABLE']['value'].items():
+            for lag, sysid in list(systemlagtable['SYSTEM_LAG_ID_TABLE']['value'].items()):
                 if sysid == lagid:
                     logger.info("System LAG ID %s is portchannel: %s", lagid, lag)
                     break

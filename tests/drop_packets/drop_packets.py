@@ -677,7 +677,7 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
             tcp_dport=pkt_fields["tcp_dport"])
 
     group = "L3"
-    print("msm group {}, setup {}".format(group, setup))
+    print(("msm group {}, setup {}".format(group, setup)))
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 

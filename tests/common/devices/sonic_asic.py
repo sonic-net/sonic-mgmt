@@ -569,7 +569,7 @@ class SonicAsic(object):
                 pc_members = mg_facts['minigraph_portchannels'][pc]['members']
                 port_channels_data[pc] = pc_members
         else:
-            for k, v in mg_facts['minigraph_portchannels'].items():
+            for k, v in list(mg_facts['minigraph_portchannels'].items()):
                 if 'namespace' in v and self.namespace == v['namespace']:
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']

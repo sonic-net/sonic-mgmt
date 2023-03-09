@@ -218,7 +218,7 @@ def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_du
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     portchannel_info = mg_facts['minigraph_portchannels']
     tor_pc_intfs = list()
-    for pc in portchannel_info.values():
+    for pc in list(portchannel_info.values()):
         for member in pc['members']:
             tor_pc_intfs.append(member)
     active_tor_mac = rand_selected_dut.facts['router_mac']

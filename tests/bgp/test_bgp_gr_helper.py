@@ -130,7 +130,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     # get neighbor device connected ports
     nbr_ports = []
     if test_interface.startswith("PortChannel"):
-        for member in portchannels[test_interface].keys():
+        for member in list(portchannels[test_interface].keys()):
             nbr_ports.append(dev_nbrs[member]['port'])
         test_neighbor_name = dev_nbrs[member]['name']
     else:

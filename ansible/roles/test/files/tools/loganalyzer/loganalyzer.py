@@ -99,7 +99,7 @@ class AnsibleLogAnalyzer:
         if (not self.verbose):
             return
 
-        print('[LogAnalyzer][diagnostic]:%s' % message)
+        print(('[LogAnalyzer][diagnostic]:%s' % message))
     #---------------------------------------------------------------------
 
     def create_start_marker(self):
@@ -218,7 +218,7 @@ class AnsibleLogAnalyzer:
                                 if marker in l:
                                     return True
                     except FileNotFoundError:
-                        print("cannot find file {}".format(prev_syslog_file))
+                        print(("cannot find file {}".format(prev_syslog_file)))
                     last_check_pos = 0
                     last_dt = dt
                 # resume from last search position
@@ -337,8 +337,8 @@ class AnsibleLogAnalyzer:
                             messages_regex.append(self.error_to_regx(row[1:]))
 
                     except Exception as e:
-                        print('ERROR: line %d is formatted incorrectly in file %s. Skipping line' % (index, filename))
-                        print(repr(e))
+                        print(('ERROR: line %d is formatted incorrectly in file %s. Skipping line' % (index, filename)))
+                        print((repr(e)))
                         sys.exit(err_invalid_string_format)
 
         if (len(messages_regex)):
@@ -476,7 +476,7 @@ class AnsibleLogAnalyzer:
                     found_start_marker = True
 
                     if(not in_analysis_range):
-                        print('ERROR: found start marker:%s without corresponding end marker' % rev_line)
+                        print(('ERROR: found start marker:%s without corresponding end marker' % rev_line))
                         sys.exit(err_no_end_marker)
                     in_analysis_range = False
                     break
@@ -591,7 +591,7 @@ def check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in,
 
     else:
         ret_code = False
-        print('ERROR: invalid action:%s specified' % action)
+        print(('ERROR: invalid action:%s specified' % action))
 
     return ret_code
 #---------------------------------------------------------------------
@@ -801,7 +801,7 @@ def main(argv):
 
 
     else:
-        print('Unknown action:%s specified' % action)
+        print(('Unknown action:%s specified' % action))
     return len(result)
 #---------------------------------------------------------------------
 

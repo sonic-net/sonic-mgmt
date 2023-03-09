@@ -119,7 +119,7 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo, result=None):
         if result and "check_item" in result:
             if result["check_item"] == "neighbor_macsec_empty":
                 unhealthy_nbrs = []
-                for name, host in nbrhosts.items():
+                for name, host in list(nbrhosts.items()):
                     if name in result["unhealthy_nbrs"]:
                         unhealthy_nbrs.append(host)
                 parallel_run(_neighbor_vm_recover_config, (), {}, unhealthy_nbrs, timeout=300)

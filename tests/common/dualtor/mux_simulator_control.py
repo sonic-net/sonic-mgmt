@@ -737,7 +737,7 @@ def check_mux_status(duthosts, active_side):
         mux_standby_dut = duthosts[0]
 
     dualtor_intf_config = json.loads(mux_active_dut.shell("show muxcable config --json")['stdout'])
-    active_standby_ports = [intf for intf, muxcable_config in dualtor_intf_config['MUX_CABLE']['PORTS'].items()
+    active_standby_ports = [intf for intf, muxcable_config in list(dualtor_intf_config['MUX_CABLE']['PORTS'].items())
                             if 'cable_type' not in muxcable_config['SERVER']
                             or muxcable_config['SERVER']['cable_type'] == 'active-standby']
 

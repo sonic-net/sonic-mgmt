@@ -379,8 +379,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
                 server_ipv4 = str(server_ipv4_base_addr + i)
                 server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
-                mux_cable_table[intf]['server_ipv4'] = unicode(server_ipv4)    # noqa F821
-                mux_cable_table[intf]['server_ipv6'] = unicode(server_ipv6)    # noqa F821
+                mux_cable_table[intf]['server_ipv4'] = str(server_ipv4)    # noqa F821
+                mux_cable_table[intf]['server_ipv6'] = str(server_ipv6)    # noqa F821
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
@@ -492,11 +492,11 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
     if 'dualtor' in tbinfo['topo']['name']:
         res = requests.get(mux_server_url)
         pt_assert(res.status_code == 200, 'Failed to get mux status: {}'.format(res.text))
-        for mux_status in res.json().values():
+        for mux_status in list(res.json().values()):
             active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
             active_dut_map[str(mux_status['port_index'])] = [active_dut_index]
         if active_active_ports_mux_status:
-            for port_index, port_status in active_active_ports_mux_status.items():
+            for port_index, port_status in list(active_active_ports_mux_status.items()):
                 active_dut_map[str(port_index)] = [active_dut_index for active_dut_index in (0, 1)
                                                    if port_status[active_dut_index]]
 
@@ -543,7 +543,7 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                         router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]
                         ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
-                        for a_dut_port, a_dut_port_index in mg_facts['minigraph_port_indices'].items():
+                        for a_dut_port, a_dut_port_index in list(mg_facts['minigraph_port_indices'].items()):
                             if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
                                     "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
                                 dut_port = a_dut_port

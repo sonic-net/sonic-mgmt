@@ -206,14 +206,14 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
                 for ifname in ifnames:
                     if ifname in po:
                         # ignore the prefix, if the prefix nexthop is not a frontend port
-                        if len(po[ifname].keys()) > 0:
-                            if 'role' in ports[po[ifname].keys()[0]] and \
-                                    ports[po[ifname].keys()[0]]['role'] == 'Int':
+                        if len(list(po[ifname].keys())) > 0:
+                            if 'role' in ports[list(po[ifname].keys())[0]] and \
+                                    ports[list(po[ifname].keys())[0]]['role'] == 'Int':
                                 skip = True
                             else:
                                 oports.append(
                                     [str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][x])
-                                     for x in po[ifname].keys()]
+                                     for x in list(po[ifname].keys())]
                                 )
                     else:
                         if ifname in sub_interfaces:

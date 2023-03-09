@@ -33,7 +33,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
     if topo_cfg_facts is None:
         return upstream_neighbors
 
-    for neigh_name, neigh_cfg in topo_cfg_facts.items():
+    for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
         if neigh_type not in neigh_name:
             continue
         if neigh_type == 'T3' and device_neigh_metadata[neigh_name]['type'] == 'AZNGHub':
@@ -41,7 +41,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
         ipv6_addr = None
-        for intf, intf_cfg in interfaces.items():
+        for intf, intf_cfg in list(interfaces.items()):
             if 'Port-Channel' in intf:
                 if 'ipv4' in intf_cfg:
                     ipv4_addr = interfaces[intf]['ipv4'].split('/')[0]
@@ -198,5 +198,5 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
                 'Default route is not removed from APP_DB')
     finally:
         duthost.command("sudo config bgp startup all")
-        if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+        if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
             pytest.fail("not all bgp sessions are up after config reload")

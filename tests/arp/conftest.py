@@ -241,7 +241,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
     ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
 
     # Calculate the IPv6 address to assign to the PTF port
-    vlan_addrs = list(config_facts['VLAN_INTERFACE'].items())[0][1].keys()
+    vlan_addrs = list(list(config_facts['VLAN_INTERFACE'].items())[0][1].keys())
     intf_ipv6_addr = None
     intf_ipv4_addr = None
 

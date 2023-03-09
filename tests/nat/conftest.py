@@ -107,7 +107,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
             interfaces_nat_zone[rif]['zone_id'] = 0
         elif rif in outer_zone_interfaces:
             interfaces_nat_zone[rif]['zone_id'] = 1
-    indices_to_ports_config = dict((v, k) for k, v in config_port_indices.items())
+    indices_to_ports_config = dict((v, k) for k, v in list(config_port_indices.items()))
     if interface_type == "port_in_lag":
         outer_zone_interfaces = [outer_zone_interfaces[-2], outer_zone_interfaces[-3]]
         public_ip = SETUP_CONF["port_in_lag"]["vrf"]["red"]["gw"]

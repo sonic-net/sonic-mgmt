@@ -7,12 +7,12 @@ import sys
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
-    unicode = str
+    str = str
 
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
-    unicode = str
+    str = str
 
 class TrafficPorts(object):
     """ Generate a list of ports needed for the PFC Watchdog test"""

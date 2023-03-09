@@ -82,7 +82,7 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
     dut_type = ''
-    for k, v in mg_facts['minigraph_devices'].items():
+    for k, v in list(mg_facts['minigraph_devices'].items()):
         if k == duthost.hostname:
             dut_type = v['type']
 

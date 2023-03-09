@@ -877,7 +877,7 @@ def check_neighbor_macsec_empty(ctrl_links):
     nodes = []
     nodes_name = set()
     dut_nbr_mapping = {}
-    for _, nbr in ctrl_links.items():
+    for _, nbr in list(ctrl_links.items()):
         if nbr["name"] in nodes_name:
             continue
         nodes_name.add(nbr["name"])
@@ -896,7 +896,7 @@ def check_neighbor_macsec_empty(ctrl_links):
         init_check_result = {"failed": False, "check_item": "neighbor_macsec_empty", "unhealthy_nbrs": []}
         check_results = parallel_run(_check_macsec_empty, args, kwargs, nodes, timeout=300)
         unhealthy_dut = set()
-        for nbr_name, check_result in check_results.items():
+        for nbr_name, check_result in list(check_results.items()):
             if check_result:
                 init_check_result["failed"] = True
                 init_check_result["unhealthy_nbrs"].append(nbr_name)

@@ -16,7 +16,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
     """
     Performs addition or deletion of static entries of ipv4 and v6 neighbors in DUT based on 'oper' parameter
     """
-    for member in dic.values():
+    for member in list(dic.values()):
         if ip_version in ["4", "both"]:
             if oper == "add":
                 logger.debug("adding ipv4 static arp entry for ip %s on DUT" % (member['ipv4']))

@@ -79,7 +79,7 @@ class QosBase:
             if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
                 default_vlan_name = vlan_cfgs['default_vlan_config']
                 if default_vlan_name:
-                    for vlan in vlan_cfgs[default_vlan_name].values():
+                    for vlan in list(vlan_cfgs[default_vlan_name].values()):
                         if 'mac' in vlan and vlan['mac']:
                             dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
                             break
@@ -682,7 +682,7 @@ class QosSaiBase(QosBase):
         dutinterfaces = {}
 
         if tbinfo["topo"]["type"] == "t2":
-            for ptf_port, ptf_val in dutPortIps.items():
+            for ptf_port, ptf_val in list(dutPortIps.items()):
                 dutinterfaces[ptf_port] = ptf_val['port']
         else:
             for port, index in list(mgFacts["minigraph_ptf_indices"].items()):
@@ -930,7 +930,7 @@ class QosSaiBase(QosBase):
             logger.info('Failed to read vlan interface config')
         if not vlanInterface:
             return
-        for key, value in vlanInterface.items():
+        for key, value in list(vlanInterface.items()):
             if 'proxy_arp' in value:
                 logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 

@@ -529,17 +529,17 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
-    for dut_host, value in dev_conn.items():
+    for dut_host, value in list(dev_conn.items()):
         duthost = duthosts[dut_host]
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             continue  # skip for kvm platform which has no fanout
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        for dut_port in value.keys():
+        for dut_port in list(value.keys()):
             fanout_rec = value[dut_port]
             fanout_host = str(fanout_rec['peerdevice'])
             fanout_port = str(fanout_rec['peerport'])
 
-            if fanout_host in fanout_hosts.keys():
+            if fanout_host in list(fanout_hosts.keys()):
                 fanout = fanout_hosts[fanout_host]
             else:
                 host_vars = ansible_adhoc().options[
@@ -573,7 +573,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
 
                 if fanout.os == 'sonic':
                     ifs_status = fanout.host.get_interfaces_status()
-                    for key, interface_info in ifs_status.items():
+                    for key, interface_info in list(ifs_status.items()):
                         fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
                     logging.info("fanout {} fanout_port_alias_to_name {}"
                                  .format(fanout_host, fanout.fanout_port_alias_to_name))
@@ -589,7 +589,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                 # --------------------
                 # Ethernet108   Ethernet32
                 # Ethernet32    Ethernet13/1
-                if mapped_port not in value.keys():
+                if mapped_port not in list(value.keys()):
                     fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
 
             if dut_host not in fanout.dut_hostnames:
@@ -1271,8 +1271,8 @@ def pfc_pause_delay_test_params(request):
     dut_pfc_delay_params = info[tbname]
     ret = []
 
-    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
-        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+    for dut, pfc_pause_delay_params in list(dut_pfc_delay_params.items()):
+        for pfc_delay, headroom_result in list(pfc_pause_delay_params.items()):
             ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
 
     return ret if ret else empty
@@ -1438,8 +1438,8 @@ def get_autoneg_tests_data():
 
     return [
         {'dutname': dutname, 'port': dutport, 'speeds': portinfo['common_port_speeds']}
-        for dutname, ports in data.items()
-        for dutport, portinfo in ports.items()
+        for dutname, ports in list(data.items())
+        for dutport, portinfo in list(ports.items())
     ]
 
 

@@ -395,7 +395,7 @@ if __name__ == "__main__":
     tbinfo = TestbedInfo(testbedfile)
 
     if args.print_data:
-        print(json.dumps(tbinfo.testbed_topo, indent=4))
+        print((json.dumps(tbinfo.testbed_topo, indent=4)))
 
     if len(args.sai) > 0:
         tbinfo.dump_testbeds_to_yaml(args)

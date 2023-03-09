@@ -326,7 +326,7 @@ def fixture_setUp(duthosts,
 
 @pytest.fixture(scope="module")
 def default_routes(fixture_setUp, encap_type):
-    vnet = fixture_setUp[encap_type]['vnet_vni_map'].keys()[0]
+    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
     return fixture_setUp[encap_type]['dest_to_nh_map'][vnet]
 
 
@@ -337,7 +337,7 @@ def routes_for_cleanup(fixture_setUp, encap_type):
     yield routes
 
     # prepare for route cleanup by fixture_setUp on module finish
-    vnet = fixture_setUp[encap_type]['vnet_vni_map'].keys()[0]
+    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
     fixture_setUp[encap_type]['dest_to_nh_map'][vnet] = routes
 
 
@@ -346,7 +346,7 @@ def reset_test_routes(fixture_setUp, encap_type, default_routes, routes_for_clea
     """
     The fixture makes sure each test uses the same route config not affected by previous test runs
     """
-    vnet = fixture_setUp[encap_type]['vnet_vni_map'].keys()[0]
+    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
 
     test_routes = {}
     test_routes.update(default_routes)

@@ -117,7 +117,7 @@ def remove_acl_table(duthost):
 
 def get_neighbor_ports(mg_facts, neighbor_name):
     neighbor_ports = []
-    for key, value in mg_facts["minigraph_neighbors"].items():
+    for key, value in list(mg_facts["minigraph_neighbors"].items()):
         if neighbor_name in value["name"]:
             neighbor_ports.append(key)
     return neighbor_ports

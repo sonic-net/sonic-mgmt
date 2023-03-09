@@ -1265,9 +1265,9 @@ def get_random_physical_port_non_po_member(minigraph_facts):
     :return: string, port name
     """
     po_members = []
-    for po_iface, po_data in minigraph_facts['minigraph_portchannels'].items():
+    for po_iface, po_data in list(minigraph_facts['minigraph_portchannels'].items()):
         po_members += po_data['members']
-    all_ports = list(minigraph_facts[u'minigraph_ports'].keys())
+    all_ports = list(minigraph_facts['minigraph_ports'].keys())
     non_po_ports = [port for port in all_ports if port not in po_members]
     test_port = random.choice(non_po_ports)
     return test_port

@@ -280,12 +280,12 @@ class snmpPduController(PduControllerBase):
             # Return status of all outlets
             ports = list(self.port_oid_dict.keys())
         elif outlet:
-            ports = [oid for oid in self.port_oid_dict.keys() if oid.endswith(outlet)]
+            ports = [oid for oid in list(self.port_oid_dict.keys()) if oid.endswith(outlet)]
             if not ports:
                 logger.error("Outlet ID {} doesn't belong to PDU {}".format(outlet, self.controller))
         elif hostname:
             hn = hostname.lower()
-            ports = [self.port_label_dict[label]['port_oid'] for label in self.port_label_dict.keys() if hn in label]
+            ports = [self.port_label_dict[label]['port_oid'] for label in list(self.port_label_dict.keys()) if hn in label]
             if not ports:
                 logger.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
 
