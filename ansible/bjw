@@ -15,6 +15,7 @@ all:
         ansible_password: root
       hosts:
         # 10.150.23.<1~48>/23 reserved for server BMC (iDRAC)
+        # Please order the followng ptf hosts by IP address
         bjw6-1:
           ansible_host: 10.150.23.50
         bjw6-2:
@@ -33,17 +34,22 @@ all:
           ansible_host: 10.150.23.57
         bjw6-9:
           ansible_host: 10.150.23.58
-        # 10.150.23.59 not in use, but it's available
+        bjw12-3:
+          ansible_host: 10.150.23.59
         bjw6-11:
           ansible_host: 10.150.23.60
-        bjw7-1:
-          ansible_host: 10.150.23.63
         bjw12-1:
           ansible_host: 10.150.23.61
         bjw12-2:
           ansible_host: 10.150.23.62
+        bjw7-1:
+          ansible_host: 10.150.23.63
         bjw7-4:
           ansible_host: 10.150.23.64
+        bjw7-5: 
+          ansible_host: 10.150.23.65
+        bjw7-6: 
+          ansible_host: 10.150.23.66
 
     pdu:
       hosts:
@@ -116,6 +122,15 @@ fanout:
       os: sonic
     bjw-can-7215-7:
       ansible_host: 10.150.22.123
+      os: sonic
+    bjw-can-7215-8:
+      ansible_host: 10.150.22.130
+      os: sonic
+    bjw-can-7215-12:
+      ansible_host: 10.150.22.133
+      os: sonic
+    bjw-can-7215-13:
+      ansible_host: 10.150.22.132
       os: sonic
 
 sonic:
@@ -235,6 +250,49 @@ sonic_arista_720dt:
         "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
         "0x2F": "WTW22180032"
         "0xFE": "0xdeadbeef"
+    bjw-can-720dt-3:
+      ansible_host: 10.150.22.129
+      model: CCS-720DT-48S-2F
+      serial: WTW22420909
+      base_mac: c0:69:11:b3:07:ec
+      syseeprom_info:
+        "0x21": "CCS-720DT-48S-2F"
+        "0x22": "ASY0624302A0"
+        "0x23": "WTW22420909"
+        "0x24": "c0:69:11:b3:07:ec"
+        "0x25": "2022/06/10 11:19:51"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
+        "0x2F": "WTW22420909"
+        "0xFE": "0xdeadbeef"
+    bjw-can-720dt-4:
+      ansible_host: 10.150.22.131
+      model: CCS-720DT-48S-2F
+      serial: WTW22420720
+      base_mac: c0:69:11:b2:e0:0e
+      syseeprom_info:
+        "0x21": "CCS-720DT-48S-2F"
+        "0x22": "ASY0624302A0"
+        "0x23": "WTW22420720"
+        "0x24": "c0:69:11:b2:e0:0e"
+        "0x25": "2022/06/10 11:19:51"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
+        "0x2F": "WTW22420720"
+        "0xFE": "0xdeadbeef"
+
 
 sonic_celestica_dx010:
   vars:
@@ -402,6 +460,24 @@ sonic_nokia_7215:
         "0x2F": "CSM9W00FRA"
         "0xFD": ""
         "0xFE": "0x83B269BF"
+    bjw-can-7215-11:
+      ansible_host: 10.150.22.134
+      hwsku: Nokia-7215
+      model: 3HE16794AARC01
+      serial: NK221912728
+      base_mac: AC:8F:F8:69:93:7D
+      syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARC01"
+        "0x23": "NK221912728"
+        "0x24": "AC:8F:F8:69:93:7D"
+        "0x25": "05/06/2022 13:10:52"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.1"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": ""
+        "0xFE": "0xBD73EAA8"
 
 sonic_e1031:
   vars:

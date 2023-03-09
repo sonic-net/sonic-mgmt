@@ -1941,6 +1941,51 @@
   auto_recover: 'True'
   comment: Beijing Lab
 
+- conf-name: testbed-bjw-can-8102-1
+  group-name: bjw7-4
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw7-4
+  ptf_ip: 10.150.23.64/23
+  ptf_ipv6:
+  server: server_bjw_7
+  vm_base: VM57006
+  dut:
+    - bjw-can-8102-1
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw-can-7215-11
+  group-name: bjw7-5
+  topo: mx
+  ptf_image_name: docker-ptf
+  ptf: bjw7-5
+  ptf_ip: 10.150.23.65/23
+  ptf_ipv6:
+  server: server_bjw_7
+  vm_base: VM57030
+  dut:
+    - bjw-can-7215-11
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw-can-720dt-3
+  group-name: bjw7-6
+  topo: m0
+  ptf_image_name: docker-ptf
+  ptf: bjw7-6
+  ptf_ip: 10.150.23.66/23
+  ptf_ipv6:
+  server: server_bjw_7
+  vm_base: VM57036
+  dut:
+    - bjw-can-720dt-3
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: Beijing Lab
+
 - conf-name: testbed-bjw-can-7050qx-1
   group-name: bjw12-1
   topo: t1-lag
@@ -1971,17 +2016,17 @@
   auto_recover: 'True'
   comment: Beijing Lab
 
-- conf-name: testbed-bjw-can-8102-1
-  group-name: bjw7-4
-  topo: t1-64-lag
+- conf-name: testbed-bjw-can-720dt-4
+  group-name: bjw12-3
+  topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw7-4
-  ptf_ip: 10.150.23.64/23
+  ptf: bjw12-3
+  ptf_ip: 10.150.23.59/23
   ptf_ipv6:
-  server: server_bjw_7
-  vm_base: VM57006
+  server: server_bjw_12
+  vm_base: VM72030
   dut:
-    - bjw-can-8102-1
+    - bjw-can-720dt-4
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
