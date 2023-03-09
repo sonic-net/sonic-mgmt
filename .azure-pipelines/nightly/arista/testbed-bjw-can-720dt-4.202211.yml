@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "1 12 * * *"
+  - cron: "0 12 * * *"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: testbed-bjw-can-720dt-2
+    default: testbed-bjw-can-720dt-4
     displayName: "Testbed Name"
 
   # Upgrade parameters
