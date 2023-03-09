@@ -43,6 +43,7 @@ def build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac, active
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id") # since src and dst changed, ID would change too
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is kept default (64)
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum") # checksum would differ as the IP header is not the same
+    exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "flags")  # "Don't fragment" flag may be set in the outer header
 
     return pkt, exp_tunnel_pkt
 
