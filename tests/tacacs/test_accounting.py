@@ -1,6 +1,7 @@
 import logging
 import time
 from tests.common.devices.ptf import PTFHost
+import binascii
 
 
 import pytest
@@ -120,6 +121,21 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
 
     logger.info("Found logs: %s", logs)
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
+
+
+def check_server_received(ptfhost, data):
+    """
+        Check if tacacs server received the data.
+    """
+    hex = binascii.hexlify(data.encode('ascii'))
+    hex_string = hex.decode()
+
+    # Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)
+    res = ptfhost.shell(sed_command)
+    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+    logger.info(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) > 0)
 
 
 @pytest.fixture
@@ -301,3 +317,21 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
+
+
+def test_send_remote_address(
+                            ptfhost,
+                            duthosts,
+                            enum_rand_one_per_hwsku_hostname,
+                            tacacs_creds,
+                            check_tacacs,
+                            remote_user_client):
+    """
+        Verify TACACS+ send remote address to server.
+    """
+    exit_code, stdout, stderr = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
+    pytest_assert(exit_code == 0)
+
+    # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
+    remote_address = stdout[0].split(" ")[0]
+    check_server_received(remote_address)
