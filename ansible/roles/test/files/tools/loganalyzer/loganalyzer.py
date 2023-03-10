@@ -208,24 +208,26 @@ class AnsibleLogAnalyzer:
         prev_syslog_file = "/var/log/syslog.1"
         while wait_time <= timeout:
             # look for marker in syslog file
-            with open(syslog_file, 'r') as fp:
-                # resume from last search position
-                if last_check_pos:
-                    fp.seek(last_check_pos)
-                # check if marker in the file
-                for l in fp:
-                    if marker in l:
-                        return True
-                # record last search position
-                last_check_pos = fp.tell()
+            if os.path.exists(syslog_file):
+                with open(syslog_file, 'r') as fp:
+                    # resume from last search position
+                    if last_check_pos:
+                        fp.seek(last_check_pos)
+                    # check if marker in the file
+                    for l in fp:
+                        if marker in l:
+                            return True
+                    # record last search position
+                    last_check_pos = fp.tell()
 
             # logs might get rotated while waiting for marker
             # look for marker in syslog.1 file
-            with open(prev_syslog_file, 'r') as pfp:
-                # check if marker in the file
-                for l in pfp:
-                    if marker in l:
-                        return True
+            if os.path.exists(prev_syslog_file):
+                with open(prev_syslog_file, 'r') as pfp:
+                    # check if marker in the file
+                    for l in pfp:
+                        if marker in l:
+                            return True
             time.sleep(polling_interval)
             wait_time += polling_interval
 
