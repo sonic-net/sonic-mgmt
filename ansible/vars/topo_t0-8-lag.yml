@@ -76,7 +76,7 @@ topology:
           prefix: 192.168.0.1/22
           prefix_v6: fc02:100::1/64
           tag: 100
-        Vlan200: 
+        Vlan200:
           id: 200
           intfs: [1, 3, 12, 13, 14, 15, 16, 17, 18, 19, 28, 30]
           prefix: 192.168.4.1/22
@@ -245,7 +245,7 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.33/24
       ipv6: fc0a::21/64
-  
+
   ARISTA06T1:
     properties:
     - common
@@ -269,7 +269,7 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.34/24
       ipv6: fc0a::22/64
-  
+
   ARISTA07T1:
     properties:
     - common
@@ -293,7 +293,7 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.35/24
       ipv6: fc0a::23/64
-  
+
   ARISTA08T1:
     properties:
     - common
