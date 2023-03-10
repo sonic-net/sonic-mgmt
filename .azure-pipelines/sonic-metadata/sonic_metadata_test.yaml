@@ -83,6 +83,7 @@ parameters:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
   - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_202205)
   - $(IMAGE_MLNX_PUBLIC)
 
 stages:
