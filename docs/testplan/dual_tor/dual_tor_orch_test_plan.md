@@ -175,3 +175,17 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Repeat PTF tests as above | SLB  | Verify packet forwarding based on mux state|
     ||||
     | Verify teardown by shutting peering session one by one | SLB  | After one session is down, verify other peering session is active and routes present|
+
+1. Standalone tunnel route
+    This test is to verify standalone tunnel route is added properly when there is a `FAILED` or `INCOMPLETE` neighbor entry.
+    * Active-Standby DualToR 
+    | Step | Goal | Expected results |
+    |-|-|-|
+    | Flush neighbor entry on `standby` side with `garp_service` on and ToR to server link down | Standby forwarding | Verify tunnel-route on standby ToR | 
+
+    * Active-ACtive DualToR
+    | Step | Goal | Expected results |
+    |-|-|-|
+    | Flush neighbor entry on one side with `garp_service` on and ToR to server link down | Forwarding | Verify tunnel-route on this ToR | 
+    | Config mux active on the neighbor flushed side | Forwarding | Verify tunnel-route on this ToR | 
+    | Config mux auto and bring up ToR to server link on the neighbor flushed side | Forwarding | Verify traffic is directly forwarded to sever, tunnel-route is removed | 
