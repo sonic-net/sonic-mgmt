@@ -182,12 +182,12 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
 
     | Step | Goal | Expected results |
     |-|-|-|
-    | Flush neighbor entry on `standby` side with `garp_service` on and ToR to server link down | Standby forwarding | Verify tunnel-route on standby ToR | 
+    | Flush neighbor entry on `standby` side with `garp_service` on and ToR to server link down. (Note that missing neighbor entry scenario has been verified by case above, this if to mimic a `FAILED` neighbor entry) | Forwarding through tunnel | Verify tunnel-route on standby ToR | 
 
     * Active-ACtive DualToR
 
     | Step | Goal | Expected results |
     |-|-|-|
-    | Flush neighbor entry on one side with `garp_service` on and ToR to server link down | Forwarding | Verify tunnel-route on this ToR | 
-    | Config mux active on the neighbor flushed side | Forwarding | Verify tunnel-route on this ToR | 
-    | Config mux auto and bring up ToR to server link on the neighbor flushed side | Forwarding | Verify traffic is directly forwarded to sever, tunnel-route is removed | 
+    | Flush neighbor entry on one side with `garp_service` on and ToR to server link down | Forwarding through tunnel | Verify tunnel-route on this ToR | 
+    | Config mux active on the neighbor flushed side | Forwarding through tunnel | Verify tunnel-route on this ToR | 
+    | Config mux auto and bring up ToR to server link on the neighbor flushed side | Forwarding to server directly | Verify traffic is directly forwarded to sever, tunnel-route is removed | 
