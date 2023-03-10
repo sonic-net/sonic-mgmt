@@ -178,12 +178,14 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
 
 1. Standalone tunnel route
     This test is to verify standalone tunnel route is added properly when there is a `FAILED` or `INCOMPLETE` neighbor entry.
-    * Active-Standby DualToR 
+    * Active-Standby DualToR
+
     | Step | Goal | Expected results |
     |-|-|-|
     | Flush neighbor entry on `standby` side with `garp_service` on and ToR to server link down | Standby forwarding | Verify tunnel-route on standby ToR | 
 
     * Active-ACtive DualToR
+
     | Step | Goal | Expected results |
     |-|-|-|
     | Flush neighbor entry on one side with `garp_service` on and ToR to server link down | Forwarding | Verify tunnel-route on this ToR | 
