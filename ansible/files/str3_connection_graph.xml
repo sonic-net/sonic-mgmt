@@ -16,13 +16,13 @@
       <Device Hostname="str2-7260cx3-acs-fan-35" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
       <Device Hostname="str3-8101-fanout-01" HwSku="Cisco-8101-C64" Type="FanoutLeaf"/>
       <Device Hostname="str3-8101-fanout-02" HwSku="Cisco-8101-C64" Type="FanoutLeaf"/>
-      <Device Hostname="str3-8101-fanout-03" HwSku="Cisco-8101-C48T8" Type="FanoutLeaf"/>
+      <Device Hostname="str3-8101-fanout-03" HwSku="Cisco-8101-O8C48" Type="FanoutLeaf"/>
       <Device Hostname="str3-8102-01" HwSku="Cisco-8102-C64" Type="DevSonic"/>
       <Device Hostname="str3-8102-05" HwSku="Cisco-8102-C64" Type="DevSonic"/>
       <Device Hostname="str3-8102-06" HwSku="Cisco-8102-C64" Type="DevSonic"/>
-      <Device Hostname="str3-8101-32fh-01" HwSku="Cisco-8101-T32" Type="DevSonic"/>
+      <Device Hostname="str3-8101-32fh-01" HwSku="Cisco-8101-O32" Type="DevSonic"/>
       <Device Hostname="str3-8101-01" HwSku="Cisco-8101-C64" Type="DevSonic"/>
-      <Device Hostname="str3-8101-02" HwSku="Cisco-8101-C48T8" Type="DevSonic"/>
+      <Device Hostname="str3-8101-02" HwSku="Cisco-8101-O8C48" Type="DevSonic"/>
       <Device Hostname="str3-8800-sup-1" HwSku="8800-RP-O" Type="DevSonic"/>
       <Device Hostname="str3-8800-sup-2" HwSku="8800-RP-O" Type="DevSonic"/>
       <Device Hostname="str3-8800-lc1-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>

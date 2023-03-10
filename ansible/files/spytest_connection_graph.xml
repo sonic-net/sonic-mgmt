@@ -88,7 +88,7 @@
       <Device Hostname="str2-8102-02" HwSku="Cisco-8102-C64" Type="DevSonic"/>
       <Device Hostname="str2-8102-03" HwSku="Cisco-8102-C64" Type="DevSonic"/>
       <Device Hostname="str2-8102-04" HwSku="Cisco-8102-C64" Type="DevSonic"/>
-      <Device Hostname="str2-8101-32fh-02" HwSku="Cisco-8101-T32" Type="DevSonic"/>
+      <Device Hostname="str2-8101-32fh-02" HwSku="Cisco-8101-O32" Type="DevSonic"/>
       <Device Hostname="str2-a7280cr3-3" HwSku="Arista-7280CR3-C40" Type="DevSonic"/>
       <Device Hostname="str2-a7280cr3-4" HwSku="Arista-7280CR3-C40" Type="DevSonic"/>
       <Device Hostname="str2-7170-azd" HwSku="Arista-7170-64C" Type="DevSonic"/>
