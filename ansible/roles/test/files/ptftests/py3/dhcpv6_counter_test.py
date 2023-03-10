@@ -122,7 +122,7 @@ class DHCPCounterTest(DataplaneBaseTest):
         packet /= IPv6(src=self.client_link_local, dst=self.BROADCAST_IP)
         packet /= ptf.packet.UDP(sport=self.DHCP_CLIENT_PORT, dport=self.DHCP_SERVER_PORT)
         # changes optcode to be out of client scope to test malformed counters
-        packet /= message(trid=12345)/DHCP6OptAuth(optcode=100)
+        packet /= message(trid=12345)/DHCP6OptAuth(optcode=148)
         return packet
 
     def create_server_packet(self, message):
