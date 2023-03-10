@@ -1838,7 +1838,7 @@ sonic_cisco_8102:
 
 sonic_cisco_8101:
   vars:
-    hwsku: Cisco-8101-T32
+    hwsku: Cisco-8101-O32
     iface_speed: 100000
   hosts:
     str2-8101-32fh-02:
