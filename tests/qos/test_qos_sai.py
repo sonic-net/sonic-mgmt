@@ -504,7 +504,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2",
                              "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
-        self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig
+            self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig, singleMemberPortStaticRoute, nearbySourcePorts
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -527,22 +527,24 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
-        testPortIps = dutConfig["testPortIps"]
-
         self.updateTestPortIdIp(dutConfig, qosConfig[LosslessVoqProfile])
 
+        dst_port_id, dst_port_ip = singleMemberPortStaticRoute
+        src_port_1_id, src_port_2_id = nearbySourcePorts
+
+        testPortIps = dutConfig["testPortIps"]
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
             "dscp": qosConfig[LosslessVoqProfile]["dscp"],
             "ecn": qosConfig[LosslessVoqProfile]["ecn"],
             "pg": qosConfig[LosslessVoqProfile]["pg"],
-            "dst_port_id": qosConfig[LosslessVoqProfile]["dst_port_id"],
-            "dst_port_ip": testPortIps[qosConfig[LosslessVoqProfile]["dst_port_id"]]['peer_addr'],
-            "src_port_1_id": qosConfig[LosslessVoqProfile]["src_port_1_id"],
-            "src_port_1_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_1_id"]]['peer_addr'],
-            "src_port_2_id": qosConfig[LosslessVoqProfile]["src_port_2_id"],
-            "src_port_2_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_2_id"]]['peer_addr'],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dst_port_ip,
+            "src_port_1_id": src_port_1_id,
+            "src_port_1_ip": testPortIps[src_port_1_id]['peer_addr'],
+            "src_port_2_id": src_port_2_id,
+            "src_port_2_ip": testPortIps[src_port_2_id]['peer_addr'],
             "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
@@ -675,6 +677,11 @@ class TestQosSai(QosSaiBase):
 
         self.updateTestPortIdIp(dutConfig, qosConfig[sharedResSizeKey])
 
+        port_idx_to_id = testPortIps.keys()
+        # Translate requested port indices to available port IDs
+        src_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
+        dst_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -683,10 +690,10 @@ class TestQosSai(QosSaiBase):
             "ecn": qosConfig[sharedResSizeKey]["ecn"],
             "pgs": qosConfig[sharedResSizeKey]["pgs"],
             "queues": qosConfig[sharedResSizeKey]["queues"],
-            "src_port_ids": qosConfig[sharedResSizeKey]["src_port_ids"],
-            "src_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["src_port_ids"]],
-            "dst_port_ids": qosConfig[sharedResSizeKey]["dst_port_ids"],
-            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["dst_port_ids"]],
+            "src_port_ids": src_port_ids,
+            "src_port_ips": [testPortIps[port]['peer_addr'] for port in src_port_ids],
+            "dst_port_ids": dst_port_ids,
+            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in dst_port_ids],
             "pkt_counts":  qosConfig[sharedResSizeKey]["pkt_counts"],
             "shared_limit_bytes": qosConfig[sharedResSizeKey]["shared_limit_bytes"],
             "hwsku":dutTestParams['hwsku']
@@ -941,7 +948,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, duthost, localhost
+            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -964,26 +971,28 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Lossy Queue Voq test is not supported")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
-        testPortIps = dutConfig["testPortIps"]
-
-        if "lossy_queue_voq_2" in LossyVoq:
+        flow_config = qosConfig[LossyVoq]["flow_config"]
+        assert flow_config in ["shared", "separate"], "Invalid flow config '{}'".format(flow_config)
+        if flow_config == "shared":
             original_voq_markings = get_markings_dut(duthost)
             setup_markings_dut(duthost, localhost, voq_allocation_mode="default")
 
         self.updateTestPortIdIp(dutConfig, qosConfig[LossyVoq])
 
         try:
+            dst_port_id, dst_port_ip = singleMemberPortStaticRoute
             testParams = dict()
             testParams.update(dutTestParams["basicParams"])
             testParams.update({
                 "dscp": qosConfig[LossyVoq]["dscp"],
                 "ecn": qosConfig[LossyVoq]["ecn"],
                 "pg": qosConfig[LossyVoq]["pg"],
-                "src_port_id": qosConfig[LossyVoq]["src_port_id"],
-                "src_port_ip": testPortIps[qosConfig[LossyVoq]["src_port_id"]]['peer_addr'],
-                "dst_port_id": qosConfig[LossyVoq]["dst_port_id"],
-                "dst_port_ip": testPortIps[qosConfig[LossyVoq]["dst_port_id"]]['peer_addr'],
+                "src_port_id": dutConfig["testPorts"]["src_port_id"],
+                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "dst_port_id": dst_port_id,
+                "dst_port_ip": dst_port_ip,
                 "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+                "flow_config": flow_config,
                 "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
             })
 
@@ -1005,7 +1014,7 @@ class TestQosSai(QosSaiBase):
             )
 
         finally:
-            if "lossy_queue_voq_2" in LossyVoq:
+            if flow_config == "shared":
                 setup_markings_dut(duthost, localhost, **original_voq_markings)
 
     def testQosSaiDscpQueueMapping(
@@ -1213,6 +1222,10 @@ class TestQosSai(QosSaiBase):
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
+        if "wrr" in qosConfig[portSpeedCableLength]:
+            qosConfigWrr = qosConfig[portSpeedCableLength]["wrr"]
+        else:
+            qosConfigWrr = qosConfig["wrr"]
         qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
 
         self.updateTestPortIdIp(dutConfig)
@@ -1225,15 +1238,15 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "q0_num_of_pkts": qosConfig["wrr"]["q0_num_of_pkts"],
-            "q1_num_of_pkts": qosConfig["wrr"]["q1_num_of_pkts"],
-            "q2_num_of_pkts": qosConfig["wrr"]["q2_num_of_pkts"],
-            "q3_num_of_pkts": qosConfig["wrr"]["q3_num_of_pkts"],
-            "q4_num_of_pkts": qosConfig["wrr"]["q4_num_of_pkts"],
-            "q5_num_of_pkts": qosConfig["wrr"]["q5_num_of_pkts"],
-            "q6_num_of_pkts": qosConfig["wrr"]["q6_num_of_pkts"],
-            "q7_num_of_pkts": qosConfig["wrr"].get("q7_num_of_pkts", 0),
-            "limit": qosConfig["wrr"]["limit"],
+            "q0_num_of_pkts": qosConfigWrr["q0_num_of_pkts"],
+            "q1_num_of_pkts": qosConfigWrr["q1_num_of_pkts"],
+            "q2_num_of_pkts": qosConfigWrr["q2_num_of_pkts"],
+            "q3_num_of_pkts": qosConfigWrr["q3_num_of_pkts"],
+            "q4_num_of_pkts": qosConfigWrr["q4_num_of_pkts"],
+            "q5_num_of_pkts": qosConfigWrr["q5_num_of_pkts"],
+            "q6_num_of_pkts": qosConfigWrr["q6_num_of_pkts"],
+            "q7_num_of_pkts": qosConfigWrr.get("q7_num_of_pkts", 0),
+            "limit": qosConfigWrr["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku":dutTestParams['hwsku'],
             "topo": dutTestParams["topo"],
@@ -1660,24 +1673,29 @@ class TestQosSai(QosSaiBase):
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
+        if "wrr_chg" in qosConfig[portSpeedCableLength]:
+            qosConfigWrrChg = qosConfig[portSpeedCableLength]["wrr_chg"]
+        else:
+            qosConfigWrrChg = qosConfig["wrr_chg"]
+
         qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
-            "ecn": qosConfig["wrr_chg"]["ecn"],
+            "ecn": qosConfigWrrChg["ecn"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "q0_num_of_pkts": qosConfig["wrr_chg"]["q0_num_of_pkts"],
-            "q1_num_of_pkts": qosConfig["wrr_chg"]["q1_num_of_pkts"],
-            "q2_num_of_pkts": qosConfig["wrr_chg"]["q2_num_of_pkts"],
-            "q3_num_of_pkts": qosConfig["wrr_chg"]["q3_num_of_pkts"],
-            "q4_num_of_pkts": qosConfig["wrr_chg"]["q4_num_of_pkts"],
-            "q5_num_of_pkts": qosConfig["wrr_chg"]["q5_num_of_pkts"],
-            "q6_num_of_pkts": qosConfig["wrr_chg"]["q6_num_of_pkts"],
-            "limit": qosConfig["wrr_chg"]["limit"],
+            "q0_num_of_pkts": qosConfigWrrChg["q0_num_of_pkts"],
+            "q1_num_of_pkts": qosConfigWrrChg["q1_num_of_pkts"],
+            "q2_num_of_pkts": qosConfigWrrChg["q2_num_of_pkts"],
+            "q3_num_of_pkts": qosConfigWrrChg["q3_num_of_pkts"],
+            "q4_num_of_pkts": qosConfigWrrChg["q4_num_of_pkts"],
+            "q5_num_of_pkts": qosConfigWrrChg["q5_num_of_pkts"],
+            "q6_num_of_pkts": qosConfigWrrChg["q6_num_of_pkts"],
+            "limit": qosConfigWrrChg["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku":dutTestParams['hwsku'],
             "topo": dutTestParams["topo"],

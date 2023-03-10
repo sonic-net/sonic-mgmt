@@ -240,7 +240,7 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
 
 
 def check_interface_status(duthost):
-    if ":67" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay",
+    if ":67" in duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcrelay",
                               module_ignore_errors=True)["stdout"]:
         return True
 
@@ -254,7 +254,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
         config_reload(duthost)
         wait_critical_processes(duthost)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
-    output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcrelay", module_ignore_errors=True)["stdout"]
+    output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcrelay", module_ignore_errors=True)["stdout"]
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
         assert "{}:67".format(dhcp_relay['downlink_vlan_iface']['name']) in output, \

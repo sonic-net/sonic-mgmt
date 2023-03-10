@@ -63,7 +63,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in s10G_ports:
                 alias = "etp{}".format(33 if i == 256 else 34)
                 port_alias_to_name_map[alias] = "Ethernet{}".format(i)
-        elif hwsku == "DellEMC-Z9332f-O32":
+        elif hwsku == "DellEMC-Z9332f-O32" or hwsku == "DellEMC-Z9332f-C32":
             for i in range(0, 256, 8):
                 alias = "etp{}".format((i // 8) + 1)
                 port_alias_to_name_map[alias] = "Ethernet{}".format(i)
