@@ -287,12 +287,12 @@ sonic_cisco_lc_100G:
         "0x23": "FOC2525NB83"
         "0x24": "34:73:2D:29:B8:D0"
         "0x26": "1"
-        "0x28": "x86_64-8800_lc_48h_o-r1"
+        "0x28": "x86_64-8800_lc_48h_o-r0"
         "0x2A": "200"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x5E0A43DC"
+        "0xFE": "0xC1D0C042"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -328,7 +328,7 @@ sonic_cisco_lc_100G:
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0xD5AEB5BE"
+        "0xFE": "0x316AB4C3"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -364,7 +364,7 @@ sonic_cisco_lc_100G:
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x21244D4B"
+        "0xFE": "0xC5E04C36"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -396,7 +396,7 @@ sonic_cisco_lc_400G:
       base_mac: 20:CF:AE:B2:BF:50
       model: '88-LC0-36FH-MO'
       syseeprom_info:
-        "0x21": "88-LC0-36FH-M"
+        "0x21": "88-LC0-36FH-MO"
         "0x22": "1B0020"
         "0x23": "FOC2533NMVZ"
         "0x24": "20:CF:AE:B2:BF:50"
@@ -406,7 +406,7 @@ sonic_cisco_lc_400G:
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x7DA6B680"
+        "0xFE": "0x06B83463"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -448,7 +448,7 @@ sonic_cisco_sup:
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x1026B8C6"
+        "0xFE": "0x8FFC3B58"
       skip_modules:
           'line-cards':
             - LINE-CARD3
@@ -510,7 +510,7 @@ sonic_cisco_sup:
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x1026B8C6"
+        "0xFE": "0x8FFC3B58"
       skip_modules:
           'line-cards':
             - LINE-CARD0
