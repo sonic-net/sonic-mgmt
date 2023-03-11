@@ -92,7 +92,7 @@
       <PortChannelInterfaces>
 {% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(vm_asic_ifnames[vms[index]])  %}
         <PortChannel>
@@ -138,7 +138,7 @@
       <IPInterfaces>
 {% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
         <IPInterface>
           <Name i:nil="true"/>
@@ -271,7 +271,7 @@
           <AttachTo>
 {%- set acl_intfs = [] -%}
 {%- for index in range(vms_number) %}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
 {% set a_intf = 'PortChannel' + '10' + ((index+1)|string) %}
 {{- acl_intfs.append(a_intf) -}}
@@ -284,7 +284,7 @@
 {{- acl_intfs.append(a_intf) -}}
 {% endfor %}
 {%- for index in range(vms_number) -%}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
 {% set a_intf = front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
 {{- acl_intfs.append(a_intf) -}}

@@ -257,6 +257,7 @@
   - name: find all interface asic names
     set_fact:
       vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
