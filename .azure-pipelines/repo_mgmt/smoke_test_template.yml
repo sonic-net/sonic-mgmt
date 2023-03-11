@@ -144,12 +144,14 @@ stages:
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
-          - group: GIT_SECRETS
           - name: skipComponentGovernanceDetection
             value: true
         condition: eq('${{ parameters.SKIP_RUNNING_TEST }}', 'false')
 
         steps:
+
+          - checkout: self
+            persistCredentials: true
 
           - template: ../nightly/templates/get_secrets.yml
 
@@ -158,8 +160,8 @@ stages:
 
               git gc --auto || true
 
-              git config --global user.email "svc-acs@microsoft.com"
-              git config --global user.name "Sonic Automation"
+              git config --global user.email "mssonic@microsoft.com"
+              git config --global user.name "Build Service Account"
 
               git branch -D ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage || true
               git checkout -b ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage origin/${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage
@@ -602,7 +604,6 @@ stages:
               TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
               TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
               TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
-              AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN)
 
           - script: |
               set -x
@@ -627,12 +628,14 @@ stages:
         dependsOn:
         - SmokeTest
         variables:
-          - group: GIT_SECRETS
           - name: smokeTestResult
             value: $[ dependencies.SmokeTest.result ]
         condition: eq('${{ parameters.SKIP_MERGE_GITHUB }}', 'false')
 
         steps:
+        - checkout: self
+          persistCredentials: true
+
         - script: |
             set -xe
 
@@ -646,22 +649,18 @@ stages:
                 force_push=""
               fi
 
-              git config --global user.email "svc-acs@microsoft.com"
-              git config --global user.name "Sonic Automation"
+              git config --global user.email "mssonic@microsoft.com"
+              git config --global user.name "Build Service Account"
 
               git branch -D ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage || true
               git checkout -b ${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage origin/${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}-stage
 
-              git remote remove mssonic || true
-              git remote add mssonic "https://reposync:${MSSONIC_TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int" || true
-              git fetch mssonic
-              git merge mssonic/internal    # Pick up PRs merged to internal after the internal-stage branch was updated.
+              git fetch origin
+              git merge origin/internal    # Pick up PRs merged to internal after the internal-stage branch was updated.
 
-              git push $force_push mssonic HEAD:${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}
+              git push $force_push origin HEAD:${{ parameters.MSSONIC_SONIC_MGMT_BRANCH }}
             else
               echo "Smoke test failed"
               exit 1
             fi
-          env:
-            MSSONIC_TOKEN: $(MSSONIC_TOKEN)
           displayName: Push sonic-mgmt
