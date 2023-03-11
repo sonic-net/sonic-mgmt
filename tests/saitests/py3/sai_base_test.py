@@ -62,6 +62,7 @@ class ThriftInterface(BaseTest):
                     continue
                 interface_front_pair = line.split("@")
                 interface_to_front_mapping[interface_front_pair[0]] = interface_front_pair[1].strip()
+            f.close()
         else:
             exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
 
