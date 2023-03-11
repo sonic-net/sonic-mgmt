@@ -83,7 +83,7 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
-{% for asic_intf in front_panel_asic_ifnames %}
+{% for if_index in range(front_panel_asic_ifnames | length) %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
 {% if port_alias[loop.index - 1] in port_speed %}
@@ -92,8 +92,8 @@
         <Bandwidth>40000</Bandwidth>
 {% endif %}
         <ChassisInternal>true</ChassisInternal>
-        <EndDevice>{{ asic_intf.split('-')[1] }}</EndDevice>
-        <EndPort>{{ asic_intf }}</EndPort>
+        <EndDevice>{{ front_panel_asic_ifs_asic_id[if_index] }}</EndDevice>
+        <EndPort>{{ front_panel_asic_ifnames[if_index] }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
