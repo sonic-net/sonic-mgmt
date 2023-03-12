@@ -11,16 +11,20 @@
   fail: msg="Cannot confirm OS is SONiC"
   when: os is not defined or os != "sonic"
 
-- name: prepare mgmt device admin login info
+- name: Prepare mgmt device admin login info
   set_fact: ansible_ssh_user={{ mgmt_admin_user }} ansible_ssh_pass={{ mgmt_admin_password }}
+
+- name: Backup config_db.json
+  shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
+
+- name: Generate base config
+  shell: sonic-cfggen -H -k {{ device_info["HwSku"] }} -a "{\"DEVICE_METADATA\":{\"localhost\":{\"hostname\":\"{{ inventory_hostname }}\"}}}" --print-data | sed '1d;$d'
+  register: base_config
 
 - name: Move json config to console server
   template:
     src: console_config.j2
-    dst: /tmp/console_config.json
+    dest: /etc/sonic/config_db.json
 
-- name: Import config
-  shell: sonic-cfggen -j /tmp/console_config.json --write-to-db
-
-- name: Save config
-  shell: config save -y
+- name: Config
+  shell: config reload -y

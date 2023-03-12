@@ -25,8 +25,8 @@ all:
               os: sonic
         mgmt:
           hosts:
-            str-7215-10:
-              ansible_host: 10.251.0.238
+            console-1:
+              ansible_host: 192.168.10.1
               os: sonic
     ptf:
       hosts:
