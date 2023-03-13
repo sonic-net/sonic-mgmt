@@ -27,7 +27,7 @@
 
 - name: Move json config to console server
   template:
-    src: console_config.j2
+    src: mcx_config.j2
     dest: /tmp/base_config.json
 
 - name: Backup config_db.json

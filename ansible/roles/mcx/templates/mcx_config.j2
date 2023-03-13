@@ -16,6 +16,11 @@
             "enabled": "yes"
         }
     },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "hostname": "{{ inventory_hostname }}"
+        }
+    },
 {% if HwSku == "Nokia-7215" %}
     "INTERFACE": {
         "Ethernet47": {},
