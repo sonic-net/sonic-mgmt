@@ -2,10 +2,17 @@ import pytest
 import json
 import logging
 import time
+import random
+import ipaddress
+import ptf.testutils as testutils
+import ptf.mask as mask
+import ptf.packet as packet
+from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.generators import generate_ips
 
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -69,6 +76,7 @@ def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
     time.sleep(wait_time)
+
 
 def prepare_dut(asichost, intf_neighs):
     for intf_neigh in intf_neighs:
@@ -214,10 +222,10 @@ def exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_n
         if diff != prefixes_set:
             pytest.fail("The following entries have not been withdrawn from ASIC {}".format(prefixes_set - diff))
 
-    # Retuen time used for set/del routes
+    # Return time used for set/del routes
     return (end_time - start_time).total_seconds()
 
-def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_frontend_asic_index):
+def test_perf_add_remove_routes(tbinfo, duthosts, ptfadapter, enum_rand_one_per_hwsku_frontend_hostname, request, ip_versions, enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     # Number of routes for test
@@ -243,13 +251,17 @@ def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_fronte
     logger.info("IP route utilization before test start: Used: {}, Available: {}, Test count: {}"\
         .format(used_routes_count, avail_routes_count, num_routes))
 
+    ipv4_prefix_set = [101, 41, 200, 9]
+    ipv6_prefix_set = [0x3000, 0x1000, 0x00FF, 0x0123]
     # Generate ip prefixes of routes
     if (ip_versions == 4):
-        prefixes = ['%d.%d.%d.%d/%d' % (101 + int(idx_route / 256 ** 2), int(idx_route / 256) % 256, idx_route % 256, 0, 24)
+        random_oct = random.choice(ipv4_prefix_set)
+        prefixes = ['%d.%d.%d.%d/%d' % (random_oct + int(idx_route / 256 ** 2), int(idx_route / 256) % 256, idx_route % 256, 0, 24)
                     for idx_route in range(num_routes)]
     else:
-        prefixes = ['%x:%x:%x::/%d' % (0x3000 + int(idx_route / 65536), idx_route % 65536, 1, 64)
-                    for idx_route in range(num_routes)]
+        random_oct = random.choice(ipv6_prefix_set)
+        prefixes = ['%x:%x:%x:%x::/%d' % (random_oct, random_oct + int(idx_route / 65536), int(idx_route / 65536) % 65536, idx_route % 65536, 64)
+                    for idx_route in range(1, num_routes+1)]
     try:
         # Set up interface and interface for routes
         prepare_dut(asichost, intf_neighs)
@@ -258,8 +270,68 @@ def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_fronte
         time_set = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'SET')
         logger.info('Time to set %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_set))
 
+        # Traffic verification with 10 random routes
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        ptf_portmap = mg_facts['minigraph_ptf_indices']
+        port_indices = mg_facts['minigraph_port_indices']
+        nexthop_intf = str_intf_nexthop['ifname'].split(',')
+        src_port =  random.choice(nexthop_intf)
+        ptf_src_port = port_indices[mg_facts['minigraph_portchannels'][src_port]['members'][0]] if \
+                       src_port.startswith("PortChannel") else port_indices[src_port] 
+        ptf_dst_ports = []
+        for nh_ports in nexthop_intf:
+            if nh_ports.startswith("PortChannel"):
+                ptf_dst_ports.append(port_indices[mg_facts['minigraph_portchannels'][nh_ports]['members'][0]])
+            else:
+                ptf_dst_ports.append(port_indices[nh_ports])
+        dst_nws = random.sample(prefixes,10)
+        for dst_nw in dst_nws:
+            if (ip_versions == 4):
+                ip_dst = generate_ips(1,dst_nw,[])
+                send_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, ptf_src_port)
+            else:
+                ip_dst = dst_nw.split('/')[0] + '1'
+                send_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, ptf_dst_ports, \
+                                        ptf_src_port, ipv6=True)
+
         # Remove routes
         time_del = exec_routes(duthost, enum_rand_one_frontend_asic_index, prefixes, str_intf_nexthop, 'DEL')
         logger.info('Time to del %d ipv%d routes is %.2f seconds.' % (num_routes, ip_versions, time_del))
     finally:
         cleanup_dut(asichost, intf_neighs)
+
+
+def send_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_ports, ptf_src_port, ipv6=False):
+    if ipv6:
+        pkt = testutils.simple_tcpv6_packet(
+            eth_dst=duthost.facts["router_mac"],
+            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            ipv6_src='2001:db8:85a3::8a2e:370:7334',
+            ipv6_dst=ip_dst,
+            ipv6_hlim=64,
+            tcp_sport=1234,
+            tcp_dport=4321)
+    else:
+        pkt = testutils.simple_tcp_packet(
+            eth_dst=duthost.facts["router_mac"],
+            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            ip_src='1.1.1.1',
+            ip_dst=ip_dst,
+            ip_ttl=64,
+            tcp_sport=1234,
+            tcp_dport=4321)
+
+    exp_pkt = pkt.copy()
+    exp_pkt = mask.Mask(exp_pkt)
+    exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+    exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+    if ipv6:
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
+    else:
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+
+    logger.info('Sending packet from src port - {} , expecting to recieve on any port'.format(ptf_src_port))
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, ptf_src_port, pkt)
+    testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
