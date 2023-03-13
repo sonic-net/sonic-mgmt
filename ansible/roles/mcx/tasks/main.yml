@@ -34,7 +34,7 @@
   shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
 
 - name: Generate new config_db.json with sonic-cfggen
-  shell: sonic-cfggen -H -k {{ HwSku }} -a "{\"DEVICE_METADATA\":{\"localhost\":{\"hostname\":\"{{ inventory_hostname }}\"}}}" -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
+  shell: sonic-cfggen -H -k {{ HwSku }} -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
 
 - name: Config
   shell: config reload -y
