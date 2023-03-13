@@ -10,7 +10,7 @@ from ptf.mask import Mask
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
-from mx_utils import create_vlan, remove_vlan, get_vlan_config
+from mx_utils import create_vlan, remove_vlan, get_vlan_config, check_dnsmasq, refresh_dut_mac_table
 
 pytestmark = [
     pytest.mark.topology('mx'),
@@ -59,19 +59,6 @@ def send_dhcp_release(ptfhost):
     ptfhost.shell("dhclient -r")
 
 
-def refresh_dut_mac_table(ptfhost, vlan_config, ptf_index_port):
-    """
-    ping from peer interface of DUT on ptf to refresh DUT mac table
-    """
-    for _, config in vlan_config.items():
-        vlan_member = config["members"]
-        vlan_ip = config["prefix"].split("/")[0]
-        for member in vlan_member:
-            ptf_port_index = ptf_index_port[member]
-            ptfhost.shell("timeout 1 ping -c 1 -w 1 -I eth{} {}".format(ptf_port_index, vlan_ip),
-                          module_ignore_errors=True)
-
-
 def dhcp_setup(duthost, ptfhost, config, ptf_index_port, intf_count):
     duthost.shell("sonic-clear fdb all")
     # Frequent restarts dhcp_relay service may cause start-limit-hit error, use this command to ignore and restart
@@ -109,18 +96,6 @@ def dhcp_ip_assign_test(ptfhost, vlan_config, ptf_index_port):
 
     finally:
         send_dhcp_release(ptfhost)
-
-
-def check_dnsmasq(duthost, intf_count):
-    """
-    Check whether dhcp ip pool is OK
-    """
-    command_output = duthost.shell("docker exec -i dhcp_relay wc -l /etc/dnsmasq.hosts", module_ignore_errors=True)
-    if command_output['rc'] != 0:
-        return False
-
-    dnsmasq_count = int("".join([i for i in command_output['stdout'] if i.isdigit()]))
-    return dnsmasq_count >= intf_count
 
 
 def get_dhcp_ips(duthost, vlan_config, ptf_index_port, ptfhost, intf_count):
@@ -278,7 +253,8 @@ def dhcp_packet_test(duthost, enum_asic_index, vlan_config, ptfadapter):
 
 
 @pytest.mark.parametrize("vlan_number", [1, 4, 7])
-def test_dhcp_server_tc1_ip_assign(duthost, ptfhost, mx_common_setup_teardown, dhcp_client_setup_teardown, vlan_number):
+def test_dhcp_server_tc1_ip_assign(duthost, ptfhost, function_fixture_remove_all_vlans, mx_common_setup_teardown,
+                                   dhcp_client_setup_teardown, vlan_number):
     dut_index_port, ptf_index_port, vlan_configs = mx_common_setup_teardown
     vlan_config = get_vlan_config(vlan_configs, vlan_number)
     intf_count = create_vlan(duthost, vlan_config, dut_index_port)
@@ -288,7 +264,8 @@ def test_dhcp_server_tc1_ip_assign(duthost, ptfhost, mx_common_setup_teardown, d
 
 
 @pytest.mark.parametrize("vlan_number", [4])
-def test_dhcp_server_tc2_mac_change(duthost, ptfhost, ptfadapter, mx_common_setup_teardown, dhcp_client_setup_teardown,
+def test_dhcp_server_tc2_mac_change(duthost, ptfhost, ptfadapter, function_fixture_remove_all_vlans,
+                                    mx_common_setup_teardown, dhcp_client_setup_teardown,
                                     vlan_number):
     dut_index_port, ptf_index_port, vlan_configs = mx_common_setup_teardown
     vlan_config = get_vlan_config(vlan_configs, vlan_number)
@@ -298,7 +275,8 @@ def test_dhcp_server_tc2_mac_change(duthost, ptfhost, ptfadapter, mx_common_setu
 
 
 @pytest.mark.parametrize("vlan_number", [4])
-def test_dhcp_server_tc3_packet(duthost, ptfhost, mx_common_setup_teardown, vlan_number, enum_asic_index, ptfadapter):
+def test_dhcp_server_tc3_packet(duthost, ptfhost, function_fixture_remove_all_vlans, mx_common_setup_teardown,
+                                vlan_number, enum_asic_index, ptfadapter):
     dut_index_port, ptf_index_port, vlan_configs = mx_common_setup_teardown
     vlan_config = get_vlan_config(vlan_configs, vlan_number)
     intf_count = create_vlan(duthost, vlan_config, dut_index_port)

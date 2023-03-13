@@ -52,7 +52,8 @@ def verify_private_ip_not_advertise(duthost, nbrhosts):
 
 
 @pytest.mark.parametrize("vlan_number", [4, 7])
-def test_bgp_policy_private_ip(duthost, nbrhosts, mx_common_setup_teardown, vlan_number):
+def test_bgp_policy_private_ip(duthost, nbrhosts, function_fixture_remove_all_vlans, mx_common_setup_teardown,
+                               vlan_number):
     dut_index_port, _, vlan_configs = mx_common_setup_teardown
     vlan_config = None
     for config in vlan_configs:

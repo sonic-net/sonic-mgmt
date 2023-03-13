@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 # Constants
 from bgp_helpers import TEST_COMMUNITY, ALLOW_LIST_PREFIX_JSON_FILE, PREFIX_LISTS
@@ -45,7 +45,8 @@ def set_neighbor_metadata(duthost, neighbor, type):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def m0_setup_teardown(duthost, bgp_allow_list_setup):
+def m0_setup_teardown(duthost, bgp_allow_list_setup, topo_scenario):
+    pytest_require(topo_scenario == "m0_l3_scenario", "Only support m0_l3_scenario in test_bgp_allow_list_m0_olt")
     set_neighbor_metadata(duthost, bgp_allow_list_setup["downstream"], "OpticalLonghaulTerminal")
     yield
     set_neighbor_metadata(duthost, bgp_allow_list_setup["downstream"], "BmcMgmtToRRouter")
