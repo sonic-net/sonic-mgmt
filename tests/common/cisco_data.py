@@ -140,7 +140,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
     
         if reboot_required:
             index = 0
-            for _ in keys(json_contents): 
+            for _ in json_contents.keys(): 
                 str_index = str(index)
                 duthost.copy(content=json.dumps(json_contents[str_index], sort_keys=True, indent=4), dest=config_file[index])
                 index+=1
