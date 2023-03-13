@@ -37,6 +37,12 @@ def get_bgp_prefix_runningconfig(duthost):
     return bgp_prefix_config
 
 
+def save_configDB_and_vryshInfo(duthost,stage):
+    duthost.shell("sonic-cfggen -d --print-data > /tmp/chunangli/{}_running_config.json".format(stage))
+    duthost.shell("cp /etc/sonic/config_db.json /tmp/chunangli/{}_config_db.json".format(stage))
+    duthost.shell("vrysh -c 'show run' /tmp/chunangli/{}_vrysh_show_run.json".format(stage))
+
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
@@ -45,12 +51,15 @@ def setup_env(duthosts, rand_one_dut_hostname):
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
+    logger.warning("Before run test case")
     duthost = duthosts[rand_one_dut_hostname]
+    save_configDB_and_vryshInfo(duthost, "before_run_case")
     original_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost)
     create_checkpoint(duthost)
 
     yield
-
+    logger.warning("After run test case")
+    save_configDB_and_vryshInfo(duthost, "after_run_case")
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
@@ -59,7 +68,8 @@ def setup_env(duthosts, rand_one_dut_hostname):
                       "bgp prefix config are not suppose to change after test")
     finally:
         delete_checkpoint(duthost)
-
+    logger.warning("After run test case and roll back to original checkpoint")
+    save_configDB_and_vryshInfo(duthost, "after_run_case_and_roll_back")
 
 def bgp_prefix_test_setup(duthost):
     """ Clean up bgp prefix config before test
