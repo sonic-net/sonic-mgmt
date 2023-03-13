@@ -331,15 +331,49 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
-def test_dhcp_monitor_counter(duthosts, rand_one_dut_hostname):
+def test_dhcp_monitor_counter(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, testing_config,
+                            toggle_all_simulator_ports_to_rand_selected_tor_m):
     duthost = duthosts[rand_one_dut_hostname]
-    expected_agg_counter_message = "[    Agg-Vlan1000- Current rx/tx] Discover:         1/        4, Offer:         1/        1, Request:         3/        12, ACK:         1/        1"
-    expected_agg_counter_message = expected_agg_counter_message.replace('[', '\\[').replace(']', '\\]').replace('\\', '\\\\')
+    testing_mode, duthost, testbed_mode = testing_config
+
+    if testing_mode == DUAL_TOR_MODE:
+        skip_release(duthost, ["201811", "201911"])
+
+    start_dhcp_monitor_debug_counter(duthost)
+
+    expected_agg_counter_message = "\[    Agg-%s- Current rx/tx\] Discover:         1/        4, Offer:         1/        1, Request:         3/        12, ACK:         1/        1" % dut_dhcp_relay_data['downlink_vlan_iface']
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_dhcp_monitor_counter")
-    loganalyzer.match_regex = []
-    loganalyzer.match_regex.extend(expected_agg_counter_message)
+    loganalyzer.expect_regex = []
+    loganalyzer.expect_regex.extend(expected_agg_counter_message)
     marker = loganalyzer.init()
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        # Run the DHCP relay test on the PTF host
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           # This port is introduced to test DHCP relay packet received
+                           # on other client port
+                           "other_client_port": repr(dhcp_relay['other_client_ports']),
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "testbed_mode": testbed_mode,
+                           "testing_mode": testing_mode},
+                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+
     loganalyzer.analyze(marker)
     logger.info("Found expected aggregated dhcpmon counter in syslog")
 
