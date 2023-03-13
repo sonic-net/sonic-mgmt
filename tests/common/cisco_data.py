@@ -137,6 +137,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
                 if json_contents[str_asic_index]['devices'][required_entry]['device_property'][k] != v:
                     reboot_required = True
                     json_contents[str_asic_index]['devices'][required_entry]['device_property'][k] = v
+            asic_index+=1
     
         if reboot_required:
             index = 0
