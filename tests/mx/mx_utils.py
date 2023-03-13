@@ -41,3 +41,46 @@ def get_vlan_config(vlan_configs, vlan_number):
             break
     pytest_require(vlan_config is not None, "Can't get {} vlan config".format(vlan_number))
     return vlan_config
+
+
+def check_dnsmasq(duthost, intf_count):
+    """
+    Check whether dhcp ip pool is OK
+    """
+    command_output = duthost.shell("docker exec -i dhcp_relay wc -l /etc/dnsmasq.hosts", module_ignore_errors=True)
+    if command_output['rc'] != 0:
+        return False
+
+    dnsmasq_count = int("".join([i for i in command_output['stdout'] if i.isdigit()]))
+    return dnsmasq_count >= intf_count
+
+
+def refresh_dut_mac_table(ptfhost, vlan_config, ptf_index_port):
+    """
+    ping from peer interface of DUT on ptf to refresh DUT mac table
+    """
+    for _, config in vlan_config.items():
+        vlan_member = config["members"]
+        vlan_ip = config["prefix"].split("/")[0]
+        for member in vlan_member:
+            ptf_port_index = ptf_index_port[member]
+            ptfhost.shell("timeout 1 ping -c 1 -w 1 -I eth{} {}".format(ptf_port_index, vlan_ip),
+                          module_ignore_errors=True)
+
+
+def remove_all_vlans(duthost):
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    if "VLAN_INTERFACE" in cfg_facts:
+        vlan_intfs = cfg_facts["VLAN_INTERFACE"]
+        for intf, prefixs in vlan_intfs.items():
+            for prefix in prefixs.keys():
+                duthost.remove_ip_from_port(intf, prefix)
+
+    if "VLAN_MEMBER" in cfg_facts:
+        vlan_members = cfg_facts["VLAN_MEMBER"]
+        for vlan_name, members in vlan_members.items():
+            vlan_id = int(''.join([i for i in vlan_name if i.isdigit()]))
+            for member in members.keys():
+                duthost.del_member_from_vlan(vlan_id, member)
+
+            duthost.remove_vlan(vlan_id)

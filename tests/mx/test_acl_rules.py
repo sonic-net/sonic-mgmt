@@ -92,7 +92,8 @@ def build_exp_pkt(input_pkt):
     return exp_pkt
 
 
-def test_bmc_northbound_acl_v4(duthost, ptfhost, ptfadapter, mx_common_setup_teardown):
+def test_bmc_northbound_acl_v4(duthost, ptfhost, ptfadapter, function_fixture_remove_all_vlans,
+                               mx_common_setup_teardown):
     router_mac = duthost.facts['router_mac']
     dut_index_port, _, vlan_configs = mx_common_setup_teardown
     vlan_config = get_vlan_config(vlan_configs, 4)

@@ -3,6 +3,7 @@ import json
 import os
 
 from tests.common import config_reload
+from mx_utils import remove_all_vlans
 
 FILE_DIR = "mx/config"
 CONFIG_FILE = "dhcp_server_vlan_conf.json"
@@ -14,26 +15,22 @@ IGNORE_REG_LIST = [
 ]
 
 
-@pytest.fixture(scope="function", autouse=True)
-def remove_all_vlans(duthost):
+@pytest.fixture(scope="function")
+def function_fixture_remove_all_vlans(duthost):
     """
     Remove all vlans in DUT before every test case
     """
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    if "VLAN_INTERFACE" in cfg_facts:
-        vlan_intfs = cfg_facts["VLAN_INTERFACE"]
-        for intf, prefixs in vlan_intfs.items():
-            for prefix in prefixs.keys():
-                duthost.remove_ip_from_port(intf, prefix)
+    remove_all_vlans(duthost)
 
-    if "VLAN_MEMBER" in cfg_facts:
-        vlan_members = cfg_facts["VLAN_MEMBER"]
-        for vlan_name, members in vlan_members.items():
-            vlan_id = int(''.join([i for i in vlan_name if i.isdigit()]))
-            for member in members.keys():
-                duthost.del_member_from_vlan(vlan_id, member)
+    yield
 
-            duthost.remove_vlan(vlan_id)
+
+@pytest.fixture(scope="module")
+def module_fixture_remove_all_vlans(duthost):
+    """
+    Remove all vlans in DUT before every module
+    """
+    remove_all_vlans(duthost)
 
     yield
 
@@ -61,4 +58,4 @@ def mx_common_setup_teardown(duthost, tbinfo):
 
     yield dut_index_port, ptf_index_port, vlan_configs
 
-    config_reload(duthost)
+    config_reload(duthost, config_source="minigraph")
