@@ -27,6 +27,8 @@ all:
           hosts:
             console-1:
               ansible_host: 192.168.10.1
+            console-2:
+              ansible_host: 192.168.10.2
               os: sonic
     ptf:
       hosts:
