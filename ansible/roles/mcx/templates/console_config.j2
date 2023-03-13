@@ -16,7 +16,6 @@
             "enabled": "yes"
         }
     },
-{{ DEVICE_METADATA.stdout }},
 {% if HwSku == "Nokia-7215" %}
     "INTERFACE": {
         "Ethernet47": {},
@@ -24,8 +23,7 @@
             "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
         }
     },
-{% endif %}
-{% if HwSku == "Celestica-E1031-T48S4" %}
+{% elif HwSku == "Celestica-E1031-T48S4" %}
     "MGMT_INTERFACE": {
         "eth0|{{ device_info[inventory_hostname]["ManagementIp"] }}": {
             "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
@@ -41,10 +39,6 @@
     "PORT": {
 {% for n in range(52) %}
         "Ethernet{{ n }}": {
-            "lanes": "{{ n+1 }}",
-            "alias": "etp{{ n+1 }}",
-            "index": "{{ n+1 }}",
-            "speed": "{% if n < 48 %}1000{% else %}10000{% endif %}",
             "admin_status": "up"
         }{% if not loop.last %},{% endif %}
 

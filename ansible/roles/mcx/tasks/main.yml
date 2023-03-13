@@ -25,17 +25,16 @@
 - name: Prepare mgmt device admin login info
   set_fact: ansible_ssh_user={{ mgmt_admin_user }} ansible_ssh_pass={{ mgmt_admin_password }}
 
-- name: Generate DEVICE_METADATA
-  shell: sonic-cfggen -H -k {{ HwSku }} --preset empty | sed '1d;$d'
-  register: DEVICE_METADATA
+- name: Move json config to console server
+  template:
+    src: console_config.j2
+    dest: /home/admin/base_config.json
 
 - name: Backup config_db.json
   shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
 
-- name: Move json config to console server
-  template:
-    src: console_config.j2
-    dest: /etc/sonic/config_db.json
+- name: Generate new config_db.json with sonic-cfggen
+  shell: sonic-cfggen -H -k {{ HwSku }} -a "{\"DEVICE_METADATA\":{\"localhost\":{\"hostname\":\"{{ inventory_hostname }}\"}}}" -j /home/admin/base_config.json --print-data > /etc/sonic/config_db.json
 
 - name: Config
   shell: config reload -y
