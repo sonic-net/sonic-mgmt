@@ -38,9 +38,9 @@ def get_bgp_prefix_runningconfig(duthost):
 
 
 def save_configDB_and_vryshInfo(duthost,stage):
-    duthost.shell("sonic-cfggen -d --print-data > /tmp/chunangli/{}_running_config.json".format(stage))
-    duthost.shell("cp /etc/sonic/config_db.json /tmp/chunangli/{}_config_db.json".format(stage))
-    duthost.shell("vrysh -c 'show run' /tmp/chunangli/{}_vrysh_show_run.json".format(stage))
+    duthost.shell("sonic-cfggen -d --print-data > /tmp/chunangli_{}_running_config.json".format(stage))
+    duthost.shell("cp /etc/sonic/config_db.json /tmp/chunangli_{}_config_db.json".format(stage))
+    duthost.shell("vrysh -c 'show run' /tmp/chunangli_{}_vrysh_show_run.json".format(stage))
 
 
 @pytest.fixture(autouse=True)
