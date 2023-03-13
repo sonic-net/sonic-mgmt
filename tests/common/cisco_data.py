@@ -114,6 +114,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
             reboot(duthost, localhost)
     else:
         asic_index = 0
+        json_contents = {}
         for config_file in config_files:
             str_asic_index = str(asic_index)
             dest_file = "/tmp/"
