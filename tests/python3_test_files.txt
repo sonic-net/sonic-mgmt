@@ -245,6 +245,9 @@ k8s/conftest.py
 k8s/test_disable_flag.py
 k8s/test_join_available_master.py
 macsec/macsec_platform_helper.py
+macsec/test_controlplane.py
+macsec/test_deployment.py
+macsec/test_interop_protocol.py
 macsec/test_macsec.py
 macsec/__init__.py
 macsec/macsec_common_helper.py
