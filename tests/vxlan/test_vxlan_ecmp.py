@@ -680,56 +680,56 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup[encap_type]['dest_to_nh_map'][vnet] = backup_dest.copy()
         self.dump_self_info_and_run_ptf("tc5", encap_type, True)
 
-    def test_vxlan_configure_route1_ecmp_group_b(self, setUp, encap_type):
+    def test_vxlan_configure_route2_ecmp_group_a(self, setUp, encap_type):
         '''
             tc5: set tunnel route 2 to endpoint group a = {a1, a2}. send
             packets to route 2"s prefix dst. packets are received at either a1
             or a2
         '''
         self.setup = setUp
-        self.setup_route2_ecmp_group_b(encap_type)
-        Logger.info("Verify the configs work and traffic flows correctly.")
-        self.dump_self_info_and_run_ptf("tc5", encap_type, True)
-
-    def setup_route2_ecmp_group_b(self, encap_type):
-        '''
-            Function for handling the dependency of tc6 on tc5. This function
-            is essentially tc5.
-        '''
-        if self.setup[encap_type].get('tc5_dest', None):
-            return
-        Logger.info("Choose a vnet for testing.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        duthost = self.setup['duthost']
 
-        Logger.info("Select an existing endpoint.")
-        tc5_end_point_list = \
-            self.setup[encap_type]['dest_to_nh_map'][vnet].values()[0]
+        payload_ver = ecmp_utils.get_payload_version(encap_type)
+        endpoint_group_A = [
+            ecmp_utils.get_ip_address(af=payload_ver, netid=NEXTHOP_PREFIX)
+            for _ in range(2)
+        ]
+        route1_prefix = ecmp_utils.get_ip_address(
+            af=payload_ver, netid=DESTINATION_PREFIX
+        )
+        route2_prefix = ecmp_utils.get_ip_address(
+            af=payload_ver, netid=DESTINATION_PREFIX
+        )
 
-        Logger.info("Create a new destination to use.")
-        tc5_new_dest = ecmp_utils.get_ip_address(
-            af=ecmp_utils.get_payload_version(encap_type),
-            netid=DESTINATION_PREFIX)
+        # create route 1
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route1_prefix: endpoint_group_A}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
 
-        Logger.info("Map the new destination to the endpoint.")
-        self.setup[encap_type]['dest_to_nh_map'][vnet][tc5_new_dest] = \
-            tc5_end_point_list
+        # create route 2 with the same endpoints as route 1
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route2_prefix: endpoint_group_A}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
 
-        Logger.info("Create the new config and apply to the DUT.")
+        # write info about the routes to be tested
+        vnet_routes = self.setup[encap_type]['dest_to_nh_map'][vnet]
+        vnet_routes[route1_prefix] = endpoint_group_A
+        vnet_routes[route2_prefix] = endpoint_group_A
 
-        ecmp_utils.create_and_apply_config(
-            self.setup['duthost'],
-            vnet,
-            tc5_new_dest,
-            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
-            tc5_end_point_list,
-            "SET",
-            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(
             self.setup['enable_bfd'],
             encap_type,
-            tc5_end_point_list)
-
-        self.setup[encap_type]['tc5_dest'] = tc5_new_dest
+            endpoint_group_A)
+        self.dump_self_info_and_run_ptf("tc5", encap_type, True)
 
     def test_vxlan_configure_route2_ecmp_group_b(self, setUp, encap_type):
         '''
@@ -738,41 +738,59 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             b1 or b2.
         '''
         self.setup = setUp
-        self.setup_route2_ecmp_group_b(encap_type)
-
-        Logger.info("Choose a vnet for testing.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        duthost = self.setup['duthost']
 
-        Logger.info("Create a new list of endpoints.")
-        tc6_end_point_list = []
-        for _ in range(2):
-            tc6_end_point_list.append(
-                ecmp_utils.get_ip_address(
-                    af=ecmp_utils.get_outer_layer_version(encap_type),
-                    netid=NEXTHOP_PREFIX))
+        # setup route 1 and route 2 with the same endpoints
+        payload_ver = ecmp_utils.get_payload_version(encap_type)
+        endpoint_group_A = [
+            ecmp_utils.get_ip_address(af=payload_ver, netid=NEXTHOP_PREFIX)
+            for _ in range(2)
+        ]
+        route1_prefix = ecmp_utils.get_ip_address(
+            af=payload_ver, netid=DESTINATION_PREFIX
+        )
+        route2_prefix = ecmp_utils.get_ip_address(
+            af=payload_ver, netid=DESTINATION_PREFIX
+        )
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route1_prefix: endpoint_group_A}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route2_prefix: endpoint_group_A}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
 
-        Logger.info("Choose one of the existing destinations.")
-        tc6_new_dest = self.setup[encap_type]['tc5_dest']
+        # change route 2 endpoints to unique ones
+        endpoint_group_B = [
+            ecmp_utils.get_ip_address(af=payload_ver, netid=NEXTHOP_PREFIX)
+            for _ in range(2)
+        ]
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route2_prefix: endpoint_group_B}},
+            payload_ver,
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
 
-        Logger.info("Map the destination to the new endpoints.")
-        self.setup[encap_type]['dest_to_nh_map'][vnet][tc6_new_dest] = \
-            tc6_end_point_list
+        # make sure traffic still flows via route 2 endpoints,
+        # after changing endpoints from shared to unique
+        vnet_routes = self.setup[encap_type]['dest_to_nh_map'][vnet]
+        vnet_routes[route1_prefix] = endpoint_group_A
+        vnet_routes[route2_prefix] = endpoint_group_B
 
-        Logger.info("Create the config and apply on the DUT.")
-        ecmp_utils.create_and_apply_config(
-            self.setup['duthost'],
-            vnet,
-            tc6_new_dest,
-            ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
-            tc6_end_point_list,
-            "SET",
-            bfd=self.setup['enable_bfd'])
         self.update_monitor_list(
             self.setup['enable_bfd'],
             encap_type,
-            tc6_end_point_list)
-        Logger.info("Verify that the traffic works.")
-
+            endpoint_group_B)
         self.dump_self_info_and_run_ptf("tc6", encap_type, True)
 
     @pytest.mark.skipif(
