@@ -155,13 +155,20 @@ class PtfTestAdapter(BaseTest):
             [scapy packet or masked packet]: Returns the packet with payload part updated.
         """
         if isinstance(pkt, scapy.Ether):
-            for proto in (scapy.UDP, scapy.TCP):
-                if proto in pkt:
-                    pkt[proto].load = self._update_payload(pkt[proto].load)
+            if scapy.VXLAN in pkt and scapy.ARP in pkt:
+                pass
+            else:
+                for proto in (scapy.UDP, scapy.TCP):
+                    if proto in pkt:
+                        pkt[proto].load = self._update_payload(pkt[proto].load)
+
         elif isinstance(pkt, mask.Mask):
-            for proto in (scapy.UDP, scapy.TCP):
-                if proto in pkt.exp_pkt:
-                    pkt.exp_pkt[proto].load = self._update_payload(pkt.exp_pkt[proto].load)
+            if scapy.VXLAN in pkt.exp_pkt and scapy.ARP in pkt.exp_pkt:
+                pass
+            else:
+                for proto in (scapy.UDP, scapy.TCP):
+                    if proto in pkt.exp_pkt:
+                        pkt.exp_pkt[proto].load = self._update_payload(pkt.exp_pkt[proto].load)
         return pkt
 
     def _update_payload(self, payload):
