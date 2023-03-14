@@ -433,9 +433,9 @@ class Testbeds_auto_recovery(object):
         self.trigger_sanitycheck_id = 682
         # self.abort = False
         self.start_time = None
-        self.total_timeout = 60 * 60 * 3   # pipeline timeout is 3 hours
-        self.redeploy_timeout = 60 * 45    # redeploy timeout + sanity timeout < 2 hours
-        self.sanity_timeout = 60 * 65
+        self.total_timeout = 60 * 200      # pipeline triggered every 4 hours (240 minutes), pipeline timeout 200 minsuts 
+        self.redeploy_timeout = 60 * 45    # redeploy timeout + sanity timeout < 150 mintus
+        self.sanity_timeout = 60 * 90
         self.current_loop = 0
         self.testbedName = None
         if golden_image:
