@@ -679,3 +679,8 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
         ipv6_list.append(str(address))
 
     return ipv6_list
+
+
+def sec_to_nanosec(secs):
+    """ Convert seconds to nanoseconds """
+    return secs * 1e9
