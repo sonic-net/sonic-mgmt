@@ -347,7 +347,7 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                 is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
                 if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
                     nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
-            break
+                break
 
     logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}"
                  .format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
