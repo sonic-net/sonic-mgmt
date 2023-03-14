@@ -15,16 +15,16 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 
-from voq_helpers import get_neighbor_info
-from voq_helpers import get_port_by_ip
-from voq_helpers import check_all_neighbors_present, check_one_neighbor_present
-from voq_helpers import asic_cmd, sonic_ping
-from voq_helpers import check_neighbors_are_gone
-from voq_helpers import dump_and_verify_neighbors_on_asic
-from voq_helpers import poll_neighbor_table_delete
-from voq_helpers import get_inband_info
-from voq_helpers import get_ptf_port
-from voq_helpers import get_vm_with_ip
+from .voq_helpers import get_neighbor_info
+from .voq_helpers import get_port_by_ip
+from .voq_helpers import check_all_neighbors_present, check_one_neighbor_present
+from .voq_helpers import asic_cmd, sonic_ping
+from .voq_helpers import check_neighbors_are_gone
+from .voq_helpers import dump_and_verify_neighbors_on_asic
+from .voq_helpers import poll_neighbor_table_delete
+from .voq_helpers import get_inband_info
+from .voq_helpers import get_ptf_port
+from .voq_helpers import get_vm_with_ip
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # lgtm[py/unused-import]
 
@@ -77,7 +77,7 @@ def check_bgp_restored(duthosts, all_cfg_facts):
 
             bgp_facts = asic.bgp_facts()['ansible_facts']
 
-            for address in asic_cfg_facts['BGP_NEIGHBOR'].keys():
+            for address in list(asic_cfg_facts['BGP_NEIGHBOR'].keys()):
                 if bgp_facts['bgp_neighbors'][address]['state'] != "established":
                     logger.info("BGP internal neighbor: %s is down: %s." % (
                         address, bgp_facts['bgp_neighbors'][address]['state']))
@@ -108,7 +108,7 @@ def restore_bgp(duthosts, nbrhosts, all_cfg_facts):
 
             bgp_facts = asic.bgp_facts()['ansible_facts']
 
-            for address in asic_cfg_facts['BGP_NEIGHBOR'].keys():
+            for address in list(asic_cfg_facts['BGP_NEIGHBOR'].keys()):
                 if bgp_facts['bgp_neighbors'][address]['state'] == "established":
                     logger.info("BGP internal neighbor: %s is established: %s, no action." % (
                         address, bgp_facts['bgp_neighbors'][address]['state']))
@@ -238,7 +238,7 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
 
         results[node['host'].hostname] = node_results
 
-    parallel_run(disable_nbr_bgp_neighs, [], {}, nbrhosts.values(), timeout=240)
+    parallel_run(disable_nbr_bgp_neighs, [], {}, list(nbrhosts.values()), timeout=240)
 
     logger.info("Poll for routes to be gone.")
     endtime = time.time() + 120
@@ -347,7 +347,7 @@ def teardown(duthosts, nbrhosts, all_cfg_facts):
     try:
         parallel_run(enable_dut_bgp_neighs, [all_cfg_facts], {}, duthosts.frontend_nodes, timeout=300)
     finally:
-        parallel_run(enable_nbr_bgp_neighs, [], {}, nbrhosts.values(), timeout=300)
+        parallel_run(enable_nbr_bgp_neighs, [], {}, list(nbrhosts.values()), timeout=300)
 
 
 def ping_all_dut_local_nbrs(duthosts):
@@ -433,7 +433,7 @@ def change_vm_intefaces(nbrhosts, nbr_vms, state="up"):
     def _change_vm_interface_on_vm(nbrhosts, state="up", node=None, results=None):
         nbr = nbrhosts[node]
         node_results = []
-        for eos_intf in nbr['conf']['interfaces'].keys():
+        for eos_intf in list(nbr['conf']['interfaces'].keys()):
             if "Loopback" in eos_intf:
                 continue
             if state == "up":
@@ -498,11 +498,11 @@ def test_neighbor_clear_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         asic_cmd(asic, "sonic-clear arp")
         asic_cmd(asic, "sonic-clear ndp")
 
-        logger.info("Wait for clear. IPS: %s", neighs.keys())
+        logger.info("Wait for clear. IPS: %s", list(neighs.keys()))
         poll_neighbor_table_delete(duthosts, neighs)
 
         logger.info("Verify neighbors are gone.")
-        check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighs.keys())
+        check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, list(neighs.keys()))
 
     finally:
         change_vm_intefaces(nbrhosts, nbr_vms, state="up")
@@ -982,7 +982,7 @@ class TestNeighborLinkFlap(LinkFlap):
         logger.info("Will test interfaces: %s", intfs_to_test)
 
         for intf in intfs_to_test:
-            local_ips = [i.split("/")[0] for i in intfs[intf].keys()]  # [u'2064:100::2/64', u'100.0.0.2/24']
+            local_ips = [i.split("/")[0] for i in list(intfs[intf].keys())]  # [u'2064:100::2/64', u'100.0.0.2/24']
             neighbors = [n for n in neighs if neighs[n]['local_addr'] in local_ips]
 
             logger.info("Testing neighbors: %s on intf: %s", neighbors, intf)
@@ -1049,14 +1049,14 @@ class TestNeighborLinkFlap(LinkFlap):
         logger.info("Will test interfaces: %s", intfs_to_test)
 
         for intf in intfs_to_test:
-            local_ips = [i.split("/")[0] for i in intfs[intf].keys()]  # [u'2064:100::2/64', u'100.0.0.2/24']
+            local_ips = [i.split("/")[0] for i in list(intfs[intf].keys())]  # [u'2064:100::2/64', u'100.0.0.2/24']
             neighbors = [n for n in neighs if neighs[n]['local_addr'] in local_ips]
             logger.info("Testing neighbors: %s on intf: %s", neighbors, intf)
             if "portchannel" in intf.lower():
                 pc_cfg = cfg_facts['PORTCHANNEL_MEMBER']
                 pc_members = pc_cfg[intf]
-                logger.info("Portchannel members %s: %s", intf, pc_members.keys())
-                portbounce_list = pc_members.keys()
+                logger.info("Portchannel members %s: %s", intf, list(pc_members.keys()))
+                portbounce_list = list(pc_members.keys())
             else:
                 portbounce_list = [intf]
 

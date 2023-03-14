@@ -5,7 +5,7 @@ import re
 import time
 import logging
 import tech_support_cmds as cmds
-
+import re
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -526,7 +526,7 @@ def test_techsupport_commands(
             strbash_in_cmdlist = True
             break
 
-    for cmd_group_name, cmd_group_to_check in commands_to_check.items():
+    for cmd_group_name, cmd_group_to_check in list(commands_to_check.items()):
         cmd_not_found.update(
             check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
         )

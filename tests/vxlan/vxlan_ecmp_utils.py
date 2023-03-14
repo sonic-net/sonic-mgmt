@@ -146,7 +146,7 @@ class Ecmp_Utils(object):
                     number_of_required_interfaces+1, available_number))
         for index in range(number_of_required_interfaces):
             neigh_ip_address = list_of_bgp_ips[index]
-            current_interface_name = bgp_interfaces[neigh_ip_address].keys()[0]
+            current_interface_name = list(bgp_interfaces[neigh_ip_address].keys())[0]
             ret_interface_list.append(current_interface_name)
 
         if ret_interface_list:
@@ -179,7 +179,7 @@ class Ecmp_Utils(object):
         for pc_name in names:
             port_struct = lags[pc_name]['po_config']['ports']
             if lags[pc_name]['po_intf_stat'] == "Up":
-                intf = port_struct.keys()[0]
+                intf = list(port_struct.keys())[0]
                 neighbor = minigraph_data['minigraph_neighbors'][intf]['name']
                 match = pattern.search(neighbor)
                 if match:
@@ -240,7 +240,7 @@ class Ecmp_Utils(object):
                 {index['attachto']: index['addr']}
 
         ret_list = {}
-        for index, entry in peer_addr_map.iteritems():
+        for index, entry in list(peer_addr_map.items()):
             if bgp_neigh_list[index]['state'] == 'established' and \
                     pattern.search(bgp_neigh_list[index]['description']):
                 ret_list[index] = entry
@@ -261,7 +261,7 @@ class Ecmp_Utils(object):
         return_dict = {}
 
         config_list = []
-        for intf, addr in intf_to_ip_map.iteritems():
+        for intf, addr in list(intf_to_ip_map.items()):
             # If the given address is "net.1", the return address is "net.101"
             # THE ASSUMPTION HERE IS THAT THE DUT ADDRESSES ARE ENDING IN ".1".
             # addr.decode is only in python2.7
@@ -646,7 +646,7 @@ class Ecmp_Utils(object):
         bgp_facts = duthost.bgp_facts()['ansible_facts']
         if down_list is None:
             down_list = []
-        for addr, value in bgp_facts['bgp_neighbors'].items():
+        for addr, value in list(bgp_facts['bgp_neighbors'].items()):
             if value['state'] == 'established':
                 if addr in down_list:
                     # The neighbor is supposed to be down, and is actually up.
