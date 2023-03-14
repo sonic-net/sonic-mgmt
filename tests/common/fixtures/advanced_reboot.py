@@ -189,9 +189,15 @@ class AdvancedReboot:
         self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
                                         self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+        
+        shared_lo = None
         if "dualtor" in self.getTestbedType():
-            self.rebootData['shared_lo_prefix'] = "%s/%s" % (self.other_mgFacts['minigraph_lo_interfaces'][2]['addr'],
-                                        self.other_mgFacts['minigraph_lo_interfaces'][2]['prefixlen'])
+            for intf in self.other_mgFacts['minigraph_lo_interfaces']:
+                if intf['name'] == 'Loopback2' and self.is_ipv4_address(intf['addr']):
+                    shared_lo = "%s/%s" % (intf['addr'], intf['prefixlen'])
+            
+            self.rebootData['shared_lo_prefix'] = shared_lo
+    
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:

@@ -306,15 +306,13 @@ class ReloadTest(BaseTest):
                 else:
                     ports_in_vlan.append(self.port_indices[ifname])
             ports_per_vlan[vlan] = ports_in_vlan
-
+        
         peer_pc_in_vlan = []
-        for vlan in self.peer_vlan_ip_range.keys():
+        for vlan in self.vlan_ip_range.keys():
             ports_in_vlan = []
             for ifname in peer_vlan_content[vlan]['members']:
                 if ifname in peer_portchannel_names:
                     peer_pc_in_vlan.append(ifname)
-        self.log("vlan_ip_range: %s" % self.vlan_ip_range)
-        self.log("peer_vlan_ip_range: %s" % self.peer_vlan_ip_range)
 
         active_portchannels = list()
         for neighbor_info in list(self.vm_dut_map.values()):
@@ -335,7 +333,7 @@ class ReloadTest(BaseTest):
                 if not pc['name'] in peer_pc_in_vlan and pc['name'] in peer_active_portchannels:
                     dualtor_pc_ifaces.extend([self.peer_port_indices[member] for member in pc['members']])
             return ports_per_vlan, pc_ifaces, dualtor_pc_ifaces
-
+        
         return ports_per_vlan, pc_ifaces
 
     def check_param(self, param, default, required = False):
@@ -454,7 +452,6 @@ class ReloadTest(BaseTest):
                 for vm_key in self.vm_dut_map.keys():
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
-                        self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
                         break
         
         peer_content = self.read_json('peer_portchannel_ports_file')
@@ -1704,14 +1701,16 @@ class ReloadTest(BaseTest):
             missed_t1_to_vlan = 0
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
-                if packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:                    # This is a sent packet - keep track of it as payload_id:timestamp.
+                if packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:                    
+                    # This is a sent packet - keep track of it as payload_id:timestamp.
                     # for dualtor both MACs are needed:
                     #   t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
                     sent_payload = int(str(packet[scapyall.TCP].payload))
                     sent_packets[sent_payload] = packet.time
                     sent_counter += 1
                     continue
-                    if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:                    # This is a received packet.
+                    if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:                    
+                    # This is a received packet.
                     # for dualtor both MACs are needed:
                     #   t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
                     received_time = packet.time
