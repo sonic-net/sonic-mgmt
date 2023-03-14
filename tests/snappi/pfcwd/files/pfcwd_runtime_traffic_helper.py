@@ -3,7 +3,7 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.snappi_helpers import get_dut_port_id
-from tests.common.snappi.common_helpers import start_pfcwd, stop_pfcwd
+from tests.common.snappi.common_helpers import start_pfcwd, stop_pfcwd, sec_to_nanosec
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -56,9 +56,9 @@ def run_pfcwd_runtime_traffic_test(api,
 
     pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
-    
-    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd 
-    fake alerts caused by non-incremented packet counters during pfcwd detection periods"""
+
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
     warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
     warm_up_traffic_delay_sec = 0
 
@@ -91,11 +91,6 @@ def run_pfcwd_runtime_traffic_test(api,
                      data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                      data_pkt_size=DATA_PKT_SIZE,
                      tolerance=TOLERANCE_THRESHOLD)
-
-
-def sec_to_nanosec(secs):
-    """ Convert seconds to nanoseconds """
-    return secs * 1e9
 
 
 def __gen_traffic(testbed_config,

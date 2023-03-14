@@ -7,7 +7,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
-    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
+    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time, sec_to_nanosec
 from tests.common.snappi.port import select_ports
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -145,11 +145,6 @@ def run_pfcwd_multi_node_test(api,
                      asic_type=asic_type)
 
 
-def sec_to_nanosec(secs):
-    """ Convert seconds to nanoseconds """
-    return secs * 1e9
-
-
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
     """
     Generate name for a data flow
@@ -243,13 +238,14 @@ def __gen_traffic(testbed_config,
                                                     pattern=traffic_pattern,
                                                     rx_port_id=port_id)
 
-    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd 
-    fake alerts caused by non-incremented packet counters during pfcwd detection periods"""
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
     warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
     warm_up_traffic_delay_sec = 0
     warm_up_traffic_prio_list = test_flow_prio_list
     warm_up_traffic_rate_percent = test_flow_rate_percent
 
+    """ Generate warm-up traffic """
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      src_port_id_list=tx_port_id_list,
@@ -272,6 +268,7 @@ def __gen_traffic(testbed_config,
                      flow_dur_sec=pfc_storm_dur_sec,
                      flow_delay_sec=WARM_UP_TRAFFIC_DUR)
 
+    """ Generate test flow traffic """
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      src_port_id_list=tx_port_id_list,
@@ -284,6 +281,7 @@ def __gen_traffic(testbed_config,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map)
 
+    """ Generate background flow traffic """
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      src_port_id_list=tx_port_id_list,
@@ -619,7 +617,7 @@ def __verify_results(rows,
                 """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
                 pytest_assert(tx_frames > rx_frames,
                               '{} should have dropped packets'.format(flow_name))
-            
+
             elif trigger_pfcwd and src_port_id == pause_port_id:
                 if is_mlnx_device:
                     """ During a pfc storm with pfcwd triggered, Mellanox devices do not drop Rx packets """

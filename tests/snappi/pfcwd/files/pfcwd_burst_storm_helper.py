@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
-    enable_packet_aging, start_pfcwd
+    enable_packet_aging, start_pfcwd, sec_to_nanosec
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -70,8 +70,8 @@ def run_pfcwd_burst_storm_test(api,
     pause_flow_dur_sec = poll_interval_sec * 0.5
     pause_flow_gap_sec = burst_cycle_sec - pause_flow_dur_sec
 
-    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd 
-    fake alerts caused by non-incremented packet counters during pfcwd detection periods"""
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
     warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
     warm_up_traffic_delay_sec = 0
 
@@ -102,11 +102,6 @@ def run_pfcwd_burst_storm_test(api,
     __verify_results(rows=flow_stats,
                      data_flow_prefix=DATA_FLOW_PREFIX,
                      pause_flow_prefix=PAUSE_FLOW_PREFIX)
-
-
-def sec_to_nanosec(secs):
-    """ Convert seconds to nanoseconds """
-    return secs * 1e9
 
 
 def __gen_traffic(testbed_config,
