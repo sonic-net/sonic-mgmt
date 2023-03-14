@@ -115,6 +115,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
     else:
         asic_index = 0
         json_contents = {}
+        reboot_required = False
         for config_file in config_files:
             str_asic_index = str(asic_index)
             dest_file = "/tmp/"
@@ -132,13 +133,22 @@ def setup_markings_dut(duthost, localhost, **kwargs):
 
             if required_entry is None:
                 raise RuntimeError("Couldnot find the required entry(id) in the config file:{}".format(config_file))
-            reboot_required = False
-            for k,v in kwargs.iteritems():
-                if json_contents[str_asic_index]['devices'][required_entry]['device_property'][k] != v:
-                    reboot_required = True
-                    json_contents[str_asic_index]['devices'][required_entry]['device_property'][k] = v
+            # The kwargs can be either of:
+            # just a key-value pair or
+            # 0:{key-value}, 1:{key-value} and so on.
+            if kwargs.get(str_asic_index, None):
+                for k,v in kwargs[str_asic_index].iteritems():
+                    if json_contents[str_asic_index]['devices'][required_entry]['device_property'][k] != v:
+                        reboot_required = True
+                        json_contents[str_asic_index]['devices'][required_entry]['device_property'][k] = v
+            else:
+                for k,v in kwargs.iteritems():
+                    if json_contents[str_asic_index]['devices'][required_entry]['device_property'][k] != v:
+                        reboot_required = True
+                        json_contents[str_asic_index]['devices'][required_entry]['device_property'][k] = v
+
             asic_index+=1
-    
+
         if reboot_required:
             index = 0
             for _ in json_contents.keys(): 
