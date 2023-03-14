@@ -139,10 +139,12 @@ def test_mac_move(
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
 
     # active forwarding check after fdb ageout/flush
-    tor.shell("fdbclear")
-    server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)  # noqa F405
-    )
-    with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
-        testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
+    # skip Mellanox platforms for the traffic will be flooded in the vlan when there is no fdb entries
+    if not tor.facts['asic_type'] == 'mellanox':
+        tor.shell("fdbclear")
+        server_traffic_monitor = ServerTrafficMonitor(
+            tor, ptfhost, vmhost, tbinfo, test_port,
+            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)  # noqa F405
+        )
+        with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
+            testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
