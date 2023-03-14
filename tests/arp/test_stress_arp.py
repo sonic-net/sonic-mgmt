@@ -1,6 +1,6 @@
 import logging
 import time
-from arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, \
+from .arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, \
                       clear_dut_arp_cache, increment_ipv6_addr, get_fdb_dynamic_mac_count
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert, pytest_require

@@ -44,9 +44,6 @@
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
-    <DevicesL3Info Hostname="dev-msn2700-01">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.188/23"/>
-    </DevicesL3Info>
     <DevicesL3Info Hostname="dev-7260-10">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.13/23"/>
     </DevicesL3Info>
@@ -95,15 +92,18 @@
     <DevicesL3Info Hostname="dev-acs-serv-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.245/23"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="dev-msn2700-01">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.251.0.188/23"/>
+    </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
       <DeviceConsoleInfo Hostname="console-1" HwSku="Cisco" ManagementIp="192.168.10.1" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-01" Proxy="root" StartDevice="console-1" StartPort="10"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7260-10" Proxy="root" StartDevice="console-1" StartPort="11"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7260-11" Proxy="root" StartDevice="console-1" StartPort="12"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-msn2700-01" Proxy="root" StartDevice="console-1" StartPort="10"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-7260-10" Proxy="root" StartDevice="console-1" StartPort="11"/>
+      <ConsoleLinkInfo BaudRate="" Console_type="ssh" EndDevice="str-7260-11" Proxy="root" StartDevice="console-1" StartPort="12"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <PowerControlGraphDeclaration>

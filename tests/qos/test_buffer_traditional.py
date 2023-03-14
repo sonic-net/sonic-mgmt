@@ -75,7 +75,7 @@ def load_lossless_info_from_pg_profile_lookup(duthost):
 
 def make_dict_from_output_lines(lines):
     if lines:
-        return dict(zip(lines[::2], lines[1::2]))
+        return dict(list(zip(lines[::2], lines[1::2])))
     return None
 
 

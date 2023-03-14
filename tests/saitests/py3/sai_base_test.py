@@ -47,7 +47,7 @@ class ThriftInterface(BaseTest):
             self.server = 'localhost'
         self.platform_asic = self.test_params.get('platform_asic', None)
 
-        self.asic_id = self.test_params['asic_id']
+        self.asic_id = self.test_params.get('asic_id', None)
         if "port_map" in self.test_params:
             user_input = self.test_params['port_map']
             splitted_map = user_input.split(",")
@@ -62,6 +62,7 @@ class ThriftInterface(BaseTest):
                     continue
                 interface_front_pair = line.split("@")
                 interface_to_front_mapping[interface_front_pair[0]] = interface_front_pair[1].strip()
+            f.close()
         else:
             exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
 

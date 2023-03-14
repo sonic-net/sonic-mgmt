@@ -9,7 +9,7 @@ module:  isis_facts
 version_added:  "1.0"
 short_description: Retrieve ISIS information from FRRouting
 description:
-    - Retrieve BGP routing information from FRRouting, using the VTYSH command line
+    - Retrieve IS-IS routing information from FRRouting, using the VTYSH command line
     - This is the first stage. If we need more info in the future, will continue working on this module.
       Currently supported parsing commands:
         * show isis neighbor detail
@@ -17,6 +17,7 @@ description:
         * show isis route
         * show isis hostname
         * show isis summary
+        * show isis spf-delay-ietf
         * show running-config isisd
     - Retrieved facts will be inserted into the 'isis_facts'
 '''
@@ -261,8 +262,7 @@ class IsisModule(object):
 
     def _parse_route_per_area(self, route_items):
         routes = {'ipv4': {}, 'ipv6': {}}
-        reg = r'\s*(\d+\.\d+\.\d+\.\d+\/\d+)\s+(\d+)\s+(\S*)\s+(\d+\.\d+\.\d+\.\d+|-).*'
-        regex_v4route = re.compile(reg)
+        regex_v4route = re.compile(r'\s*(\d+\.\d+\.\d+\.\d+\/\d+)\s+(\d+)\s+(\S*)\s+(\d+\.\d+\.\d+\.\d+|-).*')
         regex_v6route = re.compile(r'(\s*[0-9a-fA-F:]+\/\d+)(\s+\d+\s+)(\S+\s+)([0-9a-fA-F:\-]+)')
         for line in [item.strip() for item in route_items if item.strip()]:
             match = regex_v4route.match(line)
@@ -302,6 +302,29 @@ class IsisModule(object):
                     counters['l2_psnp'] = int(regex_l2_psnp.match(item).group(1))
             return counters
 
+        def _parse_summary_level(level_items):
+            summary_level = {'IPv4': {}, 'IPv6': {}, 'spf_pending': False}
+            regex_ip_version = re.compile(r'(IPv[46]) route computation:')
+            regex_minimum_interval = re.compile(r'minimum interval  : (\d+)')
+            regex_last_run_elapsed = re.compile(r'last run elapsed  : (\S+) ago')
+            regex_run_count = re.compile(r'run count\s+: (\d+)')
+            while len(level_items) > 0:
+                line = level_items.pop(0).strip()
+                if "SPF: (pending)" in line:
+                    summary_level['spf_pending'] = True
+                elif regex_minimum_interval.match(line):
+                    summary_level['spf_interval'] = regex_minimum_interval.match(line).group(1)
+                elif regex_ip_version.match(line) and len(level_items) > 2:
+                    ip_route_computation = {}
+                    if regex_last_run_elapsed.match(level_items[0]):
+                        ip_route_computation['last_run_elapsed'] = \
+                            regex_last_run_elapsed.match(level_items[0]).group(1)
+                    if regex_run_count.match(level_items[2]):
+                        ip_route_computation['run_count'] = \
+                            regex_run_count.match(level_items[2]).group(1)
+                    summary_level[regex_ip_version.match(line).group(1)] = ip_route_computation
+            return summary_level
+
         summary_items = [item.strip() for item in summary_items if item.strip()]
         summary = {'tx_cnt': {}, 'rx_cnt': {}, 'level_2': {}}
 
@@ -317,7 +340,66 @@ class IsisModule(object):
                 while len(summary_items) > 0 and 'Level-' not in summary_items[0]:
                     counter_items.append(summary_items.pop(0).strip().rstrip())
                 summary['rx_cnt'] = _parse_counter(counter_items)
+            elif 'Level-2:' in line:
+                summary['level_2'] = _parse_summary_level(summary_items)
+                summary_items = []
+
         return summary
+
+    def _parse_spf_delay_ietf_per_area(self, spf_items):
+
+        def _parse_level(level_items):
+            level = {}
+            regex_spf_delay_status = re.compile(r'\s*SPF delay status: (\S+.+)')
+            regex_spf_delay_proto = re.compile(r'\s*Using (\S+.+)')
+            regex_state = re.compile(r'\s*Current state:\s+(\S+)')
+            regex_init_timer = re.compile(r'\s*Init timer:\s+(\d+) msec')
+            regex_short_timer = re.compile(r'\s*Short timer:\s+(\d+) msec')
+            regex_long_timer = re.compile(r'\s*Long timer:\s+(\d+) msec')
+            regex_holddown_timer = re.compile(r'\s*Holddown timer:\s+(\d+) msec')
+            regex_timetolearn_timer = re.compile(r'\s*TimeToLearn timer:\s+(\d+) msec')
+            regex_first_event = re.compile(r'\s*First event:\s+(\S+.+)')
+            regex_last_event = re.compile(r'\s*Last event:\s+(\S+.+)')
+
+            while len(level_items) > 0:
+                line = level_items.pop(0).strip()
+                if regex_spf_delay_status.match(line):
+                    level['spf_delay_status'] = regex_spf_delay_status.match(line).group(1)
+                elif regex_spf_delay_proto.match(line):
+                    level['proto'] = regex_spf_delay_proto.match(line).group(1)
+                elif regex_state.match(line):
+                    level['state'] = regex_state.match(line).group(1)
+                elif regex_init_timer.match(line):
+                    level['init_timer'] = regex_init_timer.match(line).group(1)
+                elif regex_short_timer.match(line):
+                    level['short_timer'] = regex_short_timer.match(line).group(1)
+                elif regex_long_timer.match(line):
+                    level['long_timer'] = regex_long_timer.match(line).group(1)
+                elif regex_holddown_timer.match(line):
+                    level['holddown_timer'] = regex_holddown_timer.match(line).group(1)
+                    if len(level_items) > 0:
+                        level['holddown_state'] = level_items.pop(0).strip()
+                elif regex_timetolearn_timer.match(line):
+                    level['timetolearn_timer'] = regex_timetolearn_timer.match(line).group(1)
+                    if len(level_items) > 0:
+                        level['timetolearn_state'] = level_items.pop(0).strip()
+                elif regex_first_event.match(line):
+                    level['first_event'] = regex_first_event.match(line).group(1)
+                elif regex_last_event.match(line):
+                    level['last_event'] = regex_last_event.match(line).group(1)
+            return level
+
+        spf_items = [item.strip() for item in spf_items if item.strip()]
+        spf_delay = {'Level-1': {}, 'Level-2': {}}
+        regex_level = re.compile(r'(Level-[12]):')
+        while len(spf_items) > 0:
+            line = spf_items.pop(0).strip()
+            if regex_level.match(line):
+                level_items = []
+                while len(spf_items) > 0 and not regex_level.match(spf_items[0]):
+                    level_items.append(spf_items.pop(0).strip().rstrip())
+                spf_delay[regex_level.match(line).group(1)] = _parse_level(level_items)
+        return spf_delay
 
     def parse_neighbors(self):
         self.facts['neighbors'] = self._parse_areas(self.out.split('\n'), self._parse_neighbors_per_area)
@@ -333,6 +415,9 @@ class IsisModule(object):
 
     def parse_summary(self):
         self.facts['summary'] = self._parse_areas(self.out.split('\n'), self._parse_summary_per_area)
+
+    def parse_spf_delay_ietf(self):
+        self.facts['spf_delay_ietf'] = self._parse_areas(self.out.split('\n'), self._parse_spf_delay_ietf_per_area)
 
     def parse_hostname(self):
         regex_hostname = re.compile(r'(\s*[2\*]\s+)(\d{4}.\d{4}.\d{4}\s+)(\S+)')
@@ -375,6 +460,9 @@ class IsisModule(object):
 
         self.collect_data("summary")
         self.parse_summary()
+
+        self.collect_data("spf-delay-ietf")
+        self.parse_spf_delay_ietf()
 
         self.collect_isis_config("running-config")
 

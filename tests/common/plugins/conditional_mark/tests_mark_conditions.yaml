@@ -364,6 +364,16 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms."
     conditions:
       - "asic_type=='cisco-8000'"
+  skip:
+    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
 
 #######################################
 #####            fdb              #####
@@ -401,6 +411,16 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
 http/test_http_copy.py:
   skip:
     reason: "Test doesn't clean up the files in /tmp, it will cause the subsequent cases in /tmp fail, skipping until the issue is addressed"
+
+#######################################
+#####    iface_loopback_action    #####
+#######################################
+iface_loopback_action/test_iface_loopback_action.py:
+  skip:
+    reason: "Not working on non-mellanox platform"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7704
 
 #######################################
 #####      iface_namingmode       #####
