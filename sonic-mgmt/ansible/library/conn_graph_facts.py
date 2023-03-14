@@ -230,19 +230,35 @@ class Parse_Lab_Graph():
                 allconsolelinks = console_link_root.findall('ConsoleLinkInfo')
                 if allconsolelinks is not None:
                     for consolelink in allconsolelinks:
-                        start_dev = consolelink.attrib['StartDevice']
-                        end_dev = consolelink.attrib['EndDevice']
-                        console_proxy = consolelink.attrib['Proxy']
-                        console_type = consolelink.attrib['Console_type']
+                        attributes = consolelink.attrib
+                        start_dev = attributes.get('StartDevice')
+                        start_port = attributes.get('StartPort')
+                        end_dev = attributes.get('EndDevice')
+                        end_port = 'ConsolePort'
+                        console_proxy = attributes.get('Proxy')
+                        console_type = attributes.get('Console_type')
+                        baud_rate = attributes.get('BaudRate')
 
                         if start_dev:
                             if start_dev not in self.consolelinks:
                                 self.consolelinks.update({start_dev : {}})
-                            self.consolelinks[start_dev][consolelink.attrib['StartPort']] = {'peerdevice':consolelink.attrib['EndDevice'], 'peerport': 'ConsolePort', 'proxy':console_proxy, 'type':console_type}
+                            self.consolelinks[start_dev][start_port] = {
+                                'peerdevice': end_dev,
+                                'peerport': end_port,
+                                'proxy':console_proxy,
+                                'type':console_type,
+                                'baud_rate': baud_rate
+                            }
                         if end_dev:
                             if end_dev not in self.consolelinks:
                                 self.consolelinks.update({end_dev : {}})
-                            self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': consolelink.attrib['StartDevice'], 'peerport': consolelink.attrib['StartPort'], 'proxy':console_proxy, 'type':console_type}
+                            self.consolelinks[end_dev][end_port] = {
+                                'peerdevice': start_dev,
+                                'peerport': start_port,
+                                'proxy':console_proxy,
+                                'type':console_type,
+                                'baud_rate': baud_rate
+                            }
 
         pdu_root = self.root.find(self.pcgtag)
         if pdu_root:

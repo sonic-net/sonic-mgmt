@@ -7,6 +7,15 @@
             "dynamic-hostname": "{{ dynamic_hostname | default('true') }}",
             "lsp-mtu-size": "{{ lsp_mtu_size | default('1497') }}",
             "log-adjacency-changes": "{{ log_adjacency_changes | default('false') }}",
+{%- if spf_init_delay is defined and spf_short_delay is defined and spf_long_delay is defined %}
+            "spf-init-delay": "{{ spf_init_delay }}",
+            "spf-short-delay": "{{ spf_short_delay }}",
+            "spf-long-delay": "{{ spf_long_delay }}",
+{%- endif %}
+{%- if spf_hold_down is defined and spf_time_to_learn is defined %}
+            "spf-hold-down": "{{ spf_hold_down }}",
+            "spf-time-to-learn": "{{ spf_time_to_learn }}",
+{%- endif %}
             "set-overload-bit": "{{ isis_overload_bit | default('false') }}"
         }
 {%- endif %}

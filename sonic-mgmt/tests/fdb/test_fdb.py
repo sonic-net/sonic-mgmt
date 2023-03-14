@@ -11,11 +11,13 @@ import pprint
 import re
 import random
 
+from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
-from tests.common.fixtures.duthost_utils import disable_fdb_aging
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
+from tests.common.fixtures.duthost_utils import disable_fdb_aging           # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url, \
+                                                       toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
@@ -34,6 +36,7 @@ PKT_TYPES = ["ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope="module")
 def get_dummay_mac_count(tbinfo):
     # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
@@ -46,6 +49,7 @@ def get_dummay_mac_count(tbinfo):
         logger.info("Use dummy mac count {} on topo {}\n".format(DUMMY_MAC_COUNT, tbinfo["topo"]["name"]))
         return DUMMY_MAC_COUNT
 
+
 def simple_eth_packet(
     pktlen=60,
     eth_dst="00:01:02:03:04:05",
@@ -57,14 +61,15 @@ def simple_eth_packet(
     if vlan_vid or vlan_pcp:
         pktlen += 4
         pkt /= scapy.Dot1Q(vlan=vlan_vid, prio=vlan_pcp)
-        pkt[scapy.Dot1Q : 1].type = DEFAULT_FDB_ETHERNET_TYPE
+        pkt[scapy.Dot1Q: 1].type = DEFAULT_FDB_ETHERNET_TYPE
     else:
         pkt.type = DEFAULT_FDB_ETHERNET_TYPE
     pkt = pkt / ("0" * (pktlen - len(pkt)))
 
     return pkt
 
-def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
+
+def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):       # noqa F811
     """
     send ethernet packet
     :param ptfadapter: PTF adapter object
@@ -79,11 +84,12 @@ def send_eth(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
         eth_src=source_mac,
         vlan_vid=vlan_id
     )
-    logger.debug('send packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
+    logger.debug('send packet source port id {} smac: {} dmac: {} vlan: {}'
+                 .format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
+def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):       # noqa F811
     """
     send arp request packet
     :param ptfadapter: PTF adapter object
@@ -94,20 +100,22 @@ def send_arp_request(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     :return:
     """
     pkt = testutils.simple_arp_packet(pktlen=60,
-                eth_dst=dest_mac,
-                eth_src=source_mac,
-                vlan_vid=vlan_id,
-                vlan_pcp=0,
-                arp_op=1,
-                ip_snd='10.10.1.3',
-                ip_tgt='10.10.1.2',
-                hw_snd=source_mac,
-                hw_tgt='ff:ff:ff:ff:ff:ff',
-                )
-    logger.debug('send ARP request packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
+                                      eth_dst=dest_mac,
+                                      eth_src=source_mac,
+                                      vlan_vid=vlan_id,
+                                      vlan_pcp=0,
+                                      arp_op=1,
+                                      ip_snd='10.10.1.3',
+                                      ip_tgt='10.10.1.2',
+                                      hw_snd=source_mac,
+                                      hw_tgt='ff:ff:ff:ff:ff:ff',
+                                      )
+    logger.debug('send ARP request packet source port id {} smac: {} dmac: {} vlan: {}'
+                 .format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
 
-def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
+
+def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):     # noqa F811
     """
     send arp reply packet
     :param ptfadapter: PTF adapter object
@@ -118,20 +126,22 @@ def send_arp_reply(ptfadapter, source_port, source_mac, dest_mac, vlan_id):
     :return:
     """
     pkt = testutils.simple_arp_packet(eth_dst=dest_mac,
-                eth_src=source_mac,
-                vlan_vid=vlan_id,
-                vlan_pcp=0,
-                arp_op=2,
-                ip_snd='10.10.1.2',
-                ip_tgt='10.10.1.3',
-                hw_tgt=dest_mac,
-                hw_snd=source_mac,
-                )
-    logger.debug('send ARP reply packet source port id {} smac: {} dmac: {} vlan: {}'.format(source_port, source_mac, dest_mac, vlan_id))
+                                      eth_src=source_mac,
+                                      vlan_vid=vlan_id,
+                                      vlan_pcp=0,
+                                      arp_op=2,
+                                      ip_snd='10.10.1.2',
+                                      ip_tgt='10.10.1.3',
+                                      hw_tgt=dest_mac,
+                                      hw_snd=source_mac,
+                                      )
+    logger.debug('send ARP reply packet source port id {} smac: {} dmac: {} vlan: {}'
+                 .format(source_port, source_mac, dest_mac, vlan_id))
     testutils.send(ptfadapter, source_port, pkt)
 
 
-def send_recv_eth(duthost, ptfadapter, source_ports, source_mac, dest_ports, dest_mac, src_vlan, dst_vlan):
+def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                # noqa F811
+                  dest_ports, dest_mac, src_vlan, dst_vlan):
     """
     send ethernet packet and verify it on dest_port
     :param ptfadapter: PTF adapter object
@@ -158,8 +168,8 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac, dest_ports, des
         # need to use Mask to ignore the priority field.
         exp_pkt = Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
-    logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'.format(
-        source_ports, source_mac, dest_mac, src_vlan, dest_ports))
+    logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'
+                 .format(source_ports, source_mac, dest_mac, src_vlan, dest_ports))
 
     # fdb test will send lots of pkts between paired ports, it's hard to guarantee there is no congestion
     # on server side during this period. So tolerant to retry 3 times before complain the assert.
@@ -171,11 +181,13 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac, dest_ports, des
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, source_ports[0], pkt, count=pkt_count)
             if len(dest_ports) == 1:
-                testutils.verify_packet(ptfadapter, exp_pkt, dest_ports[0], timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+                testutils.verify_packet(ptfadapter, exp_pkt, dest_ports[0],
+                                        timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
             else:
-                testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports, timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+                testutils.verify_packet_any_port(ptfadapter, exp_pkt, dest_ports,
+                                                 timeout=FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
             break
-        except:
+        except Exception:
             # Send 10 pkts in retry to make this test case to be more tolerent of congestion on server/ptf
             pkt_count = 10
             pass
@@ -183,7 +195,9 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac, dest_ports, des
         result = duthost.command("show mac", module_ignore_errors=True)
         logger.info("Dest MAC is {}, show mac results {}".format(dest_mac, result['stdout']))
         pytest_assert(False, "Expected packet was not received on ports {}"
-                             "Dest MAC in fdb is {}".format(dest_ports, dest_mac.lower() in result['stdout'].lower()))
+                             "Dest MAC in fdb is {}"
+                             .format(dest_ports, dest_mac.lower() in result['stdout'].lower()))
+
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
     """
@@ -212,7 +226,7 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
             send_eth(ptfadapter, port_index, mac, router_mac, vlan_id)
 
             # put in learned MAC
-            fdb[port_index] = { mac }
+            fdb[port_index] = {mac}
 
             # Send packets to switch to populate the layer 2 table with dummy MACs for each port
             # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
@@ -261,7 +275,7 @@ def record_mux_status(request, rand_selected_dut, tbinfo):
 @pytest.mark.bsl
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
-             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status, get_dummay_mac_count):
+             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status, get_dummay_mac_count):   # noqa F811
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
@@ -280,14 +294,15 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     router_mac = duthost.facts['router_mac']
 
-    port_index_to_name = { v: k for k, v in conf_facts['port_index_map'].items() }
+    port_index_to_name = {v: k for k, v in conf_facts['port_index_map'].items()}
 
     configured_dummay_mac_count = get_dummay_mac_count
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
     available_ports_idx = []
     for idx, name in ptf_ports_available_in_topo.items():
-        if idx in port_index_to_name and conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up':
+        if idx in port_index_to_name and \
+                conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up':
             available_ports_idx.append(idx)
 
     vlan_table = {}
@@ -310,12 +325,12 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
                 if port_index:
                     interface_table[ifname].add(vlan_id)
             elif conf_facts['port_index_map'][ifname] in available_ports_idx:
-                    port_index.append(conf_facts['port_index_map'][ifname])
-                    interface_table[ifname].add(vlan_id)
+                port_index.append(conf_facts['port_index_map'][ifname])
+                interface_table[ifname].add(vlan_id)
             if port_index:
-                vlan_table[vlan_id].append({'port_index':port_index, 'tagging_mode':tagging_mode})
+                vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
 
-    vlan_member_count = sum([ len(members) for members in vlan_table.values() ])
+    vlan_member_count = sum([len(members) for members in vlan_table.values()])
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:
@@ -338,7 +353,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     dummy_mac_count = 0
     total_mac_count = 0
     for k, vl in fdb_fact.items():
-        assert validate_mac(k) == True
+        assert validate_mac(k) is True
         for v in vl:
             assert v['port'] in interface_table
             assert v['vlan'] in interface_table[v['port']]
@@ -355,7 +370,8 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
 
 @pytest.mark.parametrize("pkt_type", PKT_TYPES)
-def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type, toggle_all_simulator_ports_to_rand_selected_tor_m, tbinfo):
+def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type,
+                             toggle_all_simulator_ports_to_rand_selected_tor_m, tbinfo):    # noqa F811
     """
     Verify self mac will not be learnt.
     """
@@ -380,5 +396,4 @@ def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type, toggle_all
     time.sleep(5)
     # Verify that self mac is not learnt
     fdb_facts = rand_selected_dut.fdb_facts()['ansible_facts']
-    pytest_assert(self_mac not in fdb_facts,
-                    "Self-mac {} is not supposed to be learnt".format(self_mac))
+    pytest_assert(self_mac not in fdb_facts, "Self-mac {} is not supposed to be learnt".format(self_mac))

@@ -24,6 +24,7 @@ import logging
 import pytest
 import time
 import json
+import re
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map # lgtm[py/unused-import]
@@ -76,6 +77,81 @@ class TestQosSai(QosSaiBase):
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
+    def replaceNonExistentPortId(self, availablePortIds, portIds):
+        '''
+        if port id of availablePortIds/dst_port_ids is not existing in availablePortIds
+        replace it with correct one, make sure all port id is valid
+        e.g.
+            Given below parameter:
+                availablePortIds: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
+                portIds: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            get result:
+                portIds: [0, 2, 16, 4, 18, 6, 20, 8, 22]
+        '''
+        if len(portIds) > len(availablePortIds):
+            logger.info('no enough ports for test')
+            return False
+
+        # cache available as free port pool
+        freePorts = [pid for pid in availablePortIds]
+
+        # record invaild port
+        # and remove valid port from free port pool
+        invalid = []
+        for idx, pid in enumerate(portIds):
+            if pid not in freePorts:
+                invalid.append(idx)
+            else:
+                freePorts.remove(pid)
+
+        # replace invalid port from free port pool
+        for idx in invalid:
+            portIds[idx] = freePorts.pop(0)
+
+        return True
+
+    def updateTestPortIdIp(self, dutConfig, qosParams=None):
+
+        portIdNames = []
+        portIds = []
+        for idName in dutConfig["testPorts"]:
+            if re.match('(?:src|dst)_port\S+id', idName):
+                portIdNames.append(idName)
+                ipName = idName.replace('id', 'ip')
+                pytest_assert(ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
+                portIds.append(dutConfig["testPorts"][idName])
+        pytest_assert(self.replaceNonExistentPortId(dutConfig["testPortIds"], portIds), "No enough test ports")
+        for idx, idName in enumerate(portIdNames):
+            dutConfig["testPorts"][idName] = portIds[idx]
+            ipName = idName.replace('id', 'ip')
+            dutConfig["testPorts"][ipName] = dutConfig["testPortIps"][portIds[idx]]['peer_addr']
+
+        if qosParams != None:
+            portIdNames = []
+            portNumbers = []
+            portIds = []
+            for idName in qosParams.keys():
+                if re.match('(?:src|dst)_port\S+ids?', idName):
+                    portIdNames.append(idName)
+                    ids = qosParams[idName]
+                    if isinstance(ids, list):
+                        portIds += ids
+                        # if it's port list, record number of pots
+                        portNumbers.append(len(ids))
+                    else:
+                        portIds.append(ids)
+                        # record None to indicate it's just one port
+                        portNumbers.append(None)
+            pytest_assert(self.replaceNonExistentPortId(dutConfig["testPortIds"], portIds), "No enough test ports")
+            startPos = 0
+            for idx, idName in enumerate(portIdNames):
+                if portNumbers[idx] != None:    # port list
+                    qosParams[idName] = [portId for portId in portIds[startPos:startPos + portNumbers[idx]]]
+                    startPos += portNumbers[idx]
+                else:   # not list, just one port
+                    qosParams[idName] = portIds[startPos]
+                    startPos += 1
+
     def testParameter(
         self, duthost, dutConfig, dutQosConfig, ingressLosslessProfile,
         ingressLossyProfile, egressLosslessProfile, dualtor_ports
@@ -118,6 +194,9 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        self.updateTestPortIdIp(dutConfig)
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -365,6 +444,7 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
 
+        self.updateTestPortIdIp(dutConfig)
 
         dst_port_count = set([
             dutConfig["testPorts"]["dst_port_id"],
@@ -424,7 +504,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2",
                              "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
-        self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig
+            self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig, singleMemberPortStaticRoute, nearbySourcePorts
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -447,6 +527,11 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        self.updateTestPortIdIp(dutConfig, qosConfig[LosslessVoqProfile])
+
+        dst_port_id, dst_port_ip = singleMemberPortStaticRoute
+        src_port_1_id, src_port_2_id = nearbySourcePorts
+
         testPortIps = dutConfig["testPortIps"]
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -454,12 +539,12 @@ class TestQosSai(QosSaiBase):
             "dscp": qosConfig[LosslessVoqProfile]["dscp"],
             "ecn": qosConfig[LosslessVoqProfile]["ecn"],
             "pg": qosConfig[LosslessVoqProfile]["pg"],
-            "dst_port_id": qosConfig[LosslessVoqProfile]["dst_port_id"],
-            "dst_port_ip": testPortIps[qosConfig[LosslessVoqProfile]["dst_port_id"]]['peer_addr'],
-            "src_port_1_id": qosConfig[LosslessVoqProfile]["src_port_1_id"],
-            "src_port_1_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_1_id"]]['peer_addr'],
-            "src_port_2_id": qosConfig[LosslessVoqProfile]["src_port_2_id"],
-            "src_port_2_ip": testPortIps[qosConfig[LosslessVoqProfile]["src_port_2_id"]]['peer_addr'],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dst_port_ip,
+            "src_port_1_id": src_port_1_id,
+            "src_port_1_ip": testPortIps[src_port_1_id]['peer_addr'],
+            "src_port_2_id": src_port_2_id,
+            "src_port_2_ip": testPortIps[src_port_2_id]['peer_addr'],
             "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
@@ -479,77 +564,6 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.LosslessVoq", testParams=testParams
         )
-
-    def correctPortIds(self, test_port_ids, src_port_ids, dst_port_ids):
-        '''
-        if port id of test_port_ids/dst_port_ids is not existing in test_port_ids
-        correct it, make sure all src/dst id is valid
-        e.g.
-            Given below parameter:
-                test_port_ids: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
-                src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9]
-                dst_port_ids: 10
-            and run correctPortIds to get below result:
-                src_port_ids: [0, 2, 16, 4, 18, 6, 20, 8, 22]
-                dst_port_ids: 10
-        '''
-        # cache src port ids, and if its type isn't list, convert it to list
-        src_port = src_port_ids
-        src_is_list = True
-        if not isinstance(src_port_ids, list):
-            src_port = [src_port_ids]
-            src_is_list = False
-
-        # cache dst port ids, and if its type isn't list, convert it to list
-        dst_port = dst_port_ids
-        dst_is_list = True
-        if not isinstance(dst_port_ids, list):
-            dst_port = [dst_port_ids]
-            dst_is_list = False
-
-        if len(src_port) + len(dst_port) > len(test_port_ids):
-            logger.info('no enough ports for test')
-            return (None, None)
-
-        # cache test port ids
-        ports = [pid for pid in test_port_ids]
-
-        # check if all src port id is exist in test port ids
-        # if yes, remove consumed id from test port ids
-        # if no, record index of invaild src port id to invalid_src_idx variable
-        invalid_src_idx = []
-        for idx, pid in enumerate(src_port):
-            if pid not in ports:
-                invalid_src_idx.append(idx)
-            else:
-                ports.remove(pid)
-
-        # check if all dst port id is exist in test port ids
-        # if yes, remove consumed id from test port ids
-        # if no, record index of invaild dst port id to invalid_dst_idx variable
-        invalid_dst_idx = []
-        for idx, pid in enumerate(dst_port):
-            if pid not in ports:
-                invalid_dst_idx.append(idx)
-            else:
-                ports.remove(pid)
-
-        # pop the minimal test port id, and assign it to src port to replace its invalid port id
-        for idx in invalid_src_idx:
-            src_port[idx] = ports.pop(0)
-
-        # pop the minimal test port id, and assign it to dst port to replace its invalid port id
-        for idx in invalid_dst_idx:
-            dst_port[idx] = ports.pop(0)
-
-        # if src port is not list, conver it back to int
-        if not src_is_list:
-            src_port = src_port[0]
-        # if dst port is not list, conver it back to int
-        if not dst_is_list:
-            dst_port = dst_port[0]
-
-        return (src_port, dst_port)
 
     def testQosSaiHeadroomPoolSize(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
@@ -584,9 +598,7 @@ class TestQosSai(QosSaiBase):
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
 
-        qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"] = self.correctPortIds(
-            dutConfig["testPortIds"], qosConfig["hdrm_pool_size"]["src_port_ids"], qosConfig["hdrm_pool_size"]["dst_port_id"])
-        pytest_assert(qosConfig["hdrm_pool_size"]["src_port_ids"] != None and qosConfig["hdrm_pool_size"]["dst_port_id"] != None, "No enough test ports")
+        self.updateTestPortIdIp(dutConfig, qosConfig["hdrm_pool_size"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -663,6 +675,13 @@ class TestQosSai(QosSaiBase):
         if not sharedResSizeKey in qosConfig.keys():
             pytest.skip("Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
 
+        self.updateTestPortIdIp(dutConfig, qosConfig[sharedResSizeKey])
+
+        port_idx_to_id = testPortIps.keys()
+        # Translate requested port indices to available port IDs
+        src_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
+        dst_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -671,10 +690,10 @@ class TestQosSai(QosSaiBase):
             "ecn": qosConfig[sharedResSizeKey]["ecn"],
             "pgs": qosConfig[sharedResSizeKey]["pgs"],
             "queues": qosConfig[sharedResSizeKey]["queues"],
-            "src_port_ids": qosConfig[sharedResSizeKey]["src_port_ids"],
-            "src_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["src_port_ids"]],
-            "dst_port_ids": qosConfig[sharedResSizeKey]["dst_port_ids"],
-            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["dst_port_ids"]],
+            "src_port_ids": src_port_ids,
+            "src_port_ips": [testPortIps[port]['peer_addr'] for port in src_port_ids],
+            "dst_port_ids": dst_port_ids,
+            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in dst_port_ids],
             "pkt_counts":  qosConfig[sharedResSizeKey]["pkt_counts"],
             "shared_limit_bytes": qosConfig[sharedResSizeKey]["shared_limit_bytes"],
             "hwsku":dutTestParams['hwsku']
@@ -884,6 +903,7 @@ class TestQosSai(QosSaiBase):
         else:
             qosConfig = dutQosConfig["param"]
 
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -928,7 +948,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, duthost, localhost
+            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -951,24 +971,28 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Lossy Queue Voq test is not supported")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
-        testPortIps = dutConfig["testPortIps"]
-
-        if "lossy_queue_voq_2" in LossyVoq:
+        flow_config = qosConfig[LossyVoq]["flow_config"]
+        assert flow_config in ["shared", "separate"], "Invalid flow config '{}'".format(flow_config)
+        if flow_config == "shared":
             original_voq_markings = get_markings_dut(duthost)
             setup_markings_dut(duthost, localhost, voq_allocation_mode="default")
 
+        self.updateTestPortIdIp(dutConfig, qosConfig[LossyVoq])
+
         try:
+            dst_port_id, dst_port_ip = singleMemberPortStaticRoute
             testParams = dict()
             testParams.update(dutTestParams["basicParams"])
             testParams.update({
                 "dscp": qosConfig[LossyVoq]["dscp"],
                 "ecn": qosConfig[LossyVoq]["ecn"],
                 "pg": qosConfig[LossyVoq]["pg"],
-                "src_port_id": qosConfig[LossyVoq]["src_port_id"],
-                "src_port_ip": testPortIps[qosConfig[LossyVoq]["src_port_id"]]['peer_addr'],
-                "dst_port_id": qosConfig[LossyVoq]["dst_port_id"],
-                "dst_port_ip": testPortIps[qosConfig[LossyVoq]["dst_port_id"]]['peer_addr'],
+                "src_port_id": dutConfig["testPorts"]["src_port_id"],
+                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "dst_port_id": dst_port_id,
+                "dst_port_ip": dst_port_ip,
                 "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+                "flow_config": flow_config,
                 "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
             })
 
@@ -990,7 +1014,7 @@ class TestQosSai(QosSaiBase):
             )
 
         finally:
-            if "lossy_queue_voq_2" in LossyVoq:
+            if flow_config == "shared":
                 setup_markings_dut(duthost, localhost, **original_voq_markings)
 
     def testQosSaiDscpQueueMapping(
@@ -1015,6 +1039,8 @@ class TestQosSai(QosSaiBase):
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
         if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
+
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1196,7 +1222,14 @@ class TestQosSai(QosSaiBase):
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
+        if "wrr" in qosConfig[portSpeedCableLength]:
+            qosConfigWrr = qosConfig[portSpeedCableLength]["wrr"]
+        else:
+            qosConfigWrr = qosConfig["wrr"]
         qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
+
+        self.updateTestPortIdIp(dutConfig)
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -1205,15 +1238,15 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "q0_num_of_pkts": qosConfig["wrr"]["q0_num_of_pkts"],
-            "q1_num_of_pkts": qosConfig["wrr"]["q1_num_of_pkts"],
-            "q2_num_of_pkts": qosConfig["wrr"]["q2_num_of_pkts"],
-            "q3_num_of_pkts": qosConfig["wrr"]["q3_num_of_pkts"],
-            "q4_num_of_pkts": qosConfig["wrr"]["q4_num_of_pkts"],
-            "q5_num_of_pkts": qosConfig["wrr"]["q5_num_of_pkts"],
-            "q6_num_of_pkts": qosConfig["wrr"]["q6_num_of_pkts"],
-            "q7_num_of_pkts": qosConfig["wrr"].get("q7_num_of_pkts", 0),
-            "limit": qosConfig["wrr"]["limit"],
+            "q0_num_of_pkts": qosConfigWrr["q0_num_of_pkts"],
+            "q1_num_of_pkts": qosConfigWrr["q1_num_of_pkts"],
+            "q2_num_of_pkts": qosConfigWrr["q2_num_of_pkts"],
+            "q3_num_of_pkts": qosConfigWrr["q3_num_of_pkts"],
+            "q4_num_of_pkts": qosConfigWrr["q4_num_of_pkts"],
+            "q5_num_of_pkts": qosConfigWrr["q5_num_of_pkts"],
+            "q6_num_of_pkts": qosConfigWrr["q6_num_of_pkts"],
+            "q7_num_of_pkts": qosConfigWrr.get("q7_num_of_pkts", 0),
+            "limit": qosConfigWrr["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku":dutTestParams['hwsku'],
             "topo": dutTestParams["topo"],
@@ -1271,6 +1304,8 @@ class TestQosSai(QosSaiBase):
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
             pktsNumFillShared = int(qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
+
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1338,6 +1373,8 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1465,6 +1502,8 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_egr_drp"]
+
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1634,24 +1673,29 @@ class TestQosSai(QosSaiBase):
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
+        if "wrr_chg" in qosConfig[portSpeedCableLength]:
+            qosConfigWrrChg = qosConfig[portSpeedCableLength]["wrr_chg"]
+        else:
+            qosConfigWrrChg = qosConfig["wrr_chg"]
+
         qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
-            "ecn": qosConfig["wrr_chg"]["ecn"],
+            "ecn": qosConfigWrrChg["ecn"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "q0_num_of_pkts": qosConfig["wrr_chg"]["q0_num_of_pkts"],
-            "q1_num_of_pkts": qosConfig["wrr_chg"]["q1_num_of_pkts"],
-            "q2_num_of_pkts": qosConfig["wrr_chg"]["q2_num_of_pkts"],
-            "q3_num_of_pkts": qosConfig["wrr_chg"]["q3_num_of_pkts"],
-            "q4_num_of_pkts": qosConfig["wrr_chg"]["q4_num_of_pkts"],
-            "q5_num_of_pkts": qosConfig["wrr_chg"]["q5_num_of_pkts"],
-            "q6_num_of_pkts": qosConfig["wrr_chg"]["q6_num_of_pkts"],
-            "limit": qosConfig["wrr_chg"]["limit"],
+            "q0_num_of_pkts": qosConfigWrrChg["q0_num_of_pkts"],
+            "q1_num_of_pkts": qosConfigWrrChg["q1_num_of_pkts"],
+            "q2_num_of_pkts": qosConfigWrrChg["q2_num_of_pkts"],
+            "q3_num_of_pkts": qosConfigWrrChg["q3_num_of_pkts"],
+            "q4_num_of_pkts": qosConfigWrrChg["q4_num_of_pkts"],
+            "q5_num_of_pkts": qosConfigWrrChg["q5_num_of_pkts"],
+            "q6_num_of_pkts": qosConfigWrrChg["q6_num_of_pkts"],
+            "limit": qosConfigWrrChg["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku":dutTestParams['hwsku'],
             "topo": dutTestParams["topo"],

@@ -11,10 +11,10 @@ util/base_test.py:
     same is created under current dir (the test switches to specified dir
     before running the test)
 
-    
+
     init() -- creates all required sub-dirs and fills up init_data
 
-    backup_minigraph & restore_orig_minigraph -- makes a copy of original 
+    backup_minigraph & restore_orig_minigraph -- makes a copy of original
         minigraph if not already exists and restore from the same, respectively.
 
     apply_clet -- Per template (published in OneNote) for adding T0 via configlet.
@@ -23,8 +23,8 @@ util/base_test.py:
         Deletes everflow tables via configlet; mark port down via config command;
         call configlet to apply JSON list of updates per template (
         strict per content & order), add everflow tables and start up
-        port explicitly. 
-        Wait till all critical services are started. 
+        port explicitly.
+        Wait till all critical services are started.
         NOTE: load_minigraph does wait for cri
 
     download_sonic_files -- Downloads minigraph.xml & config_db.json into data dir.
@@ -34,14 +34,14 @@ util/base_test.py:
     chk_bgp_session -- Checks BGP state for given neighbor by IP
 
     _create_patch -- creates patch between config_db.json in src & dst sub dirs
-        into given patch file. Required when running addRack test via 
+        into given patch file. Required when running addRack test via
         generic config updater
 
     db_comp --  Take DB dumps into given dir and compare those with original
         NOTE: Take_DB_dumps skip transient keys and keys marked to skip
             explicitly in db_info
 
-    generic_patch_add_t0 -- 
+    generic_patch_add_t0 --
         Loads  config_db.json from no_t0_db_dir
         Creates patch between no_t0_db_dir & orig_db_dir
         Use geneeric patch updater to apply patch
@@ -54,18 +54,16 @@ util/base_test.py:
         take_DB_dumps
         download required files to be able to create configlet per strict template for AddRack
         Create configlet (files_create.do_run)
-        Ensure the T0 that is going to be added via configlet has healthy BGP session with 
+        Ensure the T0 that is going to be added via configlet has healthy BGP session with
         original minigraph that had this T0
         call apply_clet
         Wait till db_comp succeeds with timeout
         chk_bgp_session for ip & ipv6 addresses of added T0
-        
+
         Success here -- proves adding T0 via configlet succeeded
-        
+
         Now attempt via generic_updater by calling generic_patch_add_t0
-        
+
         Also attempt generic_patch_rm_t0 via generic_updater
 
         Success implies AddRack via generic_updater succeeded too
-
-    

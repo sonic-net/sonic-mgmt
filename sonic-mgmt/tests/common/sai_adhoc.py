@@ -49,20 +49,21 @@ def get_raw_output(ansible_cmd, param_cmd):
     return raw_output
 
 
-def run_command(host, inv_file, cmd, ignore_error=False):
+def run_command(host, inv_file, cmd, ignore_error=False, run_sec=300):
     """
     Run 'command' Ansible customized ad-hoc command
     implemented under ansible/library
     param:
         host: either DUT hostname or PTF hostname
         inv_file : inventory
-        cmd : customized command"
+        cmd : customized command
+        run_sec : running time in seconds, default is 300
     """
     results = []
     raw_output = ''
     try:
-        ansible_cmd = 'ansible -m shell -i \
-            ./ansible/{} {} -o -a'.format(inv_file, host)
+        ansible_cmd = 'ansible -B {} -m shell -i \
+            ./ansible/{} {} -o -a'.format(run_sec, inv_file, host)
 
         raw_output = get_raw_output(ansible_cmd, cmd)
         output_fields = raw_output.split('(stdout)', 1)[-1].strip()
@@ -156,6 +157,8 @@ if __name__ == '__main__':
         "-c", dest="command", type=str, help="command")
     parser.add_argument(
         "-i", dest="ignore_error", default=False, help="ignore error", action="store_true")
+    parser.add_argument(
+        "-r", dest="run_sec", type=int, default=300, help="running seconds")
 
     args = parser.parse_args()
 
@@ -167,7 +170,7 @@ if __name__ == '__main__':
         host = ptf
 
     if args.op_type == "cmd":
-        run_command(host, inv_name, args.command, args.ignore_error)
+        run_command(host, inv_name, args.command, args.ignore_error, args.run_sec)
     elif args.op_type == "copy":
         run_copy(host, inv_name, args.command, args.ignore_error)
     elif args.op_type == "fetch":

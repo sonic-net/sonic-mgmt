@@ -31,7 +31,8 @@ def is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.fixture(scope='module')
 def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    cpu_threshold = 50
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    cpu_threshold = 70 if is_chassis else 50
     memory_threshold = 60
     high_cpu_consume_procs = {}
     is_asan = is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname)
@@ -225,8 +226,8 @@ def caculate_cpu_usge_average_value(valid_cpu_usage_center_index_list, program_t
 
 def check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter, proc):
     if proc['cpu_percent'] >= cpu_threshold:
-        logging.debug("process %s(%d) cpu usage exceeds %d%%.",
-                      proc['name'], proc['pid'], cpu_threshold)
+        logging.debug("process %s(%d) cpu usage %d%% exceeds %d%%.",
+                      proc['name'], proc['pid'], proc['cpu_percent'], cpu_threshold)
         outstanding_procs[proc['pid']] = proc.get('cmdline', proc['name'])
         outstanding_procs_counter[proc['pid']] += 1
 
@@ -238,9 +239,10 @@ def update_cpu_usage_desired_program(proc, program_to_check, program_to_check_cp
 
 
 def check_memory(i, memory_threshold, monit_result, outstanding_mem_polls):
-    if monit_result.memory['used_percent'] > memory_threshold:
-        logging.debug("system memory usage exceeds %d%%: %s",
-                      memory_threshold, monit_result.memory)
+     used_memory_percent = monit_result.memory['used_percent']
+     if used_memory_percent > memory_threshold:
+        logging.debug("system memory usage %d%% exceeds %d%%: %s",
+                      used_memory_percent, memory_threshold, monit_result.memory)
         outstanding_mem_polls[i] = monit_result.memory
 
 

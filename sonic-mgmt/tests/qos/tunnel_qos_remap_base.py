@@ -43,6 +43,7 @@ def build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac, active
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "id") # since src and dst changed, ID would change too
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "ttl") # ttl in outer packet is kept default (64)
     exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "chksum") # checksum would differ as the IP header is not the same
+    exp_tunnel_pkt.set_do_not_care_scapy(scapy.IP, "flags")  # "Don't fragment" flag may be set in the outer header
 
     return pkt, exp_tunnel_pkt
 
@@ -136,6 +137,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     asic_type = duthost.facts["asic_type"]
+    platform_asic = duthost.facts['platform_asic']
     # Always use the first portchannel member
     lag_port_name = list(mg_facts['minigraph_portchannels'].values())[0]['members'][0]
     lag_port_ptf_id = mg_facts['minigraph_ptf_indices'][lag_port_name]
@@ -157,6 +159,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
 
     return {
         "asic_type": asic_type,
+        "platform_asic": platform_asic,
         "lag_port_name": lag_port_name,
         "lag_port_ptf_id": lag_port_ptf_id,
         "server_port_name": server_port_name,

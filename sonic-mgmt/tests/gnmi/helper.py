@@ -41,6 +41,18 @@ def apply_cert_config(duthost):
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
 
 
+def recover_cert_config(duthost):
+    dut_command = "docker exec %s supervisorctl status %s" % (GNMI_CONTAINER_NAME, GNMI_PROGRAM_NAME)
+    output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
+    if 'RUNNING' in output:
+        return
+    dut_command = "docker exec %s pkill telemetry" % (GNMI_CONTAINER_NAME)
+    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "docker exec %s supervisorctl start %s" % (GNMI_CONTAINER_NAME, GNMI_PROGRAM_NAME)
+    duthost.shell(dut_command)
+    time.sleep(GNMI_SERVER_START_WAIT_TIME)
+
+
 def gnmi_capabilities(duthost, localhost):
     ip = duthost.mgmt_ip
     port = gnmi_port(duthost)

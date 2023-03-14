@@ -11,7 +11,7 @@ if sys.version_info.major > 2:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent))
 
-from helpers import *
+from helpers import log_error, log_info, log_debug, set_print
 
 CONFIG_DB_FILE = "etc/sonic/config_db.json"
 MINIGRAPH_FILE = "etc/sonic/minigraph.xml"
@@ -41,24 +41,26 @@ FILES_SUB_DIR = "files"
 # Ansible test run creates all files under logs/<test dir name, which in our
 # case is "configlet">
 # Create a AddRack under that and put all files under that.
-# NOTE: Any duthost.fetch will download the file under 
+# NOTE: Any duthost.fetch will download the file under
 # <given dir>/<dut hostname>/<entire path of the src file>
 # if you download /etc/sonic/minigraph.xml under data_dir,
 # it will be created as <data_dir>/<duthost name>/etc/sonic/minigraph.xml
 # Say, return value of duthost.fetch is ret, then ret["dest"]
 # is easier way to get the destination path.
 #
-base_dir    = "logs/configlet"
-data_dir    = "{}/AddRack".format(base_dir)
+base_dir = "logs/configlet"
+data_dir = "{}/AddRack".format(base_dir)
 orig_db_dir = "{}/{}".format(data_dir, ORIG_DB_SUB_DIR)
 no_t0_db_dir = "{}/{}".format(data_dir, NO_T0_DB_SUB_DIR)
 clet_db_dir = "{}/{}".format(data_dir, CLET_DB_SUB_DIR)
 patch_add_t0_dir = "{}/{}".format(data_dir, PATCH_ADD_T0_SUB_DIR)
 patch_rm_t0_dir = "{}/{}".format(data_dir, PATCH_RM_T0_SUB_DIR)
-files_dir   = "{}/{}".format(data_dir, FILES_SUB_DIR)
+files_dir = "{}/{}".format(data_dir, FILES_SUB_DIR)
+
 
 def MINS_TO_SECS(n):
     return n * 60
+
 
 RELOAD_WAIT_TIME = MINS_TO_SECS(3)
 
@@ -73,7 +75,6 @@ def do_pause(secs, msg):
     log_info("do_pause: seconds:{} {}".format(secs, msg))
     time.sleep(secs)
     log_info("do_pause: DONE")
-
 
 
 #
@@ -130,14 +131,13 @@ def init_global_data():
         if not init_data[k]:
             assert False, "missing init_data for {}".format(k)
 
-
     tor_data.update({
-            "name": { "local": init_data["switch_name"], "remote": "" },
-            "mgmt_ip": { "local": "", "remote": "" },
-            "ip": { "local": "", "remote": "" },
-            "ipv6": { "local": "", "remote": "" },
-            "links": [{ "local": { "alias": "", "sonic_name": ""}, "remote": "" }],
-            "hwsku": { "local": "", "remote": "" },
+            "name": {"local": init_data["switch_name"], "remote": ""},
+            "mgmt_ip": {"local": "", "remote": ""},
+            "ip": {"local": "", "remote": ""},
+            "ipv6": {"local": "", "remote": ""},
+            "links": [{"local": {"alias": "", "sonic_name": ""}, "remote": ""}],
+            "hwsku": {"local": "", "remote": ""},
             "portChannel": "",
             "os_version": init_data["version"],
             "bgp_info": {
@@ -163,8 +163,7 @@ def init_global_data():
 
 
 def report_error(m):
-    log_error("failure: {}:{}: {}".format(inspect.stack()[1][1],
-        inspect.stack()[1][2], m))
+    log_error("failure: {}:{}: {}".format(inspect.stack()[1][1], inspect.stack()[1][2], m))
     assert False, m
 
 
@@ -188,11 +187,11 @@ def chk_for_pfc_wd(duthost):
         for namespace in duthost.get_frontend_asic_namespace_list():
             cmd_prefix = ''
             if duthost.is_multi_asic:
-                cmd_prefix = 'sudo ip netns exec {} '.format(namespace)            
+                cmd_prefix = 'sudo ip netns exec {} '.format(namespace)
             res = duthost.shell(cmd_prefix + 'redis-dump -d 4 --pretty -k \"PFC_WD*\"')
             pfc_wd_data = json.loads(res["stdout"])
             if len(pfc_wd_data):
-                ret = True                
+                ret = True
     else:
         # pfc is not enabled; return True, as there will not be any pfc to check
         ret = True
@@ -209,10 +208,8 @@ def dut_dump(redis_cmd, duthost, data_dir, fname):
     ret = duthost.fetch(src=dump_file, dest=data_dir)
     dest_file = ret.get("dest", None)
 
-    assert dest_file != None, "Failed to fetch src={} dest:{}".format(
-            dump_file, data_dir)
-    assert os.path.exists(dest_file), "Fetched file not exist: {}".format(
-            dest_file)
+    assert dest_file is not None, "Failed to fetch src={} dest:{}".format(dump_file, data_dir)
+    assert os.path.exists(dest_file), "Fetched file not exist: {}".format(dest_file)
 
     with open(dest_file, "r") as s:
         db_read = json.load(s)
@@ -226,7 +223,7 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
     db_read = {}
     if not lst_keys:
         db_read = dut_dump("redis-dump -d {} --pretty".format(db_no),
-                duthost, data_dir, db_name)
+                           duthost, data_dir, db_name)
     else:
         for k in lst_keys:
             fname = "{}_{}.json".format(k, db_name)
@@ -256,7 +253,7 @@ def take_DB_dumps(duthost, dir_name, data_dir):
 
     duthost.shell("config save -y")
 
-    for i in [ "config_db.json", "minigraph.xml" ]:
+    for i in ["config_db.json", "minigraph.xml"]:
         ret = duthost.fetch(src=os.path.join("/etc/sonic/", i), dest=data_dir)
         os.system("cp {} {}".format(ret["dest"], dir_name))
 
@@ -337,10 +334,9 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
                     msg = "mismatch key:{} type:{} != {}".format(
                             k, orig_data[k]["type"], clet_data[k]["type"])
 
-
             if not cmp_value(orig_data[k]["value"], clet_data[k]["value"]):
-                log_error("{}: mismatch key:{} {} != {}".format(
-                    fname, k, orig_data[k]["value"], clet_data[k]["value"]))
+                log_error("{}: mismatch key:{} {} != {}"
+                          .format(fname, k, orig_data[k]["value"], clet_data[k]["value"]))
                 mismatch_cnt += 1
                 if not msg:
                     msg = "mismatch key:{} value:{} != {}".format(
@@ -367,7 +363,7 @@ def compare_dumps(orig_db_dir, clet_db_dir):
         if not ret_msg:
             ret_msg = msg
     return mismatch_cnt, ret_msg
-    
+
 
 def db_comp(duthost, test_db_dir, ref_db_dir, ctx):
     global data_dir
@@ -390,7 +386,7 @@ def chk_bgp_session(duthost, ip, msg):
         info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
     bgp_state = info.get("bgpState", "")
     assert bgp_state == "Established", \
-            "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
+        "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
 
 
 def main():
@@ -399,6 +395,6 @@ def main():
     ret, msg = compare_dumps("logs/AddRack/orig", "logs/AddRack/clet")
     print("ret = {} msg={}".format(ret, msg))
 
+
 if __name__ == "__main__":
     main()
-

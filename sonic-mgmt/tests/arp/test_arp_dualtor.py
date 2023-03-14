@@ -48,13 +48,13 @@ def pause_arp_update(duthosts):
     Some test cases manually call arp_update so we use this fixture to pause it on
     the testbed to prevent interference with the test case
     """
-    arp_update_stop_cmd = "docker exec -it swss supervisorctl stop arp_update"
+    arp_update_stop_cmd = "docker exec -t swss supervisorctl stop arp_update"
     for duthost in duthosts:
         duthost.shell(arp_update_stop_cmd)
 
     yield
 
-    arp_update_start_cmd = "docker exec -it swss supervisorctl start arp_update"
+    arp_update_start_cmd = "docker exec -t swss supervisorctl start arp_update"
     for duthost in duthosts:
         duthost.shell(arp_update_start_cmd)
 
@@ -161,7 +161,7 @@ def test_arp_update_for_failed_standby_neighbor(
     # neighbor entry to be INCOMPLETE as a result of the arp_update script
     expected_midpoint_state = REACHABLE if ip_address(neighbor_ip).version == 4 else INCOMPLETE
 
-    arp_update_cmd = "docker exec -it swss supervisorctl start arp_update"
+    arp_update_cmd = "docker exec -t swss supervisorctl start arp_update"
     lower_tor_host.shell(arp_update_cmd)
     pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(lower_tor_host, neighbor_ip, expected_midpoint_state)))
 
@@ -191,7 +191,7 @@ def test_standby_unsolicited_neigh_learning(
     pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(upper_tor_host, neighbor_ip, REACHABLE)))
     lower_tor_host.shell("sudo ip neigh flush all")
 
-    arp_update_cmd = "docker exec -it swss supervisorctl start arp_update"
+    arp_update_cmd = "docker exec -t swss supervisorctl start arp_update"
     upper_tor_host.shell(arp_update_cmd)
 
     pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(lower_tor_host, neighbor_ip, REACHABLE)))

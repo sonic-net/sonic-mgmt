@@ -1,0 +1,46 @@
+{
+    "ACL_RULE": {
+        "CUSTOM_TABLE|RULE_2": {
+            "DST_IP": "103.23.2.1/32",
+            "IP_PROTOCOL": "6",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9998"
+        },
+        "CUSTOM_TABLE|RULE_4": {
+            "DST_IPV6": "103:23:2:1::1/128",
+            "NEXT_HEADER": "6",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9996"
+        },
+        "CUSTOM_TABLE|RULE_5": {
+            "L4_SRC_PORT": "8080",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9995"
+        },
+        "CUSTOM_TABLE|RULE_6": {
+            "L4_DST_PORT": "8080",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9994"
+        },
+        "CUSTOM_TABLE|RULE_7": {
+            "L4_SRC_PORT_RANGE": "8081-8090",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9993"
+        },
+        "CUSTOM_TABLE|RULE_8": {
+            "L4_DST_PORT_RANGE": "8081-8090",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9992"
+        },
+        "CUSTOM_TABLE|DEFAULT_DROP_RULE_V4": {
+            "ETHER_TYPE": "2048",
+            "PACKET_ACTION": "DROP",
+            "PRIORITY": "2"
+        },
+        "CUSTOM_TABLE|DEFAULT_DROP_RULE_V6": {
+            "IP_TYPE": "IPV6ANY",
+            "PACKET_ACTION": "DROP",
+            "PRIORITY": "1"
+        }
+    }
+}

@@ -279,7 +279,7 @@ main() {
     save_redis '1' "ASIC_DB"
     save_redis '2' "COUNTERS_DB"
 
-    save_cmd 'docker exec -it syncd saidump' "saidump"
+    save_cmd 'docker exec -t syncd saidump' "saidump"
 
     $RM $V -rf $TARDIR
     $MKDIR $V -p $TARDIR

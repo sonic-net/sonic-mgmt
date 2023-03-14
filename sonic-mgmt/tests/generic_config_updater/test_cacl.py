@@ -30,9 +30,7 @@ def get_cacl_tables(duthost):
     """
     cmds = "show acl table | grep -w CTRLPLANE | awk '{print $1}'"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' failed with rc={}".format(cmds, output['rc'])
-    )
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
     cacl_tables = output['stdout'].splitlines()
     return cacl_tables
 
@@ -40,9 +38,7 @@ def get_cacl_tables(duthost):
 def get_iptable_rules(duthost):
     cmds = "iptables -S"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' failed with rc={}".format(cmds, output['rc'])
-    )
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
     rules_chain = output['stdout'].splitlines()
     return rules_chain
 
@@ -67,13 +63,11 @@ def setup_env(duthosts, rand_one_dut_hostname):
 
         current_iptable_rules = get_iptable_rules(duthost)
         pytest_assert(set(original_iptable_rules) == set(current_iptable_rules),
-            "iptable rules are not suppose to change after test"
-        )
+                      "iptable rules are not suppose to change after test")
 
         current_cacl_tables = get_cacl_tables(duthost)
         pytest_assert(set(T0_CACL_TABLE) == set(current_cacl_tables),
-            "iptable rules are not suppose to change after test"
-        )
+                      "iptable rules are not suppose to change after test")
     finally:
         delete_checkpoint(duthost)
 
@@ -83,29 +77,23 @@ def expect_acl_table_match(duthost, table_name, expected_content_list):
     """
     cmds = "show acl table {}".format(table_name)
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' failed with rc={}".format(cmds, output['rc'])
-    )
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
     # Ignore first two lines display. lines less than 3 means no output
     # Use empty list if no output
     lines = output['stdout'].splitlines()
     actual_list = [] if len(lines) < 3 else lines[2].split()
 
-    pytest_assert(set(expected_content_list) == set(actual_list),
-        "ACL table doesn't match"
-    )
+    pytest_assert(set(expected_content_list) == set(actual_list), "ACL table doesn't match")
 
 
 def expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list):
     """Check if acl rule added as expected
     """
-    time.sleep(1) # Sleep 1 sec to ensure caclmgrd does update in case of its UPDATE_DELAY_SECS 0.5s
+    time.sleep(1)   # Sleep 1 sec to ensure caclmgrd does update in case of its UPDATE_DELAY_SECS 0.5s
     cmds = "iptables -S"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' failed with rc={}".format(cmds, output['rc'])
-    )
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
@@ -142,7 +130,7 @@ def cacl_tc1_add_new_table(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        expected_content_list = ["TEST_1", "CTRLPLANE","SNMP", "Test_Table_1", "ingress"]
+        expected_content_list = ["TEST_1", "CTRLPLANE", "SNMP", "Test_Table_1", "ingress"]
         expect_acl_table_match(duthost, "TEST_1", expected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)

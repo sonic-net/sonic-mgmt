@@ -134,6 +134,16 @@ def get_facts(config, namespace):
 
     return results
 
+
+def _add_member_list_to_portchannel(config_facts):
+    """Add `member` field to PORTCHANNEL table."""
+    if "PORTCHANNEL" in config_facts and "PORTCHANNEL_MEMBER" in config_facts:
+        for pc, pc_config in config_facts["PORTCHANNEL"].items():
+            if pc in config_facts["PORTCHANNEL_MEMBER"]:
+                member_ports = list(config_facts["PORTCHANNEL_MEMBER"][pc].keys())
+                pc_config["members"] = member_ports
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -163,6 +173,10 @@ def main():
         elif m_args["source"] == "running":
             config = get_running_config(module, namespace)
         results = get_facts(config, namespace)
+
+        # NOTE: This is a workaround to allow getting port channel members from
+        # PORTCHANNEL table.
+        _add_member_list_to_portchannel(results)
         module.exit_json(ansible_facts=results)
     except Exception as e:
         tb = traceback.format_exc()

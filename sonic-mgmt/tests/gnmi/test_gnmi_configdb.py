@@ -26,7 +26,7 @@ def get_first_interface(duthost):
         return None
     admin_index = status_data[0].split().index('Admin')
     for line in status_data:
-        if "trunk" in line:
+        if "routed" not in line:
             interface_status = line.strip()
             assert len(interface_status) > 0, "Failed to read interface properties"
             sl = interface_status.split()

@@ -116,7 +116,6 @@ def extract_number(s):
     else:
         return int(ns[0])
 
-
 def convert_date(fct, s):
     dt = None
     re_result = re.findall(r'^\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', s)
@@ -137,9 +136,16 @@ def convert_date(fct, s):
         if (dt - fct).days > 183:
             dt.replace(year = dt.year - 1)
     else:
-        re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
-        str_date = re_result[0]
-        dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
+        re_result = re.findall(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}', s)
+        if len(re_result) > 0:
+            str_date = re_result[0]
+            str_date = str_date.replace("T", " ")
+            dt = datetime.datetime.strptime(str_date, '%Y-%m-%d %X.%f')
+        else:
+            re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
+            if len(re_result) > 0:
+                str_date = re_result[0]
+                dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
     locale.setlocale(locale.LC_ALL, loc)
 
     return dt

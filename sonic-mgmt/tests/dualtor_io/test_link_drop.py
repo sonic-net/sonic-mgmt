@@ -5,29 +5,30 @@ import tabulate
 import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                  # lgtm[py/unused-import]
-from tests.common.dualtor.data_plane_utils import send_server_to_t1_with_action                 # lgtm[py/unused-import]
-from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action                 # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import set_drop                                 # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import set_output                               # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import simulator_flap_counter                   # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # lgtm[py/unused-import]
-from tests.common.dualtor.nic_simulator_control import set_drop_active_active                   # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                  # noqa F401
+from tests.common.dualtor.data_plane_utils import send_server_to_t1_with_action                 # noqa F401
+from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action                 # noqa F401
+from tests.common.dualtor.mux_simulator_control import set_drop                                 # noqa F401
+from tests.common.dualtor.mux_simulator_control import set_output                               # noqa F401
+from tests.common.dualtor.mux_simulator_control import simulator_flap_counter                   # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
+from tests.common.dualtor.nic_simulator_control import set_drop_active_active                   # noqa F401
 from tests.common.dualtor.nic_simulator_control import TrafficDirection
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
-from tests.common.dualtor.dual_tor_common import active_active_ports                            # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import active_standby_ports                           # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import cable_type                                     # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import active_active_ports                            # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                           # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 
 
 pytestmark = [
     pytest.mark.topology("dualtor")
 ]
+
 
 def _set_drop_factory(set_drop_func, direction, tor_mux_intfs):
     """Factory to get set drop function for either upper_tor or lower_tor."""
@@ -39,21 +40,21 @@ def _set_drop_factory(set_drop_func, direction, tor_mux_intfs):
 
 
 @pytest.fixture(scope="function")
-def drop_flow_upper_tor(set_drop, set_output, active_standby_ports):
+def drop_flow_upper_tor(set_drop, set_output, active_standby_ports):                    # noqa F811
     """Drop the flow to the upper ToR."""
     direction = "upper_tor"
     return _set_drop_factory(set_drop, direction, active_standby_ports)
 
 
 @pytest.fixture(scope="function")
-def drop_flow_lower_tor(set_drop, set_output, active_standby_ports):
+def drop_flow_lower_tor(set_drop, set_output, active_standby_ports):                    # noqa F811
     """Drop the flow to the lower ToR."""
     direction = "lower_tor"
     return _set_drop_factory(set_drop, direction, active_standby_ports)
 
 
 @pytest.fixture(scope="function")
-def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_active):
+def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_active):     # noqa F811
     direction = TrafficDirection.UPSTREAM
     portid = ActiveActivePortID.UPPER_TOR
 
@@ -70,9 +71,7 @@ def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_activ
 
 @pytest.fixture(scope="function")
 def check_simulator_flap_counter(
-    simulator_flap_counter,
-    toggle_all_simulator_ports_to_upper_tor,
-    active_standby_ports
+    simulator_flap_counter, toggle_all_simulator_ports_to_upper_tor, active_standby_ports   # noqa F811
 ):
     """Check the flap count for each server-facing interfaces."""
     def set_expected_counter_diff(diff):
@@ -105,13 +104,9 @@ def check_simulator_flap_counter(
 
 @pytest.mark.enable_active_active
 def test_active_link_drop_upstream(
-    upper_tor_host,
-    lower_tor_host,
-    send_server_to_t1_with_action,
-    toggle_all_simulator_ports_to_upper_tor,
-    drop_flow_upper_tor,
-    drop_flow_upper_tor_active_active,
-    cable_type
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor,       # noqa F811
+    drop_flow_upper_tor_active_active, cable_type                       # noqa F811
 ):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the active ToR.
@@ -151,13 +146,9 @@ def test_active_link_drop_upstream(
 
 @pytest.mark.enable_active_active
 def test_active_link_drop_downstream_active(
-    upper_tor_host,
-    lower_tor_host,
-    send_t1_to_server_with_action,
-    toggle_all_simulator_ports_to_upper_tor,
-    drop_flow_upper_tor,
-    drop_flow_upper_tor_active_active,
-    cable_type
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor,       # noqa F811
+    drop_flow_upper_tor_active_active, cable_type                       # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
@@ -197,11 +188,8 @@ def test_active_link_drop_downstream_active(
 
 
 def test_active_link_drop_downstream_standby(
-    upper_tor_host,
-    lower_tor_host,
-    send_t1_to_server_with_action,
-    toggle_all_simulator_ports_to_upper_tor,
-    drop_flow_upper_tor
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor        # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the
@@ -223,11 +211,8 @@ def test_active_link_drop_downstream_standby(
 
 
 def test_standby_link_drop_upstream(
-    upper_tor_host,
-    lower_tor_host,
-    send_server_to_t1_with_action,
-    check_simulator_flap_counter,
-    drop_flow_lower_tor
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
+    check_simulator_flap_counter, drop_flow_lower_tor
 ):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the standby ToR.
@@ -249,11 +234,8 @@ def test_standby_link_drop_upstream(
 
 
 def test_standby_link_drop_downstream_active(
-    upper_tor_host,
-    lower_tor_host,
-    send_t1_to_server_with_action,
-    check_simulator_flap_counter,
-    drop_flow_lower_tor
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
+    check_simulator_flap_counter, drop_flow_lower_tor
 ):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
@@ -276,11 +258,8 @@ def test_standby_link_drop_downstream_active(
 
 
 def test_standby_link_drop_downstream_standby(
-    upper_tor_host,
-    lower_tor_host,
-    send_t1_to_server_with_action,
-    check_simulator_flap_counter,
-    drop_flow_lower_tor
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
+    check_simulator_flap_counter, drop_flow_lower_tor
 ):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the

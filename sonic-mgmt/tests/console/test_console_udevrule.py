@@ -6,6 +6,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 def test_console_port_mapping(duthost):
     """
     Test udev rule are working as expect.
