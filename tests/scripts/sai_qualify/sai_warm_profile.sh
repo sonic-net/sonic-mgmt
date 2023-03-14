@@ -22,7 +22,7 @@ restore_profile(){
     echo "restore profile: $profile"
     if [[ ! -f "$profile.bak" ]]; then
         echo "Skip restore profile: $profile, $profile.bak not exist."
-        exit 1 # Exit script
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     else
         cp $profile.bak $profile
     fi

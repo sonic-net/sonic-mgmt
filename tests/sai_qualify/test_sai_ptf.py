@@ -1,12 +1,12 @@
 import pytest
 import logging
 
-from cases_sai_ptf import TEST_CASE
-from conftest import get_sai_test_container_name
-from conftest import stop_and_rm_sai_test_container
-from sai_infra import run_case_from_ptf, store_test_result
-from sai_infra import *  # noqa: F403 F401
-from conftest import *  # noqa: F403 F401
+from .cases_sai_ptf import TEST_CASE
+from .conftest import get_sai_test_container_name
+from .conftest import stop_and_rm_sai_test_container
+from .sai_infra import run_case_from_ptf, store_test_result
+from .sai_infra import *  # noqa: F403 F401
+from .conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,6 @@ def test_sai(sai_testbed,
         request: Pytest request.
         create_sai_test_interface_param: Testbed switch interface
     """
-    test_fail = False
     dut_ip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     try:
@@ -52,10 +51,8 @@ def test_sai(sai_testbed,
         logger.info("Test case [{}] failed, \
             trying to restart sai test container, \
                 failed as {}.".format(ptf_sai_test_case, e))
-        test_fail = True
         pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
     finally:
-        if test_fail or request.config.option.always_stop_sai_test_container:
-            stop_and_rm_sai_test_container(
-                duthost, get_sai_test_container_name(request))
+        stop_and_rm_sai_test_container(
+            duthost, get_sai_test_container_name(request))
         store_test_result(ptfhost)

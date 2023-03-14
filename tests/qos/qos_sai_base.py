@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import logging
 import pytest
 import re
@@ -18,6 +19,7 @@ from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink  # noqa F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
+from tests.common.system_utils import docker
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,8 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor", "t0-80", "t0-backend"]
+    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
 
@@ -57,7 +59,8 @@ class QosBase:
         return self.buffer_model
 
     @pytest.fixture(scope='class', autouse=True)
-    def dutTestParams(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, dut_test_params):
+    def dutTestParams(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                      dut_test_params, tbinfo):
         """
             Prepares DUT host test params
             Returns:
@@ -66,6 +69,21 @@ class QosBase:
         # update router mac
         if dut_test_params["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params["basicParams"]["router_mac"] = ''
+
+        dut_test_params["basicParams"]["asic_id"] = enum_frontend_asic_index
+        # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+        # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
+        if "dualtor" in tbinfo["topo"]["name"]:
+            dut_test_params["basicParams"]["is_dualtor"] = True
+            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+                default_vlan_name = vlan_cfgs['default_vlan_config']
+                if default_vlan_name:
+                    for vlan in list(vlan_cfgs[default_vlan_name].values()):
+                        if 'mac' in vlan and vlan['mac']:
+                            dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
+                            break
+            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"] is not None, "Dual-TOR miss default VLAN MAC address")
 
         yield dut_test_params
 
@@ -96,7 +114,7 @@ class QosBase:
             qlen=10000,
             is_python3=True,
             relax=False,
-            timeout=600,
+            timeout=1200,
             custom_options=custom_options
         )
 
@@ -127,7 +145,7 @@ class QosSaiBase(QosBase):
         if check_qos_db_fv_reference_with_table(dut_asic):
             pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
         else:
-            pool = keystr + bufferProfile["pool"].encode("utf-8")
+            pool = keystr + bufferProfile["pool"]
         bufferSize = int(
             dut_asic.run_redis_cmd(
                 argv=["redis-cli", "-n", db, "HGET", pool, "size"]
@@ -205,22 +223,22 @@ class QosSaiBase(QosBase):
             )[0].encode("utf-8").translate(None, "[]")
         else:
             bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
-                argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0].encode("utf-8")
+                argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
 
         result = dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", db, "HGETALL", bufferProfileName]
         )
         it = iter(result)
-        bufferProfile = dict(zip(it, it))
+        bufferProfile = dict(list(zip(it, it)))
         bufferProfile.update({"profileName": bufferProfileName})
 
         # Update profile static threshold value if  profile threshold is dynamic
-        if "dynamic_th" in bufferProfile.keys():
+        if "dynamic_th" in list(bufferProfile.keys()):
             self.__computeBufferThreshold(dut_asic, bufferProfile)
 
         if "pg_lossless" in bufferProfileName:
             pytest_assert(
-                "xon" in bufferProfile.keys() and "xoff" in bufferProfile.keys(),
+                "xon" in list(bufferProfile.keys()) and "xoff" in list(bufferProfile.keys()),
                 "Could not find xon and/or xoff values for profile '{0}'".format(
                     bufferProfileName
                 )
@@ -253,7 +271,7 @@ class QosSaiBase(QosBase):
             argv=["redis-cli", "-n", db, "HGETALL", keystr]
         )
         it = iter(result)
-        ingressLosslessPool = dict(zip(it, it))
+        ingressLosslessPool = dict(list(zip(it, it)))
         return ingressLosslessPool.get("xoff")
 
     def __getEcnWredParam(self, dut_asic, table, port):
@@ -289,7 +307,7 @@ class QosSaiBase(QosBase):
             argv=["redis-cli", "-n", "4", "HGETALL", wredProfileName]
         )
         it = iter(result)
-        wredProfile = dict(zip(it, it))
+        wredProfile = dict(list(zip(it, it)))
 
         return wredProfile
 
@@ -364,7 +382,7 @@ class QosSaiBase(QosBase):
             testVlanIp = None
             for vlan in mgFacts["minigraph_vlan_interfaces"]:
                 if mgFacts["minigraph_vlans"][testVlan]["name"] in vlan["attachto"]:
-                    testVlanIp = ipaddress.ip_address(unicode(vlan["addr"]))  # noqa F821
+                    testVlanIp = ipaddress.ip_address(str(vlan["addr"]))  # noqa F821
                     break
             pytest_assert(testVlanIp, "Failed to obtain vlan IP")
 
@@ -479,6 +497,7 @@ class QosSaiBase(QosBase):
             duthost = lower_tor_host
         else:
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+            dut_asic = duthost.asic_instance(enum_frontend_asic_index)
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         dutLagInterfaces = []
@@ -502,12 +521,12 @@ class QosSaiBase(QosBase):
             pytest_assert(
                 not duthost.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
             )
-            for _, lag in mgFacts["minigraph_portchannels"].items():
+            for _, lag in list(mgFacts["minigraph_portchannels"].items()):
                 for intf in lag["members"]:
                     dutLagInterfaces.append(mgFacts["minigraph_ptf_indices"][intf])
 
             testPortIds = set(mgFacts["minigraph_ptf_indices"][port]
-                              for port in mgFacts["minigraph_ports"].keys())
+                              for port in list(mgFacts["minigraph_ports"].keys()))
             testPortIds -= set(dutLagInterfaces)
             if isMellanoxDevice(duthost):
                 # The last port is used for up link from DUT switch
@@ -522,6 +541,7 @@ class QosSaiBase(QosBase):
             else:
                 intf_map = mgFacts["minigraph_interfaces"]
 
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
@@ -533,14 +553,28 @@ class QosSaiBase(QosBase):
                         dutPortIps.update({portIndex: portIpMap})
                         if intf in dualtor_ports:
                             dualTorPortIndexes.append(portIndex)
+                    # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
+                    # we also need to test them separately
+                    # for mellanox device, we run it on t1 topo mocked by ptf32 topo
+                    if use_separated_upkink_dscp_tc_map and isMellanoxDevice(duthost):
+                        neighName = mgFacts["minigraph_neighbors"].get(intf, {}).get("name", "").lower()
+                        if 't0' in neighName:
+                            downlinkPortIds.append(portIndex)
+                            downlinkPortIps.append(portConfig["peer_addr"])
+                            downlinkPortNames.append(intf)
+                        elif 't2' in neighName:
+                            uplinkPortIds.append(portIndex)
+                            uplinkPortIps.append(portConfig["peer_addr"])
+                            uplinkPortNames.append(intf)
 
             testPortIps = self.__assignTestPortIps(mgFacts)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
             use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
-            for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
+            for iface, addr in list(dut_asic.get_active_ip_interfaces(tbinfo).items()):
                 vlan_id = None
                 if iface.startswith("Ethernet"):
+                    portName = iface
                     if "." in iface:
                         portName, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
@@ -571,13 +605,13 @@ class QosSaiBase(QosBase):
             testPortIds = sorted(dutPortIps.keys())
 
         elif tbinfo["topo"]["type"] == "t2":
-            for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
+            for iface, addr in list(dut_asic.get_active_ip_interfaces(tbinfo).items()):
                 vlan_id = None
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                     if "." in iface:
                         iface, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][iface]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface }
                     if vlan_id is not None:
                         portIpMap['vlan_id'] = vlan_id
                     dutPortIps.update({portIndex: portIpMap})
@@ -586,7 +620,7 @@ class QosSaiBase(QosBase):
                         iter(mgFacts["minigraph_portchannels"][iface]["members"])
                     )
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName }
                     dutPortIps.update({portIndex: portIpMap})
 
             testPortIds = sorted(dutPortIps.keys())
@@ -603,7 +637,7 @@ class QosSaiBase(QosBase):
         dutAsic = None
         for asic in self.SUPPORTED_ASIC_LIST:
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-            if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+            if vendorAsic in list(hostvars.keys()) and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
                 dutAsic = asic
                 break
 
@@ -646,9 +680,15 @@ class QosSaiBase(QosBase):
             "downlink_port_names": downlinkPortNames
         })
         dutinterfaces = {}
-        for port, index in mgFacts["minigraph_ptf_indices"].items():
-            if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
-                dutinterfaces[index] = port
+
+        if tbinfo["topo"]["type"] == "t2":
+            for ptf_port, ptf_val in list(dutPortIps.items()):
+                dutinterfaces[ptf_port] = ptf_val['port']
+        else:
+            for port, index in list(mgFacts["minigraph_ptf_indices"].items()):
+                if 'Ethernet-Rec' not in port and 'Ethernet-IB' not in port:
+                    dutinterfaces[index] = port
+
         yield {
             "dutInterfaces": dutinterfaces,
             "testPortIds": testPortIds,
@@ -714,7 +754,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def stopServices(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-            swapSyncd, enable_container_autorestart, disable_container_autorestart,
+            swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
             tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports): # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
@@ -881,6 +921,30 @@ class QosSaiBase(QosBase):
             duthost.command("docker exec syncd python /packets_aging.py enable")
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
+    def dutArpProxyConfig(self, duthost):
+        # so far, only record ARP proxy config to logging for debug purpose
+        vlanInterface = {}
+        try:
+            vlanInterface = json.loads(duthost.shell('sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
+        except:
+            logger.info('Failed to read vlan interface config')
+        if not vlanInterface:
+            return
+        for key, value in list(vlanInterface.items()):
+            if 'proxy_arp' in value:
+                logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
+
+    def dutBufferConfig(self, duthost):
+        bufferConfig = {}
+        try:
+            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_POOL"')['stdout'])
+            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PROFILE"')['stdout'])
+            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_QUEUE"')['stdout'])
+            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PG"')['stdout'])
+        except Exception as err:
+            logger.info(err)
+        return bufferConfig
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
@@ -924,6 +988,8 @@ class QosSaiBase(QosBase):
         dutAsic = dutConfig["dutAsic"]
         dutTopo = dutConfig["dutTopo"]
 
+        self.dutArpProxyConfig(duthost)
+
         if isMellanoxDevice(duthost):
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
             sub_folder_dir = os.path.join(current_file_dir, "files/mellanox/")
@@ -941,6 +1007,39 @@ class QosSaiBase(QosBase):
                                                        dutConfig["dualTor"]
                                                        )
             qosParams = qpm.run()
+
+        elif 'broadcom' in duthost.facts['asic_type'].lower():
+            if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
+                logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
+                qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
+            else:
+                bufferConfig = self.dutBufferConfig(duthost)
+                pytest_assert(len(bufferConfig) == 4, "buffer config is incompleted")
+                pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL is not exist in bufferConfig')
+                pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
+                pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
+                pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
+
+                current_file_dir = os.path.dirname(os.path.realpath(__file__))
+                sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
+                if sub_folder_dir not in sys.path:
+                    sys.path.append(sub_folder_dir)
+                import qos_param_generator
+                qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                           dutAsic,
+                                                           portSpeedCableLength,
+                                                           dutConfig,
+                                                           ingressLosslessProfile,
+                                                           ingressLossyProfile,
+                                                           egressLosslessProfile,
+                                                           egressLossyProfile,
+                                                           sharedHeadroomPoolSize,
+                                                           dutConfig["dualTor"],
+                                                           dutTopo,
+                                                           bufferConfig,
+                                                           duthost,
+                                                           tbinfo["topo"]["name"])
+                qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {

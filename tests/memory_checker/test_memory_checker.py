@@ -10,7 +10,7 @@ The 'stress' utility is leveraged to increase the memory usage of a container co
 """
 import logging
 from multiprocessing.pool import ThreadPool
-
+import time
 import pytest
 
 from pkg_resources import parse_version
@@ -190,6 +190,7 @@ def install_stress_utility(duthost, creds, container_name):
     logger.info("All BGP sessions are shut down!...")
     install_cmd_result = duthost.shell("docker exec {} bash -c 'export http_proxy={} \
                                         && export https_proxy={} \
+                                        && apt-get update -y \
                                         && apt-get install stress -y'".format(container_name, http_proxy, https_proxy))
 
     exit_code = install_cmd_result["rc"]

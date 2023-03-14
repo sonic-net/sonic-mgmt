@@ -2,14 +2,14 @@ import pytest
 import logging
 import time
 
-from voq_helpers import sonic_ping
-from voq_helpers import eos_ping
+from .voq_helpers import sonic_ping
+from .voq_helpers import eos_ping
 
-from test_voq_ipfwd import pick_ports
-from test_voq_ipfwd import check_packet
+from .test_voq_ipfwd import pick_ports
+from .test_voq_ipfwd import check_packet
 
-from test_voq_init import check_voq_interfaces
-from voq_helpers import dump_and_verify_neighbors_on_asic
+from .test_voq_init import check_voq_interfaces
+from .voq_helpers import dump_and_verify_neighbors_on_asic
 
 from tests.common import reboot
 from tests.common import config_reload
@@ -154,7 +154,6 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
                              dev=vm_host_to_A, size=size, ttl=ttl)
 
 
-@pytest.mark.skip(reason="Not yet implemented - reboot of supervisor does not reset line cards.")
 def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     """
     Tests the system after supervisor reset, all cards should reboot and interfaces/neighbors should be in sync across

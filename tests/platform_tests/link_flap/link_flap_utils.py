@@ -103,7 +103,7 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
             logger.warning("Failed to get ports enumerated as parameter. Fall back to test all ports")
         status = __get_dut_if_status(dut)
 
-        for dut_port in status.keys():
+        for dut_port in list(status.keys()):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, dut_port)
             __build_candidate_list(candidates, fanout, fanout_port, dut_port, status)
 
@@ -143,6 +143,8 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_statu
         fanout_port: Port of fanout
         watch: Logging system state
     """
+
+    sleep_time = 90
     logger.info("Testing link flap on %s", dut_port)
     if check_status:
         pytest_assert(__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(dut_port))
@@ -153,7 +155,7 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_statu
     try:
         fanout.shutdown(fanout_port)
         if check_status:
-            pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
+            pytest_assert(wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
 
         if watch:
             time.sleep(1)
@@ -162,13 +164,14 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_statu
         logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
         fanout.no_shutdown(fanout_port)
         need_recovery = False
+
         if check_status:
-            pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
+            pytest_assert(wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
     finally:
         if need_recovery:
             fanout.no_shutdown(fanout_port)
             if check_status:
-                wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True)
+                wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'up', True)
 
 
 def watch_system_status(dut):
@@ -218,7 +221,7 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     """
     MAX_DIFF = 5
 
-    sumv4, sumv6 = dut.get_ip_route_summary()
+    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True)
     totalsv4 = sumv4.get('Totals', {})
     totalsv6 = sumv6.get('Totals', {})
     routesv4 = totalsv4.get('routes', 0)

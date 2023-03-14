@@ -19,7 +19,7 @@ import sys
 if sys.version_info.major == 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = basestring
+    STRING_TYPE = str
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -44,14 +44,14 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
 
     sfp_port_indices = set([physical_port_index_map[intf] \
-        for intf in physical_port_index_map.keys()])
+        for intf in list(physical_port_index_map.keys())])
     sfp_setup["sfp_port_indices"] = sorted(sfp_port_indices)
 
     if len(xcvr_skip_list[duthost.hostname]):
         logging.info("Skipping tests on {}".format(xcvr_skip_list[duthost.hostname]))
 
     sfp_port_indices = set([physical_port_index_map[intf] for intf in \
-                                                physical_port_index_map.keys() \
+                                                list(physical_port_index_map.keys()) \
                                                 if intf not in xcvr_skip_list[duthost.hostname]])
     sfp_setup["sfp_test_port_indices"] = sorted(sfp_port_indices)
 
@@ -128,7 +128,7 @@ class TestSfpApi(PlatformApiTestBase):
         'tx1power'
     ]
 
-    EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+    EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS = [
         'txpowerlowwarning',
         'temphighwarning',
         'temphighalarm',
@@ -149,6 +149,98 @@ class TestSfpApi(PlatformApiTestBase):
         'rxpowerhighalarm',
         'templowwarning',
         'txpowerlowalarm'
+    ]
+
+    # To get all the keys supported by QSFP-DD modules
+    # below list should be appended with
+    # EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS
+    QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+        'lasertemphighwarning',
+        'lasertemplowwarning',
+        'lasertemplowalarm',
+        'lasertemphighalarm'
+    ]
+
+    # To get all the keys supported by QSFP-ZR modules
+    # below list should be appended with
+    # EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS + QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+    QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS = [
+        'prefecberhighalarm',
+        'prefecberlowalarm',
+        'prefecberhighwarning',
+        'prefecberlowwarning',
+        'postfecberhighalarm',
+        'postfecberlowalarm',
+        'postfecberhighwarning',
+        'postfecberlowwarning',
+        'biasxihighalarm',
+        'biasxilowalarm',
+        'biasxihighwarning',
+        'biasxilowwarning',
+        'biasxqhighalarm',
+        'biasxqlowalarm',
+        'biasxqhighwarning',
+        'biasxqlowwarning',
+        'biasxphighalarm',
+        'biasxplowalarm',
+        'biasxphighwarning',
+        'biasxplowwarning',
+        'biasyihighalarm',
+        'biasyilowalarm',
+        'biasyihighwarning',
+        'biasyilowwarning',
+        'biasyqhighalarm',
+        'biasyqlowalarm',
+        'biasyqhighwarning',
+        'biasyqlowwarning',
+        'biasyphighalarm',
+        'biasyplowalarm',
+        'biasyphighwarning',
+        'biasyplowwarning',
+        'cdshorthighalarm',
+        'cdshortlowalarm',
+        'cdshorthighwarning',
+        'cdshortlowwarning',
+        'cdlonghighalarm',
+        'cdlonglowalarm',
+        'cdlonghighwarning',
+        'cdlonglowwarning',
+        'dgdhighalarm',
+        'dgdlowalarm',
+        'dgdhighwarning',
+        'dgdlowwarning',
+        'sopmdhighalarm',
+        'sopmdlowalarm',
+        'sopmdhighwarning',
+        'sopmdlowwarning',
+        'pdlhighalarm',
+        'pdllowalarm',
+        'pdlhighwarning',
+        'pdllowwarning',
+        'osnrhighalarm',
+        'osnrlowalarm',
+        'osnrhighwarning',
+        'osnrlowwarning',
+        'esnrhighalarm',
+        'esnrlowalarm',
+        'esnrhighwarning',
+        'esnrlowwarning',
+        'cfohighalarm',
+        'cfolowalarm',
+        'cfohighwarning',
+        'cfolowwarning',
+        'txcurrpowerhighalarm',
+        'txcurrpowerlowalarm',
+        'txcurrpowerhighwarning',
+        'txcurrpowerlowwarning',
+        'rxtotpowerhighalarm',
+        'rxtotpowerlowalarm',
+        'rxtotpowerhighwarning',
+        'rxtotpowerlowwarning',
+        'rxsigpowerhighalarm',
+        'rxsigpowerlowalarm',
+        'rxsigpowerhighwarning',
+        'rxsigpowerlowwarning'
     ]
 
     chassis_facts = None
@@ -261,8 +353,7 @@ class TestSfpApi(PlatformApiTestBase):
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 if self.expect(isinstance(info_dict, dict), "Transceiver {} info appears incorrect".format(i)):
-                    actual_keys = info_dict.keys()
-                    
+                    actual_keys = list(info_dict.keys())
                     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
                     # NOTE: No more releases to be added here. Platform should use SFP-refactor.
                     # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
@@ -308,7 +399,7 @@ class TestSfpApi(PlatformApiTestBase):
                 if self.expect(isinstance(bulk_status_dict, dict), "Transceiver {} bulk status appears incorrect".format(i)):
                     # TODO: This set of keys should be present no matter how many channels are present on the xcvr
                     #       If the xcvr has multiple channels, we should adjust the fields here accordingly
-                    actual_keys = bulk_status_dict.keys()
+                    actual_keys = list(bulk_status_dict.keys())
 
                     missing_keys = set(self.EXPECTED_XCVR_BULK_STATUS_KEYS) - set(actual_keys)
                     for key in missing_keys:
@@ -322,16 +413,29 @@ class TestSfpApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+
+            if not self.is_xcvr_optical(info_dict):
+                logger.info("test_get_transceiver_threshold_info: \
+                               Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
+
             thold_info_dict = sfp.get_transceiver_threshold_info(platform_api_conn, i)
             if self.expect(thold_info_dict is not None, "Unable to retrieve transceiver {} threshold info".format(i)):
                 if self.expect(isinstance(thold_info_dict, dict), "Transceiver {} threshold info appears incorrect".format(i)):
-                    actual_keys = thold_info_dict.keys()
+                    actual_keys = list(thold_info_dict.keys())
 
-                    missing_keys = set(self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS) - set(actual_keys)
+                    expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
+                    if info_dict["type_abbrv_name"] == "QSFP-DD":
+                        expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+                        if 'ZR' in info_dict["media_interface_code"]:
+                            expected_keys += self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
+
+                    missing_keys = set(expected_keys) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(False, "Transceiver {} threshold info does not contain field: '{}'".format(i, key))
 
-                    unexpected_keys = set(actual_keys) - set(self.EXPECTED_XCVR_THRESHOLD_INFO_KEYS)
+                    unexpected_keys = set(actual_keys) - set(expected_keys)
                     for key in unexpected_keys:
                         self.expect(False, "Transceiver {} threshold info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
@@ -635,7 +739,7 @@ class TestSfpApi(PlatformApiTestBase):
             if self.expect(error_description is not None, "Unable to retrieve transceiver {} error description".format(i)):
                 if "Not implemented" in error_description:
                     pytest.skip("get_error_description isn't implemented. Skip the test")
-                if self.expect(isinstance(error_description, str) or isinstance(error_description, unicode), "Transceiver {} error description appears incorrect".format(i)):
+                if self.expect(isinstance(error_description, str) or isinstance(error_description, str), "Transceiver {} error description appears incorrect".format(i)):
                     self.expect(error_description == "OK", "Transceiver {} is not present".format(i))
         self.assert_expectations()
 

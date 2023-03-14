@@ -9,7 +9,8 @@ __all__ = [
     'mux_config',
     'active_standby_ports',
     'active_active_ports',
-    'ActiveActivePortID'
+    'ActiveActivePortID',
+    'active_active_ports_config'
 ]
 
 
@@ -69,7 +70,7 @@ def active_active_ports(mux_config, tbinfo):
         return []
 
     active_active_ports = []
-    for port, port_config in mux_config.items():
+    for port, port_config in list(mux_config.items()):
         if port_config["SERVER"].get("cable_type", CableType.default_type) == CableType.active_active:
             active_active_ports.append(port)
 
@@ -82,8 +83,21 @@ def active_standby_ports(mux_config, tbinfo):
         return []
 
     active_standby_ports = []
-    for port, port_config in mux_config.items():
+    for port, port_config in list(mux_config.items()):
         if port_config["SERVER"].get("cable_type", CableType.default_type) == CableType.active_standby:
             active_standby_ports.append(port)
 
     return active_standby_ports
+
+
+@pytest.fixture(scope="session")
+def active_active_ports_config(mux_config, tbinfo):
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return {}
+
+    active_active_ports_config = {}
+    for port, port_config in list(mux_config.items()):
+        if port_config["SERVER"].get("cable_type", CableType.default_type) == CableType.active_active:
+            active_active_ports_config[port] = port_config
+
+    return active_active_ports_config

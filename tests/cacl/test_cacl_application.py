@@ -68,7 +68,7 @@ def expected_dhcp_rules_for_standby(duthost_dualtor):
 
 
 @pytest.fixture(scope="module")
-def docker_network(duthosts, enum_rand_one_per_hwsku_hostname):
+def docker_network(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index):
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     output = duthost.command("docker inspect bridge")
@@ -96,7 +96,7 @@ def docker_network(duthosts, enum_rand_one_per_hwsku_hostname):
                                                                           ipam_info['Config'][1].get('Subnet'))}
 
     docker_network['container'] = {}
-    for k, v in docker_containers_info.items():
+    for k, v in list(docker_containers_info.items()):
         docker_network['container'][v['Name']] = {'IPv4Address': v['IPv4Address'].split('/')[0],
                                                   'IPv6Address': v['IPv6Address'].split('/')[0]}
 
@@ -314,7 +314,6 @@ def get_cacl_tables_and_rules(duthost):
 def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules, asic_index):
     INTERFACE_TABLE_NAME_LIST = [
         "LOOPBACK_INTERFACE",
-        "MGMT_INTERFACE",
         "VLAN_INTERFACE",
         "PORTCHANNEL_INTERFACE",
         "INTERFACE"
@@ -366,7 +365,7 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
 
     if asic_index is None:
         # Allow Communication among docker containers
-        for k, v in docker_network['container'].items():
+        for k, v in list(docker_network['container'].items()):
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
                                           docker_network['bridge']['IPv4Address']))

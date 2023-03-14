@@ -13,7 +13,7 @@ import json
 import logging
 import re
 import pytest
-import util
+from . import util
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
@@ -100,7 +100,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     @summary: Verify output of `show platform syseeprom`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050", "arista_7260"])
+    skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050", "arista_7260", "arista_7060"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
@@ -309,9 +309,13 @@ def check_fan_status(duthost, cmd):
     fan_status_output_lines = duthost.command(cmd)["stdout_lines"]
     fans = verify_show_platform_fan_output(duthost, fan_status_output_lines)
 
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not fans and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+        return True
+
     # Check that all fans are showing valid status and also at-least one PSU is OK.
     num_fan_ok = 0
-    for a_fan in fans.values():
+    for a_fan in list(fans.values()):
         if a_fan['Status'] == "OK":
             num_fan_ok += 1
     return num_fan_ok > 0

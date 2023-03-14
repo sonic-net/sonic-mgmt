@@ -28,8 +28,7 @@ def syslog_config_cleanup(duthost, cfg_facts):
     """
     syslog_servers = cfg_facts.get('SYSLOG_SERVER', {})
     for syslog_server in syslog_servers:
-        del_syslog_server = duthost.shell("config syslog del {}".format(syslog_server),
-            module_ignore_errors=True)
+        del_syslog_server = duthost.shell("config syslog del {}".format(syslog_server), module_ignore_errors=True)
         pytest_assert(
             not del_syslog_server['rc'],
             "syslog server '{}' is not deleted successfully".format(syslog_server)
@@ -55,9 +54,7 @@ def get_current_syslog_servers(duthost):
     cmds = "show runningconfiguration syslog"
     output = duthost.shell(cmds)
 
-    pytest_assert(not output['rc'],
-        "'{}' is not running successfully".format(cmds)
-    )
+    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
 
     # If len less than 3 means not syslog output
     lines = output['stdout'].splitlines()
@@ -103,9 +100,7 @@ def expect_res_success_syslog(duthost, expected_content_list, unexpected_content
     """
     cmds = "show runningconfiguration syslog"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' is not running successfully".format(cmds)
-    )
+    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
@@ -305,4 +300,3 @@ def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
     syslog_server_tc1_xfail(rand_selected_dut)
     syslog_server_tc1_replace(rand_selected_dut)
     syslog_server_tc1_remove(rand_selected_dut)
-

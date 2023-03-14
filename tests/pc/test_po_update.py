@@ -75,6 +75,10 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     int_facts = asichost.interface_facts()['ansible_facts']
 
     port_channels_data = asichost.get_portchannels_and_members_in_ns(tbinfo)
+    if not port_channels_data:
+        pytest.skip(
+            "Skip test as there are no port channels on asic {} on dut {}".format(enum_frontend_asic_index, duthost))
+
     portchannel = None
     portchannel_members = None
     for portchannel in port_channels_data:
@@ -180,13 +184,13 @@ def test_po_update_io_no_loss(
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # generate ip-pc pairs, be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001")]
-    peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"]) for pc in
+    peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"], dut_mg_facts["minigraph_portchannels"][pc["attachto"]]['namespace']) for pc in
                        dut_mg_facts["minigraph_portchannel_interfaces"]
                        if
                        ipaddress.ip_address(pc['peer_addr']).version == 4]
     # generate pc tuples, fill in members,
     # be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001", ["Ethernet48", "Ethernet52"])]
-    pcs = [(pair[0], pair[1], pair[2], dut_mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
+    pcs = [(pair[0], pair[1], pair[2], dut_mg_facts["minigraph_portchannels"][pair[2]]["members"], pair[3]) for pair in
            peer_ip_pc_pair]
 
     if len(pcs) < 2:
@@ -195,7 +199,7 @@ def test_po_update_io_no_loss(
 
     # generate out_pc tuples similar to pc tuples, but that are on the same asic as asichost
     out_pcs = [
-        (pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"]) for pair in
+        (pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"], pair[3]) for pair in
         peer_ip_pc_pair
         if pair[2] in mg_facts['minigraph_portchannels']
         and len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 2]
@@ -216,7 +220,7 @@ def test_po_update_io_no_loss(
     # all ports in out_pc will be output/forward ports
     pc, pc_members = out_pc[2], out_pc[3]
     in_ptf_index = dut_mg_facts["minigraph_ptf_indices"][in_pc[3][0]]
-    out_ptf_indices = map(lambda port: mg_facts["minigraph_ptf_indices"][port], out_pc[3])
+    out_ptf_indices = [mg_facts["minigraph_ptf_indices"][port] for port in out_pc[3]]
     logging.info(
         "selected_pcs is: %s, in_ptf_index is %s, out_ptf_indices is %s" % (
             selected_pcs, in_ptf_index, out_ptf_indices))
@@ -272,7 +276,7 @@ def test_po_update_io_no_loss(
 
         # Keep sending packets, and add/del different members during that time, observe whether packets lose
         pkt = testutils.simple_ip_packet(
-            eth_dst=duthost.facts["router_mac"],
+            eth_dst=duthost.asic_instance(duthost.get_asic_id_from_namespace(in_pc[4])).get_router_mac()  ,
             eth_src=ptfadapter.dataplane.get_mac(0, in_ptf_index),
             ip_src=in_peer_ip,
             ip_dst=out_peer_ip)
@@ -280,10 +284,10 @@ def test_po_update_io_no_loss(
         exp_pkt = pkt.copy()
         exp_pkt = mask.Mask(exp_pkt)
 
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
-        exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
-        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_packet(packet.IP, 'chksum')
+        exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
 
         ptfadapter.dataplane.flush()
         member_update_finished_flag = Queue(1)

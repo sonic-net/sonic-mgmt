@@ -35,7 +35,7 @@ def get_dict_stdout(gnmi_out, certs_out):
     # Elements in list alternate between key and value. Separate them and combine into a dict.
     key_list = gnmi_list[0::2]
     value_list = gnmi_list[1::2]
-    params_dict = dict(zip(key_list, value_list))
+    params_dict = dict(list(zip(key_list, value_list)))
     return params_dict
 
 def get_list_stdout(cmd_out):
@@ -106,7 +106,7 @@ def verify_telemetry_dockerimage(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
-    matching = [s for s in docker_out_list if "docker-sonic-telemetry" in s]
+    matching = [s for s in docker_out_list if b"docker-sonic-telemetry" in s]
     if not (len(matching) > 0):
         pytest.skip("docker-sonic-telemetry is not part of the image")
 
@@ -152,7 +152,7 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
 
     d = get_dict_stdout(gnmi, certs)
-    for key, value in d.items():
+    for key, value in list(d.items()):
         if str(key) == "port":
             port_expected = str(TELEMETRY_PORT)
             pytest_assert(str(value) == port_expected, "'port' value is not '{}'".format(port_expected))
@@ -176,8 +176,8 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     # Elements in list alternate between key and value. Separate them and combine into a dict.
     status_key_list = status_list[0::2]
     status_value_list = status_list[1::2]
-    status_dict = dict(zip(status_key_list, status_value_list))
-    for k, v in status_dict.items():
+    status_dict = dict(list(zip(status_key_list, status_value_list)))
+    for k, v in list(status_dict.items()):
         if str(k) == "status":
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")

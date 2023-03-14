@@ -4,16 +4,15 @@ Check SFP status and configure SFP using sfputil.
 This script covers test case 'Check SFP status and configure SFP' in the SONiC platform test plan:
 https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
-
 import logging
 import time
 import copy
 
 import pytest
 
-from util import parse_eeprom
-from util import parse_output
-from util import get_dev_conn
+from .util import parse_eeprom
+from .util import parse_output
+from .util import get_dev_conn
 from tests.common.utilities import skip_release
 from tests.common.fixtures.duthost_utils import shutdown_ebgp
 
@@ -108,8 +107,12 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             reset_result = duthost.command("{} {}".format(cmd_sfp_reset, intf))
             assert reset_result["rc"] == 0, "'{} {}' failed".format(cmd_sfp_reset, intf)
             time.sleep(5)
+    sleep_time = 60
+    if duthost.shell("show interfaces transceiver eeprom | grep 400ZR", module_ignore_errors=True)['rc'] == 0:
+        sleep_time = 90
+
     logging.info("Wait some time for SFP to fully recover after reset")
-    time.sleep(60)
+    time.sleep(sleep_time)
 
     logging.info("Check sfp presence again after reset")
     sfp_presence = duthost.command(cmd_sfp_presence)
@@ -229,13 +232,18 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     logging.info("Check interface status")
+    cmd = "show interfaces transceiver eeprom {} | grep 400ZR".format(asichost.cli_ns_option)
+    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+        logging.info("sleeping for 60 seconds for ZR optics to come up")
+        time.sleep(60)
+
     namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     # TODO Remove this logic when minigraph facts supports namespace in multi_asic
     up_ports = mg_facts["minigraph_ports"]
     if enum_frontend_asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        up_ports = {k:v for k, v in portmap.items() if k in mg_facts["minigraph_ports"]}
+        up_ports = {k:v for k, v in list(portmap.items()) if k in mg_facts["minigraph_ports"]}
     intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])

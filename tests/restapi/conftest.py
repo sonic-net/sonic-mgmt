@@ -2,7 +2,11 @@ import logging
 import pytest
 from tests.common import config_reload
 import urllib3
-from urlparse import urlunparse
+import sys
+if sys.version_info.major > 2:
+    from urllib.parse import urlunparse
+else:
+    from urllib.parse import urlunparse
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
@@ -127,7 +131,7 @@ def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
     VLAN_INDEX = 0
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if mg_facts["minigraph_vlans"] != {}:
-        vlan_interfaces = mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]
+        vlan_interfaces = list(mg_facts["minigraph_vlans"].values())[VLAN_INDEX]["members"]
         if vlan_interfaces is not None:
             return vlan_interfaces
     return []

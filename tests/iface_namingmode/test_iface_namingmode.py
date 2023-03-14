@@ -39,8 +39,8 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     hwsku = duthost.facts['hwsku']
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=False)['ansible_facts']
-    up_ports = minigraph_facts['minigraph_ports'].keys()
-    default_interfaces = port_alias_facts['port_name_map'].keys()
+    up_ports = list(minigraph_facts['minigraph_ports'].keys())
+    default_interfaces = list(port_alias_facts['port_name_map'].keys())
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
     port_speed_facts = port_alias_facts['port_speed']
     if not port_speed_facts:
@@ -48,7 +48,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         iface_speed = all_vars['hostvars'][duthost.hostname]['iface_speed']
         iface_speed = str(iface_speed)
         port_speed_facts = {_: iface_speed for _ in
-                            port_alias_facts['port_alias_map'].keys()}
+                            list(port_alias_facts['port_alias_map'].keys())}
 
     port_alias = list()
     port_name_map = dict()
@@ -75,7 +75,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         duthost.command(db_cmd)
 
     upport_alias_list = [ port_name_map[item] for item in up_ports ]
-    portchannel_members = [ member for portchannel in minigraph_portchannels.values() for member in portchannel['members'] ]
+    portchannel_members = [ member for portchannel in list(minigraph_portchannels.values()) for member in portchannel['members'] ]
     physical_interfaces = [ item for item in up_ports if item not in portchannel_members ]
     setup_info = {
          'default_interfaces' : default_interfaces,
@@ -201,7 +201,7 @@ class TestShowLLDP():
         lldp_interfaces['alias'] = list()
         lldp_interfaces['interface'] = list()
 
-        for key, value in minigraph_neighbors.items():
+        for key, value in list(minigraph_neighbors.items()):
             if 'server' not in value['name'].lower():
                 lldp_interfaces['alias'].append(setup['port_name_map'][key])
                 lldp_interfaces['interface'].append(key)
@@ -327,7 +327,7 @@ class TestShowInterfaces():
         int_po = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo show interfaces portchannel'.format(ifmode))['stdout']
         logger.info('int_po:\n{}'.format(int_po))
 
-        for key, value in minigraph_portchannels.items():
+        for key, value in list(minigraph_portchannels.items()):
             if mode == 'alias':
                 assert re.search(r'{}\s+LACP\(A\)\(Up\).*{}'.format(key, setup['port_name_map'][value['members'][0]]), int_po) is not None
             elif mode == 'default':
@@ -558,11 +558,18 @@ class TestShowVlan():
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         logger.info('Creating a test vlan 100')
-        dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config vlan add 100'.format(ifmode))
+        res = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config vlan add 100'
+                                 .format(ifmode), module_ignore_errors=True)
+        if res["rc"] != 0 and "Restart service dhcp_relay failed with error" not in res["stderr"]:
+            pytest.fail("Add vlan failed in setup")
+
         yield
 
         logger.info('Cleaning up the test vlan 100')
-        dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config vlan del 100'.format(ifmode))
+        res = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config vlan del 100'
+                                 .format(ifmode), module_ignore_errors=True)
+        if res["rc"] != 0 and "Restart service dhcp_relay failed with error" not in res["stderr"]:
+            pytest.fail("Del vlan failed in teardown")
 
     def test_show_vlan_brief(self, setup, setup_config_mode):
         """
@@ -592,7 +599,7 @@ class TestShowVlan():
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         minigraph_vlans = setup['minigraph_facts']['minigraph_vlans']
-        vlan_interface = minigraph_vlans[minigraph_vlans.keys()[0]]['members'][0]
+        vlan_interface = minigraph_vlans[list(minigraph_vlans.keys())[0]]['members'][0]
         vlan_interface_alias = setup['port_name_map'][vlan_interface]
         v_intf = vlan_interface_alias if (mode == 'alias') else vlan_interface
 
@@ -804,7 +811,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo,duth
     show_int_neighbor = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show interfaces neighbor expected'.format(ifmode))['stdout']
     logger.info('show_int_neighbor:\n{}'.format(show_int_neighbor))
 
-    for key, value in minigraph_neighbors.items():
+    for key, value in list(minigraph_neighbors.items()):
         if 'server' not in value['name'].lower():
             if mode == 'alias':
                 assert re.search(r'{}\s+{}'.format(setup['port_name_map'][key], value['name']), show_int_neighbor) is not None
@@ -858,7 +865,7 @@ class TestNeighbors():
         ndp_output = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ndp'.format(ifmode))['stdout']
         logger.info('ndp:\n{}'.format(ndp_output))
 
-        for addr, detail in arptable['v6'].items():
+        for addr, detail in list(arptable['v6'].items()):
             if (
                     detail['macaddress'] != 'None' and
                     detail['interface'] in setup['port_name_map'] and
@@ -896,7 +903,7 @@ class TestShowIP():
         spine_ports['interface'] = list()
         spine_ports['alias'] = list()
 
-        for key, value in minigraph_neighbors.items():
+        for key, value in list(minigraph_neighbors.items()):
             if (key in setup['physical_interfaces'] 
                     and ('T2' in value['name'] or (tbinfo['topo']['type'] == 't2' and 'T3' in value['name']))):
                 spine_ports['interface'].append(key)
@@ -944,13 +951,19 @@ class TestShowIP():
                 elif mode == 'default':
                     assert re.search(r'{}\s+{}'.format(item['attachto'], item['addr']), show_ipv6_interface) is not None
 
-    def test_show_ip_route_v4(self, setup_config_mode, spine_ports):
+    def test_show_ip_route_v4(self, setup_config_mode, spine_ports, tbinfo):
         """
         Checks whether 'show ip route <ip>' lists the interface name as
         per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip route 192.168.1.1'.format(ifmode))['stdout']
+        dip = '192.168.1.1'
+        # In T2 topo, 192.168.1.1 is forwarded via a route learnt over ibgp from other LC, which will fail the test
+        # because the vias in 'show ip route' output are Inband ports. Explicitly use '0.0.0.0' here to check the
+        # output of default route, whose vias should be local ports.
+        if tbinfo['topo']['type'].startswith('t2'):
+            dip = '0.0.0.0'
+        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip route {}'.format(ifmode, dip))['stdout']
         logger.info('route:\n{}'.format(route))
 
         if mode == 'alias':

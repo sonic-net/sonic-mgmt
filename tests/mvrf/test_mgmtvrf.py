@@ -117,7 +117,7 @@ def verify_show_command(duthost, mvrf=True):
         mvrf_interfaces["lo"] = "\d+:\s+lo-m:\s+<BROADCAST,NOARP,UP,LOWER_UP>.*master mgmt"
         if not "ManagementVRF : Enabled" in show_mgmt_vrf:
             raise Exception("'ManagementVRF : Enabled' not in output of 'show mgmt vrf'")
-        for _, pattern in mvrf_interfaces.items():
+        for _, pattern in list(mvrf_interfaces.items()):
             if not re.search(pattern, show_mgmt_vrf):
                 raise Exception("Unexpected output for MgmtVRF=enabled")
     else:
@@ -220,7 +220,7 @@ class TestServices():
         # SSH definitions
         logger.info("test Service acl")
 
-        duthost.copy(src="mvrf/config_service_acls.sh", dest="/tmp/config_service_acls.sh", mode=0755)
+        duthost.copy(src="mvrf/config_service_acls.sh", dest="/tmp/config_service_acls.sh", mode=0o755)
         duthost.shell("nohup /tmp/config_service_acls.sh < /dev/null > /dev/null 2>&1 &")
         time.sleep(5)
         logger.info("waiting for ssh to drop")

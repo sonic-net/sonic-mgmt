@@ -32,7 +32,7 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
                                 wait=True)['ansible_facts']
 
-    for k, v in snmp_facts['snmp_interfaces'].items():
+    for k, v in list(snmp_facts['snmp_interfaces'].items()):
         if "Ethernet" in v['description']:
             intf = v['description'].split(':')
             # 'ARISTA*:Ethernet*'

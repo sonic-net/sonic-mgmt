@@ -8,9 +8,21 @@ import time
 
 import requests
 import yaml
+from enum import Enum
 
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
+
+
+class TestPlanStatus(Enum):
+    INIT = 10
+    LOCK_TESTBED = 20
+    PREPARE_TESTBED = 30
+    EXECUTING = 40
+    KVMDUMP = 50
+    FAILED = 60
+    CANCELLED = 70
+    FINISHED = 80
 
 
 def get_test_scripts(test_set):
@@ -21,6 +33,88 @@ def get_test_scripts(test_set):
         return pr_test_scripts.get(test_set, [])
 
 
+def test_plan_status_factory(status):
+    if status == "INIT":
+        return InitStatus()
+    elif status == "LOCK_TESTBED":
+        return LockStatus()
+    elif status == "PREPARE_TESTBED":
+        return PrePareStatus()
+    elif status == "EXECUTING":
+        return ExecutingStatus()
+    elif status == "KVMDUMP":
+        return KvmDumpStatus()
+    elif status == "FAILED":
+        return FailedStatus()
+    elif status == "CANCELLED":
+        return CancelledStatus()
+    elif status == "FINISHED":
+        return FinishStatus()
+
+    raise Exception("The status is not correct.")
+
+
+class AbstractStatus():
+    def __init__(self, status):
+        self.status = status
+
+    def get_status(self):
+        return self.status.value
+
+    def print_logs(self, test_plan_id, resp_data, start_time):
+        status = resp_data.get("status", None)
+        current_status = test_plan_status_factory(status).get_status()
+
+        if(current_status == self.get_status()):
+            print("Test plan id: {}, status: {},  elapsed: {:.0f} seconds"
+                  .format(test_plan_id, resp_data.get("status", None), time.time() - start_time))
+
+
+class InitStatus(AbstractStatus):
+    def __init__(self):
+        super().__init__(TestPlanStatus.INIT)
+
+
+class LockStatus(AbstractStatus):
+    def __init__(self):
+        super().__init__(TestPlanStatus.LOCK_TESTBED)
+
+
+class PrePareStatus(AbstractStatus):
+    def __init__(self):
+        super().__init__(TestPlanStatus.PREPARE_TESTBED)
+
+
+class ExecutingStatus(AbstractStatus):
+    def __init__(self):
+        super().__init__(TestPlanStatus.EXECUTING)
+
+    def print_logs(self, test_plan_id, resp_data, start_time):
+        print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
+              .format(test_plan_id, resp_data.get("status", None),
+                      resp_data.get("progress", 0) * 100, time.time() - start_time))
+
+
+class KvmDumpStatus(AbstractStatus):
+    def __init__(self):
+        super().__init__(TestPlanStatus.KVMDUMP)
+
+
+class FailedStatus(AbstractStatus):
+    def __init__(self):
+        super().__init__(TestPlanStatus.FAILED)
+
+
+class CancelledStatus(AbstractStatus):
+    def __init__(self):
+        super().__init__(TestPlanStatus.CANCELLED)
+
+
+class FinishStatus(AbstractStatus):
+    def __init__(self):
+        super().__init__(TestPlanStatus.FINISHED)
+
+
 class TestPlanManager(object):
 
     def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
@@ -29,9 +123,9 @@ class TestPlanManager(object):
         self.client_id = client_id
         self.client_secret = client_secret
         if self.tenant_id and self.client_id and self.client_secret:
-            self._get_token()
+            self._get_token(url)
 
-    def _get_token(self):
+    def _get_token(self, testbed_tools_url):
         token_url = "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.tenant_id)
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
@@ -40,7 +134,7 @@ class TestPlanManager(object):
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": "api://sonic-testbed-tools-prod/.default"
+            "scope": "api://sonic-testbed-tools-prod/.default" if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net" else "api://sonic-testbed-tools-dev/.default"
         }
         try:
             resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
@@ -114,6 +208,8 @@ class TestPlanManager(object):
         except Exception as exception:
             raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
                             .format(tp_url, str(raw_resp), str(exception)))
+        if not resp["data"]:
+            raise Exception("Pre deploy action failed with error: {}".format(resp["errmsg"]))
         if not resp["success"]:
             raise Exception("Create test plan failed with error: {}".format(resp["errmsg"]))
 
@@ -153,14 +249,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=-1, expected_states=""):
-        '''
-        The states of testplan can be described as below:
-                                                                |-- FAILED
-        INIT -- LOCK_TESTBED -- PREPARE_TESTBED -- EXECUTING -- |-- CANCELLED
-                                                                |-- FINISHED
-        '''
-
+    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state=""):
         print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
               .format(test_plan_id))
         print("Polling interval: {} seconds".format(interval))
@@ -194,22 +283,37 @@ class TestPlanManager(object):
             status = resp_data.get("status", None)
             result = resp_data.get("result", None)
 
-            if status in ["FINISHED", "CANCELLED", "FAILED"]:
-                if result == "SUCCESS":
-                    print("Test plan is successfully {}. Elapsed {:.0f} seconds"
-                          .format(status, time.time() - start_time))
-                    return
+            if expected_state:
+                current_status = test_plan_status_factory(status)
+                expected_status = test_plan_status_factory(expected_state)
+
+                if expected_status.get_status() == current_status.get_status():
+                    current_status.print_logs(test_plan_id, resp_data, start_time)
+                elif expected_status.get_status() < current_status.get_status():
+                    steps = None
+                    step_status = None
+                    extra_params = resp_data.get("extra_params", None)
+
+                    if extra_params:
+                        steps = extra_params.get("steps", None)
+                    if steps:
+                        for step in steps:
+                            if step.get("step") == expected_state:
+                                step_status = step.get("status")
+                                break
+                    # We fail the step only if the step_status is "FAILED".
+                    # Other status such as "SKIPPED", "CANCELED" are considered successful.
+                    if step_status == "FAILED":
+                        raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
+                                        "Check https://www.testbed-tools.org/scheduler/testplan/{} for test plan status"
+                                        .format(test_plan_id, step_status, result, time.time() - start_time,
+                                                test_plan_id))
+                    else:
+                        print("Current status is {}".format(step_status))
+                        return
                 else:
-                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
-                                    .format(test_plan_id, status, result, time.time() - start_time))
-            elif status in expected_states:
-                if status == "KVMDUMP":
-                    raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds"
-                                    .format(test_plan_id, status, result, time.time() - start_time))
-                return
-            else:
-                print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
-                      .format(test_plan_id, status, resp_data.get("progress", 0) * 100, time.time() - start_time))
+                    print("Current state is {}, waiting for the state {}".format(status, expected_state))
+
                 time.sleep(interval)
 
         else:
@@ -346,6 +450,22 @@ if __name__ == "__main__":
         required=False,
         help="Token to download the repo from Azure DevOps"
     )
+    parser_create.add_argument(
+        "--azp-pr-id",
+        type=str,
+        dest="azp_pr_id",
+        default="",
+        required=False,
+        help="Pullrequest ID from Azure Pipelines"
+    )
+    parser_create.add_argument(
+        "--repo-name",
+        type=str,
+        dest="repo_name",
+        default="",
+        required=False,
+        help="Repository name from Azure Pipelines"
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -360,13 +480,12 @@ if __name__ == "__main__":
         )
 
     parser_poll.add_argument(
-        "-e", "--expected-states",
+        "--expected-state",
         type=str,
-        dest="expected_states",
+        dest="expected_state",
         required=False,
-        nargs='*',
         help="Expected state.",
-        default="FINISHED"
+        default=""
     )
     parser_poll.add_argument(
         "--interval",
@@ -422,12 +541,12 @@ if __name__ == "__main__":
             env["client_secret"])
 
         if args.action == "create":
-            pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER")
+            pr_id = args.azp_pr_id if args.azp_pr_id else os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER")
             repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
             reason = os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
-            repo_name = os.environ.get("BUILD_REPOSITORY_NAME")
+            repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
 
             test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
@@ -459,7 +578,7 @@ if __name__ == "__main__":
                 azp_repo_access_token=args.azp_repo_access_token
             )
         elif args.action == "poll":
-            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_states)
+            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)

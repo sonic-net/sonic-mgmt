@@ -7,7 +7,7 @@ import time
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
 from tests.common import config_reload
-from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
+from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 
@@ -44,6 +44,7 @@ Test functions wishing to apply the full mock config must use the following fixt
     - apply_active_state_to_orchagent OR apply_standby_state_to_orchagent
 '''
 
+
 def _apply_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'):
     '''
     Applies a given configuration string to the SWSS container
@@ -54,14 +55,14 @@ def _apply_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'
         swss_filename: The filename to use for copying the config file around (default='swss_config_file')
     '''
 
-    dut_filename = os.path.join('/tmp',swss_filename)
+    dut_filename = os.path.join('/tmp', swss_filename)
 
     dut.shell('echo "{}" > {}'.format(swss_config_str, dut_filename))
     dut.shell('docker cp {} swss:{}'.format(dut_filename, swss_filename))
     dut.shell('docker exec swss sh -c "swssconfig {}"'.format(swss_filename))
 
 
-def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
+def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa F811
     """
     Helper function for setting active/standby state to orchagent
     """
@@ -97,7 +98,7 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
 
-def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):
+def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):       # noqa F811
     """
     Helper function for deleting active/standby state to orchagent
     """
@@ -120,7 +121,7 @@ def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
 
-def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
+def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):      # noqa F811
     '''
     Helper function to configure active/standby state in orchagent
 
@@ -151,7 +152,7 @@ def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
 
 
 @pytest.fixture(scope='module')
-def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):
+def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):      # noqa F811
     dut = rand_selected_dut
 
     for func in _apply_dual_tor_state_to_orchagent(dut, 'active', tor_mux_intfs):
@@ -159,7 +160,7 @@ def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):
 
 
 @pytest.fixture(scope='module')
-def apply_standby_state_to_orchagent(rand_selected_dut, tor_mux_intfs):
+def apply_standby_state_to_orchagent(rand_selected_dut, tor_mux_intfs):     # noqa F811
     dut = rand_selected_dut
 
     for func in _apply_dual_tor_state_to_orchagent(dut, 'standby', tor_mux_intfs):
@@ -222,7 +223,8 @@ def mock_server_base_ip_addr(rand_selected_dut, tbinfo):
 
 
 @pytest.fixture(scope='module')
-def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_base_ip_addr, tor_mux_intfs):
+def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter,
+                           mock_server_base_ip_addr, tor_mux_intfs):     # noqa F811
     dut = rand_selected_dut
 
     server_ipv4_base_addr, _ = mock_server_base_ip_addr
@@ -236,11 +238,11 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_ba
         ptf_port_index = dut_ptf_intf_map[intf]
         for retry in range(10):
             ptf_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index)
-            if ptf_mac != None:
+            if ptf_mac is not None:
                 break
             else:
                 time.sleep(2)
-        pytest_assert(ptf_mac != None, "fail to get mac address of interface {}".format(ptf_port_index))
+        pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
         server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
 
@@ -248,7 +250,8 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_ba
 
 
 @pytest.fixture(scope='module')
-def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_base_ip_addr, tor_mux_intfs):
+def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter,
+                             mock_server_base_ip_addr, tor_mux_intfs):      # noqa F811
     dut = rand_selected_dut
     _, server_ipv6_base_addr = mock_server_base_ip_addr
     server_ipv6_mac_map = {}
@@ -259,11 +262,11 @@ def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_
         ptf_port_index = dut_ptf_intf_map[intf]
         for retry in range(10):
             ptf_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index)
-            if ptf_mac != None:
+            if ptf_mac is not None:
                 break
             else:
                 time.sleep(2)
-        pytest_assert(ptf_mac != None, "fail to get mac address of interface {}".format(ptf_port_index))
+        pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
         server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = ptf_mac
 
@@ -271,7 +274,8 @@ def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbinfo, mock_server_ip_mac_map, mock_server_ipv6_mac_map):
+def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbinfo,
+                                 mock_server_ip_mac_map, mock_server_ipv6_mac_map):
     '''
     Apply neighbor table entries for servers
     '''
@@ -279,16 +283,16 @@ def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbin
 
     dut = rand_selected_dut
 
-    vlan = dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys()[0]
+    vlan = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
     cmds = []
-    for ip, mac in mock_server_ip_mac_map.items():
+    for ip, mac in list(mock_server_ip_mac_map.items()):
         # Use `ip neigh replace` in case entries already exist for the target IP
         # If there are no pre-existing entries, equivalent to `ip neigh add`
-        cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
+        cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac.decode(), vlan))
 
-    for ipv6, mac in mock_server_ipv6_mac_map.items():
-        cmds.append('ip -6 neigh replace {} lladdr {} dev {}'.format(ipv6, mac, vlan))
+    for ipv6, mac in list(mock_server_ipv6_mac_map.items()):
+        cmds.append('ip -6 neigh replace {} lladdr {} dev {}'.format(ipv6, mac.decode(), vlan))
     dut.shell_cmds(cmds=cmds)
 
     return
@@ -301,7 +305,7 @@ def apply_dual_tor_peer_switch_route(cleanup_mocked_configs, rand_selected_dut, 
     '''
     logger.info("Applying dual ToR peer switch loopback route")
     dut = rand_selected_dut
-    bgp_neighbors = dut.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
+    bgp_neighbors = list(dut.bgp_facts()['ansible_facts']['bgp_neighbors'].keys())
 
     ipv4_neighbors = []
 
@@ -386,7 +390,8 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
 
 
 @pytest.fixture(scope='module')
-def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_server_base_ip_addr, tor_mux_intfs):
+def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
+                                 mock_server_base_ip_addr, tor_mux_intfs):      # noqa F811
     '''
     Adds the MUX_CABLE table to config DB
     '''
@@ -400,10 +405,11 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock
         server_ipv4 = str(server_ipv4_base_addr + i)
         server_ipv6 = str(server_ipv6_base_addr + i)
         mux_cable_params.update(
-            {intf: {
-                'server_ipv4':server_ipv4,
-                'server_ipv6':server_ipv6,
-                'state': 'auto'
+            {
+                intf: {
+                    'server_ipv4': server_ipv4,
+                    'server_ipv6': server_ipv6,
+                    'state': 'auto'
                 }
             })
 

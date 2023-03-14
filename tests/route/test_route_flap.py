@@ -35,6 +35,7 @@ ANNOUNCE = 'announce'
 # Refer to announce_routes.py, which is called in add-topo period
 TOR_SUBNET_SIZE = 128
 M0_SUBNET_SIZE = 64
+MX_SUBNET_SIZE = 64
 
 
 def get_prefix_len_by_net_size(net_size):
@@ -43,11 +44,12 @@ def get_prefix_len_by_net_size(net_size):
 
 def get_route_prefix_len(tbinfo, common_config):
     if tbinfo["topo"]["name"] == "m0":
-        m0_subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
-        return get_prefix_len_by_net_size(m0_subnet_size)
+        subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
+    elif tbinfo["topo"]["name"] == "mx":
+        subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
     else:
-        tor_subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
-        return get_prefix_len_by_net_size(tor_subnet_size)
+        subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
+    return get_prefix_len_by_net_size(subnet_size)
 
 
 @pytest.fixture(scope="module")
@@ -85,7 +87,7 @@ def get_ptf_recv_ports(duthost, tbinfo):
     """
     recv_ports = []
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for ptf_idx in mg_facts["minigraph_ptf_indices"].values():
+    for ptf_idx in list(mg_facts["minigraph_ptf_indices"].values()):
         recv_ports.append(ptf_idx)
     return recv_ports
 
@@ -97,7 +99,7 @@ def get_ptf_send_ports(duthost, tbinfo, dev_port):
         send_port = mg_facts['minigraph_ptf_indices'][member_port[0]]
     else:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        ports = natsorted(mg_facts['minigraph_ports'].keys())
+        ports = natsorted(list(mg_facts['minigraph_ports'].keys()))
         send_port = mg_facts['minigraph_ptf_indices'][ports[0]]
     return send_port
 
@@ -173,7 +175,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
         if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
             default_vlan_name = vlan_cfgs['default_vlan_config']
             if default_vlan_name:
-                for vlan in vlan_cfgs[default_vlan_name].values():
+                for vlan in list(vlan_cfgs[default_vlan_name].values()):
                     if 'mac' in vlan and vlan['mac']:
                         vlan_mac = vlan['mac']
                         break
