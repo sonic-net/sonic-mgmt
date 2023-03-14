@@ -5,7 +5,7 @@ import logging
 import pprint
 import pytest
 import json
-
+import six
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -143,7 +143,7 @@ def get_t2_info(duthosts, tbinfo):
             asic_id = duthost.get_asic_id_from_namespace(namespace)
             router_mac = duthost.asic_instance(asic_id).get_router_mac()
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
-            for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+            for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
                 if "T1" in neighbor["name"]:
                     downstream_ports_per_dut[neighbor['namespace']].append(interface)
@@ -165,7 +165,7 @@ def get_t2_info(duthosts, tbinfo):
 
             upstream_rifs = upstream_ports_per_dut[namespace]
             downstream_rifs = downstream_ports_per_dut[namespace]
-            for k, v in port_channels[namespace].iteritems():
+            for k, v in list(port_channels[namespace].items()):
                 acl_table_ports[namespace].append(k)
                 acl_table_ports[''].append(k)
                 upstream_rifs = list(set(upstream_rifs) - set(v['members']))
@@ -220,7 +220,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
     if topo in ["t0", "m0", "mx"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
-                      for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
+                      for ifname in list(mg_facts["minigraph_vlans"].values())[0]["members"]]
 
         config_facts = rand_selected_dut.get_running_config_facts()
         vlan_table = config_facts["VLAN"]
@@ -247,7 +247,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         downstream_port_id_to_router_mac_map = t2_info['downstream_port_id_to_router_mac_map']
         upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
     else:
-        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
             port_id = mg_facts["minigraph_ptf_indices"][interface]
             if (topo == "t1" and "T0" in neighbor["name"]) or \
                (topo in ["t0", "m0", "mx"] and "Server" in neighbor["name"]):
@@ -269,7 +269,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # source or destination port
     if 'dualtor' in tbinfo['topo']['name'] and rand_unselected_dut is not None:
         peer_mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
-        for interface, neighbor in peer_mg_facts['minigraph_neighbors'].items():
+        for interface, neighbor in list(peer_mg_facts['minigraph_neighbors'].items()):
             if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
                 port_id = peer_mg_facts["minigraph_ptf_indices"][interface]
                 upstream_port_ids.append(port_id)
@@ -282,14 +282,14 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     acl_table_ports = defaultdict(list)
 
     if topo in ["t0", "m0", "mx"] or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
-        for namespace, port in downstream_ports.iteritems():
+        for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
 
     if topo in ["t0", "m0"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet", "t1-56-lag"):
-        for k, v in port_channels.iteritems():
+        for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
@@ -297,7 +297,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     elif topo == "t2":
         acl_table_ports = t2_info['acl_table_ports']
     else:
-        for namespace, port in upstream_ports.iteritems():
+        for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
@@ -389,7 +389,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     yield populate_arp_table
 
     logging.info("Stopping ARP responder")
-    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
     duthost.command("sonic-clear fdb all")
     duthost.command("sonic-clear arp")
@@ -494,13 +494,13 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
     try:
         yield acl_table_config
     finally:
-        for duthost, loganalyzer in dut_to_analyzer_map.items():
+        for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
             with loganalyzer:
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
 
 
-class BaseAclTest(object):
+class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     """Base class for testing ACL rules.
 
     Subclasses must provide `setup_rules` method to prepare ACL rules for traffic testing.
@@ -508,8 +508,6 @@ class BaseAclTest(object):
     They can optionally override `teardown_rules`, which will otherwise remove the rules by
     applying an empty configuration file.
     """
-
-    __metaclass__ = ABCMeta
 
     ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
 
@@ -593,7 +591,7 @@ class BaseAclTest(object):
         try:
             yield
         finally:
-            for duthost, loganalyzer in dut_to_analyzer_map.items():
+            for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
                 if duthost.is_supervisor_node():
                     continue
                 loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
@@ -806,16 +804,16 @@ class BaseAclTest(object):
         exp_pkt = pkt.copy()
 
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
-        exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
+        exp_pkt.set_do_not_care_packet(packet.Ether, "dst")
+        exp_pkt.set_do_not_care_packet(packet.Ether, "src")
 
         if ip_version == "ipv4":
-            exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
+            exp_pkt.set_do_not_care_packet(packet.IP, "chksum")
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+            exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
         else:
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
+            exp_pkt.set_do_not_care_packet(packet.IPv6, 'hlim')
 
         return exp_pkt
 

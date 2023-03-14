@@ -1,6 +1,6 @@
 import pytest
 
-from files.pfc_congestion_helper import run_pfc_congestion
+from .files.pfc_congestion_helper import run_pfc_congestion
 from tests.common.cisco_data import is_cisco_device    # noqa: F401
 from tests.common.helpers.assertions import pytest_require    # noqa: F401
 from tests.common.fixtures.conn_graph_facts import (      # noqa: F401

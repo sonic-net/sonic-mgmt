@@ -83,7 +83,7 @@ class FwdTest(FibTest):
         else:
             entries = self.fwd_dict.ipv6
 
-        for ip_range, next_hop in entries.iteritems():
+        for ip_range, next_hop in entries.items():
             self.check_ip_range(ip_range, next_hop, ipv4)
 
     #---------------------------------------------------------------------

@@ -19,7 +19,7 @@ def clear_dut_arp_cache(duthost, ns_option=None):
 
 
 def get_po(mg_facts, intf):
-    for k, v in mg_facts['minigraph_portchannels'].iteritems():
+    for k, v in list(mg_facts['minigraph_portchannels'].items()):
         if intf in v['members']:
             return k
     return None

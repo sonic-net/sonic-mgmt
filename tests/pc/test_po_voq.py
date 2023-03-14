@@ -47,12 +47,12 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     config_facts = duthost.config_facts(source='persistent',
                                         asic_index=asic.asic_index)['ansible_facts']
 
-    portchannel = config_facts['PORTCHANNEL'].keys()[0]
+    portchannel = list(config_facts['PORTCHANNEL'].keys())[0]
     portchannel_members = config_facts['PORTCHANNEL'][portchannel].get('members')
 
     portchannel_ip = None
     if 'PORTCHANNEL_INTERFACE' in config_facts:
-        portchannel_ips = config_facts['PORTCHANNEL_INTERFACE'][portchannel].keys()
+        portchannel_ips = list(config_facts['PORTCHANNEL_INTERFACE'][portchannel].keys())
         for ip in portchannel_ips:
             if '.' in ip:
                 portchannel_ip = ip

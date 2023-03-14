@@ -22,9 +22,9 @@ ARP_RESPONDER_CONF = os.path.join(TESTS_ROOT, "templates/arp_responder.conf.j2")
 
 
 def get_fanout(fanout_graph_facts, setup):
-    for fanout_host_name, value in fanout_graph_facts.items():
-        for _, ports in value["device_conn"].items():
-            for attr, attr_info in ports.items():
+    for fanout_host_name, value in list(fanout_graph_facts.items()):
+        for _, ports in list(value["device_conn"].items()):
+            for attr, attr_info in list(ports.items()):
                 if attr == "peerport":
                     if attr_info == setup["ptf_test_params"]["server_ports"][0]["dut_name"]:
                         return fanout_host_name
@@ -54,7 +54,7 @@ def deploy_pfc_gen(fanouthosts, fanout_graph_facts, setup):
 
     if "arista" in fanout_graph_facts[fanout_host_name]["device_info"]["HwSku"].lower():
         arista_pfc_gen_dir = "/mnt/flash/"
-        for host_name, fanout in fanouthosts.items():
+        for host_name, fanout in list(fanouthosts.items()):
             if host_name == fanout_host_name:
                 break
 
@@ -114,13 +114,13 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
             plist = []
             if self.server_ports:
                 p = ",".join(
-                    [iface for iface, value in dev_conn.items() if value["peerport"] in self.used_server_ports]
+                    [iface for iface, value in list(dev_conn.items()) if value["peerport"] in self.used_server_ports]
                 )
                 if p:
                     plist.append(p)
             if self.non_server_port:
                 p = ",".join(
-                    [iface for iface, value in dev_conn.items() if value["peerport"] in self.used_non_server_port]
+                    [iface for iface, value in list(dev_conn.items()) if value["peerport"] in self.used_non_server_port]
                 )
                 if p:
                     plist.append(p)
@@ -130,7 +130,7 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
             )
             time.sleep(5)
     fanout_host_name = get_fanout(fanout_graph_facts, setup)
-    for host_name, fanout_host in fanouthosts.items():
+    for host_name, fanout_host in list(fanouthosts.items()):
         if host_name == fanout_host_name:
             break
     params = pfc_storm_template["template_params"].copy()
@@ -416,7 +416,7 @@ class Setup(object):
                             )
         dscp_to_tc = self.duthost.command(get_dscp_to_tc, _uses_shell=True)["stdout"]
         self.vars["ptf_test_params"]["pfc_to_dscp"] = dict(
-            zip(map(int, dscp_to_tc.split()), map(int, dscp_to_tc_keys))
+            list(zip(list(map(int, dscp_to_tc.split())), list(map(int, dscp_to_tc_keys))))
         )
 
     def generate_pfc_bitmask(self):

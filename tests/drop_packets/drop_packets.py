@@ -176,8 +176,8 @@ def is_mellanox_fanout(duthost, localhost):
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
     fanout_obj = None
-    for fanout_name, fanout_obj in fanouthosts.items():
-        for interface, interface_info in conn_graph_facts['device_conn'][duthost.hostname].items():
+    for fanout_name, fanout_obj in list(fanouthosts.items()):
+        for interface, interface_info in list(conn_graph_facts['device_conn'][duthost.hostname].items()):
             if fanout_name == interface_info.get('peerdevice'):
                 break
     return fanout_obj
@@ -253,7 +253,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     # Gather ansible facts
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    for port_channel, interfaces in mg_facts['minigraph_portchannels'].items():
+    for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):
         for iface in interfaces["members"]:
             port_channel_members[iface] = port_channel
 
@@ -274,10 +274,10 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
     # Compose list of sniff ports
     neighbor_sniff_ports = []
-    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+    for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
         neighbor_sniff_ports.append(mg_facts['minigraph_ptf_indices'][dut_port])
 
-    for vlan_name, vlans_data in mg_facts["minigraph_vlans"].items():
+    for vlan_name, vlans_data in list(mg_facts["minigraph_vlans"].items()):
         configured_vlans.append(int(vlans_data["vlanid"]))
 
     setup_information = {
@@ -303,7 +303,7 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
 
     if not setup["rif_members"]:
         pytest.skip("RIF interface is absent")
-    rif_member_iface = setup["rif_members"].keys()[0]
+    rif_member_iface = list(setup["rif_members"].keys())[0]
 
     vm_name = setup["mg_facts"]["minigraph_neighbors"][rif_member_iface].get("name", None)
     pytest_assert(vm_name, 'Neighbor not found for RIF member "{}"'.format(rif_member_iface))
@@ -349,7 +349,7 @@ def ports_info(ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     data = {}
-    data["dut_iface"] = random.choice(tx_dut_ports.keys())
+    data["dut_iface"] = random.choice(list(tx_dut_ports.keys()))
     # Check which asic owns this interface
     for ns in duthost.get_asic_namespace_list():
         if data["dut_iface"] in setup['intf_per_namespace'][ns if ns is not DEFAULT_NAMESPACE else '']:
@@ -376,7 +376,7 @@ def acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_r
               dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
         acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
-        if 'DATAACL' not in acl_facts.keys():
+        if 'DATAACL' not in list(acl_facts.keys()):
             pytest.skip("Skipping test since DATAACL table is not present on DUT")
 
         duthost.command("mkdir -p {}".format(dut_tmp_dir))
@@ -677,7 +677,7 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
             tcp_dport=pkt_fields["tcp_dport"])
 
     group = "L3"
-    print("msm group {}, setup {}".format(group, setup))
+    print(("msm group {}, setup {}".format(group, setup)))
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
@@ -791,7 +791,7 @@ def test_ip_is_zero_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, a
     if setup.get("platform_asic") == "broadcom-dnx" and addr_direction == "src":
         pytest.skip("Src IP zero packets are not dropped on Broadcom DNX platform currently")
 
-    do_test(group, pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+    do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()), tx_dut_ports)
 
 
 def test_dst_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -1024,7 +1024,7 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
     log_pkt_params(ports_info["dut_iface"], ethernet_dst, ports_info["src_mac"], pkt.getlayer("IP").dst, pkt_fields["ipv4_src"])
 
     group = "L3"
-    do_test(group, pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+    do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()), tx_dut_ports)
 
 def test_acl_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tx_dut_ports, pkt_fields, acl_ingress,
                   ports_info):

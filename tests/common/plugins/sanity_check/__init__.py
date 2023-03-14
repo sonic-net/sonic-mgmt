@@ -250,7 +250,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                             if 'action' in failed_result and failed_result['action'] is not None \
                                     and callable(failed_result['action']):
                                 infra_recovery_actions.append(failed_result['action'])
-                    for dut_name, dut_results in dut_failed_results.items():
+                    for dut_name, dut_results in list(dut_failed_results.items()):
                         # Attempt to restore DUT state
                         recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
                                 recover_method)

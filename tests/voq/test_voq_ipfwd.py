@@ -17,16 +17,16 @@ from tests.ptf_runner import ptf_runner
 from datetime import datetime
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
 
-from test_voq_nbr import LinkFlap
+from .test_voq_nbr import LinkFlap
 
-from voq_helpers import sonic_ping
-from voq_helpers import eos_ping
-from voq_helpers import get_inband_info
-from voq_helpers import get_vm_with_ip
-from voq_helpers import asic_cmd
-from voq_helpers import get_port_by_ip
-from voq_helpers import get_sonic_mac
-from voq_helpers import get_ptf_port
+from .voq_helpers import sonic_ping
+from .voq_helpers import eos_ping
+from .voq_helpers import get_inband_info
+from .voq_helpers import get_vm_with_ip
+from .voq_helpers import asic_cmd
+from .voq_helpers import get_port_by_ip
+from .voq_helpers import get_sonic_mac
+from .voq_helpers import get_ptf_port
 import re
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ def loganalyzer(duthosts, request):
 
     yield analyzers
 
-    for dut_hostname, dut_analyzer in analyzers.items():
+    for dut_hostname, dut_analyzer in list(analyzers.items()):
         dut_analyzer.analyze(markers[dut_hostname])
 
 
@@ -89,7 +89,7 @@ def log_port_info(ports):
 
     """
     port_dict_to_print = defaultdict(dict)
-    for port_name, port in ports.items():
+    for port_name, port in list(ports.items()):
         for fld_name in port:
             if fld_name == 'dut':
                 port_dict_to_print[port_name]['dut'] = port['dut'].hostname
@@ -151,10 +151,10 @@ def get_info_for_a_port(cfg_facts, iface_list, version, dut, asic_index, nbrhost
     rtn_dict['nbr_vm'] = nbr_dict['vm']
     rtn_dict['nbr_port'] = nbr_dict['port']
     rtn_dict['nbr_lb'] = ipaddress.ip_interface(
-        unicode(nbrhosts[nbr_dict['vm']]['conf']['interfaces']['Loopback0']['ipv%s' % version])).ip
+        str(nbrhosts[nbr_dict['vm']]['conf']['interfaces']['Loopback0']['ipv%s' % version])).ip
 
     # Get my lbk addresses
-    lbs = cfg_facts['LOOPBACK_INTERFACE']['Loopback0'].keys()
+    lbs = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback0'].keys())
     for lb in lbs:
         lbintf = ipaddress.ip_interface(lb)
         if lbintf.ip.version == version:
@@ -162,7 +162,7 @@ def get_info_for_a_port(cfg_facts, iface_list, version, dut, asic_index, nbrhost
 
     # Get my lbk4096 address
     if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
-        lbs4096 = cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys()
+        lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
         for lb4096 in lbs4096:
             lb4096intf = ipaddress.ip_interface(lb4096)
             if lb4096intf.ip.version == version:
@@ -214,7 +214,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
     for a_dut in duthosts:
         minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
         minigraph_neighbors = minigraph_facts['minigraph_neighbors']
-        for key, value in minigraph_neighbors.items():
+        for key, value in list(minigraph_neighbors.items()):
             if 'T1' in value['name']:
                 dutA = a_dut
                 break
@@ -272,7 +272,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
             other_dut_to_use = None
             minigraph_facts = dut.get_extended_minigraph_facts(tbinfo)
             minigraph_neighbors = minigraph_facts['minigraph_neighbors']
-            for key, value in minigraph_neighbors.items():
+            for key, value in list(minigraph_neighbors.items()):
                 if 'T3' in value['name']:
                     other_dut_to_use = dut
                     break
@@ -464,7 +464,7 @@ class TestTableValidation(object):
 
         intf = cfg_facts['VOQ_INBAND_INTERFACE']
         for port in intf:
-            for address in cfg_facts['BGP_VOQ_CHASSIS_NEIGHBOR'].keys():
+            for address in list(cfg_facts['BGP_VOQ_CHASSIS_NEIGHBOR'].keys()):
                 # self.check_is_connected(address, port, ipv4_routes, ipv6_routes)
                 ip_intf = ipaddress.ip_interface(address)
                 logger.info("Network %s v%s, is connected via: %s", str(ip_intf.network), ip_intf.network.version, port)
@@ -498,7 +498,7 @@ class TestTableValidation(object):
         cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
         bgp_facts = per_host.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-        for address in cfg_facts['BGP_VOQ_CHASSIS_NEIGHBOR'].keys():
+        for address in list(cfg_facts['BGP_VOQ_CHASSIS_NEIGHBOR'].keys()):
             pytest_assert(bgp_facts['bgp_neighbors'][address]['state'] == "established",
                           "BGP internal neighbor: %s is not established: %s" % (
                               address, bgp_facts['bgp_neighbors'][address]['state']))
@@ -542,7 +542,7 @@ class TestTableValidation(object):
 
             neigh_ip = ipaddress.ip_address(neighbor)
             lbip = ipaddress.ip_interface(
-                unicode(nbrhosts[nbr_vm]['conf']['interfaces']['Loopback0']['ipv%s' % neigh_ip.version]))
+                str(nbrhosts[nbr_vm]['conf']['interfaces']['Loopback0']['ipv%s' % neigh_ip.version]))
             logger.info("Verify loopback0 ip: %s is connected via ip: %s port: %s", str(lbip), str(neigh_ip),
                         local_port)
 
@@ -935,7 +935,7 @@ def bgp_established(host, asic):
         bgp_facts = host.bgp_facts(instance_id=asic.asic_index)['ansible_facts']
     else:
         bgp_facts = host.bgp_facts()['ansible_facts']
-    for k, v in bgp_facts['bgp_neighbors'].items():
+    for k, v in list(bgp_facts['bgp_neighbors'].items()):
         if v['state'] != 'established':
             logger.info("Neighbor %s not established yet: %s", k, v['state'])
             return False
@@ -987,8 +987,8 @@ class TestFPLinkFlap(LinkFlap):
         if "portchannel" in ports['portA']['port'].lower():
             pc_cfg = cfg_facts['PORTCHANNEL_MEMBER']
             pc_members = pc_cfg[ports['portA']['port']]
-            logger.info("Portchannel members %s: %s", ports['portA']['port'], pc_members.keys())
-            portbounce_list = pc_members.keys()
+            logger.info("Portchannel members %s: %s", ports['portA']['port'], list(pc_members.keys()))
+            portbounce_list = list(pc_members.keys())
         else:
             portbounce_list = [ports['portA']['port']]
 

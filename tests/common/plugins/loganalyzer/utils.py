@@ -18,13 +18,13 @@ def ignore_loganalyzer(func):
             kwargs.pop('ignore_loganalyzer')
 
         if loganalyzer:
-            for _, dut_loganalyzer in loganalyzer.items():
+            for _, dut_loganalyzer in list(loganalyzer.items()):
                 dut_loganalyzer.add_start_ignore_mark()
 
         res = func(*args, **kwargs)
 
         if loganalyzer:
-            for _, dut_loganalyzer in loganalyzer.items():
+            for _, dut_loganalyzer in list(loganalyzer.items()):
                 dut_loganalyzer.add_end_ignore_mark()
 
         return res

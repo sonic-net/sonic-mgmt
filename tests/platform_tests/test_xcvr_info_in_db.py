@@ -29,7 +29,7 @@ def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
         interface_list = get_port_map(duthost, enum_frontend_asic_index)
 
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        all_interfaces = {k:v for k, v in interface_list.items() if k in conn_graph_facts["device_conn"][duthost.hostname]}
+        all_interfaces = {k:v for k, v in list(interface_list.items()) if k in conn_graph_facts["device_conn"][duthost.hostname]}
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, all_interfaces))
 
     check_transceiver_status(duthost, enum_frontend_asic_index, all_interfaces, xcvr_skip_list)

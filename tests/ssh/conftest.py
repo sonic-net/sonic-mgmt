@@ -41,7 +41,7 @@ def generate_ssh_ciphers(request, typename):
     tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
 
     dut_name = tbinfo['duts'][0]
-    inv_name = tbinfo['inv_name'] if 'inv_name' in tbinfo.keys() else 'lab'
+    inv_name = tbinfo['inv_name'] if 'inv_name' in list(tbinfo.keys()) else 'lab'
 
     ansible_cmd = "ansible -m shell -i ../ansible/{} {} -a".format(inv_name, dut_name)
     cmd = ansible_cmd.split()

@@ -56,7 +56,7 @@ def config_user(duthost, username, mode='add'):
 
 
 def configure_passw_policies(duthost, passw_hardening_ob):
-    for key, value in passw_hardening_ob.policies.items():
+    for key, value in list(passw_hardening_ob.policies.items()):
         logging.debug("configuration to be set: key={}, value={}".format(key, value))
         # cmd_config = 'sudo config passw-hardening policies ' + key + ' ' + value
 
@@ -101,7 +101,7 @@ def config_and_review_policies(duthost, passw_hardening_ob, pam_file_expected):
     configure_passw_policies(duthost, passw_hardening_ob)
 
     curr_show_policies = duthost.show_and_parse('show passw-hardening policies')[FIRST_LINE]
-    exp_show_policies = dict((k.replace('-', ' '), v) for k, v in passw_hardening_ob.policies.items())
+    exp_show_policies = dict((k.replace('-', ' '), v) for k, v in list(passw_hardening_ob.policies.items()))
 
     # ~~ test passw policies in show CLI ~~
     cli_passw_policies_cmp = cmp(exp_show_policies, curr_show_policies)

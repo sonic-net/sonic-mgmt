@@ -8,8 +8,8 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
 from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list,\
     lossless_prio_list, lossy_prio_list
 
-from files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
-from files.helper import skip_pfcwd_test
+from .files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
+from .files.helper import skip_pfcwd_test
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 

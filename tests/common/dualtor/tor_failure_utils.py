@@ -26,7 +26,7 @@ def kill_bgpd():
     def kill_bgpd(duthost, shutdown_all=True):
         torhost.append(duthost)
         bgp_neighbors = duthost.get_bgp_neighbors()
-        up_bgp_neighbors = [k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established"]
+        up_bgp_neighbors = [k.lower() for k, v in list(bgp_neighbors.items()) if v["state"] == "established"]
         if shutdown_all and up_bgp_neighbors:
             logger.info("Kill bgpd process on {}".format(duthost.hostname))
             duthost.shell("pkill -9 bgpd")
@@ -84,9 +84,9 @@ def tor_blackhole_traffic():
                        )['ansible_facts']
         los = config_facts.get("LOOPBACK_INTERFACE", {})
         logger.info("Loopback IPs: {}".format(los))
-        for k, v in los.items():
+        for k, v in list(los.items()):
             if k == "Loopback0":
-                for ipstr in v.keys():
+                for ipstr in list(v.keys()):
                     ip = ipaddress.ip_interface(ipstr)
                     if ip.version == 4:
                         lo_ipv4 = ip

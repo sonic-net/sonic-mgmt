@@ -113,7 +113,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
 
     # map() in Python2 returns list object but in Python3 returns map object,
     # add explicit convert to compatible with different versions
-    out_ptf_indices = list(map(lambda iface: mg_facts["minigraph_ptf_indices"][iface], out_ifaces))
+    out_ptf_indices = list([mg_facts["minigraph_ptf_indices"][iface] for iface in out_ifaces])
 
     return pkt, ptf_port_idx, exp_pkt, out_ptf_indices, rif_support
 

@@ -321,13 +321,13 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
         # get the port_index_map using the ptf_indicies to support multi DUT topologies
         port_index_map.update({
            k: v
-           for k, v in mg_facts["minigraph_ptf_indices"].items()
+           for k, v in list(mg_facts["minigraph_ptf_indices"].items())
            if k in mg_facts["minigraph_ports"] and
            not duthost.is_backend_port(k, mg_facts) and
            mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
         })
     # use randam sonic interface for testing
-    nn_target_interface = random.choice(port_index_map.keys())
+    nn_target_interface = random.choice(list(port_index_map.keys()))
     # get the  ptf port for choosen port
     nn_target_port = port_index_map[nn_target_interface]
     myip = None
