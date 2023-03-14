@@ -133,7 +133,7 @@ def parse_rib(host, ip_ver, asic_namespace=None):
         cmd = host.get_vtysh_cmd_for_namespace(bgp_cmd, namespace)
 
         route_data = json.loads(host.shell(cmd, verbose=False)['stdout'])
-        for ip, nexthops in route_data['routes'].iteritems():
+        for ip, nexthops in list(route_data['routes'].items()):
             aspath = set()
             for nexthop in nexthops:
                 # if internal route with aspath as '' skip adding
@@ -158,8 +158,8 @@ def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None):
     bgpmon_routes = parse_exabgp_dump(ptfhost)
     rib_v4 = parse_rib(duthost, 4, asic_namespace=asic_namespace)
     rib_v6 = parse_rib(duthost, 6, asic_namespace=asic_namespace)
-    routes_dut = dict(rib_v4.items() + rib_v6.items())
-    return [route for route in routes_dut.keys() if route not in bgpmon_routes]
+    routes_dut = dict(list(rib_v4.items()) + list(rib_v6.items()))
+    return [route for route in list(routes_dut.keys()) if route not in bgpmon_routes]
 
 
 def remove_bgp_neighbors(duthost, asic_index):
@@ -230,9 +230,9 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
 
     upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
     downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
-    downstream_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith(downstream_type)])
+    downstream_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(downstream_type)])
     downstream = downstream_neighbors[0]
-    upstream_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith(upstream_type)])
+    upstream_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(upstream_type)])
     other_neighbors = downstream_neighbors[1:3]    # Only check a few neighbors to save time
     if upstream_neighbors:
         other_neighbors += upstream_neighbors[0:2]
@@ -243,7 +243,7 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     downstream_namespace = DEFAULT_NAMESPACE
-    for _, neigh in mg_facts['minigraph_neighbors'].items():
+    for _, neigh in list(mg_facts['minigraph_neighbors'].items()):
         if downstream == neigh['name'] and neigh['namespace']:
             downstream_namespace = neigh['namespace']
             break
@@ -277,7 +277,7 @@ def build_routes(tbinfo, prefix_list, expected_community):
     nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
     nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
     routes = []
-    for list_name, prefixes in prefix_list.items():
+    for list_name, prefixes in list(prefix_list.items()):
         logging.info('list_name: {}, prefixes: {}'.format(list_name, str(prefixes)))
         for prefix in prefixes:
             route = {}
@@ -304,7 +304,7 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
 
     # By default, EOS does not send community, this is to config EOS to send community
     cmds = []
-    for peer_ips in downstream_peers.values():
+    for peer_ips in list(downstream_peers.values()):
         for peer_ip in peer_ips:
             cmds.append('neighbor {} send-community'.format(peer_ip))
     nbrhosts[downstream]['host'].eos_config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
@@ -348,7 +348,7 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
     Verify if there are routes on neighbor who announce them.
     """
     downstream = setup_info['downstream']
-    for prefixes in PREFIX_LISTS.values():
+    for prefixes in list(PREFIX_LISTS.values()):
         for prefix in prefixes:
             downstream_route = nbrhosts[downstream]['host'].get_route(prefix)
             route_entries = downstream_route['vrfs']['default']['bgpRouteEntries']
@@ -356,12 +356,12 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
 
 
 def check_results(results):
-    pytest_assert(len(results.keys()) > 0, 'No result on neighbors')
+    pytest_assert(len(list(results.keys())) > 0, 'No result on neighbors')
     failed_results = {}
-    for node, node_prefix_results in results.items():
+    for node, node_prefix_results in list(results.items()):
         failed_results[node] = [r for r in node_prefix_results if r['failed']]
 
-    pytest_assert(all([len(r) == 0 for r in failed_results.values()]),
+    pytest_assert(all([len(r) == 0 for r in list(failed_results.values())]),
                   'Unexpected routes on neighbors, failed_results={}'.format(json.dumps(failed_results, indent=2)))
 
 
@@ -376,7 +376,7 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
         logging.info('Checking routes on {}'.format(node))
 
         prefix_results = []
-        for list_name, prefixes in PREFIX_LISTS.items():
+        for list_name, prefixes in list(PREFIX_LISTS.items()):
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
                 neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
@@ -429,7 +429,7 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
         logging.info('Checking routes on {}'.format(node))
 
         prefix_results = []
-        for list_name, prefixes in PREFIX_LISTS.items():
+        for list_name, prefixes in list(PREFIX_LISTS.items()):
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
                 neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']

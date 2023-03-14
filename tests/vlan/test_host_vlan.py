@@ -45,7 +45,7 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
     skip_release(duthost, ["201811", "201911"])
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    vlan_intf_name = mg_facts["minigraph_vlans"].keys()[0]
+    vlan_intf_name = list(mg_facts["minigraph_vlans"].keys())[0]
     vlan_member_ports = mg_facts["minigraph_vlans"][vlan_intf_name]["members"]
     vlan_member_ports_to_ptf_ports = {_: mg_facts["minigraph_ptf_indices"][_] for _ in vlan_member_ports}
     vlan_intf = [_ for _ in mg_facts["minigraph_vlan_interfaces"] if _["attachto"] == vlan_intf_name and is_ipv4_address(_["addr"])][0]
@@ -59,7 +59,7 @@ def verify_host_port_vlan_membership(duthosts, rand_one_dut_hostname, testbed_pa
     duthost = duthosts[rand_one_dut_hostname]
     bridge_vlan_show = duthost.shell("bridge vlan show vid %s" % vlan_id)["stdout"]
     bridge_vlan_host_ports = set([line.split()[0] for line in bridge_vlan_show.splitlines() if line])
-    for vlan_member_port in vlan_member_ports_to_ptf_ports.keys():
+    for vlan_member_port in list(vlan_member_ports_to_ptf_ports.keys()):
         if vlan_member_port not in bridge_vlan_host_ports:
             raise ValueError("Port %s not in host bridge VLAN %s" % (vlan_member_port, vlan_id))
 
@@ -112,7 +112,7 @@ def test_host_vlan_no_floodling(
     duthost = duthosts[rand_one_dut_hostname]
     vlan_intf, vlan_member_ports_to_ptf_ports = testbed_params
     vlan_intf_mac = duthost.get_dut_iface_mac(vlan_intf["attachto"])
-    selected_test_ports = random.sample(vlan_member_ports_to_ptf_ports, HOST_PORT_FLOODING_CHECK_COUNT + 1)
+    selected_test_ports = random.sample(list(vlan_member_ports_to_ptf_ports), HOST_PORT_FLOODING_CHECK_COUNT + 1)
     test_dut_port = selected_test_ports[0]
     test_ptf_port = vlan_member_ports_to_ptf_ports[test_dut_port]
     test_ptf_port_mac = ptfadapter.dataplane.get_mac(0, test_ptf_port)

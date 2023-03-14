@@ -458,7 +458,7 @@ def k8smasters(ansible_adhoc, request):
         pytest.skip("k8s inventory not found, skipping tests")
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
-        for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
+        for hostname, attributes in list(k8sinventory[k8s_master_ansible_group]['hosts'].items()):
             if 'haproxy' in attributes:
                 is_haproxy = True
             else:
@@ -494,7 +494,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
+    for k, v in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
         vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
         if neighbor_type == "eos":
             device = NeighborDevice(
@@ -549,17 +549,17 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
-    for dut_host, value in dev_conn.items():
+    for dut_host, value in list(dev_conn.items()):
         duthost = duthosts[dut_host]
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             continue  # skip for kvm platform which has no fanout
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        for dut_port in value.keys():
+        for dut_port in list(value.keys()):
             fanout_rec = value[dut_port]
             fanout_host = str(fanout_rec['peerdevice'])
             fanout_port = str(fanout_rec['peerport'])
 
-            if fanout_host in fanout_hosts.keys():
+            if fanout_host in list(fanout_hosts.keys()):
                 fanout = fanout_hosts[fanout_host]
             else:
                 host_vars = ansible_adhoc().options[
@@ -593,7 +593,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
 
                 if fanout.os == 'sonic':
                     ifs_status = fanout.host.get_interfaces_status()
-                    for key, interface_info in ifs_status.items():
+                    for key, interface_info in list(ifs_status.items()):
                         fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
                     logging.info("fanout {} fanout_port_alias_to_name {}"
                                  .format(fanout_host, fanout.fanout_port_alias_to_name))
@@ -609,7 +609,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                 # --------------------
                 # Ethernet108   Ethernet32
                 # Ethernet32    Ethernet13/1
-                if mapped_port not in value.keys():
+                if mapped_port not in list(value.keys()):
                     fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
 
             if dut_host not in fanout.dut_hostnames:
@@ -693,14 +693,14 @@ def creds_on_dut(duthost):
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
     # load creds for console
-    if "console_login" not in hostvars.keys():
+    if "console_login" not in list(hostvars.keys()):
         console_login_creds = {}
     else:
         console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    for k, v in console_login_creds.items():
+    for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
 
@@ -729,7 +729,7 @@ def pytest_runtest_makereport(item, call):
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
-    item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
+    item._report_sections = list([report for report in item._report_sections if report[1] not in ("stdout", "stderr")])
 
     # execute all other hooks to obtain the report object
     outcome = yield
@@ -865,7 +865,7 @@ def disable_container_autorestart():
         logging.info("Disable container autorestart")
         cmd_disable = "config feature autorestart {} disabled"
         cmds_disable = []
-        for name, state in container_autorestart_states.items():
+        for name, state in list(container_autorestart_states.items()):
             if state == "enabled" and (feature_list is None or name in feature_list):
                 cmds_disable.append(cmd_disable.format(name))
         # Write into config_db
@@ -897,7 +897,7 @@ def enable_container_autorestart():
         logging.info("Recover container autorestart")
         cmd_enable = "config feature autorestart {} enabled"
         cmds_enable = []
-        for name, state in container_autorestart_states.items():
+        for name, state in list(container_autorestart_states.items()):
             if state == "disabled" and (feature_list is None or name in feature_list) \
                     and name in stored_autorestart_states \
                     and stored_autorestart_states[name] == "enabled":
@@ -993,7 +993,7 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
                         .format(a_host))
 
     hosts_per_hwsku = []
-    for hosts in host_hwskus.values():
+    for hosts in list(host_hwskus.values()):
         if len(hosts) == 1:
             hosts_per_hwsku.append(hosts[0])
         else:
@@ -1035,7 +1035,7 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
                     if ASICS_PRESENT in inv_data:
                         dut_asic_params = inv_data[ASICS_PRESENT]
                     else:
-                        dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+                        dut_asic_params = list(range(int(inv_data[ASIC_PARAM_TYPE_ALL])))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
                 dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
             logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
@@ -1052,7 +1052,7 @@ def generate_params_dut_index(request):
     num_duts = len(get_specified_duts(request))
     logging.info("Using {} duts from testbed '{}'".format(num_duts, tbname))
 
-    return range(num_duts)
+    return list(range(num_duts))
 
 
 def generate_params_dut_hostname(request):
@@ -1119,11 +1119,11 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
         return empty
 
     dut_port_map = {}
-    for dut, val in dut_ports.items():
+    for dut, val in list(dut_ports.items()):
         dut_port_pairs = []
         if 'intf_status' not in val:
             continue
-        for intf, status in val['intf_status'].items():
+        for intf, status in list(val['intf_status'].items()):
             if scope in intf and (not state or status[state] == 'up'):
                 dut_port_pairs.append(encode_dut_port_name(dut, intf))
         dut_port_map[dut] = dut_port_pairs
@@ -1143,13 +1143,13 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
             return dut_ports[:pos_1] + dut_ports[-pos_2:]
 
         if completeness_level in ["debug"]:
-            for dut, dut_ports in dut_port_map.items():
+            for dut, dut_ports in list(dut_port_map.items()):
                 dut_port_map[dut] = trim_dut_port_lists(dut_ports, 1)
         elif completeness_level in ["basic", "confident"]:
-            for dut, dut_ports in dut_port_map.items():
+            for dut, dut_ports in list(dut_port_map.items()):
                 dut_port_map[dut] = trim_dut_port_lists(dut_ports, 4)
 
-    ret = sum(dut_port_map.values(), [])
+    ret = sum(list(dut_port_map.values()), [])
     logger.info("Generate port_list: {}".format(ret))
     return ret if ret else empty
 
@@ -1169,10 +1169,10 @@ def generate_dut_feature_container_list(request):
 
     container_list = []
 
-    for dut, val in meta.items():
+    for dut, val in list(meta.items()):
         if "features" not in val:
             continue
-        for feature in val["features"].keys():
+        for feature in list(val["features"].keys()):
             if "disabled" in val["features"][feature]:
                 continue
 
@@ -1208,14 +1208,14 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
             for a_asic in asics_selected[a_dut_index]:
                 # Create tuple of dut and asic index
                 if "features" in meta[a_dut]:
-                    for a_feature in meta[a_dut]["features"].keys():
+                    for a_feature in list(meta[a_dut]["features"].keys()):
                         if a_feature not in skip_feature_list:
                             tuple_list.append((a_dut, a_asic, a_feature))
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
             if "features" in meta[a_dut]:
-                for a_feature in meta[a_dut]["features"].keys():
+                for a_feature in list(meta[a_dut]["features"].keys()):
                     if a_feature not in skip_feature_list:
                         tuple_list.append((a_dut, None, a_feature))
             else:
@@ -1262,7 +1262,7 @@ def generate_priority_lists(request, prio_scope):
     dut_prio = info[tbname]
     ret = []
 
-    for dut, priorities in dut_prio.items():
+    for dut, priorities in list(dut_prio.items()):
         for p in priorities:
             ret.append('{}|{}'.format(dut, p))
 
@@ -1291,8 +1291,8 @@ def pfc_pause_delay_test_params(request):
     dut_pfc_delay_params = info[tbname]
     ret = []
 
-    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
-        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+    for dut, pfc_pause_delay_params in list(dut_pfc_delay_params.items()):
+        for pfc_delay, headroom_result in list(pfc_pause_delay_params.items()):
             ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
 
     return ret if ret else empty
@@ -1458,8 +1458,8 @@ def get_autoneg_tests_data():
 
     return [
         {'dutname': dutname, 'port': dutport, 'speeds': portinfo['common_port_speeds']}
-        for dutname, ports in data.items()
-        for dutport, portinfo in ports.items()
+        for dutname, ports in list(data.items())
+        for dutport, portinfo in list(ports.items())
     ]
 
 
@@ -1581,7 +1581,7 @@ def get_l2_info(dut):
     mgmt_intf_table = config_facts['MGMT_INTERFACE']
     metadata_table = config_facts['DEVICE_METADATA']['localhost']
     mgmt_ip = None
-    for ip in mgmt_intf_table['eth0'].keys():
+    for ip in list(mgmt_intf_table['eth0'].keys()):
         if type(ip_interface(ip)) is IPv4Interface:
             mgmt_ip = ip
     mgmt_gw = mgmt_intf_table['eth0'][mgmt_ip]['gwaddr']
@@ -1634,9 +1634,9 @@ def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):     
         # step 4
         if is_dualtor:
             mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-            all_ports = mg_facts['minigraph_ports'].keys()
+            all_ports = list(mg_facts['minigraph_ports'].keys())
             downlinks = []
-            for vlan_info in mg_facts['minigraph_vlans'].values():
+            for vlan_info in list(mg_facts['minigraph_vlans'].values()):
                 downlinks.extend(vlan_info['members'])
             uplinks = [intf for intf in all_ports if intf not in downlinks]
             extra_args = {
@@ -2012,7 +2012,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                 for key in common_config_keys:
                     # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
                     if key == "FLEX_COUNTER_TABLE":
-                        for sub_key, sub_value in pre_running_config[key].items():
+                        for sub_key, sub_value in list(pre_running_config[key].items()):
                             try:
                                 pre_value = pre_running_config[key][sub_key]
                                 cur_value = cur_running_config[key][sub_key]

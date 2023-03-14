@@ -107,15 +107,15 @@ def load_tunnel_qos_map():
         maps = json.load(f)
     # inner_dscp_to_pg map, a map for mapping dscp to priority group at decap side
     ret['inner_dscp_to_pg_map'] = {}
-    for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
+    for k, v in list(maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items()):
         ret['inner_dscp_to_pg_map'][int(k)] = int(maps['TC_TO_PRIORITY_GROUP_MAP'][TUNNEL_MAP_NAME][v])
     # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
     ret['inner_dscp_to_outer_dscp_map'] = {}
-    for k, v in maps['DSCP_TO_TC_MAP'][MAP_NAME].items():
+    for k, v in list(maps['DSCP_TO_TC_MAP'][MAP_NAME].items()):
         ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
     # inner_dscp_to_queue_map, a map for mapping the tunnel traffic to egress queue at decap side
     ret['inner_dscp_to_queue_map'] = {}
-    for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
+    for k, v in list(maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items()):
         ret['inner_dscp_to_queue_map'][int(k)] = int(maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
 
     return ret
@@ -203,7 +203,7 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
     dut_asic = None
     for asic in SUPPORTED_ASIC_LIST:
         vendor_asic = "{0}_{1}_hwskus".format(vendor, asic)
-        if vendor_asic in hostvars.keys() and mg_facts["minigraph_hwsku"] in hostvars[vendor_asic]:
+        if vendor_asic in list(hostvars.keys()) and mg_facts["minigraph_hwsku"] in hostvars[vendor_asic]:
             dut_asic = asic
             break
 
@@ -326,7 +326,7 @@ def toggle_mux_to_host(duthost):
     TIMEOUT = 90
     while TIMEOUT > 0:
         muxcables = json.loads(duthost.shell("show muxcable status --json")['stdout'])
-        inactive_muxcables = [intf for intf, muxcable in muxcables['MUX_CABLE'].items() if muxcable['STATUS'] != 'active']
+        inactive_muxcables = [intf for intf, muxcable in list(muxcables['MUX_CABLE'].items()) if muxcable['STATUS'] != 'active']
         if len(inactive_muxcables) > 0:
             logger.info('Found muxcables not active on {}: {}'.format(duthost.hostname, json.dumps(inactive_muxcables)))
             time.sleep(10)
@@ -340,7 +340,7 @@ def toggle_mux_to_host(duthost):
 
 def leaf_fanout_peer_info(duthost, conn_graph_facts, mg_facts, port_idx):
     dut_intf_paused = ""
-    for port, indice in mg_facts['minigraph_ptf_indices'].items():
+    for port, indice in list(mg_facts['minigraph_ptf_indices'].items()):
         if indice == port_idx:
             dut_intf_paused = port
             break
@@ -388,7 +388,7 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
                           "--platform",
                           "remote",
                           "-t",
-                          ";".join(["{}={}".format(k, repr(v)) for k, v in test_params.items()]),
+                          ";".join(["{}={}".format(k, repr(v)) for k, v in list(test_params.items())]),
                           "--disable-ipv6",
                           "--disable-vxlan",
                           "--disable-geneve",

@@ -9,5 +9,5 @@ def get_sai_attributes(duthost, ptfhost, dut_port, sai_values, clear_only=False)
     if result['rc']:
         raise RuntimeError("Ptf runner is failing. Pls check if the DUT is running syncd-rpc image. (check netstat -an | grep 9092) :{}".format(result))
     else:
-        print ("Got the values: {}".format(result['stdout_lines']))
+        print(("Got the values: {}".format(result['stdout_lines'])))
         return result['stdout_lines']

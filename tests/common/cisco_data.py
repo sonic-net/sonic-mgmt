@@ -61,7 +61,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
         json_contents = json.load(fd)
     reboot_required = False
     for device in json_contents['devices']:
-        for k,v in kwargs.iteritems():
+        for k,v in list(kwargs.items()):
             if device['device_property'][k] != v:
                 reboot_required = True
                 device['device_property'][k] = v

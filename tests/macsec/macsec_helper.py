@@ -15,8 +15,8 @@ import ptf.testutils as testutils
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
-from macsec_common_helper import convert_on_off_to_boolean
-from macsec_platform_helper import sonic_db_cli
+from .macsec_common_helper import convert_on_off_to_boolean
+from .macsec_platform_helper import sonic_db_cli
 from tests.common.devices.eos import EosHost
 
 __all__ = [
@@ -166,7 +166,7 @@ def __check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, po
     assert int(nbr_egress_sc_table["encoding_an"]) in nbr_egress_sa_table
     for egress_sas, ingress_sas in \
             ((dut_egress_sa_table, nbr_ingress_sa_table), (nbr_egress_sa_table, dut_ingress_sa_table)):
-        for an, sa in egress_sas.items():
+        for an, sa in list(egress_sas.items()):
             assert an in ingress_sas
             assert sa["sak"] == ingress_sas[an]["sak"]
             assert sa["auth_key"] == ingress_sas[an]["auth_key"]
@@ -175,7 +175,7 @@ def __check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, po
 
 def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
     logger.info("Check appl_db start")
-    for port_name, nbr in ctrl_links.items():
+    for port_name, nbr in list(ctrl_links.items()):
         if isinstance(nbr["host"], EosHost):
             continue
         submit_async_task(__check_appl_db, (duthost, port_name, nbr["host"],
@@ -370,7 +370,7 @@ def check_macsec_pkt(test, ptf_port_id, exp_pkt, timeout=3):
 
 
 def find_portname_from_ptf_id(mg_facts, ptf_id):
-    for k, v in mg_facts["minigraph_ptf_indices"].items():
+    for k, v in list(mg_facts["minigraph_ptf_indices"].items()):
         if ptf_id == v:
             return k
     return None
@@ -441,7 +441,7 @@ def get_macsec_counters(sonic_asic, namespace, name):
         ]
     cmd = "python -c '{}'".format(';'.join(lines))
     output = sonic_asic.sonichost.command(cmd)["stdout_lines"][0]
-    return {k:int(v) for k,v in ast.literal_eval(output).items()}
+    return {k:int(v) for k,v in list(ast.literal_eval(output).items())}
 
 
 __origin_dp_poll = testutils.dp_poll

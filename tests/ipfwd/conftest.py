@@ -20,7 +20,7 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_r
     # minigraph facts
     selected_lag_facts = {}
     up_lag = None
-    for a_lag_name, a_lag_data in lag_facts['lags'].items():
+    for a_lag_name, a_lag_data in list(lag_facts['lags'].items()):
         if a_lag_data['po_intf_stat'] == 'Up' and a_lag_name not in ignore_lags:
             if enum_rand_one_frontend_asic_index is not None and \
                     int(lag_facts['lags'][a_lag_name]['po_namespace_id']) != enum_rand_one_frontend_asic_index:
@@ -33,7 +33,7 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_r
                 if dut.is_backend_portchannel(intf['attachto'], mg_facts):
                     continue 
                 if intf['attachto'] == up_lag:
-                    addr = ip_address(unicode(intf['addr']))
+                    addr = ip_address(str(intf['addr']))
                     selected_lag_facts[key + '_router_intf_name'] = intf['attachto']
                     if addr.version == 4:
                         selected_lag_facts[key + '_router_ipv4'] = intf['addr']
@@ -60,7 +60,7 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, en
 
     selected_port_facts = {}
     up_port = None
-    for a_intf_name, a_intf_data in port_status['int_status'].items():
+    for a_intf_name, a_intf_data in list(port_status['int_status'].items()):
         if dut.is_backend_port(a_intf_name, mg_facts):
             continue
         if a_intf_data['oper_state'] == 'up' and a_intf_name not in ignore_intfs:
@@ -77,7 +77,7 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, en
                     up_port = a_intf_name
                     selected_port_facts[key + '_port_ids'] = [mg_facts['minigraph_ptf_indices'][a_intf_name]]
                     selected_port_facts[key + '_router_mac'] = dut.asic_instance(enum_rand_one_frontend_asic_index).get_router_mac()
-                    addr = ip_address(unicode(intf['addr']))
+                    addr = ip_address(str(intf['addr']))
                     selected_port_facts[key + '_router_intf_name'] = intf['attachto']
                     if addr.version == 4:
                         selected_port_facts[key + '_router_ipv4'] = intf['addr']

@@ -190,7 +190,7 @@ def remove_neighbors(dut, neighbors, interface):
     """
     logger.info('Removing neighbors...')
     cmds = []
-    for neighbor in neighbors.keys():
+    for neighbor in list(neighbors.keys()):
         cmds.append('ip -4 neigh del {} dev {}'.format(neighbor, interface))
     dut.shell_cmds(cmds=cmds)
     wait(2, 'for CRMs to be updated')
@@ -207,7 +207,7 @@ def add_neighbors(dut, neighbors, interface):
     """
     logger.info('Adding neighbors...')
     cmds = []
-    for ip, mac in neighbors.items():
+    for ip, mac in list(neighbors.items()):
         cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, interface))
     dut.shell_cmds(cmds=cmds)
     wait(2, 'for CRMs to be updated')
@@ -224,7 +224,7 @@ def test_flap_neighbor_entry_active(
 
     dut = rand_selected_dut
 
-    vlan_interface_name = dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys()[0]
+    vlan_interface_name = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
     # Apply mux active state
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
@@ -258,7 +258,7 @@ def test_flap_neighbor_entry_standby(
 
     dut = rand_selected_dut
 
-    vlan_interface_name = dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys()[0]
+    vlan_interface_name = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
     # Apply mux standby state
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_STANDBY_CONFIG_FILE))

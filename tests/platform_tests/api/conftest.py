@@ -1,6 +1,6 @@
 import os
 import pytest
-import httplib
+import http.client
 
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
@@ -89,7 +89,7 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_ip = duthost.mgmt_ip
 
-    conn = httplib.HTTPConnection(dut_ip, SERVER_PORT)
+    conn = http.client.HTTPConnection(dut_ip, SERVER_PORT)
     try:
         yield conn
     finally:

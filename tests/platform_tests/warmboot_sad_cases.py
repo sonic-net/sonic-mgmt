@@ -19,7 +19,7 @@ SAD_CASE_LIST = [
 
 def get_sad_case_list(duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    lagMemberCnt = len(mg_facts['minigraph_portchannels'].values()[0]['members'])
+    lagMemberCnt = len(list(mg_facts['minigraph_portchannels'].values())[0]['members'])
 
     sad_preboot_cases = {
         "sad": [

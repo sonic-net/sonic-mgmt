@@ -8,8 +8,8 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
 from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
-from files.pfcwd_basic_helper import run_pfcwd_basic_test
-from files.helper import skip_pfcwd_test
+from .files.pfcwd_basic_helper import run_pfcwd_basic_test
+from .files.helper import skip_pfcwd_test
 from tests.snappi.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)

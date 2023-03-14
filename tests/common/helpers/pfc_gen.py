@@ -151,7 +151,7 @@ def main():
                 packet = packet + b"\x00\x00"
 
     pre_str = 'GLOBAL_PF' if options.global_pf else 'PFC'
-    print("Generating %s Packet(s)" % options.num)
+    print(("Generating %s Packet(s)" % options.num))
     logger.debug(pre_str + '_STORM_START')
     iteration = options.num
     while iteration > 0:

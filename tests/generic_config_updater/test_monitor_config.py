@@ -25,7 +25,7 @@ def get_valid_acl_ports(cfg_facts):
     portchannel_members = set()
 
     portchannel_member_dict = cfg_facts.get('PORTCHANNEL_MEMBER', {})
-    for po, po_members in portchannel_member_dict.items():
+    for po, po_members in list(portchannel_member_dict.items()):
         ports.add(po)
         for po_member in po_members:
             portchannel_members.add(po_member)

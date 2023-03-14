@@ -220,7 +220,7 @@ def test_po_update_io_no_loss(
     # all ports in out_pc will be output/forward ports
     pc, pc_members = out_pc[2], out_pc[3]
     in_ptf_index = dut_mg_facts["minigraph_ptf_indices"][in_pc[3][0]]
-    out_ptf_indices = map(lambda port: mg_facts["minigraph_ptf_indices"][port], out_pc[3])
+    out_ptf_indices = [mg_facts["minigraph_ptf_indices"][port] for port in out_pc[3]]
     logging.info(
         "selected_pcs is: %s, in_ptf_index is %s, out_ptf_indices is %s" % (
             selected_pcs, in_ptf_index, out_ptf_indices))
@@ -284,10 +284,10 @@ def test_po_update_io_no_loss(
         exp_pkt = pkt.copy()
         exp_pkt = mask.Mask(exp_pkt)
 
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
-        exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
-        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_packet(packet.IP, 'chksum')
+        exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
 
         ptfadapter.dataplane.flush()
         member_update_finished_flag = Queue(1)

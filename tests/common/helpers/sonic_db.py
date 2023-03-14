@@ -328,7 +328,7 @@ class AsicDbCli(SonicDbCli):
         hostif_table = self.get_hostif_table(refresh)
 
         return_list = []
-        for hostif_key in hostif_table.keys():
+        for hostif_key in list(hostif_table.keys()):
             hostif_portid = hostif_table[hostif_key]['value']['SAI_HOSTIF_ATTR_OBJ_ID']
             return_list.append(hostif_portid)
         self.hostif_portidlist = return_list

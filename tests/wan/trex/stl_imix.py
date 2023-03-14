@@ -54,9 +54,9 @@ def imix_test(server, mult):
         dir_1_ipackets = sum([stats[i]["ipackets"] for i in dir_1])
         lost_0 = dir_0_opackets - dir_1_ipackets
 
-        print("opackets:{0}".format(dir_0_opackets))
-        print("ipackets:{0}".format(dir_1_ipackets))
-        print("lost:{0}".format(lost_0))
+        print(("opackets:{0}".format(dir_0_opackets)))
+        print(("ipackets:{0}".format(dir_1_ipackets)))
+        print(("lost:{0}".format(lost_0)))
     except STLErro:
         sys.exit(1)
 
