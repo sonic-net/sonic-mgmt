@@ -1,0 +1,52 @@
+{
+    "CONSOLE_PORT": {
+{% for line, peer_info in device_console_link[inventory_hostname].iteritems() %}
+{% if line != "ConsolePort" %}
+        "{{ line }}": {
+            "baud_rate": "{{ peer_info["baud_rate"] }}",
+            "flow_control": "0",
+            "remote_device": "{{ peer_info["peerdevice"] }}"
+        }{% if not loop.last %},{% endif %}
+
+{% endif %}
+{% endfor %}
+    },
+    "CONSOLE_SWITCH": {
+        "console_mgmt": {
+            "enabled": "yes"
+        }
+    },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "hostname": "{{ inventory_hostname }}"
+        }
+    },
+{% if HwSku == "Nokia-7215" %}
+    "INTERFACE": {
+        "Ethernet47": {},
+        "Ethernet47|{{ device_info[inventory_hostname]["ManagementIp"] }}": {
+            "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
+        }
+    },
+{% elif HwSku == "Celestica-E1031-T48S4" %}
+    "MGMT_INTERFACE": {
+        "eth0|{{ device_info[inventory_hostname]["ManagementIp"] }}": {
+            "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
+        }
+    },
+    "MGMT_PORT": {
+        "eth0": {
+            "admin_status": "up",
+            "alias": "eth0"
+        }
+    },
+{% endif %}
+    "PORT": {
+{% for n in range(52) %}
+        "Ethernet{{ n }}": {
+            "admin_status": "up"
+        }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+    }
+}
