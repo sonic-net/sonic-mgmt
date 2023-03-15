@@ -7,3 +7,4 @@ pdu-1,192.168.9.2,Apc,Pdu,snmp
 pdu-2,192.168.9.3,Sentry,Pdu,snmp
 console-1,192.168.10.1/23,Cisco,ConsoleServer,ssh
 console-2,192.168.10.2/23,Sonic,ConsoleServer,ssh
+management-1,192.168.10.3/23,Sonic,MgmtTsToRRouter,

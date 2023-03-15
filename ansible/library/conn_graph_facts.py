@@ -64,6 +64,8 @@ Ansible_facts:
     server_links: each server port vlan ids
     device_console_info: The device's console server type, mgmtip, hwsku and protocol
     device_console_link:  The console server port connected to the device
+    device_bmc_info: The device's bmc server type, mgmtip, hwsku and protocol
+    device_bmc_link:  The bmc server port connected to the device
     device_pdu_info: The device's pdu server type, mgmtip, hwsku and protocol
     device_pdu_links: The pdu server ports connected to the device
 
@@ -126,12 +128,13 @@ class Parse_Lab_Graph():
         self.vlanrange = {}
         self.links = {}
         self.consolelinks = {}
+        self.bmclinks = {}
         self.pdulinks = {}
         self.server = defaultdict(dict)
         self.pngtag = 'PhysicalNetworkGraphDeclaration'
         self.dpgtag = 'DataPlaneGraph'
         self.pcgtag = 'PowerControlGraphDeclaration'
-        self.csgtag = 'ConsoleGraphDeclaration'
+        self.mgtag = 'ManagementGraphDeclaration'
 
     def port_vlanlist(self, vlanrange):
         vlans = []
@@ -207,12 +210,12 @@ class Parse_Lab_Graph():
                     self.links[start_dev][link.attrib['StartPort']] = {'peerdevice':link.attrib['EndDevice'], 'peerport': link.attrib['EndPort'], 'speed': link.attrib['BandWidth']}
                 if end_dev:
                     self.links[end_dev][link.attrib['EndPort']] = {'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort'], 'speed': link.attrib['BandWidth']}
-        console_root = self.root.find(self.csgtag)
-        if console_root:
-            devicecsgroot = console_root.find('DevicesConsoleInfo')
-            devicescsg = devicecsgroot.findall('DeviceConsoleInfo')
-            if devicescsg is not None:
-                for dev in devicescsg:
+        management_root = self.root.find(self.mgtag)
+        if management_root:
+            devicemgroot = management_root.find('DevicesManagementInfo')
+            devicesmg = devicemgroot.findall('DeviceManagementInfo')
+            if devicesmg is not None:
+                for dev in devicesmg:
                     hostname = dev.attrib['Hostname']
                     if hostname is not None:
                         deviceinfo[hostname] = {}
@@ -227,7 +230,7 @@ class Parse_Lab_Graph():
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
                         deviceinfo[hostname]['ManagementGw'] = management_gw
                         self.consolelinks[hostname] = {}
-            console_link_root = console_root.find('ConsoleLinksInfo')
+            console_link_root = management_root.find('ConsoleLinksInfo')
             if console_link_root:
                 allconsolelinks = console_link_root.findall('ConsoleLinkInfo')
                 if allconsolelinks is not None:
@@ -260,6 +263,33 @@ class Parse_Lab_Graph():
                                 'proxy':console_proxy,
                                 'type':console_type,
                                 'baud_rate': baud_rate
+                            }
+            bmc_link_root = management_root.find('BmcLinksInfo')
+            if bmc_link_root:
+                allbmclinks = bmc_link_root.findall('BmcLinkInfo')
+                if allbmclinks is not None:
+                    for bmclink in allbmclinks:
+                        attributes = bmclink.attrib
+                        start_dev = attributes.get('StartDevice')
+                        start_port = attributes.get('StartPort')
+                        end_dev = attributes.get('EndDevice')
+                        end_port = attributes.get('EndPort')
+                        bmc_ip = attributes.get("BmcIp")
+                        if start_dev:
+                            if start_dev not in self.bmclinks:
+                                self.bmclinks.update({start_dev : {}})
+                            self.bmclinks[start_dev][start_port] = {
+                                'peerdevice': end_dev,
+                                'peerport': end_port,
+                                'bmc_ip': bmc_ip
+                            }
+                        if end_dev:
+                            if end_dev not in self.bmclinks:
+                                self.bmclinks.update({end_dev : {}})
+                            self.bmclinks[end_dev][end_port] = {
+                                'peerdevice': start_dev,
+                                'peerport': start_port,
+                                'bmc_ip': bmc_ip
                             }
 
         pdu_root = self.root.find(self.pcgtag)
@@ -371,7 +401,7 @@ class Parse_Lab_Graph():
                 count += 1
         return hostnames and (count * 1.0 / len(hostnames) >= THRESHOLD)
 
-
+    # get the console of a device, if it exists, host is being managed by the returned device
     def get_host_console_info(self, hostname):
         """
         return  the given hostname console info of mgmtip, protocol, hwsku and type
@@ -390,12 +420,43 @@ class Parse_Lab_Graph():
             """
             return {}
 
+    # return the list of devices that is managed by host through console
     def get_host_console_link(self, hostname):
         """
         return  the given hostname console link info of console server and port
         """
         if hostname in self.consolelinks:
             return  self.consolelinks[hostname]
+        else:
+            # Please be noted that an empty dict is returned when hostname is not found
+            return {}
+
+    # get the bmc of a device, if it exists, host is being managed by the returned device
+    def get_host_bmc_info(self, hostname):
+        """
+        return  the given hostname bmc info of mgmtip, protocol, hwsku and type
+        """
+        if hostname in self.devices:
+            try:
+                # currently we only support end port iDRAC
+                ret = self.devices[self.bmclinks[hostname]['iDRAC']['peerdevice']]
+            except KeyError:
+                ret = {}
+            return ret
+        else:
+            """
+            Please be noted that an empty dict is returned when hostname is not found
+            The behavior is different with get_host_vlan.
+            """
+            return {}
+
+    # return the list of devices that is managed by host through bmc
+    def get_host_bmc_link(self, hostname):
+        """
+        return  the given hostname bmc link info of management server and port
+        """
+        if hostname in self.bmclinks:
+            return  self.bmclinks[hostname]
         else:
             # Please be noted that an empty dict is returned when hostname is not found
             return {}
@@ -490,6 +551,8 @@ def build_results(lab_graph, hostnames, ignore_error=False):
     device_vlan_map_list = {}
     device_console_info = {}
     device_console_link = {}
+    device_bmc_info = {}
+    device_bmc_link = {}
     device_pdu_info = {}
     device_pdu_links = {}
     msg = {}
@@ -532,6 +595,8 @@ def build_results(lab_graph, hostnames, ignore_error=False):
         device_port_vlans[hostname] = port_vlans
         device_console_info[hostname] = lab_graph.get_host_console_info(hostname)
         device_console_link[hostname] = lab_graph.get_host_console_link(hostname)
+        device_bmc_info[hostname] = lab_graph.get_host_bmc_info(hostname)
+        device_bmc_link[hostname] = lab_graph.get_host_bmc_link(hostname)
         device_pdu_info[hostname] = lab_graph.get_host_pdu_info(hostname)
         device_pdu_links[hostname] = lab_graph.get_host_pdu_links(hostname)
     results = {k: v for k, v in locals().items()
