@@ -740,6 +740,9 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         return
 
     eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
+    if eth_cfg == {}:
+        pytest.skip("Can't run this test without any IP interfaces on ethernet ports")
+
     eth_ports = [intf for intf in eth_cfg if "ethernet" in intf.lower() and eth_cfg[intf] != {}]
     local_port = random.choice(eth_ports)
 
@@ -1154,6 +1157,9 @@ class TestGratArp(object):
             return
 
         eth_cfg = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
+        if eth_cfg == {}:
+            pytest.skip("Can't run this test without any IP interfaces on ethernet ports")
+
         eth_ports = [intf for intf in eth_cfg if "ethernet" in intf.lower() and eth_cfg[intf] != {}]
         local_port = random.choice(eth_ports)
 
@@ -1216,4 +1222,3 @@ class TestGratArp(object):
                               "MAC {} didn't change in ARP table".format(original_mac))
 
             check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
-
