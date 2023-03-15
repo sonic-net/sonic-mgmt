@@ -103,7 +103,7 @@ def get_skip_mod_list(duthost, mod_key=None):
 def get_skip_logical_module_list(duthost, mod_key=None):
     """
     @summary: utility function returns list of modules / peripherals physicsally in chassis
-    But logically noit part of the corresponding logical chassis
+    But logically not part of the corresponding logical chassis
     by default if no keyword passed it will return all from inventory file
     provides a list under skip_logical_modules: in inventory file for each dut
     returns a empty list if skip_logical_modules not defined under host in inventory
@@ -130,3 +130,4 @@ def get_skip_logical_module_list(duthost, mod_key=None):
                     for mod_id in dut_vars['skip_logical_modules'][mod_type]:
                         skip_logical_mod_list.append(mod_id)
     return skip_logical_mod_list
+
