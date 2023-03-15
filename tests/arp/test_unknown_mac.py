@@ -66,7 +66,7 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     server_ips = []
     if 'dualtor' in tbinfo['topo']['name']:
         servers = mux_cable_server_ip(duthost)
-        for ips in list(servers.values()):
+        for ips in servers.values():
             server_ips.append(ips['server_ipv4'].split('/')[0])
 
     # populate vlan info
@@ -76,13 +76,13 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     vlan['ips'] = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan['addr'], vlan['pfx']),
                                           exclude_ips=[vlan['addr']] + server_ips)['ansible_facts']['generated_ips']
     vlan['hostip'] = vlan['ips'][0].split('/')[0]
-    vlan['ports'] = list(mg_facts["minigraph_vlans"].values())[0]["members"]
+    vlan['ports'] = mg_facts["minigraph_vlans"].values()[0]["members"]
     # populate dst intf and ptf id
     ptf_portmap = mg_facts['minigraph_ptf_indices']
     dst_port = random.choice(vlan['ports'])
     if is_backend_topology:
         ptf_dst_port = str(ptf_portmap[dst_port]) + constants.VLAN_SUB_INTERFACE_SEPARATOR + \
-                       list(mg_facts["minigraph_vlans"].values())[0]["vlanid"]
+                       mg_facts["minigraph_vlans"].values()[0]["vlanid"]
     else:
         ptf_dst_port = ptf_portmap[dst_port]
     ptf_vlan_ports = [ptf_portmap[ifname] for ifname in vlan['ports']]
@@ -313,7 +313,7 @@ class TrafficSendVerify(object):
             pretest(bool): collect counters before or after the test run
         """
         stats = self._parseCntrs()
-        for key, value in list(self.pkt_map.items()):
+        for key, value in self.pkt_map.items():
             intf = value[1]
             if pretest:
                 self.pre_rx_drops[intf] = int(stats[intf]['RX_DRP'])

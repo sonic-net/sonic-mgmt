@@ -47,7 +47,7 @@ def setup_mux(
 
     def _check_active_active_mux_status_from_dut(duthost, forwarding_state):
         all_mux_status = json.loads(duthost.shell("show mux status --json")["stdout"])["MUX_CABLE"]
-        mux_status = {port: status for port, status in list(all_mux_status.items()) if port in active_active_ports}
+        mux_status = {port: status for port, status in all_mux_status.items() if port in active_active_ports}
         target_status = "active" if forwarding_state else "standby"
         for port in mux_status:
             status = mux_status[port]["STATUS"].lower()

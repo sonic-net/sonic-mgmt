@@ -68,9 +68,9 @@ def fixture_setup_neighbors(setUp, encap_type, minigraph_facts):
         'v6': ipaddress.IPv6Address
     }
     intf = None
-    for addr in list(t2_neighbors.keys()):
+    for addr in t2_neighbors.keys():
         if isinstance(ipaddress.ip_address(addr), IP_TYPE[a_family]):
-            intf = list(t2_neighbors[addr].keys())[0]
+            intf = t2_neighbors[addr].keys()[0]
             break
     if not intf:
         raise RuntimeError(
@@ -147,12 +147,12 @@ class Test_VxLAN_Crm(Test_VxLAN):
         number_of_routes_configured = 0
         set_of_unique_endpoints = set()
 
-        for vnet in list(self.setup[encap_type]['dest_to_nh_map'].keys()):
+        for vnet in self.setup[encap_type]['dest_to_nh_map'].keys():
             number_of_routes_configured += \
-                len(list(self.setup[encap_type]['dest_to_nh_map'][vnet].keys()))
+                len(self.setup[encap_type]['dest_to_nh_map'][vnet].keys())
 
             dest_to_nh_map = self.setup[encap_type]['dest_to_nh_map'][vnet]
-            for _, nexthops in list(dest_to_nh_map.items()):
+            for _, nexthops in dest_to_nh_map.items():
                 set_of_unique_endpoints = \
                     set_of_unique_endpoints | set(nexthops)
 
@@ -173,11 +173,11 @@ class Test_VxLAN_Crm(Test_VxLAN):
         #  = number of unique-looking list of nexthops.
         # if destA:[nhA,nhB], and destB:[nhB,nhA], we have 1 nexthop group.
         list_of_nexthop_groups = set()
-        for vnet in list(self.setup[encap_type]['dest_to_nh_map'].keys()):
+        for vnet in self.setup[encap_type]['dest_to_nh_map'].keys():
             dest_to_nh_map = self.setup[encap_type]['dest_to_nh_map'][vnet]
             list_of_nexthop_groups = list_of_nexthop_groups | \
                 set(tuple(i) for i in unique_in_list(
-                    sort_and_deduplicate(list(dest_to_nh_map.values()))))
+                    sort_and_deduplicate(dest_to_nh_map.values())))
 
         number_of_nh_groups = 0
         number_of_nh_group_members = 0

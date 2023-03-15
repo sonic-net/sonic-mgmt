@@ -126,8 +126,8 @@ def test_portstat_display_all(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     pytest_assert(base_portstat and all_portstats, 'No parsed command output')
 
     logger.info('Verify the all number of columns is greater than the base number of columns')
-    for intf in list(all_portstats.keys()):
-        pytest_assert(len(list(all_portstats[intf].keys())) > len(list(base_portstat[intf].keys())))
+    for intf in all_portstats.keys():
+        pytest_assert(len(all_portstats[intf].keys()) > len(base_portstat[intf].keys()))
 
 
 @pytest.mark.parametrize('command', ['portstat -p 1', 'portstat --period 1'])

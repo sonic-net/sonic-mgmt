@@ -5,10 +5,10 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 
 from tests.common.helpers.sonic_db import AsicDbCli, VoqDbCli
-from .voq_helpers import check_voq_remote_neighbor, get_sonic_mac
-from .voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
-from .voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
-from .voq_helpers import dump_and_verify_neighbors_on_asic
+from voq_helpers import check_voq_remote_neighbor, get_sonic_mac
+from voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
+from voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
+from voq_helpers import dump_and_verify_neighbors_on_asic
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +63,12 @@ def test_voq_system_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
     dev_ports = get_device_system_ports(cfg_facts)
     asicdb = AsicDbCli(asic)
     sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
-    keylist = list(sys_port_table.keys())
-    pytest_assert(len(keylist) == len(list(dev_ports.keys())),
+    keylist = sys_port_table.keys()
+    pytest_assert(len(keylist) == len(dev_ports.keys()),
                   "Found %d system port keys, %d entries in cfg_facts, not matching" % (
-                      len(keylist), len(list(dev_ports.keys()))))
+                      len(keylist), len(dev_ports.keys())))
     logger.info("Found %d system port keys, %d entries in cfg_facts, checking each.",
-                len(keylist), len(list(dev_ports.keys())))
+                len(keylist), len(dev_ports.keys()))
     for portkey in keylist:
         try:
             port_config_info = sys_port_table[portkey]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
@@ -116,10 +116,10 @@ def test_voq_local_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_i
     asicdb = AsicDbCli(asic)
     hostif_table = asicdb.get_hostif_table(refresh=True)
 
-    keylist = list(hostif_table.keys())
-    pytest_assert(len(keylist) == len(list(dev_ports.keys())),
-                  "Found %d hostif keys, %d entries in cfg_facts" % (len(keylist), len(list(dev_ports.keys()))))
-    logger.info("Found %s ports to check on host:%s, asic: %s.", len(list(dev_ports.keys())), per_host.hostname,
+    keylist = hostif_table.keys()
+    pytest_assert(len(keylist) == len(dev_ports.keys()),
+                  "Found %d hostif keys, %d entries in cfg_facts" % (len(keylist), len(dev_ports.keys())))
+    logger.info("Found %s ports to check on host:%s, asic: %s.", len(dev_ports.keys()), per_host.hostname,
                 asic.asic_index)
 
     show_intf = asic.show_interface(command="status", include_internal_intfs=True)['ansible_facts']
@@ -192,7 +192,7 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
     # asicdb_intf_key_list = asicdb.get_router_if_list()
     # Check each rif in the asicdb, if it is local port, check VOQ DB for correct RIF.
     # If it is on system port, verify slot/asic/port and OID match a RIF in VoQDB
-    for rif in list(asicdb_rif_table.keys()):
+    for rif in asicdb_rif_table.keys():
         rif_type = asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_TYPE"]
         if rif_type != "SAI_ROUTER_INTERFACE_TYPE_PORT":
             logger.info("Skip this rif: %s, it is not on a port: %s", rif, rif_type)
@@ -266,7 +266,7 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
             logger.info("RIF: %s is on system LAG: %s", rif, lagid)
 
 
-            for lag, sysid in list(systemlagtable['SYSTEM_LAG_ID_TABLE']['value'].items()):
+            for lag, sysid in systemlagtable['SYSTEM_LAG_ID_TABLE']['value'].iteritems():
                 if sysid == lagid:
                     logger.info("System LAG ID %s is portchannel: %s", lagid, lag)
                     break
@@ -288,7 +288,7 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
         if rif not in rif_ports_in_asicdb:
             raise AssertionError("Interface %s is in configdb.json but not in asicdb" % rif)
 
-    logger.info("Interfaces %s are present in configdb.json and asicdb" % str(list(dev_intfs.keys())))
+    logger.info("Interfaces %s are present in configdb.json and asicdb" % str(dev_intfs.keys()))
 
 
 def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, all_cfg_facts):

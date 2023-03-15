@@ -27,5 +27,5 @@ try:
         else:
             break
 except Exception as e:
-    print(("scp potentially failed with message: " + str(e)))
+    print("scp potentially failed with message: " + str(e))
 

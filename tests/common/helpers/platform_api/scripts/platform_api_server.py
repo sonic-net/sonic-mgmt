@@ -9,7 +9,7 @@ import syslog
 if sys.version_info.major == 3:
     from http.server import HTTPServer, BaseHTTPRequestHandler
 else:
-    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 
 import sonic_platform
 
@@ -95,9 +95,6 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
         except NotImplementedError:
             syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
 
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
         self.wfile.write(json.dumps({'res': res}, default=obj_serialize).encode('utf-8'))
 
 

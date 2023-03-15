@@ -41,7 +41,7 @@ def setup(duthost, tbinfo, ptfadapter):
 
     ip_ifaces=duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
 
-    for k,v in list(ip_ifaces[0].items()):
+    for k,v in ip_ifaces[0].items():
         all_ifs.append(k)
         logger.info(ip_ifaces[0][k])
         if 'T0' in v['bgp_neighbor']:

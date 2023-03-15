@@ -222,7 +222,7 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
     # For the parameter of Length, there are many different value for different cable,
     # So here we just check if there is a key including the prefix of Length
     is_length_key_exist = False
-    for key in list(sfp_eeprom_info.keys()):
+    for key in sfp_eeprom_info.keys():
         if key.startswith("Length"):
             is_length_key_exist = True
             break
@@ -284,7 +284,7 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
                                                       sfp_eeprom_info["ModuleThresholdValues"])
 
             logging.info("Check if ChannelMonitorValues's value format is correct")
-            for k, v in list(sfp_eeprom_info["ChannelMonitorValues"].items()):
+            for k, v in sfp_eeprom_info["ChannelMonitorValues"].items():
                 pattern = pattern_power if "Power" in k else pattern_bias
                 assert re.match(pattern, v), "Value of {}:{} format is not correct. pattern is {}".format(k, v, pattern)
 
@@ -294,7 +294,7 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
 
 
 def check_dom_monitor_key_and_data_format(expected_keys_and_pattern_dict, dom_monitor_data):
-    for key, pattern in list(expected_keys_and_pattern_dict.items()):
+    for key, pattern in expected_keys_and_pattern_dict.items():
         assert key in dom_monitor_data, "Key {} doesn't exist in {}".format(key, dom_monitor_data)
         assert re.match(pattern, dom_monitor_data[key]), \
             "Value of {}:{} format is not correct. pattern is {}".format(
@@ -317,7 +317,7 @@ def is_support_dom(duthost, port_index, pic_cr0_path):
         bulk_status_str = get_transceiver_bulk_status(duthost, port_index)
         bulk_status_str = bulk_status_str.replace('-inf', '\'-inf\'')
         bulk_status_dict = ast.literal_eval(bulk_status_str)
-        for k, v in list(bulk_status_dict.items()):
+        for k, v in bulk_status_dict.items():
             if "power" in k or "bias" in k or "temperature" in k or "voltage" in k:
                 if v not in ['N/A', '0.0', 0.0, '0.0000mA', '-inf']:
                     logging.info("Port {} support dom".format(port_index))

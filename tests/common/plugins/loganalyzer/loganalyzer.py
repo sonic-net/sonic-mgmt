@@ -160,7 +160,7 @@ class LogAnalyzer:
         expect_dic = result['expect_messages']
         unused_list = result['unused_expected_regexp']
 
-        for msg_type, counter in list(total_dic.items()):
+        for msg_type, counter in total_dic.items():
             result_str += msg_type + ": " + str(counter) + "\n"
 
         if any(msg_dic.values()):
@@ -359,7 +359,7 @@ class LogAnalyzer:
         expected_lines_total = []
         unused_regex_messages = []
 
-        for key, value in list(analyzer_parse_result.items()):
+        for key, value in analyzer_parse_result.items():
             matching_lines, expecting_lines = value
             analyzer_summary["total"]["match"] += len(matching_lines)
             analyzer_summary["total"]["expected_match"] += len(expecting_lines)

@@ -148,7 +148,7 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
     ptf_nn_agent_port = start_ptf_nn_agent()
     assert ptf_nn_agent_port is not None
 
-    with PtfTestAdapter(tbinfo['ptf_ip'], ptf_nn_agent_port, 0, list(ifaces_map.keys()), ptfhost) as adapter:
+    with PtfTestAdapter(tbinfo['ptf_ip'], ptf_nn_agent_port, 0, ifaces_map.keys(), ptfhost) as adapter:
         if not request.config.option.keep_payload:
             override_ptf_functions()
             node_id = request.module.__name__
@@ -167,7 +167,7 @@ def nbr_device_numbers(nbrhosts):
     numbers = sorted(nbrhosts.keys())
     device_numbers = {
         nbr_name: numbers.index(nbr_name) + DEFAULT_DEVICE_NUM + 1
-        for nbr_name in list(nbrhosts.keys())}
+        for nbr_name in nbrhosts.keys()}
     return device_numbers
 
 
@@ -180,7 +180,7 @@ def nbr_ptfadapter(request, nbrhosts, nbr_device_numbers, ptfadapter):
         pytest.skip("Neighbor devices aren't SONiC so that the ptf nn service cannot be started")
     device_sockets = ptf.config['device_sockets']
     current_file_dir = os.path.dirname(os.path.realpath(__file__))
-    for name, attr in list(nbrhosts.items()):
+    for name, attr in nbrhosts.items():
         host = attr["host"]
         res = host.command('cat /proc/net/dev')
         ifaces = get_ifaces(res['stdout'])

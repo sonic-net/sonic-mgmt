@@ -35,7 +35,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if not ports:
         logger.info("No ports specified, toggling all minigraph neighbors ports")
-        ports = list(mg_facts["minigraph_neighbors"].keys())
+        ports = mg_facts["minigraph_neighbors"].keys()
 
     if not wait_time_getter:
         wait_time_getter = default_port_toggle_wait_time

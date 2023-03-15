@@ -5,8 +5,8 @@ import time
 
 from natsort import natsorted
 
-from .qos_fixtures import lossless_prio_dscp_map
-from .qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys, get_max_priority
+from qos_fixtures import lossless_prio_dscp_map
+from qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet, get_active_vlan_members, get_vlan_subnet, natural_keys, get_max_priority
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
@@ -58,7 +58,7 @@ def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost):
     vlan_ip_addrs = list()
     if 'dualtor' in tbinfo['topo']['name']:
         servers = mux_cable_server_ip(duthost)
-        for intf, value in natsorted(list(servers.items())):
+        for intf, value in natsorted(servers.items()):
             vlan_ip_addrs.append(value['server_ipv4'].split('/')[0])
     else:
         vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
@@ -183,7 +183,7 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
                        + "testbed_type=\'%s\'" % testbed_type)
 
         cmd = 'ptf --test-dir %s pfc_pause_test %s --test-params="%s"' % (os.path.dirname(PTF_FILE_REMOTE_PATH), intf_info, test_params)
-        print(cmd)
+        print cmd
         stdout = ansible_stdout_to_str(ptfhost.shell(cmd)['stdout'])
         words = stdout.split()
 
@@ -192,7 +192,7 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
         where a is # of passed iterations and b is total # of iterations
         """
         if len(words) != 4:
-            print('Unknown PTF test result format')
+            print 'Unknown PTF test result format'
             results[dut_intf_paused] = [0, 0]
 
         else:
@@ -278,7 +278,7 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
 
         if len(errors) > 0:
             test_errors += "Dscp: {}, Background Dscp: {}, errors occured: {}\n"\
-                           .format(dscp, dscp_bg, " ".join(["{}:{}".format(k,v) for k, v in list(errors.items())]))
+                           .format(dscp, dscp_bg, " ".join(["{}:{}".format(k,v) for k, v in errors.items()]))
 
     pytest_assert(len(test_errors) == 0, test_errors)
 
@@ -351,6 +351,6 @@ def test_no_pfc(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,
 
         if len(errors) > 0:
             test_errors += "Dscp: {}, Background Dscp: {}, errors occured: {}\n"\
-                           .format(dscp, dscp_bg, " ".join(["{}:{}".format(k,v) for k, v in list(errors.items())]))
+                           .format(dscp, dscp_bg, " ".join(["{}:{}".format(k,v) for k, v in errors.items()]))
 
     pytest_assert(len(test_errors) == 0, test_errors)

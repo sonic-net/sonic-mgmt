@@ -1,7 +1,7 @@
 import sys
 import time
 import threading
-import queue
+import Queue
 import yaml
 import json
 import random
@@ -52,7 +52,7 @@ PORTCHANNEL_TEMP_2 = PORTCHANNEL_TEMP_NAME.format(2)
 def get_vlan_members(vlan_name, cfg_facts):
     tmp_member_list = []
 
-    for m in list(cfg_facts['VLAN_MEMBER'].keys()):
+    for m in cfg_facts['VLAN_MEMBER'].keys():
         v, port = m.split('|')
         if vlan_name == v:
             tmp_member_list.append(port)
@@ -62,7 +62,7 @@ def get_vlan_members(vlan_name, cfg_facts):
 def get_pc_members(portchannel_name, cfg_facts):
     tmp_member_list = []
 
-    for m in list(cfg_facts['PORTCHANNEL_MEMBER'].keys()):
+    for m in cfg_facts['PORTCHANNEL_MEMBER'].keys():
         pc, port = m.split('|')
         if portchannel_name == pc:
             tmp_member_list.append(port)
@@ -84,7 +84,7 @@ def get_intf_ips(interface_name, cfg_facts):
         'ipv6': []
     }
 
-    for pfx, t_name in list(prefix_to_intf_table_map.items()):
+    for pfx, t_name in prefix_to_intf_table_map.iteritems():
         if pfx in interface_name:
             intf_table_name = t_name
             break
@@ -107,7 +107,7 @@ def get_intf_ips(interface_name, cfg_facts):
 def get_cfg_facts(duthost):
     tmp_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])  # return config db contents(running-config)
 
-    port_name_list_sorted = natsorted(list(tmp_facts['PORT'].keys()))
+    port_name_list_sorted = natsorted(tmp_facts['PORT'].keys())
     port_index_map = {}
     for idx, val in enumerate(port_name_list_sorted):
         port_index_map[val] = idx
@@ -121,7 +121,7 @@ def get_vrf_intfs(cfg_facts):
     vrf_intfs = {}
 
     for table in intf_tables:
-        for intf, attrs in list(cfg_facts.get(table, {}).items()):
+        for intf, attrs in cfg_facts.get(table, {}).iteritems():
             if '|' not in intf:
                 vrf = attrs['vrf_name']
                 if vrf not in vrf_intfs:
@@ -135,8 +135,8 @@ def get_vrf_ports(cfg_facts):
     :return: vrf_member_port_indices, vrf_intf_member_port_indices
     '''
 
-    vlan_member = list(cfg_facts['VLAN_MEMBER'].keys())
-    pc_member = list(cfg_facts['PORTCHANNEL_MEMBER'].keys())
+    vlan_member = cfg_facts['VLAN_MEMBER'].keys()
+    pc_member = cfg_facts['PORTCHANNEL_MEMBER'].keys()
     member = vlan_member + pc_member
 
     vrf_intf_member_port_indices = {}
@@ -144,13 +144,13 @@ def get_vrf_ports(cfg_facts):
 
     vrf_intfs = get_vrf_intfs(cfg_facts)
 
-    for vrf, intfs in list(vrf_intfs.items()):
+    for vrf, intfs in vrf_intfs.iteritems():
         vrf_intf_member_port_indices[vrf] = {}
         vrf_member_port_indices[vrf] = []
 
         for intf in intfs:
             vrf_intf_member_port_indices[vrf][intf] = natsorted(
-                    [ cfg_facts['config_port_indices'][m.split('|')[1]] for m in [m for m in member if intf in m] ]
+                    [ cfg_facts['config_port_indices'][m.split('|')[1]] for m in filter(lambda m: intf in m, member) ]
                 )
             vrf_member_port_indices[vrf].extend(vrf_intf_member_port_indices[vrf][intf])
 
@@ -278,7 +278,7 @@ def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     vlan_peer_ips = {}
     vlan_peer_vrf2ns_map = {}
 
-    for vlan in list(cfg_facts['VLAN'].keys()):
+    for vlan in cfg_facts['VLAN'].keys():
         ns = 'ns' + vlan.strip('Vlan')
         vrf = cfg_facts['VLAN_INTERFACE'][vlan]['vrf_name']
         vlan_peer_vrf2ns_map[vrf] = ns
@@ -299,7 +299,7 @@ def setup_vlan_peer(duthost, ptfhost, cfg_facts):
             vlan_peer_ips[(vrf, vlan_peer_port)] = {'ipv4': [], 'ipv6': []}
 
         vlan_ips = get_intf_ips(vlan, cfg_facts)
-        for ver, ips in list(vlan_ips.items()):
+        for ver, ips in vlan_ips.iteritems():
             for ip in ips:
                 neigh_ip = IPNetwork("{}/{}".format(ip.ip+1, ip.prefixlen))
                 ptfhost.shell("ip netns exec {} ip address add {} dev e{}mv1".format(ns, neigh_ip, vlan_peer_port))
@@ -313,7 +313,7 @@ def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     return vlan_peer_ips, vlan_peer_vrf2ns_map
 
 def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map):
-    for vrf, ns in list(vlan_peer_vrf2ns_map.items()):
+    for vrf, ns in vlan_peer_vrf2ns_map.iteritems():
         ptfhost.shell("ip netns del {}".format(ns))
 
 def gen_vrf_fib_file(vrf, tbinfo, ptfhost, render_file, dst_intfs=None, \
@@ -506,7 +506,7 @@ def vlan_mac(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
     dut_vlan_mac = None
-    for vlan in list(config_facts.get('VLAN', {}).values()):
+    for vlan in config_facts.get('VLAN', {}).values():
         if 'mac' in vlan:
             logger.debug('Found VLAN mac')
             dut_vlan_mac = vlan['mac']
@@ -550,10 +550,10 @@ class TestVrfCreateAndBind():
         # verify vrf in kernel
         res = duthost.shell("ip link show type vrf | grep Vrf")
 
-        for vrf in list(cfg_facts['VRF'].keys()):
+        for vrf in cfg_facts['VRF'].keys():
             assert vrf in res['stdout'], "%s should be created in kernel!" % vrf
 
-        for vrf, intfs in list(g_vars['vrf_intfs'].items()):
+        for vrf, intfs in g_vars['vrf_intfs'].iteritems():
             for intf in intfs:
                 res = duthost.shell("ip link show %s" % intf)
                 assert vrf in res['stdout'], "The master dev of interface %s should be %s !" % (intf, vrf)
@@ -561,11 +561,11 @@ class TestVrfCreateAndBind():
     def test_vrf_in_appl_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in app_db
-        for vrf in list(cfg_facts['VRF'].keys()):
+        for vrf in cfg_facts['VRF'].keys():
             res = duthost.shell("redis-cli -n 0 keys VRF_TABLE:%s" % vrf)
             assert vrf in res['stdout'], "%s should be added in APPL_DB!" % vrf
 
-        for vrf, intfs in list(g_vars['vrf_intfs'].items()):
+        for vrf, intfs in g_vars['vrf_intfs'].iteritems():
             for intf in intfs:
                 res = duthost.shell("redis-cli -n 0 hgetall \"INTF_TABLE:%s\"" % intf)
                 assert vrf in res['stdout'], "The vrf of interface %s should be %s !" % (intf, vrf)
@@ -573,7 +573,7 @@ class TestVrfCreateAndBind():
     def test_vrf_in_asic_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in asic_db
-        vrf_count = len(list(cfg_facts['VRF'].keys())) + 1  # plus default virtual router
+        vrf_count = len(cfg_facts['VRF'].keys()) + 1  # plus default virtual router
         res = duthost.shell("redis-cli -n 1 keys *VIRTUAL_ROUTER*")
         assert len(res['stdout_lines']) == vrf_count
 
@@ -597,8 +597,8 @@ class TestVrfNeigh():
 
     def test_ping_vlan_neigh(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
-        for (vrf, _), neigh_ips in list(g_vars['vlan_peer_ips'].items()):
-            for ver, ips in list(neigh_ips.items()):
+        for (vrf, _), neigh_ips in g_vars['vlan_peer_ips'].iteritems():
+            for ver, ips in neigh_ips.iteritems():
                 ping_cmd = 'ping' if ver == 'ipv4' else 'ping6'
                 for ip in ips:
                     duthost.shell("{} {} -c 3 -I {} -f".format(ping_cmd, ip.ip, vrf))
@@ -642,7 +642,7 @@ class TestVrfFib():
             bgp_summary = json.loads(bgp_summary_string)
 
             for info in bgp_summary:
-                for peer, attr in list(bgp_summary[info]['peers'].items()):
+                for peer, attr in bgp_summary[info]['peers'].iteritems():
                     prefix_count = attr['pfxRcd']
                     # skip ipv6 peers under 'ipv4Unicast' and compare only ipv4 peers under 'ipv4Unicast', and ipv6 peers under 'ipv6Unicast'
                     if info == "ipv4Unicast" and attr['idType'] == 'ipv6':
@@ -860,14 +860,14 @@ class TestVrfLoopbackIntf():
         self.c_vars['vlan2000_ip_facts'] = vlan2000_ip_facts
 
         # deploy routes to loopback
-        for ver, ips in list(lb0_ip_facts.items()):
+        for ver, ips in lb0_ip_facts.iteritems():
             for vlan_ip in vlan1000_ip_facts[ver]:
                 nexthop = vlan_ip.ip
                 break
             for ip in ips:
                 ptfhost.shell("ip netns exec {} ip route add {} nexthop via {} ".format(g_vars['vlan_peer_vrf2ns_map']['Vrf1'], ip, nexthop))
 
-        for ver, ips in list(lb2_ip_facts.items()):
+        for ver, ips in lb2_ip_facts.iteritems():
             for vlan_ip in vlan2000_ip_facts[ver]:
                 nexthop = vlan_ip.ip
                 break
@@ -884,7 +884,7 @@ class TestVrfLoopbackIntf():
 
     def test_ping_vrf1_loopback(self, ptfhost, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
-        for ver, ips in list(self.c_vars['lb0_ip_facts'].items()):
+        for ver, ips in self.c_vars['lb0_ip_facts'].iteritems():
             for ip in ips:
                 if ip.version == 4:
                     # FIXME Within a vrf, currently ping(4) does not support using
@@ -898,7 +898,7 @@ class TestVrfLoopbackIntf():
 
     def test_ping_vrf2_loopback(self, ptfhost, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
-        for ver, ips in list(self.c_vars['lb2_ip_facts'].items()):
+        for ver, ips in self.c_vars['lb2_ip_facts'].iteritems():
             for ip in ips:
                 if ip.version == 4:
                     # FIXME Within a vrf, currently ping(4) does not support using
@@ -931,7 +931,7 @@ class TestVrfLoopbackIntf():
         ptf_direct_ip  = g_vars['vlan_peer_ips'][('Vrf1', vlan_peer_port)]['ipv4'][0]
 
         # add route to ptf_speaker_ip
-        for (vrf, vlan_peer_port), ips in list(g_vars['vlan_peer_ips'].items()):
+        for (vrf, vlan_peer_port), ips in g_vars['vlan_peer_ips'].iteritems():
             nh = ips['ipv4'][0].ip
             duthost.shell("vtysh -c 'configure terminal' -c 'ip route {} {} vrf {}'".format(peer_range, nh , vrf))
             duthost.shell("ping {} -I {} -c 3 -f -W2".format(nh, vrf))
@@ -955,7 +955,7 @@ class TestVrfLoopbackIntf():
             'my_asn'    : bgp_speaker_asn,
             'speaker_ip': ptf_speaker_ip.ip,
             'direct_ip' : ptf_direct_ip.ip,
-            'namespace' : list(g_vars['vlan_peer_vrf2ns_map'].values()),
+            'namespace' : g_vars['vlan_peer_vrf2ns_map'].values(),
             'lo_addr'   : get_intf_ips('Loopback0', cfg_facts)['ipv4'][0].ip
         }
         ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
@@ -983,7 +983,7 @@ class TestVrfLoopbackIntf():
         # -------- Teardown ---------
 
         # del route to ptf_speaker_ip on dut
-        for (vrf, vlan_peer_port), ips in list(g_vars['vlan_peer_ips'].items()):
+        for (vrf, vlan_peer_port), ips in g_vars['vlan_peer_ips'].iteritems():
             duthost.shell("vtysh -c 'configure terminal' -c 'no ip route {} {} vrf {}'".format(peer_range, ips['ipv4'][0], vrf))
 
         # kill exabgp
@@ -1035,7 +1035,7 @@ class TestVrfWarmReboot():
         # enable swss warm-reboot
         duthost.shell("config warm_restart enable swss")
 
-        exc_que = queue.Queue()
+        exc_que = Queue.Queue()
         params = {
             'ptf_runner': partial_ptf_runner,
             'exc_queue': exc_que,  # use for store exception infos
@@ -1073,13 +1073,13 @@ class TestVrfWarmReboot():
         assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
                "All critical services should fully started!{}".format(duthost.critical_services)
 
-        up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up' ]
+        up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up' ]
         assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), \
                "All interfaces should be up!"
 
     def test_vrf_system_warm_reboot(self, duthosts, rand_one_dut_hostname, localhost, cfg_facts, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
-        exc_que = queue.Queue()
+        exc_que = Queue.Queue()
         params = {
             'ptf_runner': partial_ptf_runner,
             'exc_queue': exc_que,  # use for store exception infos
@@ -1115,7 +1115,7 @@ class TestVrfWarmReboot():
         # basic check after warm reboot
         assert wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
 
-        up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up' ]
+        up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up' ]
         assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), "Not all interfaces are up"
 
 
@@ -1149,7 +1149,7 @@ class TestVrfCapacity():
     def random_vrf_list(self, vrf_count, request):
         test_count = request.config.option.vrf_test_count or self.TEST_COUNT  # get cmd line option value, use default if none
 
-        return sorted(random.sample(list(range(1, vrf_count+1)), min(test_count, vrf_count)))
+        return sorted(random.sample(xrange(1, vrf_count+1), min(test_count, vrf_count)))
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_vrf_capacity(self, duthosts, rand_one_dut_hostname, ptfhost, localhost, cfg_facts, vrf_count, random_vrf_list, request):
@@ -1221,7 +1221,7 @@ class TestVrfCapacity():
         cfg_attrs_map['vrf_intf']       = {'add_sleep_time': 2, 'remove_sleep_time': 5 + 0.04 * 2 * vrf_count}
         cfg_attrs_map['vlan_intf']      = {'add_sleep_time': 2, 'remove_sleep_time': 5}
 
-        for cfg_name, attrs in list(cfg_attrs_map.items()):
+        for cfg_name, attrs in cfg_attrs_map.iteritems():
             src_template = 'vrf/vrf_capacity_{}_cfg.j2'.format(cfg_name)
             render_file = '/tmp/vrf_capacity_{}_cfg.json'.format(cfg_name)
             duthost.template(src=src_template, dest=render_file)
@@ -1299,7 +1299,7 @@ class TestVrfCapacity():
             duthost.shell('/tmp/vrf_capacity_route_cfg.sh')
 
             # remove ip addr, intf, vrf, vlan member, vlan cfgs
-            for cfg_name, attrs in reversed(list(cfg_attrs_map.items())):
+            for cfg_name, attrs in reversed(cfg_attrs_map.items()):
                 src_template = 'vrf/vrf_capacity_{}_cfg.j2'.format(cfg_name)
                 render_file = '/tmp/vrf_capacity_del_{}_cfg.json'.format(cfg_name)
                 duthost.template(src=src_template, dest=render_file)
@@ -1364,7 +1364,7 @@ class TestVrfUnbindIntf():
 
     def rebind_intf(self, duthost):
         duthost.shell("config interface vrf bind {} Vrf1".format(PORTCHANNEL_TEMP_1))
-        for ver, ips in list(g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].items()):
+        for ver, ips in g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].iteritems():
             for ip in ips:
                 duthost.shell("config interface ip add {} {}".format(PORTCHANNEL_TEMP_1, ip))
 
@@ -1381,7 +1381,7 @@ class TestVrfUnbindIntf():
     def test_pc1_ip_addr_flushed(self, duthosts, rand_one_dut_hostname):
         duthost = duthosts[rand_one_dut_hostname]
         ip_addr_show = duthost.shell("ip addr show {}".format(PORTCHANNEL_TEMP_1))['stdout']
-        for ver, ips in list(g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].items()):
+        for ver, ips in g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].iteritems():
             for ip in ips:
                 assert str(ip) not in ip_addr_show, "The ip addresses on {} should be flushed after unbind from vrf.".format(PORTCHANNEL_TEMP_1)
 
@@ -1401,7 +1401,7 @@ class TestVrfUnbindIntf():
 
     def test_pc1_neigh_flushed_by_traffic(self, partial_ptf_runner, ptfhost):
         pc1_neigh_ips = []
-        for ver, ips in list(g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].items()):
+        for ver, ips in g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].iteritems():
             for ip in ips:
                 pc1_neigh_ips.append(str(ip.ip+1))
 
@@ -1431,7 +1431,7 @@ class TestVrfUnbindIntf():
 
     def test_pc2_neigh(self, partial_ptf_runner, ptfhost):
         pc2_neigh_ips = []
-        for ver, ips in list(g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_2].items()):
+        for ver, ips in g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_2].iteritems():
             for ip in ips:
                 pc2_neigh_ips.append(str(ip.ip+1))
 
@@ -1485,9 +1485,9 @@ class TestVrfDeletion():
 
     def restore_vrf(self, duthost):
         duthost.shell("config vrf add Vrf1")
-        for intf, ip_facts in list(g_vars['vrf_intfs']['Vrf1'].items()):
+        for intf, ip_facts in g_vars['vrf_intfs']['Vrf1'].iteritems():
             duthost.shell("config interface vrf bind %s Vrf1" % intf)
-            for ver, ips in list(ip_facts.items()):
+            for ver, ips in ip_facts.iteritems():
                 for ip in ips:
                     duthost.shell("config interface ip add {} {}".format(intf, ip))
 

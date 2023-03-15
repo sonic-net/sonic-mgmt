@@ -33,7 +33,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
     if topo_cfg_facts is None:
         return upstream_neighbors
 
-    for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
+    for neigh_name, neigh_cfg in topo_cfg_facts.iteritems():
         if neigh_type not in neigh_name:
             continue
         if neigh_type == 'T3' and device_neigh_metadata[neigh_name]['type'] == 'AZNGHub':
@@ -41,7 +41,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
         ipv6_addr = None
-        for intf, intf_cfg in list(interfaces.items()):
+        for intf, intf_cfg in interfaces.iteritems():
             if 'Port-Channel' in intf:
                 if 'ipv4' in intf_cfg:
                     ipv4_addr = interfaces[intf]['ipv4'].split('/')[0]
@@ -61,7 +61,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
 def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
     neigh_type = get_upstream_neigh_type(tbinfo['topo']['type'])
     asics = set()
-    for name, asic in list(bgp_name_to_ns_mapping.items()):
+    for name, asic in bgp_name_to_ns_mapping.items():
         if neigh_type not in name:
             continue
         if neigh_type == 'T3' and device_neigh_metadata[name]['type'] == 'AZNGHub':
@@ -82,10 +82,10 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
     if uplink_ns:
         # multi-asic case: Now we have all routes on all asics, get the uplink routes only 
         for ns in uplink_ns:
-            nexthop_list = list(default_route[ns].values())[0]['value']['nexthop'].split(',')
+            nexthop_list = default_route[ns].values()[0]['value']['nexthop'].split(',')
             nexthops.update(set(nexthop_list))
     else:
-        key = list(default_route.keys())[0]
+        key = default_route.keys()[0]
         nexthop_list = default_route[key].get('value', {}).get('nexthop', None)
         nexthops.update(set(nexthop_list.split(',')))
      
@@ -121,9 +121,9 @@ def test_default_route_set_src(duthosts, tbinfo):
     lo_ipv6 = None
     los = config_facts.get("LOOPBACK_INTERFACE", {})
     logger.info("Loopback IPs: {}".format(los))
-    for k, v in list(los.items()):
+    for k, v in los.items():
         if k == "Loopback0":
-            for ipstr in list(v.keys()):
+            for ipstr in v.keys():
                 ip = ipaddress.ip_interface(ipstr)
                 if ip.version == 4:
                     lo_ipv4 = ip
@@ -133,12 +133,12 @@ def test_default_route_set_src(duthosts, tbinfo):
     pytest_assert(lo_ipv4, "cannot find ipv4 Loopback0 address")
     pytest_assert(lo_ipv6, "cannot find ipv6 Loopback0 address")
 
-    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
+    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network(u"0.0.0.0/0"))
     pytest_assert(rtinfo['set_src'], "default route do not have set src. {}".format(rtinfo))
     pytest_assert(rtinfo['set_src'] == lo_ipv4.ip, \
             "default route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv4.ip))
 
-    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
+    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
     pytest_assert(rtinfo['set_src'], "default v6 route do not have set src. {}".format(rtinfo))
     pytest_assert(rtinfo['set_src'] == lo_ipv6.ip, \
             "default v6 route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv6.ip))
@@ -151,7 +151,7 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
     duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
-    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
+    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
     pytest_assert(len(rtinfo['nexthops']) > 0, "cannot find ipv6 nexthop for default route")
     for nh in rtinfo['nexthops']:
         pytest_assert(not nh[0].is_link_local, \
@@ -198,5 +198,5 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
                 'Default route is not removed from APP_DB')
     finally:
         duthost.command("sudo config bgp startup all")
-        if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
+        if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
             pytest.fail("not all bgp sessions are up after config reload")

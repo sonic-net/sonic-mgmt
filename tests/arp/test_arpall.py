@@ -74,7 +74,7 @@ def test_arp_no_reply_other_intf(common_setup_teardown, intfs_for_test, enum_fro
                params=intf2_params, log_file=log_file)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
-    for ip in list(switch_arptable['arptable']['v4'].keys()):
+    for ip in switch_arptable['arptable']['v4'].keys():
         pytest_assert(ip != '10.10.1.4')
 
 
@@ -94,7 +94,7 @@ def test_arp_no_reply_src_out_range(common_setup_teardown, intfs_for_test, enum_
     ptf_runner(ptfhost, 'ptftests', "arptest.SrcOutRangeNoReply", '/root/ptftests', params=params, log_file=log_file)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
-    for ip in list(switch_arptable['arptable']['v4'].keys()):
+    for ip in switch_arptable['arptable']['v4'].keys():
         pytest_assert(ip != '10.10.1.22')
 
 
@@ -114,7 +114,7 @@ def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend
     ptf_runner(ptfhost, 'ptftests', "arptest.GarpNoUpdate", '/root/ptftests', params=params, log_file=log_file)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
-    for ip in list(switch_arptable['arptable']['v4'].keys()):
+    for ip in switch_arptable['arptable']['v4'].keys():
         pytest_assert(ip != '10.10.1.7')
 
     # Test Gratuitous ARP update case, when received garp, no arp reply, update arp table if it was solved before

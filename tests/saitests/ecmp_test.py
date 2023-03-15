@@ -48,16 +48,16 @@ class ECMPtest(sai_base_test.ThriftInterfaceDataPlane):
         sport = 0x1234
         dport = 0x50
         router_mac = self.test_params['router_mac']
-        destanation_ports = list(range(NUMBER_OF_SRC_PORTS,NUMBER_OF_DST_PORTS+NUMBER_OF_SRC_PORTS))
+        destanation_ports = range(NUMBER_OF_SRC_PORTS,NUMBER_OF_DST_PORTS+NUMBER_OF_SRC_PORTS)
         pkt_counter = [0]*32
         logging.debug("the router mac is ")
         logging.debug( router_mac)
         logging.debug("the rif macs are")
         for i in range(16): logging.debug( self.dataplane.get_mac(0, i+16))
         #send packets
-        for port in range(NUMBER_OF_SRC_PORTS):
-            for i in range(IP_LAST_WORD_RANGE):
-                for j in range(IP_2ND_LAST_WORD_RANGE):
+        for port in xrange(NUMBER_OF_SRC_PORTS):
+            for i in xrange(IP_LAST_WORD_RANGE):
+                for j in xrange(IP_2ND_LAST_WORD_RANGE):
                     ip_src = '10.0.0.' + str(port * 2 + 32)
                     src_mac = self.dataplane.get_mac(0, 0)
                     ip_dst = '172.16.' + str(j) + '.' + str(i + 1)
@@ -91,12 +91,12 @@ class ECMPtest(sai_base_test.ThriftInterfaceDataPlane):
                     dport = random.randint(0,0xffff)
 
         #final uniform distribution check
-        for stat_port in range(NUMBER_OF_DST_PORTS):
+        for stat_port in xrange(NUMBER_OF_DST_PORTS):
             logging.debug( "PORT #"+str(hex(port_list[stat_port+NUMBER_OF_SRC_PORTS]))+":")
             logging.debug(str(pkt_counter[stat_port]))
             self.assertTrue((pkt_counter[stat_port ] >= ((IP_LAST_WORD_RANGE * IP_2ND_LAST_WORD_RANGE) * 0.9)),
                     "Not all paths are equally balanced, %s" % pkt_counter[stat_port+NUMBER_OF_SRC_PORTS])
             self.assertTrue((pkt_counter[stat_port ] <= ((IP_LAST_WORD_RANGE * IP_2ND_LAST_WORD_RANGE) * 1.1)),
                     "Not all paths are equally balanced, %s" % pkt_counter[stat_port+NUMBER_OF_SRC_PORTS])
-        print("END OF TEST")
+        print "END OF TEST"
 

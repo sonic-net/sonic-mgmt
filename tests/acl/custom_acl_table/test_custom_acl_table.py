@@ -234,12 +234,12 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter, setup_acl_rules, togg
     src_port_indice = mg_facts['minigraph_ptf_indices'][src_port]
     # Put all portchannel members into dst_ports
     dst_port_indices = []
-    for _, v in mg_facts['minigraph_portchannels'].items():
+    for _, v in mg_facts['minigraph_portchannels'].iteritems():
         for member in v['members']:
             dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
 
     test_pkts = build_testing_pkts(router_mac)
-    for rule, pkt in list(test_pkts.items()):
+    for rule, pkt in test_pkts.items():
         logger.info("Testing ACL rule {}".format(rule))
         exp_pkt = build_exp_pkt(pkt)
         # Send and verify packet

@@ -37,7 +37,7 @@ SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
 SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
 DST_IPV6_RANGE = ['20D0:A800:0:01::', '20D0:FFFF:0:01::FFFF']
-VLANIDS = list(range(1032, 1279))
+VLANIDS = range(1032, 1279)
 VLANIP = '192.168.{}.1/24'
 PTF_QLEN = 20000
 DEFAULT_MUX_SERVER_PORT = 8080
@@ -136,11 +136,11 @@ def get_vlan_untag_ports(duthosts, duts_running_config_facts):
         ports = []
         for asic_cfg_facts in duts_running_config_facts[duthost.hostname]:
 
-            vlans = list(asic_cfg_facts[1].get('VLAN_INTERFACE', {}).keys())
+            vlans = asic_cfg_facts[1].get('VLAN_INTERFACE', {}).keys()
             for vlan in vlans:
                 vlan_member_info = asic_cfg_facts[1].get('VLAN_MEMBER', {}).get(vlan, {})
                 if vlan_member_info:
-                    for port_name, tag_mode in list(vlan_member_info.items()):
+                    for port_name, tag_mode in vlan_member_info.items():
                         if tag_mode['tagging_mode'] == 'untagged':
                             ports.append(port_name)
         vlan_untag_ports[duthost.hostname] = ports
@@ -252,7 +252,7 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
                     bgp_neighbors = asic_cfg_facts["BGP_NEIGHBOR"]
                     ipv4_cmd_parts = ["ip route add default"]
                     ipv6_cmd_parts = ["ip -6 route add default"]
-                    for neighbor in list(bgp_neighbors.keys()):
+                    for neighbor in bgp_neighbors.keys():
                         if is_ipv4_address(neighbor):
                             ipv4_cmd_parts.append("nexthop via %s" % neighbor)
                         else:
