@@ -4,8 +4,8 @@ import json
 import sys
 import xml.etree.ElementTree as ET
 
-from .helpers import log_info, log_debug
-from .common import tor_data, config_db_data_orig, managed_files, report_error   # noqa F401
+from helpers import log_info, log_debug
+from common import tor_data, config_db_data_orig, managed_files, report_error   # noqa F401
 from tempfile import mkstemp
 
 ns_val = "Microsoft.Search.Autopilot.Evolution"
@@ -18,7 +18,7 @@ ns_a = "{" + ns_a_val + "}"
 
 
 def usage(name):
-    print(("Usage: {} <i/p xml> [<T0 to strip>]".format(name)))
+    print("Usage: {} <i/p xml> [<T0 to strip>]".format(name))
     sys.exit(-1)
 
 
@@ -49,7 +49,7 @@ def find_sonic_ports():
 
     port_table = config_db_data_orig["PORT"]
     alias_map = {}
-    for name, obj in list(port_table.items()):
+    for name, obj in port_table.items():
         alias = obj["alias"]
         alias_map[alias] = name
 

@@ -98,7 +98,7 @@ def parallel_run(
                 # set its failed to True.
                 if init_result:
                     init_result['failed'] = True
-                    results[list(results.keys())[0]] = init_result
+                    results[results.keys()[0]] = init_result
                 else:
                     results[p.name] = {'failed': True}
                 try:
@@ -190,7 +190,7 @@ def parallel_run(
             # set its failed to True.
             if init_result:
                 init_result['failed'] = True
-                results[list(results.keys())[0]] = init_result
+                results[results.keys()[0]] = init_result
             else:
                 results[worker.name] = {'failed': True}
 
@@ -202,8 +202,8 @@ def parallel_run(
 
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
-    if len(list(failed_processes.keys())):
-        for process_name, process in list(failed_processes.items()):
+    if len(failed_processes.keys()):
+        for process_name, process in failed_processes.items():
             p_exitcode = ""
             p_exception = ""
             p_traceback = ""

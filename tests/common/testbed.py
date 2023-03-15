@@ -1,7 +1,7 @@
 """
 Testbed file related utilities.
 """
-
+from __future__ import print_function
 import argparse
 import csv
 import ipaddr as ipaddress
@@ -125,7 +125,7 @@ class TestbedInfo(object):
         def ordereddict_representer(dumper, data):
             value = []
             node = yaml.MappingNode("tag:yaml.org,2002:map", value)
-            for item_key, item_value in list(data.items()):
+            for item_key, item_value in data.items():
                 node_key = dumper.represent_data(item_key)
                 node_value = dumper.represent_data(item_value)
                 value.append((node_key, node_value))
@@ -159,15 +159,15 @@ class TestbedInfo(object):
 
             tb_dict = self.testbed_topo[args.sai_testbed_name]
             tb_dict_fields = self._generate_sai_testbed(tb_dict, args.sai_testbed_name, sai_ptf_image)
-            testbed_mapping = list(zip(self.testbed_fields, tb_dict_fields))
+            testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
             testbed = OrderedDict(testbed_mapping)
             testbed_data.append(testbed)
             print("Finished SAI testbed info generating.")
         else:
             # Generate all test bed infos
-            for tb_name, tb_dict in list(self.testbed_topo.items()):
+            for tb_name, tb_dict in self.testbed_topo.items():
                 tb_dict_fields = self._generate_testbed_fields(tb_dict, tb_name)
-                testbed_mapping = list(zip(self.testbed_fields, tb_dict_fields))
+                testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
                 testbed = OrderedDict(testbed_mapping)
                 testbed_data.append(testbed)
             print("Finished testbed info generating.")
@@ -323,7 +323,7 @@ class TestbedInfo(object):
                     map[dut_index][dut_port_index] = int(ptf_port_index)
 
         if 'VMs' in topology:
-            for vm in list(topology['VMs'].values()):
+            for vm in topology['VMs'].values():
                 if 'vlans' in vm:
                     for port in vm['vlans']:
                         # Example: '0.31@34'
@@ -350,13 +350,13 @@ class TestbedInfo(object):
 
     def calculate_ptf_dut_intf_map(self, tb):
         map = defaultdict(dict)
-        for dut_index, dut_ptf_map in list(tb['topo']['ptf_map'].items()):
-            for dut_port_index, ptf_port_index in list(dut_ptf_map.items()):
+        for dut_index, dut_ptf_map in tb['topo']['ptf_map'].items():
+            for dut_port_index, ptf_port_index in dut_ptf_map.items():
                 map[str(ptf_port_index)][dut_index] = int(dut_port_index)
         return map
 
     def parse_topo(self):
-        for tb_name, tb in list(self.testbed_topo.items()):
+        for tb_name, tb in self.testbed_topo.items():
             topo = tb.pop("topo")
             tb["topo"] = defaultdict()
             tb["topo"]["name"] = topo
@@ -395,7 +395,7 @@ if __name__ == "__main__":
     tbinfo = TestbedInfo(testbedfile)
 
     if args.print_data:
-        print((json.dumps(tbinfo.testbed_topo, indent=4)))
+        print(json.dumps(tbinfo.testbed_topo, indent=4))
 
     if len(args.sai) > 0:
         tbinfo.dump_testbeds_to_yaml(args)

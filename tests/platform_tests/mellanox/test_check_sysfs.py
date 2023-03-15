@@ -6,7 +6,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 """
 import logging
 import pytest
-from .check_sysfs import check_sysfs
+from check_sysfs import check_sysfs
 
 pytestmark = [
     pytest.mark.asic('mellanox'),

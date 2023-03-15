@@ -161,6 +161,6 @@ def flush_dbs(duthost):
                         5: 'Flex Counters DB',
                         6: 'State DB'
                }
-    for db in list(db_dic.keys()):
+    for db in db_dic.keys():
         duthost.shell('redis-cli -n {} flushdb'.format(db))
 

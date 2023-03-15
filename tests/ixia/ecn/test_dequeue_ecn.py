@@ -106,7 +106,7 @@ def test_dequeue_ecn(request,
         pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                       "The last packet should not be marked")
         if cisco_platform:
-            print((get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], clear_only=False)))
+            print(get_sai_attributes(duthost, ptfhost, dut_port, ["SAI_QUEUE_STAT_PACKETS","SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"], clear_only=False))
 
     finally:
          if cisco_platform:

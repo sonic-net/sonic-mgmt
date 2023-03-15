@@ -64,8 +64,8 @@ class PfcAsymBaseTest(ThriftInterfaceDataPlane):
         self.non_server_port = self.test_params['non_server_port']
         self.router_mac = self.test_params['router_mac']
         self.pfc_to_dscp = self.test_params['pfc_to_dscp']
-        self.lossless_priorities = list(map(int, self.test_params['lossless_priorities']))
-        self.lossy_priorities = list(map(int, self.test_params['lossy_priorities']))
+        self.lossless_priorities = map(int, self.test_params['lossless_priorities'])
+        self.lossy_priorities = map(int, self.test_params['lossy_priorities'])
         self.asic_type = self.test_params['sonic_asic_type']
 
         self.setUpArpResponder(self.server_ports)

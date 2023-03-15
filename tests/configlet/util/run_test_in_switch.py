@@ -5,10 +5,10 @@ import datetime
 import filecmp
 import os
 
-from .mock_for_switch import get_duthost
+from mock_for_switch import get_duthost
 
-from .base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
-from .helpers import log_error, set_print
+from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
+from helpers import log_error, set_print
 
 # To run test in switch:
 # Copy all files in this dir (tests/configlet/util) into switch
@@ -94,14 +94,14 @@ def main():
             os.system("rm -rf {}".format(work_dir))
             os.mkdir(work_dir)
         except OSError as error:
-            print(("Failed to create {} with err:{}".format(work_dir, str(error))))
+            print("Failed to create {} with err:{}".format(work_dir, str(error)))
             return -1
     else:
         work_dir = args.dir
 
     os.chdir(work_dir)
 
-    print(("Work dir for this run is {}".format(os.getcwd())))
+    print("Work dir for this run is {}".format(os.getcwd()))
 
     run_test(skip_load=args.skip_load, skip_clet_test=args.skip_clet_test,
              skip_generic_add=args.skip_generic_add,

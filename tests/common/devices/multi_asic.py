@@ -507,7 +507,7 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             bgp_neigh[asic.namespace] = {}
             bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
-            for k, v in list(bgp_info.items()):
+            for k, v in bgp_info.items():
                 if v["state"] != state:
                     bgp_info.pop(k)
             bgp_neigh[asic.namespace].update(bgp_info)
@@ -526,7 +526,7 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             bgp_facts = asic.bgp_facts()['ansible_facts']
-            for k, v in list(bgp_facts['bgp_neighbors'].items()):
+            for k, v in bgp_facts['bgp_neighbors'].items():
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
                         neigh_ok.append(k)
@@ -546,7 +546,7 @@ class MultiAsicSonicHost(object):
         """
         for asic in self.asics:
             if asic.namespace in bgp_neighbors:
-                neigh_ips = [k.lower() for k, v in list(bgp_neighbors[asic.namespace].items()) if v["state"] == state]
+                neigh_ips = [k.lower() for k, v in bgp_neighbors[asic.namespace].items() if v["state"] == state]
                 if not asic.check_bgp_session_state(neigh_ips, state):
                     return False
         return True
@@ -718,7 +718,7 @@ class MultiAsicSonicHost(object):
         )['ansible_facts']
         neighbors = mg_facts['minigraph_neighbors']
         mapping = dict()
-        for neigh in list(neighbors.values()):
+        for neigh in neighbors.values():
             mapping[neigh['name']] = neigh['namespace']
         return mapping
 
@@ -748,4 +748,4 @@ class MultiAsicSonicHost(object):
                 list of ports on this dut
         """
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)
-        return list(mg_facts['ansible_facts']['minigraph_ports'].keys())
+        return mg_facts['ansible_facts']['minigraph_ports'].keys()

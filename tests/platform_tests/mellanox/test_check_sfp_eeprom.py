@@ -2,7 +2,7 @@ import pytest
 import allure
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
-from .util import parse_sfp_eeprom_infos, check_sfp_eeprom_info, is_support_dom, get_pci_cr0_path
+from util import parse_sfp_eeprom_infos, check_sfp_eeprom_info, is_support_dom, get_pci_cr0_path
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
@@ -20,9 +20,9 @@ def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts,
     duthost = duthosts[rand_one_dut_hostname]
 
     ports_map = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']["PORT"]
-    port_name_to_index_map = dict([(port, value["index"]) for port, value in list(ports_map.items())])
+    port_name_to_index_map = dict([(port, value["index"]) for port, value in ports_map.items()])
 
-    sfp_test_intf_list = list(conn_graph_facts["device_conn"][duthost.hostname].keys())
+    sfp_test_intf_list = conn_graph_facts["device_conn"][duthost.hostname].keys()
 
     intf_with_dom_dict = {}
     sfp_test_intfs_to_dom_map_dict = {}
@@ -56,7 +56,7 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
         sfp_info_dict = parse_sfp_eeprom_infos(check_eeprom_dom_output["stdout"])
 
     with allure.step("Check results for {}".format(show_eeprom_cmd)):
-        for intf, inft_support_dom in list(sfp_test_intfs_to_dom_map.items()):
+        for intf, inft_support_dom in sfp_test_intfs_to_dom_map.items():
             if intf in sfp_info_dict:
                 with allure.step("Check {}".format(intf)):
                     if sfp_info_dict[intf] == "SFP EEPROM Not detected":

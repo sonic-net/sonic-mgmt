@@ -114,7 +114,7 @@ def get_login_result(ssh_session):
             if len(data) == 0:
                 # when receive zero length data, channel closed
                 break
-            login_message += data.decode("utf-8")
+            login_message += data
 
         time.sleep(1)
 

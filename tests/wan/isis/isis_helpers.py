@@ -178,7 +178,7 @@ def get_dev_ports(selected_connections):
         else:
             dev_ports[item[2]].append(item[3])
 
-    for k, v in list(dev_ports.items()):
+    for k, v in dev_ports.items():
         v.append('Loopback0')
 
     return dev_ports
@@ -192,7 +192,7 @@ def setup_isis(selected_connections):
         selected_connections: include a list of items such as (dut_host, dut_port, nbr_host, nbr_port)
         which describes the connection between port_channels in different devices.
     """
-    for device, port_list in list(get_dev_ports(selected_connections).items()):
+    for device, port_list in get_dev_ports(selected_connections).items():
         if isinstance(device, MultiAsicSonicHost):
             set_frrcfgd_mode(device, 'true')
 
@@ -227,7 +227,7 @@ def get_nbr_name(nbrhosts, nbrhost):
         nbrhosts: Neighbor device object list
         nbrhost: Selected neighbor device object
     """
-    for name, v in list(nbrhosts.items()):
+    for name, v in nbrhosts.items():
         if nbrhost == v['host']:
             nbr_name = name
             return nbr_name

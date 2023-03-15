@@ -89,13 +89,13 @@ def get_lossless_buffer_size(host_ans, is_ingress):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "BUFFER_POOL" not in list(config_facts.keys()):
+    if "BUFFER_POOL" not in config_facts.keys():
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
     profile_name = type_str + '_lossless_pool'
 
-    if profile_name not in list(buffer_pools.keys()):
+    if profile_name not in buffer_pools.keys():
         return None
 
     pool = buffer_pools[profile_name]
@@ -412,7 +412,7 @@ def get_wred_profiles(host_ans):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "WRED_PROFILE" in list(config_facts.keys()):
+    if "WRED_PROFILE" in config_facts.keys():
         return config_facts['WRED_PROFILE']
     else:
         return None
@@ -514,7 +514,7 @@ def find_buffer_profile(host_ans, profile_start):
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
-    if "BUFFER_PROFILE" not in list(config_facts.keys()):
+    if "BUFFER_PROFILE" not in config_facts.keys():
         return None
     for profile in config_facts['BUFFER_PROFILE']:
         if profile.startswith(profile_start):
@@ -570,7 +570,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "BUFFER_PROFILE" not in list(config_facts.keys()):
+    if "BUFFER_PROFILE" not in config_facts.keys():
         return False
 
     buffer_profiles = config_facts['BUFFER_PROFILE']
@@ -606,7 +606,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if 'PFC_WD' not in list(config_facts.keys()):
+    if 'PFC_WD' not in config_facts.keys():
         return None
 
     pfcwd_config = config_facts['PFC_WD']

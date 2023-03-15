@@ -35,7 +35,7 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     bgp_no_export_config = deploy_no_export_bgp_config
 
     # Get random ToR VM
-    vm_name = random.choice([vm_name for vm_name in list(nbrhosts.keys()) if vm_name.endswith('T0')])
+    vm_name = random.choice([vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')])
     vm_host = nbrhosts[vm_name]['host']
 
     # Start all bgp sessions

@@ -60,7 +60,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% endfor %}
 {% endblock vlan_advertisement %}
 {% block bgp_sessions %}
-{% for neighbor_addr, bgp_session in BGP_NEIGHBOR.items() %}
+{% for neighbor_addr, bgp_session in BGP_NEIGHBOR.iteritems() %}
 {% if bgp_session['asn'] | int != 0 %}
   neighbor {{ neighbor_addr }} remote-as {{ bgp_session['asn'] }}
   neighbor {{ neighbor_addr }} description {{ bgp_session['name'] }}

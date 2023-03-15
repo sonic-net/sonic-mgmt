@@ -58,7 +58,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     # SONiC spawns one DHCP relay agent per VLAN interface configured on the DUT
     vlan_dict = mg_facts['minigraph_vlans']
-    for vlan_iface_name, vlan_info_dict in list(vlan_dict.items()):
+    for vlan_iface_name, vlan_info_dict in vlan_dict.items():
         # Filter(remove) PortChannel interfaces from VLAN members list
         vlan_members = [port for port in vlan_info_dict['members'] if 'PortChannel' not in port]
 
@@ -93,7 +93,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         # Obtain uplink port indicies for this DHCP relay agent
         uplink_interfaces = []
         uplink_port_indices = []
-        for iface_name, neighbor_info_dict in list(mg_facts['minigraph_neighbors'].items()):
+        for iface_name, neighbor_info_dict in mg_facts['minigraph_neighbors'].items():
             if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
                 neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
                 if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] in \
@@ -102,7 +102,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
                     # we record the name of the portchannel interface here, as this is the actual
                     # interface the DHCP relay will listen on.
                     iface_is_portchannel_member = False
-                    for portchannel_name, portchannel_info_dict in list(mg_facts['minigraph_portchannels'].items()):
+                    for portchannel_name, portchannel_info_dict in mg_facts['minigraph_portchannels'].items():
                         if 'members' in portchannel_info_dict and iface_name in portchannel_info_dict['members']:
                             iface_is_portchannel_member = True
                             if portchannel_name not in uplink_interfaces:
@@ -464,7 +464,7 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
 
-    RANDOM_CLIENT_PORT = random.choice(list(range(1000, 65535)))
+    RANDOM_CLIENT_PORT = random.choice(range(1000, 65535))
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,

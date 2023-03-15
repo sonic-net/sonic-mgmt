@@ -134,7 +134,7 @@ class TestMclagMemberPortStatusChange(object):
         for indx, mclag_intf in enumerate(pre_setup):
             down_link_on_dut = pre_setup[mclag_intf]['link_down_on_dut']
             dst_route = ipaddress.IPv4Interface(dut1_route) if down_link_on_dut == duthost1.hostname else ipaddress.IPv4Interface(dut2_route)
-            dst_ip = str(str(dst_route.ip + (indx + 1)))
+            dst_ip = unicode(str(dst_route.ip + (indx + 1)))
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf, dst_ip,
                                         duthost1.facts["router_mac"], get_routes, collect, down_link_on_dut=down_link_on_dut)
 
@@ -149,7 +149,7 @@ class TestMclagMemberPortStatusChange(object):
         dut2_route = get_routes[duthost2.hostname][2]
         for indx, mclag_intf in enumerate(collect[duthost1.hostname]['mclag_interfaces'][:mclag_intf_num]):
             dst_route = ipaddress.IPv4Interface(dut1_route) if indx % 2 == 0 else ipaddress.IPv4Interface(dut2_route)
-            dst_ip = str(str(dst_route.ip + (indx + 1)))
+            dst_ip = unicode(str(dst_route.ip + (indx + 1)))
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf, dst_ip,
                                         duthost1.facts["router_mac"], get_routes, collect)
 
@@ -191,7 +191,7 @@ class TestKeepAliveStatusChange(object):
         # and reach standby by PeerLink
         for indx, mclag_intf in enumerate(collect[duthost1.hostname]['mclag_interfaces'][:mclag_intf_num]):
             dst_route = ipaddress.IPv4Interface(dut1_route) if indx % 2 == 0 else ipaddress.IPv4Interface(dut2_route)
-            dst_ip = str(str(dst_route.ip + (indx + 1)))
+            dst_ip = unicode(str(dst_route.ip + (indx + 1)))
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf, dst_ip,
                                         duthost1.facts["router_mac"], get_routes, collect)
 
@@ -223,7 +223,7 @@ class TestActiveDeviceStatusChange():
         Shutdown mclag interfaces and reboot active device, to simulate loss of active device
         """
         check_portchannels = gen_list_pcs_to_check(duthost1, mg_facts, collect)
-        ports_to_shut = list(check_portchannels.keys()) + [keep_and_peer_link_member[duthost1.hostname]['keepalive']] + \
+        ports_to_shut = check_portchannels.keys() + [keep_and_peer_link_member[duthost1.hostname]['keepalive']] + \
                         [keep_and_peer_link_member[duthost1.hostname]['peerlink']]
         duthost1.shutdown_multiple(ports_to_shut)
         duthost1.shell("config save -y")
@@ -258,8 +258,8 @@ class TestActiveDeviceStatusChange():
                           "MCLAG interface MAC on standby device shoudl be it's default MAC {}; lag = {}, mac = {}".format(duthost2.facts["router_mac"], lag, dut2_sys_id))
 
         for indx, mclag_intf in enumerate(collect[duthost1.hostname]['mclag_interfaces'][:mclag_intf_num]):
-            dst_ip1 = str(str(dst_route1.ip + (indx + 1)))
-            dst_ip2 = str(str(dst_route2.ip + (indx + 1)))
+            dst_ip1 = unicode(str(dst_route1.ip + (indx + 1)))
+            dst_ip2 = unicode(str(dst_route2.ip + (indx + 1)))
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf,
                                         dst_ip2, duthost2.facts["router_mac"], get_routes, collect)
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf,
@@ -273,7 +273,7 @@ class TestStandByDeviceStatusChange():
         Shutdown mclag interfaces and reboot standby device, to simulate loss of standby device
         """
         check_portchannels = gen_list_pcs_to_check(duthost2, mg_facts, collect)
-        ports_to_shut = list(check_portchannels.keys()) + [keep_and_peer_link_member[duthost2.hostname]['keepalive']] + [keep_and_peer_link_member[duthost2.hostname]['peerlink']]
+        ports_to_shut = check_portchannels.keys() + [keep_and_peer_link_member[duthost2.hostname]['keepalive']] + [keep_and_peer_link_member[duthost2.hostname]['peerlink']]
         duthost2.shutdown_multiple(ports_to_shut)
         duthost2.shell("config save -y")
         duthost2.shell("sudo /sbin/reboot", module_ignore_errors=True)
@@ -302,8 +302,8 @@ class TestStandByDeviceStatusChange():
         pytest_assert(status == 'ERROR', "Keepalive status should be ERROR, not {}".format(status))
 
         for indx, mclag_intf in enumerate(collect[duthost1.hostname]['mclag_interfaces'][:mclag_intf_num]):
-            dst_ip1 = str(str(dst_route1.ip + (indx + 1)))
-            dst_ip2 = str(str(dst_route2.ip + (indx + 1)))
+            dst_ip1 = unicode(str(dst_route1.ip + (indx + 1)))
+            dst_ip2 = unicode(str(dst_route2.ip + (indx + 1)))
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf,
                                         dst_ip1, duthost1.facts["router_mac"], get_routes, collect)
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf, dst_ip2,
@@ -353,8 +353,8 @@ class TestPeerLinkStatusChange():
         # use PortChannel member as source port, not PortChannel
         for mclag_intf1, mclag_intf2 in zip(active_mclag_interfaces, standby_mclag_interfaces):
             indx += 1
-            dst_ip1 = str(str(dst_route1.ip + indx))
-            dst_ip2 = str(str(dst_route2.ip + indx))
+            dst_ip1 = unicode(str(dst_route1.ip + indx))
+            dst_ip2 = unicode(str(dst_route2.ip + indx))
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf1,
                                         dst_ip1, duthost1.facts["router_mac"], get_routes, collect)
             generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, mclag_intf1,

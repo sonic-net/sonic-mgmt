@@ -229,7 +229,7 @@ class TestPfcwdAllTimer(object):
         self.all_detect_time = list()
         self.all_restore_time = list()
         try:
-            for i in range(1, 20):
+            for i in xrange(1, 20):
                 logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                 self.run_test()
             self.verify_pfcwd_timers()

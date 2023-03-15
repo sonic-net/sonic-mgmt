@@ -141,7 +141,7 @@ def get_install_paths(duthost, defined_fw, versions, chassis, target_component):
     if target_component is not None:
         component = {target_component: component[target_component]}
 
-    for comp, revs in list(component.items()):
+    for comp, revs in component.items():
         if comp in ver:
             if revs[0].get("upgrade_only", False) and ver[comp] not in [r["version"] for r in revs]:
                 logger.warning("Firmware is upgrade only and existing firmware {} is not present in version list. "
@@ -170,18 +170,18 @@ def get_defined_components(duthost, defined_fw, chassis):
     """
     component = defined_fw["chassis"].get(chassis, {})["component"]
     if "host" in defined_fw and duthost.hostname in defined_fw["host"]:
-        for component_type in list(defined_fw["host"][duthost.hostname]["component"].keys()):
+        for component_type in defined_fw["host"][duthost.hostname]["component"].keys():
             component[component_type] = defined_fw["host"][duthost.hostname]["component"][component_type]
     return component
 
 
 def generate_config(duthost, cfg, versions):
     valid_keys = ["firmware", "version"]
-    chassis = list(versions["chassis"].keys())[0]
+    chassis = versions["chassis"].keys()[0]
     paths = deepcopy(cfg)
 
     # Init all the components to null
-    for comp in list(versions["chassis"][chassis]["component"].keys()):
+    for comp in versions["chassis"][chassis]["component"].keys():
         paths[comp] = paths.get(comp, {})
         if "firmware" in paths[comp]:
             paths[comp]["firmware"] = os.path.join("/", DEVICES_PATH, duthost.facts["platform"],
@@ -189,8 +189,8 @@ def generate_config(duthost, cfg, versions):
 
     # Populate items we are installing
     with open("platform_components.json", "w") as f:
-        json.dump({"chassis": {chassis: {"component": {comp: {k: v for k, v in list(dat.items()) if k in valid_keys}
-                                                       for comp, dat in list(paths.items())}}}}, f, indent=4)
+        json.dump({"chassis": {chassis: {"component": {comp: {k: v for k, v in dat.items() if k in valid_keys}
+                                                       for comp, dat in paths.items()}}}}, f, indent=4)
 
 
 def upload_platform(duthost, paths, next_image=None):
@@ -210,7 +210,7 @@ def upload_platform(duthost, paths, next_image=None):
     logger.info("Copying platform_components.json to {}".format(
         os.path.join(target, DEVICES_PATH, duthost.facts["platform"])))
 
-    for comp, dat in list(paths.items()):
+    for comp, dat in paths.items():
         if dat["firmware"].startswith("http"):
             duthost.get_url(url=dat["firmware"], dest=os.path.join(target, DEVICES_PATH, duthost.facts["platform"]))
         else:
@@ -221,7 +221,7 @@ def upload_platform(duthost, paths, next_image=None):
 def validate_versions(init, final, config, chassis, boot):
     final = final["chassis"][chassis]["component"]
     init = init["chassis"][chassis]["component"]
-    for comp, dat in list(config.items()):
+    for comp, dat in config.items():
         logger.info("Validating {} is version {} (is {})".format(comp, dat["version"], final[comp]))
         if (dat["version"] != final[comp] or init[comp] == final[comp]) and boot in dat["reboot"]:
             pytest.fail("Failed to install FW verison {} on {}".format(dat["version"], comp))
@@ -237,7 +237,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
     init_versions = show_firmware(duthost)
     logger.info("Initial Versions: {}".format(init_versions))
     # Only one chassis
-    chassis = list(init_versions["chassis"].keys())[0]
+    chassis = init_versions["chassis"].keys()[0]
     paths = get_install_paths(duthost, fw_pkg, init_versions, chassis, component)
     current = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
     if component not in paths:
@@ -280,7 +280,7 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
     boot_type = boot if boot else paths[component]["reboot"][0]
 
     allure.step("Perform Neccesary Reboot")
-    timeout = max([v.get("timeout", TIMEOUT) for k, v in list(paths.items())])
+    timeout = max([v.get("timeout", TIMEOUT) for k, v in paths.items()])
     pdu_delay = fw_pkg["chassis"][chassis].get("power_cycle_delay", 60)
     complete_install(duthost, localhost, boot_type, res, pdu_ctrl, auto_reboot, current, next_image, timeout, pdu_delay)
 
@@ -300,12 +300,12 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
     update_needed["chassis"][chassis]["component"] = {}
     defined_components = get_defined_components(duthost, fw_pkg, chassis)
     final_components = final_versions["chassis"][chassis]["component"]
-    for comp in list(paths.keys()):
+    for comp in paths.keys():
         if defined_components[comp][0]["version"] != final_components[comp] and \
                 boot in defined_components[comp][0]["reboot"] + [None] and \
                 not paths[comp].get("upgrade_only", False):
             update_needed["chassis"][chassis]["component"][comp] = defined_components[comp]
-    if len(list(update_needed["chassis"][chassis]["component"].keys())) > 0:
+    if len(update_needed["chassis"][chassis]["component"].keys()) > 0:
         logger.info("Latest firmware not installed after test. Installing....")
         call_fwutil(duthost, localhost, pdu_ctrl, update_needed, component, None, boot,
                     os.path.join("/", DEVICES_PATH, duthost.facts['platform']) if basepath is not None else None)

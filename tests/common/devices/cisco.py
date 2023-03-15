@@ -8,7 +8,7 @@ from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
-    str = str
+    unicode = str
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def adapt_interface_name(func):
         new_list = []
         for item in args_list:
             new_item = item
-            if isinstance(new_item, str) or isinstance(new_item, str) or isinstance(new_item, AnsibleUnsafeText):
+            if isinstance(new_item, str) or isinstance(new_item, unicode) or isinstance(new_item, AnsibleUnsafeText):
                 if 'Ethernet' in new_item and 'GigabitEthernet' not in new_item:
                     new_item = re.sub(r'(^|\s)Ethernet', 'GigabitEthernet0/0/0/', new_item)
                 elif 'Port-Channel' in new_item:
@@ -266,7 +266,7 @@ class CiscoHost(AnsibleHostBase):
 
         def help(data, lookup_key, result):
             if isinstance(data, dict):
-                for k, v in list(data.items()):
+                for k, v in data.items():
                     if k == lookup_key:
                         result.append(data)
                     elif isinstance(v, (list, dict)):
@@ -290,7 +290,7 @@ class CiscoHost(AnsibleHostBase):
 
         def help(data, lookup_key, result):
             if isinstance(data, dict):
-                for k, v in list(data.items()):
+                for k, v in data.items():
                     if k == lookup_key:
                         result.append(v)
                     elif isinstance(v, (list, dict)):

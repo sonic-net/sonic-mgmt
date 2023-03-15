@@ -37,6 +37,6 @@ else:
     platform_sfputil.read_porttab_mappings(port_config_path)
 
 # print the mapping to stdout in json format
-print((json.dumps(platform_sfputil.logical_to_physical)))
+print(json.dumps(platform_sfputil.logical_to_physical))
 
 # json will be loaded by sonic-mgmt

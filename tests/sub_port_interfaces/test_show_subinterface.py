@@ -17,7 +17,7 @@ def subintf_expected_config(duthost, apply_config_on_the_dut):
     subinterfaces = apply_config_on_the_dut["sub_ports"]
     show_int_status = {intf["interface"]: intf for intf in duthost.show_and_parse("show interface status")}
 
-    for subinterface, config in list(subinterfaces.items()):
+    for subinterface, config in subinterfaces.items():
         interface, vlan = subinterface.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
         config["speed"] = show_int_status[interface]["speed"]
         config["mtu"] = show_int_status[interface]["mtu"]
@@ -76,7 +76,7 @@ def test_subinterface_status(duthost, subintf_expected_config):
     show_ip_interfaces = {_["interface"]: _ for _ in duthost.show_and_parse("show ip interface")
                           if _["interface"] in subintf_expected_config}
 
-    for subintf, config in list(subintf_expected_config.items()):
+    for subintf, config in subintf_expected_config.items():
         # verify show subinterface status after creation
         status = show_sub_status[subintf]
         pytest_assert(status.get("admin") == "up", "subinterface %s should be admin up" % subintf)

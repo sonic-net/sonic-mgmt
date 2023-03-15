@@ -47,7 +47,7 @@ def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts,
     for asic_index in duthost.get_frontend_asic_ids():
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(duthost, asic_index)
-        interfaces_per_asic = {k:v for k, v in list(interface_list.items()) if k in interfaces}
+        interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
         check_transceiver_basic(duthost, asic_index, interfaces_per_asic, xcvr_skip_list)
 
     if asic_type in ["mellanox"]:

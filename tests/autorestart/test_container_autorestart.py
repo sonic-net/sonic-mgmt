@@ -33,7 +33,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         feature_list, _ = duthost.get_feature_status()
-        for feature, status in list(feature_list.items()):
+        for feature, status in feature_list.items():
             if status == 'enabled':
                 duthost.shell("sudo config feature autorestart {} enabled".format(feature))
     yield
@@ -378,7 +378,7 @@ def check_all_critical_processes_status(duthost):
       Ture if critical processes are running. Otherwise False.
     """
     processes_status = duthost.all_critical_process_status()
-    for container_name, processes in list(processes_status.items()):
+    for container_name, processes in processes_status.items():
         if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
             logger.info("The status of checking process in container '{}' is: {}"
                         .format(container_name, processes["status"]))
@@ -411,7 +411,7 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
         check_all_critical_processes_status, duthost
     )
 
-    for feature_name in list(feature_autorestart_states.keys()):
+    for feature_name in feature_autorestart_states.keys():
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
                 service_name = asic.get_service_name(feature_name)
@@ -512,7 +512,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
                     "status": v["status"],
                     "exited_critical_process": v["exited_critical_process"]
                 }
-            } for k, v in list(processes_status.items()) if v[
+            } for k, v in processes_status.items() if v[
                 "status"
             ] is False and len(v["exited_critical_process"]) > 0
         ]
@@ -521,7 +521,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
              "\nProcess status {}").format(
                 failed_check, container_name,
-                [{x: v['state']} for x, v in list(duthost.get_bgp_neighbors().items()) if v['state'] != 'established'],
+                [{x: v['state']} for x, v in duthost.get_bgp_neighbors().items() if v['state'] != 'established'],
                 up_bgp_neighbors, pstatus
             )
         )

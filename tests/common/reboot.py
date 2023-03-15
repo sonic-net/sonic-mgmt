@@ -262,7 +262,7 @@ def get_reboot_cause(dut):
     output = dut.shell('show reboot-cause')
     cause = output['stdout']
 
-    for type, ctrl in list(reboot_ctrl_dict.items()):
+    for type, ctrl in reboot_ctrl_dict.items():
         if re.search(ctrl['cause'], cause):
             return type
 
@@ -378,7 +378,7 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     if reboot_cause_history_got:
         if not set(REBOOT_CAUSE_HISTORY_TITLE) == set(reboot_cause_history_got[0].keys()):
             logger.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".
-                          format(REBOOT_CAUSE_HISTORY_TITLE, list(reboot_cause_history_got[0].keys())))
+                          format(REBOOT_CAUSE_HISTORY_TITLE, reboot_cause_history_got[0].keys()))
             return False
 
     logger.info("Verify reboot-cause output are sorted in reverse chronological order")

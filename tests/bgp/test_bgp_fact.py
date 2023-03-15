@@ -16,7 +16,7 @@ def test_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
 
     sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
-    for k, v in list(bgp_facts['bgp_neighbors'].items()):
+    for k, v in bgp_facts['bgp_neighbors'].items():
         # Verify bgp sessions are established
         assert v['state'] == 'established'
         # Verify local ASNs in bgp sessions
@@ -32,7 +32,7 @@ def test_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
     nbrs_in_cfg_facts.update(config_facts.get('BGP_INTERNAL_NEIGHBOR', {}))
     # In VoQ Chassis, we would have BGP_VOQ_CHASSIS_NEIGHBOR as well.
     nbrs_in_cfg_facts.update(config_facts.get('BGP_VOQ_CHASSIS_NEIGHBOR', {}))
-    for k, v in list(nbrs_in_cfg_facts.items()):
+    for k, v in nbrs_in_cfg_facts.items():
         # Compare the bgp neighbors name with config db bgp neighbors name
         assert v['name'] == bgp_facts['bgp_neighbors'][k]['description']
         # Compare the bgp neighbors ASN with config db

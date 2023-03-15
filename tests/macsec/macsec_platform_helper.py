@@ -22,7 +22,7 @@ __all__ = [
 def global_cmd(duthost, nbrhosts, cmd):
     pool = ThreadPool(1 + len(nbrhosts))
     pool.apply_async(duthost.command, args=(cmd,))
-    for nbr in list(nbrhosts.values()):
+    for nbr in nbrhosts.values():
         if isinstance(nbr["host"], EosHost):
             continue
         pool.apply_async(nbr["host"].command, args=(cmd, ))
@@ -47,7 +47,7 @@ def get_all_ifnames(host, asic = None):
         "eth": [],
         "macsec": [],
     }
-    for type in list(ports.keys()):
+    for type in ports.keys():
         ports[type] = [port.decode("utf-8")
                        for port in output if port.startswith(type)]
         ports[type].sort(key=lambda no: int(re.search(r'\d+', no).group(0)))
@@ -58,7 +58,7 @@ def get_all_ifnames(host, asic = None):
 
 def get_eth_ifname(host, port_name):
     asic = None
-    if "x86_64-kvm_x86_64" in get_platform(host):
+    if u"x86_64-kvm_x86_64" in get_platform(host):
         logging.info("Get the eth ifname on the virtual SONiC switch")
         if host.is_multi_asic:
             asic = host.get_port_asic_instance(port_name)
@@ -71,7 +71,7 @@ def get_eth_ifname(host, port_name):
 
 def get_macsec_ifname(host, port_name):
     asic = None
-    if "x86_64-kvm_x86_64" not in get_platform(host):
+    if u"x86_64-kvm_x86_64" not in get_platform(host):
         logging.info(
             "Can only get the macsec ifname on the virtual SONiC switch")
         return None
@@ -126,7 +126,7 @@ def get_portchannel(host):
 
 
 def find_portchannel_from_member(port_name, portchannel_list):
-    for k, v in list(portchannel_list.items()):
+    for k, v in portchannel_list.items():
         if port_name in v["members"]:
             return v
     return None

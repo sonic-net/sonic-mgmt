@@ -51,7 +51,7 @@ def get_target_pcs(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     # use first port of in_pc as input port
     in_ptf_index = dut_mg_facts["minigraph_ptf_indices"][in_pc[3][0]]
     # all ports in out_pc will be output/forward ports
-    out_ptf_indices = [dut_mg_facts["minigraph_ptf_indices"][port] for port in out_pc[3]]
+    out_ptf_indices = map(lambda port: dut_mg_facts["minigraph_ptf_indices"][port], out_pc[3])
 
     return in_pc, out_pc, in_ptf_index, out_ptf_indices
 
@@ -68,8 +68,8 @@ def teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     try:
         original_data = original_lag_facts[duthost.hostname]
         lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
-        for lag_name in list(original_data['lags'].keys()):
-            for po_intf, port_info in list(original_data['lags'][lag_name]['po_stats']['ports'].items()):
+        for lag_name in original_data['lags'].keys():
+            for po_intf, port_info in original_data['lags'][lag_name]['po_stats']['ports'].items():
                 if port_info['link']['up'] == lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['link']['up']:
                     logging.info("{} of {} is up, ignore it.".format(po_intf, lag_name))
                     continue

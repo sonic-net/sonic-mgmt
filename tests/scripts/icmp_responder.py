@@ -126,7 +126,7 @@ async def responder_control(reader_fd, pause_events):
             except json.decoder.JSONDecodeError:
                 continue
             if isinstance(data, Mapping):
-                for interface, is_pause in list(data.items()):
+                for interface, is_pause in data.items():
                     if interface in pause_events:
                         pause_event = pause_events[interface]
                         if is_pause:
@@ -160,7 +160,7 @@ async def start_icmp_responder(interfaces, dst_mac=None):
     reader_fd = os.fdopen(os.open(ICMP_RESPONDER_PIPE, os.O_RDONLY | os.O_NONBLOCK))
     _ = open(ICMP_RESPONDER_PIPE, "w")
 
-    tasks = [icmp_responder(interface, event, dst_mac=dst_mac) for interface, event in list(pause_events.items())]
+    tasks = [icmp_responder(interface, event, dst_mac=dst_mac) for interface, event in pause_events.items()]
     tasks.append(responder_control(reader_fd, pause_events))
 
     loop = asyncio.get_running_loop()

@@ -39,7 +39,7 @@ ALLOW_LIST = {
 @pytest.fixture
 def load_remove_allow_list(duthosts, bgp_allow_list_setup, rand_one_dut_hostname, request):
     allowed_list_prefixes = ALLOW_LIST['BGP_ALLOWED_PREFIXES']
-    for _, value in list(allowed_list_prefixes.items()):
+    for _, value in allowed_list_prefixes.items():
         value['default_action'] = request.param
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -55,7 +55,7 @@ def check_routes_on_dut(duthost, namespace):
     """
     Verify routes on dut
     """
-    for prefixes in list(PREFIX_LISTS.values()):
+    for prefixes in PREFIX_LISTS.values():
         for prefix in prefixes:
             dut_route = duthost.get_route(prefix, namespace)
             pytest_assert(dut_route, 'Route {} is not found on DUT'.format(prefix))

@@ -87,7 +87,7 @@ def get_ptf_recv_ports(duthost, tbinfo):
     """
     recv_ports = []
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for ptf_idx in list(mg_facts["minigraph_ptf_indices"].values()):
+    for ptf_idx in mg_facts["minigraph_ptf_indices"].values():
         recv_ports.append(ptf_idx)
     return recv_ports
 
@@ -99,7 +99,7 @@ def get_ptf_send_ports(duthost, tbinfo, dev_port):
         send_port = mg_facts['minigraph_ptf_indices'][member_port[0]]
     else:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        ports = natsorted(list(mg_facts['minigraph_ports'].keys()))
+        ports = natsorted(mg_facts['minigraph_ports'].keys())
         send_port = mg_facts['minigraph_ptf_indices'][ports[0]]
     return send_port
 
@@ -175,7 +175,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
         if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
             default_vlan_name = vlan_cfgs['default_vlan_config']
             if default_vlan_name:
-                for vlan in list(vlan_cfgs[default_vlan_name].values()):
+                for vlan in vlan_cfgs[default_vlan_name].values():
                     if 'mac' in vlan and vlan['mac']:
                         vlan_mac = vlan['mac']
                         break

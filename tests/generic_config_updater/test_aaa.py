@@ -188,8 +188,8 @@ def aaa_tc1_add_config(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        for aaa_type, aaa_sub_options in list(aaa_config.items()):
-            for option, value in list(aaa_sub_options.items()):
+        for aaa_type, aaa_sub_options in aaa_config.items():
+            for option, value in aaa_sub_options.items():
                 pytest_assert(
                     get_aaa_sub_options_value(duthost, aaa_type, option) == value,
                     "Failed to verify AAA {} {}".format(aaa_type, option)
@@ -329,7 +329,7 @@ def tacacs_global_tc2_add_config(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        for tacacs_global_type, value in list(TACACS_ADD_CONFIG.items()):
+        for tacacs_global_type, value in TACACS_ADD_CONFIG.items():
             pytest_assert(get_tacacs_global_type_value(duthost, tacacs_global_type) == value,
                           "TACACS global {} failed to apply".format(tacacs_global_type))
     finally:
@@ -391,7 +391,7 @@ def tacacs_global_tc2_duplicate_input(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        for tacacs_global_type, value in list(TACACS_ADD_CONFIG.items()):
+        for tacacs_global_type, value in TACACS_ADD_CONFIG.items():
             pytest_assert(
                 get_tacacs_global_type_value(duthost, tacacs_global_type) == value,
                 "TACACS global {} failed to apply".format(tacacs_global_type)
@@ -467,7 +467,7 @@ def tacacs_server_tc3_add_init(duthost):
         )
         for tacacs_server in tacacs_servers:
             options = tacacs_servers[tacacs_server]
-            for opt, value in list(TACACS_SERVER_OPTION.items()):
+            for opt, value in TACACS_SERVER_OPTION.items():
                 pytest_assert(opt in options and options[opt] == value,
                               "tacacs server failed to add to config completely.")
     finally:

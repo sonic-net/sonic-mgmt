@@ -50,7 +50,7 @@ def test_sensors(duthosts, rand_one_dut_hostname, sensors_data):
     # Prepare check list
     sensors_checks = sensors_data['sensors_checks']
 
-    if platform not in list(sensors_checks.keys()):
+    if platform not in sensors_checks.keys():
         pytest.skip("Skip test due to not support check sensors for current platform({})".format(platform))
 
     logging.info("Sensor checks:\n{}".format(to_json(sensors_checks[platform])))

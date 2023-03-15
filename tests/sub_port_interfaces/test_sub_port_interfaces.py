@@ -44,7 +44,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in list(sub_ports.items()):
+        for sub_port, value in sub_ports.items():
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
                                         src_port=value['neighbor_port'],
@@ -70,7 +70,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in list(sub_ports.items()):
+        for sub_port, value in sub_ports.items():
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
                                         src_port=value['neighbor_port'],
@@ -97,7 +97,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut["sub_ports"]
 
-        for sub_port, config in list(sub_ports.items()):
+        for sub_port, config in sub_ports.items():
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
                                         src_port=config["neighbor_port"],
@@ -133,7 +133,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in list(sub_ports.items()):
+        for sub_port, value in sub_ports.items():
             shutdown_port(duthost, sub_port)
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
@@ -143,7 +143,7 @@ class TestSubPorts(object):
                                         ip_dst=value['ip'],
                                         pkt_action='drop')
 
-            for next_sub_port, next_value in list(sub_ports.items()):
+            for next_sub_port, next_value in sub_ports.items():
                 if next_sub_port != sub_port:
                     generate_and_verify_traffic(duthost=duthost,
                                                 ptfadapter=ptfadapter,
@@ -183,13 +183,13 @@ class TestSubPorts(object):
         """
         sub_ports_new = dict()
         sub_ports = apply_config_on_the_dut['sub_ports']
-        sub_ports_new[list(sub_ports.keys())[0]] = sub_ports[list(sub_ports.keys())[0]]
-        sub_ports_new[list(sub_ports.keys())[-1]] = sub_ports[list(sub_ports.keys())[-1]]
+        sub_ports_new[sub_ports.keys()[0]] = sub_ports[sub_ports.keys()[0]]
+        sub_ports_new[sub_ports.keys()[-1]] = sub_ports[sub_ports.keys()[-1]]
 
-        rand_sub_ports = list(sub_ports.keys())[random.randint(1, len(sub_ports)-1)]
+        rand_sub_ports = sub_ports.keys()[random.randint(1, len(sub_ports)-1)]
         sub_ports_new[rand_sub_ports] = sub_ports[rand_sub_ports]
 
-        for sub_port, value in list(sub_ports_new.items()):
+        for sub_port, value in sub_ports_new.items():
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
                                         src_port=value['neighbor_port'],
@@ -213,7 +213,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port in list(sub_ports.keys()):
+        for sub_port in sub_ports.keys():
             sub_port_mtu = int(get_port_mtu(duthost, sub_port))
             # Get name of parent port from name of sub-port
             port = sub_port.split('.')[0]
@@ -242,7 +242,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in list(sub_ports.items()):
+        for sub_port, value in sub_ports.items():
             # Get VLAN ID from name of sub-port
             vlan_vid = int(sub_port.split('.')[1])
             # Create a VLAN RIF
@@ -290,7 +290,7 @@ class TestSubPorts(object):
         sub_ports = apply_route_config['sub_ports']
         type_of_traffic = type_of_traffic.split('-')
 
-        for src_port, next_hop_sub_ports in list(new_sub_ports.items()):
+        for src_port, next_hop_sub_ports in new_sub_ports.items():
             for sub_port, _ in next_hop_sub_ports:
                 generate_and_verify_traffic(duthost=duthost,
                                             ptfadapter=ptfadapter,
@@ -335,7 +335,7 @@ class TestSubPorts(object):
 
         # find to-be-removed sub ports
         sub_ports_to_remove = set(sub_ports.keys())
-        for sub_port, next_hop_sub_ports in list(new_sub_ports.items()):
+        for sub_port, next_hop_sub_ports in new_sub_ports.items():
             sub_ports_to_remove.remove(sub_port)
             for next_hop_sub_port, _ in next_hop_sub_ports:
                 sub_ports_to_remove.remove(next_hop_sub_port)
@@ -344,7 +344,7 @@ class TestSubPorts(object):
         for sub_port in sub_ports_to_remove:
             remove_sub_port(duthost, sub_port, sub_ports[sub_port]["ip"])
 
-        for src_port, next_hop_sub_ports in list(new_sub_ports.items()):
+        for src_port, next_hop_sub_ports in new_sub_ports.items():
             for sub_port, _ in next_hop_sub_ports:
                 generate_and_verify_traffic(duthost=duthost,
                                             ptfadapter=ptfadapter,
@@ -392,7 +392,7 @@ class TestSubPorts(object):
         if 'l3' in request.node.name:
             pktlen = 104
 
-        for src_port, next_hop_sub_ports in list(port_map.items()):
+        for src_port, next_hop_sub_ports in port_map.items():
             for sub_port, _ in next_hop_sub_ports['dst_ports']:
                 generate_and_verify_traffic(duthost=duthost,
                                             ptfadapter=ptfadapter,
@@ -428,7 +428,7 @@ class TestSubPorts(object):
         new_sub_ports = apply_route_config['new_sub_ports']
         sub_ports = apply_route_config['sub_ports']
 
-        for src_port, next_hop_sub_ports in list(new_sub_ports.items()):
+        for src_port, next_hop_sub_ports in new_sub_ports.items():
             for sub_port, _ in next_hop_sub_ports:
                 generate_and_verify_traffic(duthost=duthost,
                                             ptfadapter=ptfadapter,

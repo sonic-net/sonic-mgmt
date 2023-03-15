@@ -13,7 +13,7 @@ import json
 import logging
 import re
 import pytest
-from . import util
+import util
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
@@ -315,7 +315,7 @@ def check_fan_status(duthost, cmd):
 
     # Check that all fans are showing valid status and also at-least one PSU is OK.
     num_fan_ok = 0
-    for a_fan in list(fans.values()):
+    for a_fan in fans.values():
         if a_fan['Status'] == "OK":
             num_fan_ok += 1
     return num_fan_ok > 0
