@@ -1,12 +1,12 @@
 import pytest
 import logging
 
-from .cases_sai_ptf import TEST_CASE
-from .conftest import get_sai_test_container_name
-from .conftest import stop_and_rm_sai_test_container
-from .sai_infra import run_case_from_ptf, store_test_result
-from .sai_infra import *  # noqa: F403 F401
-from .conftest import *  # noqa: F403 F401
+from cases_sai_ptf import TEST_CASE
+from conftest import get_sai_test_container_name
+from conftest import stop_and_rm_sai_test_container
+from sai_infra import run_case_from_ptf, store_test_result
+from sai_infra import *  # noqa: F403 F401
+from conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@ pytestmark = [
 ]
 
 if sys.version_info.major == 3:
-    str = str
+    unicode = str
 
 TEST_DIR = "/tmp/lagtests/"
 PTF_LAG_NAME = "bond1"
@@ -83,7 +83,7 @@ def nbrhosts_itf_up_or_down(nbrhosts, nei_lag_ports, action):
     for nbr in nei_lag_ports:
         hostname = nbr.split(':')[0]
         itf = nbr.split(':')[1]
-        for nbr_hostname, nbrhost in list(nbrhosts.items()):
+        for nbr_hostname, nbrhost in nbrhosts.items():
             if nbr_hostname != hostname:
                 continue
             if action == 'down':
@@ -100,10 +100,10 @@ def test_ping_from_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     dut_ports = cfg_facts["PORT"]
     portchannel_itfs = cfg_facts["PORTCHANNEL_INTERFACE"]
-    for portchannel, ip_list in list(portchannel_itfs.items()):
-        portchannel_members = list(cfg_facts["PORTCHANNEL_MEMBER"][portchannel].keys())
+    for portchannel, ip_list in portchannel_itfs.items():
+        portchannel_members = cfg_facts["PORTCHANNEL_MEMBER"][portchannel].keys()
         hostname = dut_ports[portchannel_members[0]]['description'].split(':')[0]
-        for nbr_hostname, nbrhost in list(nbrhosts.items()):
+        for nbr_hostname, nbrhost in nbrhosts.items():
             if nbr_hostname != hostname:
                 continue
             for ip in ip_list:
@@ -125,7 +125,7 @@ def test_lag_member_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         members_from_cli_query = duthost.shell(cmd)['stdout'].split('\n')
 
         port_channel_status = duthost.get_port_channel_status(portchannel)
-        memebers_from_teamd_query = list(port_channel_status["ports"].keys())
+        memebers_from_teamd_query = port_channel_status["ports"].keys()
         pytest_assert(
                         len(members_from_cli_query) == len(memebers_from_teamd_query),
                         "Missing ports in {}".format(portchannel)
@@ -163,8 +163,8 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         portchannel_itfs = cfg_facts["PORTCHANNEL_INTERFACE"]
 
-        pytest_require(len(list(portchannel_itfs.items())) > 1, "We need two port channels.")
-        portchannel = list(portchannel_itfs.keys())[0]
+        pytest_require(len(portchannel_itfs.items()) > 1, "We need two port channels.")
+        portchannel = portchannel_itfs.keys()[0]
         dut_lag = {
             'pc': portchannel,
             "id": 109,
@@ -175,7 +175,7 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         dut_ports = cfg_facts["PORT"]
         port_index_map = cfg_facts["port_index_map"]
         port_list = []
-        for port, _ in list(portchannel_members.items()):
+        for port, _ in portchannel_members.items():
             port_list.append("eth{}".format(port_index_map[port]))
             nei_lag_ports.append(dut_ports[port]['description'])
 
@@ -183,15 +183,15 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         ptf_lag = {
             'port_list': port_list,
-            'ip': "{}/24".format(str(ipaddress.ip_address(str(dut_lag['ip'].split("/")[0])) + 1))
+            'ip': "{}/24".format(str(ipaddress.ip_address(unicode(dut_lag['ip'].split("/")[0])) + 1))
         }
 
         aux_port_idx = None
         aux_port = None
         pc_member = None
-        aux_portchannel = list(portchannel_itfs.keys())[1]
-        for port, _ in list(cfg_facts["PORTCHANNEL_MEMBER"][aux_portchannel].items()):
-            if (port not in list(portchannel_members.keys())):
+        aux_portchannel = portchannel_itfs.keys()[1]
+        for port, _ in cfg_facts["PORTCHANNEL_MEMBER"][aux_portchannel].items():
+            if (port not in portchannel_members.keys()):
                 pc_member = port
                 aux_port_idx = port_index_map[port]
                 aux_port = "eth{}".format(aux_port_idx)
@@ -202,7 +202,7 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             'pc_member': pc_member,
             'port_id': aux_port_idx,
             'port_name': aux_port,
-            'ip': "{}/24".format(str(ipaddress.ip_address(str(dut_lag['ip'].split("/")[0])) + 2))
+            'ip': "{}/24".format(str(ipaddress.ip_address(unicode(dut_lag['ip'].split("/")[0])) + 2))
         }
         # Shutdown neighbor interfaces to disable existing LACP and connect to PTF LACP.
         nbrhosts_itf_up_or_down(nbrhosts, nei_lag_ports, 'down')

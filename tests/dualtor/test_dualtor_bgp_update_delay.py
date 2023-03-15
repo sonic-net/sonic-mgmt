@@ -51,7 +51,7 @@ def ip_version(request):
 def select_bgp_neighbor(ip_version, duthost):
     config_facts = duthost.get_running_config_facts()
 
-    for bgp_neighbor, neighbor_details in list(config_facts["BGP_NEIGHBOR"].items()):
+    for bgp_neighbor, neighbor_details in config_facts["BGP_NEIGHBOR"].items():
         bgp_neighbor_addr = ipaddress.ip_address(bgp_neighbor)
         is_ipv4_neighbor = isinstance(bgp_neighbor_addr, ipaddress.IPv4Address)
         if ip_version == "ipv4" and is_ipv4_neighbor:

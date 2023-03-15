@@ -206,9 +206,9 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     entity_mib = {}
     sensor_mib = {}
-    for oid, info in list(snmp_facts['snmp_physical_entities'].items()):
+    for oid, info in snmp_facts['snmp_physical_entities'].items():
         entity_mib[int(oid)] = info
-    for oid, info in list(snmp_facts['snmp_sensors'].items()):
+    for oid, info in snmp_facts['snmp_sensors'].items():
         sensor_mib[int(oid)] = info
 
     mib_info["entity_mib"] = entity_mib
@@ -391,7 +391,7 @@ def _check_psu_sensor(duthost, psu_name, psu_info, psu_oid, snmp_physical_entity
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
-    for field, sensor_tuple in list(PSU_SENSOR_INFO.items()):
+    for field, sensor_tuple in PSU_SENSOR_INFO.items():
         expect_oid = psu_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
         if is_null_str(psu_info[field]):
             assert expect_oid not in snmp_physical_entity_info
@@ -497,7 +497,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     if not keys:
         pytest.skip('Fan information does not exist in DB, skipping this test')
     name_to_snmp_facts = {}
-    for oid, values in list(snmp_physical_entity_info.items()):
+    for oid, values in snmp_physical_entity_info.items():
         values['oid'] = oid
         name_to_snmp_facts[values['entPhysName']] = values
 
@@ -567,8 +567,8 @@ def _get_transceiver_sensor_data(duthost, name):
     key = XCVR_DOM_KEY_TEMPLATE.format(name)
     sensor_info = redis_hgetall(duthost, STATE_DB, key)
     sensor_data_list = []
-    for field, value in list(sensor_info.items()):
-        for pattern, data in list(XCVR_SENSOR_PATTERN.items()):
+    for field, value in sensor_info.items():
+        for pattern, data in XCVR_SENSOR_PATTERN.items():
             match_result = re.match(pattern, field)
             if match_result:
                 if data['extract_line_number']:
@@ -650,7 +650,7 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_PSU + position * MODULE_INDEX_MULTIPLE
         assert expect_oid in entity_mib_info
-        for field, sensor_tuple in list(PSU_SENSOR_INFO.items()):
+        for field, sensor_tuple in PSU_SENSOR_INFO.items():
             sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
             # entity_sensor_mib_info is only supported in image newer than 202012
             if sensor_oid in entity_mib_info:

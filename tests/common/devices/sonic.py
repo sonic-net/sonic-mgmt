@@ -308,7 +308,7 @@ class SonicHost(AnsibleHostBase):
             try:
                 out = self.command("cat {}".format(platform_file_path))
                 platform_info = json.loads(out["stdout"])
-                for key, value in list(platform_info.items()):
+                for key, value in platform_info.items():
                     result[key] = value
 
             except Exception:
@@ -1239,12 +1239,12 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         @param ipv6: check ipv6 default
         """
         if ipv4:
-            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
+            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
             if len(rtinfo_v4['nexthops']) == 0:
                 return False
 
         if ipv6:
-            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
+            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network(u'::/0'))
             if len(rtinfo_v6['nexthops']) == 0:
                 return False
 
@@ -1586,7 +1586,7 @@ Totals               6450                 6449
             dut_index = tbinfo['duts'].index(self.hostname)
             map = tbinfo['topo']['ptf_map'][str(dut_index)]
             if map:
-                for port, index in list(mg_facts['minigraph_port_indices'].items()):
+                for port, index in mg_facts['minigraph_port_indices'].items():
                     if str(index) in map:
                         mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
         except (ValueError, KeyError):
@@ -1605,7 +1605,7 @@ Totals               6450                 6449
     def assert_topo_is_backend(self, tbinfo):
         topo_key = constants.TOPO_KEY
         name_key = constants.NAME_KEY
-        if topo_key in list(tbinfo.keys()) and name_key in list(tbinfo[topo_key].keys()):
+        if topo_key in tbinfo.keys() and name_key in tbinfo[topo_key].keys():
             topo_name = tbinfo[topo_key][name_key]
             if constants.BACKEND_TOPOLOGY_IND in topo_name:
                 return True
@@ -1794,7 +1794,7 @@ Totals               6450                 6449
             #   section 1: resources usage
             #   section 2: ACL group
             #   section 3: ACL table
-            if 1 in list(sections.keys()):
+            if 1 in sections.keys():
                 crm_facts['resources'] = {}
                 resources = self._parse_show(sections[1])
                 for resource in resources:
@@ -1803,10 +1803,10 @@ Totals               6450                 6449
                         'available': int(resource['available count'])
                     }
 
-            if 2 in list(sections.keys()):
+            if 2 in sections.keys():
                 crm_facts['acl_group'] = self._parse_show(sections[2])
 
-            if 3 in list(sections.keys()):
+            if 3 in sections.keys():
                 crm_facts['acl_table'] = self._parse_show(sections[3])
             return True
         # Retry until crm resources are ready
@@ -2084,7 +2084,7 @@ Totals               6450                 6449
         """
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
-        for k, v in list(ip_ifs.items()):
+        for k, v in ip_ifs.items():
             if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
                self.is_backend_portchannel(k, mg_facts))):

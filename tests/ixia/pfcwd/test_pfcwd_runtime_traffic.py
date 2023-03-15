@@ -7,7 +7,7 @@ from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
 from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list
 
-from .files.pfcwd_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
+from files.pfcwd_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 

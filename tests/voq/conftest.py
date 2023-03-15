@@ -1,7 +1,7 @@
 import pytest
 import logging
 
-from .voq_helpers import get_eos_mac
+from voq_helpers import get_eos_mac
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 
 from tests.common.helpers.dut_utils import get_host_visible_vars
@@ -43,7 +43,7 @@ def _get_nbr_macs(nbrhosts, node=None, results=None):
     vm = nbrhosts[node]
     node_results = {}
 
-    for intf in list(vm['conf']['interfaces'].keys()):
+    for intf in vm['conf']['interfaces'].keys():
         logger.info("Get MAC on vm %s for intf: %s", node, intf)
         mac = get_eos_mac(vm, intf)
         logger.info("Found MAC on vm %s for intf: %s, mac: %s", node, intf, mac['mac'])
@@ -65,10 +65,10 @@ def nbr_macs(nbrhosts):
 
     """
     logger.debug("Get MACS for all neighbor hosts.")
-    results = parallel_run(_get_nbr_macs, [nbrhosts], {}, list(nbrhosts.keys()), timeout=120)
+    results = parallel_run(_get_nbr_macs, [nbrhosts], {}, nbrhosts.keys(), timeout=120)
 
     # result is DictProxy. Iterate it by using keys().
-    for res in list(results.keys()):
+    for res in results.keys():
         logger.info("parallel_results %s = %s", res, results[res])
 
     return results

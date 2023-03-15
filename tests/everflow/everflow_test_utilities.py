@@ -84,7 +84,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
         topo_type = "m0_vlan" if "m0_vlan_scenario" in topo_scenario else "m0_l3"
     # Get the list of T0/T2 ports
     for mg_facts in mg_facts_list:
-        for dut_port, neigh in list(mg_facts["minigraph_neighbors"].items()):
+        for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
             pytest_assert(topo_type in UPSTREAM_NEIGHBOR_MAP and
                           topo_type in DOWNSTREAM_NEIGHBOR_MAP, "Unsupported topo")
             if UPSTREAM_NEIGHBOR_MAP[topo_type] in neigh["name"].lower():
@@ -97,11 +97,11 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
                 downstream_ports_namespace.add(neigh['namespace'])
                 downstream_neigh_namespace_map[neigh['namespace']].add(neigh["name"])
 
-    for ns, neigh_set in list(upstream_neigh_namespace_map.items()):
+    for ns, neigh_set in upstream_neigh_namespace_map.items():
         if len(neigh_set) < 2:
             upstream_ports_namespace.remove(ns)
 
-    for ns, neigh_set in list(downstream_neigh_namespace_map.items()):
+    for ns, neigh_set in downstream_neigh_namespace_map.items():
         if len(neigh_set) < 2:
             downstream_ports_namespace.remove(ns)
 
@@ -208,7 +208,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
                 if out_port_lag_name is not None:
                     out_port_lag_name.append("Not Applicable")
 
-                for portchannelinfo in list(mg_facts["minigraph_portchannels"].items()):
+                for portchannelinfo in mg_facts["minigraph_portchannels"].items():
                     if port in portchannelinfo[1]["members"]:
                         if out_port_lag_name is not None:
                             out_port_lag_name[-1] = portchannelinfo[0]
@@ -302,7 +302,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
         )
     # Update the VLAN MAC for dualtor testbed. The VLAN MAC will be used as dst MAC in upstream traffic
     if 'dualtor' in topo:
-        vlan_name = list(mg_facts_list[0]['minigraph_vlans'].keys())[0]
+        vlan_name = mg_facts_list[0]['minigraph_vlans'].keys()[0]
         vlan_mac = downStreamDutHost.get_dut_iface_mac(vlan_name)
         setup_information.update({"dualtor": True})
         setup_information[UP_STREAM]['ingress_router_mac'] = vlan_mac
@@ -435,7 +435,7 @@ def setup_arp_responder(duthost, ptfhost, setup_info):
 
     yield
 
-    ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
+    ptfhost.command('supervisorctl stop arp_responder')
     ptfhost.file(path='/tmp/arp_responder.json', state="absent")
     duthost.command('sonic-clear arp')
 

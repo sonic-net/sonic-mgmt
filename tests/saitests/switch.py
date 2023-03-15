@@ -64,7 +64,7 @@ def switch_init(client):
     attr_list = switch_attr_list.attr_list
     for attribute in attr_list:
         if attribute.id == SAI_SWITCH_ATTR_PORT_NUMBER:
-            print("max ports: " + attribute.value.u32)
+            print "max ports: " + attribute.value.u32
         elif attribute.id == SAI_SWITCH_ATTR_PORT_LIST:
             for port_id in attribute.value.objlist.object_id_list:
                 attr_value = sai_thrift_attribute_value_t(booldata=1)
@@ -72,7 +72,7 @@ def switch_init(client):
                 client.sai_thrift_set_port_attribute(port_id, attr)
                 sai_port_list.append(port_id)
         else:
-            print("unknown switch attribute")
+            print "unknown switch attribute"
 
     # TOFIX in brcm sai: This causes the following error on td2 (a7050-qx-32s)
     # ERR syncd: brcm_sai_set_switch_attribute:842 updating switch mac addr failed with error -2.
@@ -88,7 +88,7 @@ def switch_init(client):
         for port_id in thrift_attr.value.objlist.object_id_list:
             front_port_list.append(port_id)
 
-    for interface,front in interface_to_front_mapping.items():
+    for interface,front in interface_to_front_mapping.iteritems():
         sai_port_id = client.sai_thrift_get_port_id_by_front_port(front)
         port_list[int(interface)]=sai_port_id
 
@@ -796,7 +796,7 @@ def sai_thrift_read_buffer_pool_watermark(client, buffer_pool_id):
 
     wm_vals = client.sai_thrift_get_buffer_pool_stats(buffer_pool_id, buffer_pool_wm_ids)
     if not wm_vals:
-        print("sai_thrift_read_buffer_pool_watermark returns empty list", file=sys.stderr)
+        print >> sys.stderr, "sai_thrift_read_buffer_pool_watermark returns empty list"
         return None
     return wm_vals[0]
 
@@ -807,7 +807,7 @@ def sai_thrift_read_headroom_pool_watermark(client, buffer_pool_id):
 
     wm_vals = client.sai_thrift_get_buffer_pool_stats(buffer_pool_id, buffer_pool_wm_ids)
     if not wm_vals:
-        print("sai_thrift_read_headroom_pool_watermark returns empty list", file=sys.stderr)
+        print >> sys.stderr, "sai_thrift_read_headroom_pool_watermark returns empty list"
         return None
     return wm_vals[0]
 

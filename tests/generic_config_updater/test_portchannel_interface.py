@@ -39,7 +39,7 @@ def portchannel_table(cfg_facts):
 
     pytest_require("PORTCHANNEL_INTERFACE" in cfg_facts, "Unsupported without port_channel")
     portchannel_table = {}
-    for portchannel, ip_addresses in list(cfg_facts["PORTCHANNEL_INTERFACE"].items()):
+    for portchannel, ip_addresses in cfg_facts["PORTCHANNEL_INTERFACE"].items():
         ips = {}
         for ip_address in ip_addresses:
             if _is_ipv4_address(ip_address.split("/")[0]):
@@ -54,7 +54,7 @@ def portchannel_table(cfg_facts):
 def check_portchannel_table(duthost, portchannel_table):
     """This is to check if portchannel interfaces are the same as t0 initial setup
     """
-    for portchannel_name, ips in list(portchannel_table.items()):
+    for portchannel_name, ips in portchannel_table.items():
         check_show_ip_intf(duthost, portchannel_name, [ips['ip']], [], is_ipv4=True)
         check_show_ip_intf(duthost, portchannel_name, [ips['ipv6']], [], is_ipv4=False)
 

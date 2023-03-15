@@ -15,8 +15,8 @@ from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_upli
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled
-from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config # lgtm[py/unused-import]
-from .tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm, get_queue_counter
+from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config # lgtm[py/unused-import]
+from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm, get_queue_counter
 from ptf import testutils
 from ptf.testutils import simple_tcp_packet
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
@@ -82,7 +82,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
     # Always select the last port in the last LAG as src_port
     src_port = _last_port_in_last_lag(t1_ports)
     dst_ports = []
-    for ports in list(t1_ports.values()):
+    for ports in t1_ports.values():
         dst_ports.extend(ports)
 
     for dscp_combination in DSCP_COMBINATIONS:
@@ -129,7 +129,7 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     portchannel_info = mg_facts['minigraph_portchannels']
     tor_pc_intfs = list()
-    for pc in list(portchannel_info.values()):
+    for pc in portchannel_info.values():
         for member in pc['members']:
             tor_pc_intfs.append(member)
     PKT_NUM = 100
@@ -218,7 +218,7 @@ def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_du
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     portchannel_info = mg_facts['minigraph_portchannels']
     tor_pc_intfs = list()
-    for pc in list(portchannel_info.values()):
+    for pc in portchannel_info.values():
         for member in pc['members']:
             tor_pc_intfs.append(member)
     active_tor_mac = rand_selected_dut.facts['router_mac']
@@ -305,7 +305,7 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
     src_port = _last_port_in_last_lag(t1_ports)
     # The encapsulated packets can egress from any uplink port
     dst_ports = []
-    for ports in list(t1_ports.values()):
+    for ports in t1_ports.values():
         dst_ports.extend(ports)
     active_tor_mac = rand_unselected_dut.facts['router_mac']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
@@ -326,7 +326,7 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
         result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
         actual_port = dst_ports[result[0]]
         # Get the port name from mgfacts
-        for port_name, idx in list(mg_facts['minigraph_ptf_indices'].items()):
+        for port_name, idx in mg_facts['minigraph_ptf_indices'].items():
             if idx == actual_port:
                 actual_port_name = port_name
                 break

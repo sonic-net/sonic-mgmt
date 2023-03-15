@@ -1,7 +1,7 @@
 import pytest
 import logging
 
-from .helper import gnmi_capabilities
+from helper import gnmi_capabilities
 
 logger = logging.getLogger(__name__)
 

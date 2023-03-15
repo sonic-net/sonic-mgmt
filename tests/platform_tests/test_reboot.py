@@ -92,7 +92,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         for asic_index in dut.get_frontend_asic_ids():
             # Get the interfaces pertaining to that asic
             interface_list = get_port_map(dut, asic_index)
-            interfaces_per_asic = {k:v for k, v in list(interface_list.items()) if k in interfaces}
+            interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
             check_transceiver_basic(dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
         logging.info("Check pmon daemon status")

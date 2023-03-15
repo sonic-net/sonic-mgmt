@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 def wait_all_bgp_up(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    if not wait_until(180, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
+    if not wait_until(180, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
         pytest.fail("not all bgp sessions are up after config change")
 
 
@@ -75,7 +75,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     # SONiC spawns one DHCP relay agent per VLAN interface configured on the DUT
     vlan_dict = mg_facts['minigraph_vlans']
-    for vlan_iface_name, vlan_info_dict in list(vlan_dict.items()):
+    for vlan_iface_name, vlan_info_dict in vlan_dict.items():
         # Filter(remove) PortChannel interfaces from VLAN members list
         vlan_members = [port for port in vlan_info_dict['members'] if 'PortChannel' not in port]
         if not vlan_members:
@@ -108,7 +108,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         uplink_interfaces = []
         uplink_port_indices = []
         topo_type = tbinfo['topo']['type']
-        for iface_name, neighbor_info_dict in list(mg_facts['minigraph_neighbors'].items()):
+        for iface_name, neighbor_info_dict in mg_facts['minigraph_neighbors'].items():
             if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
                 neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
                 if 'type' not in neighbor_device_info_dict:
@@ -121,7 +121,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
                     # we record the name of the portchannel interface here, as this is the actual
                     # interface the DHCP relay will listen on.
                     iface_is_portchannel_member = False
-                    for portchannel_name, portchannel_info_dict in list(mg_facts['minigraph_portchannels'].items()):
+                    for portchannel_name, portchannel_info_dict in mg_facts['minigraph_portchannels'].items():
                         if 'members' in portchannel_info_dict and iface_name in portchannel_info_dict['members']:
                             iface_is_portchannel_member = True
                             if portchannel_name not in uplink_interfaces:

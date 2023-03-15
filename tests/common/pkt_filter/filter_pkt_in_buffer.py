@@ -11,7 +11,7 @@ import ptf.packet as packet
 if sys.version_info.major > 2:
     NATIVE_TYPE = (int, float, bool, list, dict, tuple, set, str, bytes, type(None))
 else:
-    NATIVE_TYPE = (int, float, int, bool, list, dict, tuple, set, str, bytes, str, type(None))     # noqa F821
+    NATIVE_TYPE = (int, float, long, bool, list, dict, tuple, set, str, bytes, unicode, type(None))     # noqa F821
 
 
 def _parse_layer(layer):
@@ -232,9 +232,9 @@ class FilterPktBuffer(object):
         """
         if pkt_type == 'received' and self.received_pkt:
             received_pkt = convert_pkt_to_dict(self.received_pkt)
-            print(('Received packet:\n{}'.format(json.dumps(self.__remove_ignore_fields(received_pkt), indent=4))))
+            print('Received packet:\n{}'.format(json.dumps(self.__remove_ignore_fields(received_pkt), indent=4)))
         elif pkt_type == 'expected':
-            print(('Expected packet:\n{}'.format(json.dumps(self.__remove_ignore_fields(self.pkt_dict), indent=4))))
+            print('Expected packet:\n{}'.format(json.dumps(self.__remove_ignore_fields(self.pkt_dict), indent=4)))
         elif pkt_type == 'received':
             print('Received packet not available')
         else:

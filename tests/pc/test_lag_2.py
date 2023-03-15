@@ -125,7 +125,7 @@ class LagTest:
 
 
             # Verify PortChannel interfaces are up correctly
-            for po_intf in list(po_interfaces.keys()):
+            for po_intf in po_interfaces.keys():
                 if po_intf != intf:
                     command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print(json.load(sys.stdin)[\'ports\'][\'%s\'][\'runner\'][\'selected\'])"' \
                     % (namespace_prefix, lag_name, po_intf)
@@ -135,7 +135,7 @@ class LagTest:
             lag_facts = self.__get_lag_facts()
 
             # Verify lag member is marked deselected for the shutdown port and all other lag member interfaces are marked selected
-            for po_intf in list(po_interfaces.keys()):
+            for po_intf in po_interfaces.keys():
                 pytest_assert((po_intf != intf) == (lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']),
                               "Unexpected port channel {} member {} selected state: {}".format(lag_name, po_intf, (po_intf != intf)))
 
@@ -149,7 +149,7 @@ class LagTest:
             host.no_shutdown(neighbor_intf)
 
             # Verify PortChannel interfaces are up correctly
-            for po_intf in list(po_interfaces.keys()):
+            for po_intf in po_interfaces.keys():
                 if po_intf != intf:
                     command = 'bash -c "teamdctl %s %s state dump" | python -c "import sys, json; print(json.load(sys.stdin)[\'ports\'][\'%s\'][\'link\'][\'up\'])"'\
                               % (namespace_prefix, lag_name, po_intf)
@@ -163,7 +163,7 @@ class LagTest:
 
         # Prepare for the remote VM interfaces that using PTF docker to check if the LACP DU packet rate is correct
         iface_behind_lag_member = []
-        for neighbor_intf in list(self.vm_neighbors.keys()):
+        for neighbor_intf in self.vm_neighbors.keys():
             if peer_device == self.vm_neighbors[neighbor_intf]['name']:
                 iface_behind_lag_member.append(self.mg_facts['minigraph_ptf_indices'][neighbor_intf])
 
@@ -207,7 +207,7 @@ class LagTest:
         intf, _ = self.__get_lag_intf_info(lag_facts, lag_name)
 
         # Figure out fanout switches info if exists for the lag member and run minlink test
-        if intf in list(self.fanout_neighbors.keys()):
+        if intf in self.fanout_neighbors.keys():
             peer_device   = self.fanout_neighbors[intf]['peerdevice']
             neighbor_intf = self.fanout_neighbors[intf]['peerport']
             self.__verify_lag_minlink(self.fanouthosts[peer_device], lag_name, lag_facts, neighbor_intf, deselect_time=5)
@@ -247,7 +247,7 @@ class LagTest:
             # 2. Shutdown port should keep selected state if fallback enabled
             # 3. Shutdown port should marded as deselected if fallback disabled
             #  is marked deselected for the shutdown port and all other lag member interfaces are marked selected
-            for po_intf in list(po_interfaces.keys()):
+            for po_intf in po_interfaces.keys():
                 pytest_assert((po_intf != intf or po_fallback) == (lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['selected']),
                               "Unexpected port channel {} member {} selected state: {}".format(lag_name, po_intf, (po_intf != intf)))
 
@@ -360,8 +360,8 @@ def teardown(duthost):
     try:
         original_data = original_lag_facts[duthost.hostname]
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-        for lag_name in list(original_data['lags'].keys()):
-            for po_intf, port_info in list(original_data['lags'][lag_name]['po_stats']['ports'].items()):
+        for lag_name in original_data['lags'].keys():
+            for po_intf, port_info in original_data['lags'][lag_name]['po_stats']['ports'].items():
                 if port_info['link']['up'] == lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['link']['up']:
                     logger.info("{} of {} is up, ignore it.".format(po_intf, lag_name))
                     continue
@@ -445,13 +445,13 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
             test_lags = [ dut_lag ]
         # 1. Check if status of interface is in sync with state_db after bootup.
         for lag_name in test_lags:
-            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+            for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                 if not check_status_is_syncd(asichost, po_intf, port_info, lag_name):
                     pytest.fail("{} member {}'s status is not synced with oper_status in state_db.".format(lag_name, po_intf))
 
         # 2. Check if status of interface is in sync with state_db after shutdown/no shutdown.
         for lag_name in test_lags:
-            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+            for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                 asichost.shutdown_interface(po_intf)
                 # Retrieve lag_facts after shutdown interface
                 new_lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
@@ -474,7 +474,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
             else:
                 asic_index = DEFAULT_ASIC_ID
             asichost = duthost.asic_instance(asic_index)
-            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+            for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                 if port_info['link']['up']:
                         logger.info("{} of {} is up, ignore it.".format(po_intf, lag_name))
                         continue
@@ -508,7 +508,7 @@ def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_w
 
     # Check if status of interface is in sync with state_db after removing/adding member.
     for lag_name in test_lags:
-        for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+        for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
             # 1 Remove port member from portchannel
             asichost.config_portchannel_member(lag_name, po_intf, "del")
 

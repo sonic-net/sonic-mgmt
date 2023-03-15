@@ -29,7 +29,7 @@ import sys
 if sys.version_info.major == 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = str
+    STRING_TYPE = basestring
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -66,7 +66,7 @@ def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname):
     port_map = get_physical_port_indices(duthost)
     result = []
     visited_intfs = set()
-    for intf in natsorted(list(port_map.keys())):
+    for intf in natsorted(port_map.keys()):
         if intf in visited_intfs:
             continue
         visited_intfs.add(intf)
@@ -217,12 +217,12 @@ class TestChassisApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
         # Convert all keys of syseeprom_info_dict into lower case
-        syseeprom_info_dict = {k.lower() : v for k, v in list(syseeprom_info_dict.items())}
+        syseeprom_info_dict = {k.lower() : v for k, v in syseeprom_info_dict.items()}
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
         
         # case sensitive,so make all characters lowercase
-        syseeprom_type_codes_list = [key.lower() for key in list(syseeprom_info_dict.keys())]
+        syseeprom_type_codes_list = [key.lower() for key in syseeprom_info_dict.keys()]
         VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [key.lower() for key in VALID_ONIE_TLVINFO_TYPE_CODES_LIST]
         MINIMUM_REQUIRED_TYPE_CODES_LIST = [key.lower() for key in MINIMUM_REQUIRED_TYPE_CODES_LIST]
         
@@ -244,7 +244,7 @@ class TestChassisApi(PlatformApiTestBase):
         host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
         expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
         # Ignore case of keys in syseeprom_info
-        expected_syseeprom_info_dict = {k.lower(): v for k, v in list(expected_syseeprom_info_dict.items())}
+        expected_syseeprom_info_dict = {k.lower(): v for k, v in expected_syseeprom_info_dict.items()}
 
         for field in expected_syseeprom_info_dict:
             pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
@@ -432,7 +432,7 @@ class TestChassisApi(PlatformApiTestBase):
             if duthost.facts.get("platform") == 'x86_64-nvidia_sn2201-r0':
                 # On SN2201, there are 48 RJ45 ports which are also counted in SFP object lists
                 # So we need to adjust test case accordingly
-                for port,data in list(interface_facts.items()):
+                for port,data in interface_facts.items():
                     if data['type'] == 'RJ45':
                         expected_num_sfps += 1
             pytest_assert(num_sfps == expected_num_sfps,

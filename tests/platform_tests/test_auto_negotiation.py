@@ -103,7 +103,7 @@ def recover_ports(duthosts, fanouthosts):
     logger.info('Collecting existing port configuration for DUT and fanout...')
     for duthost in duthosts:
         # Only do the sampling when there are no candidates
-        if duthost.hostname in list(all_ports_by_dut.keys()):
+        if duthost.hostname in all_ports_by_dut.keys():
             continue
 
         all_ports_by_dut[duthost.hostname] = {}
@@ -114,7 +114,7 @@ def recover_ports(duthosts, fanouthosts):
     yield
 
     logger.info('Recovering port configuration for fanout...')
-    for fanout, port, speed, autoneg, fec_mode in list(fanout_original_port_states.values()):
+    for fanout, port, speed, autoneg, fec_mode in fanout_original_port_states.values():
         fanout.set_auto_negotiation_mode(port, autoneg)
         fanout.set_speed(port, speed)
         if not autoneg:
@@ -204,7 +204,7 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
     logger.info('Checking the actual speed is equal to highest speed')
     int_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
     common_supported_speeds = enum_dut_portname_module_fixture['speeds']
-    highest_speed = max([int(p) for p in common_supported_speeds])
+    highest_speed = max(map(lambda p: int(p), common_supported_speeds))
     actual_speed = int(int_status[dut_port]['speed'][:-1] + '000')
     pytest_assert(actual_speed == highest_speed, 'Actual speed is not the highest speed')
 

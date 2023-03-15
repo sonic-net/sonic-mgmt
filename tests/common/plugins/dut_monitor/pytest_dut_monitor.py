@@ -94,7 +94,7 @@ class DUTMonitorPlugin(object):
         overused = []
         fail_msg = "Used HDD threshold - {}\nHDD overuse:\n".format(thresholds["hdd_used"])
 
-        for timestamp, used_hdd in list(hdd_meas.items()):
+        for timestamp, used_hdd in hdd_meas.items():
             if used_hdd > thresholds["hdd_used"]:
                 overused.append((timestamp, used_hdd))
 
@@ -110,7 +110,7 @@ class DUTMonitorPlugin(object):
         fail_msg = "\nRAM thresholds: peak - {}; before/after test difference - {}%\n".format(thresholds["ram_peak"],
                                                                                               thresholds["ram_delta"])
 
-        for timestamp, used_ram in list(ram_meas.items()):
+        for timestamp, used_ram in ram_meas.items():
             if used_ram > thresholds["ram_peak"]:
                 peak_overused.append((timestamp, used_ram))
         if peak_overused:
@@ -119,11 +119,11 @@ class DUTMonitorPlugin(object):
 
         # Take first and last RAM measurements
         if len(ram_meas) >= 4:
-            before = sum(list(ram_meas.values())[0:2]) / 2
-            after = sum(list(ram_meas.values())[2:4]) / 2
+            before = sum(ram_meas.values()[0:2]) / 2
+            after = sum(ram_meas.values()[2:4]) / 2
         else:
-            before = list(ram_meas.values())[0]
-            after = list(ram_meas.values())[-1]
+            before = ram_meas.values()[0]
+            after = ram_meas.values()[-1]
 
         delta = thresholds["ram_delta"] / 100. * before
         if after >= before + delta:
@@ -184,7 +184,7 @@ class DUTMonitorPlugin(object):
                 fail_msg += handle_total_measurements(total_overused)
                 total_overused = []
 
-            for process_consumption, process_name in list(cpu_meas[timestamp]["top_consumer"].items()):
+            for process_consumption, process_name in cpu_meas[timestamp]["top_consumer"].items():
                 if process_consumption >= thresholds["cpu_process"]:
                     if process_name not in process_overused:
                         process_overused[process_name] = []
@@ -193,7 +193,7 @@ class DUTMonitorPlugin(object):
 
         # Handle measurements per process
         if process_overused:
-            for process_name, process_consumption in list(process_overused.items()):
+            for process_name, process_consumption in process_overused.items():
                 timestamps = []
                 process_sum = 0
                 for m_id, m_value in enumerate(process_consumption):
@@ -338,7 +338,7 @@ class DUTMonitorClient(object):
         if measurements is None:
             return {}
         # Sort json data to process logs chronologically
-        keys = list(measurements.keys())
+        keys = measurements.keys()
         keys.sort()
         key_value_pairs = [(item, measurements[item]) for item in keys]
         return OrderedDict(key_value_pairs)

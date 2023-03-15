@@ -118,7 +118,7 @@ def ixia_dev(duthosts, rand_one_dut_hostname, fanouthosts):
     """
     duthost = duthosts[rand_one_dut_hostname]
     result = dict()
-    ixia_dev_hostnames = list(fanouthosts.keys())
+    ixia_dev_hostnames = fanouthosts.keys()
     for hostname in ixia_dev_hostnames:
         result[hostname] = duthost.host.options['inventory_manager'].get_host(hostname).get_vars()['ansible_host']
     return result
@@ -355,7 +355,7 @@ def __l3_intf_config(config, port_config_list, duthost, ixia_ports):
 
     dut_mac = str(duthost.facts['router_mac'])
 
-    for k, v in list(l3_intf.items()):
+    for k, v in l3_intf.items():
         intf = str(k)
         gw_addr = str(v['addr'])
         prefix = str(v['prefixlen'])
@@ -421,7 +421,7 @@ def __vlan_intf_config(config, port_config_list, duthost, ixia_ports):
         return True
 
     vlan_member = {}
-    for k, v in list(vlan_facts.items()):
+    for k, v in vlan_facts.items():
         vlan_member[k] = v['members']
 
     vlan_intf_facts = mg_facts['minigraph_vlan_interfaces']
@@ -505,7 +505,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, ixia_ports):
         return True
 
     pc_member = {}
-    for k, v in list(pc_facts.items()):
+    for k, v in pc_facts.items():
         pc_member[k] = v['members']
 
     pc_intf_facts = mg_facts['minigraph_portchannel_interfaces']

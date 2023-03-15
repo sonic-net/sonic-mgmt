@@ -69,7 +69,7 @@ def test_isis_ecmp(duthosts, nbrhosts, common_setup_teardown):
 
     path = 0
     run_cmds = ["clear counters"]
-    for _, nbr in list(nbrhosts.items()):
+    for _, nbr in nbrhosts.items():
         nbr['host'].eos_command(commands=run_cmds)
 
     run_cmds = ["ping 202.2.1.3 -I 7.7.7.7 -c 2&",
@@ -82,7 +82,7 @@ def test_isis_ecmp(duthosts, nbrhosts, common_setup_teardown):
 
     time.sleep(15)
     run_cmds = ["show interfaces counters incoming |grep Po1|awk '{print $3}'"]
-    for _, nbr in list(nbrhosts.items()):
+    for _, nbr in nbrhosts.items():
         global path
         output = nbr['host'].eos_command(commands=run_cmds)
         if int(output["stdout"][0]) > 2:

@@ -88,10 +88,10 @@ def _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, ip_type):
     mux_config = mux_cable_server_ip(duthost)
     if ip_type == 'ipv4':
         arp_responder_conf = {"eth%s" % minigraph_ptf_indices[port]: [config["server_ipv4"].split("/")[0]]
-                              for port, config in list(mux_config.items())}
+                              for port, config in mux_config.items()}
     else:
         arp_responder_conf = {"eth%s" % minigraph_ptf_indices[port]: [config["server_ipv6"].split("/")[0]]
-                              for port, config in list(mux_config.items())}
+                              for port, config in mux_config.items()}
     ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest="/tmp/from_t1.json")
 
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
@@ -106,7 +106,7 @@ def run_arp_responder_ipv6(rand_selected_dut, ptfhost, tbinfo, apply_mock_dual_t
     _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, 'ipv6')
     yield
 
-    ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    ptfhost.shell('supervisorctl stop arp_responder')
 
 
 @pytest.fixture(scope="module")
@@ -114,7 +114,7 @@ def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
     _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, 'ipv4')
     yield
 
-    ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    ptfhost.shell('supervisorctl stop arp_responder')
 
 
 def pytest_configure(config):

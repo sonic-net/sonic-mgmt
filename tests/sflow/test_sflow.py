@@ -54,7 +54,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
 
     config_dut_ports(duthost,var['test_ports'][0:2],vlan=1000)
 
-    for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):
+    for port_channel, interfaces in mg_facts['minigraph_portchannels'].items():
         port = interfaces['members'][0]
         var['sflow_ports'][port] = {}
         var['sflow_ports'][port]['ifindex'] = get_ifindex(duthost,port)
@@ -256,7 +256,7 @@ class TestSflowCollector():
             verify_sflow_interfaces(duthost,intf,'up',512)
         time.sleep(5)
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0']" )
 
 
@@ -268,14 +268,14 @@ class TestSflowCollector():
         verify_show_sflow(duthost,status='up',collector=[])
         time.sleep(5)
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="[]" )
         #re-add collector
         config_sflow_collector(duthost,'collector0','add')
         verify_show_sflow(duthost,status='up',collector=['collector0'])
         time.sleep(2)
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0']" )
 
 
@@ -285,7 +285,7 @@ class TestSflowCollector():
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         time.sleep(2)
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
 
         # Remove second collector anc check samples are received in only 1st collector
@@ -293,7 +293,7 @@ class TestSflowCollector():
         verify_show_sflow(duthost,status='up',collector=['collector0'])
         time.sleep(5)
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0']" )
 
         #Re-add second collector and check if samples are received in both collectors again
@@ -301,7 +301,7 @@ class TestSflowCollector():
         verify_show_sflow(duthost,status='up',collector=['collector0','collector1'])
         time.sleep(5)
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
 
         # Add third collector and check only 2 collectors can be configured
@@ -313,7 +313,7 @@ class TestSflowCollector():
         verify_show_sflow(duthost,status='up',collector=['collector1'])
         time.sleep(10)
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector1']" )
 
 
@@ -468,7 +468,7 @@ class TestReboot():
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'],dest="/tmp/sflow_ports.json")
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
         # Test Polling
         partial_ptf_runner(
@@ -480,7 +480,7 @@ class TestReboot():
         config_sflow(duthost,sflow_status='disable')
         verify_show_sflow(duthost,status='down')
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="[]" )
         duthost.command('sudo config save -y')
         reboot(duthost, localhost)
@@ -492,7 +492,7 @@ class TestReboot():
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'],dest="/tmp/sflow_ports.json")
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="[]" )
 
 
@@ -511,7 +511,7 @@ class TestReboot():
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'],dest="/tmp/sflow_ports.json")
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
 
     def testWarmreboot(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):
@@ -529,7 +529,7 @@ class TestReboot():
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'],dest="/tmp/sflow_ports.json")
         partial_ptf_runner(
-              enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+              enabled_sflow_interfaces=var['sflow_ports'].keys(),
               active_collectors="['collector0','collector1']" )
 
 

@@ -248,14 +248,14 @@ def load_test_parameters(duthost):
             expected_pgs = TESTPARAM_ADMIN_DOWN.get('BUFFER_PG_TABLE')
             if expected_pgs:
                 new_pgs = {}
-                for pg, profile in list(expected_pgs.items()):
+                for pg, profile in expected_pgs.items():
                     new_pgs[pg] = profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
                 TESTPARAM_ADMIN_DOWN['BUFFER_PG_TABLE'] = new_pgs
 
             expected_queues = TESTPARAM_ADMIN_DOWN.get('BUFFER_QUEUE_TABLE')
             if expected_queues:
                 new_queues = {}
-                for queue, profile in list(expected_queues.items()):
+                for queue, profile in expected_queues.items():
                     new_queues[queue] = profile.replace('[BUFFER_PROFILE_TABLE:', '').replace(']', '')
                 TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = new_queues
 
@@ -411,12 +411,12 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             conn_graph_facts: The connection graph facts object
         """
         global PORTS_WITH_8LANES
-        hostname = list(conn_graph_facts['device_conn'].keys())[0]
+        hostname = conn_graph_facts['device_conn'].keys()[0]
         ports_info = conn_graph_facts['device_conn'][hostname]
         if not ports_info:
             ports = [port.split('|')[1] for port in duthost.shell('redis-cli -n 4 keys "PORT|*"')['stdout'].split('\n')]
         else:
-            ports = list(ports_info.keys())
+            ports = ports_info.keys()
         if PORTS_WITH_8LANES is None:
             PORTS_WITH_8LANES = []
             for port in ports:
@@ -648,7 +648,7 @@ def _compose_dict_from_cli(fields_list):
     Args:
         fields_list: A list of lines, the output of redis-cli hgetall command
     """
-    return dict(list(zip(fields_list[0::2], fields_list[1::2])))
+    return dict(zip(fields_list[0::2], fields_list[1::2]))
 
 
 def check_buffer_profile_details(duthost, initial_profiles, profile_name, profile_oid, pool_oid, port_to_test):
@@ -686,7 +686,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
                                   and (profile_appldb['size'] == std_profile['size'] or DEFAULT_SHARED_HEADROOM_POOL_ENABLED),
                                   "Generated profile {} doesn't match the std profile {}".format(profile_appldb, std_profile))
                 else:
-                    for std_cable_len, std_profile in list(std_profiles_for_speed.items()):
+                    for std_cable_len, std_profile in std_profiles_for_speed.items():
                         if int(std_cable_len[:-1]) > int(cable_length[:-1]):
                             pytest_assert(int(std_profile['xoff']) >= int(profile_appldb['xoff']),
                                           "XOFF of generated profile {} is greater than standard profile {} while its cable length is less".format(profile_appldb, std_profile))
@@ -820,9 +820,9 @@ def port_to_test(request, duthost):
 
     dutLagInterfaces = []
     mgFacts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    ports = list(mgFacts['minigraph_ports'].keys())
+    ports = mgFacts['minigraph_ports'].keys()
 
-    for _, lag in list(mgFacts["minigraph_portchannels"].items()):
+    for _, lag in mgFacts["minigraph_portchannels"].items():
         dutLagInterfaces += lag["members"]
 
     testPort = set(mgFacts["minigraph_ports"].keys())
@@ -1665,10 +1665,10 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
         """
         objects_in_appl_db = duthost.shell('redis-cli keys "{}:{}:*"'.format(table, port_to_test))['stdout'].split()
         if expected_objects:
-            expected_object_keys = ['{}:{}:{}'.format(table, port_to_test, objectid) for objectid in list(expected_objects.keys())]
+            expected_object_keys = ['{}:{}:{}'.format(table, port_to_test, objectid) for objectid in expected_objects.keys()]
             pytest_assert(set(expected_object_keys) == set(objects_in_appl_db),
                           "Objects in {} on admin-down port is {} but should be {}".format(table, objects_in_appl_db, expected_object_keys))
-            for objectid, expected_profile in list(expected_objects.items()):
+            for objectid, expected_profile in expected_objects.items():
                 profile = duthost.shell('redis-cli hget {}:{}:{} profile'.format(table, port_to_test, objectid))['stdout']
                 pytest_assert(profile == expected_profile,
                               "Profile in {}:{}:{} should be {} but got {}".format(table, port_to_test, objectid, expected_objects[objectid], profile))
@@ -2445,8 +2445,8 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         profile_wrapper = '[BUFFER_PROFILE_TABLE:{}]'
         is_qos_db_reference_with_table = True
     else:
-        for status, buffer_items_to_check_4_6 in list(buffer_items_to_check_dict.items()):
-            for queue_4_6, buffer_items_to_check in list(buffer_items_to_check_4_6.items()):
+        for status, buffer_items_to_check_4_6 in buffer_items_to_check_dict.items():
+            for queue_4_6, buffer_items_to_check in buffer_items_to_check_4_6.items():
                 new_buffer_items_to_check = []
                 for item in buffer_items_to_check:
                     table, ids, profiles = item
@@ -2631,7 +2631,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
         return False, None
 
     # Get pause_quanta with port speed from pause_quanta_per_speed_dict
-    if port_speed in list(pause_quanta_per_speed_dict.keys()):
+    if port_speed in pause_quanta_per_speed_dict.keys():
         pause_quanta = pause_quanta_per_speed_dict[port_speed]
     else:
         # Get default peer response time from State DB

@@ -139,9 +139,9 @@ class DecapPacketTest(BaseTest, RouterUtility):
         default_route_ports = []
         unicast_ip = 'none'
         unicast_dst_port = []
-        print(self.route_info.items())
+        print(self.route_info.iteritems())
         # running on the routes_info file and extractin ECMP route and unicast route
-        for prefix, port_index_list in self.route_info.items():
+        for prefix, port_index_list in self.route_info.iteritems():
             dest_ip_addr = prefix.split("/")[0]
 
             if (self.is_ipv6_address(dest_ip_addr)):

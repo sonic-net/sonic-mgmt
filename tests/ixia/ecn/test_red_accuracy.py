@@ -111,7 +111,7 @@ def test_red_accuracy(request,
         """ Dump queue length vs. ECN marking probability into a file """
         queue_mark_cnt = collections.OrderedDict(sorted(queue_mark_cnt.items()))
         f = open(result_file_name, 'w')
-        for queue, mark_cnt in list(queue_mark_cnt.items()):
+        for queue, mark_cnt in queue_mark_cnt.iteritems():
             f.write('{} {}\n'.format(queue, float(mark_cnt)/iters))
         f.close()
     finally:

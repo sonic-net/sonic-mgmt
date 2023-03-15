@@ -103,7 +103,7 @@ class TestContLinkFlap(object):
             if "localhost" in dev_meta and "type" in dev_meta["localhost"]:
                 dut_type = dev_meta["localhost"]["type"]
 
-            for k, v in list(nei_meta.items()):
+            for k, v in nei_meta.items():
                 if v['type'] in ['SmartCable', 'Server', 'Asic'] or dut_type == v['type']:
                     continue
                 nbrhost = nbrhosts[k]['host']

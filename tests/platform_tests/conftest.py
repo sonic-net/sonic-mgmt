@@ -80,7 +80,7 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
     yield
     if request.node.rep_call.failed:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        ports = list(mg_facts['minigraph_ports'].keys())
+        ports = mg_facts['minigraph_ports'].keys()
 
         # Enable outer interfaces
         for port in ports:
@@ -220,17 +220,17 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
 
     for message in messages:
         # Get stopping to started timestamps for services (swss, bgp, etc)
-        for status, pattern in list(service_patterns.items()):
+        for status, pattern in service_patterns.items():
             if re.search(pattern, message):
                 service_time_check(message, status)
                 break
         # Get timestamps of all other entities
-        for state, pattern in list(derived_patterns.items()):
+        for state, pattern in derived_patterns.items():
             if re.search(pattern, message):
                 delim = "{}|{}".format(duthost.hostname, "sonic")
                 timestamp = _parse_timestamp(re.split(delim, message)[0].strip())
                 state_name = state.split("|")[0].strip()
-                if state_name + "|End" not in list(derived_patterns.keys()):
+                if state_name + "|End" not in derived_patterns.keys():
                     if "FDB_EVENT_OTHER_MAC_EXPIRY" in state_name or "FDB_EVENT_SCAPY_MAC_EXPIRY" in state_name:
                         fdb_aging_disable_start = service_restart_times.get("FDB_AGING_DISABLE", {})\
                             .get("timestamp", {}).get("Start")
@@ -247,7 +247,7 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                     service_restart_times.update(state_times)
                 break
     # Calculate time that services took to stop/start
-    for _, timings in list(service_restart_times.items()):
+    for _, timings in service_restart_times.items():
         timestamps = timings["timestamp"]
         timings["stop_time"] = (_parse_timestamp(timestamps["Stopped"]) -
                                 _parse_timestamp(timestamps["Stopping"])).total_seconds() \
@@ -276,12 +276,12 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
 def analyze_sairedis_rec(messages, result, offset_from_kexec):
     sai_redis_state_times = dict()
     for message in messages:
-        for state, pattern in list(SAIREDIS_PATTERNS.items()):
+        for state, pattern in SAIREDIS_PATTERNS.items():
             if re.search(pattern, message):
                 timestamp = datetime.strptime(message.split("|")[0].strip(), "%Y-%m-%d.%H:%M:%S.%f")
                 state_name = state.split("|")[0].strip()
                 reboot_time = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
-                if state_name + "|End" not in list(SAIREDIS_PATTERNS.keys()):
+                if state_name + "|End" not in SAIREDIS_PATTERNS.keys():
                     if "FDB_EVENT_OTHER_MAC_EXPIRY" in state_name or "FDB_EVENT_SCAPY_MAC_EXPIRY" in state_name:
                         fdb_aging_disable_start = result.get("time_span", {}).get("FDB_AGING_DISABLE", {})\
                             .get("timestamp", {}).get("Start")
@@ -298,7 +298,7 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
                                                   first_after_offset=reboot_time)
                     sai_redis_state_times.update(state_times)
 
-    for _, timings in list(sai_redis_state_times.items()):
+    for _, timings in sai_redis_state_times.items():
         timestamps = timings["timestamp"]
         if "Start" in timestamps and "End" in timestamps:
             timings["time_span"] = (_parse_timestamp(timestamps["End"]) -
@@ -488,7 +488,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 
-        for key, messages in list(result["expect_messages"].items()):
+        for key, messages in result["expect_messages"].items():
             if "syslog" in key:
                 get_kexec_time(duthost, messages, analyze_result)
                 reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
@@ -507,7 +507,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         analyze_log_file(duthost, bgpd_log_messages, analyze_result, offset_from_kexec)
         analyze_sairedis_rec(sairedis_rec_messages, analyze_result, offset_from_kexec)
 
-        for marker, time_data in list(analyze_result["offset_from_kexec"].items()):
+        for marker, time_data in analyze_result["offset_from_kexec"].items():
             marker_start_time = time_data.get("timestamp", {}).get("Start")
             reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
             if reboot_start_time and reboot_start_time != "N/A" and marker_start_time:

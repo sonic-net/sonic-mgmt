@@ -88,7 +88,7 @@ def load_conditions(session):
             with open(conditions_file) as f:
                 logger.debug('Loaded test mark conditions file: {}'.format(conditions_file))
                 conditions = yaml.safe_load(f)
-                for key, value in list(conditions.items()):
+                for key, value in conditions.items():
                     conditions_list.append({key: value})
     except Exception as e:
         logger.error('Failed to load {}, exception: {}'.format(conditions_files, repr(e)), exc_info=True)
@@ -113,11 +113,11 @@ def read_asic_name(hwsku):
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
 
-        for key, value in list(asic_name.copy().items()):
+        for key, value in asic_name.copy().items():
             if ('td' not in key) and ('th' not in key) and ('spc' not in key):
                 asic_name.pop(key)
 
-        for name, hw in list(asic_name.items()):
+        for name, hw in asic_name.items():
             if hwsku in hw:
                 return name.split('_')[1]
 
@@ -327,7 +327,7 @@ def load_basic_facts(session):
     dut_name = tbinfo['duts'][0]
     if session.config.option.customize_inventory_file:
         inv_name = session.config.option.customize_inventory_file
-    elif 'inv_name' in list(tbinfo.keys()):
+    elif 'inv_name' in tbinfo.keys():
         inv_name = tbinfo['inv_name']
     else:
         inv_name = 'lab'
@@ -548,7 +548,7 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in longest_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
-                for mark_name, mark_details in list(list(match.values())[0].items()):
+                for mark_name, mark_details in list(match.values())[0].items():
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
                     if not mark_details:

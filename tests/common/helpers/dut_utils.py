@@ -182,7 +182,7 @@ def get_disabled_container_list(duthost):
     container_status, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
 
-    for container_name, status in list(container_status.items()):
+    for container_name, status in container_status.items():
         if "disabled".encode('UTF-8') in status:
             disabled_containers.append(container_name)
 
@@ -256,7 +256,7 @@ def verify_features_state(duthost):
         logger.info("Failed to get list of feature names.")
         return False
 
-    for feature_name, status in list(feature_status.items()):
+    for feature_name, status in feature_status.items():
         logger.info("The state of '{}' is '{}'.".format(feature_name, status))
 
         if status not in ("enabled", "always_enabled", "disabled", "always_disabled"):

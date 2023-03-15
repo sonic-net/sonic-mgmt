@@ -71,7 +71,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.my_mac = {}
         self.peer_mac = {}
-        for port_id, port in self.dataplane.ports.items():
+        for port_id, port in self.dataplane.ports.iteritems():
             if port_id[0] == 0:
                 self.my_mac[port_id[1]] = port.mac()
             elif port_id[0] == 1:

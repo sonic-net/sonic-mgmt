@@ -1,6 +1,6 @@
 import pytest
 from tests.common.utilities import skip_release
-from . import passw_hardening_utils
+import passw_hardening_utils
 
 def set_default_passw_hardening_policies(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]

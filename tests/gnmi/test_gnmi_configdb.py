@@ -3,7 +3,7 @@ import logging
 import pytest
 import re
 
-from .helper import gnmi_set, gnmi_get, gnoi_reboot
+from helper import gnmi_set, gnmi_get, gnoi_reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
