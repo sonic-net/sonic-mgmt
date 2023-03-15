@@ -788,7 +788,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.fanout = fanouthosts
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
-        key, value  = list(self.ports.items())[0]
+        key, value  = self.ports.items()[0]
         self.ports = {key: value}
         port = key
         self.neighbors = setup_info['neighbors']

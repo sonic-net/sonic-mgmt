@@ -14,8 +14,9 @@ def test_show_features(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
     features_dict, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "failed to obtain feature status")
-    for cmd_key, cmd_value in list(features_dict.items()):
+    for cmd_key, cmd_value in features_dict.items():
+        feature = str(cmd_key)
         redis_value = duthost.shell('/usr/bin/redis-cli -n 4 --raw hget "FEATURE|{}" "state"'
-                                    .format(cmd_key.decode()), module_ignore_errors=False)['stdout']
-        pytest_assert(redis_value.lower() == cmd_value.decode().lower(),
+                                    .format(feature), module_ignore_errors=False)['stdout']
+        pytest_assert(redis_value.lower() == cmd_value.lower(),
                       "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))

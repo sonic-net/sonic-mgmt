@@ -1,6 +1,6 @@
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
-from .qos_fixtures import leaf_fanouts
-from .qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
+from qos_fixtures import leaf_fanouts
+from qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 import os
 import time
 import pytest

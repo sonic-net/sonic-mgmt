@@ -62,7 +62,7 @@ def enable_counters(duthosts):
     for duthost in duthosts.frontend_nodes:
         namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
         for namespace in namespace_list:
-            for port, status in list(previous_cnt_status[duthost][namespace].items()):
+            for port, status in previous_cnt_status[duthost][namespace].items():
                 if status == "disable":
                     logger.info("Restoring counter '{}' state to disable".format(port))
                     CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''

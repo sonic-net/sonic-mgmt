@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def get_t2_neigh(tbinfo):
     dut_t2_neigh = []
-    for vm in list(tbinfo['topo']['properties']['topology']['VMs'].keys()):
+    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
         if 'T2' in vm:
             dut_t2_neigh.append(vm)
     return dut_t2_neigh
@@ -22,7 +22,7 @@ def get_t0_neigh(tbinfo, topo_config):
     get all t0 router names which has vips defined
     """
     dut_t0_neigh = []
-    for vm in list(tbinfo['topo']['properties']['topology']['VMs'].keys()):
+    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
         if 'T0' in vm:
             if 'vips' in topo_config[vm]:
                 dut_t0_neigh.append(vm)

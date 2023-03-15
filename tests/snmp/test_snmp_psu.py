@@ -18,7 +18,7 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
 
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     res = duthost.shell("psuutil numpsus")
-    assert int(res['rc']) == 0, "Failed to get number of PSUs"
+    assert int(res[u'rc']) == 0, "Failed to get number of PSUs"
 
     numpsus = int(res['stdout'])
     assert numpsus == len(snmp_facts['snmp_psu'])
@@ -33,7 +33,7 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
     psus_on = 0
     msg = "Unexpected operstatus results {} != {} for PSU {}"
 
-    for psu_indx, operstatus in list(snmp_facts['snmp_psu'].items()):
+    for psu_indx, operstatus in snmp_facts['snmp_psu'].items():
         get_presence = duthost.shell("redis-cli -n 6 hget 'PSU_INFO|PSU {}' presence".format(psu_indx))
         get_status = duthost.shell("redis-cli -n 6 hget 'PSU_INFO|PSU {}' status".format(psu_indx))
         status = get_status['stdout'] == 'true'

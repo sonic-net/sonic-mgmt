@@ -12,10 +12,10 @@ if sys.version_info.major > 2:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent))
 
-from .macsec_config_helper import enable_macsec_feature
-from .macsec_config_helper import disable_macsec_feature
-from .macsec_config_helper import setup_macsec_configuration
-from .macsec_config_helper import cleanup_macsec_configuration
+from macsec_config_helper import enable_macsec_feature
+from macsec_config_helper import disable_macsec_feature
+from macsec_config_helper import setup_macsec_configuration
+from macsec_config_helper import cleanup_macsec_configuration
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
 
@@ -30,7 +30,7 @@ class MacsecPlugin(object):
     def __init__(self):
         with open(os.path.dirname(__file__) + '/profile.json') as f:
             self.macsec_profiles = json.load(f)
-            for k, v in list(self.macsec_profiles.items()):
+            for k, v in self.macsec_profiles.items():
                 self.macsec_profiles[k]["name"] = k
                 # Set default value
                 if "rekey_period" not in v:
@@ -39,7 +39,7 @@ class MacsecPlugin(object):
     def _generate_macsec_profile(self, metafunc):
         value = metafunc.config.getoption("macsec_profile")
         if value == 'all':
-            return natsort.natsorted(list(self.macsec_profiles.keys()))
+            return natsort.natsorted(self.macsec_profiles.keys())
         return [x for x in value.split(',') if x in self.macsec_profiles]
 
     def pytest_generate_tests(self, metafunc):
@@ -111,14 +111,14 @@ class MacsecPlugin(object):
 
     @pytest.fixture(scope="module")
     def macsec_nbrhosts(self, ctrl_links):
-        return {nbr["name"]: nbr for nbr in list(ctrl_links.values())}
+        return {nbr["name"]: nbr for nbr in ctrl_links.values()}
 
     @pytest.fixture(scope="module")
     def ctrl_links(self, duthost, tbinfo, nbrhosts):
         if not nbrhosts:
             topo_name = tbinfo['topo']['name']
             pytest.skip("None of neighbors on topology {}".format(topo_name))
-        ctrl_nbr_names = natsort.natsorted(list(nbrhosts.keys()))[:2]
+        ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
         logger.info("Controlled links {}".format(ctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
         return self.find_links_from_nbr(duthost, tbinfo, nbrhosts)
@@ -126,7 +126,7 @@ class MacsecPlugin(object):
     @pytest.fixture(scope="module")
     def unctrl_links(self, duthost, tbinfo, nbrhosts, ctrl_links):
         unctrl_nbr_names = set(nbrhosts.keys())
-        for _, nbr in list(ctrl_links.items()):
+        for _, nbr in ctrl_links.items():
             if nbr["name"] in unctrl_nbr_names:
                 unctrl_nbr_names.remove(nbr["name"])
         logger.info("Uncontrolled links {}".format(unctrl_nbr_names))
@@ -178,11 +178,11 @@ class MacsecPlugin(object):
 
     def find_links(self, duthost, tbinfo, filter):
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
-            list(filter(interface, neighbor, mg_facts, tbinfo))
+        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+            filter(interface, neighbor, mg_facts, tbinfo)
 
     def is_interface_portchannel_member(self, pc, interface):
-        for pc_name, elements in list(pc.items()):
+        for pc_name, elements in pc.items():
             if interface in elements['members']:
                 return True
         return False
@@ -191,7 +191,7 @@ class MacsecPlugin(object):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
-            if neighbor["name"] not in list(nbrhosts.keys()):
+            if neighbor["name"] not in nbrhosts.keys():
                 return
             port = mg_facts["minigraph_neighbors"][interface]["port"]
 

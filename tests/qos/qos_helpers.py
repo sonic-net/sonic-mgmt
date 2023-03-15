@@ -1,5 +1,5 @@
 from netaddr import IPAddress, IPNetwork
-from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts
+from qos_fixtures import lossless_prio_dscp_map, leaf_fanouts
 import json
 import re
 import os
@@ -24,7 +24,7 @@ def ansible_stdout_to_str(ansible_stdout):
     """
     result = ""
     for x in ansible_stdout:
-        result += x
+        result += x.encode('UTF8')
     return result
 
 def eos_to_linux_intf(eos_intf_name, hwsku=None):
@@ -62,7 +62,7 @@ def get_phy_intfs(host_ans):
     @return: Return the list of active interfaces
     """
     intf_facts = host_ans.interface_facts()['ansible_facts']['ansible_interface_facts']
-    phy_intfs = [k for k in list(intf_facts.keys()) if k.startswith('Ethernet') and "." not in k]
+    phy_intfs = [k for k in intf_facts.keys() if k.startswith('Ethernet') and "." not in k]
     return phy_intfs
 
 def get_active_intfs(host_ans):
@@ -116,7 +116,7 @@ def start_pause(host_ans, pkt_gen_path, intf, pkt_count, pause_duration, pause_p
     else:
         cmd = "nohup sudo python %s -i %s -p %d -t %d -n %d </dev/null >/dev/null 2>&1 &" % (pkt_gen_path, intf, 2**pause_priority, pause_duration, pkt_count)
 
-    print(cmd)
+    print cmd
     host_ans.host.shell(cmd)
 
 def stop_pause(host_ans, pkt_gen_path):
@@ -138,11 +138,11 @@ def get_active_vlan_members(host_ans):
     mg_vlans = mg_facts['minigraph_vlans']
 
     if len(mg_vlans) != 1:
-        print('There should be only one Vlan at the DUT')
+        print 'There should be only one Vlan at the DUT'
         return None
 
     """ Get all the Vlan memebrs """
-    vlan_intf = list(mg_vlans.keys())[0]
+    vlan_intf = mg_vlans.keys()[0]
     vlan_members = mg_vlans[vlan_intf]['members']
     vlan_id = None
     if 'type' in mg_vlans[vlan_intf] and mg_vlans[vlan_intf]['type'] is not None and 'Tagged' in mg_vlans[vlan_intf]['type']:
@@ -164,7 +164,7 @@ def get_vlan_subnet(host_ans):
     mg_vlans = mg_facts['minigraph_vlans']
 
     if len(mg_vlans) != 1:
-        print('There should be only one Vlan at the DUT')
+        print 'There should be only one Vlan at the DUT'
         return None
 
     mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
@@ -186,13 +186,13 @@ def gen_testbed_t0(duthost):
     vlan_subnet = get_vlan_subnet(duthost)
 
     """ Prefix length to network mask """
-    vlan_subnet_mask = ipaddress.ip_network(str(vlan_subnet, "utf-8")).netmask
+    vlan_subnet_mask = ipaddress.ip_network(unicode(vlan_subnet, "utf-8")).netmask
 
     """ Generate IP addresses for servers in the Vlan """
     vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(vlan_members))
 
     """ Generate MAC addresses 00:00:00:00:00:XX for servers in the Vlan """
-    vlan_mac_addrs = [5 * '00:' + format(k, '02x') for k in random.sample(list(range(1, 256)), len(vlan_members))]
+    vlan_mac_addrs = [5 * '00:' + format(k, '02x') for k in random.sample(range(1, 256), len(vlan_members))]
 
     """ Find correspoinding interfaces on PTF """
     phy_intfs = get_phy_intfs(duthost)

@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import get_platform_data
 from tests.common.utilities import wait_until
 from tests.platform_tests.thermal_control_test_helper import *
-from .mellanox_thermal_control_test_helper import MockerHelper, AbnormalFanMocker
+from mellanox_thermal_control_test_helper import MockerHelper, AbnormalFanMocker
 from tabulate import tabulate
 from .minimum_table import get_min_table
 import re
