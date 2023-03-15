@@ -1078,13 +1078,8 @@ class SonicHost(AnsibleHostBase):
         @param dstip: destination. either ip_address or ip_network
 
         Please beware: if dstip is an ip network, you will receive all ECMP nexthops
-<<<<<<< HEAD
         But if dstip is an ip address, only one nexthop will be returned,
         the one which is going to be used to send a packet to the destination.
-=======
-        But if dstip is an ip address, only one nexthop will be returned, the one which is going to be used to
-        send a packet to the destination.
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
         Exanples:
 ----------------
@@ -1097,14 +1092,9 @@ raw data
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("192.168.8.0/25")))
 returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'),
-<<<<<<< HEAD
                                                             (IPv4Address(u'10.0.0.5'), u'PortChannel0002'),
                                                             (IPv4Address(u'10.0.0.9'), u'PortChannel0003'),
                                                             (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
-=======
-(IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'),
-(IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
 raw data
 192.168.8.0/25 proto 186 src 10.1.0.32 metric 20
@@ -1128,14 +1118,9 @@ raw data
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("20c0:a818::/64")))
 returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'),
-<<<<<<< HEAD
                                                              (IPv6Address(u'fc00::a'), u'PortChannel0002'),
                                                              (IPv6Address(u'fc00::12'), u'PortChannel0003'),
                                                              (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
-=======
-(IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'),
-(IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
 raw data
 20c0:a818::/64 via fc00::2 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
@@ -1152,14 +1137,9 @@ raw data (starting from Bullseye)
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("0.0.0.0/0")))
 returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'),
-<<<<<<< HEAD
                                                             (IPv4Address(u'10.0.0.5'), u'PortChannel0002'),
                                                             (IPv4Address(u'10.0.0.9'), u'PortChannel0003'),
                                                             (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
-=======
-(IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'),
-(IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
 raw data
 default proto 186 src 10.1.0.32 metric 20
@@ -1176,18 +1156,10 @@ default nhid 296 proto bgp src 10.1.0.32 metric 20
         nexthop via 10.0.0.63 dev PortChannel0004 weight 1
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("::/0")))
-<<<<<<< HEAD
 returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'),
                                                              (IPv6Address(u'fc00::a'), u'PortChannel0002'),
                                                              (IPv6Address(u'fc00::12'), u'PortChannel0003'),
                                                              (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
-=======
-returns {'set_src': IPv6Address(u'fc00:1::32'),
-'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'),
-(IPv6Address(u'fc00::a'), u'PortChannel0002'),
-(IPv6Address(u'fc00::12'), u'PortChannel0003'),
- (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
 raw data
 default via fc00::2 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
@@ -1350,7 +1322,7 @@ Totals               6450                 6449
         ipv4_output = self.shell("show ip route sum")["stdout_lines"]
         ipv4_summary = self._parse_route_summary(ipv4_output)
 
-        if skip_kernel_tunnel == True:
+        if skip_kernel_tunnel is True:
             ipv4_route_kernel_output = self.shell("show ip route kernel")["stdout_lines"]
             ipv4_route_kernel_count = 0
             for string in ipv4_route_kernel_output:
@@ -1367,7 +1339,7 @@ Totals               6450                 6449
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
 
-        if skip_kernel_tunnel == True:
+        if skip_kernel_tunnel is True:
             ipv6_route_kernel_output = self.shell("show ipv6 route kernel")["stdout_lines"]
             ipv6_route_kernel_count = 0
             for string in ipv6_route_kernel_output:
@@ -2298,9 +2270,9 @@ Totals               6450                 6449
                 # Either oper or admin status 'down' means link down
                 if 'down' in output_line:
                     logging.info("Interface {} is down on {}".format(output_port, self.hostname))
-                    return False    
-                logging.info("Interface {} is up on {}".format(output_port, self.hostname))                             
-        return True   
+                    return False
+                logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+        return True
 
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
@@ -2325,7 +2297,7 @@ Totals               6450                 6449
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
 
+
 def assert_exit_non_zero(shell_output):
     if shell_output['rc'] != 0:
         raise Exception(shell_output['stderr'])
-

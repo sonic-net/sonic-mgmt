@@ -25,9 +25,9 @@ CHECK_ITEMS = [
     'check_bgp',
     'check_dbmemory',
     'check_monit',
-    'check_mux_simulator',
     'check_secureboot',
-    'check_neighbor_macsec_empty']
+    'check_neighbor_macsec_empty',
+    'check_mux_simulator']
 
 __all__ = CHECK_ITEMS
 
@@ -540,7 +540,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
     duts_parsed_mux_status = {}
     err_msg_from_mux_status = []
     if (has_active_active_ports and not wait_until(30, 5, 0, _verify_show_mux_status)) \
-            or (not _verify_show_mux_status()):
+            or (not wait_until(30, 5, 0, _verify_show_mux_status)):
         if err_msg_from_mux_status:
             err_msg = err_msg_from_mux_status[-1]
         else:

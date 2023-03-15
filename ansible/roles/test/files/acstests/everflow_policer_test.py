@@ -250,6 +250,8 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["innovium"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
+        if self.asic_type in ["marvell"]:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
 
         if exp_pkt.haslayer(scapy.ERSPAN_III):
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")

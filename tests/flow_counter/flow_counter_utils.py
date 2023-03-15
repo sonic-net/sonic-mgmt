@@ -20,7 +20,8 @@ class RouteFlowCounterTestContext:
 
         Args:
             dut (object): DUT object
-            route_pattern_list (list): a list of route pattern, e.g. ['1.1.1.0/24', 'Vrf1|1.1.1.0/24', 'Vnet1|2.2.2.0/24']
+            route_pattern_list (list): a list of route pattern,
+                                       e.g. ['1.1.1.0/24', 'Vrf1|1.1.1.0/24', 'Vnet1|2.2.2.0/24']
             expected_stats (dict): Expected result value. e.g. {'1.1.1.0/24': {'packets': '5', 'bytes': '4500'}}
             interval (int, optional): Route flow counter query interval. Defaults to 1000.
         """
@@ -35,7 +36,8 @@ class RouteFlowCounterTestContext:
         """
         if not self.is_route_flow_counter_supported:
             return
-        with allure.step('Enable route flow counter and config route flow pattern: {}'.format(','.join(self.route_pattern_list))):
+        with allure.step('Enable route flow counter and config route flow pattern: {}'
+                         .format(','.join(self.route_pattern_list))):
             set_route_flow_counter_interval(self.dut, self.interval)
             set_route_flow_counter_status(self.dut, True)
             for route_pattern in self.route_pattern_list:
@@ -61,7 +63,6 @@ class RouteFlowCounterTestContext:
             set_route_flow_counter_status(self.dut, False)
             for route_pattern in self.route_pattern_list:
                 remove_route_flow_counter_pattern(self.dut, route_pattern)
-
 
     def check_stats(self):
         """Verify route flow counter statistic
@@ -103,7 +104,7 @@ class RouteFlowCounterTestContext:
             return verify_route_flow_counter_stats(self.expected_stats, actual_stats)
 
 
-@pytest.fixture(scope = "module")
+@pytest.fixture(scope="module")
 def is_route_flow_counter_supported(duthosts, enum_rand_one_per_hwsku_hostname):
     """Check if route flow counter is supported on this platform
 
@@ -123,8 +124,9 @@ def is_route_flow_counter_supported(duthosts, enum_rand_one_per_hwsku_hostname):
         logger.info('Route flow counter is not supported on these versions: {}'.format(skip_versions))
         return False
 
-    route_flow_counter_capability = [] # Use a list to store the capability
-    if not wait_until(CAPABILITY_WAIT_TIME_IN_SEC, CAPABILITY_CHECK_INTERVAL_IN_SEC, 0, get_route_flow_counter_capability, rand_selected_dut, route_flow_counter_capability):
+    route_flow_counter_capability = []      # Use a list to store the capability
+    if not wait_until(CAPABILITY_WAIT_TIME_IN_SEC, CAPABILITY_CHECK_INTERVAL_IN_SEC, 0,
+                      get_route_flow_counter_capability, rand_selected_dut, route_flow_counter_capability):
         pytest_assert(False, 'Failed to get route flow counter capability')
     if not route_flow_counter_capability[0]:
         logger.info('Route flow counter is not supported on this platform')
@@ -140,14 +142,16 @@ def get_route_flow_counter_capability(dut, route_flow_counter_capability):
     Returns:
         bool: True if capability is successfully retrieved from STATE DB
     """
-    support = dut.shell('sudo sonic-db-cli STATE_DB HGET "FLOW_COUNTER_CAPABILITY_TABLE|route" support')['stdout'].strip()
+    support = dut.shell(
+        'sudo sonic-db-cli STATE_DB HGET "FLOW_COUNTER_CAPABILITY_TABLE|route" support')['stdout'].strip()
     if support == 'true':
         route_flow_counter_capability.append(True)
     elif support == 'false':
         route_flow_counter_capability.append(False)
     elif support:
         # Impossible branch, just incase
-        pytest_assert(False, 'support field of FLOW_COUNTER_CAPABILITY_TABLE|route has invalid value {}'.format(support))
+        pytest_assert(False,
+                      'support field of FLOW_COUNTER_CAPABILITY_TABLE|route has invalid value {}'.format(support))
     return len(route_flow_counter_capability) > 0
 
 
@@ -181,7 +185,8 @@ def set_route_flow_counter_pattern(dut, route_pattern, max_match_count=30):
     """
     items = route_pattern.split('|')
     if len(items) == 2:
-        dut.command('sudo config flowcnt-route pattern add {} --vrf {} --max {} -y'.format(items[1], items[0], max_match_count))
+        dut.command('sudo config flowcnt-route pattern add {} --vrf {} --max {} -y'
+                    .format(items[1], items[0], max_match_count))
     elif len(items) == 1:
         dut.command('sudo config flowcnt-route pattern add {} --max {} -y'.format(items[0], max_match_count))
     else:
@@ -202,6 +207,7 @@ def remove_route_flow_counter_pattern(dut, route_pattern):
         dut.command('sudo config flowcnt-route pattern remove {}'.format(items[0]))
     else:
         logger.error('Invalid route pattern {}'.format(route_pattern))
+
 
 def remove_all_route_flow_counter_patterns(dut):
     """Remove all route patterns
@@ -301,6 +307,7 @@ def verify_route_flow_counter_stats(expect_stats, actual_stats):
 
         for stats_type, expect_value in value.items():
             if int(expect_value) != int(actual_stats[key][stats_type].replace(',', '')):
-                return False, 'Expected {} value of {} is {}, but got {}'.format(stats_type, key, expect_value, actual_stats[key][stats_type])
+                return False, 'Expected {} value of {} is {}, but got {}'\
+                    .format(stats_type, key, expect_value, actual_stats[key][stats_type])
 
     return True, None

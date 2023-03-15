@@ -7,17 +7,19 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
-    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
+    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time, sec_to_nanosec
 from tests.common.snappi.port import select_ports
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
+WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = 45
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 45
+WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
@@ -125,6 +127,9 @@ def run_pfcwd_multi_node_test(api,
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
 
+    """ Retrieve ASIC information for DUT """
+    asic_type = duthost.facts['asic_type']
+
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
                      pause_flow_name=PAUSE_FLOW_NAME,
@@ -136,7 +141,8 @@ def run_pfcwd_multi_node_test(api,
                      data_pkt_size=DATA_PKT_SIZE,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=port_id,
-                     tolerance=TOLERANCE_THRESHOLD)
+                     tolerance=TOLERANCE_THRESHOLD,
+                     asic_type=asic_type)
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
@@ -228,6 +234,30 @@ def __gen_traffic(testbed_config,
         N/A
     """
 
+    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
+                                                    pattern=traffic_pattern,
+                                                    rx_port_id=port_id)
+
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
+    warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
+    warm_up_traffic_delay_sec = 0
+    warm_up_traffic_prio_list = test_flow_prio_list
+    warm_up_traffic_rate_percent = test_flow_rate_percent
+
+    """ Generate warm-up traffic """
+    __gen_data_flows(testbed_config=testbed_config,
+                     port_config_list=port_config_list,
+                     src_port_id_list=tx_port_id_list,
+                     dst_port_id_list=rx_port_id_list,
+                     flow_name_prefix=WARM_UP_TRAFFIC_NAME,
+                     flow_prio_list=warm_up_traffic_prio_list,
+                     flow_rate_percent=warm_up_traffic_rate_percent,
+                     flow_dur_sec=warm_up_traffic_dur_sec,
+                     flow_delay_sec=warm_up_traffic_delay_sec,
+                     data_pkt_size=data_pkt_size,
+                     prio_dscp_map=prio_dscp_map)
+
     """ Generate a PFC pause storm """
     pause_port_id = port_id
     __gen_pause_flow(testbed_config=testbed_config,
@@ -235,12 +265,10 @@ def __gen_traffic(testbed_config,
                      src_port_id=pause_port_id,
                      flow_name=pause_flow_name,
                      pause_prio_list=pause_prio_list,
-                     flow_dur_sec=pfc_storm_dur_sec)
+                     flow_dur_sec=pfc_storm_dur_sec,
+                     flow_delay_sec=WARM_UP_TRAFFIC_DUR)
 
-    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
-                                                    pattern=traffic_pattern,
-                                                    rx_port_id=port_id)
-
+    """ Generate test flow traffic """
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      src_port_id_list=tx_port_id_list,
@@ -249,9 +277,11 @@ def __gen_traffic(testbed_config,
                      flow_prio_list=test_flow_prio_list,
                      flow_rate_percent=test_flow_rate_percent,
                      flow_dur_sec=data_flow_dur_sec,
+                     flow_delay_sec=WARM_UP_TRAFFIC_DUR,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map)
 
+    """ Generate background flow traffic """
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      src_port_id_list=tx_port_id_list,
@@ -260,6 +290,7 @@ def __gen_traffic(testbed_config,
                      flow_prio_list=bg_flow_prio_list,
                      flow_rate_percent=bg_flow_rate_percent,
                      flow_dur_sec=data_flow_dur_sec,
+                     flow_delay_sec=WARM_UP_TRAFFIC_DUR,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map)
 
@@ -272,6 +303,7 @@ def __gen_data_flows(testbed_config,
                      flow_prio_list,
                      flow_rate_percent,
                      flow_dur_sec,
+                     flow_delay_sec,
                      data_pkt_size,
                      prio_dscp_map):
     """
@@ -286,6 +318,7 @@ def __gen_data_flows(testbed_config,
         flow_prio_list (list): priorities of data flows
         flow_rate_percent (int): rate percentage for each flow
         flow_dur_sec (int): duration of each flow in second
+        flow_delay_sec (int): delay before starting all flows in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
@@ -307,6 +340,7 @@ def __gen_data_flows(testbed_config,
                                 flow_prio=prio,
                                 flow_rate_percent=flow_rate_percent,
                                 flow_dur_sec=flow_dur_sec,
+                                flow_delay_sec=flow_delay_sec,
                                 data_pkt_size=data_pkt_size,
                                 prio_dscp_map=prio_dscp_map)
 
@@ -319,6 +353,7 @@ def __gen_data_flow(testbed_config,
                     flow_prio,
                     flow_rate_percent,
                     flow_dur_sec,
+                    flow_delay_sec,
                     data_pkt_size,
                     prio_dscp_map):
     """
@@ -333,6 +368,7 @@ def __gen_data_flow(testbed_config,
         flow_prio_list (list): priorities of the flow
         flow_rate_percent (int): rate percentage for the flow
         flow_dur_sec (int): duration of the flow in second
+        flow_delay_sec (int): delay before starting flow in second
         data_pkt_size (int): packet size of the flow in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
@@ -375,6 +411,7 @@ def __gen_data_flow(testbed_config,
     flow.size.fixed = data_pkt_size
     flow.rate.percentage = flow_rate_percent
     flow.duration.fixed_seconds.seconds = flow_dur_sec
+    flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(flow_delay_sec))
 
     flow.metrics.enable = True
     flow.metrics.loss = True
@@ -385,7 +422,8 @@ def __gen_pause_flow(testbed_config,
                      src_port_id,
                      flow_name,
                      pause_prio_list,
-                     flow_dur_sec):
+                     flow_dur_sec,
+                     flow_delay_sec):
     """
     Generate the configuration for a PFC pause storm
 
@@ -396,6 +434,7 @@ def __gen_pause_flow(testbed_config,
         flow_name (str): flow' name
         pause_prio_list (list): priorities to pause for PFC frames
         flow_dur_sec (float): duration of the flow in second
+        flow_delay_sec (int): delay before starting pause flow in second
 
     Returns:
         N/A
@@ -441,7 +480,7 @@ def __gen_pause_flow(testbed_config,
     pause_flow.rate.pps = pps
     pause_flow.size.fixed = 64
     pause_flow.duration.fixed_packets.packets = int(pkt_cnt)
-    pause_flow.duration.fixed_packets.delay.nanoseconds = 0
+    pause_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec(flow_delay_sec))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
@@ -517,7 +556,8 @@ def __verify_results(rows,
                      data_pkt_size,
                      trigger_pfcwd,
                      pause_port_id,
-                     tolerance):
+                     tolerance,
+                     asic_type):
     """
     Verify if we get expected experiment results
 
@@ -534,10 +574,15 @@ def __verify_results(rows,
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
         tolerance (float): maximum allowable deviation
+        asic_type (str): asic_type information for DUT
 
     Returns:
         N/A
     """
+
+    """ Check for whether DUT is a Mellanox device """
+    is_mlnx_device = True if "mellanox" in asic_type.lower() else False
+
     for row in rows:
         flow_name = row.name
         tx_frames = row.frames_tx
@@ -568,11 +613,16 @@ def __verify_results(rows,
             exp_test_flow_rx_pkts =  test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
-            if trigger_pfcwd and\
-               (src_port_id == pause_port_id or dst_port_id == pause_port_id):
+            if trigger_pfcwd and dst_port_id == pause_port_id:
                 """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
                 pytest_assert(tx_frames > rx_frames,
                               '{} should have dropped packets'.format(flow_name))
+
+            elif trigger_pfcwd and src_port_id == pause_port_id:
+                if is_mlnx_device:
+                    """ During a pfc storm with pfcwd triggered, Mellanox devices do not drop Rx packets """
+                    pytest_assert(tx_frames == rx_frames,
+                                  '{} should not have dropped packets for Mellanox device'.format(flow_name))
 
             elif not trigger_pfcwd and dst_port_id == pause_port_id:
                 """ This test flow is delayed by PFC storm """

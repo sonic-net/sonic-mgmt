@@ -75,6 +75,10 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     int_facts = asichost.interface_facts()['ansible_facts']
 
     port_channels_data = asichost.get_portchannels_and_members_in_ns(tbinfo)
+    if not port_channels_data:
+        pytest.skip(
+            "Skip test as there are no port channels on asic {} on dut {}".format(enum_frontend_asic_index, duthost))
+
     portchannel = None
     portchannel_members = None
     for portchannel in port_channels_data:
