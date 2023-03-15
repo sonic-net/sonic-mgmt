@@ -107,7 +107,7 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
         download_times = 0
         while download_times < MAX_DOWNLOAD_TIMES:
             try:
-                print(('Downloading {} from build {}...'.format(filename, buildid)))
+                print('Downloading {} from build {}...'.format(filename, buildid))
                 download_times += 1
                 # If access token is not empty, set headers
                 if access_token:
@@ -120,10 +120,10 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                 print('\nDownload finished!')
                 break
             except Exception as e:
-                print(("Download error", e))
+                print("Download error", e)
                 if download_times < MAX_DOWNLOAD_TIMES:
-                    print(('Download times: {}, sleep: {} seconds before retry.'.format(download_times,
-                                                                                       30 * download_times)))
+                    print('Download times: {}, sleep: {} seconds before retry.'.format(download_times,
+                                                                                       30 * download_times))
                     time.sleep(30 * download_times)
                     continue
                 else:
@@ -173,7 +173,7 @@ def main():
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded")
         buildid_partial = find_latest_build_id(args.branch, "partiallySucceeded")
-        print(('Succeeded buildId:{}, PartiallySucceeded buildId {}'.format(buildid_succ, buildid_partial)))
+        print('Succeeded buildId:{}, PartiallySucceeded buildId {}'.format(buildid_succ, buildid_partial))
         if buildid_succ == NOT_FOUND_BUILD_ID and buildid_partial == NOT_FOUND_BUILD_ID:
             raise Exception("Can't find 'Succeeded' or 'partiallySucceeded' build result.")
         buildid = max(buildid_succ, buildid_partial)

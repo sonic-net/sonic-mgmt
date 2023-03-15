@@ -92,7 +92,7 @@ def export_session_info_to_allure(session_info_dict, allure_report_dir):
     allure_env_file_name = 'environment.properties'
     allure_env_file_path = os.path.join(allure_report_dir, allure_env_file_name)
     with open(allure_env_file_path, 'w') as env_file_obj:
-        for item, value in list(session_info_dict.items()):
+        for item, value in session_info_dict.items():
             env_file_obj.write('{}={}\n'.format(item, value))
 
 

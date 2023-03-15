@@ -70,7 +70,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
 
             with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
                 fib = json.load(fp)
-                for k, v in list(fib.items()):
+                for k, v in fib.items():
                     skip = False
 
                     prefix = k.split(':', 1)[1]
@@ -195,7 +195,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
 
         with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
             fib = json.load(fp)
-            for k, v in list(fib.items()):
+            for k, v in fib.items():
                 skip = False
 
                 prefix = k.split(':', 1)[1]
@@ -206,14 +206,14 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts):
                 for ifname in ifnames:
                     if ifname in po:
                         # ignore the prefix, if the prefix nexthop is not a frontend port
-                        if len(list(po[ifname].keys())) > 0:
-                            if 'role' in ports[list(po[ifname].keys())[0]] and \
-                                    ports[list(po[ifname].keys())[0]]['role'] == 'Int':
+                        if len(po[ifname].keys()) > 0:
+                            if 'role' in ports[po[ifname].keys()[0]] and \
+                                    ports[po[ifname].keys()[0]]['role'] == 'Int':
                                 skip = True
                             else:
                                 oports.append(
                                     [str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][x])
-                                     for x in list(po[ifname].keys())]
+                                     for x in po[ifname].keys()]
                                 )
                     else:
                         if ifname in sub_interfaces:
@@ -254,7 +254,7 @@ def gen_fib_info_file(ptfhost, fib_info, filename):
         filename (str): Name of the target FIB info file on PTF host.
     """
     tmp_fib_info = tempfile.NamedTemporaryFile()
-    for prefix, oports in list(fib_info.items()):
+    for prefix, oports in fib_info.items():
         tmp_fib_info.write(prefix.encode())
         if oports:
             for op in oports:
@@ -295,8 +295,8 @@ def fib_info_files(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_
             if 'test_decap' in testname and 'backend' in tbinfo['topo']['name']:
                 # if it is a storage backend topo and the testcase is test_decap
                 # add default routes with empty nexthops as the prefix matching failover
-                fib_info['0.0.0.0/0'] = []
-                fib_info['::/0'] = []
+                fib_info[u'0.0.0.0/0'] = []
+                fib_info[u'::/0'] = []
             filename = '/root/fib_info_dut{}.txt'.format(dut_index)
             gen_fib_info_file(ptfhost, fib_info, filename)
             files.append(filename)
@@ -338,8 +338,8 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
             if 'test_basic_fib' in testname and 'backend' in tbinfo['topo']['name']:
                 # if it is a storage backend topology(bt0 or bt1) and testcase is test_basic_fib
                 # add a default route as failover in the prefix matching
-                fib_info['0.0.0.0/0'] = []
-                fib_info['::/0'] = []
+                fib_info[u'0.0.0.0/0'] = []
+                fib_info[u'::/0'] = []
             filename = '/root/fib_info_dut_{0}_{1}.txt'.format(testname, dut_index)
             gen_fib_info_file(ptfhost, fib_info, filename)
             files.append(filename)

@@ -100,12 +100,12 @@ def test_grpc_server_failure(init_port_state, setup_test_ports, test_duthost,
 
     def get_mux_status(duthost, mux_ports):
         all_mux_status = json.loads(duthost.shell("show mux status --json")["stdout"])["MUX_CABLE"]
-        return {port: status for port, status in list(all_mux_status.items()) if port in mux_ports}
+        return {port: status for port, status in all_mux_status.items() if port in mux_ports}
 
     def check_mux_status_recovery(duthost, mux_ports, orig_mux_status):
         current_mux_status = get_mux_status(duthost, mux_ports)
         logging.debug("Current mux status:\n%s\n", json.dumps(current_mux_status))
-        for port, status in list(current_mux_status.items()):
+        for port, status in current_mux_status.items():
             orig_status = orig_mux_status[port]
             # check if both linkmgrd status and server status are stored
             if status["STATUS"] != orig_status["STATUS"] or status["SERVER_STATUS"] != orig_status["STATUS"]:

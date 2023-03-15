@@ -28,9 +28,9 @@ def test_wan_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost
                                           skip_interface_pattern_list=["eth0",
                                                                        "Ethernet-BP",
                                                                        "Ethernet-IB"])['ansible_facts']
-    if not list(lldpctl_facts['lldpctl'].items()):
+    if not lldpctl_facts['lldpctl'].items():
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
-    for k, v in list(lldpctl_facts['lldpctl'].items()):
+    for k, v in lldpctl_facts['lldpctl'].items():
         # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
         assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
         # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
@@ -67,7 +67,7 @@ def test_wan_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
                                                                        "Ethernet-IB"])['ansible_facts']
     config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname,
                                                                                 source="running")['ansible_facts']
-    if not list(lldpctl_facts['lldpctl'].items()):
+    if not lldpctl_facts['lldpctl'].items():
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
     switch_mac = ""
     mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
@@ -75,7 +75,7 @@ def test_wan_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
 
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
-    for k, v in list(lldpctl_facts['lldpctl'].items()):
+    for k, v in lldpctl_facts['lldpctl'].items():
         try:
             hostip = v['chassis']['mgmt-ip']
         except KeyError:

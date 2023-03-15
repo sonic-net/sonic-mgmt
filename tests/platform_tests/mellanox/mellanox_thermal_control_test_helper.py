@@ -7,7 +7,7 @@ from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import mocker, FanStatusMocker, ThermalStatusMocker, \
     SingleFanMocker
 from tests.common.mellanox_data import get_platform_data
-from .minimum_table import get_min_table
+from minimum_table import get_min_table
 
 
 NOT_AVAILABLE = 'N/A'
@@ -297,7 +297,7 @@ class MockerHelper:
         :return:
         """
         failed_recover_links = {}
-        for file_path, link_target in list(self.unlink_file_list.items()):
+        for file_path, link_target in self.unlink_file_list.items():
             try:
                 self.dut.command('ln -f -s {} {}'.format(link_target, file_path))
             except Exception:
@@ -305,7 +305,7 @@ class MockerHelper:
                 failed_recover_links[file_path] = link_target
 
         failed_recover_files = {}
-        for file_path, value in list(self.regular_file_list.items()):
+        for file_path, value in self.regular_file_list.items():
             try:
                 if value is None:
                     self.dut.shell('rm -f {}'.format(file_path))
@@ -712,7 +712,7 @@ class CheckMockerResultMixin(object):
         :return: True if match else False.
         """
         expected = {}
-        for name, fields in list(self.expected_data.items()):
+        for name, fields in self.expected_data.items():
             data = {}
             for idx, header in enumerate(self.expected_data_headers):
                 data[header] = fields[idx]
@@ -728,7 +728,7 @@ class CheckMockerResultMixin(object):
             if primary not in expected:
                 extra_in_actual_data.append(actual_data_item)
             else:
-                for field in list(actual_data_item.keys()):
+                for field in actual_data_item.keys():
                     if field in self.excluded_fields:
                         continue
                     if actual_data_item[field] != expected[primary][field]:
@@ -745,7 +745,7 @@ class CheckMockerResultMixin(object):
             logging.error('Found mismatch data in actual_data: {}'
                           .format(json.dumps(mismatch_in_actual_data, indent=2)))
             result = False
-        if len(list(expected.keys())) > 0:
+        if len(expected.keys()) > 0:
             logging.error('Expected data not found in actual_data: {}'
                           .format(json.dumps(expected, indent=2)))
             result = False
@@ -924,7 +924,7 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
         """
         platform_data = get_platform_data(self.mock_helper.dut)
         thermal_dict = platform_data["thermals"]
-        for category, content in list(thermal_dict.items()):
+        for category, content in thermal_dict.items():
             number = int(content['number'])
             naming_rule = THERMAL_NAMING_RULE[category]
             if 'start' in content:
@@ -1149,7 +1149,7 @@ class MinTableMocker(object):
         minimum_table = get_min_table(self.mock_helper.dut)
         row = minimum_table['unk_{}'.format('trust' if trust_state else 'untrust')]
         temperature = temperature / 1000
-        for range_str, cooling_level in list(row.items()):
+        for range_str, cooling_level in row.items():
             range_str_list = range_str.split(':')
             min_temp = int(range_str_list[0])
             max_temp = int(range_str_list[1])

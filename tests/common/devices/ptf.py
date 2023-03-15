@@ -38,7 +38,7 @@ class PTFHost(AnsibleHostBase):
     def create_macsec_info(self):
         macsec_info = {}
         for port_name, injected_port_id in \
-                list(self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"].items()):
+                self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"].items():
             try:
                 macsec_info[injected_port_id] = load_macsec_info(
                     self.duthost, port_name, force_reload=True)

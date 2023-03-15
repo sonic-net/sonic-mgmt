@@ -73,11 +73,11 @@ class DualTorIO:
 
         portchannel_info = mg_facts['minigraph_portchannels']
         self.tor_pc_intfs = list()
-        for pc in list(portchannel_info.values()):
+        for pc in portchannel_info.values():
             for member in pc['members']:
                 self.tor_pc_intfs.append(member)
 
-        self.vlan_interfaces = list(mg_facts["minigraph_vlans"].values())[VLAN_INDEX]["members"]
+        self.vlan_interfaces = mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]
 
         config_facts = self.duthost.get_running_config_facts()
         vlan_table = config_facts['VLAN']
@@ -153,7 +153,7 @@ class DualTorIO:
         """
         server_ip_list = []
 
-        for _, config in natsorted(list(self.mux_cable_table.items())):
+        for _, config in natsorted(self.mux_cable_table.items()):
             server_ip_list.append(str(config['server_ipv4'].split("/")[0]))
         logger.info("ALL server address:\n {}".format(server_ip_list))
 
@@ -174,7 +174,7 @@ class DualTorIO:
             return {}
 
         soc_ip_list = []
-        for _, config in natsorted(list(self.mux_cable_table.items())):
+        for _, config in natsorted(self.mux_cable_table.items()):
             if "soc_ipv4" in config:
                 soc_ip_list.append(str(config['soc_ipv4'].split("/")[0]))
         logger.info("All soc address:\n {}".format(soc_ip_list))
@@ -191,7 +191,7 @@ class DualTorIO:
     def _select_test_interfaces(self):
         """Select DUT interfaces that is in `active-standby` cable type."""
         test_interfaces = []
-        for port, port_config in natsorted(list(self.mux_cable_table.items())):
+        for port, port_config in natsorted(self.mux_cable_table.items()):
             if port_config.get("cable_type", CableType.active_standby) == self.cable_type:
                 test_interfaces.append(port)
         return test_interfaces
@@ -202,7 +202,7 @@ class DualTorIO:
         Copy this configuration to PTF and restart arp_responder
         """
         arp_responder_conf = {}
-        for intf, ip in list(self.ptf_intf_to_server_ip_map.items()):
+        for intf, ip in self.ptf_intf_to_server_ip_map.items():
             arp_responder_conf['eth{}'.format(intf)] = ip
         with open("/tmp/from_t1.json", "w") as fp:
             json.dump(arp_responder_conf, fp, indent=4, sort_keys=True)
@@ -268,7 +268,7 @@ class DualTorIO:
             ]
         else:
             # Otherwise send packets to all servers/soc
-            server_ip_list = list(ptf_intf_to_ip_map.values())
+            server_ip_list = ptf_intf_to_ip_map.values()
 
         logger.info("-"*20 + "T1 to {} packet".format(dst) + "-"*20)
         logger.info("PTF source intf: {}".format('random' if random_source else ptf_t1_src_intf))
@@ -334,7 +334,7 @@ class DualTorIO:
         ptf_intf_to_ip_map = self.ptf_intf_to_server_ip_map if src == 'server' else self.ptf_intf_to_soc_ip_map
         ptf_intf_to_mac_map = {}
 
-        for ptf_intf in list(ptf_intf_to_ip_map.keys()):
+        for ptf_intf in ptf_intf_to_ip_map.keys():
             ptf_intf_to_mac_map[ptf_intf] = self.ptfadapter.dataplane.get_mac(0, ptf_intf)
 
         logger.info("-"*20 + "{} to T1 packet".format(src) + "-"*20)
@@ -588,21 +588,21 @@ class DualTorIO:
 
         # For each server's packet list, sort by payload then timestamp
         # (in case of duplicates)
-        for server in list(server_to_packet_map.keys()):
+        for server in server_to_packet_map.keys():
             server_to_packet_map[server].sort(
                 key=lambda packet: (int(str(packet[scapyall.TCP].payload).replace('X', '')),
                                     packet.time)
             )
 
         logger.info("Measuring traffic disruptions...")
-        for server_ip, packet_list in list(server_to_packet_map.items()):
+        for server_ip, packet_list in server_to_packet_map.items():
             filename = '/tmp/capture_filtered_{}.pcap'.format(server_ip)
             scapyall.wrpcap(filename, packet_list)
             logger.info("Filtered pcap dumped to {}".format(filename))
 
         self.test_results = {}
 
-        for server_ip in natsorted(list(server_to_packet_map.keys())):
+        for server_ip in natsorted(server_to_packet_map.keys()):
             result = self.examine_each_packet(server_ip, server_to_packet_map[server_ip])
             logger.info("Server {} results:\n{}"
                         .format(server_ip, json.dumps(result, indent=4)))
@@ -658,7 +658,7 @@ class DualTorIO:
             # All packets within the same consecutive range will have the same
             # difference between the packet index and the sequence number
             for _, grouper in groupby(enumerate(duplicate_packet_list), lambda t: t[0] - t[1][0]):
-                group = list(map(itemgetter(1), grouper))
+                group = map(itemgetter(1), grouper)
                 duplicate_start, duplicate_end = group[0], group[-1]
                 duplicate_dict = {
                     'start_time': duplicate_start[1],

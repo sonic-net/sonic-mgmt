@@ -39,7 +39,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
     # RADVd is configured for each VLAN interface
     vlan_dict = mg_facts['minigraph_vlans']
     vlan_interfaces_list = []
-    for vlan_iface_name, vlan_info_dict in list(vlan_dict.items()):
+    for vlan_iface_name, vlan_info_dict in vlan_dict.items():
         # Gather information about the downlink VLAN interface this relay agent is listening on
         downlink_vlan_iface = {}
         downlink_vlan_iface['name'] = vlan_iface_name
@@ -48,7 +48,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
         downlink_vlan_iface['mac'] = duthost.get_dut_iface_mac(vlan_iface_name)
         cmd = "ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'".format(vlan_iface_name)
         res = duthost.shell(cmd)
-        ip6 = ipaddress.IPv6Address(str(res['stdout']))
+        ip6 = ipaddress.IPv6Address(unicode(res['stdout']))
         pytest_assert(ip6.is_link_local,
                       "ip6 address:{} of {} is not a link-local address".format(str(ip6), downlink_vlan_iface['name']))
         downlink_vlan_iface['ip6'] = str(ip6)
@@ -60,7 +60,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
         ptf_port['name'] = "eth" + str(ptf_port['port_idx'])
         cmd = "ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'".format(ptf_port['name'])
         res = ptfhost.shell(cmd)
-        ip6 = ipaddress.IPv6Address(str(res['stdout']))
+        ip6 = ipaddress.IPv6Address(unicode(res['stdout']))
         pytest_assert(ip6.is_link_local,
                       "ip6 address:{} of {} is not a link-local address".format(str(ip6), ptf_port['name']))
         ptf_port['ip6'] = str(ip6)
@@ -97,7 +97,7 @@ def dut_update_radv_periodic_ra_interval(duthost):
     pytest_assert(duthost.is_service_fully_started('radv'), "radv service not running")
 
     cmd = 'docker exec radv [ -f {} ] && echo "1" || echo "0"'.format(RADV_CONF_FILE)
-    pytest_assert('1' == duthost.shell(cmd)["stdout"], "radv conf file {} NOT found".format(RADV_CONF_FILE))
+    pytest_assert(u'1' == duthost.shell(cmd)["stdout"], "radv conf file {} NOT found".format(RADV_CONF_FILE))
 
     # Take backup of original radvd.conf before updating
     duthost.shell('docker exec radv cp {} {}'.format(RADV_CONF_FILE, RADV_BACKUP_CONF_FILE))

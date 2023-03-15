@@ -43,7 +43,7 @@ def add_member_back_to_ch_grp(duthost, nbrhosts, tbinfo):
     vm_neighbors = mg_facts['minigraph_neighbors']
 
     yield
-    for _, neighbor in list(vm_neighbors.items()):
+    for _, neighbor in vm_neighbors.items():
         nbrhosts[neighbor['name']]['host'].add_member_to_channel_grp(neighbor['port'], 1)
 
 
@@ -77,14 +77,14 @@ def check_intf_state_up(duthost, intf):
 def get_lag_intf_info(lag_facts, lag_name):
     # Figure out interface informations
     po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
-    intf = list(lag_facts['lags'][lag_name]['po_config']['ports'].keys())[0]
+    intf = lag_facts['lags'][lag_name]['po_config']['ports'].keys()[0]
     return intf, po_interfaces
 
 
 def set_lacp_to_slow_mode(duthost, lag_facts, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     for lag_name in lag_facts['names']:
-        for intf in list(lag_facts['lags'][lag_name]['po_config']['ports'].keys()):
+        for intf in lag_facts['lags'][lag_name]['po_config']['ports'].keys():
             cmd = "sudo config portchannel member del {} {}".format(lag_name, intf)
             duthost.shell(cmd, module_ignore_errors=False)
         cmd = "sudo config portchannel del {}".format(lag_name)
@@ -94,7 +94,7 @@ def set_lacp_to_slow_mode(duthost, lag_facts, tbinfo):
         cmd = "sudo config portchannel add {} --fast-rate=false".format(lag_name)
         duthost.shell(cmd, module_ignore_errors=False)
 
-        for intf in list(lag_facts['lags'][lag_name]['po_config']['ports'].keys()):
+        for intf in lag_facts['lags'][lag_name]['po_config']['ports'].keys():
             cmd = "sudo config portchannel member add {} {}".format(lag_name, intf)
             duthost.shell(cmd, module_ignore_errors=False)
 
@@ -108,7 +108,7 @@ def set_lacp_to_slow_mode(duthost, lag_facts, tbinfo):
 def set_lacp_to_fast_mode(duthost, lag_facts, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     for lag_name in lag_facts['names']:
-        for intf in list(lag_facts['lags'][lag_name]['po_config']['ports'].keys()):
+        for intf in lag_facts['lags'][lag_name]['po_config']['ports'].keys():
             cmd = "sudo config portchannel member del {} {}".format(lag_name, intf)
             duthost.shell(cmd, module_ignore_errors=False)
         cmd = "sudo config portchannel del {}".format(lag_name)
@@ -118,7 +118,7 @@ def set_lacp_to_fast_mode(duthost, lag_facts, tbinfo):
         cmd = "sudo config portchannel add {} --fast-rate=true".format(lag_name)
         duthost.shell(cmd, module_ignore_errors=False)
 
-        for intf in list(lag_facts['lags'][lag_name]['po_config']['ports'].keys()):
+        for intf in lag_facts['lags'][lag_name]['po_config']['ports'].keys():
             cmd = "sudo config portchannel member add {} {}".format(lag_name, intf)
             duthost.shell(cmd, module_ignore_errors=False)
 
@@ -152,7 +152,7 @@ def test_slow_mode_link_down_check(common_setup_teardown, duthost, tbinfo, nbrho
                 verify_lag_lacp_timing(ptfhost, 30, iface_behind_lag)
     """
     # check portchannel status, after shutdown/unconfigure portchannel on peer device
-    for _, neighbor in list(vm_neighbors.items()):
+    for _, neighbor in vm_neighbors.items():
         nbrhosts[neighbor['name']]['host'].shutdown(neighbor['port'])
 
     for lag_name in lag_facts['names']:
@@ -186,7 +186,7 @@ def test_slow_mode_rm_member_check(common_setup_teardown, duthost, tbinfo, nbrho
     """
 
     # check portchannel status, after shutdown/unconfigure portchannel on peer device
-    for _, neighbor in list(vm_neighbors.items()):
+    for _, neighbor in vm_neighbors.items():
         nbrhosts[neighbor['name']]['host'].rm_member_from_channel_grp(neighbor['port'], 1)
 
     for lag_name in lag_facts['names']:
@@ -218,7 +218,7 @@ def test_slow_mode_link_up_check(common_setup_teardown, duthost, tbinfo, nbrhost
     """
 
     # check portchannel status, after shutdown/unconfigure portchannel on peer device
-    for _, neighbor in list(vm_neighbors.items()):
+    for _, neighbor in vm_neighbors.items():
         nbrhosts[neighbor['name']]['host'].no_shutdown(neighbor['port'])
 
     for lag_name in lag_facts['names']:
@@ -252,7 +252,7 @@ def test_fast_mode_link_down_check(common_setup_teardown, duthost, tbinfo, nbrho
     """
 
     # check portchannel status, after shutdown/unconfigure portchannel on peer device
-    for _, neighbor in list(vm_neighbors.items()):
+    for _, neighbor in vm_neighbors.items():
         nbrhosts[neighbor['name']]['host'].shutdown(neighbor['port'])
 
     for lag_name in lag_facts['names']:
@@ -285,7 +285,7 @@ def test_fast_mode_link_up_check(common_setup_teardown, duthost, tbinfo, nbrhost
     """
 
     # check portchannel status, after shutdown/unconfigure portchannel on peer device
-    for _, neighbor in list(vm_neighbors.items()):
+    for _, neighbor in vm_neighbors.items():
         nbrhosts[neighbor['name']]['host'].no_shutdown(neighbor['port'])
 
     for lag_name in lag_facts['names']:

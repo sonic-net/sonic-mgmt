@@ -57,12 +57,12 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     work_vlan_ports_list = []
-    config_ports = {k: v for k,v in list(cfg_facts['PORT'].items()) if v.get('admin_status', 'down') == 'up'}
+    config_ports = {k: v for k,v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
-    config_port_indices = {k: v for k, v in list(mg_facts['minigraph_ptf_indices'].items()) if k in config_ports}
+    config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
 
     # For t0 topo, will add port to new VLAN, use 'orig' field to identify new VLAN.
-    vlan_id_list = [k for k, v in list(vlan_intfs_dict.items()) if v['orig'] == False]
+    vlan_id_list = [k for k, v in vlan_intfs_dict.items() if v['orig'] == False]
     pvid_cycle = itertools.cycle(vlan_id_list)
     # when running on t0 we can use the portchannel members
     if config_portchannels:
@@ -76,7 +76,7 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
             # Add 2 portchannels for test
             if portchannel_cnt < pc_num:
                 portchannel_cnt += 1
-                vlan_port['pvid'] = next(pvid_cycle)
+                vlan_port['pvid'] = pvid_cycle.next()
                 vlan_port['permit_vlanid'] = vlan_id_list[:]
             if 'pvid' in vlan_port:
                 work_vlan_ports_list.append(vlan_port)
@@ -90,7 +90,7 @@ def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils
         }
         # Add 4 ports for test
         if i < 4:
-            vlan_port['pvid'] = next(pvid_cycle)
+            vlan_port['pvid'] = pvid_cycle.next()
             vlan_port['permit_vlanid'] = vlan_id_list[:]
         if 'pvid' in vlan_port:
             work_vlan_ports_list.append(vlan_port)
@@ -123,7 +123,7 @@ def shutdown_portchannels(duthost, portchannel_interfaces, pc_num=PORTCHANNELS_T
     cmds = []
     cnt = 0
     logger.info("Shutdown lags, flush IP addresses")
-    for portchannel, ips in list(portchannel_interfaces.items()):
+    for portchannel, ips in portchannel_interfaces.items():
         cmds.append('config interface shutdown {}'.format(portchannel))
         for ip in ips:
             cmds.append('config interface ip remove {} {}'.format(portchannel, ip))
@@ -282,7 +282,7 @@ def verify_icmp_packets(ptfadapter, send_pkt, work_vlan_ports_list, vlan_port, v
                 untagged_dst_pc_ports.append(port["port_index"])
             else:
                 untagged_dst_ports += port["port_index"]
-        elif vlan_id in list(map(int, port["permit_vlanid"])):
+        elif vlan_id in map(int, port["permit_vlanid"]):
             if len(port["port_index"]) > 1:
                 tagged_dst_pc_ports.append(port["port_index"])
             else:

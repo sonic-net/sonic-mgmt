@@ -10,9 +10,9 @@ import copy
 
 import pytest
 
-from .util import parse_eeprom
-from .util import parse_output
-from .util import get_dev_conn
+from util import parse_eeprom
+from util import parse_output
+from util import get_dev_conn
 from tests.common.utilities import skip_release
 from tests.common.fixtures.duthost_utils import shutdown_ebgp
 
@@ -243,7 +243,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     up_ports = mg_facts["minigraph_ports"]
     if enum_frontend_asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        up_ports = {k:v for k, v in list(portmap.items()) if k in mg_facts["minigraph_ports"]}
+        up_ports = {k:v for k, v in portmap.items() if k in mg_facts["minigraph_ports"]}
     intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
     assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
         "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])

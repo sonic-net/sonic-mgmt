@@ -46,7 +46,7 @@ def get_ipv6_neighbor(duthost):
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors_data = config_facts['BGP_NEIGHBOR']
-    for neighbor_address in list(bgp_neighbors_data.keys()):
+    for neighbor_address in bgp_neighbors_data.keys():
         if ipaddress.ip_address((neighbor_address.encode().decode())).version == 6:
             return neighbor_address, bgp_neighbors_data[neighbor_address]
     pytest_assert(True, "No existing ipv6 neighbor")
