@@ -6,7 +6,6 @@ import os
 import re
 import socket
 import time
-import sys
 
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -1424,10 +1423,7 @@ Totals               6450                 6449
         features_stdout = command_output['stdout_lines']
         lines = features_stdout[2:]
         for x in lines:
-            if sys.version_info.major < 3:
-                result = x.encode('UTF-8')
-            else:
-                result = x
+            result = x.encode('UTF-8')
             r = result.split()
             feature_status[r[0]] = r[1]
         return feature_status, True
