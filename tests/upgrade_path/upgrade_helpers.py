@@ -3,10 +3,11 @@ import logging
 import time
 import tempfile
 import random
+import sys
 if sys.version_info.major > 2:
-    from urllib.parse import urlunparse
+    from urllib.parse import urlparse
 else:
-    from urllib.parse import urlunparse
+    from urlparse import urlparse
 import ipaddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
