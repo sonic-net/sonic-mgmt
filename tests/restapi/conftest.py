@@ -6,7 +6,7 @@ import sys
 if sys.version_info.major > 2:
     from urllib.parse import urlunparse
 else:
-    from urllib.parse import urlunparse
+    from urlparse import urlunparse
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
