@@ -471,7 +471,7 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
                     if target_dut_port in mg_facts['minigraph_port_indices'].values():
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]\
                         ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
                         break
