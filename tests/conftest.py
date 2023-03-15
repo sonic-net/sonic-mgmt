@@ -1138,7 +1138,7 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
             if len(dut_port_list) <= target_len:
                 return dut_port_list
             # for diversity, fetch the ports from both the start and the end of the original list
-            pos_1 = target_len / 2
+            pos_1 = target_len // 2
             pos_2 = target_len - pos_1
             return dut_ports[:pos_1] + dut_ports[-pos_2:]
 

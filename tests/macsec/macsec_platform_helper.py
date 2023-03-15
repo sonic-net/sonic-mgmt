@@ -1,5 +1,6 @@
 import ast
 import re
+import logging
 from multiprocessing.pool import ThreadPool
 
 import pytest
@@ -48,7 +49,7 @@ def get_all_ifnames(host, asic = None):
         "macsec": [],
     }
     for type in list(ports.keys()):
-        ports[type] = [port.decode("utf-8")
+        ports[type] = [port
                        for port in output if port.startswith(type)]
         ports[type].sort(key=lambda no: int(re.search(r'\d+', no).group(0)))
     # Remove the eth0

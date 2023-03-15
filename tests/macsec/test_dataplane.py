@@ -60,7 +60,7 @@ class TestDataPlane():
             logging.info(payload)
             # Source mac address is not useful in this test case and we use an arbitrary mac address as the source
             pkt = create_pkt(
-                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_host_ip, bytes(payload))
+                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_host_ip, bytes(payload,encoding='utf8'))
             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
 
             fail_message = ""
