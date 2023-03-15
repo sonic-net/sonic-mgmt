@@ -789,6 +789,18 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
+  skip:
+    reason: "Lossy Queue Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
+  skip:
+    reason: "Lossless Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
     reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
