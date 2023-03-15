@@ -13,9 +13,9 @@ Mellanox	vms21-t0-2700-non-platform_tests	vms21-t0-2700	202205	internal	202205	2
 Mellanox	vms21-t1-2700-2-non-platform_tests	vms21-t1-2700-2	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4									
 Mellanox	vms28-t0-4600c-03-platform_tests	vms28-t0-4600c-03	202205	internal	202205	202205	202205	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 14	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"							
 Mellanox	vms28-t0-4600c-04-non-platform_tests	vms28-t0-4600c-04	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 0	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"							
-Mellanox	vms11-2-t0-2700-2-platform_tests	vms11-2-t0	202205							-I "platform_tests metadata-scripts"'	Platform	0 4				IMAGE_MLNX_201911	TRUE				
+Mellanox	vms11-2-t0-2700-2-platform_metadata_test	vms11-2-t0	202205							-I "platform_tests metadata-scripts"'	Platform	0 4				IMAGE_MLNX_201911	TRUE				
 Mellanox	vms11-2-t0-2700-2-platform_tests	vms11-2-t0		internal	202205	202205	201911	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 4	1800								
-Mellanox	testbed-bjw-can-2700-1	testbed-bjw-can-2700-1	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4			nightly-bjw						
+Mellanox	testbed-bjw-can-2700-1	testbed-bjw-can-2700-1	202205	internal	202205	master	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4			nightly-bjw						
 Arista	vms6-t0-7060.1	vms6-t0-7060	202012-SLIM		202012-SLIM					-S "platform_tests metadata-scripts"'	Non-platform	0 12									
 Arista	vms6-t0-7060.2	vms6-t0-7060		202012-SLIM		202012-SLIM	202012-SLIM	202012-SLIM		-I "platform_tests metadata-scripts"'	Platform	0 12				IMAGE_BRCM_ABOOT_201811	TRUE				
 Arista	vms6-t1-7060.1	vms6-t1-7060	202205-SLIM		202205-SLIM		202205-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 12									

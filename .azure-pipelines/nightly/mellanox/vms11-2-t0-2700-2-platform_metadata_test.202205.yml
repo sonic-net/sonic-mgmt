@@ -3,19 +3,12 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
-resources:
-  repositories:
-  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
-    type: git
-    name: sonic-metadata
-    ref: master
-
 schedules:
   - cron: "0 4 * * 0"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal-202205
     always: true
 
 variables:
@@ -31,13 +24,13 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202012)
+    default: $(IMAGE_MLNX_202205)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MLNX_202012)
+    default: $(SAITHRIFT_MLNX_202205)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
@@ -55,6 +48,10 @@ parameters:
     default: true
     type: boolean
 
+  - name: TEST_IN_BRANCH_UPGRADE
+    default: true
+    type: boolean
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -64,3 +61,4 @@ stages:
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       CROSS_BRANCH_BASE_URL: ${{ parameters.CROSS_BRANCH_BASE_URL }}
       TEST_CROSS_BRANCH_UPGRADE: ${{ parameters.TEST_CROSS_BRANCH_UPGRADE }}
+      TEST_IN_BRANCH_UPGRADE: ${{ parameters.TEST_IN_BRANCH_UPGRADE }}
