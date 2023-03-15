@@ -2,7 +2,17 @@ import os
 import re
 import time
 import json
+import pytest
+import yaml
+import logging
+import requests
+from natsort import natsorted
+import ipaddr as ipaddress
+from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE
+from tests.common.helpers.parallel import reset_ansible_local_tmp
+from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -20,6 +30,21 @@ BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
 BGP_MONITOR_NAME = "bgp_monitor"
 BGP_MONITOR_PORT = 7000
 BGP_ANNOUNCE_TIME = 30  # should be enough to receive and parse bgp updates
+CONSTANTS_FILE = '/etc/sonic/constants.yml'
+EXABGP_BASE_PORT = 5000
+EXABGP_BASE_PORT_V6 = 6000
+TEST_COMMUNITY = '1010:1010'
+PREFIX_LISTS = {
+    'ALLOWED': ['172.16.10.0/24'],
+    'ALLOWED_WITH_COMMUNITY': ['172.16.30.0/24'],
+    'ALLOWED_V6': ['2000:172:16:10::/64'],
+    'ALLOWED_WITH_COMMUNITY_V6': ['2000:172:16:30::/64'],
+    'DISALLOWED': ['172.16.50.0/24'],
+    'DISALLOWED_V6': ['2000:172:16:50::/64']
+}
+ALLOW_LIST_PREFIX_JSON_FILE = '/tmp/allow_list.json'
+DROP_COMMUNITY = ''
+DEFAULT_ACTION = ''
 
 
 def apply_bgp_config(duthost, template_name):
@@ -173,3 +198,318 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     # Restart BGP instance on that asic
     duthost.restart_service_on_asic("bgp", asic_index)
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
+
+
+@pytest.fixture(scope='module')
+def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
+    """
+    Get bgp_allow_list related information
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    topo_type = tbinfo["topo"]["type"]
+    constants_stat = duthost.stat(path=CONSTANTS_FILE)
+    pytest_require(constants_stat['stat']['exists'] is not None,
+                   "No file {} on DUT, BGP Allow List is not supported".format(CONSTANTS_FILE))
+
+    constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
+
+    global DEFAULT_ACTION
+    try:
+        DEFAULT_ACTION = constants['constants']['bgp']['allow_list']['default_action']
+    except KeyError:
+        pytest.skip('No BGP Allow List configuration in {}, BGP Allow List is not supported.'.format(CONSTANTS_FILE))
+
+    global DROP_COMMUNITY
+    try:
+        DROP_COMMUNITY = constants['constants']['bgp']['allow_list']['drop_community']
+    except KeyError:
+        pytest.skip('No BGP Allow List Drop Commnity define in {}, BGP Allow List is not supported.'
+                    .format(CONSTANTS_FILE))
+
+    setup_info = {}
+
+    upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
+    downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
+    downstream_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith(downstream_type)])
+    downstream = downstream_neighbors[0]
+    upstream_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith(upstream_type)])
+    other_neighbors = downstream_neighbors[1:3]    # Only check a few neighbors to save time
+    if upstream_neighbors:
+        other_neighbors += upstream_neighbors[0:2]
+
+    downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
+    downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
+    downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
+
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    downstream_namespace = DEFAULT_NAMESPACE
+    for _, neigh in mg_facts['minigraph_neighbors'].items():
+        if downstream == neigh['name'] and neigh['namespace']:
+            downstream_namespace = neigh['namespace']
+            break
+
+    setup_info = {
+        'downstream': downstream,
+        'downstream_namespace': downstream_namespace,
+        'downstream_exabgp_port': downstream_exabgp_port,
+        'downstream_exabgp_port_v6': downstream_exabgp_port_v6,
+        'other_neighbors': other_neighbors,
+    }
+    yield setup_info
+
+
+def update_routes(action, ptfip, port, route):
+    if action not in ['announce', 'withdraw']:
+        logging.error('Unsupported route update operation: {}'.format(action))
+        return
+    msg = '{} route {} next-hop {}'.format(action, route['prefix'], route['nexthop'])
+    if 'community' in route:
+        msg += ' community {}'.format(route['community'])
+
+    url = 'http://%s:%d' % (ptfip, port)
+    data = {'commands': msg}
+    logging.info('Post url={}, data={}'.format(url, data))
+    r = requests.post(url, data=data)
+    assert r.status_code == 200
+
+
+def build_routes(tbinfo, prefix_list, expected_community):
+    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
+    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
+    routes = []
+    for list_name, prefixes in prefix_list.items():
+        logging.info('list_name: {}, prefixes: {}'.format(list_name, str(prefixes)))
+        for prefix in prefixes:
+            route = {}
+            route['prefix'] = prefix
+            if ipaddress.IPNetwork(prefix).version == 4:
+                route['nexthop'] = nhipv4
+            else:
+                route['nexthop'] = nhipv6
+            if 'COMMUNITY' in list_name:
+                route['community'] = expected_community
+            routes.append(route)
+
+    return routes
+
+
+@pytest.fixture(scope='module', autouse=True)
+def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
+    routes = build_routes(tbinfo, PREFIX_LISTS, TEST_COMMUNITY)
+    downstream = bgp_allow_list_setup['downstream']
+    downstream_exabgp_port = bgp_allow_list_setup['downstream_exabgp_port']
+    downstream_exabgp_port_v6 = bgp_allow_list_setup['downstream_exabgp_port_v6']
+    downstream_asn = tbinfo['topo']['properties']['configuration'][downstream]['bgp']['asn']
+    downstream_peers = tbinfo['topo']['properties']['configuration'][downstream]['bgp']['peers']
+
+    # By default, EOS does not send community, this is to config EOS to send community
+    cmds = []
+    for peer_ips in downstream_peers.values():
+        for peer_ip in peer_ips:
+            cmds.append('neighbor {} send-community'.format(peer_ip))
+    nbrhosts[downstream]['host'].eos_config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
+
+    for route in routes:
+        if ipaddress.IPNetwork(route['prefix']).version == 4:
+            update_routes('announce', ptfhost.mgmt_ip, downstream_exabgp_port, route)
+        else:
+            update_routes('announce', ptfhost.mgmt_ip, downstream_exabgp_port_v6, route)
+    time.sleep(3)
+
+    yield
+
+    for route in routes:
+        if ipaddress.IPNetwork(route['prefix']).version == 4:
+            update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port, route)
+        else:
+            update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port_v6, route)
+    # Restore EOS config
+    no_cmds = ['no {}'.format(cmd) for cmd in cmds]
+    nbrhosts[downstream]['host'].eos_config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
+
+
+def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
+    duthost.copy(content=json.dumps(allow_list, indent=3), dest=allow_list_file_path)
+    duthost.shell('sonic-cfggen {} -j {} -w'.format('-n ' + namespace if namespace else '', allow_list_file_path))
+    time.sleep(3)
+
+
+def remove_allow_list(duthost, namespace, allow_list_file_path):
+    allow_list_keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'
+                                    .format('-n ' + namespace if namespace else ''))['stdout_lines']
+    for key in allow_list_keys:
+        duthost.shell('sonic-db-cli {} CONFIG_DB del "{}"'.format('-n ' + namespace if namespace else '', key))
+
+    duthost.shell('rm -rf {}'.format(allow_list_file_path))
+
+
+def check_routes_on_from_neighbor(setup_info, nbrhosts):
+    """
+    Verify if there are routes on neighbor who announce them.
+    """
+    downstream = setup_info['downstream']
+    for prefixes in PREFIX_LISTS.values():
+        for prefix in prefixes:
+            downstream_route = nbrhosts[downstream]['host'].get_route(prefix)
+            route_entries = downstream_route['vrfs']['default']['bgpRouteEntries']
+            pytest_assert(prefix in route_entries, 'Announced route {} not found on {}'.format(prefix, downstream))
+
+
+def check_results(results):
+    pytest_assert(len(results.keys()) > 0, 'No result on neighbors')
+    failed_results = {}
+    for node, node_prefix_results in results.items():
+        failed_results[node] = [r for r in node_prefix_results if r['failed']]
+
+    pytest_assert(all([len(r) == 0 for r in failed_results.values()]),
+                  'Unexpected routes on neighbors, failed_results={}'.format(json.dumps(failed_results, indent=2)))
+
+
+def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
+    """
+    Check routes result for neighbors in parallel without applying allow list
+    """
+    other_neighbors = setup['other_neighbors']
+
+    @reset_ansible_local_tmp
+    def check_other_neigh(nbrhosts, permit, node=None, results=None):
+        logging.info('Checking routes on {}'.format(node))
+
+        prefix_results = []
+        for list_name, prefixes in PREFIX_LISTS.items():
+            for prefix in prefixes:
+                prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
+                neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
+
+                if permit:
+                    # All routes should be forwarded
+                    if prefix not in neigh_route:
+                        prefix_result['failed'] = True
+                        prefix_result['reasons'].append('Route {} not found on {}'.format(prefix, node))
+                    else:
+                        communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
+
+                        # Should add drop_community to all routes
+                        if DROP_COMMUNITY not in communityList:
+                            prefix_result['failed'] = True
+                            prefix_result['reasons'].append('When default_action="permit" and allow list is empty, '
+                                                            'should add drop_community to all routes. route={}, node={}'
+                                                            .format(prefix, node))
+
+                        # Should keep original route community
+                        if 'COMMUNITY' in list_name:
+                            if TEST_COMMUNITY not in communityList:
+                                prefix_result['failed'] = True
+                                prefix_result['reasons']\
+                                    .append('When default_action="permit" and allow list is empty, should keep the '
+                                            'original community {}, route={}, node={}'
+                                            .format(TEST_COMMUNITY, prefix, node))
+
+                else:
+                    # All routes should be dropped
+                    if prefix in neigh_route:
+                        prefix_result['failed'] = True
+                        prefix_result['reasons'].append('When default_action="deny" and allow list is empty, all routes'
+                                                        ' should be dropped. route={}, node={}'.format(prefix, node))
+                prefix_results.append(prefix_result)
+        results[node] = prefix_results
+
+    results = parallel_run(check_other_neigh, (nbrhosts, permit), {}, other_neighbors, timeout=180)
+    check_results(results)
+
+
+def check_routes_on_neighbors(nbrhosts, setup, permit=True):
+    """
+    Check routes result for neighbors in parallel
+    """
+    other_neighbors = setup['other_neighbors']
+
+    @reset_ansible_local_tmp
+    def check_other_neigh(nbrhosts, permit, node=None, results=None):
+        logging.info('Checking routes on {}'.format(node))
+
+        prefix_results = []
+        for list_name, prefixes in PREFIX_LISTS.items():
+            for prefix in prefixes:
+                prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
+                neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
+
+                if permit:
+                    # All routes should be forwarded
+                    if prefix not in neigh_route:
+                        prefix_result['failed'] = True
+                        prefix_result['reasons'].append('Route {} not found on {}'.format(prefix, node))
+                    else:
+                        communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
+
+                        if 'DISALLOWED' in list_name:
+                            # Should add drop_community to routes not on allow list
+                            if DROP_COMMUNITY not in communityList:
+                                prefix_result['failed'] = True
+                                prefix_result['reasons']\
+                                    .append('When default_action="permit", should add drop_community to routes not on '
+                                            'allow list. route={}, node={}'.format(prefix, node))
+                        else:
+                            # Should not add drop_community to routes on allow list
+                            if DROP_COMMUNITY in communityList:
+                                prefix_result['failed'] = True
+                                prefix_result['reasons']\
+                                    .append('When default_action="permit", should not add drop_community to routes on '
+                                            'allow listroute in allow list with community, route={}, node={}'
+                                            .format(prefix, node))
+
+                            # Should keep original route community
+                            if 'COMMUNITY' in list_name:
+                                if TEST_COMMUNITY not in communityList:
+                                    prefix_result['failed'] = True
+                                    prefix_result['reasons']\
+                                        .append('When default_action="permit", route on allow list with community '
+                                                'should keep its original community {}, route={}, node={}'
+                                                .format(TEST_COMMUNITY, prefix, node))
+                else:
+                    if 'DISALLOWED' in list_name:
+                        # Routes not on allow list should not be forwarded
+                        if prefix in neigh_route:
+                            prefix_result['failed'] = True
+                            prefix_result['reasons'].append('When default_action="deny", route NOT on allow list should'
+                                                            ' not be forwarded. route={}, node={}'.format(prefix, node))
+                    else:
+                        # Routes on allow list should be forwarded
+                        if prefix not in neigh_route:
+                            prefix_result['failed'] = True
+                            prefix_result['reasons'].append('When default_action="deny", route on allow list should be '
+                                                            'forwarded. route={}, node={}'.format(prefix, node))
+                        else:
+                            communityList = neigh_route[prefix]['bgpRoutePaths'][0]['routeDetail']['communityList']
+                            # Forwarded route should not have DROP_COMMUNITY
+                            if DROP_COMMUNITY in communityList:
+                                prefix_result['failed'] = True
+                                prefix_result['reasons']\
+                                    .append('When default_action="deny", route on allow list with community should not '
+                                            'have drop_community. route={}, node={}'.format(prefix, node))
+
+                            # Should keep original route community
+                            if 'COMMUNITY' in list_name:
+                                if TEST_COMMUNITY not in communityList:
+                                    prefix_result['failed'] = True
+                                    prefix_result['reasons'].\
+                                        append('When default_action="deny", route on allow list with community should '
+                                               'keep its original community {}. route={}, node={}'
+                                               .format(TEST_COMMUNITY, prefix, node))
+                prefix_results.append(prefix_result)
+        results[node] = prefix_results
+
+    results = parallel_run(check_other_neigh, (nbrhosts, permit), {}, other_neighbors, timeout=180)
+    check_results(results)
+
+
+def checkout_bgp_mon_routes(duthost, ptfhost):
+    routes_not_announced = get_routes_not_announced_to_bgpmon(duthost, ptfhost)
+    pytest_assert(routes_not_announced == [], "Not all routes are announced to bgpmon: {}".format(routes_not_announced))
+
+
+def get_default_action():
+    """
+    Since the value of this constant has been changed in the helper, it cannot be directly imported
+    """
+    return DEFAULT_ACTION

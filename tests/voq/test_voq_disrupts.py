@@ -154,7 +154,6 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
                              dev=vm_host_to_A, size=size, ttl=ttl)
 
 
-@pytest.mark.skip(reason="Not yet implemented - reboot of supervisor does not reset line cards.")
 def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     """
     Tests the system after supervisor reset, all cards should reboot and interfaces/neighbors should be in sync across

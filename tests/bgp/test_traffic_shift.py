@@ -182,8 +182,11 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
         if entry:
             routes[entry] = community
         results[hostname] = routes
-
-    all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=120, concurrent_tasks=8)
+    try:
+        all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=180, concurrent_tasks=8)
+    except BaseException as err:
+        logger.error('Failed to get routes info from VMs. Got error: {}\n\nTrying one more time.'.format(err))
+        all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=180, concurrent_tasks=8)
     return all_routes
 
 
@@ -220,6 +223,52 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
                 return False
     return True
 
+
+def verify_current_routes_announced_to_neighs(dut_host, neigh_hosts, orig_routes_on_all_nbrs, cur_routes_on_all_nbrs, ip_ver):
+    """
+    Verify all the original routes are announced to neighbors after TSB
+    """
+    logger.info("Verifying all the original routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
+    cur_routes_on_all_nbrs.update(parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver))
+    # Compare current routes after TSB with original routes advertised to neighbors
+    if cur_routes_on_all_nbrs != orig_routes_on_all_nbrs:     
+        return False           
+    return True
+
+def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur_routes_on_all_nbrs,ip_ver):
+    cur_nbrs = set(cur_routes_on_all_nbrs.keys())
+    orig_nbrs = set(orig_routes_on_all_nbrs.keys())
+    if cur_nbrs != orig_nbrs:
+        logger.warn("Neighbor list mismatch: {}".format(cur_nbrs ^ orig_nbrs))
+        return False
+    
+    routes_dut = parse_rib(duthost, ip_ver)
+    all_diffs_in_host_aspath = True
+    for hostname in orig_routes_on_all_nbrs.keys():
+        if orig_routes_on_all_nbrs[hostname] != cur_routes_on_all_nbrs[hostname]:
+            routes_diff =set(orig_routes_on_all_nbrs[hostname]) ^ set(cur_routes_on_all_nbrs[hostname])
+            for route in routes_diff:
+                if route not in routes_dut.keys():
+                    all_diffs_in_host_aspath = False
+                    logger.warn("Missing route on host {}: {}".format(hostname, route))
+                    continue
+                aspaths = routes_dut[route]
+                # Filter out routes announced by this neigh
+                skip = False
+                if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
+                    for aspath in aspaths:
+                        if str(neigh_hosts[hostname]['conf']['bgp']['asn']) in aspath:
+                            logger.debug("Skipping route {} on host {}".format(route, hostname))
+                            skip = True
+                            break
+                    if not skip:
+                        all_diffs_in_host_aspath = False
+                        if route in orig_routes_on_all_nbrs[hostname]:
+                            logger.warn("Missing route on host {}: {}".format(hostname, route))
+                        else:
+                            logger.warn("Additional route on host {}: {}".format(hostname, route))
+
+    return all_diffs_in_host_aspath
 
 def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, community):
     logger.info("Verifying only loopback routes are announced to bgp neighbors")
@@ -270,7 +319,7 @@ def check_tsa_persistence_support(duthost):
     return True
 
 
-def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
+def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
              nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA
@@ -307,7 +356,18 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
     and all routes are announced to neighbors
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # Issue TSB on DUT
+    # Ensure that the DUT is not in maintenance already before start of the test
+    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+                  "DUT is not in normal state")
+    # Get all routes on neighbors before doing TSA
+    orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
+    orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
+
+    # Shift traffic away using TSA
+    duthost.shell("TSA")
+    pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
+                      "DUT is not in maintenance state")
+    # Issue TSB on DUT to bring traffic back
     duthost.shell("TSB")
     # Verify DUT is in normal state.
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
@@ -316,11 +376,16 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
         pytest_assert(get_routes_not_announced_to_bgpmon(duthost, ptfhost, bgpmon_setup_teardown['namespace']) == [],
                       "Not all routes are announced to bgpmon")
 
-    pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 4), 4),
-                  "Not all ipv4 routes are announced to neighbors")
-    pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
-                  "Not all ipv6 routes are announced to neighbors")
+    cur_v4_routes = {}
+    cur_v6_routes = {}
+    # Verify that all routes advertised to neighbor at the start of the test
+    if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+        if not check_and_log_routes_diff(duthost,nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+            pytest.fail("Not all ipv4 routes are announced to neighbors")
 
+    if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+        if not check_and_log_routes_diff(duthost,nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+            pytest.fail("Not all ipv6 routes are announced to neighbors")
 
 def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                    bgpmon_setup_teardown, nbrhosts):
@@ -330,11 +395,13 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_neighbors = {}
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
-
+    # Ensure that the DUT is not in maintenance already before start of the test
+    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+                  "DUT is not in normal state")
     try:
-
-        routes_4 = parse_rib(duthost, 4)
-        routes_6 = parse_rib(duthost, 6)
+        # Get all routes on neighbors before doing TSA
+        orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
+        orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
         # Remove the Neighbors for the particular BGP instance
         bgp_neighbors = remove_bgp_neighbors(duthost, asic_index)
 
@@ -358,28 +425,41 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
                       "Not all BGP sessions are established on DUT")
 
         # Wait until all routes are announced to neighbors
-        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs, duthost, nbrhosts, routes_4, 4),
-                      "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs, duthost, nbrhosts, routes_6, 6),
-                      "Not all ipv6 routes are announced to neighbors")
+        cur_v4_routes = {}
+        cur_v6_routes = {}
+        # Verify that all routes advertised to neighbor at the start of the test
+        if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                pytest.fail("Not all ipv4 routes are announced to neighbors")
+
+        if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+                pytest.fail("Not all ipv6 routes are announced to neighbors")
+
 
 
 @pytest.mark.disable_loganalyzer
-def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
+def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, 
                                     nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Ensure that the DUT is not in maintenance already before start of the test
+    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+                  "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
     try:
+        # Get all routes on neighbors before doing TSA
+        orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
+        orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
         # Issue TSA on DUT
         duthost.shell("TSA")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
@@ -401,18 +481,24 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         # Recover to Normal state
         duthost.shell("TSB")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
         # Verify DUT is in normal state.
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
         # Wait until all routes are announced to neighbors
-        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,
-                                 duthost, nbrhosts, parse_rib(duthost, 4), 4),
-                      "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,
-                                 duthost, nbrhosts, parse_rib(duthost, 6), 6),
-                      "Not all ipv6 routes are announced to neighbors")
+        cur_v4_routes = {}
+        cur_v6_routes = {}
+        # Verify that all routes advertised to neighbor at the start of the test
+        if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                pytest.fail("Not all ipv4 routes are announced to neighbors")
+
+        if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+                pytest.fail("Not all ipv6 routes are announced to neighbors")
+
+
 
 
 @pytest.mark.disable_loganalyzer
@@ -424,10 +510,17 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Ensure that the DUT is not in maintenance already before start of the test
+    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+                  "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
     try:
+        # Get all routes on neighbors before doing TSA
+        orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
+        orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
+
         config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
                       traffic_shift_away=True)
 
@@ -453,10 +546,16 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         # Verify DUT is in normal state.
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
+
         # Wait until all routes are announced to neighbors
-        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,
-                                 duthost, nbrhosts, parse_rib(duthost, 4), 4),
-                      "Not all ipv4 routes are announced to neighbors")
-        pytest_assert(wait_until(300, 3, 0, verify_all_routes_announce_to_neighs,
-                                 duthost, nbrhosts, parse_rib(duthost, 6), 6),
-                      "Not all ipv6 routes are announced to neighbors")
+        cur_v4_routes = {}
+        cur_v6_routes = {}
+        # Verify that all routes advertised to neighbor at the start of the test
+        if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                pytest.fail("Not all ipv4 routes are announced to neighbors")
+
+        if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+                pytest.fail("Not all ipv6 routes are announced to neighbors")
+

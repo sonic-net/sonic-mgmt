@@ -128,7 +128,8 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
         ignoreRegex = [
             ".*ERR sonic_yang.*",
             ".*ERR.*Failed to start dhcp_relay container.*",  # Valid test_dhcp_relay
-            ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*",  # Valid test_dhcp_relay test_syslog
+            # Valid test_dhcp_relay test_syslog
+            ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*",
             ".*ERR teamd[0-9].*get_dump: Can't get dump for LAG.*",  # Valid test_portchannel_interface
             ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*",  # Valid test_portchannel_interface
             ".*ERR swss[0-9]*#orchagent.*removeLag.*",  # Valid test_portchannel_interface
@@ -141,6 +142,6 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
             ".*ERR dhcp_relay[0-9]*#dhcrelay.*",  # test_dhcp_relay
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation
-            ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*", # test_portchannel_interface tc2
+            ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*",   # test_portchannel_interface tc2
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)

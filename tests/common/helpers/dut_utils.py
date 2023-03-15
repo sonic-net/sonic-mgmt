@@ -2,11 +2,13 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
+from collections import defaultdict
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 
 logger = logging.getLogger(__name__)
+
 
 def is_supervisor_node(inv_files, hostname):
     """Check if the current node is a supervisor node in case of multi-DUT.
@@ -14,8 +16,9 @@ def is_supervisor_node(inv_files, hostname):
             you can be get it from get_inventory_files in tests.common.utilities
      @param hostname: hostname as defined in the inventory
     Returns:
-          Currently, we are using 'card_type' in the inventory to make the decision. If 'card_type' for the node is defined in
-          the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
+          Currently, we are using 'card_type' in the inventory to make the decision.
+          If 'card_type' for the node is defined in the inventory, and it is 'supervisor',
+          then return True, else return False. In future, we can change this
           logic if possible to derive it from the DUT.
     """
     dut_vars = get_host_visible_vars(inv_files, hostname)
@@ -30,8 +33,9 @@ def is_frontend_node(inv_files, hostname):
             you can be get it from get_inventory_files in tests.common.utilities
      @param hostname: hostname as defined in the inventory
      Returns:
-          True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
-          node. If we add more types of nodes, then we need to exclude them from this method as well.
+          True if it is not any other type of node.
+          Currently, the only other type of node supported is 'supervisor' node.
+          If we add more types of nodes, then we need to exclude them from this method as well.
     """
     return not is_supervisor_node(inv_files, hostname)
 
@@ -112,7 +116,8 @@ def get_group_program_info(duthost, container_name, group_name):
     program_status = None
     program_pid = None
 
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
+    program_list = duthost.shell("docker exec {} supervisorctl status"
+                                 .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(group_name) != -1:
             program_name = program_info.split()[0].split(':')[1].strip()
@@ -147,7 +152,8 @@ def get_program_info(duthost, container_name, program_name):
     program_status = None
     program_pid = -1
 
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
+    program_list = duthost.shell("docker exec {} supervisorctl status"
+                                 .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
             program_status = program_info.split()[1].strip()
@@ -266,12 +272,12 @@ def verify_orchagent_running_or_assert(duthost):
     """
     Verifies that orchagent is running, asserts otherwise
 
-    Args: 
+    Args:
         duthost: Device Under Test (DUT)
     """
-   
+
     def _orchagent_running():
-        cmds = 'docker exec swss supervisorctl status orchagent' 
+        cmds = 'docker exec swss supervisorctl status orchagent'
         output = duthost.shell(cmds, module_ignore_errors=True)
         pytest_assert(not output['rc'], "Unable to check orchagent status output")
         return 'RUNNING' in output['stdout']

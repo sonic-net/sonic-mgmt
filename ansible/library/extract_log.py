@@ -92,9 +92,9 @@ def extract_lines(directory, filename, target_string):
     path = os.path.join(directory, filename)
     file = None
     if 'gz' in path:
-        file = gzip.open(path, mode='rt', errors='ignore')
+        file = gzip.open(path, mode='rt')
     else:
-        file = open(path, errors='ignore')
+        file = open(path)
     result = None
     with file:
         # This might be a gunzip file or logrotate issue, there has
@@ -116,7 +116,6 @@ def extract_number(s):
     else:
         return int(ns[0])
 
-
 def convert_date(fct, s):
     dt = None
     re_result = re.findall(r'^\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', s)
@@ -137,9 +136,16 @@ def convert_date(fct, s):
         if (dt - fct).days > 183:
             dt.replace(year = dt.year - 1)
     else:
-        re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
-        str_date = re_result[0]
-        dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
+        re_result = re.findall(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}', s)
+        if len(re_result) > 0:
+            str_date = re_result[0]
+            str_date = str_date.replace("T", " ")
+            dt = datetime.datetime.strptime(str_date, '%Y-%m-%d %X.%f')
+        else:
+            re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
+            if len(re_result) > 0:
+                str_date = re_result[0]
+                dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
     locale.setlocale(locale.LC_ALL, loc)
 
     return dt
@@ -226,7 +232,7 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
     do_copy = False
     line_processed = 0
     line_copied = 0
-    with open(target_filename, 'w', errors='ignore') as fp:
+    with open(target_filename, 'w') as fp:
         for filename in reversed(filenames):
             path = os.path.join(directory, filename)
             dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
@@ -234,9 +240,9 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
             logger.debug("extract_log combine_logs from file {} create time {}, size {}".format(path, dt, sz))
             file = None
             if 'gz' in path:
-                file = gzip.open(path, mode='rt', errors='ignore')
+                file = gzip.open(path, mode='rt')
             else:
-                file = open(path, errors='ignore')
+                file = open(path)
 
             with file:
                 for line in file:

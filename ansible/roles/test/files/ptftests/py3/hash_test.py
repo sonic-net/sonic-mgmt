@@ -12,7 +12,7 @@ import time
 import six
 import itertools
 
-from collections import Iterable
+from collections import Iterable, defaultdict
 from ipaddress import ip_address, ip_network
 
 import ptf
@@ -36,6 +36,7 @@ class HashTest(BaseTest):
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
     BALANCING_TEST_TIMES = 625
+    DEFAULT_SWITCH_TYPE = 'voq'
 
     _required_params = [
         'fib_info_files',
@@ -85,6 +86,7 @@ class HashTest(BaseTest):
 
         self.balancing_range = self.test_params.get('balancing_range', self.DEFAULT_BALANCING_RANGE)
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
+        self.switch_type = self.test_params.get('switch_type', self.DEFAULT_SWITCH_TYPE)
 
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get('single_fib_for_duts', 'multiple-fib')
@@ -403,26 +405,51 @@ class HashTest(BaseTest):
         logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
 
+        asic_list = defaultdict(list)
+        if self.switch_type == "voq":
+            asic_list['voq'] = dest_port_list
+        else:
+            for port in dest_port_list:
+                if type(port) == list:
+                    port_map = self.ptf_test_port_map[str(port[0])]
+                    asic_id = port_map.get('asic_idx',0)
+                    member = asic_list.get(asic_id)
+                    if member is None:
+                        member = []
+                    member.append(port)
+                    asic_list[asic_id] = member
+                else:
+                    port_map = self.ptf_test_port_map[str(port)]
+                    asic_id = port_map.get('asic_idx',0)
+                    member = asic_list.get(asic_id)
+                    if member is None:
+                        member = []
+                    member.append(port)
+                    asic_list[asic_id] = member
+
         total_hit_cnt = 0
         for ecmp_entry in dest_port_list:
             for member in ecmp_entry:
                 total_hit_cnt += port_hit_cnt.get(member, 0)
+        
+        total_hit_cnt = total_hit_cnt//len(asic_list.keys())
 
-        for ecmp_entry in dest_port_list:
-            total_entry_hit_cnt = 0
-            for member in ecmp_entry:
-                total_entry_hit_cnt += port_hit_cnt.get(member, 0)
-            (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(dest_port_list))
-            logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                        % ("ECMP", str(ecmp_entry), total_hit_cnt//len(dest_port_list), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
-            result &= r
-            if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
-                continue
-            for member in ecmp_entry:
-                (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+        for asic_member in asic_list.values():
+            for ecmp_entry in asic_member:
+                total_entry_hit_cnt = 0
+                for member in ecmp_entry:
+                    total_entry_hit_cnt += port_hit_cnt.get(member, 0)
+                (p, r) = self.check_within_expected_range(total_entry_hit_cnt, float(total_hit_cnt)/len(asic_member))
                 logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                            % ("LAG", str(member), total_entry_hit_cnt//len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                    % ("ECMP", str(ecmp_entry), total_hit_cnt//len(asic_member), total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
                 result &= r
+                if len(ecmp_entry) == 1 or total_entry_hit_cnt == 0:
+                    continue
+                for member in ecmp_entry:
+                    (p, r) = self.check_within_expected_range(port_hit_cnt.get(member, 0), float(total_entry_hit_cnt)/len(ecmp_entry))
+                    logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
+                        % ("LAG", str(member), total_entry_hit_cnt//len(ecmp_entry), port_hit_cnt.get(member, 0), str(round(p, 4)*100) + '%'))
+                    result &= r
 
         assert result
 

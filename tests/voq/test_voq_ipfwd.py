@@ -221,11 +221,15 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
         if dutA:
             break
 
+    if dutA is None:
+        pytest.skip("Did not find any asic in the DUTs (linecards) \
+            that are connected to T1 VM's")
+
     for asic_index, asic_cfg in enumerate(all_cfg_facts[dutA.hostname]):
         cfg_facts = asic_cfg['ansible_facts']
         cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
         cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
-        eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower()]
+        eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
         pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
         if port_type_a == "ethernet":
             if len(eths) != 0:
@@ -283,7 +287,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
             cfg_facts = asic_cfg['ansible_facts']
             cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
             cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
-            eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower()]
+            eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
             pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
             if len(eths) != 0:
                 if port_type_a == "ethernet":
@@ -462,6 +466,11 @@ class TestTableValidation(object):
         ipv4_routes = asic_cmd(asic, "ip -4 route")["stdout_lines"]
         ipv6_routes = asic_cmd(asic, "ip -6 route")["stdout_lines"]
 
+        if 'VOQ_INBAND_INTERFACE' not in cfg_facts:
+            # There are no inband interfaces, this must be an asic not connected to fabric
+            pytest.skip("Asic {} on {} has no inband interfaces, so must not be \
+                connected to fabric".format(asic.asic_index, per_host.hostname))
+
         intf = cfg_facts['VOQ_INBAND_INTERFACE']
         for port in intf:
             for address in cfg_facts['BGP_VOQ_CHASSIS_NEIGHBOR'].keys():
@@ -496,6 +505,11 @@ class TestTableValidation(object):
         per_host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
         cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
+
+        if 'BGP_VOQ_CHASSIS_NEIGHBOR' not in cfg_facts:
+            # There are no inband interfaces, this must be an asic not connected to fabric
+            pytest.skip("Asic {} on {} has no inband interfaces, so must not \
+                be connected to fabric".format(asic.asic_index, per_host.hostname))
 
         bgp_facts = per_host.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
         for address in cfg_facts['BGP_VOQ_CHASSIS_NEIGHBOR'].keys():
@@ -1015,9 +1029,14 @@ class TestFPLinkFlap(LinkFlap):
                              dev=nbrhosts[ports["portB"]['nbr_vm']]['host'], size=256, ttl=2, ttl_change=0)
                 check_packet(eos_ping, ports, 'portD', 'portB', dst_ip_fld='nbr_lb', src_ip_fld='nbr_lb',
                              dev=nbrhosts[ports["portB"]['nbr_vm']]['host'], size=256, ttl=2)
-                check_packet(sonic_ping, ports, "portB", "portA", dst_ip_fld='my_ip', src_ip_fld='my_ip',
-                             dev=ports['portA']['asic'], size=256, ttl=2,
-                             ttl_change=0)
+                if version == 4:
+                    check_packet(sonic_ping, ports, "portB", "portA", dst_ip_fld='my_ip', src_ip_fld='my_ip',
+                                dev=ports['portA']['asic'], size=256, ttl=2,
+                                ttl_change=0)
+                else:
+                    logging.info(
+                        "Ingoring local asic ping of ipv6 interfaces when one side is down - "
+                            "get error: ping: bind icmp socket: Cannot assign requested address")
 
             # Make sure VM connected to portA can't ping portA
             with pytest.raises(AssertionError):
