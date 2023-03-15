@@ -206,7 +206,7 @@ class ParseTestbedTopoinfo():
                                 vmconfig[vm]['ipv6mask'][dut_index] = ip_mask if ip_mask else '128'
         return vmconfig
 
-    def get_topo_config(self, topo_name, hwsku, asic_name):
+    def get_topo_config(self, topo_name, hwsku, testbed_name, asics_present, card_type):
         CLET_SUFFIX = "-clet"
 
         if 'ptf32' in topo_name:
@@ -215,23 +215,31 @@ class ParseTestbedTopoinfo():
             topo_name = 't1-64'
         topo_name = re.sub(CLET_SUFFIX + "$", "", topo_name)
         topo_filename = 'vars/topo_' + topo_name + '.yml'
-        if asic_name:
-            asic_topo_filename = 'vars/topo_' + hwsku + '_' + asic_name + '.yml'
-        else:
-            asic_topo_filename = 'vars/topo_' + hwsku + '.yml'
+
+        asic_topo_file_candidate_list = []
+
+        if testbed_name:
+            asic_topo_file_candidate_list.append('vars/' + testbed_name + '/topo_' + hwsku + '.yml')
+        asic_topo_file_candidate_list.append('vars/topo_' + hwsku + '.yml')
         vm_topo_config = dict()
         vm_topo_config['topo_type'] = None
         asic_topo_config = dict()
         po_map = [None] * 16   # maximum 16 port channel interfaces
 
-        # read topology definition
+        asic_topo_filename = None
+        for asic_topo_file_path in asic_topo_file_candidate_list:
+            if os.path.isfile(asic_topo_file_path):
+                asic_topo_filename = asic_topo_file_path
+                break
+
+        ### read topology definition
         if not os.path.isfile(topo_filename):
             raise Exception("cannot find topology definition file under vars/topo_%s.yml file!" % topo_name)
         else:
             with open(topo_filename) as f:
                 topo_definition = yaml.safe_load(f)
 
-        if not os.path.isfile(asic_topo_filename):
+        if not asic_topo_filename:
             slot_definition = {}
         else:
             with open(asic_topo_filename) as f:
@@ -311,6 +319,19 @@ class ParseTestbedTopoinfo():
             for _, v in topo_definition['wan_dut_configuration'].items():
                 vm_topo_config['wan_dut_configuration'][v['dut_offset']] = v
 
+        #  In linecard, keep neigh_asic information to only asics_present on supervisor
+        if card_type != 'supervisor' and asics_present:
+            asic_names_present = []
+            for asic in asics_present:
+                asic_name = 'ASIC' + str(asic)
+                asic_names_present.append(asic_name)
+            for slot in asic_topo_config:
+                for asic in asic_topo_config[slot]:
+                    for neigh_asic in asic_topo_config[slot][asic]['neigh_asic'].keys():
+                        if neigh_asic not in asic_names_present:
+                            # If neigh_asic is not part of asics_present, delete it.
+                            del asic_topo_config[slot][asic]['neigh_asic'][neigh_asic]
+
         self.vm_topo_config = vm_topo_config
         self.asic_topo_config = asic_topo_config
         return vm_topo_config, asic_topo_config
@@ -321,17 +342,22 @@ def main():
         argument_spec=dict(
             topo=dict(required=True, default=None),
             hwsku=dict(required=True, default=None),
-            asic_name=dict(required=True, default=None),
+            testbed_name=dict(required=True, default=None),
+            asics_present=dict(type='list', required=True, default=None),
+            card_type=dict(required=True, default=None),
         ),
         supports_check_mode=True
     )
     m_args = module.params
     topo_name = m_args['topo']
     hwsku = m_args['hwsku']
-    asic_name = m_args['asic_name']
+    testbed_name = m_args['testbed_name']
+    asics_present = m_args['asics_present']
+    card_type = m_args['card_type']
     try:
         topoinfo = ParseTestbedTopoinfo()
-        vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku, asic_name)
+        vm_topo_config, asic_topo_config = topoinfo.get_topo_config(topo_name, hwsku, testbed_name,
+                                                                    asics_present, card_type)
         module.exit_json(ansible_facts={'vm_topo_config': vm_topo_config,
                                         'asic_topo_config': asic_topo_config})
     except (IOError, OSError):

@@ -12,8 +12,8 @@ from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import mux_server_url   # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url                                                           # noqa F811
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m    # noqa F811
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
@@ -86,11 +86,19 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         if k == duthost.hostname:
             dut_type = v['type']
 
-    if 'ToRRouter' in dut_type:
+    if dut_type in ['ToRRouter', 'SpineRouter']:
         neigh_type = 'LeafRouter'
     else:
         neigh_type = 'ToRRouter'
 
+    logging.info(
+        "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}"
+        .format(conn0["neighbor_addr"].split("/")[0], conn0_ns, dut_asn,
+                conn0["local_addr"].split("/")[0], neigh_type))
+    logging.info(
+        "pseudoswitch1 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}"
+        .format(conn1["neighbor_addr"].split("/")[0], conn1_ns, dut_asn,
+                conn1["local_addr"].split("/")[0], neigh_type))
     bgp_neighbors = (
         BGPNeighbor(
             duthost,
@@ -149,7 +157,7 @@ def constants(is_quagga, setup_interfaces):
 
 
 def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                          toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+                          toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):   # noqa F811
 
     def bgp_update_packets(pcap_file):
         """Get bgp update packets from pcap file."""
@@ -208,7 +216,8 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         # handle both multi-sic and single-asic
         bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
         for neighbor in neighbors:
-            is_established &= neighbor.ip in bgp_facts["bgp_neighbors"] and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+            is_established &= neighbor.ip in bgp_facts["bgp_neighbors"] and \
+                bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
 
         return is_established
 

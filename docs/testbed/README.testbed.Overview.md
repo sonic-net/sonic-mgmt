@@ -168,7 +168,7 @@ The T2 type topology has variations:
 
 ### M0 type topology
 
-The M0 type topology is to simulate a SONiC DUT running as a Management ToR Router device. For this type of topology, a set of DUT ports are connected to VMs simulating upstream M1 (Management Leaf Router) neighbors. Another set of the ports are connected to a PTF docker simulating downstream servers. Rest of the ports are connected to VMs simulating downstream Mx (BMC Management Router) neighbors.
+The M0/MC0 topology is to simulate a SONiC DUT running as a Management ToR Router device. For this type of topology, a set of DUT ports are connected to VMs simulating upstream M1 (Management Leaf Router) neighbors. Another set of the ports are connected to a PTF docker simulating downstream servers. Rest of the ports are connected to VMs simulating downstream Mx (BMC Management Router) neighbors.
 
 **The PTF docker also has injected ports connected to the open vSwitch bridges interconnecting VMs and DUT ports. The injected ports can be used for both injecting packets to DUT and sniffing packets from DUT. Details of the injected ports will be explained in later sections.**
 

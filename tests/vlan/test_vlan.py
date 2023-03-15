@@ -45,14 +45,14 @@ def vlan_intfs_dict(tbinfo, utils_vlan_intfs_dict_orig):
     # Below ip prefix overlaps with 192.168.0.1/21, and need to skip:
     # 192.168.0.1/24, 192.168.1.1/24, 192.168.2.1/24, 192.168.3.1/24,
     # 192.168.4.1/24, 192.168.5.1/24, 192.168.6.1/24, 192.168.7.1/24
-    if tbinfo['topo']['name'] != 't0-56-po2vlan':
+    if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
         vlan_intfs_dict = utils_vlan_intfs_dict_add(vlan_intfs_dict, 2)
     return vlan_intfs_dict
 
 
 @pytest.fixture(scope="module")
 def work_vlan_ports_list(rand_selected_dut, tbinfo, cfg_facts, ports_list, utils_vlan_ports_list, vlan_intfs_dict, pc_num=PORTCHANNELS_TEST_NUM):
-    if tbinfo['topo']['name'] == 't0-56-po2vlan':
+    if tbinfo['topo']['name'] in ('t0-54-po2vlan', 't0-56-po2vlan'):
         return utils_vlan_ports_list
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
@@ -178,7 +178,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo, work_vlan_po
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
-        if tbinfo['topo']['name'] != 't0-56-po2vlan':
+        if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
             portchannel_interfaces = cfg_facts.get('PORTCHANNEL_INTERFACE', {})
 
             shutdown_portchannels(duthost, portchannel_interfaces)
@@ -210,7 +210,7 @@ def tearDown(duthost, tbinfo):
 
     logger.info("VLAN test ending ...")
 
-    if tbinfo['topo']['name'] != 't0-56-po2vlan':
+    if tbinfo['topo']['name'] not in ('t0-54-po2vlan', 't0-56-po2vlan'):
         config_reload(duthost)
 
 

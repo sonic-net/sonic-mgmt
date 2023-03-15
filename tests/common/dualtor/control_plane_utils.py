@@ -41,7 +41,8 @@ DB_CHECK_FIELD_MAP = {
 
 class DBChecker:
 
-    def __init__(self, duthost, state, health, intf_names='all', cable_type=CableType.default_type):
+    def __init__(self, duthost, state, health, intf_names='all',
+                 cable_type=CableType.default_type, verify_db_timeout=30):
         """
         Create a DBChecker object
         Args:
@@ -62,6 +63,7 @@ class DBChecker:
         self.cable_type = cable_type
         self._parse_intf_names()
         self.mismatch_ports = {}
+        self.VERIFY_DB_TIMEOUT = verify_db_timeout
 
     def _dump_db(self, db, key_pattern):
         """Dump redis database matching specificied key pattern"""
@@ -74,18 +76,19 @@ class DBChecker:
 
     def verify_db(self, db):
         pytest_assert(
-            wait_until(30, 10, 0, self.get_mismatched_ports, db),
+            wait_until(self.VERIFY_DB_TIMEOUT, 10, 0, self.get_mismatched_ports, db),
             "Database states don't match expected state {state},"
             "incorrect {db_name} values {db_states}"
             .format(state=self.state, db_name=DB_NAME_MAP[db],
                     db_states=json.dumps(self.mismatch_ports,
-                                        indent=4,
-                                        sort_keys=True)))
+                                         indent=4,
+                                         sort_keys=True)))
 
     def _parse_intf_names(self):
         mux_cable_table = self.duthost.get_running_config_facts()['MUX_CABLE']
         selected_intfs = set(
-            _ for _ in mux_cable_table if mux_cable_table[_].get("cable_type", CableType.default_type) == self.cable_type
+            _ for _ in mux_cable_table
+            if mux_cable_table[_].get("cable_type", CableType.default_type) == self.cable_type
         )
         if self.intf_names == 'all':
             self.intf_names = selected_intfs
@@ -129,7 +132,9 @@ class DBChecker:
             for intf_name in self.intf_names:
                 table_key = '{}{}{}'.format(table, separator, intf_name)
 
-                if db_dump[table_key]['value'][field] != target_value:
+                if table_key not in db_dump:
+                    mismatch_ports[table_key] = {}
+                elif db_dump[table_key]['value'][field] != target_value:
                     mismatch_ports[table_key] = db_dump[table_key]['value']
 
         self.mismatch_ports = mismatch_ports
@@ -140,7 +145,8 @@ class DBChecker:
 def verify_tor_states(
     expected_active_host, expected_standby_host,
     expected_standby_health='healthy', intf_names='all',
-    cable_type=CableType.default_type, skip_state_db=False
+    cable_type=CableType.default_type, skip_state_db=False,
+    verify_db_timeout=30
 ):
     """
     Verifies that the expected states for active and standby ToRs are
@@ -148,26 +154,34 @@ def verify_tor_states(
     """
     if isinstance(expected_active_host, collections.Iterable):
         for duthost in expected_active_host:
-            db_checker = DBChecker(duthost, 'active', 'healthy', intf_names=intf_names, cable_type=cable_type)
+            db_checker = DBChecker(duthost, 'active', 'healthy',
+                                   intf_names=intf_names, cable_type=cable_type,
+                                   verify_db_timeout=verify_db_timeout)
             db_checker.verify_db(APP_DB)
             if not skip_state_db:
                 db_checker.verify_db(STATE_DB)
     elif expected_active_host is not None:
         duthost = expected_active_host
-        db_checker = DBChecker(duthost, 'active', 'healthy', intf_names=intf_names, cable_type=cable_type)
+        db_checker = DBChecker(duthost, 'active', 'healthy',
+                               intf_names=intf_names, cable_type=cable_type,
+                               verify_db_timeout=verify_db_timeout)
         db_checker.verify_db(APP_DB)
         if not skip_state_db:
             db_checker.verify_db(STATE_DB)
 
     if isinstance(expected_standby_host, collections.Iterable):
         for duthost in expected_standby_host:
-            db_checker = DBChecker(duthost, 'standby', expected_standby_health, intf_names=intf_names, cable_type=cable_type)
+            db_checker = DBChecker(duthost, 'standby', expected_standby_health,
+                                   intf_names=intf_names, cable_type=cable_type,
+                                   verify_db_timeout=verify_db_timeout)
             db_checker.verify_db(APP_DB)
             if not skip_state_db:
                 db_checker.verify_db(STATE_DB)
     elif expected_standby_host is not None:
         duthost = expected_standby_host
-        db_checker = DBChecker(duthost, 'standby', expected_standby_health, intf_names=intf_names, cable_type=cable_type)
+        db_checker = DBChecker(duthost, 'standby', expected_standby_health,
+                               intf_names=intf_names, cable_type=cable_type,
+                               verify_db_timeout=verify_db_timeout)
         db_checker.verify_db(APP_DB)
         if not skip_state_db:
             db_checker.verify_db(STATE_DB)

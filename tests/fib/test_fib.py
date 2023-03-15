@@ -5,19 +5,19 @@ from datetime import datetime
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active
 from tests.ptf_runner import ptf_runner
-from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side
+from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side            # noqa F401
 from tests.common.utilities import is_ipv4_address
 
-from tests.common.fixtures.fib_utils import fib_info_files_per_function
-from tests.common.fixtures.fib_utils import single_fib_for_duts
+from tests.common.fixtures.fib_utils import fib_info_files_per_function     # noqa F401
+from tests.common.fixtures.fib_utils import single_fib_for_duts             # noqa F401
 from tests.common.utilities import wait
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-# Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys. Not enable these three by default.
+# Usually src-mac, dst-mac, vlan-id are optional hash keys. Not all the platform supports these optional hash keys.
+# Not enable these three by default.
 # The 'ingress-port' key is not used in hash by design. We are doing negative test for 'ingress-port'.
 # When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different ingress ports
 # and expect that they are forwarded from same egress port.
@@ -68,16 +69,18 @@ def updated_tbinfo(tbinfo):
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, True, 1514)])
 def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
-                   toggle_all_simulator_ports_to_random_side,
-                   fib_info_files_per_function,
-                   updated_tbinfo, mux_server_url,
+                   toggle_all_simulator_ports_to_random_side,           # noqa F811
+                   fib_info_files_per_function,                         # noqa F401
+                   updated_tbinfo, mux_server_url,                      # noqa F401
                    mux_status_from_nic_simulator,
-                   ignore_ttl, single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):
+                   ignore_ttl, single_fib_for_duts,                     # noqa F401
+                   duts_running_config_facts, duts_minigraph_facts):
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    switch_type = duthosts[0].facts.get('switch_type')
 
     # do not test load balancing for vs platform as kernel 4.9
     # can only do load balance base on L3
@@ -106,7 +109,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
             "testbed_mtu": mtu,
             "test_balancing": test_balancing,
             "ignore_ttl": ignore_ttl,
-            "single_fib_for_duts": single_fib_for_duts
+            "single_fib_for_duts": single_fib_for_duts,
+            "switch_type": switch_type
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -132,9 +136,9 @@ def get_vlan_untag_ports(duthosts, duts_running_config_facts):
         ports = []
         for asic_cfg_facts in duts_running_config_facts[duthost.hostname]:
 
-            vlans = asic_cfg_facts.get('VLAN_INTERFACE', {}).keys()
+            vlans = asic_cfg_facts[1].get('VLAN_INTERFACE', {}).keys()
             for vlan in vlans:
-                vlan_member_info = asic_cfg_facts.get('VLAN_MEMBER', {}).get(vlan, {})
+                vlan_member_info = asic_cfg_facts[1].get('VLAN_MEMBER', {}).get(vlan, {})
                 if vlan_member_info:
                     for port_name, tag_mode in vlan_member_info.items():
                         if tag_mode['tagging_mode'] == 'untagged':
@@ -173,6 +177,10 @@ def hash_keys(duthost):
     if duthost.facts['asic_type'] in ["innovium"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
+    # removing ip-proto from hash_keys for Cisco-8000 Distributed Chassis
+    if duthost.facts['platform'] in ['x86_64-8800_rp_o-r0', 'x86_64-88_lc0_36fh_mo-r0', 'x86_64-8800_lc_48h_o-r0']:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
     # In multi asic platform each asic has different hash seed,
     # the same packet coming in different asic
@@ -189,7 +197,7 @@ def configure_vlan(duthost, ports):
         duthost.shell('config vlan add {}'.format(vlan))
         for port in ports:
             duthost.shell('config vlan member add {} {}'.format(vlan, port))
-        duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+        duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan % 256))
     time.sleep(5)
 
 
@@ -197,7 +205,7 @@ def unconfigure_vlan(duthost, ports):
     for vlan in VLANIDS:
         for port in ports:
             duthost.shell('config vlan member del {} {}'.format(vlan, port))
-        duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan%256))
+        duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan % 256))
         duthost.shell('config vlan del {}'.format(vlan))
     time.sleep(5)
 
@@ -238,7 +246,8 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
         try:
             for duthost in duthosts:
                 cfg_facts = duts_running_config_facts[duthost.hostname]
-                for asic_index, asic_cfg_facts in enumerate(cfg_facts):
+                for asic_cfg_facts_tuple in (cfg_facts):
+                    asic_index, asic_cfg_facts = asic_cfg_facts_tuple
                     asic = duthost.asic_instance(asic_index)
                     bgp_neighbors = asic_cfg_facts["BGP_NEIGHBOR"]
                     ipv4_cmd_parts = ["ip route add default"]
@@ -268,14 +277,15 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
         yield
 
 
-def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan, hash_keys, ptfhost, ipver,
-              toggle_all_simulator_ports_to_rand_selected_tor_m,
-              updated_tbinfo, mux_server_url, mux_status_from_nic_simulator,
-              ignore_ttl, single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):
+def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan,      # noqa F811
+              hash_keys, ptfhost, ipver, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
+              updated_tbinfo, mux_server_url, mux_status_from_nic_simulator, ignore_ttl,        # noqa F811
+              single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):            # noqa F811
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
+    switch_type = duthosts[0].facts.get('switch_type')
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
     logging.info("PTF log file: %s" % log_file)
@@ -300,8 +310,9 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
                 "src_ip_range": ",".join(src_ip_range),
                 "dst_ip_range": ",".join(dst_ip_range),
                 "vlan_ids": VLANIDS,
-                "ignore_ttl":ignore_ttl,
-                "single_fib_for_duts": single_fib_for_duts
+                "ignore_ttl": ignore_ttl,
+                "single_fib_for_duts": single_fib_for_duts,
+                "switch_type": switch_type
                 },
         log_file=log_file,
         qlen=PTF_QLEN,

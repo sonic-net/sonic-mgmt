@@ -100,7 +100,8 @@ class KustoConnector(ReportDBConnector):
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
     PIPELINE_TABLE = "TestReportPipeline"
-    CASE_INVOC_TABLE = "CaseInvocationReport"
+    CASE_INVOC_TABLE = "CaseInvocationCoverage"
+    SAI_HEADER_INVOC_TABLE = "SAIHeaderDefinition"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
@@ -116,6 +117,7 @@ class KustoConnector(ReportDBConnector):
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
         PIPELINE_TABLE: DataFormat.JSON,
         CASE_INVOC_TABLE: DataFormat.MULTIJSON,
+        SAI_HEADER_INVOC_TABLE: DataFormat.MULTIJSON,
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -131,7 +133,8 @@ class KustoConnector(ReportDBConnector):
         TEST_CASE_TABLE: "TestCasesMappingV1",
         EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
         PIPELINE_TABLE: "FlatPipelineMappingV1",
-        CASE_INVOC_TABLE: "CaseInvocationReportMapping",
+        CASE_INVOC_TABLE: "CaseInvocationCoverageMapping",
+        SAI_HEADER_INVOC_TABLE: "SAIHeaderDefinitionMapping",
     }
 
     def __init__(self, db_name: str):
@@ -224,6 +227,13 @@ class KustoConnector(ReportDBConnector):
         """
         self._upload_case_invoc_report_file(file)
 
+    def upload_sai_header_def_report_file(self, file) -> None:
+        """Upload a report to the back-end data store.
+        Args:
+            file: json
+        """
+        self._upload_sai_header_def_report_file(file)
+
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         time = str(datetime.utcnow())
         pdu_output = []
@@ -263,6 +273,9 @@ class KustoConnector(ReportDBConnector):
 
     def _upload_case_invoc_report_file(self, case_invoc_file):
         self._ingest_data_file(self.CASE_INVOC_TABLE, case_invoc_file)
+
+    def _upload_sai_header_def_report_file(self, sai_header_def_file):
+        self._ingest_data_file(self.SAI_HEADER_INVOC_TABLE, sai_header_def_file)
 
     def _upload_pipeline_results(self, external_tracking_id, report_guid, testbed, os_version):
         pipeline_data = {

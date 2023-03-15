@@ -9,6 +9,7 @@ file currently holds the following fixture(s):
     4. lossy_prio_list
 """
 
+
 @pytest.fixture(scope="module")
 def prio_dscp_map(duthosts, rand_one_dut_hostname):
     """
@@ -44,6 +45,7 @@ def prio_dscp_map(duthosts, rand_one_dut_hostname):
 
     return result
 
+
 @pytest.fixture(scope="module")
 def all_prio_list(prio_dscp_map):
     """
@@ -56,6 +58,7 @@ def all_prio_list(prio_dscp_map):
         All the priorities (list)
     """
     return list(prio_dscp_map.keys())
+
 
 @pytest.fixture(scope="module")
 def lossless_prio_list(duthosts, rand_one_dut_hostname):
@@ -87,6 +90,7 @@ def lossless_prio_list(duthosts, rand_one_dut_hostname):
 
     result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
     return result
+
 
 @pytest.fixture(scope="module")
 def lossy_prio_list(all_prio_list, lossless_prio_list):

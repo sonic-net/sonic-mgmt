@@ -24,7 +24,7 @@ from tests.generic_config_updater.gu_utils import create_path, check_show_ip_int
 # }
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.topology('t0', 'm0', 'mx'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode
+    UNICODE_TYPE = unicode      # noqa F821
 
 
 def get_vlan_info(intf):
