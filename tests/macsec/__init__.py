@@ -179,7 +179,7 @@ class MacsecPlugin(object):
     def find_links(self, duthost, tbinfo, filter):
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
-            list(filter(interface, neighbor, mg_facts, tbinfo))
+            filter(interface, neighbor, mg_facts, tbinfo)
 
     def is_interface_portchannel_member(self, pc, interface):
         for pc_name, elements in list(pc.items()):

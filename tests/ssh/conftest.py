@@ -49,7 +49,7 @@ def generate_ssh_ciphers(request, typename):
     logger.debug('cmd:\n{}'.format(cmd))
 
     try:
-        raw_output = subprocess.check_output(cmd, shell=False, stderr=subprocess.STDOUT, universal_newlines=True).decode('utf-8')
+        raw_output = subprocess.check_output(cmd, shell=False, stderr=subprocess.STDOUT, universal_newlines=True)
         cipher_list = raw_output.split("rc=0 >>", 1)[1].split()
         logger.debug('cipher full list: {}'.format(cipher_list))
         cipher_param_list = permitted_list
