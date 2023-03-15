@@ -6,14 +6,14 @@ Mellanox	vms7-t0-4600c-2	vms7-t0-4600c-2	202205	internal	202205	202205	202205	ma
 Mellanox	vms12-t0-3800-platform_tests	vms12-t0-3800	202205	internal	202205	202205	201911	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 4	1800								
 Mellanox	vms18-t1-msn4600c-acs-1	vms18-t1-msn4600c-acs-1	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4		"platform_tests/test_auto_negotiation.py"							
 Mellanox	vms20-t0-sn3800-2	vms20-t0-sn3800-2	202205		202205		201911	202205		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4	1800								
-Mellanox	vms20-t0-sn3800-2	vms20-t0-sn3800-2		201911		201911				-I "metadata-scripts platform_tests/test_advanced_reboot.py"'	Advanced reboot	0 4	1380	"""platform_tests/test_reboot.py::test_fast_reboot, \
+Mellanox	vms20-t0-sn3800-2-metadata_tests	vms20-t0-sn3800-2		201911		201911				-I "metadata-scripts platform_tests/test_advanced_reboot.py"'	Advanced reboot	0 4	1380	"""platform_tests/test_reboot.py::test_fast_reboot, \
               platform_tests/test_advanced_reboot.py::test_fast_reboot, \
               platform_tests/test_advanced_reboot.py::test_cancelled_fast_reboot"""			TRUE				
 Mellanox	vms21-t0-2700-non-platform_tests	vms21-t0-2700	202205	internal	202205	202205	201911	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4	1800								
 Mellanox	vms21-t1-2700-2-non-platform_tests	vms21-t1-2700-2	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4									
 Mellanox	vms28-t0-4600c-03-platform_tests	vms28-t0-4600c-03	202205	internal	202205	202205	202205	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 14	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"							
 Mellanox	vms28-t0-4600c-04-non-platform_tests	vms28-t0-4600c-04	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 0	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"							
-Mellanox	vms11-2-t0-2700-2-platform_metadata_test	vms11-2-t0	202205							-I "platform_tests metadata-scripts"'	Platform	0 4				IMAGE_MLNX_201911	TRUE				
+Mellanox	vms11-2-t0-2700-2-platform_metadata_tests	vms11-2-t0	202205							-I "platform_tests metadata-scripts"'	Platform	0 4				IMAGE_MLNX_201911	TRUE				
 Mellanox	vms11-2-t0-2700-2-platform_tests	vms11-2-t0		internal	202205	202205	201911	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 4	1800								
 Mellanox	testbed-bjw-can-2700-1	testbed-bjw-can-2700-1	202205	internal	202205	master	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4			nightly-bjw						
 Arista	vms6-t0-7060.1	vms6-t0-7060	202012-SLIM		202012-SLIM					-S "platform_tests metadata-scripts"'	Non-platform	0 12									

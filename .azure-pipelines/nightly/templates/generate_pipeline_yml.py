@@ -38,7 +38,8 @@ resources:
         TESTBED_NAME = yaml_file_info[branch]['TESTBED_NAME']
         IMAGE_URL = yaml_file_info[branch]['IMAGE_URL']
         PY_SAITHRIFT_URL = yaml_file_info[branch]['PY_SAITHRIFT_URL']
-        if '202012' in branches:
+        TESTBED_SPECIFIC = yaml_file_info[branch]['TESTBED_SPECIFIC']
+        if '202012' in branches or 'metadata-scripts' in TESTBED_SPECIFIC:
             file_content += METADATA_PATTERN
 
         COMMON_PATTERN = '''
@@ -74,7 +75,6 @@ parameters:
 '''.format(cron, branches, TESTBED_NAME, IMAGE_URL, PY_SAITHRIFT_URL)
 
         file_content += COMMON_PATTERN
-        TESTBED_SPECIFIC = yaml_file_info[branch]['TESTBED_SPECIFIC']
         SKIP_SCRIPTS = yaml_file_info[branch]['SKIP_SCRIPTS']
         NIGHTLY_TEST_TIMEOUT = yaml_file_info[branch]['NIGHTLY_TEST_TIMEOUT']
         AGENT_POOL = yaml_file_info[branch]['AGENT_POOL']
