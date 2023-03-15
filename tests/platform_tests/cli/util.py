@@ -99,3 +99,39 @@ def get_skip_mod_list(duthost, mod_key=None):
                     for mod_id in dut_vars['skip_modules'][mod_type]:
                         skip_mod_list.append(mod_id)
     return skip_mod_list
+
+
+def get_skip_logical_module_list(duthost, mod_key=None):
+    """
+    @summary: utility function returns list of modules / peripherals physicsally in chassis
+    But logically not part of the corresponding logical chassis
+    by default if no keyword passed it will return all from inventory file
+    provides a list under skip_logical_modules: in inventory file for each dut
+    returns a empty list if skip_logical_modules not defined under host in inventory
+    inventory example:
+    DUTHOST:
+    skip_logical_modules:
+        'line-cards':
+          - LINE-CARD0
+          - LINE-CARD2
+
+    @return a list of logical_modules/peripherals to be skipped in check for platform test
+    """
+
+    skip_logical_mod_list = []
+    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    if 'skip_logical_modules' in dut_vars:
+        if mod_key is None:
+            for mod_type in list(dut_vars['skip_logical_modules'].keys()):
+                for mod_id in dut_vars['skip_logical_modules'][mod_type]:
+                    skip_logical_mod_list.append(mod_id)
+        else:
+            for mod_type in mod_key:
+                if mod_type in list(dut_vars['skip_logical_modules'].keys()):
+                    for mod_id in dut_vars['skip_logical_modules'][mod_type]:
+                        skip_logical_mod_list.append(mod_id)
+    return skip_logical_mod_list
+
+
+
+
