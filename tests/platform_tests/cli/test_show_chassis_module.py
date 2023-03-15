@@ -48,7 +48,7 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname):
     for mod_idx in res.keys():
         if mod_idx in skip_mod_list:
             """
-               In case the module is part of the skip logical LC which means LC may be physically 
+               In case the module is part of the skip logical LC which means LC may be physically
                connected while logically is not part of this logical chassis at which case we should
                not check any further and move on
             """
