@@ -10,7 +10,7 @@ import re
 import pytest
 import datetime
 from tests.common.helpers.assertions import pytest_assert
-from . import passw_hardening_utils
+import passw_hardening_utils
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),

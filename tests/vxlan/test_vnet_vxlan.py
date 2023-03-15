@@ -7,9 +7,9 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
+from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
 
-from .vnet_utils import generate_dut_config_files, safe_open_template, \
+from vnet_utils import generate_dut_config_files, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
@@ -235,14 +235,14 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
 def get_expected_flow_counter_packets_number(vnet_json_data):
     total_routes = 0
     for routes in vnet_json_data['vnet_routes']:
-        for name, rt_list in list(routes.items()):
+        for name, rt_list in routes.items():
             total_routes += len(rt_list)
             for peers in vnet_json_data['vnet_peers']:
-                for key, peer in list(peers.items()):
+                for key, peer in peers.items():
                     if name.split('_')[0] == key:
                         total_routes += len(rt_list)
             for l_routes in vnet_json_data['vnet_local_routes']:
-                for l_name, l_rt_list in list(l_routes.items()):
+                for l_name, l_rt_list in l_routes.items():
                     if name == l_name:
                         total_routes += len(l_rt_list)
 

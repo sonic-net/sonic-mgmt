@@ -3,7 +3,7 @@ import re
 import json
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from .cli.util import get_skip_mod_list
+from cli.util import get_skip_mod_list
 
 logger = logging.getLogger('__name__')
 
@@ -27,7 +27,7 @@ def test_power_redis_db(duthosts, enum_supervisor_dut_hostname, tbinfo):
 
     redis_out = duthost.command("redis-dump -d 6 -y -k \"*power*\"")
     out_dict = json.loads(redis_out['stdout'])
-    power_budget = list(out_dict.keys())
+    power_budget = out_dict.keys()
 
     for pb_name in power_budget:
         for out_val in out_dict[pb_name]['value']:

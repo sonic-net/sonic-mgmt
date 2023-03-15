@@ -132,7 +132,7 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
         ptfhost.shell("supervisorctl start arp_responder")
         ptfhost.shell("supervisorctl start icmp_responder")
         yield
-        ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+        ptfhost.shell("supervisorctl stop arp_responder")
         ptfhost.shell("supervisorctl stop icmp_responder")
 
     pytest_assert(is_tunnel_packet_handler_running(upper_tor_host),
@@ -147,7 +147,7 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
     with prepare_services(ptfhost):
         # Get the original memeory percent before test
         check_memory_leak(upper_tor_host)
-        for iface, server_ips in list(all_servers_ips.items()):
+        for iface, server_ips in all_servers_ips.items():
             server_ipv4 = server_ips["server_ipv4"].split("/")[0]
             logging.info("Select DUT interface {} and server IP {} to test.".format(iface, server_ipv4))
 

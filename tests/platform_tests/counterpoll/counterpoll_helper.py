@@ -27,7 +27,7 @@ class ConterpollHelper:
 
     @staticmethod
     def restore_counterpoll_status(duthost, counterpoll_before, counterpoll_after):
-        for counterpoll, value in list(counterpoll_after.items()):
+        for counterpoll, value in counterpoll_after.items():
             if counterpoll not in counterpoll_before:
                 continue
             else:

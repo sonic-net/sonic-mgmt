@@ -73,7 +73,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
     """
     ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces(tbinfo)
     port_list = []
-    for iface in list(ip_ifaces.keys()):
+    for iface in ip_ifaces.keys():
         if iface.startswith("PortChannel"):
             port_list.extend(
                 mg_facts["minigraph_portchannels"][iface]["members"]
@@ -81,7 +81,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
         else:
             port_list.append(iface)
     port_list_set = set(port_list)
-    for port in list(test_ports.keys()):
+    for port in test_ports.keys():
         if port not in port_list_set:
             del test_ports[port]
     return test_ports
@@ -106,7 +106,7 @@ def setup_pfc_test(
     SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag"}
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_list = list(mg_facts['minigraph_ports'].keys())
+    port_list = mg_facts['minigraph_ports'].keys()
     ports = (' ').join(port_list)
     neighbors = conn_graph_facts['device_conn'][duthost.hostname]
     dut_eth0_ip = duthost.mgmt_ip
@@ -115,7 +115,7 @@ def setup_pfc_test(
     if mg_facts['minigraph_vlans']:
         # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
         unexpected_vlans = []
-        for vlan, vlan_data in list(mg_facts['minigraph_vlans'].items()):
+        for vlan, vlan_data in mg_facts['minigraph_vlans'].items():
             if len(vlan_data['members']) < 2:
                unexpected_vlans.append(vlan)
 

@@ -1,5 +1,5 @@
 from tests.common.snappi.snappi_fixtures import (cvg_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
-from .files.bgp_test_gap_helper import (duthost_bgp_scalability_config, run_bgp_scalability_v4_v6, cleanup_config)
+from files.bgp_test_gap_helper import (duthost_bgp_scalability_config, run_bgp_scalability_v4_v6, cleanup_config)
 from tests.common.fixtures.conn_graph_facts import (conn_graph_facts, fanout_graph_facts)
 import pytest
 

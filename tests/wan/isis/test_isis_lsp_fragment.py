@@ -60,7 +60,7 @@ def check_isis_lsp_fragment(duthost):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
     lsp_cnt = 0
 
-    for lsp, _ in list(isis_facts['database'][isis_instance].items()):
+    for lsp, _ in isis_facts['database'][isis_instance].items():
         if duthost.hostname in lsp:
             lsp_cnt = lsp_cnt + 1
     if lsp_cnt > 1:
@@ -73,7 +73,7 @@ def check_isis_no_lsp_fragment(duthost):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
     lsp_cnt = 0
 
-    for lsp, _ in list(isis_facts['database'][isis_instance].items()):
+    for lsp, _ in isis_facts['database'][isis_instance].items():
         if duthost.hostname in lsp:
             lsp_cnt = lsp_cnt + 1
     if lsp_cnt > 1:

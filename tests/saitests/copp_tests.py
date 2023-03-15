@@ -38,7 +38,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.myip = {}
         self.peerip = {}
-        for i in range(self.MAX_PORTS):
+        for i in xrange(self.MAX_PORTS):
             self.myip[i] = "10.0.0.%d" % (i*2+1)
             self.peerip[i] = "10.0.0.%d" % (i*2)
 
@@ -49,7 +49,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.my_mac = {}
         self.peer_mac = {}
-        for port_id, port in list(self.dataplane.ports.items()):
+        for port_id, port in self.dataplane.ports.iteritems():
             if port_id[0] == 0:
                 self.my_mac[port_id[1]] = port.mac()
             elif port_id[0] == 1:
@@ -75,7 +75,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         start_time=datetime.datetime.now()
 
-        for i in range(count):
+        for i in xrange(count):
             testutils.send_packet(self, send_intf, packet)
 
         end_time=datetime.datetime.now()
@@ -87,24 +87,24 @@ class ControlPlaneBaseTest(BaseTest):
             e_c_1 = self.dataplane.get_counters(*recv_intf)
             e_n_0 = self.dataplane.get_nn_counters(*send_intf)
             e_n_1 = self.dataplane.get_nn_counters(*recv_intf)
-            print()
-            print()
-            print("Counters before the test:")
-            print(("If counter (0, n): ", b_c_0))
-            print(("NN counter (0, n): ", b_n_0))
-            print(("If counter (1, n): ", b_c_1))
-            print(("NN counter (1, n): ", b_n_1))
-            print()
-            print("Counters after the test:")
-            print(("If counter (0, n): ", e_c_0))
-            print(("NN counter (0, n): ", e_n_0))
-            print(("If counter (1, n): ", e_c_1))
-            print(("NN counter (1, n): ", e_n_1))
-            print()
-            print(("Sent through NN to local ptf_nn_agent:    ", e_c_0[1] - b_c_0[1]))
-            print(("Sent through If to remote ptf_nn_agent:   ", e_n_0[1] - b_n_0[1]))
-            print(("Recv from If on remote ptf_nn_agent:      ", e_c_1[0] - b_c_1[0]))
-            print(("Recv from NN on from remote ptf_nn_agent: ", e_n_1[0] - b_n_1[0]))
+            print
+            print
+            print "Counters before the test:"
+            print "If counter (0, n): ", b_c_0
+            print "NN counter (0, n): ", b_n_0
+            print "If counter (1, n): ", b_c_1
+            print "NN counter (1, n): ", b_n_1
+            print
+            print "Counters after the test:"
+            print "If counter (0, n): ", e_c_0
+            print "NN counter (0, n): ", e_n_0
+            print "If counter (1, n): ", e_c_1
+            print "NN counter (1, n): ", e_n_1
+            print
+            print "Sent through NN to local ptf_nn_agent:    ", e_c_0[1] - b_c_0[1]
+            print "Sent through If to remote ptf_nn_agent:   ", e_n_0[1] - b_n_0[1]
+            print "Recv from If on remote ptf_nn_agent:      ", e_c_1[0] - b_c_1[0]
+            print "Recv from NN on from remote ptf_nn_agent: ", e_n_1[0] - b_n_1[0]
 
         time_delta = end_time - start_time
         time_delta_ms = (time_delta.microseconds + time_delta.seconds * 10**6) / 10**3
@@ -133,13 +133,13 @@ class ControlPlaneBaseTest(BaseTest):
     def printStats(self, pkt_send_count, total_rcv_pkt_cnt, time_delta, tx_pps, rx_pps):
         if not self.verbose:
             return
-        print()
-        print('test stats')
-        print(('Packet sent = %10d' % pkt_send_count))
-        print(('Packet rcvd = %10d' % total_rcv_pkt_cnt))
-        print(('Test time = %s' % str(time_delta)))
-        print(('TX PPS = %d' % tx_pps))
-        print(('RX PPS = %d' % rx_pps))
+        print
+        print 'test stats'
+        print 'Packet sent = %10d' % pkt_send_count
+        print 'Packet rcvd = %10d' % total_rcv_pkt_cnt
+        print 'Test time = %s' % str(time_delta)
+        print 'TX PPS = %d' % tx_pps
+        print 'RX PPS = %d' % rx_pps
 
         return
 
@@ -319,7 +319,7 @@ class IP2METest(PolicyTest):
         self.run_suite()
 
     def one_port_test(self, port_number):
-        for port in list(self.dataplane.ports.keys()):
+        for port in self.dataplane.ports.iterkeys():
             if port[0] == 0:
                 continue
             packet = self.contruct_packet(port[1])

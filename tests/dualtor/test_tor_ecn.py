@@ -92,7 +92,7 @@ def build_encapsulated_ip_packet(
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
-        peer_ipv4_address = [dut_name["address_ipv4"] for dut_name in list(config_facts["PEER_SWITCH"].values())][0]
+        peer_ipv4_address = [dut_name["address_ipv4"] for dut_name in config_facts["PEER_SWITCH"].values()][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
 
@@ -100,8 +100,8 @@ def build_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    inner_ttl = random.choice(list(range(3, 65)))
-    inner_ecn = random.choice(list(range(0, 3)))
+    inner_ttl = random.choice(range(3, 65))
+    inner_ecn = random.choice(range(0, 3))
     logging.info("Inner DSCP: {0:06b}, Inner ECN: {1:02b}".format(inner_dscp, inner_ecn))
 
     inner_packet = testutils.simple_ip_packet(
@@ -141,7 +141,7 @@ def build_non_encapsulated_ip_packet(
     config_facts = tor.get_running_config_facts()
     try:
         peer_ipv4_address = [dut_name["address_ipv4"]       # noqa F841
-                             for dut_name in list(config_facts["PEER_SWITCH"].values())][0]
+                             for dut_name in config_facts["PEER_SWITCH"].values()][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
 
@@ -149,8 +149,8 @@ def build_non_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    ttl = random.choice(list(range(3, 65)))
-    ecn = random.choice(list(range(0, 3)))
+    ttl = random.choice(range(3, 65))
+    ecn = random.choice(range(0, 3))
     logging.info("DSCP: {0:06b}, ECN: {1:02b}".format(dscp, ecn))
 
     packet = testutils.simple_ip_packet(

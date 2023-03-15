@@ -93,7 +93,7 @@ def check_simulator_flap_counter(
     counter_diffs = {intf: counters_after[intf] - counters_before[intf] for intf in tor_mux_intfs}
     if expected_diff:
         not_expected_counter_diffs = [
-            intf for intf, counter_diff in list(counter_diffs.items()) if counter_diff != expected_diff[-1]
+            intf for intf, counter_diff in counter_diffs.items() if counter_diff != expected_diff[-1]
         ]
 
         error_str = json.dumps(not_expected_counter_diffs, indent=4)
