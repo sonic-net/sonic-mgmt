@@ -24,7 +24,7 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def orig_ports_configuration(request, duthost, ptfhost, tbinfo):
     """
     Get the ports used to do test, return the dict of the port's original vlan, portchannel, infos.
@@ -68,7 +68,7 @@ def orig_ports_configuration(request, duthost, ptfhost, tbinfo):
     yield port_dict
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="module")
 def ports_configuration(orig_ports_configuration):
     """
     Define the ports parameters
@@ -181,7 +181,7 @@ def generate_ip_list():
     return dut_ip_list, ptf_ip_list
 
 
-@pytest.fixture(scope="package", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
           backup_and_restore_config_db_package, nbrhosts, tbinfo):                # noqa: F811
     """
@@ -208,7 +208,7 @@ def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
             vm_host.no_shutdown(peer_port)
 
 
-@pytest.fixture(scope="package", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def recover(duthost, ptfhost, ports_configuration):
     """
     restore the original configurations
