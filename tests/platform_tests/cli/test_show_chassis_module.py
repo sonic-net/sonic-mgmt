@@ -1,7 +1,7 @@
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from .util import get_field_range, get_fields, get_skip_mod_list, get_skip_logical_lc_list
+from .util import get_field_range, get_fields, get_skip_mod_list, get_skip_logical_module_list
 
 logger = logging.getLogger('__name__')
 
@@ -39,7 +39,7 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     exp_headers = ["Name", "Description", "Physical-Slot", "Oper-Status", "Admin-Status"]
     skip_mod_list = get_skip_mod_list(duthost)
-    skip_logical_lc_list = get_skip_logical_lc_list(duthost)
+    skip_logical_lc_list = get_skip_logical_module_list(duthost)
 
     output = duthost.command(cmd)
     res = parse_chassis_module(output['stdout_lines'], exp_headers)
@@ -48,9 +48,9 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname):
     for mod_idx in list(res.keys()):
         if mod_idx in skip_mod_list:
             """
-            In case the module is part of the skip logical LC which means LC may be physically 
-            connected while logically is not part of this logical chassis at which case we should
-            not check any further and move on
+               In case the module is part of the skip logical LC which means LC may be physically 
+               connected while logically is not part of this logical chassis at which case we should
+               not check any further and move on
             """
             if mod_idx in skip_logical_lc_list:
                 continue
