@@ -208,6 +208,13 @@ stages:
                     PREV_IMAGE_URL="$IMAGE_URL.PREV.1"
                 fi
 
+                echo "PREV_IMAGE_URL $PREV_IMAGE_URL"
+                curl --output /dev/null --silent --head --fail $PREV_IMAGE_URL || RC=$?
+                if [[ RC -ne 0 ]]; then
+                    echo "prev image not exist, skip upgrade prev image ..."
+                    SKIP_PREV_IMAGE=true
+                fi
+
                 cd ansible
 
                 if [[ ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }} == True ]]; then
@@ -240,19 +247,23 @@ stages:
                     fi
                 fi
 
-                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
-                    ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
-                        -i $(INVENTORY_NAME) \
-                        -e testbed_name=${{ parameters.TESTBED_NAME }} \
-                        -e image_url="$PREV_IMAGE_URL" \
-                        -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
-                        --vault-password-file password.txt \
-                        -e pause_time=60 -vv || true
+                if [[ $SKIP_PREV_IMAGE == false ]]; then
+                    if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
+                        ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                            -i $(INVENTORY_NAME) \
+                            -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                            -e image_url="$PREV_IMAGE_URL" \
+                            -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
+                            --vault-password-file password.txt \
+                            -e pause_time=60 -vv || true
+                    fi
                 fi
 
-                SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
-                BUILD_VERSION_PRE=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
-                echo "previous image: $BUILD_VERSION_PRE"
+                if [[ $SKIP_PREV_IMAGE == false ]]; then
+                    SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+                    BUILD_VERSION_PRE=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
+                    echo "previous image: $BUILD_VERSION_PRE"
+                fi
 
                 ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
                     -i $(INVENTORY_NAME) \
@@ -266,9 +277,11 @@ stages:
                 BUILD_VERSION=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
                 echo "current image: $BUILD_VERSION"
 
-                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$BUILD_VERSION" == "$BUILD_VERSION_PRE" ]]; then
-                  echo "sonic image build version not change after upgrading image"
-                  exit 1
+                if [[ $SKIP_PREV_IMAGE == false ]]; then
+                    if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$BUILD_VERSION" == "$BUILD_VERSION_PRE" ]]; then
+                        echo "sonic image build version not change after upgrading image"
+                        exit 1
+                    fi
                 fi
 
                 SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
@@ -284,6 +297,7 @@ stages:
             env:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
               PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
+              SKIP_PREV_IMAGE: false
 
           - task: Bash@3
             displayName: Deploy Minigraph
