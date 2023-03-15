@@ -7,9 +7,7 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
     snappi_api, snappi_testbed_config
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list,\
     lossless_prio_list, lossy_prio_list
-
 from files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
-from files.helper import skip_pfcwd_test
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
@@ -52,7 +50,6 @@ def test_pfcwd_many_to_one(snappi_api,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
 
     testbed_config, port_config_list = snappi_testbed_config
     lossless_prio = int(lossless_prio)
