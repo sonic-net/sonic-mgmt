@@ -46,9 +46,9 @@ drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
   skip:
-    reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version. Test also not supported on Broadcom DNX"
+    reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version. Test also not supported on Broadcom DNX or 8800-LC"
     conditions:
-      - "(asic_type=='cisco-8000' and release in ['202012']) or (asic_subtype in ['broadcom-dnx'])"
+      - "(asic_type=='cisco-8000' and release in ['202012']) or (asic_subtype in ['broadcom-dnx']) or (platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0'])"
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
   skip:
@@ -62,7 +62,7 @@ drop_packets/test_drop_counters.py::test_dst_ip_link_local:
   skip:
     reason: "Cisco 8000 with 202012 version and broadcom DNX platforms do not drop DIP linklocal packets"
     conditions:
-      - "(asic_type=='cisco-8000' and release in ['202012']) or (asic_subtype in ['broadcom-dnx'])"
+      - "(asic_type=='cisco-8000' and release in ['202012']) or (asic_subtype in ['broadcom-dnx']) or (platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0'])"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
   skip:
