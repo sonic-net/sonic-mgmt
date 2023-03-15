@@ -2,7 +2,7 @@
 
 * [Tests readme](/docs/ansible/README.test.md)
 * [Test system readme](/docs/ansible/README.testbed.md)
-* [swss-schema](https://github.com/Azure/sonic-swss/blob/master/doc/swss-schema.md)
+* [swss-schema](https://github.com/sonic-net/sonic-swss/blob/master/doc/swss-schema.md)
 
 ##Overview
 ***

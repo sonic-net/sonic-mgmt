@@ -46,7 +46,7 @@
 
     - name: 'Validating SNMP total memory matches shell "/proc/meminfo" result'
       assert:
-        that: "{{ (ansible_sysTotalMemery|int - shell_total_memory.stdout|int)|abs }} == 0"
+        that: "{{ (ansible_sysTotalMemory|int - shell_total_memory.stdout|int)|abs }} == 0"
 
     - name: Check total free memory via shell
       shell: grep MemFree /proc/meminfo | awk '{print $2}'
@@ -55,11 +55,11 @@
 
     - name: Validating SNMP total free memory matches shell result before stress test
       assert:
-        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= {{ tolerance|float }}"
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemory|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemory|int) }} <= {{ tolerance|float }}"
 
-    - set_fact: test_momory="{{ ((ansible_sysTotalFreeMemery - min_memory_size|int) / 1024)|int }}"
+    - set_fact: test_momory="{{ ((ansible_sysTotalFreeMemory - min_memory_size|int) / 1024)|int }}"
 
-    - debug: msg="Memory stress test will skip since system total free momory({{ ansible_sysTotalFreeMemery }}) is less than min_memory_size({{ min_memory_size }})"
+    - debug: msg="Memory stress test will skip since system total free momory({{ ansible_sysTotalFreeMemory }}) is less than min_memory_size({{ min_memory_size }})"
       when: test_momory|int <= 0
 
     - name: Start memory stress generation
@@ -84,7 +84,7 @@
 
     - name: Validating SNMP total free memory matches shell result in stress test
       assert:
-        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= {{ tolerance|float }}"
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemory|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemory|int) }} <= {{ tolerance|float }}"
       when: test_momory|int > 0
 
     - name: Stop memory stress generation
@@ -110,7 +110,7 @@
 
     - name: Validating SNMP total free memory matches shell result after stress test
       assert:
-        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemery|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemery|int) }} <= {{ tolerance|float }}"
+        that: "{{ '%.6f'|format((ansible_sysTotalFreeMemory|int - shell_total_free_memory.stdout|int)|abs / ansible_sysTotalFreeMemory|int) }} <= {{ tolerance|float }}"
       when: test_momory|int > 0
 
   always:

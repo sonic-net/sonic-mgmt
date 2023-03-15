@@ -1,0 +1,16 @@
+slot0:
+    ASIC0:
+      topology:
+        NEIGH_ASIC:
+      configuration_properties:
+        common:
+          asic_type: FrontEnd 
+      configuration:
+
+    ASIC1:
+      topology:
+        NEIGH_ASIC:
+      configuration_properties:
+        common:
+          asic_type: FrontEnd
+      configuration:

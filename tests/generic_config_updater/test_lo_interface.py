@@ -25,7 +25,7 @@ REPLACE_IP = "10.1.0.210/32"
 REPLACE_IPV6 = "FC00:1::210/128"
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0', 'mx'),
 ]
 
 logger = logging.getLogger(__name__)

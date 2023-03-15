@@ -1,36 +1,36 @@
 testcases:
     acl:
       filename: acltb.yml
-      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:
 
     arp:
       filename: arpall.yml
-      topologies: [ptf32, ptf64, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [ptf32, ptf64, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
 
     ecmp:
       filename: ecmp.yml
       topologies: [t1]
-      
+
     bgp_bounce:
       filename: bgp_bounce.yml
       topologies: [t1]
 
     bgp_gr_helper:
       filename: bgp_gr_helper.yml
-      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
 
     bgp_fact:
       filename: bgp_fact.yml
-      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
 
     bgp_multipath_relax:
       filename: bgp_multipath_relax.yml
-      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:
@@ -44,12 +44,12 @@ testcases:
 
     config:
         filename: config.yml
-        topologies: [t1-lag, t1-64-lag, t1-64-lag-clet, t0, t0-64, t0-116, t0-120]
+        topologies: [t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, t0, t0-64, t0-116, t0-120]
 
     continuous_reboot:
       filename: continuous_reboot.yml
       vtestbed_compatible: no
-      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-52, t0-56, t0-56-po2vlan, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
 
     copp:
       filename: copp.yml
@@ -59,7 +59,7 @@ testcases:
 
     decap:
       filename: decap.yml
-      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t0, t0-52, t0-56, t0-64, t0-116, t0-120]
+      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, t0, t0-52, t0-56, t0-64, t0-116, t0-120]
       required_vars:
           ptf_host:
           testbed_type:
@@ -77,7 +77,7 @@ testcases:
 
     everflow_testbed:
       filename: everflow_testbed.yml
-      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:
@@ -155,14 +155,14 @@ testcases:
 
     fib:
       filename: simple-fib.yml
-      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:
 
     hash:
       filename: hash.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:
@@ -170,7 +170,7 @@ testcases:
     warm-reboot-fib:
       filename: warm-reboot-fib.yml
       vtestbed_compatible: no
-      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:
@@ -199,28 +199,28 @@ testcases:
 
     lag_2:
       filename: lag_2.yml
-      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:
 
     lldp:
       filename: lldp.yml
-      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-116, t0-120, t0-64-32, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-116, t0-120, t0-64-32, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
 
     link_flap:
       filename: link_flap.yml
       vtestbed_compatible: no
-      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-16, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     continuous_link_flap:
       filename: continuous_link_flap.yml
       vtestbed_compatible: no
-      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
 
     mtu:
       filename: mtu.yml
-      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:
@@ -233,16 +233,16 @@ testcases:
 
     neighbour_mac_noptf:
       filename: neighbour-mac-noptf.yml
-      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     ntp:
       filename: ntp.yml
-      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     pfc_wd:
       filename: pfc_wd.yml
       vtestbed_compatible: no
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     portstat:
       filename: portstat.yml
@@ -251,7 +251,7 @@ testcases:
     port_toggle:
       filename: port_toggle.yml
       vtestbed_compatible: no
-      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     qos_sai:
       filename: qos_sai.yml
@@ -259,40 +259,40 @@ testcases:
 
     reboot:
       filename: reboot.yml
-      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [dualtor, t0, t0-52, t0-56, t0-56-po2vlan, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     repeat_harness:
       filename: repeat_harness.yml
-      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     restart_swss:
       filename: run_config_cleanup.yml
-      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     restart_swss_service:
       filename: restart_swss.yml
-      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-16, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     restart_syncd:
       filename: restart_syncd.yml
-      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     sensors:
       filename: sensors_check.yml
       vtestbed_compatible: no
-      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     service_acl:
       filename: service_acl.yml
-      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     snmp:
       filename: snmp.yml
-      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-52, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     syslog:
       filename: syslog.yml
-      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, ptf32, ptf64]
+      topologies: [t0, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     vlan:
       filename: vlantb.yml
@@ -307,7 +307,7 @@ testcases:
 
     dip_sip:
       filename: dip_sip.yml
-      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+      topologies: [t0, t0-16, t0-56, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
       required_vars:
           ptf_host:
           testbed_type:

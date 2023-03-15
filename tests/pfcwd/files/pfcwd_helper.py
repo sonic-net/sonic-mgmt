@@ -2,6 +2,11 @@ import datetime
 import ipaddress
 
 from tests.common import constants
+import sys
+
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
 
 
 class TrafficPorts(object):
@@ -16,7 +21,7 @@ class TrafficPorts(object):
         """
         self.mg_facts = mg_facts
         self.bgp_info = self.mg_facts['minigraph_bgp']
-        self.port_idx_info = self.mg_facts['minigraph_port_indices']
+        self.port_idx_info = self.mg_facts['minigraph_ptf_indices']
         self.pc_info = self.mg_facts['minigraph_portchannels']
         self.vlan_info = self.mg_facts['minigraph_vlans']
         self.neighbors = neighbors
@@ -188,8 +193,12 @@ class TrafficPorts(object):
             temp_ports (dict): port info constructed from the vlan interfaces
         """
         temp_ports = dict()
-        vlan_details = self.vlan_info.values()[0]
-        vlan_members = vlan_details['members']
+        # In Python2, dict.values() returns list object, but in Python3 returns an iterable but not indexable object.
+        # So that convert to list explicitly.
+        vlan_details = list(self.vlan_info.values())[0]
+        # Filter(remove) PortChannel interfaces from VLAN members list
+        vlan_members = [port for port in vlan_details['members'] if 'PortChannel' not in port]
+
         vlan_type = vlan_details.get('type')
         vlan_id = vlan_details['vlanid']
         rx_port = self.pfc_wd_rx_port if isinstance(self.pfc_wd_rx_port, list) else [self.pfc_wd_rx_port]

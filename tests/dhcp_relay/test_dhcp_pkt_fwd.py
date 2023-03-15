@@ -2,6 +2,7 @@ import logging
 import random
 import ipaddr
 import pytest
+import ipaddress
 
 import ptf.testutils as testutils
 import ptf.packet as scapy
@@ -10,10 +11,11 @@ from ptf.mask import Mask
 from socket import INADDR_ANY
 
 pytestmark = [
-    pytest.mark.topology("t1")
+    pytest.mark.topology("t1", "m0")
 ]
 
 logger = logging.getLogger(__name__)
+
 
 class DhcpPktFwdBase:
     """Base class for DHCP packet forwarding test. The test ensure that DHCP packets are going through T1 device."""
@@ -103,8 +105,9 @@ class DhcpPktFwdBase:
             dict: contains downstream/upstream ports information
         """
         duthost = duthosts[rand_one_dut_hostname]
-        if "t1" not in tbinfo["topo"]["name"]:
-            pytest.skip("Unsupported topology")
+        topo_name = tbinfo["topo"]["name"]
+        if "t1" not in topo_name and topo_name != "m0":
+            pytest.skip("Unsupported topology: {}".format(topo_name))
 
         downstreamPorts = []
         upstreamPorts = []
@@ -112,9 +115,9 @@ class DhcpPktFwdBase:
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
         for dutPort, neigh in mgFacts["minigraph_neighbors"].items():
-            if "T0" in neigh["name"]:
+            if "t1" in topo_name and "T0" in neigh["name"] or topo_name == "m0" and "MX" in neigh["name"]:
                 downstreamPorts.append(dutPort)
-            elif "T2" in neigh["name"]:
+            elif "t1" in topo_name and "T2" in neigh["name"] or topo_name == "m0" and "M1" in neigh["name"]:
                 upstreamPorts.append(dutPort)
 
         yield {"upstreamPorts": upstreamPorts, "downstreamPorts": downstreamPorts}
@@ -286,6 +289,7 @@ class DhcpPktFwdBase:
             padding_bytes=0,
             set_broadcast_bit=True
         )
+
 
 class TestDhcpPktFwd(DhcpPktFwdBase):
     """DHCP Packet forward test class"""

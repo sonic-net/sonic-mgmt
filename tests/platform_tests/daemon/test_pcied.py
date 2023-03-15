@@ -1,17 +1,14 @@
 """
 Check daemon status inside PMON container. Each daemon status is checked under the conditions below in this script:
-* Daemon Running Status 
+* Daemon Running Status
 * Daemon Stop status
 * Daemon Restart status
 
 This script is to cover the test case in the SONiC platform daemon and service test plan:
-https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
+https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
 import logging
-import re
 import time
-
-from datetime import datetime
 
 import pytest
 
@@ -46,6 +43,9 @@ expected_pcied_devices_status = "PASSED"
 def setup(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
+    ## add delay for pcied ready
+    time.sleep(60)
+
     if daemon_en_status is False:
         pytest.skip("{} is not enabled in {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
 
@@ -72,7 +72,7 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
         time.sleep(10)
 
 def check_pcie_devices_table_ready(duthost):
-    if duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES"):
+    if duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES"):
         return True
     return False
 
@@ -81,23 +81,23 @@ def get_pcie_devices_tbl_key(duthosts,rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911"])
     pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost), "PCIE_DEVICES table is empty")
-    command_output = duthost.shell("redis-cli -n 6 keys '*' | grep PCIE_DEVICES")
-    
+    command_output = duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES")
+
     global pcie_devices_status_tbl_key
     pcie_devices_status_tbl_key = command_output["stdout"]
 
 def collect_data(duthost):
-    keys = duthost.shell('redis-cli -n 6 keys "PCIE_DEVICE|*"')['stdout_lines']
+    keys = duthost.shell('sonic-db-cli STATE_DB KEYS "PCIE_DEVICE|*"')['stdout_lines']
 
     dev_data = {}
     for k in keys:
-        data = duthost.shell('redis-cli -n 6 hgetall "{}"'.format(k))['stdout_lines']
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-    
+
     dev_summary_status = duthost.get_pmon_daemon_db_value(pcie_devices_status_tbl_key, status_field)
     return {'status': dev_summary_status, 'devices': dev_data}
-    
+
 def wait_data(duthost, expected_key_count):
     class shared_scope:
         data_after_restart = {}
@@ -139,7 +139,7 @@ def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname, data_before_
 
 def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
     """
-    @summary: This test case is to check the pcied stopped and restarted status 
+    @summary: This test case is to check the pcied stopped and restarted status
     """
     duthost = duthosts[rand_one_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
@@ -168,7 +168,7 @@ def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_on
                           "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
                           "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    
+
     data_after_restart = wait_data(duthost, len(data_before_restart['devices']))
     pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
 

@@ -6,7 +6,7 @@
 - [Expected Output](#expected-output)
 
 ## Overview
-Copies file from remote host to local host. 
+Copies file from remote host to local host.
 
 This method may not perform as expected. Given a remote src, a local dest, and the hostname of the remote device, the final location will look like this on the local machine:
 

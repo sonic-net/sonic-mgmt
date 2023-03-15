@@ -38,7 +38,7 @@ def ports_for_test(cfg_facts):
 
     # Select 3 ports for test
     ports = cfg_facts['VLAN_MEMBER']['Vlan{}'.format(vlan)]
-    port_names = ports.keys()
+    port_names = [port_name for port_name in ports.keys() if 'PortChannel' not in port_name]
     selected_ports = [port_names[0], port_names[1], port_names[-1]]
 
     # Generate port info for selected ports

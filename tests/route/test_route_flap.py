@@ -2,6 +2,7 @@ import requests
 import json
 import logging
 import time
+import math
 from collections import namedtuple
 import pytest
 import ptf.testutils as testutils
@@ -31,6 +32,24 @@ EXABGP_BASE_PORT = 5000
 NHIPV4 = '10.10.246.254'
 WITHDRAW = 'withdraw'
 ANNOUNCE = 'announce'
+# Refer to announce_routes.py, which is called in add-topo period
+TOR_SUBNET_SIZE = 128
+M0_SUBNET_SIZE = 64
+MX_SUBNET_SIZE = 64
+
+
+def get_prefix_len_by_net_size(net_size):
+    return 32 - int(math.log(net_size, 2))
+
+
+def get_route_prefix_len(tbinfo, common_config):
+    if tbinfo["topo"]["name"] == "m0":
+        subnet_size = common_config.get("m0_subnet_size", M0_SUBNET_SIZE)
+    elif tbinfo["topo"]["name"] == "mx":
+        subnet_size = common_config.get("mx_subnet_size", MX_SUBNET_SIZE)
+    else:
+        subnet_size = common_config.get("tor_subnet_size", TOR_SUBNET_SIZE)
+    return get_prefix_len_by_net_size(subnet_size)
 
 
 @pytest.fixture(scope="module")
@@ -74,7 +93,7 @@ def get_ptf_recv_ports(duthost, tbinfo):
 
 
 def get_ptf_send_ports(duthost, tbinfo, dev_port):
-    if tbinfo['topo']['name'] in ['t0', 't1-lag']:
+    if tbinfo['topo']['name'] in ['t0', 't1-lag', 'm0']:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         member_port = mg_facts['minigraph_portchannels'][dev_port]['members']
         send_port = mg_facts['minigraph_ptf_indices'][member_port[0]]
@@ -94,11 +113,13 @@ def check_route(duthost, route, dev_port, operation):
         pytest_assert(dev_port in result, "Route {} was not announced {}".format(route, result))
 
 
-def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, src_ip, dst_ip):
-    pkt = testutils.simple_icmp_packet(eth_dst = dst_mac, ip_src = src_ip, ip_dst = dst_ip, icmp_type=8, icmp_data="")
+def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip):
+    # use ptf sender interface mac for easy identify testing packets
+    src_mac = ptfadapter.dataplane.get_mac(0, ptf_send_port)
+    pkt = testutils.simple_icmp_packet(eth_dst = dst_mac, eth_src = src_mac, ip_src = src_ip, ip_dst = dst_ip, icmp_type=8, icmp_code=0)
 
     ext_pkt = pkt.copy()
-    ext_pkt['Ether'].src = dst_mac
+    ext_pkt['Ether'].src = exp_src_mac
 
     masked_exp_pkt = Mask(ext_pkt)
     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
@@ -131,20 +152,44 @@ def get_exabgp_port(duthost, tbinfo, dev_port):
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     return tor1_exabgp_port
 
+def is_dualtor(tbinfo):
+    """Check if the testbed is dualtor."""
+    return "dualtor" in tbinfo["topo"]["name"]
 
 def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes):
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get('common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
+
+    # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
+    # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
+    # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
+    # On single tor, vlan mac (if exists) is same as dut_mac
     dut_mac = duthost.facts['router_mac']
+    vlan_mac = ""
+    if is_dualtor(tbinfo):
+        # Just let it crash if missing vlan configs on dual-tor      
+        vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+        
+        if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+            default_vlan_name = vlan_cfgs['default_vlan_config']
+            if default_vlan_name:
+                for vlan in vlan_cfgs[default_vlan_name].values():
+                    if 'mac' in vlan and vlan['mac']:
+                        vlan_mac = vlan['mac']
+                        break
+        pytest_assert(vlan_mac, 'dual-tor without vlan mac !!!')
+    else:
+       vlan_mac = dut_mac
 
     #get dst_prefix_list and aspath
     routes = namedtuple('routes', ['route', 'aspath'])
     iproute_info = get_ip_route_info(duthost)
     dst_prefix_list = []
+    route_prefix_len = get_route_prefix_len(tbinfo, common_config)
     for route_prefix in iproute_info:
-        if "/25" in route_prefix:
+        if "/{}".format(route_prefix_len) in route_prefix:
             # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
             multipath = iproute_info[route_prefix][0].get('multipath', False)
             if multipath:
@@ -166,7 +211,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
 
     exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)
     logger.info("exabgp_port = %d" % exabgp_port)
-    ping_ip = route_to_ping.strip('/25')
+    ping_ip = route_to_ping.strip('/{}'.format(route_prefix_len))
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
@@ -182,21 +227,21 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
             aspath = dst_prefix_list[route_index].aspath
 
             #test link status
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is withdraw with first 3 routes
             if route_index < 4:
                 time.sleep(1)
                 check_route(duthost, dst_prefix, dev_port, WITHDRAW)
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             announce_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is announced with first 3 routes
             if route_index < 4:
                 time.sleep(1)
                 check_route(duthost, dst_prefix, dev_port, ANNOUNCE)
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             route_index += 1
 

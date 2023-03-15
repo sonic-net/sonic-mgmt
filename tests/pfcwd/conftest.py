@@ -41,7 +41,7 @@ def two_queues(request):
     Args:
         request: pytest request object
         duthosts: AnsibleHost instance for multi DUT
-        rand_one_dut_hostname: hostname of DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
 
     Returns:
         two_queues: False/True
@@ -50,19 +50,19 @@ def two_queues(request):
 
 
 @pytest.fixture(scope="module")
-def fake_storm(request, duthosts, rand_one_dut_hostname):
+def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Enable/disable fake storm based on platform and input parameters
 
     Args:
         request: pytest request object
         duthosts: AnsibleHost instance for multi DUT
-        rand_one_dut_hostname: hostname of DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
 
     Returns:
         fake_storm: False/True
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 
@@ -89,7 +89,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(
-    duthosts, rand_one_dut_hostname, ptfhost, conn_graph_facts, tbinfo,
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,
     enum_frontend_asic_index
 ):
     """
@@ -103,8 +103,8 @@ def setup_pfc_test(
     Yields:
         setup_info: dictionary containing pfc timers, generated test ports and selected test ports
     """
-    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
-    duthost = duthosts[rand_one_dut_hostname]
+    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag"}
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = mg_facts['minigraph_ports'].keys()
     ports = (' ').join(port_list)
@@ -113,6 +113,21 @@ def setup_pfc_test(
     vlan_nw = None
 
     if mg_facts['minigraph_vlans']:
+        # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+        unexpected_vlans = []
+        for vlan, vlan_data in mg_facts['minigraph_vlans'].items():
+            if len(vlan_data['members']) < 2:
+               unexpected_vlans.append(vlan)
+
+        # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+        expected_vlan_ifaces = []
+        for vlan in unexpected_vlans:
+            for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+                if vlan != mg_vl_iface['attachto']:
+                    expected_vlan_ifaces.append(mg_vl_iface)
+        if expected_vlan_ifaces:
+            mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
         # gather all vlan specific info
         vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
         vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']

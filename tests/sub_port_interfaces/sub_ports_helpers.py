@@ -24,6 +24,7 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 SUB_PORTS_TEMPLATE = 'sub_port_config.j2'
 TUNNEL_TEMPLATE = 'tunnel_config.j2'
 PTF_NN_AGENT_TEMPLATE = 'ptf_nn_agent.conf.ptf.j2'
+ACL_TEMPLATE = 'backend_acl_update_config.j2'
 ACTION_FWD = 'fwd'
 ACTION_DROP = 'drop'
 TCP_PORT = 80

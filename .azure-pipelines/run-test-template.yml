@@ -60,19 +60,19 @@ steps:
     mkdir -p $(Build.ArtifactStagingDirectory)/pipeline
     docker exec sonic-mgmt-2 bash -c "pushd /var/src/$parent_dir/ansible;./testbed-cli.sh -d $(Build.SourcesDirectory)/sonic-vm -m $(inventory) -t $(testbed_file) -k ${{ parameters.vmtype }} refresh-dut ${{ parameters.tbname }} password.txt -v"|tee $(Build.ArtifactStagingDirectory)/pipeline/refresh-dut.log && sleep 180
   displayName: "Setup testbed"
+  timeoutInMinutes: 25
 
 - script: |
     pwd
-    
+
     parent_dir=$(basename $PWD)
     docker exec -e GIT_USER_NAME=$GIT_USER_NAME -e GIT_API_TOKEN=$GIT_API_TOKEN sonic-mgmt-2 bash -c "/var/src/$parent_dir/tests/kvmtest.sh -en -T ${{ parameters.tbtype }} -d /var/src/$parent_dir ${{ parameters.tbname }} ${{ parameters.dut }} ${{ parameters.section }}"
   env:
     GIT_USER_NAME: $(GIT_USER_NAME)
     GIT_API_TOKEN: $(GIT_API_TOKEN)
   displayName: "Run tests"
-  ${{ if eq(parameters.tbtype, 'multi-asic-t1-lag-pr') }}:
-      continueOnError: true
-      
+  timeoutInMinutes: 360
+
 - script: |
     # save dut state if test fails
     virsh_version=$(virsh --version)
@@ -97,7 +97,7 @@ steps:
     username=$(id -un)
     sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
   displayName: "Collect test logs"
-  condition: succeededOrFailed()
+  condition: always()
 
 - publish: $(Build.ArtifactStagingDirectory)/kvmdump
   artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype}}${{ parameters.section }}.memdump@$(System.JobAttempt)
@@ -107,15 +107,15 @@ steps:
 - publish: $(Build.ArtifactStagingDirectory)/logs
   artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype }}${{ parameters.section }}.log@$(System.JobAttempt)
   displayName: "Archive sonic kvm logs"
-  condition: succeededOrFailed()
+  condition: always()
 
 - publish: $(Build.ArtifactStagingDirectory)/pipeline
   artifact: sonic-buildimage.kvmtest.${{ parameters.tbtype }}${{ parameters.section }}.pipeline@$(System.JobAttempt)
   displayName: "Archive pipeline logs"
-  condition: succeededOrFailed()
+  condition: always()
 
 - task: PublishTestResults@2
   inputs:
     testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
     testRunTitle: kvmtest.${{ parameters.tbtype }}${{ parameters.section }}
-  condition: succeededOrFailed()
+  condition: always()

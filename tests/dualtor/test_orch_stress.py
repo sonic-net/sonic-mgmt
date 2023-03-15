@@ -2,19 +2,19 @@
 Dual ToR Orchagent - Stress Test
 
 This script is to cover the stress test case in the Dual ToR Orchagent test plan:
-https://github.com/Azure/sonic-mgmt/blob/master/docs/testplan/dual_tor/dual_tor_orch_test_plan.md
+https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/dual_tor/dual_tor_orch_test_plan.md
 
 Test summary:
 
     Continuous mux state change based on configurable parameter 'N':
 
-    | Step                                                         | Goal | Expected results                                                  |
-    | ------------------------------------------------------------ | ---- | ----------------------------------------------------------------- |
-    | Change mux state from Active->Standby->Active 'N' times      | CRM  | Verify CRM values for routes/nexthop and check for leaks          |
-    |                                                              |      |                                                                   |
-    | Flush and re-learn Neighbor entry 'N' times in Standby state | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |
-    |                                                              |      |                                                                   |
-    | Flush and re-learn Neighbor entry 'N' times in Active state  | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |
+    | Step                                                         | Goal | Expected results                                                  |     # noqa F501
+    | ------------------------------------------------------------ | ---- | ----------------------------------------------------------------- |     # noqa F501
+    | Change mux state from Active->Standby->Active 'N' times      | CRM  | Verify CRM values for routes/nexthop and check for leaks          |     # noqa F501
+    |                                                              |      |                                                                   |     # noqa F501
+    | Flush and re-learn Neighbor entry 'N' times in Standby state | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa F501
+    |                                                              |      |                                                                   |     # noqa F501
+    | Flush and re-learn Neighbor entry 'N' times in Active state  | CRM  | Verify CRM values for routes/neighbor/nexthop and check for leaks |     # noqa F501
 """
 import json
 import logging
@@ -25,8 +25,8 @@ import pytest
 from tests.common.utilities import wait
 from tests.common.utilities import compare_crm_facts
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
-from tests.common.dualtor.dual_tor_mock import *
+from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
+from tests.common.dualtor.dual_tor_mock import *                    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -110,7 +110,7 @@ def _swss_path(filename):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def swss_config_files(rand_selected_dut, tor_mux_intfs):
+def swss_config_files(rand_selected_dut, tor_mux_intfs):            # noqa F811
     """This fixture is to generate/cleanup the swss config files in the swss docker.
 
     Args:
@@ -147,7 +147,6 @@ def config_crm_polling_interval(rand_selected_dut):
 
 
 def test_change_mux_state(
-        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -177,7 +176,8 @@ def test_change_mux_state(
 
     # Check CRM values for leak
     unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
-    pytest_assert(len(unmatched_crm_facts)==0, 'Unmatched CRM facts: {}'.format(json.dumps(unmatched_crm_facts, indent=4)))
+    pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                  .format(json.dumps(unmatched_crm_facts, indent=4)))
 
 
 def remove_neighbors(dut, neighbors, interface):
@@ -215,7 +215,6 @@ def add_neighbors(dut, neighbors, interface):
 
 
 def test_flap_neighbor_entry_active(
-        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -245,11 +244,11 @@ def test_flap_neighbor_entry_active(
     logger.info(json.dumps(crm_facts2, indent=4))
 
     unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
-    pytest_assert(len(unmatched_crm_facts)==0, 'Unmatched CRM facts: {}'.format(json.dumps(unmatched_crm_facts, indent=4)))
+    pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                  .format(json.dumps(unmatched_crm_facts, indent=4)))
 
 
 def test_flap_neighbor_entry_standby(
-        require_mocked_dualtor,
         apply_mock_dual_tor_tables,
         apply_mock_dual_tor_kernel_configs,
         rand_selected_dut,
@@ -279,4 +278,5 @@ def test_flap_neighbor_entry_standby(
     logger.info(json.dumps(crm_facts2, indent=4))
 
     unmatched_crm_facts = compare_crm_facts(crm_facts1, crm_facts2)
-    pytest_assert(len(unmatched_crm_facts)==0, 'Unmatched CRM facts: {}'.format(json.dumps(unmatched_crm_facts, indent=4)))
+    pytest_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+                  .format(json.dumps(unmatched_crm_facts, indent=4)))
