@@ -29,9 +29,9 @@ def singleMemberPort(duthost, mg_facts):
         all_lag_members += lag_dict["members"]
     all_ports = mg_facts["minigraph_ports"].keys()
     non_lag_ports = set(all_ports) - set(all_lag_members)
-    assert len(non_lag_ports) > 0, "Failed to find either a single-member lag or a non-lag port"
-    dst_port = non_lag_ports.pop()
-    if dst_port == None:
+    if len(non_lag_ports) > 0:
+        dst_port = non_lag_ports.pop()
+    else:
         # Only port-channels were found, so try to find a single-member LAG
         for lag_dict in mg_facts["minigraph_portchannels"].values():
             if len(lag_dict["members"]) == 1:
