@@ -144,6 +144,7 @@ stages:
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
+          - SECRETS_JSON
           - name: skipComponentGovernanceDetection
             value: true
         condition: eq('${{ parameters.SKIP_RUNNING_TEST }}', 'false')

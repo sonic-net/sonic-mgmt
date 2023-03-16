@@ -49,6 +49,7 @@ stages:
         timeoutInMinutes: 720
         variables:
           - group: TBSHARE_SECRETS
+          - group: SECRETS_JSON
           - name: skipComponentGovernanceDetection
             value: true
 

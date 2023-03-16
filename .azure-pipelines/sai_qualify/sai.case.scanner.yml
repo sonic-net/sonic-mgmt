@@ -55,6 +55,7 @@ jobs:
     variables:
       - group: TBSHARE_SECRETS
       - group: KUSTO_SAI_SECRETS
+      - group: SECRETS_JSON
       - name: skipComponentGovernanceDetection
         value: true
 
@@ -89,7 +90,7 @@ jobs:
             git clone https://github.com/opencomputeproject/SAI.git
             SAI_PATH=${BASH_WORKING_FOLDER}/SAI
             python3 test_reporting/sai_coverage/sai_header_scanner.py $SAI_PATH/inc
-            
+
             echo "Generate SAI definitions"
             RESOURCE_PATH=$BASH_WORKING_FOLDER/resources
             PY_SAITHRIFT=$(echo $PY_SAITHRIFT_URL | awk -F "/" '{print $NF}')

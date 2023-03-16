@@ -145,6 +145,7 @@ jobs:
       - group: TBSHARE_SECRETS
       - group: KUSTO_SAI_SECRETS
       - group: GIT_SECRETS
+      - group: SECRETS_JSON
       - name: skipComponentGovernanceDetection
         value: true
 
@@ -301,7 +302,7 @@ jobs:
             set -x
             ls $(Build.ArtifactStagingDirectory)/download
         displayName: "Download pre-stage built ${{ parameters.SDK_ARTIFACT_NAME }}"
-      
+
       # install new bcmsai sdk on DUT, and reboot
       - task: Bash@3
         condition: and(${{ parameters.DEPLOY_SAI_SDK }}, succeeded())

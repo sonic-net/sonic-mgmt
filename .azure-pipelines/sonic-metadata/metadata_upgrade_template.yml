@@ -39,6 +39,7 @@ stages:
     variables:
       - group: TBSHARE_SECRETS
       - group: KUSTO_SECRETS
+      - group: SECRETS_JSON
     steps:
     - checkout: self
     - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
@@ -117,4 +118,3 @@ stages:
           TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
       displayName: Release Testbed
       condition: always()
-  
