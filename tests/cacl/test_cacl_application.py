@@ -90,10 +90,8 @@ def docker_network(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asi
                       }
                      ]
     """
-    docker_network['bridge'] = {'IPv4Address': ipam_info['Config'][0].get('Gateway',
-                                                                          ipam_info['Config'][0].get('Subnet')),
-                                'IPv6Address': ipam_info['Config'][1].get('Gateway',
-                                                                          ipam_info['Config'][1].get('Subnet'))}
+    docker_network['bridge'] = {'IPv4Address' : ipam_info['Config'][0].get('Gateway', ipam_info['Config'][0].get('Subnet').split('/')[0]),
+                                'IPv6Address' : ipam_info['Config'][1].get('Gateway', ipam_info['Config'][1].get('Subnet').split('/')[0]+'1') }
 
     docker_network['container'] = {}
     for k, v in docker_containers_info.items():
@@ -346,6 +344,10 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                         pytest.fail("Unrecognized IP address type on interface '{}': {}"
                                     .format(iface_name, ip_ntwrk))
 
+def append_midplane_traffic_rules(duthost, iptables_rules):
+    result = duthost.shell('ip link show | grep -w "eth1-midplane"', module_ignore_errors=True)['stdout']
+    if result:
+        iptables_rules.append("-A INPUT -i eth1-midplane -j ACCEPT")
 
 def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby):
     iptables_rules = []
@@ -550,6 +552,10 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         # Default drop rules
         iptables_rules.append("-A INPUT -j DROP")
         ip6tables_rules.append("-A INPUT -j DROP")
+   
+    # IP Table rule to allow eth1-midplane traffic for chassis 
+    if not asic_index:
+        append_midplane_traffic_rules(duthost, iptables_rules)
 
     return iptables_rules, ip6tables_rules
 
