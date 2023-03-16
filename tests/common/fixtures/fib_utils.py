@@ -46,7 +46,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
             if duthost.facts['switch_type'] == "voq":
                 switch_type = "voq"
                 dut_inband_intfs.setdefault(duthost.hostname, []).extend(asic_cfg_facts[1]['VOQ_INBAND_INTERFACE'])
-            dut_port_channels.setdefault(duthost.hostname, {}).update(asic_cfg_facts[1].get('PORTCHANNEL', {}))
+            dut_port_channels.setdefault(duthost.hostname, {}).update(asic_cfg_facts[1].get('PORTCHANNEL_MEMBER', {}))
     sys_neigh = {}
     if switch_type == "voq":
         voq_db = VoqDbCli(duthosts.supervisor_nodes[0])
@@ -65,7 +65,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
             asic.shell("{} redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(asic.ns_arg, timestamp))
             duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
-            po = asic_cfg_facts.get('PORTCHANNEL', {})
+            po_members = asic_cfg_facts.get('PORTCHANNEL_MEMBER', {})
             ports = asic_cfg_facts.get('PORT', {})
 
             with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
@@ -80,17 +80,17 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
 
                     oports = []
                     for idx, ifname in enumerate(ifnames):
-                        if ifname in po:
+                        if ifname in po_members:
                             # ignore the prefix, if the prefix nexthop is not a frontend port
-                            if 'members' in po[ifname]:
-                                if 'role' in ports[po[ifname]['members'][0]] and \
-                                        ports[po[ifname]['members'][0]]['role'] == 'Int':
+                            if po_members[ifname].keys():
+                                if 'role' in ports[po_members[ifname].keys()[0]] and \
+                                        ports[po_members[ifname].keys()[0]]['role'] == 'Int':
                                     if len(oports) == 0:
                                         skip = True
                                 else:
                                     oports.append(
                                           [str(mg_facts[list_index][1]['minigraph_ptf_indices'][x])
-                                           for x in po[ifname]['members']]
+                                           for x in po_members[ifname].keys()]
                                         )
                                     skip = False
                         else:
@@ -118,7 +118,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                                         if remote_neigh_intf in dut_port_channels[remote_duthost_name]:
                                             oport_list = []
                                             for a_member in dut_port_channels[
-                                                    remote_duthost_name][remote_neigh_intf]['members']:
+                                                    remote_duthost_name][remote_neigh_intf].keys():
                                                 for a_asic_mg_facts in remote_dut_mg_facts:
                                                     if a_member in a_asic_mg_facts['minigraph_port_indices']:
                                                         oport_list.append(
