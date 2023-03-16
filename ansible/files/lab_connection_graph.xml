@@ -98,11 +98,12 @@
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
-      <DeviceConsoleInfo Hostname="console-1" HwSku="Cisco" ManagementIp="192.168.10.1" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-1" HwSku="Cisco" ManagementIp="192.168.10.1/23" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-2" HwSku="Sonic" ManagementIp="192.168.10.2/23" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-msn2700-01" Proxy="root" StartDevice="console-1" StartPort="10"/>
-      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-7260-10" Proxy="root" StartDevice="console-1" StartPort="11"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-7260-10" Proxy="root" StartDevice="console-2" StartPort="11"/>
       <ConsoleLinkInfo BaudRate="" Console_type="ssh" EndDevice="str-7260-11" Proxy="root" StartDevice="console-1" StartPort="12"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
