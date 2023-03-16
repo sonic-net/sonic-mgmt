@@ -137,7 +137,8 @@ def get_t2_info(duthosts, tbinfo):
                                                                              defaultdict(list), defaultdict(list))
 
         for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') \
+                  else DEFAULT_NAMESPACE
             if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
                 continue
             asic_id = duthost.get_asic_id_from_namespace(namespace)
@@ -146,11 +147,11 @@ def get_t2_info(duthosts, tbinfo):
             for interface, neighbor in mg_facts["minigraph_neighbors"].items():
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
                 if "T1" in neighbor["name"]:
-                    downstream_ports_per_dut[neighbor['namespace']].append(interface)
+                    downstream_ports_per_dut[namespace].append(interface)
                     downstream_port_ids.append(port_id)
                     downstream_port_id_to_router_mac_map[port_id] = router_mac
                 elif "T3" in neighbor["name"]:
-                    upstream_ports_per_dut[neighbor['namespace']].append(interface)
+                    upstream_ports_per_dut[namespace].append(interface)
                     upstream_port_ids.append(port_id)
                     upstream_port_id_to_router_mac_map[port_id] = router_mac
                 mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
@@ -172,16 +173,20 @@ def get_t2_info(duthosts, tbinfo):
                 downstream_rifs = list(set(downstream_rifs) - set(v['members']))
             if len(upstream_rifs):
                 for port in upstream_rifs:
-                    acl_table_ports[namespace].append(port)
                     # This code is commented due to a bug which restricts rif interfaces to
                     # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
-                    # acl_table_ports[''].append(port)
+                    if namespace == DEFAULT_NAMESPACE:
+                        acl_table_ports[''].append(port)
+                    else:
+                        acl_table_ports[namespace].append(port)
             else:
                 for port in downstream_rifs:
-                    acl_table_ports[namespace].append(port)
                     # This code is commented due to a bug which restricts rif interfaces to
                     # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
-                    # acl_table_ports[''].append(port)
+                    if namespace == DEFAULT_NAMESPACE:
+                        acl_table_ports[''].append(port)
+                    else:
+                        acl_table_ports[namespace].append(port)
 
         acl_table_ports_per_dut[duthost] = acl_table_ports
         downstream_ports[duthost] = downstream_ports_per_dut
@@ -410,7 +415,8 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
     pytest_require(
-        request.param == "ingress" or duthost.facts.get("platform_asic") == "broadcom-dnx" or duthost.facts["asic_type"] not in ("broadcom"),
+        request.param == "ingress" or duthost.facts.get("platform_asic") == "broadcom-dnx"
+        or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
 
