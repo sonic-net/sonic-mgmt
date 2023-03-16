@@ -28,6 +28,8 @@ innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
 cisco_hwskus: ["Cisco-8102-C64"]
 cisco-8000_gb_hwskus: ["Cisco-8102-C64"]
+cisco-8000_gblc_hwskus: ["88-LC0-36FH-MO"]
+
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
