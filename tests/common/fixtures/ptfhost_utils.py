@@ -457,7 +457,7 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
             target_dut_index = int(active_dut_map[ptf_port])
             ports_map[ptf_port] = {
                 'target_dut': target_dut_index,
-                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']
+                'target_dest_mac': tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['one_vlan_a']\
                 ['Vlan1000']['mac'],
                 'target_src_mac': router_macs[target_dut_index],
                 'asic_idx': asic_idx
@@ -542,7 +542,7 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
                     if target_dut_port in mg_facts['minigraph_port_indices'].values():
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]
+                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]\
                         ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
                         for a_dut_port, a_dut_port_index in mg_facts['minigraph_port_indices'].items():
