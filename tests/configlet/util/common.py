@@ -248,7 +248,7 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
 
 def take_DB_dumps(duthost, dir_name, data_dir):
     log_info("Taking DB dumps dir= {}".format(dir_name))
-    for db_name, db_info in list(scan_dbs.items()):
+    for db_name, db_info in scan_dbs.items():
         get_dump(duthost, db_name, db_info, dir_name, data_dir)
 
     duthost.shell("config save -y")
@@ -276,7 +276,7 @@ def cmp_value(orig_val, clet_val):
         return cmp_str(orig_val, clet_val)
 
     if type(orig_val) == dict:
-        for fld, val in list(orig_val.items()):
+        for fld, val in orig_val.items():
             if fld not in clet_val:
                 return False
             if not cmp_value(orig_val[fld], clet_val[fld]):

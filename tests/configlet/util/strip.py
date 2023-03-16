@@ -49,7 +49,7 @@ def find_sonic_ports():
 
     port_table = config_db_data_orig["PORT"]
     alias_map = {}
-    for name, obj in list(port_table.items()):
+    for name, obj in port_table.items():
         alias = obj["alias"]
         alias_map[alias] = name
 
