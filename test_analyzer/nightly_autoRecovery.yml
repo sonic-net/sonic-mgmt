@@ -30,6 +30,7 @@ stages:
           - group: GIT_SECRETS
           - group: NIGHTLY_HAWK
           - group: TBSHARE_SECRETS
+          - group: SECRETS_JSON
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -75,6 +76,7 @@ stages:
           - group: GIT_SECRETS
           - group: NIGHTLY_HAWK
           - group: TBSHARE_SECRETS
+          - group: SECRETS_JSON
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -120,6 +122,7 @@ stages:
           - group: GIT_SECRETS
           - group: NIGHTLY_HAWK
           - group: TBSHARE_SECRETS
+          - group: SECRETS_JSON
           - name: skipComponentGovernanceDetection
             value: true
 

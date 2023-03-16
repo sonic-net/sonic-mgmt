@@ -28,6 +28,7 @@ stages:
         variables:
           - group: KUSTO_SECRETS
           - group: GIT_SECRETS
+          - group: SECRETS_JSON
           - group: TBSHARE_SECRETS
           - name: skipComponentGovernanceDetection
             value: true
