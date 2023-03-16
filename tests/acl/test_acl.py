@@ -137,7 +137,8 @@ def get_t2_info(duthosts, tbinfo):
                                                                              defaultdict(list), defaultdict(list))
 
         for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') \
+                  else DEFAULT_NAMESPACE
             if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
                 continue
             asic_id = duthost.get_asic_id_from_namespace(namespace)
@@ -414,7 +415,8 @@ def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
     pytest_require(
-        request.param == "ingress" or duthost.facts.get("platform_asic") == "broadcom-dnx" or duthost.facts["asic_type"] not in ("broadcom"),
+        request.param == "ingress" or duthost.facts.get("platform_asic") == "broadcom-dnx"
+        or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
 
