@@ -449,6 +449,9 @@ sonic_cisco_sup:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x8FFC3B58"
+      skip_logical_modules:
+          'line-cards':
+            - LINE-CARD3
       skip_modules:
           'line-cards':
             - LINE-CARD3
@@ -511,6 +514,9 @@ sonic_cisco_sup:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x8FFC3B58"
+      skip_logical_modules:
+          'line-cards':
+            - LINE-CARD0
       skip_modules:
           'line-cards':
             - LINE-CARD0
