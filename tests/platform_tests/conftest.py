@@ -190,7 +190,7 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
     elif is_mellanox_device(duthost):
         derived_patterns.update(OTHER_PATTERNS.get("MLNX"))
     # get image specific regexes
-    if "20191130" in duthost.os_version:
+    if "20191130" in get_current_sonic_version(duthost):
         derived_patterns.update(OTHER_PATTERNS.get("201911"))
         service_patterns.update(SERVICE_PATTERNS.get("201911"))
     else:
