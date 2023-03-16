@@ -228,6 +228,8 @@ class AgentManager(object):
                     removed.append(c.short_id)
         except docker.errors.APIError as e:
             logger.error('Remove old agents failed with exception: {}'.format(repr(e)))
+        except Exception as e:
+            logger.error("Remove old agent failed with other exception: {}".format(repr(e)))
         logger.info('Removed {} old agents: {}'.format(len(removed), json.dumps(removed)))
         return removed
 
