@@ -26,15 +26,13 @@ def subintf_expected_config(duthost, apply_config_on_the_dut):
     return subinterfaces
 
 
-# limit the port_type to port
-@pytest.mark.parametrize("port_type", ["port"])
 def test_subinterface_status(duthost, subintf_expected_config):
     """
     Verify subinterface status after creation/deletion.
-    
+
     @param duthost: fixture duthost
     @param subintf_expected_config: fixture subintf_expected_config to get expected sub interfaces configuration
-    
+
     1. add new subinterfaces
     2. verify new subinterfaces status via `show subinterface status`
     3. verify new subinterfaces IP address via `show ip/ipv6 interfaces`
@@ -81,20 +79,25 @@ def test_subinterface_status(duthost, subintf_expected_config):
         status = show_sub_status[subintf]
         pytest_assert(status.get("admin") == "up", "subinterface %s should be admin up" % subintf)
         pytest_assert(status.get("vlan") == config["vlan"],
-                      "subinterface %s should have vlan %s, actual vlan %s" % (subintf, config["vlan"], status.get("vlan")))
+                      "subinterface %s should have vlan %s, actual vlan %s"
+                      % (subintf, config["vlan"], status.get("vlan")))
         pytest_assert(status.get("speed") == config["speed"],
-                      "subinterface %s should have inherited speed as %s, actual speed %s" % (subintf, config["speed"], status.get("speed")))
+                      "subinterface %s should have inherited speed as %s, actual speed %s"
+                      % (subintf, config["speed"], status.get("speed")))
         pytest_assert(status.get("mtu") == config["mtu"],
-                      "subinterface %s should have inherited mtu as %s, actual mtu %s" % (subintf, config["mtu"], status.get("mtu")))
+                      "subinterface %s should have inherited mtu as %s, actual mtu %s"
+                      % (subintf, config["mtu"], status.get("mtu")))
         pytest_assert(status.get("type") == "802.1q-encapsulation",
-                      "subinterface %s should have type as 802.1q-encapsulation, actual type %s" % (subintf, status.get("type")))
+                      "subinterface %s should have type as 802.1q-encapsulation, actual type %s"
+                      % (subintf, status.get("type")))
 
         # verify show ip interface status after creation
         if subintf not in show_ip_interfaces:
             pytest.fail("subinterface %s doesn't have IP address assigned as expected" % subintf)
         ip_status = show_ip_interfaces[subintf]
         pytest_assert(ip_status.get("ipv4 address/mask") == config["ip"],
-                      "subinterface %s should have IP address assigned as %s, actual IP address %s" % (subintf, config["ip"], ip_status.get("ipv4 address/mask")))
+                      "subinterface %s should have IP address assigned as %s, actual IP address %s"
+                      % (subintf, config["ip"], ip_status.get("ipv4 address/mask")))
 
     # deletion verification
     _remove_subintf(subintf_expected_config)
