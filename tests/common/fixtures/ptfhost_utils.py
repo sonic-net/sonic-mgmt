@@ -352,8 +352,7 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
             if 'dualtor' in tbinfo['topo']['name']:
                 dut_mac = vlan_details['mac'].lower()
             else:
-                dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].\
-                    decode("utf-8")
+                dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
             break
 
         dst_ipv6 = ''
