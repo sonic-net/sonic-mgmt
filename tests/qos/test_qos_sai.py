@@ -520,8 +520,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("Lossless Voq test is not supported")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
