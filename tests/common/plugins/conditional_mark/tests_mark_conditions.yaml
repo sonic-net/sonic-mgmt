@@ -916,6 +916,22 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_be
     conditions:
       - "asic_type=='cisco-8000'"
 
+sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port_in_lag]:
+  skip:
+    reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_untagged_packet_not_routed[port_in_lag] :
+  skip:
+    reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_unaffected_by_sub_ports_removal[port_in_lag:
+  skip:
+    reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[port_in_lag]:
+  skip:
+    reason: "Not supported port type"
+
 #######################################
 #####             syslog          #####
 #######################################

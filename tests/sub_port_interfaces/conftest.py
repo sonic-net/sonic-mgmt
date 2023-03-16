@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import ipaddress
 import time
 import random
@@ -45,6 +46,10 @@ from sub_ports_helpers import update_dut_arp_table
 
 logger = logging.getLogger(__name__)
 
+if sys.version_info[0] >= 3:
+    unicode = str
+
+
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by the sub-ports tests.
@@ -57,31 +62,39 @@ def pytest_addoption(parser):
         help="Max numbers of sub-ports for test_max_numbers_of_sub_ports test case",
     )
 
-@pytest.fixture(params=['port', 'port_in_lag'])
+
+@pytest.fixture(params=['port', 'port_in_lag'], scope='module')
 def port_type(request):
     """Port type to test, could be either port or port-channel."""
     return request.param
 
-@pytest.fixture
+
+@pytest.fixture(scope='module')
 def acl_rule_cleanup(duthost, tbinfo):
-    """Cleanup all the existing DATAACL rules"""
+    """
+    Cleanup all the existing DATAACL rules
+    """
     if "t0-backend" in tbinfo["topo"]["name"]:
         duthost.shell('acl-loader delete')
 
     yield
 
-@pytest.fixture
+
+@pytest.fixture(scope='module')
 def modify_acl_table(duthost, tbinfo, port_type, acl_rule_cleanup):
-   """ Remove the DATAACL table prior to the test and recreate it at the end"""
-   if "t0-backend" in tbinfo["topo"]["name"] and 'lag' in port_type:
-       duthost.command('config acl remove table DATAACL')
+    """
+    Remove the DATAACL table prior to the test and recreate it at the end
+    """
+    if "t0-backend" in tbinfo["topo"]["name"] and 'lag' in port_type:
+        duthost.command('config acl remove table DATAACL')
 
-   yield
+    yield
 
-   if "t0-backend" in tbinfo["topo"]["name"] and 'lag' in port_type:
-       bind_acl_table(duthost, tbinfo)
+    if "t0-backend" in tbinfo["topo"]["name"] and 'lag' in port_type:
+        bind_acl_table(duthost, tbinfo)
 
-@pytest.fixture
+
+@pytest.fixture(scope='class')
 def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_type, tbinfo):
     """
     Define configuration of sub-ports for TC run
@@ -118,10 +131,10 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     vlan_ranges_dut = range(20, 60, 10)
     vlan_ranges_ptf = range(20, 60, 10)
 
-    if 'invalid' in request.node.name:
+    if 'invalid' in request._pyfuncitem.name:
         vlan_ranges_ptf = range(21, 41, 10)
 
-    if 'max_numbers' in request.node.name:
+    if 'max_numbers' in request._pyfuncitem.name:
         vlan_ranges_dut = range(11, max_numbers_of_sub_ports + 11)
         vlan_ranges_ptf = range(11, max_numbers_of_sub_ports + 11)
 
@@ -142,7 +155,8 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     # for normal t0, get_port tries to retrieve test ports from vlan members
     # let's enforce same behavior for t0-backend
     if "t0-backend" in tbinfo["topo"]["name"]:
-        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, exclude_sub_interface_ports=True)
+        config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type,
+                                                  exclude_sub_interface_ports=True)
     else:
         config_port_indices, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type)
 
@@ -167,7 +181,7 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     }
 
 
-@pytest.fixture
+@pytest.fixture(scope='class')
 def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_config, modify_acl_table):
     """
     Apply Sub-ports configuration on the DUT and remove after tests
@@ -202,7 +216,7 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_
     yield sub_ports_vars
 
 
-@pytest.fixture
+@pytest.fixture(scope='class')
 def apply_config_on_the_ptf(define_sub_ports_configuration, ptfhost, reload_ptf_config):
     """
     Apply Sub-ports configuration on the PTF and remove after tests
@@ -219,7 +233,8 @@ def apply_config_on_the_ptf(define_sub_ports_configuration, ptfhost, reload_ptf_
 
 
 @pytest.fixture(params=['same', 'different'])
-def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf):
+def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_ports_configuration,
+                       apply_config_on_the_dut, apply_config_on_the_ptf):
     """
     Apply route configuration on the PTF and remove after tests
 
@@ -237,6 +252,7 @@ def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
     sub_ports_keys = sub_ports.copy()
+    namespaces = {}
 
     for port in dut_ports.values():
         if 'same' in request.param:
@@ -262,8 +278,12 @@ def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_
                                   sub_ports[next_hop_sub_port]['neighbor_port'],
                                   sub_ports[next_hop_sub_port]['neighbor_ip'])
 
-            if 'tunneling' not in request.node.name:
-                add_static_route_to_ptf(ptfhost, src_port_network, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
+            namespaces[name_of_namespace] = (sub_ports[next_hop_sub_port]['neighbor_port'],
+                                             sub_ports[next_hop_sub_port]['neighbor_ip'])
+
+            if 'tunneling' not in request._pyfuncitem.name:
+                add_static_route_to_ptf(ptfhost, src_port_network, sub_ports[next_hop_sub_port]['ip'],
+                                        name_of_namespace)
                 add_static_route_to_ptf(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
 
             new_sub_ports[src_port].append((next_hop_sub_port, name_of_namespace))
@@ -284,15 +304,17 @@ def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_
             sub_port, name_of_namespace = next_hop_sub_port
             dst_port_network = ipaddress.ip_network(unicode(sub_ports[sub_port]['ip']), strict=False)
 
-            if 'tunneling' not in request.node.name:
+            if 'tunneling' not in request._pyfuncitem.name:
                 remove_static_route_from_ptf(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
                 remove_static_route_from_ptf(ptfhost, dst_port_network, sub_ports[src_port]['ip'])
 
-            remove_namespace(ptfhost, name_of_namespace)
+            namespace_member, namespace_member_ip = namespaces[name_of_namespace]
+            remove_namespace(ptfhost, name_of_namespace, namespace_member, namespace_member_ip)
 
 
 @pytest.fixture(params=['svi', 'l3'])
-def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf):
+def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, define_sub_ports_configuration,
+                                apply_config_on_the_dut, apply_config_on_the_ptf):
     """
     Apply route configuration on the PTF and remove after tests
 
@@ -314,13 +336,15 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
     dut_ports = define_sub_ports_configuration['dut_ports']
     port_type = define_sub_ports_configuration['port_type']
     subnet = define_sub_ports_configuration['subnet']
+    namespaces = {}
 
     # Get additional port for configuration of SVI port or L3 RIF
     if 'svi' in request.param:
         interface_num = 1
     else:
         interface_num = 2
-    dut_ports, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, dut_ports.values(), exclude_sub_interface_ports=True)
+    dut_ports, ptf_ports = get_port(duthost, ptfhost, interface_num, port_type, dut_ports.values(),
+                                    exclude_sub_interface_ports=True)
 
     # Get additional IP addresses for configuration of RIF on the DUT and PTF
     subnet = ipaddress.ip_network(str(subnet.broadcast_address + 1) + u'/24')
@@ -350,7 +374,8 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
             add_ip_to_ptf_port(ptfhost, ptf_port, ptf_port_ip)
 
         # Get two random sub-ports which are not part of the selected DUT interface
-        sub_ports_on_port = random.sample([sub_port for sub_port in sub_ports_keys if dut_port + '.' not in sub_port], 2)
+        sub_ports_on_port = random.sample([sub_port for sub_port in sub_ports_keys
+                                           if dut_port + '.' not in sub_port], 2)
 
         for sub_port in sub_ports_on_port:
             sub_ports_keys.pop(sub_port)
@@ -358,8 +383,7 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
         port_map[ptf_port] = {'dut_port': dut_port,
                               'ip': ptf_port_ip,
                               'neighbor_ip': dut_port_ip,
-                              'dst_ports': []
-                             }
+                              'dst_ports': []}
 
         # Configure static route between selected sub-ports and selected interfaces on the PTF
         for next_hop_sub_port in sub_ports_on_port:
@@ -371,6 +395,9 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
                                   name_of_namespace,
                                   sub_ports[next_hop_sub_port]['neighbor_port'],
                                   sub_ports[next_hop_sub_port]['neighbor_ip'])
+
+            namespaces[name_of_namespace] = (sub_ports[next_hop_sub_port]['neighbor_port'],
+                                             sub_ports[next_hop_sub_port]['neighbor_ip'])
 
             # Add static route from sub-port to selected interface on the PTF
             add_static_route_to_ptf(ptfhost, subnet, sub_ports[next_hop_sub_port]['ip'], name_of_namespace)
@@ -398,7 +425,9 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
             dst_port_network = ipaddress.ip_network(unicode(sub_ports[sub_port]['ip']), strict=False)
             remove_static_route_from_ptf(ptfhost, src_port_network, sub_ports[sub_port]['ip'], name_of_namespace)
             remove_static_route_from_ptf(ptfhost, dst_port_network, next_hop_sub_ports['neighbor_ip'])
-            remove_namespace(ptfhost, name_of_namespace)
+
+            namespace_member, namespace_member_ip = namespaces[name_of_namespace]
+            remove_namespace(ptfhost, name_of_namespace, namespace_member, namespace_member_ip)
 
         if 'svi' in request.param:
             # Remove SVI port from the DUT
@@ -465,7 +494,8 @@ def apply_tunnel_table_to_dut(duthost, apply_route_config):
 
 
 @pytest.fixture()
-def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_configuration, apply_config_on_the_dut, apply_config_on_the_ptf, tbinfo):
+def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_configuration, apply_config_on_the_dut,
+                           apply_config_on_the_ptf, tbinfo):
     """
     Apply balancing configuration on the DUT and remove after tests
     Args:
@@ -494,7 +524,8 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
             sub_intf_name = vlan_sub_interface['attachto']
             port = sub_intf_name.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]
             vlan_id = vlan_sub_interface['vlan']
-            src_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]) + constants.VLAN_SUB_INTERFACE_SEPARATOR + str(vlan_id))
+            src_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port])
+                          + constants.VLAN_SUB_INTERFACE_SEPARATOR + str(vlan_id))
         src_ports = tuple(src_ports)
     else:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -532,8 +563,8 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
             remove_static_route_from_dut(duthost, str(subnet), sub_ports[next_hop_sub_port]['neighbor_ip'])
 
 
-@pytest.fixture
-def reload_dut_config(request, duthost, define_sub_ports_configuration, loganalyzer):
+@pytest.fixture(scope='class')
+def reload_dut_config(request, duthost, define_sub_ports_configuration, port_type):
     """
     DUT's configuration reload on teardown
 
@@ -543,8 +574,6 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration, loganaly
         define_sub_ports_configuration: Dictonary of parameters for configuration DUT
     """
     yield
-    if loganalyzer and loganalyzer[duthost.hostname]:
-        loganalyzer[duthost.hostname].add_start_ignore_mark()
 
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
@@ -556,17 +585,16 @@ def reload_dut_config(request, duthost, define_sub_ports_configuration, loganaly
 
     py_assert(check_sub_port(duthost, sub_ports.keys(), True), "Some sub-port were not deleted")
 
-    if 'port_in_lag' in request.node.name:
+    if 'port_in_lag' in port_type:
         for lag_port in dut_ports.values():
             remove_lag_port(duthost, cfg_facts, lag_port)
 
     duthost.shell('sudo config load -y /etc/sonic/config_db.json')
     wait_critical_processes(duthost)
-    if loganalyzer and loganalyzer[duthost.hostname]:
-        loganalyzer[duthost.hostname].add_end_ignore_mark()
 
-@pytest.fixture
-def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
+
+@pytest.fixture(scope='class')
+def reload_ptf_config(request, ptfhost, define_sub_ports_configuration, port_type):
     """
     PTF's configuration reload on teardown
 
@@ -574,6 +602,7 @@ def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
         request: pytest request object
         ptfhost: PTF host object
         define_sub_ports_configuration: Dictonary of parameters for configuration DUT
+        port_type: Type of port
     """
     yield
     sub_ports = define_sub_ports_configuration['sub_ports']
@@ -583,7 +612,7 @@ def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
         if sub_port_info['neighbor_port'] in ptf_port_list:
             remove_sub_port_from_ptf(ptfhost, sub_port_info['neighbor_port'], sub_port_info['neighbor_ip'])
 
-    if 'port_in_lag' in request.node.name:
+    if 'port_in_lag' in port_type:
         ptf_ports = define_sub_ports_configuration['ptf_ports']
         for bond_port, port_name in ptf_ports.items():
             if bond_port in ptf_port_list:
@@ -593,7 +622,7 @@ def reload_ptf_config(request, ptfhost, define_sub_ports_configuration):
     time.sleep(5)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="package", autouse=True)
 def teardown_test_class(duthost):
     """
     Reload DUT configuration after running of test suite
@@ -604,11 +633,12 @@ def teardown_test_class(duthost):
     yield
     config_reload(duthost)
 
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
     if loganalyzer and loganalyzer[duthost.hostname]:
         ignore_regex_list = [
-            ".*ERR teamd[0-9]*#tlm_teamd.*process_add_queue: Can't connect to teamd after.*attempts. LAG 'PortChannel.*'",
-            ".*ERR swss[0-9]*#orchagent.*update: Failed to get port by bridge port ID.*"
+          ".*ERR teamd[0-9]*#tlm_teamd.*process_add_queue: Can't connect to teamd after.*attempts. LAG 'PortChannel.*'",
+          ".*ERR swss[0-9]*#orchagent.*update: Failed to get port by bridge port ID.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
