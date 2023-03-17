@@ -508,8 +508,8 @@ class TestShowQueue():
             'SONIC_CLI_IFACE_MODE={} show queue persistent-watermark multicast'.format(ifmode))['stdout']
         logger.info('show_queue_wm_mcast:\n{}'.format(show_queue_wm_mcast))
 
-        if show_queue_wm_mcast != "Object map from the COUNTERS_DB is empty because the multicast queues \
-                are not configured in the CONFIG_DB!":
+        if show_queue_wm_mcast != "Object map from the COUNTERS_DB is empty "\
+                "because the multicast queues are not configured in the CONFIG_DB!":
             if mode == 'alias':
                 for alias in setup['port_alias']:
                     assert re.search(r'{}'.format(alias), show_queue_wm_mcast) is not None
