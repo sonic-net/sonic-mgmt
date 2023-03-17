@@ -33,7 +33,7 @@ def get_markings_dut(duthost, key_list=['ecn_dequeue_marking', 'ecn_latency_mark
     """
     config_files = get_markings_config_file(duthost)
     if len(config_files) == 1:
-
+        config_file = config_files[0]
         dest_file = "/tmp/"
         contents = duthost.fetch(src=config_file, dest = dest_file)
         local_file = contents['dest']
@@ -88,6 +88,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
     """
     config_files = get_markings_config_file(duthost)
     if len(config_files) == 1:
+        config_file = config_files[0]
         dest_file = "/tmp/"
         contents = duthost.fetch(src=config_file, dest = dest_file)
         local_file = contents['dest']
