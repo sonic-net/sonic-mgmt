@@ -6,7 +6,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "/10 * * * *"
+  - cron: "*/10 * * * *"
     displayName: TestbedUtilizationPollingScheduler
     branches:
       include:
