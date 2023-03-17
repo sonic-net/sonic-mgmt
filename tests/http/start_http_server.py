@@ -1,11 +1,11 @@
-import SimpleHTTPServer 
-import SocketServer 
+import SimpleHTTPServer
+import SocketServer
 
-PORT = 8080 
+PORT = 8080
 
-Handler = SimpleHTTPServer.SimpleHTTPRequestHandler 
+Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
 
-httpd = SocketServer.TCPServer(("", PORT), Handler) 
+httpd = SocketServer.TCPServer(("", PORT), Handler)
 
-print("serving at port", PORT) 
+print("serving at port", PORT)
 httpd.serve_forever()
