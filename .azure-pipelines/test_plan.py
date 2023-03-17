@@ -130,11 +130,16 @@ class TestPlanManager(object):
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
         }
+        if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net":
+            scope = "api://sonic-testbed-tools-prod/.default"
+        else:
+            scope = "api://sonic-testbed-tools-dev/.default"
+
         payload = {
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": "api://sonic-testbed-tools-prod/.default" if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net" else "api://sonic-testbed-tools-dev/.default"
+            "scope": scope
         }
         try:
             resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
@@ -147,7 +152,7 @@ class TestPlanManager(object):
                common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
         testbed_name = kwargs.get("testbed_name", None)
-        testbed_name = testbed_name.replace(" ","").split(",") if testbed_name else None
+        testbed_name = testbed_name.replace(" ", "").split(",") if testbed_name else None
         image_url = kwargs.get("image_url", None)
         hwsku = kwargs.get("hwsku", None)
         test_plan_type = kwargs.get("test_plan_type", "PR")
