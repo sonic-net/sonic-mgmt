@@ -721,7 +721,7 @@ platform_tests/daemon/test_chassisd.py:
     reason: "chassisd platform daemon introduced in 202106"
     conditions:
       - "release in ['201811', '201911', '202012']"
-      
+
 #######################################
 #####  daemon/test_syseepromd.py  #####
 #######################################
@@ -776,7 +776,7 @@ platform_tests/test_auto_negotiation.py:
   skip:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
     conditions: https://github.com/sonic-net/sonic-mgmt/issues/5447
-    
+
 #######################################
 #####    test_platform_info.py    #####
 #######################################
