@@ -7,12 +7,12 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
-    if "PORT_QOS_MAP" not in config_facts.keys():
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
         return None
 
     port_qos_map = config_facts["PORT_QOS_MAP"]
     lossless_priorities = list()
-    intf = port_qos_map.keys()[0]
+    intf = list(port_qos_map.keys())[0]
     if 'pfc_enable' not in port_qos_map[intf]:
         return None
 
@@ -26,7 +26,7 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
     for prio in lossless_priorities:
         result[prio] = list()
 
-    profile = prio_to_tc_map.keys()[0]
+    profile = list(prio_to_tc_map.keys())[0]
 
     for prio in prio_to_tc_map[profile]:
         tc = prio_to_tc_map[profile][prio]
@@ -48,8 +48,8 @@ def leaf_fanouts(conn_graph_facts):
     conn_facts = conn_graph_facts['device_conn']
 
     """ for each interface of DUT """
-    for _, value in conn_facts.items():
-        for _, val in value.items():
+    for _, value in list(conn_facts.items()):
+        for _, val in list(value.items()):
             peer_device = val['peerdevice']
             if peer_device not in leaf_fanouts:
                 leaf_fanouts.append(peer_device)

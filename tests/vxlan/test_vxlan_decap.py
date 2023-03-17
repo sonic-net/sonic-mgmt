@@ -6,8 +6,8 @@ from time import sleep
 import pytest
 from jinja2 import Template
 from netaddr import IPAddress
-from vnet_constants import DUT_VXLAN_PORT_JSON
-from vnet_utils import render_template_to_host
+from .vnet_constants import DUT_VXLAN_PORT_JSON
+from .vnet_utils import render_template_to_host
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
@@ -126,7 +126,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     yield setup_info
 
     logger.info("Stop arp_responder on PTF")
-    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
     logger.info("Always try to remove any possible VxLAN tunnel and map configuration")
     for vlan in mg_facts["minigraph_vlans"]:

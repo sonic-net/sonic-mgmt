@@ -405,7 +405,7 @@ def _get_mux_ports(duthost, target_status=None, exclude_status=None):
 
     muxcables = json.loads(duthost.shell("show muxcable status --json")['stdout'])
     return {
-        port: mux_status for port, mux_status in muxcables['MUX_CABLE'].items() if _check_status(mux_status["STATUS"])
+        port: mux_status for port, mux_status in list(muxcables['MUX_CABLE'].items()) if _check_status(mux_status["STATUS"])
     }
 
 
@@ -577,7 +577,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
             return False
 
         # get mapping from port indices to mux status
-        simulator_port_mux_status = {int(k.split('-')[-1]): v for k, v in simulator_mux_status.items()}
+        simulator_port_mux_status = {int(k.split('-')[-1]): v for k, v in list(simulator_mux_status.items())}
         inconsistent_intfs = []
         for intf in upper_tor_mux_status['MUX_CABLE']:
 
@@ -737,21 +737,21 @@ def check_mux_status(duthosts, active_side):
         mux_standby_dut = duthosts[0]
 
     dualtor_intf_config = json.loads(mux_active_dut.shell("show muxcable config --json")['stdout'])
-    active_standby_ports = [intf for intf, muxcable_config in dualtor_intf_config['MUX_CABLE']['PORTS'].items()
+    active_standby_ports = [intf for intf, muxcable_config in list(dualtor_intf_config['MUX_CABLE']['PORTS'].items())
                             if 'cable_type' not in muxcable_config['SERVER']
                             or muxcable_config['SERVER']['cable_type'] == 'active-standby']
 
     active_side_muxstatus = json.loads(mux_active_dut.shell("show muxcable status --json")['stdout'])
     standby_side_muxstatus = json.loads(mux_standby_dut.shell("show muxcable status --json")['stdout'])
 
-    active_side_active_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items()
+    active_side_active_muxcables = [intf for intf, muxcable in list(active_side_muxstatus['MUX_CABLE'].items())
                                     if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
-    active_side_standby_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items()
+    active_side_standby_muxcables = [intf for intf, muxcable in list(active_side_muxstatus['MUX_CABLE'].items())
                                      if muxcable['STATUS'] == 'standby' and intf in active_standby_ports]
 
-    standby_side_active_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items()
+    standby_side_active_muxcables = [intf for intf, muxcable in list(standby_side_muxstatus['MUX_CABLE'].items())
                                      if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
-    standby_side_standby_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items()
+    standby_side_standby_muxcables = [intf for intf, muxcable in list(standby_side_muxstatus['MUX_CABLE'].items())
                                       if muxcable['STATUS'] == 'standby' and intf in active_standby_ports]
 
     if len(active_side_active_muxcables) > 0 and \

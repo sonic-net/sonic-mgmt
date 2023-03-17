@@ -32,7 +32,7 @@ def pytest_runtest_teardown(item, nextitem):
             # Restore default CRM thresholds
             item.funcargs["duthost"].command(cmd)
 
-        test_name = item.function.func_name
+        test_name = item.function.__name__
         duthosts = item.funcargs['duthosts']
         hostname = item.funcargs['enum_rand_one_per_hwsku_frontend_hostname']
         dut = None

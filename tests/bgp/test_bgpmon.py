@@ -53,7 +53,7 @@ def dut_with_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         for a_dut in duthosts.frontend_nodes:
             minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
             minigraph_neighbors = minigraph_facts['minigraph_neighbors']
-            for key, value in minigraph_neighbors.items():
+            for key, value in list(minigraph_neighbors.items()):
                 if 'T3' in value['name']:
                     dut_to_T3 = a_dut
                     break

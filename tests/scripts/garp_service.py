@@ -24,7 +24,7 @@ class GarpService:
         with open(self.garp_config_file) as f:
             garp_config = json.load(f)
 
-        for port, config in garp_config.items():
+        for port, config in list(garp_config.items()):
             intf_name = 'eth{}'.format(port)
             source_mac = get_if_hwaddr(intf_name)
             source_ip_str = config['target_ip']
@@ -58,13 +58,13 @@ class GarpService:
 
         sockets = {}
 
-        for intf, packet in self.packets.items():
+        for intf, packet in list(self.packets.items()):
             socket = conf.L2socket(iface=intf)
             sockets[socket] = packet
 
         try:
             while True:
-                for socket, packet_list in sockets.items():
+                for socket, packet_list in list(sockets.items()):
                     for packet in packet_list:
                         socket.send(packet)
 
@@ -74,7 +74,7 @@ class GarpService:
                 time.sleep(self.interval)
 
         finally:
-            for socket in sockets.keys():
+            for socket in list(sockets.keys()):
                 socket.close()
 
 

@@ -57,7 +57,7 @@ def announce_new_neighbor(ptfadapter, rand_selected_dut, tbinfo):
 
     dut_to_ptf_intf_map = rand_selected_dut.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
     mux_configs = mux_cable_server_ip(rand_selected_dut)
-    dut_ifaces = mux_configs.keys()
+    dut_ifaces = list(mux_configs.keys())
     random.shuffle(dut_ifaces)
     return _announce_new_neighbor_gen()
 
@@ -73,7 +73,7 @@ def cleanup_arp(duthosts):
 @pytest.fixture(autouse=True)
 def enable_garp(duthost):
     """Enable creating arp table entry for gratuitous ARP."""
-    vlan_intf = duthost.get_running_config_facts()["VLAN_MEMBER"].keys()[0]
+    vlan_intf = list(duthost.get_running_config_facts()["VLAN_MEMBER"].keys())[0]
     cmd = "echo %s > /proc/sys/net/ipv4/conf/" + vlan_intf + "/arp_accept"
     duthost.shell(cmd % 1)
     yield

@@ -2,6 +2,7 @@ import pytest
 import json
 import logging
 import time
+import re
 import random
 import ipaddress
 import ptf.testutils as testutils
@@ -95,7 +96,7 @@ def cleanup_dut(asichost, intf_neighs):
 def generate_intf_neigh(asichost, num_neigh, ip_version):
     interfaces = asichost.show_interface(command='status')['ansible_facts']['int_status']
     up_interfaces = []
-    for intf, values in interfaces.items():
+    for intf, values in list(interfaces.items()):
         if values['admin_state'] == 'up' and values['oper_state'] == 'up':
             up_interfaces.append(intf)
     if not up_interfaces:

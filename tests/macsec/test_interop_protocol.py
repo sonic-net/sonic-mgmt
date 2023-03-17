@@ -9,9 +9,9 @@ from collections import Counter
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common import config_reload
-from macsec_helper import *
-from macsec_config_helper import *
-from macsec_platform_helper import *
+from .macsec_helper import *
+from .macsec_config_helper import *
+from .macsec_platform_helper import *
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class TestInteropProtocol():
     def test_port_channel(self, duthost, profile_name, ctrl_links, wait_mka_establish):
         '''Verify lacp
         '''
-        ctrl_port, _ = ctrl_links.items()[0]
+        ctrl_port, _ = list(ctrl_links.items())[0]
         pc = find_portchannel_from_member(ctrl_port, get_portchannel(duthost))
         assert pc["status"] == "Up"
 
@@ -55,7 +55,7 @@ class TestInteropProtocol():
         LLDP_TIMEOUT = LLDP_ADVERTISEMENT_INTERVAL * LLDP_HOLD_MULTIPLIER
 
         # select one macsec link
-        for ctrl_port, nbr in ctrl_links.items():
+        for ctrl_port, nbr in list(ctrl_links.items()):
             assert wait_until(LLDP_TIMEOUT, LLDP_ADVERTISEMENT_INTERVAL, 0,
                             lambda: nbr["name"] in get_lldp_list(duthost))
 
@@ -79,8 +79,8 @@ class TestInteropProtocol():
     def test_bgp(self, duthost, ctrl_links, upstream_links, profile_name, wait_mka_establish):
         '''Verify BGP neighbourship
         '''
-        bgp_config = duthost.get_running_config_facts()[
-            "BGP_NEIGHBOR"].values()[0]
+        bgp_config = list(duthost.get_running_config_facts()[
+            "BGP_NEIGHBOR"].values())[0]
         BGP_KEEPALIVE = int(bgp_config["keepalive"])
         BGP_HOLDTIME = int(bgp_config["holdtime"])
         BGP_TIMEOUT = 90
@@ -92,12 +92,12 @@ class TestInteropProtocol():
             return fact["state"] == "Established"
 
         # Ensure the BGP sessions have been established
-        for ctrl_port in ctrl_links.keys():
+        for ctrl_port in list(ctrl_links.keys()):
             assert wait_until(BGP_TIMEOUT, 5, 0,
                               check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec disabled
-        for ctrl_port, nbr in ctrl_links.items():
+        for ctrl_port, nbr in list(ctrl_links.items()):
             disable_macsec_port(duthost, ctrl_port)
             disable_macsec_port(nbr["host"], nbr["port"])
             wait_until(BGP_TIMEOUT, 3, 0,
@@ -108,7 +108,7 @@ class TestInteropProtocol():
                               check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
         # Check the BGP sessions are present after port macsec enabled
-        for ctrl_port, nbr in ctrl_links.items():
+        for ctrl_port, nbr in list(ctrl_links.items()):
             enable_macsec_port(duthost, ctrl_port, profile_name)
             enable_macsec_port(nbr["host"], nbr["port"], profile_name)
             wait_until(BGP_TIMEOUT, 3, 0,
@@ -128,7 +128,7 @@ class TestInteropProtocol():
         if duthost.is_multi_asic:
             pytest.skip("The test is for Single ASIC devices")
 
-        for ctrl_port, nbr in ctrl_links.items():
+        for ctrl_port, nbr in list(ctrl_links.items()):
             if isinstance(nbr["host"], EosHost):
                 result = nbr["host"].eos_command(
                     commands=['show snmp community | include name'])

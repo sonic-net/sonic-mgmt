@@ -9,9 +9,9 @@ from collections import Counter
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common import config_reload
-from macsec_helper import *
-from macsec_config_helper import *
-from macsec_platform_helper import *
+from .macsec_helper import *
+from .macsec_config_helper import *
+from .macsec_platform_helper import *
 
 logger = logging.getLogger(__name__)
 

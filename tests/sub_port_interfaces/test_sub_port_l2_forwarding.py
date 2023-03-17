@@ -32,7 +32,7 @@ def testbed_params(define_sub_ports_configuration, duthosts, rand_one_dut_hostna
     testbed_params = define_sub_ports_configuration["sub_ports"].copy()
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for sub_port, config in testbed_params.items():
+    for sub_port, config in list(testbed_params.items()):
         port, vlanid = sub_port.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
         config["port"] = port
         config["vlanid"] = vlanid
@@ -43,7 +43,7 @@ def testbed_params(define_sub_ports_configuration, duthosts, rand_one_dut_hostna
 @pytest.fixture
 def test_sub_port(testbed_params):
     """Select a test sub port."""
-    test_sub_port = random.choice(testbed_params.keys())
+    test_sub_port = random.choice(list(testbed_params.keys()))
     logging.info("Select test sub port %s", test_sub_port)
     return test_sub_port
 
@@ -117,7 +117,7 @@ def test_sub_port_l2_forwarding(apply_config_on_the_dut, duthosts, rand_one_dut_
 
     duthost = duthosts[rand_one_dut_hostname]
     packets = generate_eth_packets
-    ptf_ports_to_check = list(set(_["neighbor_ptf_index"] for _ in testbed_params.values()))
+    ptf_ports_to_check = list(set(_["neighbor_ptf_index"] for _ in list(testbed_params.values())))
     ptfadapter.dataplane.flush()
     for packet in packets:
         with check_no_cpu_packets(duthost, test_sub_port, PACKET_PAYLOAD_FINGERPRINT):

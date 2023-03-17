@@ -5,19 +5,19 @@ import ipaddress
 
 from tests.common import config_reload
 
-from test_voq_init import check_voq_interfaces
+from .test_voq_init import check_voq_interfaces
 
 from tests.common.helpers.sonic_db import VoqDbCli, SonicDbKeyNotFound
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from test_voq_disrupts import check_bgp_neighbors
+from .test_voq_disrupts import check_bgp_neighbors
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2')
 ]
 
-ADDR = ipaddress.IPv4Interface(u"50.1.1.1/24")
+ADDR = ipaddress.IPv4Interface("50.1.1.1/24")
 
 
 def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
@@ -41,9 +41,9 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     intf_asic = duthost.asics[0]
     intf_config_facts = duthost.config_facts(source='persistent',
                                              asic_index=intf_asic.asic_index)['ansible_facts']
-    portchannel = intf_config_facts['PORTCHANNEL'].keys()[0]
-    portchannel_members = intf_config_facts['PORTCHANNEL_MEMBER'][portchannel].keys()
-    portchannel_ips = [x.split("/")[0].lower() for x in intf_config_facts['PORTCHANNEL_INTERFACE'][portchannel].keys()]
+    portchannel = list(intf_config_facts['PORTCHANNEL'].keys())[0]
+    portchannel_members = list(intf_config_facts['PORTCHANNEL_MEMBER'][portchannel].keys())
+    portchannel_ips = [x.split("/")[0].lower() for x in list(intf_config_facts['PORTCHANNEL_INTERFACE'][portchannel].keys())]
     bgp_nbrs_to_portchannel = []
     for a_bgp_neighbor in intf_config_facts['BGP_NEIGHBOR']:
         if intf_config_facts['BGP_NEIGHBOR'][a_bgp_neighbor]['local_addr'] in portchannel_ips:

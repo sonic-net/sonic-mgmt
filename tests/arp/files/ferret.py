@@ -2,12 +2,12 @@
 
 # python t.py -f /tmp/vxlan_decap.json -s 192.168.8.1
 
-import SimpleHTTPServer
-import SocketServer
+import http.server
+import socketserver
 import select
 import shutil
 import json
-import BaseHTTPServer
+import http.server
 import time
 import socket
 import ctypes
@@ -20,7 +20,7 @@ import os
 
 from pprint import pprint
 
-from cStringIO import StringIO
+from io import StringIO
 from functools import partial
 from collections import namedtuple
 
@@ -30,7 +30,7 @@ Record = namedtuple('Record', ['hostname', 'family', 'expired', 'lo', 'mac', 'vx
 ASIC_TYPE=None
 
 
-class Ferret(BaseHTTPServer.BaseHTTPRequestHandler):
+class Ferret(http.server.BaseHTTPRequestHandler):
     server_version = "FerretHTTP/0.1"
 
     def do_POST(self):
@@ -96,7 +96,7 @@ class RestAPI(object):
     PORT = 448
 
     def __init__(self, obj, db, src_ip):
-        self.httpd = SocketServer.TCPServer(("", self.PORT), obj)
+        self.httpd = socketserver.TCPServer(("", self.PORT), obj)
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
         self.context.verify_mode = ssl.CERT_NONE
         self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -150,7 +150,7 @@ class Poller(object):
         self.httpd = httpd
 
     def poll(self):
-        handlers = self.mapping.keys() + [self.httpd.handler()]
+        handlers = list(self.mapping.keys()) + [self.httpd.handler()]
         while True:
             (rdlist, _, _) = select.select(handlers, [], [])
             for handler in rdlist:
@@ -170,7 +170,7 @@ class Responder(object):
         self.vxlan_port = vxlan_port
 
     def hexdump(self, data):
-        print " ".join("%02x" % ord(d) for d in data)
+        print((" ".join("%02x" % ord(d) for d in data)))
 
     def action(self, interface):
         data = interface.recv()
@@ -179,9 +179,9 @@ class Responder(object):
         ext_src_mac  = data[0x06:0x0c]
         ext_eth_type = data[0x0c:0x0e]
         if ext_eth_type != binascii.unhexlify('0800'):
-            print "Not 0x800 eth type"
+            print("Not 0x800 eth type")
             self.hexdump(data)
-            print
+            print()
             return
         src_ip = data[0x001a:0x001e]
         dst_ip = data[0x1e:0x22]
@@ -206,15 +206,15 @@ class Responder(object):
         elif gre_type_r == 0x8949: # Mellanox
             arp_request = data[0x3c:]
         else:
-            print "GRE type 0x%x is not supported" % gre_type_r
+            print(("GRE type 0x%x is not supported" % gre_type_r))
             self.hexdump(data)
-            print
+            print()
             return
 
         if len(arp_request) > self.ARP_PKT_LEN:
-            print "Too long packet"
+            print("Too long packet")
             self.hexdump(data)
-            print
+            print()
             return
 
         vlan_id, remote_mac, remote_ip, request_ip, op_type = self.extract_arp_info(arp_request)
@@ -225,12 +225,12 @@ class Responder(object):
         request_ip_str = socket.inet_ntoa(request_ip)
 
         if request_ip_str not in self.db:
-            print "Not in db"
+            print("Not in db")
             return
 
         r = self.db[request_ip_str]
         if r.expired < time.time():
-            print "Expired row in db"
+            print("Expired row in db")
             del self.db[request_ip_str]
             return
 
@@ -249,7 +249,7 @@ class Responder(object):
             arp_reply = self.generate_arp_reply(binascii.unhexlify(r.mac), remote_mac, request_ip, remote_ip, vlan_id)
             new_pkt += arp_reply
         else:
-            print 'Support of family %s is not implemented' % r.family
+            print(('Support of family %s is not implemented' % r.family))
             return
 
         interface.send(new_pkt)
@@ -313,7 +313,7 @@ def extract_iface_names(config_file):
         graph = json.load(fp)
 
     net_ports = []
-    for name, val in graph['minigraph_portchannels'].items():
+    for name, val in list(graph['minigraph_portchannels'].items()):
         members = ['eth%d' % graph['minigraph_port_indices'][member] for member in val['members']]
         net_ports.extend(members)
 
@@ -327,7 +327,7 @@ def parse_args():
     parser.add_argument('-p', '--vxlan-port', help='VXLAN port', type=int, required=False, default=None)
     args = parser.parse_args()
     if not os.path.isfile(args.config_file):
-        print "Can't open config file '%s'" % args.config_file
+        print(("Can't open config file '%s'" % args.config_file))
         exit(1)
 
     global ASIC_TYPE

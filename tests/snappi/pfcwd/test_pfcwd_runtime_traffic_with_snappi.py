@@ -7,7 +7,7 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
     snappi_api, snappi_testbed_config
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list
 
-from files.pfcwd_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
+from .files.pfcwd_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 

@@ -40,7 +40,7 @@ def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interface
     else:
         vlan_host_map = defaultdict(dict)
         for idx in range(len(nexthop_addrs)):
-            mac = ptfadapter.dataplane.get_mac(0, int(get_intf_by_sub_intf(nexthop_interfaces[idx]))).replace(":", "")
+            mac = ptfadapter.dataplane.get_mac(0, int(get_intf_by_sub_intf(nexthop_interfaces[idx]))).decode().replace(":", "")
             vlan_host_map[nexthop_interfaces[idx]][nexthop_addrs[idx]] = mac
 
         arp_responder_conf = {}
@@ -62,7 +62,7 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
         for idx in range(len(nexthop_addrs)):
             ptfhost.shell("ip -6 addr del {}/{} dev eth{}".format(nexthop_addrs[idx], prefix_len, nexthop_devs[idx]), module_ignore_errors=True)
     else:
-        ptfhost.shell('supervisorctl stop arp_responder')
+        ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
 
 
 def clear_arp_ndp(duthost, ipv6=False):
@@ -113,7 +113,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
 def wait_all_bgp_up(duthost):
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         pytest.fail("not all bgp sessions are up after config reload")
 
 def check_route_redistribution(duthost, prefix, ipv6, removed=False):
@@ -205,7 +205,7 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
 
         # Check traffic get forwarded to the nexthop
-        ip_dst = str(ipaddress.ip_network(unicode(prefix))[1])
+        ip_dst = str(ipaddress.ip_network(str(prefix))[1])
         with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [prefix], {prefix: {'packets': '1'}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
 
@@ -258,7 +258,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
 
     # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
     unexpected_vlans = []
-    for vlan, vlan_data in mg_facts['minigraph_vlans'].items():
+    for vlan, vlan_data in list(mg_facts['minigraph_vlans'].items()):
         if len(vlan_data['members']) < 2:
             unexpected_vlans.append(vlan)
 
@@ -277,7 +277,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
     if is_dualtor(tbinfo):
         server_ips = mux_cable_server_ip(duthost)
-        vlan_intfs = natsort.natsorted(server_ips.keys())
+        vlan_intfs = natsort.natsorted(list(server_ips.keys()))
         nexthop_devs = [mg_facts["minigraph_ptf_indices"][_] for _ in vlan_intfs]
         server_ip_key = "server_ipv6" if ipv6 else "server_ipv4"
         nexthop_addrs = [server_ips[_][server_ip_key].split("/")[0] for _ in vlan_intfs]
