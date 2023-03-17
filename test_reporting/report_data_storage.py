@@ -60,6 +60,15 @@ class ReportDBConnector(ABC):
         pass
 
     @abstractmethod
+    def upload_utilization_data(self, utilization_data: List) -> None:
+        """Upload testbed utilization data to the back-end data store.
+
+        Args:
+            utilization_output: A list of Testbed utilization data.
+        """
+        pass
+
+    @abstractmethod
     def upload_pdu_status_data(self, pdu_status_output: List) -> None:
         """Upload PDU status data to the back-end data store.
 
@@ -94,6 +103,7 @@ class KustoConnector(ReportDBConnector):
     RAW_CASE_TABLE = "RawTestCases"
     RAW_REACHABILITY_TABLE = "RawReachabilityData"
     TESTBEDREACHABILITY_TABLE = "TestbedReachability"
+    TESTBEDUTILIZATION_TABLE = "TestbedUtilization"
     RAW_PDU_STATUS_TABLE = "RawPduStatusData"
     RAW_REBOOT_TIMING_TABLE = "RawRebootTimingData"
     REBOOT_TIMING_TABLE = "RebootTimingData"
@@ -110,6 +120,7 @@ class KustoConnector(ReportDBConnector):
         RAW_CASE_TABLE: DataFormat.MULTIJSON,
         RAW_REACHABILITY_TABLE: DataFormat.MULTIJSON,
         TESTBEDREACHABILITY_TABLE: DataFormat.JSON,
+        TESTBEDUTILIZATION_TABLE: DataFormat.JSON,
         RAW_PDU_STATUS_TABLE: DataFormat.MULTIJSON,
         RAW_REBOOT_TIMING_TABLE: DataFormat.JSON,
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
@@ -127,6 +138,7 @@ class KustoConnector(ReportDBConnector):
         RAW_CASE_TABLE: "RawCaseMappingV1",
         RAW_REACHABILITY_TABLE: "RawReachabilityMappingV1",
         TESTBEDREACHABILITY_TABLE: "TestbedReachabilityMapping",
+        TESTBEDUTILIZATION_TABLE: "TestbedUtilizationMapping",
         RAW_PDU_STATUS_TABLE: "RawPduStatusMapping",
         RAW_REBOOT_TIMING_TABLE: "RawRebootTimingDataMapping",
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
@@ -212,6 +224,12 @@ class KustoConnector(ReportDBConnector):
         for result in ping_output:
             result.update({"UTCTimestamp": ping_time})
         self._ingest_data(self.TESTBEDREACHABILITY_TABLE, ping_output)
+
+    def upload_utilization_data(self, utilization_data: List) -> None:
+        upload_time = str(datetime.utcnow())
+        for result in utilization_data:
+            result.update({"UploadTimestamp": upload_time})
+        self._ingest_data(self.TESTBEDUTILIZATION_TABLE, utilization_data)
 
     def upload_swss_report_file(self, swss_file: str) -> None:
         """Upload a report to the back-end data store.

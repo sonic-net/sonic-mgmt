@@ -104,6 +104,13 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                 pdu_data.extend(json.load(f))
 
         kusto_db.upload_pdu_status_data(pdu_data)
+    elif args.category == "utilization":
+        utilization_data = []
+        for path_name in args.path_list:
+            with open(path_name) as f:
+                utilization_data.extend(json.load(f))
+
+        kusto_db.upload_utilization_data(utilization_data)
     elif args.category == 'expected_runs':
         expected_runs = []
         for path_name in args.path_list:

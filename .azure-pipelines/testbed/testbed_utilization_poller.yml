@@ -1,0 +1,56 @@
+# This job is for periodically polling testbed status and upload polling results to Kusto
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "/10 * * * *"
+    displayName: TestbedUtilizationPollingScheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+stages:
+  - stage: TestbedUtilizationPolling
+    jobs:
+      - job: TestbedUtilizationPolling
+        pool: nightly
+        timeoutInMinutes: 30
+        variables:
+          - group: TBSHARE_SECRETS
+          - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - template: ../nightly/templates/get_secrets.yml
+
+          - task: Bash@3
+            displayName: Run Polling
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd .azure-pipelines/testbed
+                python testbed_utilization_checker.py --skip-testbeds=ptf2-6-b,spytest,vms-chassis-packet-dut,vms-example-ixia-1,ixanvl-vs-conf
+
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd ../../test_reporting
+                pip3 install -r requirements.txt
+
+                python3 report_uploader.py -c "utilization" ../.azure-pipelines/testbed/testbed_utilization.json SonicTestData
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+              TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)

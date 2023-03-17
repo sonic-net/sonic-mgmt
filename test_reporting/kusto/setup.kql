@@ -243,3 +243,23 @@
                                                                      '{"column":"DutConsoleReachability","Properties":{"path":"$.DutConsoleReachability"}},'
                                                                      '{"column":"DutSshReachability","Properties":{"path":"$.DutSshReachability"}},'
                                                                      ']'
+
+###############################################################################
+# TESTBEDUTILIZATION TABLE SETUP                                              #
+# 1. Create a TestbedUtilization table to store testbed utilization info      #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestbedUtilization (TestbedName: string, DutName: string, 
+                                  LockedBy: string, LockReason: string,
+                                  LockTime: datetime, ReleaseTime: datetime,
+                                  Timestamp: datetime, UploadTimestamp: datetime)
+
+.create table TestbedUtilization ingestion json mapping 'TestbedUtilizationMapping' @'[{"column":"TestbedName","Properties":{"path":"$.TestbedName"}},'
+                                                                     '{"column":"DutName","Properties":{"path":"$.DutName"}},'
+                                                                     '{"column":"LockedBy","Properties":{"path":"$.LockedBy"}},'
+                                                                     '{"column":"LockReason","Properties":{"path":"$.LockReason"}},'
+                                                                     '{"column":"LockTime","Properties":{"path":"$.LockTime"}},'
+                                                                     '{"column":"ReleaseTime","Properties":{"path":"$.ReleaseTime"}},'
+                                                                     '{"column":"Timestamp","Properties":{"path":"$.Timestamp"}},'
+                                                                     '{"column":"UploadTimestamp","Properties":{"path":"$.UploadTimestamp"}},'
+                                                                     ']'
