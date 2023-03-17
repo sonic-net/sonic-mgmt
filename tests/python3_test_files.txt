@@ -419,17 +419,6 @@ passw_hardening/conftest.py
 passw_hardening/passw_hardening_utils.py
 passw_hardening/test_passw_hardening.py
 test_features.py
-configlet/test_add_rack.py
-configlet/util/generic_patch.py
-configlet/util/mock_for_switch.py
-configlet/util/common.py
-configlet/util/base_test.py
-configlet/util/helpers.py
-configlet/util/__init__.py
-configlet/util/configlet.py
-configlet/util/run_test_in_switch.py
-configlet/util/strip.py
-configlet/__init__.py
 conftest.py
 arp/test_neighbor_mac.py
 arp/test_wr_arp.py

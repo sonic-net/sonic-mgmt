@@ -11,7 +11,7 @@ if sys.version_info.major > 2:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent))
 
-from .helpers import log_error, log_info, log_debug, set_print
+from helpers import log_error, log_info, log_debug, set_print
 
 CONFIG_DB_FILE = "etc/sonic/config_db.json"
 MINIGRAPH_FILE = "etc/sonic/minigraph.xml"

@@ -3,10 +3,10 @@
 import json
 
 from tempfile import mkstemp
-from .helpers import log_info, log_debug
-from .common import tor_data, init_data, config_db_data_orig, managed_files      # noqa F401
+from helpers import log_info, log_debug
+from common import tor_data, init_data, config_db_data_orig, managed_files      # noqa F401
 
-from . import strip
+import strip
 
 orig_config = None
 
