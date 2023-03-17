@@ -105,7 +105,7 @@ def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_
         interface_list = get_port_map(duthost, enum_frontend_asic_index)
 
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        new_intf_dict = {k: v for k, v in interface_list.items() if k in all_interfaces}
+        new_intf_dict = {k: v for k, v in list(interface_list.items()) if k in all_interfaces}
         all_interfaces = new_intf_dict
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, all_interfaces))
 

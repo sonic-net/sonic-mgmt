@@ -40,10 +40,10 @@ def isis_setup_teardown_wide_metric(isis_common_setup_teardown, request):
 
 def check_isis_wide_metric(duthost):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
-    for lsp in isis_facts['database_detail'][isis_instance].keys():
+    for lsp in list(isis_facts['database_detail'][isis_instance].keys()):
         if duthost.hostname in lsp:
             for item in isis_facts['database_detail'][isis_instance][lsp]['extend_ip_reachability']:
-                return WIDE_MATRIC in item.values()
+                return WIDE_MATRIC in list(item.values())
     return False
 
 

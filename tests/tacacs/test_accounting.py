@@ -94,7 +94,7 @@ def check_local_log_exist(duthost, tacacs_creds, command):
     pytest_assert(len(logs) > 0)
 
     # exclude logs of the sed command produced by Ansible
-    logs = list(filter(lambda line: 'sudo sed' not in line, logs))
+    logs = list([line for line in logs if 'sudo sed' not in line])
     logger.info("Found logs: %s", logs)
 
     pytest_assert(logs, 'Failed to find an expected log message by pattern: ' + log_pattern)

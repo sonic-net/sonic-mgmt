@@ -103,7 +103,7 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
             logger.warning("Failed to get ports enumerated as parameter. Fall back to test all ports")
         status = __get_dut_if_status(dut)
 
-        for dut_port in status.keys():
+        for dut_port in list(status.keys()):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, dut_port)
             __build_candidate_list(candidates, fanout, fanout_port, dut_port, status)
 

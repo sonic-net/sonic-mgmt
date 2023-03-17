@@ -58,7 +58,7 @@ def ensure_no_l3_drops(duthost, asic_index, packets_count):
     """ Verify L3 drop counters were not incremented """
     intf_l3_counters = get_pkt_drops(duthost, GET_L3_COUNTERS, asic_index)
     unexpected_drops = {}
-    for iface, value in intf_l3_counters.items():
+    for iface, value in list(intf_l3_counters.items()):
         try:
             rx_err_value = int(value[RX_ERR])
         except ValueError as err:
@@ -75,7 +75,7 @@ def ensure_no_l2_drops(duthost, asic_index, packets_count):
     """ Verify L2 drop counters were not incremented """
     intf_l2_counters = get_pkt_drops(duthost, GET_L2_COUNTERS, asic_index)
     unexpected_drops = {}
-    for iface, value in intf_l2_counters.items():
+    for iface, value in list(intf_l2_counters.items()):
         try:
             rx_drp_value = int(value[RX_DRP])
         except ValueError as err:

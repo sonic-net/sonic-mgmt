@@ -348,7 +348,7 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
             check_dut_bfd_status(duthost, neighbor_addr, "Up")
             check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up")
 
-        update_idx = random.choice(range(bfd_session_cnt))
+        update_idx = random.choice(list(range(bfd_session_cnt)))
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "admin")
         time.sleep(1)
 
@@ -366,7 +366,7 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
         check_dut_bfd_status(duthost, neighbor_addrs[update_idx], "Up")
         check_ptf_bfd_status(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up")
 
-        update_idx = random.choice(range(bfd_session_cnt))
+        update_idx = random.choice(list(range(bfd_session_cnt)))
         update_bfd_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "suspend")
         time.sleep(5)
 

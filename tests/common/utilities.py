@@ -469,7 +469,7 @@ def compare_crm_facts(left, right):
     """
     unmatched = []
 
-    for k, v in left['resources'].items():
+    for k, v in list(left['resources'].items()):
         lv = v
         rv = right['resources'][k]
         if lv['available'] != rv['available'] or lv['used'] != rv['used']:
@@ -491,7 +491,7 @@ def compare_crm_facts(left, right):
             'used': ag['used count']
         }
 
-    for k, v in left_acl_group.items():
+    for k, v in list(left_acl_group.items()):
         lv = v
         rv = right_acl_group[k]
         if lv['available'] != rv['available'] or lv['used'] != rv['used']:
@@ -709,13 +709,13 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
 
     if 'plt_reboot_dict' in dut_vars:
-        for key in dut_vars['plt_reboot_dict'].keys():
+        for key in list(dut_vars['plt_reboot_dict'].keys()):
             if key in tc_name:
-                for mod_id in dut_vars['plt_reboot_dict'][key].keys():
+                for mod_id in list(dut_vars['plt_reboot_dict'][key].keys()):
                     reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][key][mod_id]
         if not reboot_dict:
-            if reboot_type in dut_vars['plt_reboot_dict'].keys():
-                for mod_id in dut_vars['plt_reboot_dict'][reboot_type].keys():
+            if reboot_type in list(dut_vars['plt_reboot_dict'].keys()):
+                for mod_id in list(dut_vars['plt_reboot_dict'][reboot_type].keys()):
                     reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][reboot_type][mod_id]
 
     return reboot_dict
@@ -745,7 +745,7 @@ def find_duthost_on_role(duthosts, role, tbinfo):
             continue
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
             if role in neighbor["name"]:
                 role_host = duthost
                 role_set = True
@@ -763,7 +763,7 @@ def get_neighbor_port_list(duthost, neighbor_name):
     """
     config_facts = duthost.get_running_config_facts()
     neighbor_port_list = []
-    for port_name, value in config_facts["DEVICE_NEIGHBOR"].items():
+    for port_name, value in list(config_facts["DEVICE_NEIGHBOR"].items()):
         if neighbor_name.upper() in value["name"].upper():
             neighbor_port_list.append(port_name)
 

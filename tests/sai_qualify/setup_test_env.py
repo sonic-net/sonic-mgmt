@@ -1,8 +1,8 @@
 import pytest
 import logging
 
-from sai_infra import *  # noqa: F403 F401
-from conftest import *  # noqa: F403 F401
+from .sai_infra import *  # noqa: F403 F401
+from .conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)
 

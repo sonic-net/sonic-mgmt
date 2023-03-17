@@ -1,6 +1,6 @@
 
 def convert_on_off_to_boolean(obj):
-    for k, v in obj.items():
+    for k, v in list(obj.items()):
         if v == "on":
             obj[k] = True
         elif v == "off":

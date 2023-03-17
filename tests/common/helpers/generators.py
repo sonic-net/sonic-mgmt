@@ -34,7 +34,7 @@ def route_through_default_routes(host, ip_addr):
     routes_info = json.loads(output)
     ret = True
 
-    for prefix in routes_info.keys():
+    for prefix in list(routes_info.keys()):
         if prefix != ZERO_ADDR:
             ret = False
             break

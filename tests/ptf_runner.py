@@ -55,7 +55,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         cmd += " --platform {}".format(platform)
 
     if params:
-        ptf_test_params = ";".join(["{}={}".format(k, repr(v)) for k, v in params.items()])
+        ptf_test_params = ";".join(["{}={}".format(k, repr(v)) for k, v in list(params.items())])
         cmd += " -t {}".format(pipes.quote(ptf_test_params))
 
     if relax:

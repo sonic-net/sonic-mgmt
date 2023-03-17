@@ -58,7 +58,7 @@ def isis_setup_teardown_unset_overload_bit(isis_common_setup_teardown, request):
 def check_isis_overload_bit(duthost, enabled):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
 
-    for lsp, _ in isis_facts['database']['test'].items():
+    for lsp, _ in list(isis_facts['database']['test'].items()):
         if duthost.hostname in lsp:
             overload = isis_facts['database']['test'][lsp]['overload']
             if int(overload) == enabled:

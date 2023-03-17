@@ -27,7 +27,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
 
     hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     host_facts = duthost.setup()['ansible_facts']
-    if host_facts.has_key("ansible_processor_vcpus"):
+    if "ansible_processor_vcpus" in host_facts:
         host_vcpus = int(host_facts['ansible_processor_vcpus'])
     else:
         res = duthost.shell("nproc")

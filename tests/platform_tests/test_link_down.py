@@ -70,7 +70,7 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
             dict of [fanout, {set of its ports}]
     """
     fanout_and_ports = {}
-    for duthost in duts_and_ports.keys():
+    for duthost in list(duts_and_ports.keys()):
         for port in duts_and_ports[duthost]:
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
             # some ports on dut may not have link to fanout
@@ -80,7 +80,7 @@ def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
                 continue
             logger.info("Interface {} on fanout {} (os type {}) map to interface {} on duthost {}"
                         .format(fanout_port, fanout.hostname, fanout.get_fanout_os(), port, duthost.hostname))
-            if fanout in fanout_and_ports.keys():
+            if fanout in list(fanout_and_ports.keys()):
                 fanout_and_ports[fanout].add(fanout_port)
             else:
                 fanout_and_ports[fanout] = {fanout_port}
@@ -108,7 +108,7 @@ def links_up(fanout, ports):
 
 
 def link_status_on_host(duthost, localhost, fanouts_and_ports, up=True):
-    for fanout, ports in fanouts_and_ports.items():
+    for fanout, ports in list(fanouts_and_ports.items()):
         hostname = fanout.hostname
         # Assumption here is all fanouts are healthy.
         # If fanout is not healthy, or links not in expected state, following errors will be thrown

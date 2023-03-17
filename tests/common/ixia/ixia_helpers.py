@@ -85,13 +85,13 @@ class IxiaFanoutManager ():
         self.current_ixia_port_list = None
         self.ip_address = '0.0.0.0'
 
-        for fanout in fanout_data.keys():
+        for fanout in list(fanout_data.keys()):
             self.fanout_list.append(fanout_data[fanout])
 
     def __parse_fanout_connections__(self):
         device_conn = self.last_device_connection_details
         retval = []
-        for key in device_conn.keys():
+        for key in list(device_conn.keys()):
             fanout_port = ansible_stdout_to_str(key)
             peer_port = ansible_stdout_to_str(device_conn[key]['peerport'])
             peer_device = ansible_stdout_to_str(device_conn[key]['peerdevice'])

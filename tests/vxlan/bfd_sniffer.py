@@ -16,7 +16,7 @@ def return_bfd_interfaces():
     bfd_interfaces = {}
     for iface in ifaces:
         if iface.startswith("eth"):
-            print("Verification of BFD packets on interface - {}".format(iface))
+            print(("Verification of BFD packets on interface - {}".format(iface)))
             output = sniff(iface=iface,filter="udp", count=5, timeout=5)
             for pkt in output:
                 if pkt.haslayer(UDP):
@@ -28,7 +28,7 @@ def return_bfd_interfaces():
 bfd_interfaces = return_bfd_interfaces()
 print(bfd_interfaces)
 ptf_config = []
-for key,value in bfd_interfaces.items():
+for key,value in list(bfd_interfaces.items()):
     ptf_config.append(
             {
                 "neighbor_addr": value['src'],
