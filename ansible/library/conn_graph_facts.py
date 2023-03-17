@@ -134,7 +134,8 @@ class Parse_Lab_Graph():
         self.pngtag = 'PhysicalNetworkGraphDeclaration'
         self.dpgtag = 'DataPlaneGraph'
         self.pcgtag = 'PowerControlGraphDeclaration'
-        self.mgtag = 'ManagementGraphDeclaration'
+        self.csgtag = 'ConsoleGraphDeclaration'
+        self.bmcgtag = 'BmcGraphDeclaration'
 
     def port_vlanlist(self, vlanrange):
         vlans = []
@@ -210,12 +211,12 @@ class Parse_Lab_Graph():
                     self.links[start_dev][link.attrib['StartPort']] = {'peerdevice':link.attrib['EndDevice'], 'peerport': link.attrib['EndPort'], 'speed': link.attrib['BandWidth']}
                 if end_dev:
                     self.links[end_dev][link.attrib['EndPort']] = {'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort'], 'speed': link.attrib['BandWidth']}
-        management_root = self.root.find(self.mgtag)
-        if management_root:
-            devicemgroot = management_root.find('DevicesManagementInfo')
-            devicesmg = devicemgroot.findall('DeviceManagementInfo')
-            if devicesmg is not None:
-                for dev in devicesmg:
+        console_root = self.root.find(self.csgtag)
+        if console_root:
+            devicecsgroot = console_root.find('DevicesConsoleInfo')
+            devicescsg = devicecsgroot.findall('DeviceConsoleInfo')
+            if devicescsg is not None:
+                for dev in devicescsg:
                     hostname = dev.attrib['Hostname']
                     if hostname is not None:
                         deviceinfo[hostname] = {}
@@ -230,7 +231,7 @@ class Parse_Lab_Graph():
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
                         deviceinfo[hostname]['ManagementGw'] = management_gw
                         self.consolelinks[hostname] = {}
-            console_link_root = management_root.find('ConsoleLinksInfo')
+            console_link_root = console_root.find('ConsoleLinksInfo')
             if console_link_root:
                 allconsolelinks = console_link_root.findall('ConsoleLinkInfo')
                 if allconsolelinks is not None:
@@ -264,7 +265,27 @@ class Parse_Lab_Graph():
                                 'type':console_type,
                                 'baud_rate': baud_rate
                             }
-            bmc_link_root = management_root.find('BmcLinksInfo')
+        bmc_root = self.root.find(self.bmcgtag)
+        if bmc_root:
+            devicebmcgroot = bmc_root.find('DevicesBmcInfo')
+            devicesbmcg = devicebmcgroot.findall('DeviceBmcInfo')
+            if devicesbmcg is not None:
+                for dev in devicesbmcg:
+                    hostname = dev.attrib['Hostname']
+                    if hostname is not None:
+                        deviceinfo[hostname] = {}
+                        hwsku = dev.attrib['HwSku']
+                        devtype = dev.attrib['Type']
+                        protocol = dev.attrib['Protocol']
+                        mgmt_ip = dev.attrib['ManagementIp']
+                        management_gw = str(ipaddress.IPNetwork(mgmt_ip).network+1)
+                        deviceinfo[hostname]['HwSku'] = hwsku
+                        deviceinfo[hostname]['Type'] = devtype
+                        deviceinfo[hostname]['Protocol'] = protocol
+                        deviceinfo[hostname]['ManagementIp'] = mgmt_ip
+                        deviceinfo[hostname]['ManagementGw'] = management_gw
+                        self.bmclinks[hostname] = {}
+            bmc_link_root = bmc_root.find('BmcLinksInfo')
             if bmc_link_root:
                 allbmclinks = bmc_link_root.findall('BmcLinkInfo')
                 if allbmclinks is not None:

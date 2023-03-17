@@ -48,7 +48,8 @@ class LabGraph(object):
         self._cache_port_alias_to_name = {}
         self.pngroot = etree.Element('PhysicalNetworkGraphDeclaration')
         self.dpgroot = etree.Element('DataPlaneGraph')
-        self.mgroot = etree.Element('ManagementGraphDeclaration')
+        self.csgroot = etree.Element('ConsoleGraphDeclaration')
+        self.bmcgroot = etree.Element('BmcGraphDeclaration')
         self.pcgroot = etree.Element('PowerControlGraphDeclaration')
 
     def _get_port_alias_to_name_map(self, hwsku):
@@ -102,7 +103,8 @@ class LabGraph(object):
             csv_devices = csv.DictReader(filter(lambda row: row[0] != '#' and len(row.strip()) != 0, csv_dev))
             devices_root = etree.SubElement(self.pngroot, 'Devices')
             pdus_root = etree.SubElement(self.pcgroot, 'DevicesPowerControlInfo')
-            mgmt_root = etree.SubElement(self.mgroot, 'DevicesManagementInfo')
+            cons_root = etree.SubElement(self.csgroot, 'DevicesConsoleInfo')
+            bmc_root = etree.SubElement(self.bmcgroot, 'DevicesBmcInfo')
             for row in csv_devices:
                 attrs = {}
                 self.devices[row['Hostname']] = row
@@ -111,10 +113,15 @@ class LabGraph(object):
                     for key in row:
                         attrs[key] = row[key].decode('utf-8')
                     etree.SubElement(pdus_root, 'DevicePowerControlInfo', attrs)
-                elif 'consoleserver' in devtype or "mgmttstorrouter" in devtype:
+                elif 'consoleserver' in devtype:
                     for key in row:
                         attrs[key] = row[key].decode('utf-8')
-                    etree.SubElement(mgmt_root, 'DeviceManagementInfo', attrs)
+                    etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
+                elif 'mgmttstorrouter' in devtype:
+                    for key in row:
+                        attrs[key] = row[key].decode('utf-8')
+                    etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
+                    etree.SubElement(bmc_root, 'DeviceBmcInfo', attrs)
                 else:
                     for key in row:
                         if key.lower() != 'managementip' and key.lower() != 'protocol':
@@ -176,7 +183,7 @@ class LabGraph(object):
             return
         with open(self.conscsv) as csv_file:
             csv_cons = csv.DictReader(csv_file)
-            conslinks_root = etree.SubElement(self.mgroot, 'ConsoleLinksInfo')
+            conslinks_root = etree.SubElement(self.csgroot, 'ConsoleLinksInfo')
             for cons in csv_cons:
                 attrs = {}
                 for key in cons:
@@ -189,7 +196,7 @@ class LabGraph(object):
             return
         with open(self.bmccsv) as csv_file:
             csv_bmc = csv.DictReader(csv_file)
-            bmclinks_root = etree.SubElement(self.mgroot, 'BmcLinksInfo')
+            bmclinks_root = etree.SubElement(self.bmcgroot, 'BmcLinksInfo')
             for bmc in csv_bmc:
                 attrs = {}
                 for key in bmc:
@@ -255,7 +262,8 @@ class LabGraph(object):
         root = etree.Element(LAB_CONNECTION_GRAPH_ROOT_NAME)
         root.append(self.pngroot)
         root.append(self.dpgroot)
-        root.append(self.mgroot)
+        root.append(self.csgroot)
+        root.append(self.bmcgroot)
         root.append(self.pcgroot)
         result = etree.tostring(root, pretty_print=True)
         onexml.write(result)
