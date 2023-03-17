@@ -214,6 +214,10 @@ class LagMemberTrafficTest(BaseTest,RouterUtility):
             src_ip = self.ptf_lag['ip'].split('/')[0]
             dst_ip = self.dut_vlan['ip'].split('/')[0]
 
+            arp_pkt = Ether(src= src_mac, dst=dst_mac)/ARP(op=ARP.who_has, psrc=src_ip, pdst=dst_ip, hwsrc=src_mac)
+            send(self, port_behind_lag, arp_pkt)
+            time.sleep(1)
+
             send_pkt = self.build_icmp_packet(vlan_id=0, src_mac=src_mac, dst_mac=dst_mac, src_ip=src_ip, dst_ip=dst_ip, icmp_type=8)
             exp_pkt = self.build_icmp_packet(vlan_id=0, src_mac=dst_mac, dst_mac=src_mac, src_ip=dst_ip, dst_ip=src_ip, icmp_type=0)
             masked_exp_pkt = self.get_mask_pkt(exp_pkt)
