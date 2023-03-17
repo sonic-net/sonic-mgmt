@@ -45,5 +45,5 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             assert snmp_facts['snmp_cidr_route'][ip]['status'] == '1', "Incorrect status for {} ip".format(ip)
 
         # Compare the length of routes in CLI output and SNMP facts
-        assert len(snmp_facts['snmp_cidr_route'].keys()) == len(snmp_facts['snmp_cidr_route'].keys()), \
+        assert len(list(snmp_facts['snmp_cidr_route'].keys())) == len(list(snmp_facts['snmp_cidr_route'].keys())), \
                 "Number or route entries in SNMP does not match with cli"

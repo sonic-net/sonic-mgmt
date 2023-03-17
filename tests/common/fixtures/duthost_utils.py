@@ -165,13 +165,13 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
-    config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
+    config_ports = {k: v for k, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', 'down') == 'up'}
+    config_port_indices = {k: v for k, v in list(mg_facts['minigraph_ptf_indices'].items()) if k in config_ports}
     ptf_ports_available_in_topo = {
-        port_index: 'eth{}'.format(port_index) for port_index in config_port_indices.values()
+        port_index: 'eth{}'.format(port_index) for port_index in list(config_port_indices.values())
     }
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
-    config_port_channel_members = [port_channel.keys() for port_channel in config_portchannels.values()]
+    config_port_channel_members = [list(port_channel.keys()) for port_channel in list(config_portchannels.values())]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
     ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo and
              config_ports[port].get('admin_status', 'down') == 'up' and port not in config_port_channel_member_ports]
@@ -265,13 +265,13 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
-    config_ports = {k: v for k, v in cfg_facts['PORT'].items() if v.get('admin_status', 'down') == 'up'}
+    config_ports = {k: v for k, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
-    config_port_indices = {k: v for k, v in mg_facts['minigraph_ptf_indices'].items() if k in config_ports}
+    config_port_indices = {k: v for k, v in list(mg_facts['minigraph_ptf_indices'].items()) if k in config_ports}
     config_ports_vlan = collections.defaultdict(list)
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
     # key is dev name, value is list for configured VLAN member.
-    for k, v in cfg_facts['VLAN'].items():
+    for k, v in list(cfg_facts['VLAN'].items()):
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
             # address could be IPV6 and IPV4, only need IPV4 here
@@ -292,7 +292,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
         for po in config_portchannels:
             vlan_port = {
                 'dev': po,
-                'port_index': [config_port_indices[member] for member in config_portchannels[po].keys()],
+                'port_index': [config_port_indices[member] for member in list(config_portchannels[po].keys())],
                 'permit_vlanid': []
             }
             if po in config_ports_vlan:
@@ -354,7 +354,7 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     vlan_intfs_dict = {}
-    for k, v in cfg_facts['VLAN'].items():
+    for k, v in list(cfg_facts['VLAN'].items()):
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
             # NOTE: here only returning IPv4.
@@ -389,8 +389,8 @@ def utils_vlan_intfs_dict_add(vlan_intfs_dict, add_cnt):
         vid = 100 + i
         if vid in vlan_intfs_dict:
             continue
-        ip = u'192.168.{}.1/24'.format(i)
-        for v in vlan_intfs_dict.values():
+        ip = '192.168.{}.1/24'.format(i)
+        for v in list(vlan_intfs_dict.values()):
             if compare_network(ip, v['ip']):
                 break
         else:
@@ -415,7 +415,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     '''
     cmds = []
     logger.info("Add vlans, assign IPs")
-    for k, v in vlan_intfs_dict.items():
+    for k, v in list(vlan_intfs_dict.items()):
         if v['orig']:
             continue
         cmds.append('config vlan add {}'.format(k))
@@ -427,7 +427,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         logger.info("Delete untagged vlans from interfaces")
         for vlan_port in vlan_ports_list:
             vlan_members = cfg_facts.get('VLAN_MEMBER', {})
-            vlan_name, vid = vlan_members.keys()[0], vlan_members.keys()[0].replace("Vlan", '')
+            vlan_name, vid = list(vlan_members.keys())[0], list(vlan_members.keys())[0].replace("Vlan", '')
             try:
                 if vlan_members[vlan_name][vlan_port['dev']]['tagging_mode'] == 'untagged':
                     cmds.append("config vlan member del {} {}".format(vid, vlan_port['dev']))
@@ -503,7 +503,7 @@ def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
     downlink/unlink ports.
     """
     dscp_to_tc_map_names = set()
-    for port_name, qos_map in dut_qos_maps['port_qos_map'].iteritems():
+    for port_name, qos_map in list(dut_qos_maps['port_qos_map'].items()):
         if port_name == "global":
             continue
         dscp_to_tc_map_names.add(qos_map.get("dscp_to_tc_map", ""))
@@ -528,7 +528,7 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
         tc_to_pg_map = dut_qos_maps['tc_to_priority_group_map'][tc_to_pg_map_name]
         # Calculate dscp to pg map
         dscp_to_pg_map = {}
-        for dscp, tc in dscp_to_tc_map.items():
+        for dscp, tc in list(dscp_to_tc_map.items()):
             dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
         return dscp_to_pg_map
     except:     # noqa E722
@@ -552,7 +552,7 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
         tc_to_queue_map = dut_qos_maps['tc_to_queue_map'][tc_to_queue_map_name]
         # Calculate dscp to queue map
         dscp_to_queue_map = {}
-        for dscp, tc in dscp_to_tc_map.items():
+        for dscp, tc in list(dscp_to_tc_map.items()):
             dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
         return dscp_to_queue_map
     except:     # noqa E722
