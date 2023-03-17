@@ -6,10 +6,9 @@
 
 - name: prepare fanout switch admin login info
   set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_password={{ fanout_sonic_password }}
-  when: fanout_tacacs_sonic_user is not defined and fanout_tacacs_sonic_password is not defined
-
-- name: prepare fanout switch admin login info
-  set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_password={{ fanout_sonic_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_sonic_user is not defined and fanout_tacacs_sonic_password is not defined
 
 - name: retrieve SONiC version
   shell: cat /etc/sonic/sonic_version.yml | grep ":"
