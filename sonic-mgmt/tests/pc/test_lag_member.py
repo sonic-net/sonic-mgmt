@@ -21,7 +21,7 @@ pytestmark = [
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode
+    UNICODE_TYPE = str
 
 PTF_LAG_NAME = "bond1"
 DUT_LAG_NAME = "PortChannel1"
@@ -176,7 +176,7 @@ def setup_ptf_lag(ptfhost, ptf_ports, vlan):
 
     port_list = []
     # Add member to lag
-    for _, port_name in ptf_ports[ATTR_PORT_BEHIND_LAG].items():
+    for _, port_name in list(ptf_ports[ATTR_PORT_BEHIND_LAG].items()):
         ptfhost.add_intf_to_lag(PTF_LAG_NAME, port_name)
         port_list.append(port_name)
 
@@ -229,7 +229,7 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, most_common_port_speed):
     port_speed, ports_num = most_common_port_speed
     number_of_lag_member = ports_num if ports_num < number_of_lag_member else number_of_lag_member
     # Get dut_ports (behind / not behind lag) used for creating dut lag by src_vlan_members and port_index_map
-    for port_name, _ in src_vlan_members.items():
+    for port_name, _ in list(src_vlan_members.items()):
         port_id = port_index_map[port_name]
         if port_status[port_name]['speed'] == port_speed and len(dut_ports[ATTR_PORT_BEHIND_LAG]) < number_of_lag_member:
             dut_ports[ATTR_PORT_BEHIND_LAG][port_id] = port_name
@@ -262,7 +262,7 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, most_common_port_speed):
                 "port_name": ptf_ports_available_in_topo[port_id]
             }
 
-    pytest_require(len(ptf_ports[ATTR_PORT_BEHIND_LAG]) == len(dut_ports[ATTR_PORT_BEHIND_LAG]) and ptf_ports[ATTR_PORT_NOT_BEHIND_LAG].has_key("port_id"),
+    pytest_require(len(ptf_ports[ATTR_PORT_BEHIND_LAG]) == len(dut_ports[ATTR_PORT_BEHIND_LAG]) and "port_id" in ptf_ports[ATTR_PORT_NOT_BEHIND_LAG],
                             "Can't get enough ports in ptf")
 
     vlan = {
@@ -283,8 +283,8 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
     """
     port_status = cfg_facts["PORT"]
     src_vlan_id = -1
-    pytest_require(cfg_facts.has_key("VLAN_MEMBER"), "Can't get vlan member")
-    for vlan_name, members in cfg_facts["VLAN_MEMBER"].items():
+    pytest_require("VLAN_MEMBER" in cfg_facts, "Can't get vlan member")
+    for vlan_name, members in list(cfg_facts["VLAN_MEMBER"].items()):
         # Number of members in vlan is insufficient
         if len(members) < number_of_lag_member + 1:
             continue
@@ -371,8 +371,8 @@ def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_te
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(dut_hwsku, DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
     _, ports_num = most_common_port_speed
     number_of_lag_member = ports_num if ports_num < number_of_lag_member else number_of_lag_member
-    pytest_assert(port_channel_status.has_key("ports") and number_of_lag_member == len(port_channel_status["ports"]), "get port status error")
-    for _, status in port_channel_status["ports"].items():
+    pytest_assert("ports" in port_channel_status and number_of_lag_member == len(port_channel_status["ports"]), "get port status error")
+    for _, status in list(port_channel_status["ports"].items()):
         pytest_assert(status["runner"]["selected"], "status of lag member error")
 
 def run_lag_member_traffic_test(duthost, dut_vlan, ptf_lag_map, ptfhost):

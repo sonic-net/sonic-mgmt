@@ -8,9 +8,9 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import pytest
 
-from util import parse_eeprom
-from util import parse_output
-from util import get_dev_conn
+from .util import parse_eeprom
+from .util import parse_output
+from .util import get_dev_conn
 
 cmd_sfp_presence = "sudo sfpshow presence"
 cmd_sfp_eeprom = "sudo sfpshow eeprom"

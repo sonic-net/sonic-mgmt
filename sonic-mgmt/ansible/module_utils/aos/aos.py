@@ -4,7 +4,7 @@ from ansible.module_utils._text import to_text
 from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.connection import Connection, ConnectionError
 from ansible.module_utils.network.common.utils import to_list, ComplexList
-from ansible.module_utils.six import iteritems
+from ansible.module_utils.six import items
 
 _DEVICE_CONNECTION = None
 
@@ -57,7 +57,7 @@ def check_args(module, warnings):
 
 def load_params(module):
     provider = module.params.get('provider') or dict()
-    for key, value in iteritems(provider):
+    for key, value in items(provider):
         if key in aos_argument_spec:
             if module.params.get(key) is None and value is not None:
                 module.params[key] = value

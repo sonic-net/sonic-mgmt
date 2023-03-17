@@ -146,7 +146,7 @@ def generate_vm_port_mapping(vm_base):
     return vm_ports, vm_list
 
 def merge(fanout_mappings, fanout_name_2_ip, vm_mappings):
-    return {(fanout_name_2_ip[fanout_name], fanout_port) : vm_mappings[dut_port]  for (fanout_name, fanout_port), dut_port in fanout_mappings.iteritems() if dut_port in vm_mappings}
+    return {(fanout_name_2_ip[fanout_name], fanout_port) : vm_mappings[dut_port]  for (fanout_name, fanout_port), dut_port in fanout_mappings.items() if dut_port in vm_mappings}
 
 def generate_x_table(base_vm, dut):
     devices, dut_ports, mapping, fanout_name_2_ip = parse_lab_connection_graph('lab_connection_graph.xml', dut)

@@ -27,7 +27,7 @@ def get_dict_stdout(gnmi_out, certs_out):
     # Elements in list alternate between key and value. Separate them and combine into a dict.
     key_list = gnmi_list[0::2]
     value_list = gnmi_list[1::2]
-    params_dict = dict(zip(key_list, value_list))
+    params_dict = dict(list(zip(key_list, value_list)))
     return params_dict
 
 

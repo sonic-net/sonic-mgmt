@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
-from thermal_control_test_helper import *
+from .thermal_control_test_helper import *
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -251,7 +251,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     psu_test_results = {}
     pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
 
-    pytest_assert(len(psu_test_results.keys()) == psu_num, \
+    pytest_assert(len(list(psu_test_results.keys())) == psu_num, \
         "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus"))
 
     logging.info("Start testing turn off/on PSUs")

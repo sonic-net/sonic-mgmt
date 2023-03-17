@@ -9,8 +9,8 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.ixia.files.helper import skip_warm_reboot
-from files.pfcwd_basic_helper import run_pfcwd_basic_test
-from files.helper import skip_pfcwd_test
+from .files.pfcwd_basic_helper import run_pfcwd_basic_test
+from .files.helper import skip_pfcwd_test
 
 logger = logging.getLogger(__name__)
 

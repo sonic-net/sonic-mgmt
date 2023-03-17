@@ -16,7 +16,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
     """
     Performs addition or deletion of static entries of ipv4 and v6 neighbors in DUT based on 'oper' parameter
     """
-    for member in dic.itervalues():
+    for member in list(dic.values()):
         if ip_version in ["4", "both"]:
             if oper == "add":
                 logger.debug("adding ipv4 static arp entry for ip %s on DUT" % (member['ipv4']))
@@ -55,7 +55,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
 
     vm_name, vm_info = None, None
     topo_name = tbinfo["topo"]["name"]
-    for nbr_name, nbr_info in nbrhosts.items():
+    for nbr_name, nbr_info in list(nbrhosts.items()):
         if topo_name != "m0" or (topo_name == "m0" and "M1" in nbr_name):
             vm_name = nbr_name
             vm_info = nbr_info
@@ -88,7 +88,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
             break
 
     # getting the ipv4, ipv6 and vlan id of a vlan in DUT with 2 or more vlan members
-    for k, v in my_cfg_facts['VLAN'].items():
+    for k, v in list(my_cfg_facts['VLAN'].items()):
         vlanid = v['vlanid']
         if len(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid]) >= 2:
             for addr in my_cfg_facts['VLAN_INTERFACE']['Vlan' + vlanid]:
@@ -106,7 +106,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
 
     # selecting 2 random vlan members of DUT
     # Remove portchannel in vlan member list
-    filter_vlan_member_list = [member for member in my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys()
+    filter_vlan_member_list = [member for member in list(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid].keys())
                                if member in mg_facts['minigraph_ptf_indices']]
     rand_vlan_member_list = random.sample(filter_vlan_member_list, 2)
     exclude_ip = []
@@ -118,7 +118,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     ips_in_vlan = [x for x in vlan_ip_network_v4 if x not in exclude_ip]
     for member in rand_vlan_member_list:
         # Get first and last ip in vlan for two vlan members
-        ip_in_vlan = ips_in_vlan[0 if len(ptfhost_info.keys()) == 0 else -1]
+        ip_in_vlan = ips_in_vlan[0 if len(list(ptfhost_info.keys())) == 0 else -1]
         ptfhost_info[member] = {}
         ptfhost_info[member]["Vlanid"] = vlanid
         ptfhost_info[member]["port_index_list"] = [mg_facts['minigraph_ptf_indices'][member]]
@@ -171,7 +171,7 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter)
 
     # flushing and re-adding ipv6 static arp entry
     static_neighbor_entry(duthost, ptfhost_info, "del", "6")
-    static_neighbor_entry(duthost, dict(reversed(ptfhost_info.items())), "add", "6")
+    static_neighbor_entry(duthost, dict(reversed(list(ptfhost_info.items()))), "add", "6")
 
     # flushing and re-adding ipv4 static arp entry for 2nd ptf host
     static_neighbor_entry(duthost, device2, "del", "4")

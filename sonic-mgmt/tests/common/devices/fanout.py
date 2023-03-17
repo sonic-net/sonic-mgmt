@@ -69,7 +69,7 @@ class FanoutHost(object):
                                      "'shutdown_multiple' method"
                                      .format(type(self.host)))
         if self.os == 'sonic':
-            if interface_name in self.fanout_port_alias_to_name.keys():
+            if interface_name in list(self.fanout_port_alias_to_name.keys()):
                 return self.host.shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.shutdown(interface_name)
@@ -92,7 +92,7 @@ class FanoutHost(object):
                                      .format(type(self.host)))
 
         if self.os == 'sonic':
-            if interface_name in self.fanout_port_alias_to_name.keys():
+            if interface_name in list(self.fanout_port_alias_to_name.keys()):
                 return self.host.no_shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.no_shutdown(interface_name)

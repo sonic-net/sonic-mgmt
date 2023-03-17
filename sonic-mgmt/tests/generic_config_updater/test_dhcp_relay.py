@@ -40,7 +40,7 @@ def first_avai_vlan_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     logger.info("Find a vlan port for new created vlan member")
 
-    for v in mg_facts['minigraph_vlans'].values():
+    for v in list(mg_facts['minigraph_vlans'].values()):
         for p in v['members']:
             if p.startswith("Ethernet"):
                 return p
@@ -75,7 +75,7 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
     vlan_ports_list = [{
         'dev': first_avai_vlan_port,
         'port_index': 'unused',
-        'permit_vlanid': [key for key, value in vlan_intfs_dict.items()],
+        'permit_vlanid': [key for key, value in list(vlan_intfs_dict.items())],
         'pvid': 0
     }]
 
@@ -182,7 +182,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
 
 @pytest.fixture(scope="module")
 def vlan_intfs_list(vlan_intfs_dict):
-    return [key for key, value in vlan_intfs_dict.items() if not value['orig']]
+    return [key for key, value in list(vlan_intfs_dict.items()) if not value['orig']]
 
 
 def ensure_dhcp_server_up(duthost):

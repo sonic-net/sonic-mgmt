@@ -95,6 +95,7 @@ EXAMPLES = '''
     privkey=def6789
 '''
 
+import six
 from ansible.module_utils.basic import *
 from collections import defaultdict
 
@@ -278,17 +279,30 @@ def lookup_operstatus(int_operstatus):
         return ""
 
 def decode_type(module, current_oid, val):
-    tagMap = {
-         rfc1902.Counter32.tagSet: long,
-         rfc1902.Gauge32.tagSet: long,
-         rfc1902.Integer32.tagSet: long,
-         rfc1902.IpAddress.tagSet: str,
-         univ.Null.tagSet: str,
-         univ.ObjectIdentifier.tagSet: str,
-         rfc1902.OctetString.tagSet: str,
-         rfc1902.TimeTicks.tagSet: long,
-         rfc1902.Counter64.tagSet: long
-         }
+    if six.PY3:
+        tagMap = {
+            rfc1902.Counter32.tagSet: int,
+            rfc1902.Gauge32.tagSet: int,
+            rfc1902.Integer32.tagSet: int,
+            rfc1902.IpAddress.tagSet: str,
+            univ.Null.tagSet: str,
+            univ.ObjectIdentifier.tagSet: str,
+            rfc1902.OctetString.tagSet: str,
+            rfc1902.TimeTicks.tagSet: int,
+            rfc1902.Counter64.tagSet: int
+            }
+    else:
+        tagMap = {
+            rfc1902.Counter32.tagSet: long,
+            rfc1902.Gauge32.tagSet: long,
+            rfc1902.Integer32.tagSet: long,
+            rfc1902.IpAddress.tagSet: str,
+            univ.Null.tagSet: str,
+            univ.ObjectIdentifier.tagSet: str,
+            rfc1902.OctetString.tagSet: str,
+            rfc1902.TimeTicks.tagSet: long,
+            rfc1902.Counter64.tagSet: long
+            }
 
     if val is None or not val:
         module.fail_json(msg="Unable to convert ASN1 type to python type. No value was returned for OID %s" % current_oid)

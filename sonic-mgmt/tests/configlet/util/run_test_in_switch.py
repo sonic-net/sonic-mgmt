@@ -94,14 +94,14 @@ def main():
             os.system("rm -rf {}".format(work_dir))
             os.mkdir(work_dir)
         except OSError as error:
-            print("Failed to create {} with err:{}".format(work_dir, str(error)))
+            print(("Failed to create {} with err:{}".format(work_dir, str(error))))
             return -1
     else:
         work_dir = args.dir
 
     os.chdir(work_dir)
 
-    print("Work dir for this run is {}".format(os.getcwd()))
+    print(("Work dir for this run is {}".format(os.getcwd())))
 
     run_test(skip_load=args.skip_load, skip_clet_test=args.skip_clet_test,
              skip_generic_add=args.skip_generic_add,

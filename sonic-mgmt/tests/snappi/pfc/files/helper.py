@@ -501,7 +501,7 @@ def __verify_results(rows,
                         'Total TX bytes {} should exceed DUT buffer size {}'.\
                         format(tx_bytes_total, dut_buffer_size))
             
-            for peer_port, prios in flow_port_config[0].items():
+            for peer_port, prios in list(flow_port_config[0].items()):
                 for prio in prios:
                     dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
                     pytest_assert(dropped_packets > 0,
@@ -512,7 +512,7 @@ def __verify_results(rows,
                         'Total TX bytes {} should be smaller than DUT buffer size {}'.\
                         format(tx_bytes_total, dut_buffer_size))
             
-            for peer_port, prios in flow_port_config[0].items():
+            for peer_port, prios in list(flow_port_config[0].items()):
                 for prio in prios:
                     dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
                     pytest_assert(dropped_packets == 0,

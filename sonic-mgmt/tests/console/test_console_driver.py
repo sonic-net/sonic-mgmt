@@ -16,7 +16,7 @@ def test_console_driver(duthost):
     ttys = set(out.split())
     pytest_assert(len(ttys) > 0, "No virtual tty devices been created by console driver")
 
-    out = duthost.console_facts()["ansible_facts"]["console_facts"]["lines"].keys()
+    out = list(duthost.console_facts()["ansible_facts"]["console_facts"]["lines"].keys())
     for i in range(0, len(out)):
         expected_virtual_tty = "/dev/ttyUSB{}".format(i)
         pytest_assert(

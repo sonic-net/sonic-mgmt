@@ -177,6 +177,7 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Verify teardown by shutting peering session one by one | SLB  | After one session is down, verify other peering session is active and routes present|
 
 1. Standalone tunnel route
+
     This test is to verify standalone tunnel route is added properly when there is a `FAILED` or `INCOMPLETE` neighbor entry.
     * Active-Standby DualToR
 
@@ -189,5 +190,3 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Step | Goal | Expected results |
     |-|-|-|
     | Send traffic to some IP in the VLAN subnet but not configured as soc or server address | Forwarding through tunnel | Verify tunnel-route on this ToR | 
-    | Config mux active on the neighbor flushed side | Forwarding through tunnel | Verify tunnel-route on this ToR | 
-    | Config mux auto and bring up ToR to server link on the neighbor flushed side | Forwarding to server directly | Verify traffic is directly forwarded to sever, tunnel-route is removed | 

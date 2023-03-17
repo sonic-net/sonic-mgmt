@@ -169,7 +169,7 @@ def duthost_bgp_3port_config(duthost,
                                               "nhopself": "0", "holdtime": "90", "asn": TGEN_AS_NUM, "keepalive": "30"}
 
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-    for neighbor, neighbor_info in bgp_neighbors.items():
+    for neighbor, neighbor_info in list(bgp_neighbors.items()):
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
 
     cdf["DEVICE_METADATA"]['localhost']['bgp_asn'] = DUT_AS_NUM
@@ -238,7 +238,7 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
                                           "local_addr": tgen_ports[2]['peer_ip'],
                                           "nhopself": "0", "holdtime": "90", "asn": TGEN_AS_NUM, "keepalive": "30"}
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-    for neighbor, neighbor_info in bgp_neighbors.items():
+    for neighbor, neighbor_info in list(bgp_neighbors.items()):
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
     cdf["DEVICE_METADATA"]['localhost']['bgp_asn'] = DUT_AS_NUM
     with open("/tmp/sconfig_db.json", 'w') as fp:

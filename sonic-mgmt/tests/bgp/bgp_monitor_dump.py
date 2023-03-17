@@ -15,6 +15,6 @@ while True:
         keys = ('ipv4 unicast', 'ipv6 unicast')
         for key in keys:
             if key in announce:
-                for _, route in announce[key].items():
-                    for ip, _ in route.items():
+                for _, route in list(announce[key].items()):
+                    for ip, _ in list(route.items()):
                         f.write(ip + "\n")

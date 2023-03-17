@@ -68,7 +68,7 @@ class SonicAsic(object):
     def is_it_frontend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
-            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'frontend':
                 return True
         return False
@@ -76,7 +76,7 @@ class SonicAsic(object):
     def is_it_backend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
-            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'backend':
                 return True
         return False
@@ -523,7 +523,7 @@ class SonicAsic(object):
 
     def port_on_asic(self, portname):
         cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
-        ports = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        ports = self.shell(cmd)["stdout_lines"][0]
         if ports is not None and portname in ports:
             return True
         return False
@@ -534,7 +534,7 @@ class SonicAsic(object):
         # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
         # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
         # By split() function we are converting 'pcs' to list, and can do one by one comparison
-        pcs = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        pcs = self.shell(cmd)["stdout_lines"][0]
         if pcs is not None:
             pcs_list = pcs.split("'")
             for pc in pcs_list:
@@ -561,15 +561,15 @@ class SonicAsic(object):
             host=self.sonichost.hostname
         )['ansible_facts']
 
-        if len(mg_facts['minigraph_portchannels'].keys()) == 0:
+        if len(list(mg_facts['minigraph_portchannels'].keys())) == 0:
             return port_channels_data
 
         if self.namespace is DEFAULT_NAMESPACE:
-            for pc in mg_facts['minigraph_portchannels'].keys():
+            for pc in list(mg_facts['minigraph_portchannels'].keys()):
                 pc_members = mg_facts['minigraph_portchannels'][pc]['members']
                 port_channels_data[pc] = pc_members
         else:
-            for k, v in mg_facts['minigraph_portchannels'].iteritems():
+            for k, v in list(mg_facts['minigraph_portchannels'].items()):
                 if 'namespace' in v and self.namespace == v['namespace']:
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']
@@ -621,7 +621,7 @@ class SonicAsic(object):
             def_rt_json = self.get_default_route_from_app_db(af)
             if def_rt_json:
                 # For multi-asic duts, when bgps are down, docker bridge will come up, which we should ignore here
-                if self.sonichost.is_multi_asic and def_rt_json.values()[0]['value']['ifname'] == 'eth0':
+                if self.sonichost.is_multi_asic and list(def_rt_json.values())[0]['value']['ifname'] == 'eth0':
                     continue
                 return False
         return True
@@ -635,7 +635,7 @@ class SonicAsic(object):
         """
         bgp_facts = self.bgp_facts()['ansible_facts']
         neigh_ok = []
-        for k, v in bgp_facts['bgp_neighbors'].items():
+        for k, v in list(bgp_facts['bgp_neighbors'].items()):
             if v['state'] == state:
                 if k.lower() in neigh_ips:
                     neigh_ok.append(k)

@@ -96,7 +96,7 @@ class RouteFlowCounterTestContext:
             else:
                 logger.info('Checking route flow counter stats after clearing all routes')
                 clear_route_flow_counter(self.dut)
-            for prefix, value in self.expected_stats.items():
+            for prefix, value in list(self.expected_stats.items()):
                 for key in value:
                     self.expected_stats[prefix][key] = '0'
 
@@ -301,11 +301,11 @@ def verify_route_flow_counter_stats(expect_stats, actual_stats):
     """
     logger.info('Expected stats: {}'.format(expect_stats))
     logger.info('Actual stats: {}'.format(actual_stats))
-    for key, value in expect_stats.items():
+    for key, value in list(expect_stats.items()):
         if key not in actual_stats:
             return False, 'Failed to find {} in result'.format(key)
 
-        for stats_type, expect_value in value.items():
+        for stats_type, expect_value in list(value.items()):
             if int(expect_value) != int(actual_stats[key][stats_type].replace(',', '')):
                 return False, 'Expected {} value of {} is {}, but got {}'\
                     .format(stats_type, key, expect_value, actual_stats[key][stats_type])

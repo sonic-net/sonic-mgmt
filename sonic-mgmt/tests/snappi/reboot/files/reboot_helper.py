@@ -122,7 +122,7 @@ def duthost_bgp_config(duthost, tgen_ports):
                                "nhopself": "0", "holdtime": "90",
                                "asn": TGEN_AS_NUM, "keepalive": "30"}}
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-    for neighbor, neighbor_info in bgp_neighbors.items():
+    for neighbor, neighbor_info in list(bgp_neighbors.items()):
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
 
     with open("/tmp/sconfig_db.json", 'w') as fp:

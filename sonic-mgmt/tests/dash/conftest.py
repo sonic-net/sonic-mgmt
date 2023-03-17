@@ -55,7 +55,7 @@ def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
     return duthost.get_extended_minigraph_facts(tbinfo)
 
 def get_intf_from_ip(local_ip, config_facts):
-    for intf, config in config_facts["INTERFACE"].items():
+    for intf, config in list(config_facts["INTERFACE"].items()):
         for ip in config:
             intf_ip = ip_interface(ip)
             if str(intf_ip.ip) == local_ip:
@@ -80,7 +80,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
     dash_info[DUT_MAC] = config_facts["DEVICE_METADATA"]["localhost"]["mac"]
 
     neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
-    for neigh_ip, config in config_facts["BGP_NEIGHBOR"].items():
+    for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
         # Pick the first two BGP neighbor IPs since these should already be
         # learned on the DUT
         if ip_interface(neigh_ip).version == 4:

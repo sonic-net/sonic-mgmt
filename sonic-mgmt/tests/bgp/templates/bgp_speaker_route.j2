@@ -1,3 +1,3 @@
-0.0.0.0/0 {% if is_backend %}[]{% else %}{% for portchannel, v in minigraph_portchannels.iteritems() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}{% endif %}
+0.0.0.0/0 {% if is_backend %}[]{% else %}{% for portchannel, v in minigraph_portchannels.items() %}[{% for member in v.members %}{{ '%d' % minigraph_port_indices[member]}}{% if not loop.last %} {% endif %}{% endfor %}]{% if not loop.last %} {% endif %}{% endfor %}{% endif %}
 
-{{announce_prefix}} {% for vlan, v in minigraph_vlans.iteritems() %}{% for member in v.members %}[{{ '%d' % minigraph_port_indices[member]}}]{% if not loop.last %} {% endif %}{% endfor %}{% if not loop.last %} {% endif %}{% endfor %}
+{{announce_prefix}} {% for vlan, v in minigraph_vlans.items() %}{% for member in v.members %}[{{ '%d' % minigraph_port_indices[member]}}]{% if not loop.last %} {% endif %}{% endfor %}{% if not loop.last %} {% endif %}{% endfor %}

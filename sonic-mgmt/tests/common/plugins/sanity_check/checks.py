@@ -83,7 +83,7 @@ def check_interfaces(duthosts):
     def _check(*args, **kwargs):
         result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes,
                               timeout=600, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_interfaces_on_dut(*args, **kwargs):
@@ -103,7 +103,7 @@ def check_interfaces(duthosts):
             ip_interfaces = []
             cfg_facts = asic.config_facts(host=dut.hostname,
                                           source="persistent", verbose=False)['ansible_facts']
-            phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
+            phy_interfaces = [k for k, v in list(cfg_facts["PORT"].items()) if
                               "admin_status" in v and v["admin_status"] == "up"]
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
                 ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
@@ -147,7 +147,7 @@ def check_bgp(duthosts):
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes,
                               timeout=600, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_bgp_on_dut(*args, **kwargs):
@@ -173,7 +173,7 @@ def check_bgp(duthosts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
                 if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
-                    down_neighbors = [k for k, v in a_asic_neighbors.items()
+                    down_neighbors = [k for k, v in list(a_asic_neighbors.items())
                                       if v['state'] != 'established']
                     if down_neighbors:
                         if dut.facts['num_asic'] == 1:
@@ -216,7 +216,7 @@ def check_bgp(duthosts):
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
         if (check_result['failed']):
-            for a_result in check_result.keys():
+            for a_result in list(check_result.keys()):
                 if a_result != 'failed':
                     # Dealing with asic result
                     if 'down_neighbors' in check_result[a_result]:
@@ -254,7 +254,7 @@ def check_dbmemory(duthosts):
     def _check(*args, **kwargs):
         init_result = {"failed": False, "check_item": "dbmemory"}
         result = parallel_run(_check_dbmemory_on_dut, args, kwargs, duthosts, timeout=600, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_dbmemory_on_dut(*args, **kwargs):
@@ -286,7 +286,7 @@ def _check_monit_services_status(check_result, monit_services_status):
     @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
     check_result["services_status"] = {}
-    for service_name, service_info in monit_services_status.items():
+    for service_name, service_info in list(monit_services_status.items()):
         check_result["services_status"].update({service_name: service_info["service_status"]})
         if service_info["service_status"] == "Not monitored":
             continue
@@ -437,7 +437,7 @@ def _check_single_intf_status(intf_status, expected_side):
     active_intf, mux_intf = None, None
     active_flows, mux_flows = None, None
 
-    for input_intf, actions in intf_status['flows'].items():
+    for input_intf, actions in list(intf_status['flows'].items()):
         if 'mu' in input_intf:
             mux_intf = input_intf
             mux_flows = actions
@@ -465,7 +465,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
         duts_mux_status = duthosts.show_and_parse("show mux status")
 
         duts_parsed_mux_status.clear()
-        for dut_hostname, dut_mux_status in duts_mux_status.items():
+        for dut_hostname, dut_mux_status in list(duts_mux_status.items()):
             logger.info('Verify that "show mux status" has output ON {}'.format(dut_hostname))
             if len(dut_mux_status) != len(port_cable_types):
                 err_msg_from_mux_status.append("Some ports doesn't have 'show mux status' output")
@@ -493,7 +493,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
         lower_tor_mux_status = duts_parsed_mux_status[duthosts[1].hostname]
 
         logger.info('Verify that mux status is consistent on both ToRs.')
-        for port_idx, cable_type in port_cable_types.items():
+        for port_idx, cable_type in list(port_cable_types.items()):
             if cable_type == CableType.active_standby:
                 if (upper_tor_mux_status[port_idx]['status'] ^ lower_tor_mux_status[port_idx]['status']) == 0:
                     err_msg_from_mux_status.append('Inconsistent mux status for active-standby ports on dualtors, \
@@ -600,7 +600,7 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
         mux_simulator_status = get_mux_status()
         upper_tor_mux_status = duts_mux_status[duthosts[0].hostname]
 
-        for status in mux_simulator_status.values():
+        for status in list(mux_simulator_status.values()):
             port_index = str(status['port_index'])
 
             # Some host interfaces in dualtor topo are disabled.
@@ -632,7 +632,7 @@ def check_monit(duthosts):
     def _check(*args, **kwargs):
         init_result = {"failed": False, "check_item": "monit"}
         result = parallel_run(_check_monit_on_dut, args, kwargs, duthosts, timeout=600, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_monit_on_dut(*args, **kwargs):
@@ -704,7 +704,7 @@ def check_processes(duthosts):
                 timeout = 1000
                 break
         result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=timeout, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_processes_on_dut(*args, **kwargs):
@@ -723,7 +723,7 @@ def check_processes(duthosts):
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
-            for k, v in processes_status.items():
+            for k, v in list(processes_status.items()):
                 if v['status'] is False or len(v['exited_critical_process']) > 0:
                     check_result['failed'] = True
                 check_result["services_status"].update({k: v['status']})
@@ -735,7 +735,7 @@ def check_processes(duthosts):
                 processes_status = dut.all_critical_process_status()
                 check_result["processes_status"] = processes_status
                 check_result["services_status"] = {}
-                for k, v in processes_status.items():
+                for k, v in list(processes_status.items()):
                     if v['status'] is False or len(v['exited_critical_process']) > 0:
                         check_result['failed'] = True
                     check_result["services_status"].update({k: v['status']})
@@ -877,7 +877,7 @@ def check_neighbor_macsec_empty(ctrl_links):
     nodes = []
     nodes_name = set()
     dut_nbr_mapping = {}
-    for _, nbr in ctrl_links.items():
+    for _, nbr in list(ctrl_links.items()):
         if nbr["name"] in nodes_name:
             continue
         nodes_name.add(nbr["name"])
@@ -896,7 +896,7 @@ def check_neighbor_macsec_empty(ctrl_links):
         init_check_result = {"failed": False, "check_item": "neighbor_macsec_empty", "unhealthy_nbrs": []}
         check_results = parallel_run(_check_macsec_empty, args, kwargs, nodes, timeout=300)
         unhealthy_dut = set()
-        for nbr_name, check_result in check_results.items():
+        for nbr_name, check_result in list(check_results.items()):
             if check_result:
                 init_check_result["failed"] = True
                 init_check_result["unhealthy_nbrs"].append(nbr_name)

@@ -28,7 +28,7 @@ class DutDbInfo:
         return self.appl_db.get(expected_profile_key).get("value")
 
     def get_buffer_profile_key_from_asic_db(self, buffer_profile_oid):
-        for key in self.asic_db.keys():
+        for key in list(self.asic_db.keys()):
             if buffer_profile_oid in key:
                 return key
         raise Exception("Not find the profile key for {}".format(buffer_profile_oid))

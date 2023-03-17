@@ -45,7 +45,7 @@ def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, int
     logger.info("Sending GARP for target {} from PTF interface {}".format(arp_request_ip, intf1_index))
     testutils.send_packet(ptfadapter, intf1_index, pkt)
 
-    vlan_intfs = config_facts['VLAN_INTERFACE'].keys()
+    vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
 
     switch_arptable = duthost.switch_arptable()['ansible_facts']
     pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'].lower() == arp_src_mac.lower())
