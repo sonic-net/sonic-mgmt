@@ -36,6 +36,8 @@ import defusedxml.ElementTree as ET
 
 
 TEST_REPORT_CLIENT_VERSION = (1, 1, 0)
+REPORT_LIST = list()
+REPORT_LIST.append("Script Name, Total, Pass, Fail, Skip, Error, XFail, Time")
 
 MAXIMUM_XML_SIZE = 20e7  # 20MB
 MAXIMUM_SUMMARY_SIZE = 1024  # 1MB
@@ -395,6 +397,18 @@ def _extract_test_summary(test_cases):
                 "xfail_error" or case["result"] == "xfail_skipped" or case["result"] == "xfail_success"
 
     test_result_summary = {k: str(v) for k, v in test_result_summary.items()}
+    total = int(test_result_summary["failures"]) + int(test_result_summary["skipped"]) \
+          + int(test_result_summary["errors"]) + int(test_result_summary["xfails"])
+    passed = int(test_result_summary["tests"]) - int(total)
+    passed = max(0, passed)
+    if case is None:
+        return test_result_summary
+    name = case['file']
+    REPORT_LIST.append("{}, {}, {}, {}, {}, {}, {}, {}".
+                         format(name, test_result_summary["tests"],
+                         passed, test_result_summary["failures"],
+                         test_result_summary["skipped"], test_result_summary["errors"],
+                         test_result_summary["xfails"], test_result_summary["time"]))
     return test_result_summary
 
 
@@ -714,6 +728,17 @@ python3 junit_xml_parser.py tests/files/sample_tr.xml
             output_file.write(output)
     else:
         print(output)
+
+    tstamp = datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
+
+    if args.output_file:
+        csv_file = open('report_{}_{}.csv'.format(args.output_file.split('.')[0], tstamp), "w+")
+    else:
+        csv_file = open('report_{}.csv'.format(tstamp), "w+")
+
+    for test in REPORT_LIST:
+        csv_file.write(test+'\n')
+    csv_file.close()
 
 
 if __name__ == "__main__":
