@@ -22,6 +22,7 @@ stages:
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
+          - group: SECRETS_JSON
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -46,6 +47,8 @@ stages:
 
                 python3 report_uploader.py -c "utilization" ../.azure-pipelines/testbed/testbed_utilization.json SonicTestData
             env:
+              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
               TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
               TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
