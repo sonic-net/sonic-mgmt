@@ -5,6 +5,8 @@ import functools
 from isis_helpers import setup_isis
 from isis_helpers import teardown_isis
 
+MESH_CAST_LIST = ['test_isis_database']
+
 
 def pytest_addoption(parser):
     """
@@ -94,7 +96,7 @@ def isis_dpg_topo(duthosts, nbrhosts, duts_interconnects, tbinfo):
 def isis_common_setup_teardown(isis_dpg_topo, request, rand_selected_dut):
     dut_host = rand_selected_dut
     selected_connections = []
-    if request.config.getoption("--swan_agent"):
+    if request.config.getoption("--swan_agent") or request.module.__name__ in MESH_CAST_LIST:
         selected_connections = isis_dpg_topo
     else:
         for item in isis_dpg_topo:
