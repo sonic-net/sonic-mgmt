@@ -136,8 +136,8 @@ def wait_for_device_reachable(localhost):
             raise Exception("DUT {} did not startup after reboot"
                             .format((duthost.hostname)))
         logger.info("SSH started on {}, wait for mux container to start".format((duthost.hostname)))
-        #wait for networking service to reset mgmt interface and
-        #mux container to start. It start 60s after other containers.
+        # wait for networking service to reset mgmt interface and
+        # mux container to start. It start 60s after other containers.
         time.sleep(60)
 
     return wait_for_device_reachable
