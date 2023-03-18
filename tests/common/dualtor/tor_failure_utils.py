@@ -140,7 +140,7 @@ def wait_for_device_reachable(localhost):
         #mux container to start. It start 60s after other containers.
         time.sleep(60)
 
-return wait_for_device_reachable
+    return wait_for_device_reachable
 
 
 @contextlib.contextmanager
