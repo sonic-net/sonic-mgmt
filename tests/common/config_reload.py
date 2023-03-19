@@ -66,7 +66,7 @@ def config_force_option_supported(duthost):
 
 @ignore_loganalyzer
 def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
-                  safe_reload=False,
+                  safe_reload=False, wait_before_force_reload=0,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False):
     """
     reload SONiC configuration
@@ -76,6 +76,12 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
     :param override_config: override current config with '/etc/sonic/golden_config_db.json'
     :return:
     """
+    def _config_reload_cmd_wrapper(cmd, executable):
+        out = duthost.shell(cmd, executable=executable)
+        if out['rc'] == 0:
+            return True
+        else:
+            return False
 
     if config_source not in config_sources:
         raise ValueError('invalid config source passed in "{}", must be {}'.format(
@@ -107,9 +113,13 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
 
     elif config_source == 'config_db':
         cmd = 'config reload -y &>/dev/null'
+        reloading = False
         if config_force_option_supported(duthost):
+            if wait_before_force_reload:
+                reloading = wait_until(wait_before_force_reload, 10, 0, _config_reload_cmd_wrapper, cmd, "/bin/bash")
             cmd = 'config reload -y -f &>/dev/null'
-        duthost.shell(cmd, executable="/bin/bash")
+        if not reloading:
+            duthost.shell(cmd, executable="/bin/bash")
 
     elif config_source == 'running_golden_config':
         cmd = 'config reload -y -l /etc/sonic/running_golden_config.json &>/dev/null'
