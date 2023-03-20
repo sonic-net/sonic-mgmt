@@ -16,7 +16,7 @@ Usage:          Examples of how to use log analyzer
 #---------------------------------------------------------------------
 # Global imports
 #---------------------------------------------------------------------
-from __future__ import print_function
+
 import sys
 import getopt
 import re
@@ -36,7 +36,7 @@ from datetime import datetime
 tokenizer = ','
 comment_key = '#'
 system_log_file = '/var/log/syslog'
-re_rsyslog_pid = re.compile("PID:\s+(\d+)")
+re_rsyslog_pid = re.compile(r"PID:\s+(\d+)")
 
 #-- List of ERROR codes to be returned by AnsibleLogAnalyzer
 err_duplicate_start_marker = -1
@@ -99,7 +99,7 @@ class AnsibleLogAnalyzer:
         if (not self.verbose):
             return
 
-        print('[LogAnalyzer][diagnostic]:%s' % message)
+        print(('[LogAnalyzer][diagnostic]:%s' % message))
     #---------------------------------------------------------------------
 
     def create_start_marker(self):
@@ -252,7 +252,7 @@ class AnsibleLogAnalyzer:
     #---------------------------------------------------------------------
 
     def error_to_regx(self, error_string):
-        '''
+        r'''
         This method converts a (list of) strings to one regular expression.
 
         @summary: Meta characters are escaped by inserting a '\' beforehand
@@ -335,8 +335,8 @@ class AnsibleLogAnalyzer:
                             messages_regex.append(self.error_to_regx(row[1:]))
 
                     except Exception as e:
-                        print('ERROR: line %d is formatted incorrectly in file %s. Skipping line' % (index, filename))
-                        print(repr(e))
+                        print(('ERROR: line %d is formatted incorrectly in file %s. Skipping line' % (index, filename)))
+                        print((repr(e)))
                         sys.exit(err_invalid_string_format)
 
         if (len(messages_regex)):
@@ -474,7 +474,7 @@ class AnsibleLogAnalyzer:
                     found_start_marker = True
 
                     if(not in_analysis_range):
-                        print('ERROR: found start marker:%s without corresponding end marker' % rev_line)
+                        print(('ERROR: found start marker:%s without corresponding end marker' % rev_line))
                         sys.exit(err_no_end_marker)
                     in_analysis_range = False
                     break
@@ -589,7 +589,7 @@ def check_action(action, log_files_in, out_dir, match_files_in, ignore_files_in,
 
     else:
         ret_code = False
-        print('ERROR: invalid action:%s specified' % action)
+        print(('ERROR: invalid action:%s specified' % action))
 
     return ret_code
 #---------------------------------------------------------------------
@@ -630,7 +630,7 @@ def write_result_file(run_id, out_dir, analysis_result_per_file, messages_regex_
     expected_lines_total = []
 
     with open(out_dir + "/result.loganalysis." + run_id + ".log", 'w') as out_file:
-        for key, val in analysis_result_per_file.items():
+        for key, val in list(analysis_result_per_file.items()):
             matching_lines, expected_lines = val
 
             out_file.write("\n-----------Matches found in file:'%s'-----------\n" % key)
@@ -683,7 +683,7 @@ def write_summary_file(run_id, out_dir, analysis_result_per_file, unused_regex_m
     out_file.write("\nLOG ANALYSIS SUMMARY\n")
     total_match_cnt = 0
     total_expect_cnt = 0
-    for key, val in analysis_result_per_file.items():
+    for key, val in list(analysis_result_per_file.items()):
         matching_lines, expecting_lines = val
 
         file_match_cnt = len(matching_lines)
@@ -761,7 +761,7 @@ def main(argv):
 
     analyzer = AnsibleLogAnalyzer(run_id, verbose, start_marker)
 
-    log_file_list = list(filter(None, log_files_in.split(tokenizer)))
+    log_file_list = list([_f for _f in log_files_in.split(tokenizer) if _f])
 
     result = {}
     if action == "init":
@@ -799,7 +799,7 @@ def main(argv):
 
 
     else:
-        print('Unknown action:%s specified' % action)
+        print(('Unknown action:%s specified' % action))
     return len(result)
 #---------------------------------------------------------------------
 

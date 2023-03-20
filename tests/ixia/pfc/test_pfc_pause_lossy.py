@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from files.helper import run_pfc_test
+from .files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\

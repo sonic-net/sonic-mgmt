@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa F401
 from tests.common.ixia.qos_fixtures import prio_dscp_map                                    # noqa F401
-from files.pfcwd_burst_storm_helper import run_pfcwd_burst_storm_test
+from .files.pfcwd_burst_storm_helper import run_pfcwd_burst_storm_test
 
 logger = logging.getLogger(__name__)
 

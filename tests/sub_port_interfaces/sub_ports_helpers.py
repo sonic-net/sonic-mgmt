@@ -69,8 +69,8 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
                                             icmp_type=icmp_type, vlan_vid=vlan_vid,
                                             dl_vlan_enable=dl_vlan_enable, ip_ttl=ttl, pktlen=pktlen)
     elif 'decap' in tr_type:
-        inner_dscp = random.choice(range(0, 33))
-        inner_ttl = random.choice(range(3, 65))
+        inner_dscp = random.choice(list(range(0, 33)))
+        inner_ttl = random.choice(list(range(3, 65)))
 
         inner_packet = testutils.simple_tcp_packet(ip_dst=ip_dst, ip_src=ip_src, tcp_sport=TCP_PORT, tcp_dport=TCP_PORT,
                                                    ip_ttl=inner_ttl, ip_dscp=inner_dscp)[packet.IP]
@@ -383,7 +383,7 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
                             pktlen=pktlen)
 
     ifaces_map = ptfhost.host.options['variable_manager'].extra_vars['ifaces_map']
-    config_port_indices = {v: k for k, v in ifaces_map.items()}
+    config_port_indices = {v: k for k, v in list(ifaces_map.items())}
     dst_port_numbers = [config_port_indices[k] for k in config_port_indices if k in dst_port]
 
     ignore_fields = [("Ether", "dst"), ("IP", "src"), ("IP", "chksum"), ("TCP", "chksum")]
@@ -615,8 +615,8 @@ def create_lag_port(duthost, config_port_indices):
         Dictonary of lag ports on the DUT
     """
     lag_port_map = {}
-    portchannels = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts'] \
-        .get('PORTCHANNEL', {}).keys()
+    portchannels = list(duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts'] \
+        .get('PORTCHANNEL', {}).keys())
     port_list_idx = 0
     port_list = list(config_port_indices.values())
     cmds = []
@@ -655,7 +655,7 @@ def create_bond_port(ptfhost, ptf_ports):
     bond_port_map = OrderedDict()
     cmds = []
 
-    for port_index, port_name in ptf_ports.items():
+    for port_index, port_name in list(ptf_ports.items()):
         bond_port = 'bond{}'.format(port_index)
         cmds.append("ip link add {} type bond".format(bond_port))
         cmds.append("ip link set {} type bond miimon 100 mode 802.3ad".format(bond_port))
@@ -799,16 +799,16 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
 
     # if port_type is port channel, filter out those ports that has vlan sub interface
     sub_interface_ports = set([_.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]
-                               for _ in cfg_facts.get('VLAN_SUB_INTERFACE', {}).keys()])
+                               for _ in list(cfg_facts.get('VLAN_SUB_INTERFACE', {}).keys())])
 
     portchannel_members = []
-    for member in cfg_facts.get('PORTCHANNEL_MEMBER', {}).values():
-        portchannel_members += member.keys()
+    for member in list(cfg_facts.get('PORTCHANNEL_MEMBER', {}).values()):
+        portchannel_members += list(member.keys())
 
     config_vlan_members = cfg_facts['port_index_map']
     port_status = cfg_facts['PORT']
     config_port_indices = OrderedDict()
-    for port, port_id in config_vlan_members.items():
+    for port, port_id in list(config_vlan_members.items()):
         if ((port not in portchannel_members) and
                 (not (('port_in_lag' in port_type or exclude_sub_interface_ports) and port in sub_interface_ports)) and
                 (port_status[port].get('admin_status', 'down') == 'up') and
@@ -831,7 +831,7 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
 
         return (lag_port_map, bond_port_map)
 
-    return (config_port_indices, ptf_ports.values())
+    return (config_port_indices, list(ptf_ports.values()))
 
 
 def remove_acl_table(duthost, config_port_indices):
@@ -843,9 +843,9 @@ def remove_acl_table(duthost, config_port_indices):
         config_port_indices: Dictionary of port on the DUT
     """
     acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
-    port_list = config_port_indices.values()
+    port_list = list(config_port_indices.values())
 
-    for table_name in acl_facts.keys():
+    for table_name in list(acl_facts.keys()):
         acl_ports = acl_facts[table_name].get("ports", [])
         if set(acl_ports).intersection(port_list):
             duthost.shell('config acl remove table {}'.format(table_name))
@@ -876,7 +876,7 @@ def remove_lag_port(duthost, cfg_facts, lag_port):
         cfg_facts: Ansible config_facts
         lag_port: lag-port name
     """
-    lag_members = cfg_facts['PORTCHANNEL_MEMBER'][lag_port].keys()
+    lag_members = list(cfg_facts['PORTCHANNEL_MEMBER'][lag_port].keys())
     for port in lag_members:
         duthost.shell('config portchannel member del {} {}'.format(lag_port, port))
     duthost.shell('config portchannel del {}'.format(lag_port))
@@ -1071,7 +1071,7 @@ def check_balancing(port_hit_cnt):
     Args:
         port_hit_cnt: Dictionary of matched packets on different sub-ports
     """
-    for pkt_cnt in port_hit_cnt.values():
+    for pkt_cnt in list(port_hit_cnt.values()):
         percentage = (pkt_cnt - BALANCING_TEST_TIMES) / float(BALANCING_TEST_TIMES)
         if not abs(percentage) <= DEFAULT_BALANCING_RANGE:
             break

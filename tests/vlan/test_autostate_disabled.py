@@ -56,7 +56,7 @@ class TestAutostateDisabled:
 
         # Pick a vlan for test
         vlan = vlan_available[0]
-        vlan_members = vlan_members_facts[vlan].keys()
+        vlan_members = list(vlan_members_facts[vlan].keys())
 
         try:
             # Shutdown all the members in vlan.
