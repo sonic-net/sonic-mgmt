@@ -115,6 +115,14 @@ class FinishStatus(AbstractStatus):
         super().__init__(TestPlanStatus.FINISHED)
 
 
+def get_scope(testbed_tools_url):
+    if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net":
+        scope = "api://sonic-testbed-tools-prod/.default"
+    else:
+        scope = "api://sonic-testbed-tools-dev/.default"
+    return scope
+
+
 class TestPlanManager(object):
 
     def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
@@ -130,10 +138,7 @@ class TestPlanManager(object):
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
         }
-        if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net":
-            scope = "api://sonic-testbed-tools-prod/.default"
-        else:
-            scope = "api://sonic-testbed-tools-dev/.default"
+        scope = get_scope(testbed_tools_url)
 
         payload = {
             "grant_type": "client_credentials",
@@ -520,6 +525,7 @@ if __name__ == "__main__":
         const='',
         default="PR",
         required=False,
+        choices=['PR', 'NIGHTLY'],
         help="Test plan type."
     )
     parser_create.add_argument(
