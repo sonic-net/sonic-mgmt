@@ -12,10 +12,6 @@ console-212,24,str2-7050cx3-acs-13,ssh,sonic
 console-194,13,str2-7050cx3-acs-14,ssh,sonic
 console-212,19,str2-7050qx-32s-acs-01,ssh,sonic
 console-212,21,str2-7060cx-32s-29,ssh,sonic
-console-212,2006,str2-7060-spy-1,ssh,sonic
-console-212,2007,str2-7060-spy-2,ssh,sonic
-console-212,4,str2-7060-spy-3,ssh,sonic
-console-212,5,str2-7060-spy-4,ssh,sonic
 console-199,5,str2-7260cx3-acs-9,ssh,sonic
 console-199,12,str2-msn2700-spy-1,ssh,sonic
 console-199,14,str2-msn2700-spy-2,ssh,sonic

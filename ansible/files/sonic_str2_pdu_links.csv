@@ -34,14 +34,6 @@ pdu-109,31,str2-z9332f-02,PSU2
 pdu-111,45,str2-z9332f-03,PSU1
 pdu-111,35,str2-z9332f-05,PSU1
 pdu-111,46,str2-z9332f-05,PSU2
-pdu-120,34,str2-7060-spy-1,PSU1
-pdu-119,33,str2-7060-spy-1,PSU2
-pdu-120,32,str2-7060-spy-2,PSU1
-pdu-119,32,str2-7060-spy-2,PSU2
-pdu-120,23,str2-7060-spy-3,PSU1
-pdu-119,23,str2-7060-spy-3,PSU2
-pdu-120,35,str2-7060-spy-4,PSU1
-pdu-119,35,str2-7060-spy-4,PSU2
 pdu-117,29,str2-7060cx-32s-29,PSU1
 pdu-118,29,str2-7060cx-32s-29,PSU2
 pdu-117,38,str2-7215-acs-1,PSU1
@@ -177,8 +169,6 @@ pdu-122,1,str2-8102-04,PSU1
 pdu-123,1,str2-8102-04,PSU2
 pdu-110,42,str2-8101-32fh-02,PSU1
 pdu-111,42,str2-8101-32fh-02,PSU2
-pdu-120,36,str2-dx010-acs-2,PSU1
-pdu-119,36,str2-dx010-acs-2,PSU2
 pdu-117,7,str2-acs-serv-16,PSU1
 pdu-117,12,str2-acs-serv-18,PSU1
 pdu-117,14,str2-acs-serv-19,PSU1

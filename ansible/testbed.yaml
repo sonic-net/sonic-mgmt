@@ -1742,24 +1742,6 @@
   auto_recover: 'True'
   comment: Test ptf ANVL SONIC VM
 
-- conf-name: spytest
-  group-name: spytest
-  topo: fullmesh
-  ptf_image_name: docker-ptf
-  ptf: ptf-unknown
-  ptf_ip: 10.64.246.101/23
-  ptf_ipv6:
-  server: server_16
-  vm_base:
-  dut:
-    - str2-7060-spy-3
-    - str2-7060-spy-4
-    - str2-7060-spy-1
-    - str2-7060-spy-2
-  inv_name: str2
-  auto_recover: 'False'
-  comment: hellospytest
-
 - conf-name: vms-chassis-packet-dut
   group-name: vms-dummy-dut
   topo: t2
@@ -2030,3 +2012,48 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
+
+- conf-name: vms63-t0-7060-1
+  group-name: vms63-1
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms63-1
+  ptf_ip: 10.3.146.197/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63000
+  dut:
+    - str3-7060-acs-1
+  inv_name: str3
+  auto_recover: 'True'
+  comment: zhaohuisun
+
+- conf-name: vms63-t0-7060-2
+  group-name: vms63-2
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms63-2
+  ptf_ip: 10.3.146.198/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63004
+  dut:
+    - str3-7060-acs-2
+  inv_name: str3
+  auto_recover: 'True'
+  comment: zhaohuisun
+
+- conf-name: vms63-t1-7060-3
+  group-name: vms63-3
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: vms63-3
+  ptf_ip: 10.3.146.199/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63008
+  dut:
+    - str3-7060-acs-3
+  inv_name: str3
+  auto_recover: 'True'
+  comment: lipingxu

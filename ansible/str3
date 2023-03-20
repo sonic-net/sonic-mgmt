@@ -30,6 +30,12 @@ all:
           ansible_host: 10.64.247.37
         vms61-6:
           ansible_host: 10.64.247.38
+        vms63-1:
+          ansible_host: 10.3.146.197
+        vms63-2:
+          ansible_host: 10.3.146.198
+        vms63-3:
+          ansible_host: 10.3.146.199
     pdu:
       hosts:
         pdu-85:
@@ -113,6 +119,11 @@ fanout:
     str3-8101-fanout-03:
       ansible_host: 10.3.146.192
       os: sonic
+    str3-7060-acs-fan-01:
+      ansible_host: 10.3.146.241
+    str3-dx010-acs-1:
+      ansible_host: 10.3.146.236
+      os: sonic
 
 sonic:
   vars:
@@ -128,6 +139,7 @@ sonic:
     sonic_arista_7800_sup:
     sonic_arista_7800_lc_100G:
     sonic_arista_7800_lc_400G:
+    sonic_arista32_100:
 
 sonic_cisco_8102:
   vars:
@@ -614,7 +626,6 @@ sonic_arista_7800_lc_100G:
       voq_inband_ipv6: [3333::3:1/128]
       loopback4096_ip: [192.0.0.1/32]
       loopback4096_ipv6: [2603:10e2:400::1/128]
-      model: 7800R3-48CQ2-LC
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.58
@@ -629,7 +640,6 @@ sonic_arista_7800_lc_100G:
       voq_inband_ipv6: [3333::3:2/128]
       loopback4096_ip: [192.0.0.2/32]
       loopback4096_ipv6: [2603:10e2:400::2/128]
-      model: 7800R3-48CQ2-LC
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.71
@@ -644,7 +654,6 @@ sonic_arista_7800_lc_100G:
       voq_inband_ipv6: [3333::3:3/128]
       loopback4096_ip: [192.0.0.3/32]
       loopback4096_ipv6: [2603:10e2:400::3/128]
-      model: 7800R3-48CQ2-LC
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.72
@@ -659,7 +668,6 @@ sonic_arista_7800_lc_100G:
       voq_inband_ipv6: [3333::3:4/128]
       loopback4096_ip: [192.0.0.4/32]
       loopback4096_ipv6: [2603:10e2:400::4/128]
-      model: 7800R3-48CQ2-LC
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.74
@@ -674,7 +682,6 @@ sonic_arista_7800_lc_100G:
       voq_inband_ipv6: [3333::3:5/128]
       loopback4096_ip: [192.0.0.5/32]
       loopback4096_ipv6: [2603:10e2:400::5/128]
-      model: 7800R3-48CQ2-LC
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.75
@@ -689,7 +696,6 @@ sonic_arista_7800_lc_100G:
       voq_inband_ipv6: [3333::3:6/128]
       loopback4096_ip: [192.0.0.6/32]
       loopback4096_ipv6: [2603:10e2:400::6/128]
-      model: 7800R3-48CQ2-LC
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.80
@@ -704,7 +710,6 @@ sonic_arista_7800_lc_100G:
       voq_inband_ipv6: [3333::3:7/128]
       loopback4096_ip: [192.0.0.7/32]
       loopback4096_ipv6: [2603:10e2:400::7/128]
-      model: 7800R3-48CQ2-LC
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.81
@@ -733,9 +738,23 @@ sonic_arista_7800_lc_400G:
       base_mac: 2c:dd:e9:6c:cb:5c
       ansible_host: 10.3.146.83
 
+sonic_arista32_100:
+  hosts:
+    str3-7060-acs-1:
+      ansible_host: 10.3.146.240
+      hwsku: Arista-7060CX-32S-D48C8
+    str3-7060-acs-2:
+      ansible_host: 10.3.146.242
+      hwsku: Arista-7060CX-32S-D48C8
+    str3-7060-acs-3:
+      ansible_host: 10.3.146.243
+      hwsku: Arista-7060CX-32S-C32
+
 server:
   hosts:
     str3-acs-serv-61:
       ansible_host: 10.64.246.96
     str3-acs-serv-62:
       ansible_host: 10.64.246.6
+    str3-acs-serv-63:
+      ansible_host: 10.3.146.196

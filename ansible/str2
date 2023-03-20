@@ -217,9 +217,6 @@ all:
 
 fanout:
   hosts:
-    str2-dx010-acs-2:
-      ansible_host: 10.3.146.236
-      os: sonic
     str2-7260cx3-acs-fan-06:
       ansible_host: 10.3.146.176
     str2-7260cx3-fan-07:
@@ -749,18 +746,6 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot=Aboot-norcal6-6.1.11-18938843"
         "0x2F": "JPE21030969"
-    str2-7060-spy-1:
-      ansible_host: 10.3.146.241
-      hwsku: Arista-7060CX-32S-C32
-    str2-7060-spy-2:
-      ansible_host: 10.3.146.240
-      hwsku: Arista-7060CX-32S-C32
-    str2-7060-spy-3:
-      ansible_host: 10.3.146.242
-      hwsku: Arista-7060CX-32S-C32
-    str2-7060-spy-4:
-      ansible_host: 10.3.146.243
-      hwsku: Arista-7060CX-32S-C32
     str2-7804-sup-1:
       ansible_host: 10.3.146.249
       hwsku: Arista-7808R3A-FM
