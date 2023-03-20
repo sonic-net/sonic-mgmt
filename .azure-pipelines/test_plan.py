@@ -137,13 +137,12 @@ class TestPlanManager(object):
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
         }
-        scope = get_scope(testbed_tools_url)
 
         payload = {
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": scope
+            "scope": get_scope(testbed_tools_url)
         }
         try:
             resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
