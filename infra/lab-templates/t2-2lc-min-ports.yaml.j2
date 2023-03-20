@@ -1,0 +1,140 @@
+all:
+  children:
+    lab:
+      vars:
+        mgmt_subnet_mask_length: 16
+      children:
+        sonic:
+          children:
+            sonic_multi_asic:
+            sonic_cisco_sup:
+            sonic_cisco_lc_100G:
+    ptf:
+      hosts:
+        docker-ptf:
+          ansible_host: 192.168.122.5
+          ansible_ssh_user: root
+          ansible_ssh_pass: root
+
+sonic_multi_asic:
+  vars:
+    hwsku: msft_multi_asic_vs
+    iface_speed: 40000
+    num_asics: 6
+    start_topo_service: True
+    frontend_asics: [0,1,2,3]
+    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32, 8.0.0.4/32, 8.0.0.5/32]
+    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128, 2603:10e2:400::4/128, 2603:10e2:400:5/128]
+
+sonic_cisco_sup:
+  vars:
+    HwSku:  8800-RP-O
+    slot_num: slot0
+    card_type: supervisor
+  hosts:
+    sfd-01:
+      ansible_ssh_user: cisco
+      ansible_ssh_pass: cisco123
+      ansible_host: {{ vxr_ports['sonic_dut']['xr_mgmt_ip'] }}
+      hwsku: 8800-RP-O
+      num_asics: 16
+      asics_present: [0,1,2,3,4,5,6,7,8,9]
+      model: 8800-RP-O
+      serial: FOC2428P4EW
+      base_mac: E4:1F:7B:37:52:08
+      syseeprom_info:
+        "0x21": "8800-RP-O"
+        "0x22": "1A4841"
+        "0x23": "FOC2428P4EW"
+        "0x24": "E4:1F:7B:37:52:08"
+        "0x26": "1"
+        "0x28": "x86_64-8800_rp_o-r1"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0xB956E41D"
+      skip_modules:
+          'psus':
+            - psu0.0
+            - psu0.1
+            - psu0.2
+            - psu1.0
+            - psu1.1
+            - psu1.2
+            - psu3.0
+            - psu3.1
+            - psu3.2
+            - psu4.0
+            - psu4.1
+            - psu4.2
+            - psu5.0
+            - psu5.1
+            - psu5.2
+          'line-cards':
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'fabric-cards':
+            - FABRIC-CARD5
+            - FABRIC-CARD6
+            - FABRIC-CARD7
+          'supervisor':
+            - SUPERVISOR1
+
+sonic_cisco_lc_100G:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 2
+    frontend_asics: [0,1]
+
+  hosts:
+    sfd-lc0:
+      hwsku: 8800-LC-48H-O
+      slot_num: slot1
+      loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
+      ansible_host: {{ vxr_ports['sonic_dut_lc0']['xr_mgmt_ip'] }}
+      ansible_ssh_user: cisco
+      ansible_ssh_pass: cisco123
+      model: 8800-LC-48H-O
+      serial: FOC2417NH06
+      base_mac: F8:6B:D9:78:5E:18
+      syseeprom_info:
+        "0x21": "8800-LC-48H-O"
+        "0x22": "1A5235"
+        "0x23": "FOC2417NH06"
+        "0x24": "F8:6B:D9:78:5E:18"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h_o-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0x824248F5"
+
+    sfd-lc1:
+      hwsku: 8800-LC-48H-O
+      slot_num: slot2
+      loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
+      loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
+      ansible_host: {{ vxr_ports['sonic_dut_lc1']['xr_mgmt_ip'] }}
+      ansible_ssh_user: cisco
+      ansible_ssh_pass: cisco123
+      model: 8800-LC-48H-O
+      serial: FOC2434PLPJ
+      base_mac: E4:1F:7B:DE:01:50
+      syseeprom_info:
+        "0x21": "8800-LC-48H-O"
+        "0x22": "1A5235"
+        "0x23": "FOC2434PLPJ"
+        "0x24": "E4:1F:7B:DE:01:50"
+        "0x26": "2"
+        "0x28": "x86_64-8800_lc_48h_o-r2"
+        "0x2A": "200"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0xB5D301F7"

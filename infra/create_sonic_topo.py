@@ -28,6 +28,7 @@ import time
 import datetime
 import subprocess
 import sys
+from jinja2 import Environment, FileSystemLoader
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -57,19 +58,19 @@ def _create_parser():
     parser.add_argument('-i', '--input_file', type=str, help='Input port file',
                       required=False,default=None)
     parser.add_argument('-b', '--tar_ball', type=str, help='Specify tar ball location',
-                      required=False,default="http://172.29.93.10/sonic-images/golden-code/golden_code.tar.gz")
+                      required=False,default="master")
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't0-64', "t1-8-lag"])
+                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't0-64', "t1-8-lag", "t2-vs", "t2-min"])
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
                       required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
-                      required=False,default="mth64")
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, sfd',
+                      required=False,default="mth64", choices=['sherman', 'm32', 'sfd'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -114,21 +115,13 @@ def repo_update(data):
             print(resp.decode("ascii"))
         time.sleep(3)
 
-        chan.send("docker container stop docker-sonic-mgmt\n")
-        buff = ''
-        while not buff.endswith(':~$ '):
-            resp = chan.recv(9999)
-            buff += resp.decode("ascii")
-            print(resp.decode("ascii"))
-        time.sleep(3)
-
-        chan.send("docker container rm docker-sonic-mgmt\n")
-        buff = ''
-        while not buff.endswith(':~$ '):
-            resp = chan.recv(9999)
-            buff += resp.decode("ascii")
-            print(resp.decode("ascii"))
-        time.sleep(3)
+    chan.send("docker container rm -f docker-sonic-mgmt\n")
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
 
     chan.send("mkdir golden-code\n")
     buff = ''
@@ -153,8 +146,8 @@ def repo_update(data):
         buff += resp.decode("utf-8")
     time.sleep(3)
 
-    tar_ball = data['tar_ball'].split('/')[-1]
-    chan.send("tar -xvf {}\n".format(tar_ball))
+    tar_file = data['tar_ball'].split('/')[-1]
+    chan.send("tar -xvf {}\n".format(tar_file))
     buff = ''
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
@@ -223,6 +216,10 @@ def deploy_mg(data,topo_type,base_topo_file):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    if topo_type in ['t2-min', 't2-vs']:
+        overwrite_lab_file(data)
+        print("Overwrote lab file for T2 specific oddities")
+
     chan.send('./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml\n')
     chan.settimeout(180)
     buff = ''
@@ -252,6 +249,7 @@ def deploy_mg(data,topo_type,base_topo_file):
         print('Hit %s' % e)
     finally:
         print(buff)
+
 
     ssh.close()
 
@@ -454,6 +452,16 @@ def download_mg(data,topo_type,dut_name):
     ftp_client.close()
     ssh.close()
 
+# Write a buffer to a remote file on the sonic-mgmt VM
+# Allows us to upload a generated file without creating a local temporary copy of it
+def upload_file_stream(data, stream, dest):
+    with paramiko.SSHClient() as ssh:
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+        with ssh.open_sftp() as ftp_client:
+            with ftp_client.file(dest, 'w') as fd:
+                fd.write(stream)
+
 
 def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ssh = paramiko.SSHClient()
@@ -472,6 +480,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('sonic_lab_devices_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+    elif device_type == 'sfd' and topo_type == 't2-min':
+        ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     if topo_type in ['t0', 'dualtor-56']:
         ftp_client.put('t0-leaf.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
     elif topo_type == 't1':
@@ -830,6 +840,18 @@ def get_log_files(data,log_dir):
     ftp_client.close() 
     ssh.close()
 
+# The lab file generated by TestbedProcessing.py does not work well for T2-2lc-min topology
+# We still run TestbedProcessing.py to generate other important output files
+# But then we overwrite the lab file with our own (in YAML instead of ini, for readability)
+def overwrite_lab_file(vxr_ports):
+    environment = Environment(loader=FileSystemLoader("lab-templates"))
+    template = environment.get_template("t2-2lc-min-ports.yaml.j2")
+    upload_file_stream(
+        vxr_ports,
+        template.render(vxr_ports=vxr_ports),
+        "/home/vxr/golden-code/sonic-test/sonic-mgmt/ansible/lab"
+    )
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -850,10 +872,21 @@ def main():
     ptf_intfcount = 32
     if device_type == 'sherman':
         dut_platform = "sherman"
+    elif device_type == 'sfd':
+        dut_platform = 'sfd'
     else:
         dut_platform = "mathilda"
 
-    if topo_type == 't0':
+    if topo_type in ['t2-vs', 't2-min']:
+        assert device_type == 'sfd', "Only SF-D is currently supported with T2 topologies"
+        os.system("cp sonic_t2/* .")
+        if topo_type == 't2-vs':
+            base_topo_file = 'testbed-t2-vs.yaml'
+            vEOS_count = 4
+        elif topo_type == 't2-min':
+            base_topo_file = 'testbed-t2-2lc-min-ports.yaml'
+            vEOS_count = 8
+    elif topo_type == 't0':
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
         if device_type == 'sherman':
@@ -905,9 +938,9 @@ def main():
     input_file = args['input_file']
 
     delta1 = datetime.datetime.now()
-    vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+    vxr_path = "/auto/vxr/pyvxr/latest/vxr.py"
     if cicd:
-        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py" 
+        vxr_path = "python3.8 /auto/vxr/pyvxr/latest/vxr.py"
 
     if input_file is None:
         if clean_sim:
@@ -946,11 +979,6 @@ def main():
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
     upload_tb_files(data,topo_type,base_topo_file,device_type)
-
-    # Change DUT password and set mgmt ip address
-    for dut_name in get_dut_names(data):
-            print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
-            change_dut_passwd(data[dut_name])
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")

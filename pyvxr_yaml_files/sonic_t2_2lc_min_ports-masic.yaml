@@ -1,0 +1,147 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+    hours: 26
+    #partition: amd
+  pyvxr_flags:
+    sonic_lc_bringup: True
+
+devices:
+  docker_ptf:
+    platform: linux
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
+    linux_username: root
+    linux_password: lab
+    linux_prompt: root@docker-ptf:/#
+    xr_port_redir: [22]
+    extended_pci_bus: True
+    vcpu: 4
+    memory: '4G'
+    mgmt_intf_name: mgmt
+    data_ports:
+      - eth[0..64]
+      - backplane
+
+  sonic_dut:
+    platform: spitfire_d
+    os_type: sonic
+    lcc_type: havoc-gb
+    num_linecards: 2
+    linecard_types: [ 'gauntlet', 'gauntlet' ]
+    xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    linux_config: udhcpc -q -s /lib/onie/udhcp4_net -n -i eth0
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: /ws/mridul-sjc/sonic-cisco-8000.bin
+    vxr_sim_config:
+      rp:
+          ConfigNicOrder: "mgmt-ce-punt"
+      lc:
+          ConfigNicOrder: "mgmt-ce-punt"
+
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup3/sonic/ubuntu1804_mgt.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@vxr-vm:~\$'
+    vcpu: 4
+    memory: '4G'
+
+device_groups:
+  veos:
+    devices:
+    - "veos[1..8]"
+    platform: veos
+    xr_port_redir: [22]
+    image: /auto/vxr/images/veos/Aboot-veos-serial-8.0.0.iso
+    disks:
+    - hda:
+        file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
+        type: reference
+
+# ARISTA 01 T3: veos1
+# ARISTA 03 T3: veos2
+# ARISTA 04 T3: veos3
+# ARISTA 06 T3: veos4
+#
+# ARISTA 01 T1: veos5
+# ARISTA 03 T1: veos6
+# ARISTA 04 T1: veos7
+# ARISTA 06 T1: veos8
+connections:
+  custom:
+    ptf_injected_01_T3_1:
+      ports:
+      - sonic_dut.HundredGigE0/0/0/4
+      - veos1.Ethernet1
+      - docker_ptf.eth0
+    ptf_injected_01_T3_2:
+      ports:
+      - sonic_dut.HundredGigE0/0/0/5
+      - veos1.Ethernet2
+      - docker_ptf.eth1
+
+    ptf_injected_03_T3:
+      ports:
+      - sonic_dut.HundredGigE0/0/0/8
+      - veos2.Ethernet1
+      - docker_ptf.eth2
+
+    ptf_injected_04_T3_1:
+      ports:
+      - sonic_dut.HundredGigE0/0/0/25
+      - veos3.Ethernet1
+      - docker_ptf.eth3
+    ptf_injected_04_T3_2:
+      ports:
+      - sonic_dut.HundredGigE0/0/0/28
+      - veos3.Ethernet2
+      - docker_ptf.eth4
+
+    ptf_injected_06_T3:
+      ports:
+      - sonic_dut.HundredGigE0/0/0/23
+      - veos4.Ethernet1
+      - docker_ptf.eth5
+
+    ptf_injected_01_T1_1:
+      ports:
+      - sonic_dut.HundredGigE0/1/0/2
+      - veos5.Ethernet1
+      - docker_ptf.eth6
+    ptf_injected_01_T1_2:
+      ports:
+      - sonic_dut.HundredGigE0/1/0/3
+      - veos5.Ethernet2
+      - docker_ptf.eth7
+    
+    ptf_injected_03_T1:
+      ports:
+      - sonic_dut.HundredGigE0/1/0/6
+      - veos6.Ethernet1
+      - docker_ptf.eth8
+
+    ptf_injected_04_T1_1:
+      ports:
+      - sonic_dut.HundredGigE0/1/0/23
+      - veos7.Ethernet1
+      - docker_ptf.eth9
+    ptf_injected_04_T1_2:
+      ports:
+      - sonic_dut.HundredGigE0/1/0/25
+      - veos7.Ethernet2
+      - docker_ptf.eth10
+
+    ptf_injected_06_T1:
+      ports:
+      - sonic_dut.HundredGigE0/1/0/28
+      - veos8.Ethernet1
+      - docker_ptf.eth11
+
+    backplane:
+      ports:
+      - veos[1..8].Ethernet9
+      - docker_ptf.backplane

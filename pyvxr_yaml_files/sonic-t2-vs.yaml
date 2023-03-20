@@ -1,0 +1,91 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+      hours: 6
+      partition: amd
+  pyvxr_flags:
+      sonic_lc_bringup: True
+
+devices:
+  docker_ptf:
+    platform: linux
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
+    linux_username: root
+    linux_password: lab
+    linux_prompt: root@docker-ptf:/#
+    xr_port_redir: [22]
+    extended_pci_bus: True
+    vcpu: 4
+    memory: '4G'
+    mgmt_intf_name: mgmt
+    data_ports:
+      - eth[0..71]
+      - backplane
+
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup3/sonic/ubuntu1804_mgt.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@vxr-vm:~\$'
+    vcpu: 4
+    memory: '4G'
+
+  sonic_dut:
+    platform: spitfire_d
+    os_type: sonic
+    lcc_type: havoc-gb
+    num_linecards: 2
+    linecard_types: [ 'gauntlet', 'gauntlet' ]
+    xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: /ws/jusherma-sjc/sonic-buildimage-azure.master-p2-1260-20220711033048/sonic-cisco-8000.bin
+    vxr_sim_config:
+      shelf:
+         ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-customer-tarball-debians/sdk-customer-tarball-debians-1.0.0-gibraltar-1.50.10.4.12-1.9.0-buster-prod-25258/npl
+         ConfigS1NpsuiteVer: 1.90.0
+      rp:
+          ConfigNicOrder: "mgmt-ce-punt"
+      lc:
+          ConfigNicOrder: "punt-ce-mgmt"
+
+device_groups:
+  veos:
+    devices:
+    - "veos[1..4]"
+    platform: veos
+    xr_port_redir: [22]
+    image: /auto/vxr/images/veos/Aboot-veos-serial-8.0.0.iso
+    disks:
+    - hda:
+        file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
+        type: reference
+
+# ARISTA 01 T3: veos1
+# ARISTA 03 T3: veos2
+# ARISTA 01 T1: veos3
+# ARISTA 03 T1: veos4
+# Uses XR-style format "HundredGigE0/<slot>/0/[0..47]"
+connections:
+  hubs:
+    hub0:
+      - sonic_dut.HundredGigE0/0/0/0
+      - veos1.Ethernet1
+    hub1:
+      - sonic_dut.HundredGigE0/0/0/1
+      - veos1.Ethernet2
+    hub2:
+      - sonic_dut.HundredGigE0/0/0/2
+      - veos2.Ethernet1
+    hub3:
+      - sonic_dut.HundredGigE0/1/0/0
+      - veos3.Ethernet1
+    hub4:
+      - sonic_dut.HundredGigE0/1/0/1
+      - veos3.Ethernet2
+    hub5:
+      - sonic_dut.HundredGigE0/1/0/2
+      - veos4.Ethernet1
