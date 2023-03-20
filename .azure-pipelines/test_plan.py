@@ -116,10 +116,9 @@ class FinishStatus(AbstractStatus):
 
 
 def get_scope(testbed_tools_url):
+    scope = "api://sonic-testbed-tools-dev/.default"
     if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net":
         scope = "api://sonic-testbed-tools-prod/.default"
-    else:
-        scope = "api://sonic-testbed-tools-dev/.default"
     return scope
 
 
