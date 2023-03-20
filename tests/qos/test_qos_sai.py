@@ -233,11 +233,6 @@ class TestQosSai(QosSaiBase):
         if 'cell_size' in qosConfig[xoffProfile].keys():
             testParams["cell_size"] = qosConfig[xoffProfile]["cell_size"]
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
-
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
         )
@@ -364,11 +359,6 @@ class TestQosSai(QosSaiBase):
 
         # set poll interval for pfcwd
         duthost.command("pfcwd interval {}".format(pfcwd_timers['pfc_wd_poll_time']))
-
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
 
         logger.info("--- Start Pfcwd on port {}".format(pfcwd_test_port))
         start_wd_on_ports(duthost,
@@ -507,11 +497,6 @@ class TestQosSai(QosSaiBase):
         if 'cell_size' in qosConfig[xonProfile].keys():
             testParams["cell_size"] = qosConfig[xonProfile]["cell_size"]
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
-
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
         )
@@ -575,11 +560,6 @@ class TestQosSai(QosSaiBase):
 
         if "packet_size" in qosConfig[LosslessVoqProfile].keys():
             testParams["packet_size"] = qosConfig[LosslessVoqProfile]["packet_size"]
-
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.LosslessVoq", testParams=testParams
@@ -664,11 +644,6 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
-
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
             testParams=testParams
@@ -737,11 +712,6 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_margin" in qosConfig[sharedResSizeKey]:
             testParams["pkts_num_margin"] = qosConfig[sharedResSizeKey]["pkts_num_margin"]
-
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.SharedResSizeTest",
@@ -824,11 +794,6 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
-
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
             testParams=testParams
@@ -903,11 +868,6 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
-
         if "packet_size" in qosConfig[bufPool].keys():
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
 
@@ -980,11 +940,6 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig["lossy_queue_1"].keys():
             testParams["pkts_num_margin"] = qosConfig["lossy_queue_1"]["pkts_num_margin"]
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
-
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.LossyQueueTest",
             testParams=testParams
@@ -1053,11 +1008,6 @@ class TestQosSai(QosSaiBase):
             if "pkts_num_margin" in qosConfig[LossyVoq].keys():
                 testParams["pkts_num_margin"] = qosConfig[LossyVoq]["pkts_num_margin"]
 
-            duthost = dutConfig['dutInstance']
-            dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-                dutConfig['dutInterfaces'][testParams["src_port_id"]])
-            testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
-
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.LossyQueueVoqTest",
                 testParams=testParams
@@ -1108,10 +1058,6 @@ class TestQosSai(QosSaiBase):
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
         else:
             testParams["platform_asic"] = None
-
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpMappingPB",
@@ -1173,10 +1119,6 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
-
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpMappingPB",
             testParams=testParams
@@ -1214,11 +1156,6 @@ class TestQosSai(QosSaiBase):
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
         else:
             testParams["platform_asic"] = None
-
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.Dot1pToQueueMapping",
@@ -1258,10 +1195,6 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.Dot1pToPgMapping",
             testParams=testParams
@@ -1330,9 +1263,6 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["ecn"] = qosConfig["lossy_queue_1"]["ecn"]
 
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
@@ -1413,10 +1343,6 @@ class TestQosSai(QosSaiBase):
         if "internal_hdr_size" in qosConfig.keys():
             testParams["internal_hdr_size"] = qosConfig["internal_hdr_size"]
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest",
             testParams=testParams
@@ -1482,10 +1408,6 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in qosConfig["wm_pg_headroom"].keys():
             testParams["packet_size"] = qosConfig["wm_pg_headroom"]["packet_size"]
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest",
             testParams=testParams
@@ -1539,10 +1461,6 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGDropTest", testParams=testParams
         )
@@ -1619,10 +1537,6 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig[queueProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[queueProfile]["pkts_num_margin"]
 
-        duthost = dutConfig['dutInstance']
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.QSharedWatermarkTest",
             testParams=testParams
@@ -1672,9 +1586,6 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpToPgMapping",
             testParams=testParams
@@ -1732,9 +1643,6 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpToPgMapping",
             testParams=testParams
@@ -1799,9 +1707,6 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        dutTestParams['basicParams']["router_mac"] = duthost.get_dut_iface_mac(
-            dutConfig['dutInterfaces'][testParams["src_port_id"]])
-        testParams["router_mac"] = dutTestParams['basicParams']["router_mac"]
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
