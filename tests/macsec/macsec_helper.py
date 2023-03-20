@@ -354,9 +354,9 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=Fal
         pkt = sa.decrypt(macsec_pkt)
     except cryptography.exceptions.InvalidTag:
         # Invalid MACsec packets
-        return None
+        return pkt, False
     pkt = sa.decap(pkt)
-    return pkt
+    return pkt, True
 
 
 def check_macsec_pkt(test, ptf_port_id, exp_pkt, timeout=3):
@@ -415,9 +415,9 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 if macsec_info:
                     encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
                     force_reload[ret.port] = False
-                    pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+                    pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
                                         send_sci, 0, xpn_en, ssci, salt)
-                    if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                    if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                         return ret
         # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of recently received packets
         # to help with debugging. However, since we call __origin_dp_poll multiple times, only the packets from the most recent call is retained.

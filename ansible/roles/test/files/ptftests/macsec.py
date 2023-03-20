@@ -31,9 +31,9 @@ def __decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=F
         pkt = sa.decrypt(macsec_pkt)
     except cryptography.exceptions.InvalidTag:
         # Invalid MACsec packets
-        return None
+        return pkt, False
     pkt = sa.decap(pkt)
-    return pkt
+    return pkt, True
 
 
 def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
@@ -57,9 +57,9 @@ def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_
                 continue
         if ret.port in MACSEC_INFOS and MACSEC_INFOS[ret.port]:
             encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = MACSEC_INFOS[ret.port]
-            pkt = __decap_macsec_pkt(pkt, sci, an, sak, encrypt,
+            pkt, decap_success = __decap_macsec_pkt(pkt, sci, an, sak, encrypt,
                                 send_sci, 0, xpn_en, ssci, salt)
-            if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+            if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                 return ret
         recent_packets.append(pkt)
         packet_count += 1
