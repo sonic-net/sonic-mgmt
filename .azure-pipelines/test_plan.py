@@ -533,7 +533,7 @@ if __name__ == "__main__":
         const='PR',
         default="PR",
         required=False,
-        choices=['PR', 'NIGHTLY', ''],
+        choices=['PR', 'NIGHTLY'],
         help="Test plan type. Optional: ['PR', 'NIGHTLY']"
     )
     parser_create.add_argument(

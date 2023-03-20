@@ -90,12 +90,13 @@ steps:
       --test-set ${{ parameters.TEST_SET }} --kvm-build-id $(KVM_BUILD_ID) \
       --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
       --common-extra-params "${{ parameters.COMMON_EXTRA_PARAMS }}" \
-      --vm-type ${{ parameters.VM_TYPE }} --specified-params "${{ parameters.SPECIFIED_PARAMS }}" --num-asic ${{ parameters.NUM_ASIC }} \
+      --specified-params "${{ parameters.SPECIFIED_PARAMS }}" \
+      --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
+      --image_url ${{ parameters.IMAGE_URL }} \
+      --hwsku ${{ parameters.HWSKU }} \
+      --test-plan-type ${{ parameters.TEST_PLAN_TYPE }} \
+      --platform ${{ parameters.PLATFORM }} \
       --testbed-name "${{ parameters.TESTBED_NAME }}" \
-      --image_url "${{ parameters.IMAGE_URL }}" \
-      --hwsku "${{ parameters.HWSKU }}" \
-      --test-plan-type "${{ parameters.TEST_PLAN_TYPE }}" \
-      --platform "${{ parameters.PLATFORM }}" \
       --scripts "${{ parameters.SCRIPTS }}" \
       --features "${{ parameters.FEATURES }}" \
       --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
