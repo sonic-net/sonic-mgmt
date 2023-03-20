@@ -525,9 +525,9 @@
   auto_recover: 'True'
   comment: Jenkins
 
-- conf-name: vms12-t0-2
+- conf-name: vms12-t0-8-lag-2700
   group-name: v12-21
-  topo: t0
+  topo: t0-8-lag
   ptf_image_name: docker-ptf
   ptf: v12-21
   ptf_ip: 10.64.246.26/23
@@ -538,7 +538,7 @@
     - str-msn2700-04
   inv_name: str
   auto_recover: 'True'
-  comment: Jenkins
+  comment: devojha
 
 - conf-name: testbed-str-e1031-acs-1
   group-name: vms11-7
