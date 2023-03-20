@@ -31,7 +31,7 @@ def __decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=F
         pkt = sa.decrypt(macsec_pkt)
     except cryptography.exceptions.InvalidTag:
         # Invalid MACsec packets
-        return pkt, False
+        return macsec_pkt, False
     pkt = sa.decap(pkt)
     return pkt, True
 
