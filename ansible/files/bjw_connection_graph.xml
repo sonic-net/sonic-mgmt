@@ -1829,44 +1829,44 @@
       <DeviceConsoleInfo Hostname="bjw-can-7215-9" HwSku="Nokia-7215" ManagementIp="10.150.22.11" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-2700-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="1"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-slx-5" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="2"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-slx-can-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="3"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-slx-can-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="4"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-slx-can-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="5"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-slx-can-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="6"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7260-root-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="7"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7060-fanout-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="8"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-z9332f-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="9"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-ec9516-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="10"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="11"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="12"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-720dt-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="13"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-720dt-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="14"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="15"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="16"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-slx-6" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="17"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-2700-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="18"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-slx-7" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="19"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7050qx-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="20"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-slx-8" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="21"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7050qx-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="22"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-7" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="23"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-6" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="24"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-5" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="25"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-e1031-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="26"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-11" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="29"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-12" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="30"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-13" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="31"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-720dt-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="32"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-8" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="33"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-720dt-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="34"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-z9332f-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="42"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-z9332f-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="43"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-8102-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="44"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-ec9516-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="45"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-z9332f-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="46"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="bjw-can-7215-10" Proxy="admin" StartDevice="bjw-can-7215-9" StartPort="48"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-2700-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="1"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-slx-5" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="2"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-slx-can-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="3"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-slx-can-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="4"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-slx-can-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="5"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-slx-can-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="6"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7260-root-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="7"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7060-fanout-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="8"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-z9332f-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="9"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-ec9516-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="10"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="11"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="12"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-720dt-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="13"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-720dt-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="14"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="15"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="16"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-slx-6" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="17"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-2700-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="18"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-slx-7" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="19"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7050qx-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="20"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-slx-8" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="21"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7050qx-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="22"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-7" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="23"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-6" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="24"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-5" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="25"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-e1031-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="26"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-11" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="29"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-12" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="30"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-13" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="31"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-720dt-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="32"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-8" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="33"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-720dt-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="34"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-z9332f-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="42"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-z9332f-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="43"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-8102-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="44"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-ec9516-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="45"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-z9332f-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="46"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-10" Proxy="admin" StartDevice="bjw-can-7215-9" StartPort="48"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <PowerControlGraphDeclaration>

@@ -9,6 +9,7 @@ all:
         sonic:
         fanout:
         server:
+        mgmt:
     ptf:
       vars:
         ansible_user: root
@@ -563,3 +564,12 @@ server:
       ansible_host: 10.150.22.236
     bjw-can-serv-16:
       ansible_host: 10.150.22.237
+
+mgmt:
+  hosts:
+    bjw-can-7215-9:
+      ansible_host: 10.150.22.11
+      os: sonic
+    bjw-can-7215-10:
+      ansible_host: 10.150.22.10
+      os: sonic
