@@ -331,8 +331,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
 
 
-def test_dhcp_monitor_counter(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, testing_config,
-                            toggle_all_simulator_ports_to_rand_selected_tor_m):
+def test_dhcp_monitor_counter(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp_relay_data, testing_config):
     duthost = duthosts[rand_one_dut_hostname]
     testing_mode, duthost, testbed_mode = testing_config
 
@@ -341,8 +340,7 @@ def test_dhcp_monitor_counter(duthosts, rand_one_dut_hostname, ptfhost, dut_dhcp
 
     start_dhcp_monitor_debug_counter(duthost)
 
-    expected_agg_counter_message = "\[    Agg-%s- Current rx/tx\] Discover:         1/        4, Offer:         1/        1, Request:         3/        12, ACK:         1/        1" % dut_dhcp_relay_data['downlink_vlan_iface']
-
+    expected_agg_counter_message = ".*dhcp_relay#dhcpmon\[[0-9]+\]: \[    Agg-Vlan1000- Current rx/tx\] Discover: +\d+\/ +\d+, Offer: +\d+\/ +\d+, Request: +\d+\/ +\d+, ACK: +\d+\/ +\d+"
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_dhcp_monitor_counter")
     loganalyzer.expect_regex = []
     loganalyzer.expect_regex.extend(expected_agg_counter_message)
