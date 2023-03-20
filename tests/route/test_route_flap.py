@@ -117,8 +117,8 @@ def check_route(duthost, route, dev_port, operation):
     else:
         cmd = 'vtysh -c "show ip route {} json"'.format(route)
         out = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
-            nexthops = out[route][0]['nexthops']
-            result = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
+        nexthops = out[route][0]['nexthops']
+        result = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
     if operation == WITHDRAW:
         pytest_assert(dev_port not in result, "Route {} was not withdraw {}".format(route, result))
     else:
