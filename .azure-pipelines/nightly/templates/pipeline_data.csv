@@ -18,8 +18,10 @@ Mellanox	vms11-2-t0-2700-2-platform_tests	vms11-2-t0		internal	202205	202205	201
 Mellanox	testbed-bjw-can-2700-1	testbed-bjw-can-2700-1	202205	internal	202205	master	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4			nightly-bjw						
 Arista	vms6-t0-7060.1	vms6-t0-7060	202012-SLIM		202012-SLIM					-S "platform_tests metadata-scripts"'	Non-platform	0 12									
 Arista	vms6-t0-7060.2	vms6-t0-7060		202012-SLIM		202012-SLIM	202012-SLIM	202012-SLIM		-I "platform_tests metadata-scripts"'	Platform	0 12				IMAGE_BRCM_ABOOT_201811	TRUE				
-Arista	vms6-t1-7060.1	vms6-t1-7060	202205-SLIM		202205-SLIM		202205-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 12									
-Arista	vms6-t1-7060.2	vms6-t1-7060		202205-SLIM		202205-SLIM		202205-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 12									
+Arista	vms63-t0-7060-1-non-platform	vms63-t0-7060-1	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM		-S "platform_tests metadata-scripts"'	Non-platform	0 12	1800								IMAGE_BRCM_ABOOT_201911
+Arista	vms63-t0-7060-2-platform	vms63-t0-7060-2	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM		-I "platform_tests metadata-scripts"'	Platform	0 12	1800								IMAGE_BRCM_ABOOT_201911
+Arista	vms6-t1-7060-platform	vms6-t1-7060	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 12	1800								IMAGE_BRCM_ABOOT_201911
+Arista	vms63-t1-7060-3-non-platform	vms63-t1-7060-3	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 12	1800								IMAGE_BRCM_ABOOT_201911
 Arista	vms20-t0-7050cx3-1	vms20-t0-7050cx3-1	202012	internal	master	internal	202012	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Platform	0 10									
 Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2	202012				202012			-I "platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 3					TRUE				
 Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2		internal	master	internal		master		-I "platform_tests generic_config_updater"'	Non-platform	0 3									
@@ -44,12 +46,12 @@ Arista	vms24-t1-7050qx-acs-01.1	vms24-t1-7050qx-acs-01	202205-SLIM		202205-SLIM	
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811
+              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201911
 Arista	vms24-t1-7050qx-acs-01.2	vms24-t1-7050qx-acs-01		202205-SLIM		202205-SLIM		202205-SLIM		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10		"""pfcwd/test_pfcwd_warm_reboot.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811
+              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201911
 Arista	testbed-bjw-can-7050qx-2.1	testbed-bjw-can-7050qx-2	202012-SLIM		202012-SLIM		202012-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10		vlan/test_vlan.py	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811
 Arista	testbed-bjw-can-7050qx-2.2	testbed-bjw-can-7050qx-2		202012-SLIM		202012-SLIM		202012-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 10		vlan/test_vlan.py	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811
 Arista	testbed-bjw-can-7050qx-1.1	testbed-bjw-can-7050qx-1	202205-SLIM		202205-SLIM		202205-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 2			nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811

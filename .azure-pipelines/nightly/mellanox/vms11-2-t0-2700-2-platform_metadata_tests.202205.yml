@@ -1,0 +1,71 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+schedules:
+  - cron: "0 4 * * 0"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal-202205
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: vms11-2-t0
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_MLNX_202205)
+    displayName: "Image URL"
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_MLNX_202205)
+    displayName: "py_saithrift URL"
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "platform_tests metadata-scripts"'
+    displayName: Testbed specific
+
+  - name: CROSS_BRANCH_BASE_URL
+    type: string
+    default: $(IMAGE_MLNX_201911)
+    displayName: "Cross-branch base-image URL"
+
+  - name: TEST_CROSS_BRANCH_UPGRADE
+    default: true
+    type: boolean
+
+  - name: TEST_IN_BRANCH_UPGRADE
+    default: true
+    type: boolean
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      CROSS_BRANCH_BASE_URL: ${{ parameters.CROSS_BRANCH_BASE_URL }}
+      TEST_CROSS_BRANCH_UPGRADE: ${{ parameters.TEST_CROSS_BRANCH_UPGRADE }}
+      TEST_IN_BRANCH_UPGRADE: ${{ parameters.TEST_IN_BRANCH_UPGRADE }}

@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "30 10 * * 1,3,5"
+  - cron: "0 12 * * 1,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms24-t1-7050qx-acs-01
+    default: vms6-t1-7060
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -39,15 +39,10 @@ parameters:
     default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
     displayName: Testbed specific
 
-  # Custom skip scripts
-  - name: SKIP_SCRIPTS
-    type: string
-    default: "pfcwd/test_pfcwd_warm_reboot.py \
-              platform_tests/test_advanced_reboot.py \
-              platform_tests/test_cont_warm_reboot.py \
-              platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot"
-    displayName: "Skip Scripts"
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800
 
   - name: PREV_IMAGE_URL
     type: string
@@ -61,5 +56,5 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
       PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
