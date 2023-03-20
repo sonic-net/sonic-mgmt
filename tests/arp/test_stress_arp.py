@@ -1,5 +1,6 @@
 import logging
 import time
+import pytest
 from .arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, \
                       clear_dut_arp_cache, increment_ipv6_addr, get_fdb_dynamic_mac_count
 import ptf.testutils as testutils
@@ -14,6 +15,10 @@ ARP_SRC_MAC = "00:00:01:02:03:04"
 ENTRIES_NUMBERS = 12000
 
 logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 LOOP_TIMES_LEVEL_MAP = {
     'debug': 1,
