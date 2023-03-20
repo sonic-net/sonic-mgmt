@@ -1,4 +1,4 @@
-from __future__ import print_function, division, absolute_import
+
 
 import inspect
 import logging
@@ -170,7 +170,7 @@ def _get_default_zone(function, func_args, func_kargs):
         Add the namespace to the default zone.
     """
     hostname = None
-    unicode_type = str if sys.version_info.major == 3 else unicode      # noqa F821
+    unicode_type = str if sys.version_info.major == 3 else str      # noqa F821
     if func_args:
         hostname = getattr(func_args[0], "hostname", None)
     if not hostname or type(hostname) not in [str, unicode_type]:

@@ -413,6 +413,16 @@ http/test_http_copy.py:
     reason: "Test doesn't clean up the files in /tmp, it will cause the subsequent cases in /tmp fail, skipping until the issue is addressed"
 
 #######################################
+#####    iface_loopback_action    #####
+#######################################
+iface_loopback_action/test_iface_loopback_action.py:
+  skip:
+    reason: "Not working on non-mellanox platform"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7704
+
+#######################################
 #####      iface_namingmode       #####
 #######################################
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
@@ -779,6 +789,18 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
+  skip:
+    reason: "Lossy Queue Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
+  skip:
+    reason: "Lossless Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
     reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
@@ -848,35 +870,17 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
 #######################################
 #####            snmp             #####
 #######################################
-snmp/test_snmp_interfaces.py::test_snmp_interfaces:
-  skip:
-    reason: "Interfaces not present on supervisor node."
-    conditions:
-      - "is_supervisor"
-
-snmp/test_snmp_lldp.py:
-  skip:
-    reason: "LLDP not supported on supervisor node."
-    conditions:
-      - "is_supervisor"
-
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
     conditions:
       - "topo_name in ['m0', 'mx']"
 
-snmp/test_snmp_phy_entity.py::test_psu_info:
-  skip:
-    reason: "Not supported on non supervisor node."
-    conditions:
-      - "is_supervisor"
-
 snmp/test_snmp_queue.py:
   skip:
     reason: "Interfaces not present on supervisor node or M0/MX topo does not support test_snmp_queue or unsupported platform"
     conditions:
-      - "is_supervisor or topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
+      - "topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
 
 #######################################
 #####            span             #####
@@ -911,6 +915,22 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_be
     reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
     conditions:
       - "asic_type=='cisco-8000'"
+
+sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port_in_lag]:
+  skip:
+    reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_untagged_packet_not_routed[port_in_lag] :
+  skip:
+    reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_unaffected_by_sub_ports_removal[port_in_lag:
+  skip:
+    reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[port_in_lag]:
+  skip:
+    reason: "Not supported port type"
 
 #######################################
 #####             syslog          #####
@@ -966,45 +986,6 @@ vlan/test_vlan_ping.py:
     reason: "test_vlan_ping doesn't work on Broadcom platform"
     conditions:
       - "asic_type in ['broadcom']"
-
-#######################################
-#####             voq             #####
-#######################################
-voq:
-  skip:
-    reason: Skip all HW SKUs that are not VOQ based (No Inband interface present) from running VOQ test cases
-    conditions:
-      - "len(VOQ_INBAND_INTERFACE) == 0"
-
-voq/test_voq_ipfwd.py:
-  skip:
-    reason: "Did not find any asic in the DUTs (linecards) that are connected to T1 VM's."
-    conditions:
-      - "not any('T1' in value['name'] for key, value in minigraph_neighbors.items())"
-
-voq/test_voq_ipfwd.py::test_host_route_table_bgp:
-  skip:
-    reason: "Has no inband interfaces, so must not be connected to fabric"
-    conditions:
-      - "len(BGP_VOQ_CHASSIS_NEIGHBOR) == 0"
-
-voq/test_voq_ipfwd.py::test_host_route_table_inband_addr:
-  skip:
-    reason: "Has no inband interfaces, so must not be connected to fabric."
-    conditions:
-      - "len(VOQ_INBAND_INTERFACE) == 0"
-
-voq/test_voq_nbr.py::TestGratArp::test_gratarp_macchange:
-  skip:
-    reason: "Can't run this test without any IP interfaces on ethernet ports."
-    conditions:
-      - "len(INTERFACE) == 0"
-
-voq/test_voq_nbr.py::test_neighbor_hw_mac_change:
-  skip:
-    reason: "Can't run this test without any IP interfaces on ethernet ports."
-    conditions:
-      - "len(INTERFACE) == 0"
 
 #######################################
 #####             vrf             #####

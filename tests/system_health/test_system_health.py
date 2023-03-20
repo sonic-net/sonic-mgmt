@@ -10,7 +10,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy
-from device_mocker import device_mocker_factory
+from .device_mocker import device_mocker_factory
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
@@ -95,14 +95,14 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
         expect_error_dict = {}
-        for container_name, processes in processes_status.items():
+        for container_name, processes in list(processes_status.items()):
             if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
                 for process_name in processes["exited_critical_process"]:
                     expect_error_dict[process_name] = '{}:{} is not running'.format(container_name, process_name)
 
         if expect_error_dict:
             logger.info('Verify data in redis')
-            for name, error in expect_error_dict.items():
+            for name, error in list(expect_error_dict.items()):
                 result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, name, error)
                 value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, name)
                 assert result == True, 'Expect error {}, got {}'.format(error, value)
@@ -134,8 +134,11 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
                 # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
                 # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
                 category = '{}:{}'.format(container, critical_process)
-                expected_value = "Process '{}' in container '{}' is not running".format(critical_process, container)
-                result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, category, expected_value)
+                expected_values = ["Process '{}' in container '{}' is not running".format(critical_process, container),
+                                   "'{}' is not running".format(critical_process)]
+                result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info_any_of, duthost, category,
+                                    expected_values)
+
                 assert result == True, '{} is not recorded'.format(critical_process)
                 summary = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
                 assert summary == SUMMARY_NOT_OK, 'Expect summary {}, got {}'.format(SUMMARY_NOT_OK, summary)
@@ -364,6 +367,14 @@ def redis_get_system_health_info(duthost, db_id, key):
     cmd = 'redis-cli --raw -n {} HGETALL \"{}\"'.format(db_id, key)
     output = duthost.shell(cmd)['stdout'].strip()
     return output
+
+def check_system_health_info_any_of(duthost, category, expected_values):
+    value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, category)
+    for expected_value in expected_values:
+        if value == expected_value:
+            return True
+
+    return False
 
 def check_system_health_info(duthost, category, expected_value):
     value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, category)

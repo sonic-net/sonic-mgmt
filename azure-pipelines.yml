@@ -8,7 +8,12 @@
 # continueOnError: true means it's an optional test job and will not block merge even though it fails(unless a required test job depends on its result)
 
 pr:
-- master
+   branches:
+     include:
+       - master
+   paths:
+     exclude:
+       - .github
 trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)

@@ -20,7 +20,7 @@ pytestmark = [
 
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    return mg_facts["minigraph_ports"].keys()
+    return list(mg_facts["minigraph_ports"].keys())
 
 
 @pytest.mark.usefixtures("bgp_sessions_config")

@@ -167,7 +167,7 @@ def setup_vlan(rand_selected_dut, vlan_setup_info):
     default_vlan_id = vlan_setup['default_vlan'].replace("Vlan", "")
     # Remove interface from default Vlan
     cmds = []
-    for port in test_ports.keys():
+    for port in list(test_ports.keys()):
         cmds.append('config vlan member del {} {}'.format(default_vlan_id, port))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
@@ -236,7 +236,7 @@ def teardown_vlan(rand_selected_dut, vlan_setup_info):
     default_vlan_id = vlan_setup['default_vlan'].replace("Vlan", "")
     # Add back interface to default Vlan
     cmds = []
-    for port in test_ports.keys():
+    for port in list(test_ports.keys()):
         cmds.append('config vlan member add {} {} --untagged'.format(default_vlan_id, port))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
@@ -418,7 +418,7 @@ class AclVlanOuterTest_Base(object):
             table_name,
             table_type,
             stage,
-            ",".join(bind_ports.keys())
+            ",".join(list(bind_ports.keys()))
         )
 
         logger.info("Creating ACL table {} for testing".format(table_name))
@@ -624,7 +624,7 @@ def skip_sonic_leaf_fanout(fanouthosts):
     2. The Egress test will populate ARP table by ping command, and the egressed ICMP packets will be tagged with test
     vlan id (100 or 200), which will be dropped by sonic leaf-fanout.
     """
-    for fanouthost in fanouthosts.values():
+    for fanouthost in list(fanouthosts.values()):
         if fanouthost.get_fanout_os() == 'sonic':
             pytest.skip("Not supporteds on SONiC leaf-fanout")
 
@@ -709,7 +709,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
 
     def _teardown_arp_responder(self, ptfhost):
         logger.info("Stopping arp_responder")
-        ptfhost.command('supervisorctl stop arp_responder')
+        ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
         ptfhost.file(path=ARP_RESPONDER_SCRIPT_DEST_PATH, state="absent")
 
     def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):

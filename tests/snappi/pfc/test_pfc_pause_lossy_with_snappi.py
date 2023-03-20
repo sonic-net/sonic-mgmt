@@ -1,7 +1,6 @@
 import logging
 
-import pytest
-from files.helper import run_pfc_test
+from .files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until

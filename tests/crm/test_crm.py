@@ -119,7 +119,7 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
             acl_entry_config[str(seq_id)] = copy.deepcopy(acl_entry_template)
             acl_entry_config[str(seq_id)]["config"]["sequence-id"] = seq_id
 
-        with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config") as fp:
+        with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
             json.dump(acl_config, fp)
             fp.flush()
             logger.info("Generating config for ACL rule, ACL table - DATAACL")
@@ -173,7 +173,7 @@ def generate_fdb_config(duthost, entry_num, vlan_id, iface, op, dest):
                           }
         fdb_config_json.append(fdb_entry_json)
 
-    with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config") as fp:
+    with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config", mode="w") as fp:
         logger.info("Generating FDB config")
         json.dump(fdb_config_json, fp)
         fp.flush()
@@ -252,7 +252,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
     Verifies the following threshold parameters: percentage, actual used, actual free
     """
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
-    for key, value in THR_VERIFY_CMDS.items():
+    for key, value in list(THR_VERIFY_CMDS.items()):
         logger.info("Verifying CRM threshold '{}'".format(key))
         template = Template(value)
         if "exceeded" in key:
@@ -319,9 +319,9 @@ def check_crm_stats(cmd, duthost, origin_crm_stats_used, origin_crm_stats_availa
 def generate_neighbors(amount, ip_ver):
     """ Generate list of IPv4 or IPv6 addresses """
     if ip_ver == "4":
-        ip_addr_list = list(ipaddress.IPv4Network(u"%s" % "2.0.0.0/8").hosts())[0:amount]
+        ip_addr_list = list(ipaddress.IPv4Network("%s" % "2.0.0.0/8").hosts())[0:amount]
     elif ip_ver == "6":
-        ip_addr_list = list(ipaddress.IPv6Network(u"%s" % "2001::/112").hosts())[0:amount]
+        ip_addr_list = list(ipaddress.IPv6Network("%s" % "2001::/112").hosts())[0:amount]
     else:
         pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
     return ip_addr_list
@@ -438,7 +438,7 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
 
 def get_entries_num(used, available):
     """ Get number of entries needed to be created that 'used' counter reached one percent """
-    return ((used + available) / 100) + 1
+    return ((used + available) // 100) + 1
 
 
 @pytest.mark.usefixtures('disable_route_checker')
@@ -543,10 +543,10 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if used_percent < 1:
         routes_num = get_entries_num(new_crm_stats_route_used, new_crm_stats_route_available)
         if ip_ver == "4":
-            routes_list = " ".join([str(ipaddress.IPv4Address(u'2.0.0.1') + item) + "/32"
+            routes_list = " ".join([str(ipaddress.IPv4Address('2.0.0.1') + item) + "/32"
                                     for item in range(1, routes_num + 1)])
         elif ip_ver == "6":
-            routes_list = " ".join([str(ipaddress.IPv6Address(u'2001::') + item) + "/128"
+            routes_list = " ".join([str(ipaddress.IPv6Address('2001::') + item) + "/128"
                                     for item in range(1, routes_num + 1)])
         else:
             pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
@@ -846,7 +846,7 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         if tbinfo["topo"]["type"] == "mx":
             ports = ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"])
         else:
-            ports = ",".join(mg_facts["minigraph_portchannels"].keys())
+            ports = ",".join(list(mg_facts["minigraph_portchannels"].keys()))
         recreate_acl_table(duthost, ports)
 
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
@@ -986,7 +986,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    port_dict = dict(zip(cfg_facts['port_index_map'].values(), cfg_facts['port_index_map'].keys()))
+    port_dict = dict(list(zip(list(cfg_facts['port_index_map'].values()), list(cfg_facts['port_index_map'].keys()))))
     # Use for test 1st in list hosts interface port to add into dummy VLAN
     host_port_id = [id for id in topology["host_interfaces"]][0]
     iface = port_dict[host_port_id]
