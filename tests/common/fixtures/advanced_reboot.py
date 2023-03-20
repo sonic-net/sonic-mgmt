@@ -16,6 +16,7 @@ from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
+from tests.common.dualtor.data_plane_utils import get_peerhost
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ HOST_MAX_COUNT = 126
 TIME_BETWEEN_SUCCESSIVE_TEST_OPER = 420
 PTFRUNNER_QLEN = 1000
 REBOOT_CASE_TIMEOUT = 2100
+DUAL_TOR_MODE = False
 
 
 class AdvancedReboot:
@@ -35,7 +37,7 @@ class AdvancedReboot:
     Test cases can trigger test start utilizing runRebootTestcase API.
     """
 
-    def __init__(self, request, duthosts, duthost, other_duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
+    def __init__(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
         """
         Class constructor.
         @param request: pytest request object
@@ -78,7 +80,6 @@ class AdvancedReboot:
         self.request = request
         self.duthosts = duthosts
         self.duthost = duthost
-        self.other_duthost = other_duthost
         self.ptfhost = ptfhost
         self.localhost = localhost
         self.tbinfo = tbinfo
@@ -95,6 +96,10 @@ class AdvancedReboot:
         self.lagMemberCnt = 0
         self.vlanMaxCnt = 0
         self.hostMaxCnt = HOST_MAX_COUNT
+        if "dualtor" in self.getTestbedType():
+            DUAL_TOR_MODE = True
+            other_duthost = get_peerhost(duthosts, duthost)
+            self.other_duthost = other_duthost if other_duthost != duthost else None
 
         self.__buildTestbedData(tbinfo)
 
@@ -159,6 +164,10 @@ class AdvancedReboot:
         Accessor method for testbed's topology name
         """
         return self.tbinfo['topo']['name']
+    
+    def get_mux_status(self, duthost):
+        cmd = 'show mux status --json'
+        return json.loads(duthost.shell(cmd)['stdout'])
 
     def __buildTestbedData(self, tbinfo):
         """
@@ -166,7 +175,7 @@ class AdvancedReboot:
         """
 
         self.mgFacts = self.duthost.get_extended_minigraph_facts(tbinfo)
-        if self.other_duthost is not None:
+        if DUAL_TOR_MODE:
             self.other_mgFacts = self.other_duthost.get_extended_minigraph_facts(tbinfo)
 
         self.rebootData['arista_vms'] = [
@@ -189,27 +198,12 @@ class AdvancedReboot:
         self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
                                         self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
-        
-        shared_lo = None
-        if "dualtor" in self.getTestbedType():
-            for intf in self.other_mgFacts['minigraph_lo_interfaces']:
-                if intf['name'] == 'Loopback2' and self.is_ipv4_address(intf['addr']):
-                    shared_lo = "%s/%s" % (intf['addr'], intf['prefixlen'])
-            
-            self.rebootData['shared_lo_prefix'] = shared_lo
-    
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
             if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
                 vlan_ip_range[vlan['attachto']] = vlan['subnet']
         self.rebootData['vlan_ip_range'] = json.dumps(vlan_ip_range)
-
-        peer_vlan_ip_range = dict()
-        for vlan in self.other_mgFacts['minigraph_vlan_interfaces']:
-            if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
-                peer_vlan_ip_range[vlan['attachto']] = vlan['subnet']
-        self.rebootData['peer_vlan_ip_range'] = json.dumps(peer_vlan_ip_range)
 
         self.rebootData['dut_username'] = self.creds['sonicadmin_user']
         self.rebootData['dut_password'] = self.creds['sonicadmin_password']
@@ -603,7 +597,7 @@ class AdvancedReboot:
                                              "failure summary:\n{}".format(self.request.node.name, failed_list))
         return result
 
-    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles='peer_dev_info,neigh_port_info', dualtor_prebootFiles='peer_dev_info,other_duthost_peer_dev_info,neigh_port_info,peer_neigh_port_info',
+    def runRebootTestcase(self, prebootList=None, inbootList=None, prebootFiles='peer_dev_info,neigh_port_info',
                           preboot_setup=None, postboot_setup=None):
         """
         This method validates and prepares test bed for reboot test case. It runs the reboot test case using provided
@@ -615,12 +609,10 @@ class AdvancedReboot:
         self.preboot_setup = preboot_setup
         self.postboot_setup = postboot_setup
         self.imageInstall(prebootList, inbootList, prebootFiles)
-        if "dualtor" in self.getTestbedType():
-            self.imageInstall(prebootList, inbootList, dualtor_prebootFiles)
         return self.runRebootTest()
 
     def __setupRebootOper(self, rebootOper):
-        if "dualtor" in self.getTestbedType():
+        if DUAL_TOR_MODE:
             for device in self.duthosts:
                 device.shell("config mux mode manual all")
 
@@ -646,15 +638,11 @@ class AdvancedReboot:
             'neigh_port_info': copy.deepcopy(self.mgFacts['minigraph_neighbors']),
         }
 
-        dualtor_testData = {
-            'peer_vlan_interfaces': copy.deepcopy(self.other_mgFacts['minigraph_vlans']),
-            'peer_portchannel_interfaces': copy.deepcopy(self.other_mgFacts['minigraph_portchannels']),
-            'peer_ports': copy.deepcopy(self.other_mgFacts['minigraph_ptf_indices']),
-            'other_duthost_peer_dev_info': copy.deepcopy(self.other_mgFacts['minigraph_devices']),
-            'peer_neigh_port_info': copy.deepcopy(self.other_mgFacts['minigraph_neighbors']),
-        }
-
-        if "dualtor" in self.getTestbedType():
+        if DUAL_TOR_MODE:
+            dualtor_testData = {
+                'peer_ports': copy.deepcopy(self.other_mgFacts['minigraph_ptf_indices']),
+                'dut_mux_status': copy.deepcopy(self.get_mux_status(self.duthost)),
+            }
             testData.update(dualtor_testData)
 
         if isinstance(rebootOper, SadOperation):
@@ -696,23 +684,17 @@ class AdvancedReboot:
             "dut_username": self.rebootData['dut_username'],
             "dut_password": self.rebootData['dut_password'],
             "dut_hostname": self.rebootData['dut_hostname'],
-            "is_dualtor": True if "dualtor" in self.getTestbedType() else False,
             "reboot_limit_in_seconds": self.rebootLimit,
             "reboot_type": self.rebootType,
             "other_vendor_flag": self.other_vendor_nos,
             "portchannel_ports_file": self.rebootData['portchannel_interfaces_file'],
-            "peer_portchannel_ports_file": self.rebootData['peer_portchannel_interfaces_file'],
             "vlan_ports_file": self.rebootData['vlan_interfaces_file'],
-            "peer_vlan_ports_file": self.rebootData['peer_vlan_interfaces_file'],
             "ports_file": self.rebootData['ports_file'],
-            "peer_ports_file": self.rebootData['peer_ports_file'],
             "dut_mac": self.rebootData['dut_mac'],
             "vlan_mac": self.rebootData['vlan_mac'],
             "lo_prefix": self.rebootData['lo_prefix'],
-            "shared_lo_prefix": self.rebootData['shared_lo_prefix'],
             "default_ip_range": self.rebootData['default_ip_range'],
             "vlan_ip_range": self.rebootData['vlan_ip_range'],
-            "peer_vlan_ip_range": self.rebootData['peer_vlan_ip_range'],
             "lo_v6_prefix": self.rebootData['lo_v6_prefix'],
             "arista_vms": self.rebootData['arista_vms'],
             "nexthop_ips": self.rebootData['nexthop_ips'],
@@ -730,6 +712,13 @@ class AdvancedReboot:
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
         }
+
+        if DUAL_TOR_MODE:
+            params.update({
+            "is_dualtor": True,
+            "peer_ports_file": self.rebootData['peer_ports_file'],
+            "dut_mux_status": self.rebootData['dut_mux_status_file'],
+            })
 
         if not isinstance(rebootOper, SadOperation):
             # Non-routing neighbor/dut lag/bgp, vlan port up/down operation is performed before dut reboot process
@@ -847,12 +836,6 @@ class AdvancedReboot:
         if self.stayInTargetImage:
             logger.info('Stay in new image')
 
-def get_peerhost(duthosts, activehost):
-    if duthosts[0] == activehost:
-        return duthosts[1]
-    else:
-        return duthosts[0]
-
 @pytest.fixture
 def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, rand_unselected_dut, ptfhost, localhost, tbinfo,
                         creds):
@@ -865,7 +848,6 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         @param tbinfo: fixture provides information about testbed
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    other_duthost = get_peerhost(duthosts, duthost) if get_peerhost(duthosts, duthost) != duthost else None
     instances = []
 
     def get_advanced_reboot(**kwargs):
@@ -873,7 +855,7 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         API that returns instances of AdvancedReboot class
         """
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthosts, duthost, other_duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

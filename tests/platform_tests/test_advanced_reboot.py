@@ -11,6 +11,11 @@ from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_
 
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import run_garp_service
+from tests.common.dualtor.dual_tor_utils import rand_selected_interface
+from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_upper_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -63,7 +68,7 @@ def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request
     advancedReboot.runRebootTestcase()
 
 @pytest.mark.device_type('vs')
-def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
+def test_warm_reboot(request, get_advanced_reboot, verify_dut_health, tbinfo,
     advanceboot_loganalyzer, capture_interface_counters):
     '''
     Warm reboot test case is run using advacned reboot test fixture
@@ -71,6 +76,20 @@ def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
+    if "dualtor" in tbinfo["topo"]["name"]:
+        duthosts = kwargs['duthosts']
+        tbinfo = kwargs['tbinfo']
+        rand_selected_interface = kwargs['rand_selected_interface']
+        toggle_simulator_port_to_upper_tor = kwargs['toggle_simulator_port_to_upper_tor']
+        toggle_all_simulator_ports = kwargs['toggle_all_simulator_ports']
+
+        toggle_all_simulator_ports(LOWER_TOR)
+        check_result = wait_until(120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+        validate_check_result(check_result, duthosts, get_mux_status)
+        itfs, _ = rand_selected_interface
+        # Set upper_tor as active
+        toggle_simulator_port_to_upper_tor(itfs)
+
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
         advanceboot_loganalyzer=advanceboot_loganalyzer)
     advancedReboot.runRebootTestcase()
