@@ -172,8 +172,9 @@ class SonicPortAliasMap():
                         aliasmap[alias] = name
                         if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
                             asicifname = mapping[asic_name_index]
-                            front_panel_asic_ifnames[alias] = asicifname
-                            front_panel_asic_id[alias] = "ASIC0" if asic_id is None else "ASIC" + str(asic_id)
+                            if multi_asic.num_asics > 1:
+                                front_panel_asic_ifnames[alias] = asicifname
+                                front_panel_asic_id[alias] = "ASIC0" if asic_id is None else "ASIC" + str(asic_id)
                     if (asic_name_index != -1) and (len(mapping) > asic_name_index):
                         asicifname = mapping[asic_name_index]
                         asic_if_names.append(asicifname)
