@@ -58,7 +58,7 @@ def _create_parser():
     parser.add_argument('-i', '--input_file', type=str, help='Input port file',
                       required=False,default=None)
     parser.add_argument('-b', '--tar_ball', type=str, help='Specify tar ball location',
-                      required=False,default="master")
+                      required=False,default="http://172.29.93.10/sonic-images/golden-code/golden_code.tar.gz")
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
@@ -115,13 +115,21 @@ def repo_update(data):
             print(resp.decode("ascii"))
         time.sleep(3)
 
-    chan.send("docker container rm -f docker-sonic-mgmt\n")
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
+        chan.send("docker container stop docker-sonic-mgmt\n")
+        buff = ''
+        while not buff.endswith(':~$ '):
+            resp = chan.recv(9999)
+            buff += resp.decode("ascii")
+            print(resp.decode("ascii"))
+        time.sleep(3)
+
+        chan.send("docker container rm docker-sonic-mgmt\n")
+        buff = ''
+        while not buff.endswith(':~$ '):
+            resp = chan.recv(9999)
+            buff += resp.decode("ascii")
+            print(resp.decode("ascii"))
+        time.sleep(3)
 
     chan.send("mkdir golden-code\n")
     buff = ''
@@ -146,8 +154,8 @@ def repo_update(data):
         buff += resp.decode("utf-8")
     time.sleep(3)
 
-    tar_file = data['tar_ball'].split('/')[-1]
-    chan.send("tar -xvf {}\n".format(tar_file))
+    tar_ball = data['tar_ball'].split('/')[-1]
+    chan.send("tar -xvf {}\n".format(tar_ball))
     buff = ''
     while not buff.endswith(':~/golden-code$ '):
         resp = chan.recv(9999)
@@ -249,7 +257,6 @@ def deploy_mg(data,topo_type,base_topo_file):
         print('Hit %s' % e)
     finally:
         print(buff)
-
 
     ssh.close()
 
@@ -938,9 +945,9 @@ def main():
     input_file = args['input_file']
 
     delta1 = datetime.datetime.now()
-    vxr_path = "/auto/vxr/pyvxr/latest/vxr.py"
+    vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
     if cicd:
-        vxr_path = "python3.8 /auto/vxr/pyvxr/latest/vxr.py"
+        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py" 
 
     if input_file is None:
         if clean_sim:
@@ -979,6 +986,11 @@ def main():
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
     upload_tb_files(data,topo_type,base_topo_file,device_type)
+
+    # Change DUT password and set mgmt ip address
+    for dut_name in get_dut_names(data):
+            print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
+            change_dut_passwd(data[dut_name])
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
