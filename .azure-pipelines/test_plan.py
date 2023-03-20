@@ -500,7 +500,7 @@ if __name__ == "__main__":
         type=str,
         dest="testbed_name",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Testbed name, Split by ',', like: 'testbed1, testbed2'"
@@ -510,7 +510,7 @@ if __name__ == "__main__":
         type=str,
         dest="image_url",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Image url"
@@ -520,7 +520,7 @@ if __name__ == "__main__":
         type=str,
         dest="hwsku",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Hardware SKU."
@@ -530,7 +530,7 @@ if __name__ == "__main__":
         type=str,
         dest="test_plan_type",
         nargs='?',
-        const='',
+        const='PR',
         default="PR",
         required=False,
         choices=['PR', 'NIGHTLY'],
@@ -541,7 +541,7 @@ if __name__ == "__main__":
         type=str,
         dest="platform",
         nargs='?',
-        const='',
+        const='kvm',
         default="kvm",
         required=False,
         help="Testbed platform."
@@ -551,7 +551,7 @@ if __name__ == "__main__":
         type=str,
         dest="features",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Test features, Split by ',', like: 'bgp, lldp'"
@@ -561,7 +561,7 @@ if __name__ == "__main__":
         type=str,
         dest="scripts",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Test scripts, Split by ',', like: 'bgp/test_bgp_fact.py, test_feature.py'"
@@ -571,7 +571,7 @@ if __name__ == "__main__":
         type=str,
         dest="scripts_exclude",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Exclude test scripts, Split by ',', like: 'bgp/test_bgp_fact.py, test_feature.py'"
@@ -581,7 +581,7 @@ if __name__ == "__main__":
         type=str,
         dest="features_exclude",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Exclude test features, Split by ',', like: 'bgp, lldp'"
