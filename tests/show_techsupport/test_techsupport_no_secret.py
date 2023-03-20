@@ -5,6 +5,12 @@ from tests.common.utilities import skip_release
 
 logger = logging.getLogger(__name__)
 
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
+
 @pytest.fixture
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202112
