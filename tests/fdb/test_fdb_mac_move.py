@@ -1,6 +1,7 @@
 import logging
 import time
 import math
+import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -19,6 +20,10 @@ LOOP_TIMES_LEVEL_MAP = {
 }
 
 logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 
 def get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count):
