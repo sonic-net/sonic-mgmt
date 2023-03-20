@@ -128,6 +128,7 @@ def parse_list_from_str_in_kwarg(kwarg_dict, key):
         return [single_str.strip() for single_str in value.split(',')] if value else None
     return None
 
+
 class TestPlanManager(object):
 
     def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
@@ -169,7 +170,6 @@ class TestPlanManager(object):
         features = parse_list_from_str_in_kwarg(kwargs, "features")
         scripts_exclude = parse_list_from_str_in_kwarg(kwargs, "scripts_exclude")
         features_exclude = parse_list_from_str_in_kwarg(kwargs, "features_exclude")
-
 
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
