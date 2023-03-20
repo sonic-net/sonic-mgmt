@@ -494,7 +494,7 @@ class AnsibleHosts(object):
         return self._run_ansible_module
 
     def _build_task(self, module_name, args=[], kwargs={}, module_attrs={}):
-        """Build a dict reprents a task in ansible playbook.
+        """Build a dict represents a task in ansible playbook.
 
         Args:
             module_name (str): Name of the ansible module to be executed in the task.
@@ -506,7 +506,7 @@ class AnsibleHosts(object):
                 * https://docs.ansible.com/ansible/latest/collections/index.html
 
         Returns:
-            dict: A dict reprents a task in ansible playbook.
+            dict: A dict represents a task in ansible playbook.
         """
         kwargs = copy.deepcopy(kwargs)  # Avoid argument passed by reference issue
         if args:
@@ -524,12 +524,12 @@ class AnsibleHosts(object):
         return task_data
 
     def _build_play(self, tasks=[]):
-        """Build a dict  reprents an ansible playbook.
+        """Build a dict represents an ansible playbook.
 
         The list of tasks may include single or multiple tasks.
 
         Args:
-            tasks (list, optional): List of dict reprents task in ansible playbook. Defaults to [].
+            tasks (list, optional): List of dict represents task in ansible playbook. Defaults to [].
 
         Returns:
             dict: A dict represents an ansible playbook.
@@ -755,7 +755,7 @@ class AnsibleHosts(object):
         return res
 
     def run_module(self, module_name, args=[], kwargs={}):
-        """Run ansible module in an explicity way.
+        """Run ansible module in an explicit way.
 
         Method `self.__getattr__` combined with `self._run_ansible_module` supports call ansible module in an
         implicit way like below:
