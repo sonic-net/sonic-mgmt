@@ -134,7 +134,7 @@ testbed:
     ptf_ipv6: fc0b::1/64
     ptf: docker-ptf
     server: server_1
-    topo: t2_2lc_min_ports-masic
+    topo: t2_2lc_min_ports-masic-8000
     vm_base: VM0100
     ansible:
       ansible_ssh_user: root
@@ -297,7 +297,7 @@ veos_groups:
       - t0-116
       - dualtor-56
       - t2-vs
-      - t2_2lc_min_ports-masic
+      - t2_2lc_min_ports-masic-8000
   vm_host:
     children:
     - vm_host_1
