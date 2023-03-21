@@ -110,7 +110,8 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     sysTotalFreeMemory_OID = "1.3.6.1.4.1.2021.4.11.0"
-    snmp_command = "snmpget -v 2c -c public {} {}".format(host_ip,sysTotalFreeMemory_OID) + "| awk '{print $4}'"
+    snmp_command = "snmpget -v 2c -c {} {} {}".format(creds_all_duts[duthost.hostname]["snmp_rocommunity"], host_ip,
+                                                      sysTotalFreeMemory_OID) + "| awk '{print $4}'"
     snmp_free_memory = localhost.shell(snmp_command)['stdout']
     mem_free = duthost.shell("grep MemFree /proc/meminfo | awk '{print $2}'")['stdout']
     mem_total = duthost.shell("grep MemTotal /proc/meminfo | awk '{print $2}'")['stdout']
