@@ -213,7 +213,7 @@ Each child of of this node represents single device, which can be DUT or TGen as
      * **version**
        * Traffic Generator version
        * Supported versions:
-         * ixia 8.42
+         * ixia 8.42 to 9.20u2
          * stc 4.91
          * scapy 1.0 [scapy TGEN version is just a place holder and not used]
      * **ip**
@@ -241,8 +241,8 @@ The SPyTest supports Ixia and Spirent third party traffic generators, which prov
 * User should use an intermediate server to host the IxNetwork Server
 * Start IxNetwork API server in the server where the IxNetwork Server is installed
 * The IxNetwork Server IP address needs to be given in setup file as "ix_server"
-* Currently SPyTest is verified with below IxNetwork versions
-    * 8.42
+* Currently SPyTest is verified with below IxNetwork versions:
+    * 8.42 to 9.20u2
 * There are differences in the way to install and launch these versions.
   Please consult the Ixia documentation for more details.
 
