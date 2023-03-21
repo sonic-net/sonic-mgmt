@@ -1058,7 +1058,7 @@ class QosSaiBase(QosBase):
             "portSpeedCableLength": portSpeedCableLength,
         }
 
-    @pytest.fixture(scope='class')
+    @pytest.fixture(scope='function')
     def releaseAllPorts(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, dutTestParams,
             updateIptables, ssh_tunnel_to_syncd_rpc
@@ -1148,7 +1148,7 @@ class QosSaiBase(QosBase):
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
-    @pytest.fixture(scope='class', autouse=True)
+    @pytest.fixture(scope='function', autouse=True)
     def populateArpEntries(
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
             ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host
