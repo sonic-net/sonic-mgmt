@@ -16,17 +16,17 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
     asic_host = duthost.asic_instance(enum_asic_index)
     host_facts = asic_host.interface_facts()['ansible_facts']['ansible_interface_facts']
     mg_facts = asic_host.get_extended_minigraph_facts(tbinfo)
-    verify_port(host_facts, mg_facts['minigraph_portchannels'].keys())
-    for k, v in mg_facts['minigraph_portchannels'].items():
+    verify_port(host_facts, list(mg_facts['minigraph_portchannels'].keys()))
+    for k, v in list(mg_facts['minigraph_portchannels'].items()):
         verify_port(host_facts, v['members'])
         # verify no ipv4 address for each port channel member
         for member in v['members']:
             pytest_assert("ipv4" not in host_facts[member],
                           "LAG member {} has IP address {}".format(member, host_facts[member]))
 
-    verify_port(host_facts, mg_facts['minigraph_vlans'].keys())
+    verify_port(host_facts, list(mg_facts['minigraph_vlans'].keys()))
 
-    for k, v in mg_facts['minigraph_vlans'].items():
+    for k, v in list(mg_facts['minigraph_vlans'].items()):
         verify_port(host_facts, v['members'])
         # verify no ipv4 address for each vlan member
         for member in v['members']:
@@ -84,7 +84,7 @@ def verify_ip_address(host_facts, intfs):
         ips_found = []
         for addr in addrs:
             ips_found.append(addr['address'])
-            print(str(addr))
+            print((str(addr)))
             if IPAddress(addr['address']) == ip:
                 found = True
                 break

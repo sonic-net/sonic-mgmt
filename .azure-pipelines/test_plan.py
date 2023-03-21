@@ -115,6 +115,20 @@ class FinishStatus(AbstractStatus):
         super().__init__(TestPlanStatus.FINISHED)
 
 
+def get_scope(testbed_tools_url):
+    scope = "api://sonic-testbed-tools-dev/.default"
+    if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net":
+        scope = "api://sonic-testbed-tools-prod/.default"
+    return scope
+
+
+def parse_list_from_str_in_kwarg(kwarg_dict, key):
+    if key in kwarg_dict:
+        value = kwarg_dict.get(key)
+        return [single_str.strip() for single_str in value.split(',')] if value else None
+    return None
+
+
 class TestPlanManager(object):
 
     def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
@@ -130,11 +144,12 @@ class TestPlanManager(object):
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
         }
+
         payload = {
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": "api://sonic-testbed-tools-prod/.default" if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net" else "api://sonic-testbed-tools-dev/.default"
+            "scope": get_scope(testbed_tools_url)
         }
         try:
             resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
@@ -143,9 +158,19 @@ class TestPlanManager(object):
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None,
+               min_worker=1, max_worker=2, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
+        testbed_name = parse_list_from_str_in_kwarg(kwargs, "testbed_name")
+        image_url = kwargs.get("image_url", None)
+        hwsku = kwargs.get("hwsku", None)
+        test_plan_type = kwargs.get("test_plan_type", "PR")
+        platform = kwargs.get("platform", "kvm")
+        scripts = parse_list_from_str_in_kwarg(kwargs, "scripts")
+        features = parse_list_from_str_in_kwarg(kwargs, "features")
+        scripts_exclude = parse_list_from_str_in_kwarg(kwargs, "scripts_exclude")
+        features_exclude = parse_list_from_str_in_kwarg(kwargs, "features_exclude")
+
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
         print("Test scripts to be covered in this test plan:")
@@ -158,8 +183,11 @@ class TestPlanManager(object):
         payload = json.dumps({
             "name": test_plan_name,
             "testbed": {
-                "platform": "kvm",
+                "platform": platform,
+                "name": testbed_name,
                 "topology": topology,
+                "image_url": image_url,
+                "hwsku": hwsku,
                 "min": min_worker,
                 "max": max_worker
             },
@@ -167,15 +195,16 @@ class TestPlanManager(object):
                 "stop_on_failure": True,
                 "retry_times": 2,
                 "test_cases": {
-                    "features": [],
+                    "features": features,
                     "scripts": scripts,
-                    "features_exclude": [],
-                    "scripts_exclude": []
+                    "features_exclude": features_exclude,
+                    "scripts_exclude": scripts_exclude
                 },
                 "common_params": common_params,
                 "specified_params": json.loads(kwargs['specified_params']),
                 "deploy_mg_params": deploy_mg_extra_params
             },
+            "type": test_plan_type,
             "extra_params": {
                 "pull_request_id": pr_id,
                 "build_id": build_id,
@@ -466,6 +495,97 @@ if __name__ == "__main__":
         required=False,
         help="Repository name from Azure Pipelines"
     )
+    parser_create.add_argument(
+        "--testbed-name",
+        type=str,
+        dest="testbed_name",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Testbed name, Split by ',', like: 'testbed1, testbed2'"
+    )
+    parser_create.add_argument(
+        "--image_url",
+        type=str,
+        dest="image_url",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Image url"
+    )
+    parser_create.add_argument(
+        "--hwsku",
+        type=str,
+        dest="hwsku",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Hardware SKU."
+    )
+    parser_create.add_argument(
+        "--test-plan-type",
+        type=str,
+        dest="test_plan_type",
+        nargs='?',
+        const='PR',
+        default="PR",
+        required=False,
+        choices=['PR', 'NIGHTLY'],
+        help="Test plan type. Optional: ['PR', 'NIGHTLY']"
+    )
+    parser_create.add_argument(
+        "--platform",
+        type=str,
+        dest="platform",
+        nargs='?',
+        const='kvm',
+        default="kvm",
+        required=False,
+        help="Testbed platform."
+    )
+    parser_create.add_argument(
+        "--features",
+        type=str,
+        dest="features",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Test features, Split by ',', like: 'bgp, lldp'"
+    )
+    parser_create.add_argument(
+        "--scripts",
+        type=str,
+        dest="scripts",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Test scripts, Split by ',', like: 'bgp/test_bgp_fact.py, test_feature.py'"
+    )
+    parser_create.add_argument(
+        "--scripts-exclude",
+        type=str,
+        dest="scripts_exclude",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Exclude test scripts, Split by ',', like: 'bgp/test_bgp_fact.py, test_feature.py'"
+    )
+    parser_create.add_argument(
+        "--features-exclude",
+        type=str,
+        dest="features_exclude",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Exclude test features, Split by ',', like: 'bgp, lldp'"
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -556,9 +676,13 @@ if __name__ == "__main__":
                     build_id=build_id,
                     job_name=job_name
                 ).replace(' ', '_')
-            if args.test_set is None or args.test_set == "":
-                # Use topology as default test set if not passed
-                args.test_set = args.topology
+
+            scripts = args.scripts
+            # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
+            if args.platform == "kvm":
+                args.test_set = args.test_set if args.test_set else args.topology
+                scripts = ",".join(get_test_scripts(args.test_set))
+
             tp.create(
                 args.topology,
                 test_plan_name=test_plan_name,
@@ -567,7 +691,10 @@ if __name__ == "__main__":
                 min_worker=args.min_worker,
                 max_worker=args.max_worker,
                 pr_id=pr_id,
-                scripts=get_test_scripts(args.test_set),
+                scripts=scripts,
+                features=args.features,
+                scripts_exclude=args.scripts_exclude,
+                features_exclude=args.features_exclude,
                 output=args.output,
                 mgmt_branch=args.mgmt_branch,
                 common_extra_params=args.common_extra_params,
@@ -575,7 +702,12 @@ if __name__ == "__main__":
                 specified_params=args.specified_params,
                 vm_type=args.vm_type,
                 azp_access_token=args.azp_access_token,
-                azp_repo_access_token=args.azp_repo_access_token
+                azp_repo_access_token=args.azp_repo_access_token,
+                testbed_name=args.testbed_name,
+                image_url=args.image_url,
+                hwsku=args.hwsku,
+                test_plan_type=args.test_plan_type,
+                platform=args.platform,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
