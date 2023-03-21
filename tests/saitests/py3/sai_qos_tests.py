@@ -1979,11 +1979,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.src_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in self.src_port_ids]
 
-        is_dualtor = self.test_params.get('is_dualtor', False)
-        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
-        if is_dualtor and def_vlan_mac != None:
-            self.dst_port_mac = def_vlan_mac
-
         if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
             # populate ARP
             for idx, ptid in enumerate(self.src_port_ids):
@@ -2007,6 +2002,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                           hw_tgt='00:00:00:00:00:00')
             send_packet(self, self.dst_port_id, arpreq_pkt)
         time.sleep(8)
+
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            self.dst_port_mac = def_vlan_mac
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
