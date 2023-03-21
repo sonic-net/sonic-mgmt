@@ -2078,7 +2078,7 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -2086,6 +2086,7 @@ Totals               6450                 6449
         Returns:
             Dict of Interfaces and their IPv4 address
         """
+        active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
         for k, v in list(ip_ifs.items()):
@@ -2101,6 +2102,10 @@ Totals               6450                 6449
                         "peer_ipv4": v["peer_ipv4"],
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
+                    active_ip_intf_cnt += 1
+
+                if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
+                    break
 
         return ip_ifaces
 
