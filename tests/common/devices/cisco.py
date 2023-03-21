@@ -354,3 +354,90 @@ class CiscoHost(AnsibleHostBase):
             lines=['no interface {}'.format(interface)],
             parents=['router isis {}'.format(isis_instance)])
         return not self._has_cli_cmd_failed(out)
+
+    def get_lldp_neighbors(self):
+        """
+        run show lldp neighbros command to get lldp neighbors
+        """
+        try:
+            logger.info("Gathering LLDP details")
+            lldp_details = {}
+            command = "show lldp neighbors"
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            header_line = "Device ID       Local Intf                      Hold-time  Capability      Port ID"
+            end_line = "Total entries displayed:"
+            content_idx = 0
+            if not output['failed']:
+                output = [line.strip() for line in output['stdout_lines'][0] if len(line) > 0]
+                for idx, line in enumerate(output):
+                    if end_line in line:
+                        break
+                    if header_line in line:
+                        content_idx = idx
+                    if content_idx != 0 and content_idx < idx:
+                        line = re.split(r'\s+', line.strip())
+                        lldp_details.update(
+                            {line[1]: {'neighbor': line[0], 'local_interface': line[1], 'neighbor_interface': line[4]}}
+                        )
+                return lldp_details
+            else:
+                return "Falied to get lldp neighbors info due to {}".format(output)
+        except Exception as e:
+            return "Failed to get lldp neighbors info due to {}".format(str(e))
+
+    def get_all_lldp_neighbor_details_for_port(self, physical_port):
+        """
+        :param physical_port:
+        :return: complete lldp details for the port
+        """
+        try:
+            command = "show lldp neigh {} detail".format(physical_port)
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            if not output['failed']:
+                logger.debug('cisco lldp output: %s' % (output))
+                return output['stdout_lines'][0]
+            return "Failed to get lldp detail info for {} due to {}".format(physical_port, output)
+        except Exception as e:
+            return "Failed to get lldp detail info due to {}".format(str(e))
+
+    def get_platform_from_cli(self):
+        """
+        run show version command to get device platform info
+        """
+        try:
+            command = "show version | i ^cisco | utility head -n 1"
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            if not output['failed']:
+                logger.debug('cisco lldp output: %s' % (output))
+                return output['stdout_lines'][0][0].split()[1]
+            return "Failed to get platform info due to {}".format(output)
+        except Exception as e:
+            return "Failed to get platform info due to {}".format(str(e))
+
+    def get_version_from_cli(self):
+        """
+        run show version command to get device version info
+        """
+        try:
+            command = 'show version | in "Version      :"'
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            if not output['failed']:
+                logger.debug('cisco lldp output: %s' % (output))
+                return output['stdout'][0].split()[-1].strip()
+            return "Failed to get version info due to {}".format(output)
+        except Exception as e:
+            return "Failed to get version info due to {}".format(str(e))
+
+    def get_chassis_id_from_cli(self):
+        """
+        run show lldp command to get device chassis id via cli
+        """
+        try:
+            command = "show lldp | i Chassis ID:"
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            if not output['failed']:
+                logger.debug('cisco lldp output: %s' % (output))
+                return output['stdout_lines'][0][0].split()[-1]
+            return "Failed to get chassis id info due to {}".format(output)
+        except Exception as e:
+            return "Failed to get chassis id info due to {}".format(str(e))
