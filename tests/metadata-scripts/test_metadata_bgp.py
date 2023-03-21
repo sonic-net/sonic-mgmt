@@ -27,15 +27,13 @@ def upload_metadata_scripts(duthosts, enum_frontend_dut_hostname):
     duthost = duthosts[enum_frontend_dut_hostname]
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
-    pytest_assert(
-        os.path.exists(metadata_scripts_path),
-        "SONiC Metadata scripts not found in {}".format(metadata_scripts_path),
-    )
-
-    path_exists = duthost.stat(path="/tmp/anpscripts/")
-    if not path_exists["stat"]["exists"]:
-        duthost.command("mkdir /tmp/anpscripts")
-        duthost.copy(src=metadata_scripts_path + "/", dest="/tmp/anpscripts/")
+    if os.path.exists(metadata_scripts_path):
+        path_exists = duthost.stat(path="/tmp/anpscripts/")
+        if not path_exists["stat"]["exists"]:
+            duthost.command("mkdir /tmp/anpscripts")
+            duthost.copy(src=metadata_scripts_path + "/", dest="/tmp/anpscripts/")
+        return True
+    return False
 
 
 @pytest.fixture(scope="module")
@@ -293,6 +291,7 @@ def test_bgp_traffic_shift_away(
         # this test case is only for sonic-metadata script test
         return
 
+    pytest_assert(upload_metadata_scripts, "Failed to upload script files")
     # 1. run script to do the isolation with forbidroutempa and bgpshut
     # 2. check the traffic and bgp routes, if nothing adervertised to all neighbors and bgp status
     # 3. run script to do the unisolation with forbidroutempa and bgpshut
@@ -377,6 +376,9 @@ def test_bgp_traffic_shift_restore(
     if not metadata_process:
         # this test case is only for sonic-metadata script test
         return
+
+    pytest_assert(upload_metadata_scripts, "Failed to upload script files")
+
     try:
         duthost = duthosts[enum_frontend_dut_hostname]
         duthost.command("chmod +x /tmp/anpscripts/bgp_neighbor")
@@ -388,9 +390,7 @@ def test_bgp_traffic_shift_restore(
         orig_adv_routes = get_advertised_routes(duthost, random_bgp_neighbors)
         pytest_assert(len(orig_adv_routes) > 0, "Advertised routes is zero")
 
-        duthost.command(
-            "python /tmp/anpscripts/bgp_neighbor shutdown 0.0.0.0"
-        )
+        duthost.command("python /tmp/anpscripts/bgp_neighbor shutdown 0.0.0.0")
         check_bgp_status(duthost, "down")
 
         duthost.shell(
