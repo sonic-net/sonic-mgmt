@@ -28,7 +28,8 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor", "t0-80", "t0-backend"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor",
+                          "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
@@ -363,7 +364,7 @@ class QosSaiBase(QosBase):
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
 
-    def __assignTestPortIps(self, mgFacts):
+    def __assignTestPortIps(self, mgFacts, topo):
         """
             Assign IPs to test ports of DUT host
 
@@ -376,8 +377,18 @@ class QosSaiBase(QosBase):
         dutPortIps = {}
         if len(mgFacts["minigraph_vlans"]) > 0:
             # TODO: handle the case when there are multiple vlans
-            testVlan = next(iter(mgFacts["minigraph_vlans"]))
+            vlans = iter(mgFacts["minigraph_vlans"])
+            testVlan = next(vlans)
             testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
+            # To support t0-56-po2vlan topo, choose the Vlan with physical ports and remove the lag in Vlan members
+            if topo == 't0-56-po2vlan':
+                if len(testVlanMembers) == 1:
+                    testVlan = next(vlans)
+                    testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
+                for member in testVlanMembers:
+                    if 'PortChannel' in member:
+                        testVlanMembers.remove(member)
+                        break
 
             testVlanIp = None
             for vlan in mgFacts["minigraph_vlan_interfaces"]:
@@ -567,7 +578,7 @@ class QosSaiBase(QosBase):
                             uplinkPortIps.append(portConfig["peer_addr"])
                             uplinkPortNames.append(intf)
 
-            testPortIps = self.__assignTestPortIps(mgFacts)
+            testPortIps = self.__assignTestPortIps(mgFacts, topo)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
             use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
