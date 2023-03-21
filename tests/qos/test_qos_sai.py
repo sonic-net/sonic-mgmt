@@ -1711,7 +1711,6 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
 
-
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
@@ -1735,6 +1734,8 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("This test is only supported on cisco-8000")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         testPortIps = dutConfig["testPortIps"]
