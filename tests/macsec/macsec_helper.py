@@ -94,6 +94,7 @@ def getns_prefix(host, intf):
 
     return ns_prefix
 
+
 def get_ipnetns_prefix(host, intf):
     ns_prefix = " "
     if host.is_multi_asic:
@@ -103,7 +104,8 @@ def get_ipnetns_prefix(host, intf):
 
     return ns_prefix
 
-def get_macsec_sa_name(sonic_asic, port_name, egress = True):
+
+def get_macsec_sa_name(sonic_asic, port_name, egress=True):
     if egress:
         table = 'MACSEC_EGRESS_SA_TABLE'
     else:
@@ -178,8 +180,9 @@ def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
     for port_name, nbr in list(ctrl_links.items()):
         if isinstance(nbr["host"], EosHost):
             continue
-        submit_async_task(__check_appl_db, (duthost, port_name, nbr["host"],
-                        nbr["port"], policy, cipher_suite, send_sci))
+        submit_async_task(
+            __check_appl_db,
+            (duthost, port_name, nbr["host"], nbr["port"], policy, cipher_suite, send_sci))
     wait_all_complete(timeout=180)
     logger.info("Check appl_db finished")
     return True
@@ -354,9 +357,9 @@ def decap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=Fal
         pkt = sa.decrypt(macsec_pkt)
     except cryptography.exceptions.InvalidTag:
         # Invalid MACsec packets
-        return None
+        return macsec_pkt, False
     pkt = sa.decap(pkt)
-    return pkt
+    return pkt, True
 
 
 def check_macsec_pkt(test, ptf_port_id, exp_pkt, timeout=3):
@@ -376,8 +379,8 @@ def find_portname_from_ptf_id(mg_facts, ptf_id):
     return None
 
 
-def load_macsec_info(duthost, port, force_reload = None):
-    if force_reload  or port not in __macsec_infos:
+def load_macsec_info(duthost, port, force_reload=None):
+    if force_reload or port not in __macsec_infos:
         __macsec_infos[port] = get_macsec_attr(duthost, port)
     return __macsec_infos[port]
 
@@ -415,9 +418,8 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 if macsec_info:
                     encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = macsec_info
                     force_reload[ret.port] = False
-                    pkt = decap_macsec_pkt(pkt, sci, an, sak, encrypt,
-                                        send_sci, 0, xpn_en, ssci, salt)
-                    if pkt is not None and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                    pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
+                    if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                         return ret
         # Normally, if __origin_dp_poll returns a PollFailure, the PollFailure object will contain a list of recently received packets
         # to help with debugging. However, since we call __origin_dp_poll multiple times, only the packets from the most recent call is retained.
@@ -427,7 +429,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
         packet_count += 1
         if timeout <= 0:
             break
-    return test.dataplane.PollFailure(exp_pkt, recent_packets,packet_count)
+    return test.dataplane.PollFailure(exp_pkt, recent_packets, packet_count)
 
 
 def get_macsec_counters(sonic_asic, namespace, name):
@@ -441,7 +443,7 @@ def get_macsec_counters(sonic_asic, namespace, name):
         ]
     cmd = "python -c '{}'".format(';'.join(lines))
     output = sonic_asic.sonichost.command(cmd)["stdout_lines"][0]
-    return {k:int(v) for k,v in list(ast.literal_eval(output).items())}
+    return {k: int(v) for k, v in list(ast.literal_eval(output).items())}
 
 
 __origin_dp_poll = testutils.dp_poll
