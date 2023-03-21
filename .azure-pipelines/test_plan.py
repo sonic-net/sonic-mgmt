@@ -122,6 +122,13 @@ def get_scope(testbed_tools_url):
     return scope
 
 
+def parse_list_from_str_in_kwarg(kwarg_dict, key):
+    if key in kwarg_dict:
+        value = kwarg_dict.get(key)
+        return [single_str.strip() for single_str in value.split(',')] if value else None
+    return None
+
+
 class TestPlanManager(object):
 
     def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
@@ -151,15 +158,18 @@ class TestPlanManager(object):
             raise Exception("Get token failed with exception: {}".format(repr(e)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None,
+               min_worker=1, max_worker=2, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
-        testbed_name = kwargs.get("testbed_name", None)
-        testbed_name = testbed_name.replace(" ", "").split(",") if testbed_name else None
+        testbed_name = parse_list_from_str_in_kwarg(kwargs, "testbed_name")
         image_url = kwargs.get("image_url", None)
         hwsku = kwargs.get("hwsku", None)
         test_plan_type = kwargs.get("test_plan_type", "PR")
         platform = kwargs.get("platform", "kvm")
+        scripts = parse_list_from_str_in_kwarg(kwargs, "scripts")
+        features = parse_list_from_str_in_kwarg(kwargs, "features")
+        scripts_exclude = parse_list_from_str_in_kwarg(kwargs, "scripts_exclude")
+        features_exclude = parse_list_from_str_in_kwarg(kwargs, "features_exclude")
 
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
@@ -185,10 +195,10 @@ class TestPlanManager(object):
                 "stop_on_failure": True,
                 "retry_times": 2,
                 "test_cases": {
-                    "features": [],
+                    "features": features,
                     "scripts": scripts,
-                    "features_exclude": [],
-                    "scripts_exclude": []
+                    "features_exclude": features_exclude,
+                    "scripts_exclude": scripts_exclude
                 },
                 "common_params": common_params,
                 "specified_params": json.loads(kwargs['specified_params']),
@@ -490,17 +500,17 @@ if __name__ == "__main__":
         type=str,
         dest="testbed_name",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
-        help="Testbed name, Split by ',', like: testbed1,testbed2"
+        help="Testbed name, Split by ',', like: 'testbed1, testbed2'"
     )
     parser_create.add_argument(
         "--image_url",
         type=str,
         dest="image_url",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Image url"
@@ -510,7 +520,7 @@ if __name__ == "__main__":
         type=str,
         dest="hwsku",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
         help="Hardware SKU."
@@ -520,31 +530,61 @@ if __name__ == "__main__":
         type=str,
         dest="test_plan_type",
         nargs='?',
-        const='',
+        const='PR',
         default="PR",
         required=False,
         choices=['PR', 'NIGHTLY'],
-        help="Test plan type."
+        help="Test plan type. Optional: ['PR', 'NIGHTLY']"
     )
     parser_create.add_argument(
         "--platform",
         type=str,
         dest="platform",
         nargs='?',
-        const='',
+        const='kvm',
         default="kvm",
         required=False,
         help="Testbed platform."
+    )
+    parser_create.add_argument(
+        "--features",
+        type=str,
+        dest="features",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Test features, Split by ',', like: 'bgp, lldp'"
     )
     parser_create.add_argument(
         "--scripts",
         type=str,
         dest="scripts",
         nargs='?',
-        const='',
+        const=None,
         default=None,
         required=False,
-        help="Test scripts, Split by ',', like: bgp/test_bgp_fact.py,test_feature.py"
+        help="Test scripts, Split by ',', like: 'bgp/test_bgp_fact.py, test_feature.py'"
+    )
+    parser_create.add_argument(
+        "--scripts-exclude",
+        type=str,
+        dest="scripts_exclude",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Exclude test scripts, Split by ',', like: 'bgp/test_bgp_fact.py, test_feature.py'"
+    )
+    parser_create.add_argument(
+        "--features-exclude",
+        type=str,
+        dest="features_exclude",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Exclude test features, Split by ',', like: 'bgp, lldp'"
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -637,12 +677,11 @@ if __name__ == "__main__":
                     job_name=job_name
                 ).replace(' ', '_')
 
+            scripts = args.scripts
             # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
             if args.platform == "kvm":
                 args.test_set = args.test_set if args.test_set else args.topology
-                scripts = get_test_scripts(args.test_set)
-            else:
-                scripts = args.scripts.replace(" ", "").split(",") if args.scripts else []
+                scripts = ",".join(get_test_scripts(args.test_set))
 
             tp.create(
                 args.topology,
@@ -653,6 +692,9 @@ if __name__ == "__main__":
                 max_worker=args.max_worker,
                 pr_id=pr_id,
                 scripts=scripts,
+                features=args.features,
+                scripts_exclude=args.scripts_exclude,
+                features_exclude=args.features_exclude,
                 output=args.output,
                 mgmt_branch=args.mgmt_branch,
                 common_extra_params=args.common_extra_params,
