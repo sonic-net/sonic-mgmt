@@ -24,17 +24,18 @@ erspan_dest: ['10.20.6.16']
 #'RadiusResources' in minigraph
 radius_servers: []
 
-# TACACS server used by lab only, not used in tests or minigraph
-lab_tacacs_servers: ['10.3.145.14', '10.3.145.15']
-
-#'TacacsServer' in minigraph
-tacacs_servers: ['100.127.20.21']
+# It can be a real lab tacacs server.
+tacacs_servers: ['10.3.145.14', '10.3.145.15']
 
 #'TacacsGroup' in minigraph
 tacacs_group: 'Starlab'
 
 # tacacs facts required for pytest
-tacacs_passkey: testing123
+tacacs_passkey: starlab
+
+# Determine whether enable tacacs authentication during deploy-minigraph. If false, use local authentication.
+# If yes, authenticate using servers configured in `tacacs_servers`
+tacacs_enabled_by_default: true
 
 #'SnmpResources in minigraph
 snmp_servers: ['10.3.145.98']
