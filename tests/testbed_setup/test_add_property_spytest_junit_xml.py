@@ -5,6 +5,10 @@ import pytest
 
 import xml.etree.ElementTree as ET
 
+pytestmark = [
+    pytest.mark.topology('util')
+]
+
 
 def build_properties(properties_dict):
     """Build global properties from passed key, value pairs."""
