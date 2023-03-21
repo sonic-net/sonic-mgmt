@@ -341,9 +341,10 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
 ecmp/test_fgnhg.py:
   xfail:
     reason: "case failed waiting for fix"
+    conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6558
+      - "https://github.com/sonic-net/sonic-mgmt/issues/6558 and platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/7755 and ('x86_64-mlnx_msn' in platform or 'x86_64-nvidia' in platform)"
 
 #######################################
 #####         everflow            #####
