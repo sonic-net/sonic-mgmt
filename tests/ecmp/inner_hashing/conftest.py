@@ -147,7 +147,7 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
     duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
     duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
-    po = config_facts.get('PORTCHANNEL', {})
+    po = config_facts.get('PORTCHANNEL_MEMBER', {})
     ports = config_facts.get('PORT', {})
 
     tmp_fib_info = tempfile.NamedTemporaryFile()
@@ -161,8 +161,8 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
 
             oports = []
             for ifname in ifnames:
-                if po.has_key(ifname):
-                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                if ifname in po:
+                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]])
                 else:
                     if ports.has_key(ifname):
                         oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])
