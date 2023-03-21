@@ -30,14 +30,16 @@ class LabGraph(object):
     infrastucture for Sonic development and testing environment.
     """
 
-    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
+    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, bmc_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
         self.devices = {}
         self.links = []
         self.consoles = []
+        self.bmcs = []
         self.pdus = []
         self.devcsv = dev_csvfile
         self.linkcsv = link_csvfile
         self.conscsv = cons_csvfile
+        self.bmccsv = bmc_csvfile
         self.pducsv = pdu_csvfile
         self.png_xmlfile = 'str_sonic_png.xml'
         self.dpg_xmlfile = 'str_sonic_dpg.xml'
@@ -47,6 +49,7 @@ class LabGraph(object):
         self.pngroot = etree.Element('PhysicalNetworkGraphDeclaration')
         self.dpgroot = etree.Element('DataPlaneGraph')
         self.csgroot = etree.Element('ConsoleGraphDeclaration')
+        self.bmcgroot = etree.Element('BmcGraphDeclaration')
         self.pcgroot = etree.Element('PowerControlGraphDeclaration')
 
     def _get_port_alias_to_name_map(self, hwsku):
@@ -101,6 +104,7 @@ class LabGraph(object):
             devices_root = etree.SubElement(self.pngroot, 'Devices')
             pdus_root = etree.SubElement(self.pcgroot, 'DevicesPowerControlInfo')
             cons_root = etree.SubElement(self.csgroot, 'DevicesConsoleInfo')
+            bmc_root = etree.SubElement(self.bmcgroot, 'DevicesBmcInfo')
             for row in csv_devices:
                 attrs = {}
                 self.devices[row['Hostname']] = row
@@ -113,6 +117,11 @@ class LabGraph(object):
                     for key in row:
                         attrs[key] = row[key].decode('utf-8')
                     etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
+                elif 'mgmttstorrouter' in devtype:
+                    for key in row:
+                        attrs[key] = row[key].decode('utf-8')
+                    etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
+                    etree.SubElement(bmc_root, 'DeviceBmcInfo', attrs)
                 else:
                     for key in row:
                         if key.lower() != 'managementip' and key.lower() != 'protocol':
@@ -182,6 +191,19 @@ class LabGraph(object):
                 etree.SubElement(conslinks_root, 'ConsoleLinkInfo', attrs)
                 self.consoles.append(cons)
 
+    def read_bmclinks(self):
+        if not os.path.exists(self.bmccsv):
+            return
+        with open(self.bmccsv) as csv_file:
+            csv_bmc = csv.DictReader(csv_file)
+            bmclinks_root = etree.SubElement(self.bmcgroot, 'BmcLinksInfo')
+            for bmc in csv_bmc:
+                attrs = {}
+                for key in bmc:
+                    attrs[key] = bmc[key].decode('utf-8')
+                etree.SubElement(bmclinks_root, 'BmcLinkInfo', attrs)
+                self.bmcs.append(bmc)
+
     def read_pdulinks(self):
         if not os.path.exists(self.pducsv):
             return
@@ -241,6 +263,7 @@ class LabGraph(object):
         root.append(self.pngroot)
         root.append(self.dpgroot)
         root.append(self.csgroot)
+        root.append(self.bmcgroot)
         root.append(self.pcgroot)
         result = etree.tostring(root, pretty_print=True)
         onexml.write(result)
@@ -253,9 +276,10 @@ def get_file_names(args):
         device = 'sonic_{}_devices.csv'.format(args.inventory)
         links = 'sonic_{}_links.csv'.format(args.inventory)
         console = 'sonic_{}_console_links.csv'.format(args.inventory)
+        bmc = 'sonic_{}_bmc_links.csv'.format(args.inventory)
         pdu = 'sonic_{}_pdu_links.csv'.format(args.inventory)
 
-    return device, links, console, pdu
+    return device, links, console, bmc, pdu
 
 
 def main():
@@ -269,12 +293,13 @@ def main():
     parser.add_argument("-o", "--output", help="output xml file", required=True)
     args = parser.parse_args()
 
-    device, links, console, pdu = get_file_names(args)
-    mygraph = LabGraph(device, links, console, pdu, args.output)
+    device, links, console, bmc, pdu = get_file_names(args)
+    mygraph = LabGraph(device, links, console, bmc, pdu, args.output)
 
     mygraph.read_devices()
     mygraph.read_links()
     mygraph.read_consolelinks()
+    mygraph.read_bmclinks()
     mygraph.read_pdulinks()
     mygraph.generate_dpg()
     mygraph.create_xml()
