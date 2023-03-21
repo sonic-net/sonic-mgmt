@@ -386,13 +386,6 @@ class TestQosSai(QosSaiBase):
         except Exception as e:
             raise e
         finally:
-            if prev_poll_interval:
-                logger.info("--- Restore original poll interval {} ---".format(prev_poll_interval))
-                duthost.command("pfcwd interval {}".format(prev_poll_interval))
-            else:
-                logger.info("--- Set Default Polling Interval ---".format())
-                duthost.command("pfcwd interval {}".format("200"))
-
             if prev_state:
                 logger.info("--- Restore original config {} for PfcWd on {} ---".format(prev_state, pfcwd_test_port))
                 start_wd_on_ports(duthost,
@@ -403,6 +396,13 @@ class TestQosSai(QosSaiBase):
             else:
                 logger.info("--- Stop PfcWd on {} ---".format(pfcwd_test_port))
                 duthost.command("pfcwd stop {}".format(pfcwd_test_port))
+
+            if prev_poll_interval:
+                logger.info("--- Restore original poll interval {} ---".format(prev_poll_interval))
+                duthost.command("pfcwd interval {}".format(prev_poll_interval))
+            else:
+                logger.info("--- Set Default Polling Interval ---".format())
+                duthost.command("pfcwd interval {}".format("200"))
 
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
