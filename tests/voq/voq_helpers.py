@@ -79,7 +79,7 @@ def check_host_arp_table(host, asic, neighbor_ip, neighbor_mac, interface, state
         table = arptable['arptable']['v4']
     for entry in table:
         logger.debug("%s ARP: %s => %s", host.hostname, entry, table[entry])
-    pytest_assert(neighbor_ip in table, "IP %s not in arp list: %s" % (neighbor_ip, table.keys()))
+    pytest_assert(neighbor_ip in table, "IP %s not in arp list: %s" % (neighbor_ip, list(table.keys())))
     pytest_assert(table[neighbor_ip]['macaddress'] == neighbor_mac,
                   "table MAC %s does not match neighbor mac: %s" % (table[neighbor_ip]['macaddress'], neighbor_mac))
     pytest_assert(table[neighbor_ip]['interface'] == interface,
@@ -180,7 +180,7 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
         output = host.command("docker exec " + docker + " vtysh -c \"show {} route {} json\"".format(ipver, prefix))
         parsed = json.loads(output["stdout"])
     if present is True:
-        pytest_assert(prefix in parsed.keys(), "Prefix: %s not in route list: %s" % (prefix, parsed.keys()))
+        pytest_assert(prefix in list(parsed.keys()), "Prefix: %s not in route list: %s" % (prefix, list(parsed.keys())))
         found = False
         for route in parsed[prefix]:
             if route['distance'] != 0:
@@ -197,7 +197,7 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
         logger.debug("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
     if present is False:
         #logger.info("outout: %s", parsed)
-        pytest_assert(prefix not in parsed, "Prefix: %s still in route list: %s" % (prefix, parsed.keys()))
+        pytest_assert(prefix not in parsed, "Prefix: %s still in route list: %s" % (prefix, list(parsed.keys())))
         logger.info("Route %s is removed from remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
 
 
@@ -206,7 +206,7 @@ def check_no_routes_from_nexthop(asic, nexthop):
         ver = '-6'
     else:
         ver = '-4'
-    special_nexthop = nexthop.replace('.', '\\\.')
+    special_nexthop = nexthop.replace('.', r'\\\.')
     cmd = "ip {} route show | grep -w {} | wc -l".format(ver, special_nexthop)
     if asic.namespace is not None:
         fullcmd = "sudo ip netns exec {} {}".format(asic.namespace, cmd)
@@ -538,7 +538,7 @@ def get_vm_with_ip(neigh_ip, nbrhosts):
         A dictionary with the vm index for nbrhosts, and port name.
     """
     for a_vm in nbrhosts:
-        for port, a_intf in nbrhosts[a_vm]['conf']['interfaces'].iteritems():
+        for port, a_intf in list(nbrhosts[a_vm]['conf']['interfaces'].items()):
             if 'ipv4' in a_intf and a_intf['ipv4'].split("/")[0] == neigh_ip:
                 return {"vm": a_vm, "port": port}
             if 'ipv6' in a_intf and a_intf['ipv6'].split("/")[0].lower() == neigh_ip.lower():
@@ -671,7 +671,7 @@ def check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts, nbr_macs, che
                 logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
                 continue
 
-            dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighs.keys(),
+            dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, list(neighs.keys()),
                                               nbrhosts, all_cfg_facts, nbr_macs, check_nbr_state=check_nbr_state)
 
 
@@ -1087,17 +1087,17 @@ def check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors)
         logger.info("Checking neighbor entry for %s is deleted from host: %s, asic: %s", neighbor, per_host.hostname,
                     asic.asic_index)
 
-        for entry in asicdb_neigh_table.keys():
+        for entry in list(asicdb_neigh_table.keys()):
             search = '"ip":"%s"' % neighbor
             if search in entry:
                 raise AssertionError("Found neighbor %s in asicdb: %s", search, entry)
 
-        for entry in app_neigh_table.keys():
+        for entry in list(app_neigh_table.keys()):
             if entry.endswith(":" + neighbor):
                 raise AssertionError("Found neighbor %s in app: %s", neighbor, entry)
 
         # check supervisor
-        for entry in voq_dump.keys():
+        for entry in list(voq_dump.keys()):
             if entry.endswith(":" + neighbor):
                 raise AssertionError("Found neighbor %s in voq: %s", neighbor, entry)
 
@@ -1122,12 +1122,12 @@ def check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors)
                 asicdb_neigh_table = asicdb.dump_neighbor_table()
                 app_neigh_table = appdb.dump_neighbor_table()
 
-                for entry in asicdb_neigh_table.keys():
+                for entry in list(asicdb_neigh_table.keys()):
                     search = '"ip":"%s"' % neighbor
                     if search in entry:
                         raise AssertionError("Found neighbor %s in asicdb: %s", search, entry)
 
-                for entry in app_neigh_table.keys():
+                for entry in list(app_neigh_table.keys()):
                     if entry.endswith(":" + neighbor):
                         raise AssertionError("Found neighbor %s in app: %s", neighbor, entry)
 
@@ -1259,8 +1259,8 @@ def get_ptf_port(duthosts, cfg_facts, tbinfo, dut, dut_port):
     if "portchannel" in dut_port.lower():
         pc_cfg = cfg_facts['PORTCHANNEL_MEMBER']
         pc_members = pc_cfg[dut_port]
-        logger.info("Portchannel members %s: %s", dut_port, pc_members.keys())
-        port_list = pc_members.keys()
+        logger.info("Portchannel members %s: %s", dut_port, list(pc_members.keys()))
+        port_list = list(pc_members.keys())
     else:
         port_list = [dut_port]
 

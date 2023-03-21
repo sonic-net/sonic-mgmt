@@ -40,7 +40,7 @@ def isis_setup_teardown_basic_config(isis_common_setup_teardown, request):
 def check_isis_route(duthost):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
 
-    if "1.1.0.0/16" in isis_facts['route'][isis_instance]['ipv4'].keys():
+    if "1.1.0.0/16" in list(isis_facts['route'][isis_instance]['ipv4'].keys()):
         return True
 
     return False

@@ -10,7 +10,7 @@ The 'stress' utility is leveraged to increase the memory usage of a container co
 """
 import logging
 from multiprocessing.pool import ThreadPool
-
+import time
 import pytest
 
 from pkg_resources import parse_version

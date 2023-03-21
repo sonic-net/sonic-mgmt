@@ -117,7 +117,7 @@ class DBChecker:
         separator = DB_SEPARATOR_MAP[db]
 
         db_check_fields = DB_CHECK_FIELD_MAP[db]
-        for table, field in db_check_fields.items():
+        for table, field in list(db_check_fields.items()):
             key_pattern = table + separator + "*"
             db_dump = self._dump_db(db, key_pattern)
 

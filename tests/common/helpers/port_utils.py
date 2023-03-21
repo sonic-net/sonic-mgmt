@@ -102,7 +102,7 @@ class MlnxCableSupportedSpeedsHelper(object):
 
         if duthost not in cls.sorted_ports:
             int_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
-            ports = natsorted([port_name for port_name in int_status.keys()])
+            ports = natsorted([port_name for port_name in list(int_status.keys())])
             cls.sorted_ports[duthost] = ports
 
         if not cls.device_path:

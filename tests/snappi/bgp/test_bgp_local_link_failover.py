@@ -1,7 +1,7 @@
 from tests.common.snappi.snappi_fixtures import cvg_api
 from tests.common.snappi.snappi_fixtures import (
     snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
-from files.bgp_convergence_helper import run_bgp_local_link_failover_test
+from .files.bgp_convergence_helper import run_bgp_local_link_failover_test
 from tests.common.fixtures.conn_graph_facts import (
     conn_graph_facts, fanout_graph_facts)
 import pytest

@@ -85,7 +85,7 @@ def check_neighbors(duthost, tbinfo):
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     mg_facts  = duthost.get_extended_minigraph_facts(tbinfo)
 
-    for value in bgp_facts['bgp_neighbors'].values():
+    for value in list(bgp_facts['bgp_neighbors'].values()):
         # Verify bgp sessions are established
         if value['state'] != 'established':
             raise RebootHealthError("BGP session not established")
