@@ -17,8 +17,8 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-if sys.version_info.major == 3:
-    str = str
+if sys.version_info.major >= 3:
+    unicode = str
 
 TEST_DIR = "/tmp/lagtests/"
 PTF_LAG_NAME = "bond1"
@@ -183,7 +183,7 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         ptf_lag = {
             'port_list': port_list,
-            'ip': "{}/24".format(str(ipaddress.ip_address(str(dut_lag['ip'].split("/")[0])) + 1))
+            'ip': "{}/24".format(unicode(ipaddress.ip_address(str(dut_lag['ip'].split("/")[0])) + 1))
         }
 
         aux_port_idx = None
@@ -202,7 +202,7 @@ def test_lag_member_traffic(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             'pc_member': pc_member,
             'port_id': aux_port_idx,
             'port_name': aux_port,
-            'ip': "{}/24".format(str(ipaddress.ip_address(str(dut_lag['ip'].split("/")[0])) + 2))
+            'ip': "{}/24".format(unicode(ipaddress.ip_address(str(dut_lag['ip'].split("/")[0])) + 2))
         }
         # Shutdown neighbor interfaces to disable existing LACP and connect to PTF LACP.
         nbrhosts_itf_up_or_down(nbrhosts, nei_lag_ports, 'down')
