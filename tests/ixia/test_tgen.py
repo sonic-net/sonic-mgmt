@@ -1,17 +1,16 @@
-import logging
 import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts                                                                      # noqa F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa F401
 from tests.common.ixia.port import select_ports
-from tests.common.ixia.qos_fixtures import prio_dscp_map
+from tests.common.ixia.qos_fixtures import prio_dscp_map                                    # noqa F401
 
 from abstract_open_traffic_generator.flow import DeviceTxRx, TxRx, Flow, Header,\
-    Size, Rate,Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
+    Size, Rate, Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous       # noqa F401
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
@@ -19,16 +18,16 @@ from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.control import State, ConfigState, FlowTransmitState
 from abstract_open_traffic_generator.result import FlowRequest
 
+
 @pytest.mark.topology("tgen")
 @pytest.mark.disable_loganalyzer
-
 def __gen_all_to_all_traffic(testbed_config,
                              port_config_list,
                              dut_hostname,
                              conn_data,
                              fanout_data,
                              priority,
-                             prio_dscp_map):
+                             prio_dscp_map):            # noqa F811
 
     flows = []
 
@@ -84,12 +83,8 @@ def __gen_all_to_all_traffic(testbed_config,
     return flows
 
 
-def test_tgen(ixia_api,
-              ixia_testbed_config,
-              conn_graph_facts,
-              fanout_graph_facts,
-              rand_one_dut_lossless_prio,
-              prio_dscp_map):
+def test_tgen(ixia_api, ixia_testbed_config, conn_graph_facts, fanout_graph_facts,      # noqa F811
+              rand_one_dut_lossless_prio, prio_dscp_map):                               # noqa F811
     """
     Test if we can use Tgen API generate traffic in a testbed
 
@@ -170,7 +165,7 @@ def test_tgen(ixia_api,
         tx_frames = row['frames_tx']
 
         pytest_assert(rx_frames == tx_frames,
-                      'packet losses for {} (Tx: {}, Rx: {})'.\
+                      'packet losses for {} (Tx: {}, Rx: {})'.
                       format(flow_name, tx_frames, rx_frames))
 
         tput_bps = port_speed_gbps * 1e9 * rate_percent / 100.0
@@ -181,5 +176,5 @@ def test_tgen(ixia_api,
         deviation = abs(ratio - 1)
 
         pytest_assert(deviation <= deviation_thresh,
-                      'Expected / Actual # of pkts for flow {}: {} / {}'.\
+                      'Expected / Actual # of pkts for flow {}: {} / {}'.
                       format(flow_name, exp_rx_frames, rx_frames))

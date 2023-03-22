@@ -13,6 +13,7 @@ SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
 HTTP_PORT = "8080"
 
+
 def test_http_copy(duthosts, rand_one_dut_hostname, ptfhost):
     """Test that HTTP (copy) can be used to download objects to the DUT"""
 
