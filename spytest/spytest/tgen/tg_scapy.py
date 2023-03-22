@@ -100,7 +100,7 @@ class ScapyClient(object):
                     "instantiate_oldstyle_exceptions" : True}
             return rpyc.connect(self.tg_ip, self.tg_port, config=config)
         except Exception as e:
-            print (e)
+            print(e)
             raise ValueError("Failed to connect to scapy server {}".format(e))
 
     def scapy_connect(self, dry_run=False):

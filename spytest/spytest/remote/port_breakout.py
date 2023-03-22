@@ -592,7 +592,7 @@ def break_in_cfg(port, cfg_file, lanes, opt, platform):
         new_port = INTERFACE_KEY + str(int(idx) + (i/step))
         xxx = copy.deepcopy(port_instance)
         data['PORT'][new_port] = xxx
-        ### print data['PORT'][new_port]
+        ### print(data['PORT'][new_port])
 
     for i in range(0, min(len(lanes), get_bkout_lanes(opt)), step):
         new_port = INTERFACE_KEY + str(int(idx) + (i/step))
@@ -813,7 +813,7 @@ def main(argv):
 
     _, port, opt = process_args(argv)
     """
-    print verbose, port, opt
+    print(verbose, port, opt)
     """
 
     if not SIM_HOST:

@@ -1,10 +1,7 @@
 from __future__ import (absolute_import, division, print_function)
 import os.path
 
-try:
-    from xmlrpclib import ServerProxy
-except ImportError:
-    from xmllib.client import ServerProxy
+from six.moves.xmlrpc_client import ServerProxy
 from ansible.utils.display import Display
 from ansible.plugins.lookup import LookupBase
 from ansible.errors import AnsibleError

@@ -93,12 +93,12 @@ if __name__ == "__main__":
     tmpl, rv = template.apply(f.read(), sys.argv[1])
     print("============ Template: {}".format(tmpl))
     if env.get("SPYTEST_TEXTFSM_DUMP_INDENT_JSON", "0") == "0":
-        print (rv)
+        print(rv)
         sys.exit(0)
 
     try:
         print(json.dumps(rv, indent=2))
     except Exception as exp:
         print("============ ERROR: {}".format(exp))
-        print (rv)
+        print(rv)
 

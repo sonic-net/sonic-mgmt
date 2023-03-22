@@ -206,7 +206,7 @@ def sprint_data(d, msg=""):
     return rv
 
 def print_data(d, msg=""):
-    print (sprint_data(d, msg))
+    print(sprint_data(d, msg))
 
 def sprint_yaml(d, msg="", default_flow_style=False):
     rv = "========================{}===========================\n".format(msg)
@@ -215,7 +215,7 @@ def sprint_yaml(d, msg="", default_flow_style=False):
     return rv
 
 def print_yaml(d, msg="", default_flow_style=False):
-    print (sprint_yaml(d, msg, default_flow_style))
+    print(sprint_yaml(d, msg, default_flow_style))
 
 def random_integer(min=0, max=10):
     return random.randint(min, max)
