@@ -211,7 +211,8 @@ fi
 # Environment configuration, skip python virtual environments
 RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ]; then \
 /bin/bash -O extglob -c 'cp -a -f /var/AzDevOps/!(env-*) /home/{{ USER_NAME }}/'; \
-/bin/bash -c 'cp -a -f /var/AzDevOps/{.profile,.local,.ssh} /home/{{ USER_NAME }}/'; \
+for hidden_stuff in '.profile .local .ssh'; do \
+/bin/bash -c 'cp -a -f /var/AzDevOps/$hidden_stuff /home/{{ USER_NAME }}/ || true'; done \
 fi
 
 # Permissions configuration
