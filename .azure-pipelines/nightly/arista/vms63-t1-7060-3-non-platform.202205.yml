@@ -46,7 +46,7 @@ parameters:
 
   - name: PREV_IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_201911)
+    default: $(IMAGE_BRCM_ABOOT_201811)
     displayName: "Previous Image URL"
 
 stages:
