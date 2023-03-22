@@ -647,7 +647,7 @@ class MultiAsicSonicHost(object):
         if not self.sonichost.is_multi_asic:
             return {}
         bgp_internal_neighbors = {}
-        for asic in self.frontend_asics:
+        for asic in self.asics:
             config_facts = self.config_facts(
                 host=self.hostname, source="running",
                 namespace=asic.namespace
