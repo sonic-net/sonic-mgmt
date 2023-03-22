@@ -7,7 +7,6 @@ from tests.common.storage_backend.backend_utils import skip_test_module_over_bac
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
-from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
 
 
@@ -107,13 +106,14 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
 
 
 
-def test_default_route_set_src(duthosts, tbinfo):
+def test_default_route_set_src(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
+                               enum_rand_one_asic_index, tbinfo):
     """
     check if ipv4 and ipv6 default src address match Loopback0 address
 
     """
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
-    asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_asic_index)
 
     config_facts = asichost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
@@ -143,13 +143,14 @@ def test_default_route_set_src(duthosts, tbinfo):
     pytest_assert(rtinfo['set_src'] == lo_ipv6.ip, \
             "default v6 route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv6.ip))
 
-def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
+def test_default_ipv6_route_next_hop_global_address(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
+                                                    enum_rand_one_asic_index, tbinfo):
     """
     check if ipv6 default route nexthop address uses global address
 
     """
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
-    asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_asic_index)
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
     pytest_assert(len(rtinfo['nexthops']) > 0, "cannot find ipv6 nexthop for default route")
@@ -158,7 +159,7 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
                 "use link local address {} for nexthop".format(nh[0]))
 
 
-def test_default_route_with_bgp_flap(duthosts, tbinfo):
+def test_default_route_with_bgp_flap(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     Check the default route present in app_db has the correct nexthops ip
     Check the default route is removed when the bgp sessions are shutdown
@@ -169,7 +170,7 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
             "Skip this testcase since this topology {} has no default routes"\
                 .format(tbinfo['topo']['name']))
 
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
@@ -178,7 +179,7 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
     # Get uplink namespaces/asics for multi-asic
     if duthost.is_multi_asic:
         bgp_name_to_ns_mapping = duthost.get_bgp_name_to_ns_mapping()
-        uplink_ns = get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, config_facts['DEVICE_NEIGHBOR_METADATA'])
+        uplink_ns = get_uplink_ns(tbinfo, bgp_name_to_ns_mapping)
     
     af_list = ['ipv4', 'ipv6']
 
