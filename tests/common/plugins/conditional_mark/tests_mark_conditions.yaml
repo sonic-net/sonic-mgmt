@@ -538,6 +538,15 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
       - "'t2' in topo_name"
 
 #######################################
+#####      metadata-scripts       #####
+#######################################
+metadata-scripts/test_metadata_bgp.py:
+  skip:
+    reason: "Not applicable to M0 and MX topo"
+    conditions:
+      - "topo_name in ['m0', 'mx']"
+
+#######################################
 #####            mpls             #####
 #######################################
 mpls/test_mpls.py:
