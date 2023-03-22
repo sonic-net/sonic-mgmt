@@ -458,7 +458,7 @@ class Vxlan(BaseTest):
         exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
 
         self.dataplane.flush()
-        for i in xrange(self.nr):
+        for i in range(self.nr):
             testutils.send_packet(self, acc_port, packet)
         nr_rcvd = count_matched_packets_all_ports_helper(self, exp_packet, self.nr, pc_ports, timeout=20)
         rv = nr_rcvd == self.nr
@@ -491,7 +491,7 @@ class Vxlan(BaseTest):
                        )
 
         self.dataplane.flush()
-        for i in xrange(self.nr):
+        for i in range(self.nr):
             testutils.send_packet(self, net_port, packet)
         # We don't care if expected packet is received during warming up
         if not wu:
@@ -533,7 +533,7 @@ class Vxlan(BaseTest):
                  )
 
         self.dataplane.flush()
-        for i in xrange(self.nr):
+        for i in range(self.nr):
             testutils.send_packet(self, net_port, packet)
         nr_rcvd = count_matched_packets_helper(self, inpacket, self.nr, acc_port, timeout=20)
         rv = nr_rcvd == self.nr

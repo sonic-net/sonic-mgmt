@@ -8,7 +8,7 @@ import time
 import xml.etree.ElementTree as ET
 
 from socketserver import ThreadingMixIn
-from xmlrpc.server import SimpleXMLRPCServer
+from six.moves.xmlrpc_server import SimpleXMLRPCServer
 
 
 class _LoggerWriter(object):

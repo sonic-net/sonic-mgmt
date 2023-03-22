@@ -10,7 +10,7 @@ while True:
         line = stdin.readline()
         obj = json.loads(line)
         f = open("/root/exabgp/" + obj["neighbor"]["ip"], "a")
-        print >> f, line,
+        f.write(line + "\n")
         f.close()
     except:
         continue
