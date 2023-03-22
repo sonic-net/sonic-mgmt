@@ -17,7 +17,7 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-if sys.version_info.major > 2:
+if sys.version_info.major >= 3:
     unicode = str
 
 TEST_DIR = "/tmp/lagtests/"
