@@ -3,6 +3,7 @@ import re
 import time
 from jinja2 import Template
 from tests.common.devices.eos import EosHost
+from tests.common.devices.cisco import CiscoHost
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -14,6 +15,7 @@ DEFAULT_ISIS_INSTANCE = 'test'
 NBR_BACKUP_PATH = '/tmp/isis'
 NBR_BACKUP_FILE = '{}_isis.cfg'
 EOS_ISIS_TEMPLATE = 'wan/isis/template/eos_isis_config.j2'
+IOSXR_ISIS_TEMPLATE = 'wan/isis/template/iosxr_isis_config.j2'
 SONIC_ISIS_TEMPLATE = 'wan/isis/template/sonic_isis_config.j2'
 FRRCFGD_ENABLE_TEMPLATE = 'wan/isis/template/frrconfigd_enable.j2'
 SONIC_ISIS_CFG_FILE = '/tmp/isis_config.json'
@@ -120,6 +122,8 @@ def config_nbr_isis(nbrhost):
     nbr_backup_file = os.path.join(NBR_BACKUP_PATH, NBR_BACKUP_FILE.format(nbrhost.hostname))
     if isinstance(nbrhost, EosHost):
         nbr_isis_template = EOS_ISIS_TEMPLATE
+    elif isinstance(nbrhost, CiscoHost):
+        nbr_isis_template = IOSXR_ISIS_TEMPLATE
 
     res = nbrhost.load_configuration(nbr_isis_template, nbr_backup_file)
     pytest_require(res, 'Failed to load default configuration')
@@ -132,7 +136,7 @@ def config_device_isis(device):
     Args:
         device: Target device host object
     """
-    if isinstance(device, EosHost):
+    if isinstance(device, EosHost) or isinstance(device, CiscoHost):
         config_nbr_isis(device)
     else:
         config_sonic_isis(device)
@@ -174,7 +178,7 @@ def get_dev_ports(selected_connections):
         else:
             dev_ports[item[2]].append(item[3])
 
-    for k, v in dev_ports.items():
+    for k, v in list(dev_ports.items()):
         v.append('Loopback0')
 
     return dev_ports
@@ -188,7 +192,7 @@ def setup_isis(selected_connections):
         selected_connections: include a list of items such as (dut_host, dut_port, nbr_host, nbr_port)
         which describes the connection between port_channels in different devices.
     """
-    for device, port_list in get_dev_ports(selected_connections).items():
+    for device, port_list in list(get_dev_ports(selected_connections).items()):
         if isinstance(device, MultiAsicSonicHost):
             set_frrcfgd_mode(device, 'true')
 
@@ -205,7 +209,7 @@ def teardown_isis(selected_connections):
         which describes the connection between port_channels in different devices.
     """
     for device in get_dev_ports(selected_connections):
-        if isinstance(device, EosHost):
+        if isinstance(device, EosHost) or isinstance(device, CiscoHost):
             remove_nbr_isis_config(device)
         else:
             remove_sonic_isis_config(device)
@@ -223,7 +227,7 @@ def get_nbr_name(nbrhosts, nbrhost):
         nbrhosts: Neighbor device object list
         nbrhost: Selected neighbor device object
     """
-    for name, v in nbrhosts.items():
+    for name, v in list(nbrhosts.items()):
         if nbrhost == v['host']:
             nbr_name = name
             return nbr_name

@@ -207,7 +207,7 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthosts, rand_one_dut_
     logger.info("Wait some time to verify that bgp sessions are established")
     time.sleep(20)
     bgp_facts = duthost.bgp_facts()['ansible_facts']
-    assert all([v["state"] == "established" for _, v in bgp_facts["bgp_neighbors"].items()]), \
+    assert all([v["state"] == "established" for _, v in list(bgp_facts["bgp_neighbors"].items())]), \
         "Not all bgp sessions are established"
     assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], "No bgp session with PTF"
 
@@ -218,7 +218,7 @@ def vlan_mac(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
     dut_vlan_mac = None
-    for vlan in config_facts.get('VLAN', {}).values():
+    for vlan in list(config_facts.get('VLAN', {}).values()):
         if 'mac' in vlan:
             logger.debug('Found VLAN mac')
             dut_vlan_mac = vlan['mac']

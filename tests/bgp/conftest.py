@@ -35,7 +35,7 @@ def check_results(results):
         results (Proxy to shared dict): Results of parallel run, indexed by node name.
     """
     failed_results = {}
-    for node_name, node_results in results.items():
+    for node_name, node_results in list(results.items()):
         failed_node_results = [res for res in node_results if res['failed']]
         if len(failed_node_results) > 0:
             failed_results[node_name] = failed_node_results
@@ -113,14 +113,14 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
             )
         results[node['host'].hostname] = node_results
 
-    results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+    results = parallel_run(configure_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120)
 
     check_results(results)
 
-    logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
+    logger.info("bgp neighbors: {}".format(list(bgp_neighbors.keys())))
     res = True
     err_msg = ""
-    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         res = False
         err_msg = "not all bgp sessions are up after enable graceful restart"
 
@@ -131,21 +131,21 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
     if not res:
         # Disable graceful restart in case of failure
-        parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+        parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120)
         pytest.fail(err_msg)
 
     yield
 
-    results = parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+    results = parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120)
 
     check_results(results)
 
-    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         pytest.fail("not all bgp sessions are up after disable graceful restart")
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, request, tbinfo):
+def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, request, tbinfo, topo_scenario):
     """Setup interfaces for the new BGP peers on PTF."""
 
     def _is_ipv4_address(ip_addr):
@@ -231,7 +231,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             loopback_intf_prefixlen = loopback_intf["prefixlen"]
 
             mux_configs = mux_cable_server_ip(duthost)
-            local_interfaces = random.sample(mux_configs.keys(), peer_count)
+            local_interfaces = random.sample(list(mux_configs.keys()), peer_count)
             for local_interface in local_interfaces:
                 connections.append(
                     {
@@ -361,7 +361,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
             subnet_prefixlen = list(used_subnets)[0].prefixlen
             # Use a subnet which doesnt conflict with other subnets used in minigraph
-            subnets = ipaddress.ip_network(u"20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
+            subnets = ipaddress.ip_network("20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
 
             loopback_ip = None
             for intf in mg_facts["minigraph_lo_interfaces"]:
@@ -449,8 +449,13 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m0"]):
+    elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
         setup_func = _setup_interfaces_t1_or_t2
+    elif tbinfo["topo"]["type"] == "m0":
+        if topo_scenario == "m0_l3_scenario":
+            setup_func = _setup_interfaces_t1_or_t2
+        else:
+            setup_func = _setup_interfaces_t0_or_mx
     else:
         raise TypeError("Unsupported topology: %s" % tbinfo["topo"]["type"])
 

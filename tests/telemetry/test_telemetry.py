@@ -39,7 +39,7 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
 
     d = get_dict_stdout(gnmi, certs)
-    for key, value in d.items():
+    for key, value in list(d.items()):
         if str(key) == "port":
             port_expected = str(TELEMETRY_PORT)
             pytest_assert(str(value) == port_expected, "'port' value is not '{}'".format(port_expected))
@@ -68,8 +68,8 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     # Elements in list alternate between key and value. Separate them and combine into a dict.
     status_key_list = status_list[0::2]
     status_value_list = status_list[1::2]
-    status_dict = dict(zip(status_key_list, status_value_list))
-    for k, v in status_dict.items():
+    status_dict = dict(list(zip(status_key_list, status_value_list)))
+    for k, v in list(status_dict.items()):
         if str(k) == "status":
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")

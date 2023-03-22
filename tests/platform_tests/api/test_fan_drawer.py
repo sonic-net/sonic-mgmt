@@ -17,7 +17,7 @@ import sys
 if sys.version_info.major == 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = basestring
+    STRING_TYPE = str
 # END Remove this after we transition to Python 3
 ###################################################
 

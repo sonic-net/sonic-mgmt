@@ -3,7 +3,7 @@ import logging
 import pytest
 import re
 
-from helper import gnmi_set, gnmi_get, gnoi_reboot
+from .helper import gnmi_set, gnmi_get, gnoi_reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -26,7 +26,7 @@ def get_first_interface(duthost):
         return None
     admin_index = status_data[0].split().index('Admin')
     for line in status_data:
-        if "trunk" in line:
+        if "routed" not in line:
             interface_status = line.strip()
             assert len(interface_status) > 0, "Failed to read interface properties"
             sl = interface_status.split()

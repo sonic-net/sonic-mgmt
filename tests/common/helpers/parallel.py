@@ -98,7 +98,7 @@ def parallel_run(
                 # set its failed to True.
                 if init_result:
                     init_result['failed'] = True
-                    results[results.keys()[0]] = init_result
+                    results[list(results.keys())[0]] = init_result
                 else:
                     results[p.name] = {'failed': True}
                 try:
@@ -190,7 +190,7 @@ def parallel_run(
             # set its failed to True.
             if init_result:
                 init_result['failed'] = True
-                results[results.keys()[0]] = init_result
+                results[list(results.keys())[0]] = init_result
             else:
                 results[worker.name] = {'failed': True}
 
@@ -202,8 +202,8 @@ def parallel_run(
 
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
-    if len(failed_processes.keys()):
-        for process_name, process in failed_processes.items():
+    if len(list(failed_processes.keys())):
+        for process_name, process in list(failed_processes.items()):
             p_exitcode = ""
             p_exception = ""
             p_traceback = ""
@@ -255,7 +255,7 @@ def reset_ansible_local_tmp(target):
 def parallel_run_threaded(target_functions, timeout=10, thread_count=2):
     """
     Run target functions with a thread pool.
-    
+
     @param target_functions: list of target functions to execute
     @param timeout: timeout seconds, default 10
     @param thread_count: thread count, default 2

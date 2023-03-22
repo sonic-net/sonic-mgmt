@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def get_t2_neigh(tbinfo):
     dut_t2_neigh = []
-    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
+    for vm in list(tbinfo['topo']['properties']['topology']['VMs'].keys()):
         if 'T2' in vm:
             dut_t2_neigh.append(vm)
     return dut_t2_neigh
@@ -22,7 +22,7 @@ def get_t0_neigh(tbinfo, topo_config):
     get all t0 router names which has vips defined
     """
     dut_t0_neigh = []
-    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
+    for vm in list(tbinfo['topo']['properties']['topology']['VMs'].keys()):
         if 'T0' in vm:
             if 'vips' in topo_config[vm]:
                 dut_t0_neigh.append(vm)
@@ -96,7 +96,7 @@ def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
 
     logger.info("vips_t0: {}, vips_asn: {}".format(vips_t0, vips_asn))
 
-    pytest_assert((vips_t0 > 1), "Did not find preconfigured multipath for the vips prefix under test")
+    pytest_assert((len(vips_t0) > 1), "Did not find preconfigured multipath for the vips prefix under test")
 
     # Get the route from the DUT for the prefix
     bgp_route = duthost.get_bgp_route(

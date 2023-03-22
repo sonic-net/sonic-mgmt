@@ -38,7 +38,7 @@ def nbrhosts_to_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhost
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     nbrhosts_to_dut = {}
-    for host in nbrhosts.keys():
+    for host in list(nbrhosts.keys()):
         if host in mg_facts['minigraph_devices']:
             new_nbrhost = {host: nbrhosts[host]}
             nbrhosts_to_dut.update(new_nbrhost)
@@ -79,7 +79,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
     all_routes = {}
 
     host_name_map = {}
-    for hostname, neigh_host in neigh_hosts.items():
+    for hostname, neigh_host in list(neigh_hosts.items()):
         host_name_map[neigh_host['host'].hostname] = hostname
 
     def parse_routes_process_vsonic(node=None, results=None):
@@ -112,7 +112,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
             routes[a_route] = ""
         all_routes[hostname] = routes
 
-    all_routes = parallel_run(parse_routes_process_vsonic, (), {}, neigh_hosts.values(),
+    all_routes = parallel_run(parse_routes_process_vsonic, (), {}, list(neigh_hosts.values()),
                               timeout=120, concurrent_tasks=8)
     return all_routes
 
@@ -129,7 +129,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
 
     # {'VM0122': 'ARISTA11T0',...}
     host_name_map = {}
-    for hostname, neigh_host in neigh_hosts.items():
+    for hostname, neigh_host in list(neigh_hosts.items()):
         host_name_map[neigh_host['host'].hostname] = hostname
 
     # Retrieve the routes on all VMs  in parallel by using a thread poll
@@ -183,10 +183,10 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
             routes[entry] = community
         results[hostname] = routes
     try:
-        all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=180, concurrent_tasks=8)
+        all_routes = parallel_run(parse_routes_process, (), {}, list(neigh_hosts.values()), timeout=180, concurrent_tasks=8)
     except BaseException as err:
         logger.error('Failed to get routes info from VMs. Got error: {}\n\nTrying one more time.'.format(err))
-        all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=180, concurrent_tasks=8)
+        all_routes = parallel_run(parse_routes_process, (), {}, list(neigh_hosts.values()), timeout=180, concurrent_tasks=8)
     return all_routes
 
 
@@ -205,9 +205,9 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
     logger.info("Verifying all routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
     routes_on_all_nbrs = parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver)
     # Check routes on all neigh
-    for hostname, routes in routes_on_all_nbrs.items():
+    for hostname, routes in list(routes_on_all_nbrs.items()):
         logger.info("Verifying all routes(ipv{}) are announced to {}".format(ip_ver, hostname))
-        for route, aspaths in routes_dut.iteritems():
+        for route, aspaths in list(routes_dut.items()):
             # Filter out routes announced by this neigh
             skip = False
             # We will skip aspath on KVM since KVM does not support aspath
@@ -218,7 +218,7 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
                         break
             if skip:
                 continue
-            if route not in routes.keys():
+            if route not in list(routes.keys()):
                 logger.warn("{} not found on {}".format(route, hostname))
                 return False
     return True
@@ -231,25 +231,44 @@ def verify_current_routes_announced_to_neighs(dut_host, neigh_hosts, orig_routes
     logger.info("Verifying all the original routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
     cur_routes_on_all_nbrs.update(parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver))
     # Compare current routes after TSB with original routes advertised to neighbors
-    if cur_routes_on_all_nbrs != orig_routes_on_all_nbrs:        
+    if cur_routes_on_all_nbrs != orig_routes_on_all_nbrs:     
         return False           
     return True
 
-def log_missing_routes(orig_routes_on_all_nbrs, cur_routes_on_all_nbrs):
+def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur_routes_on_all_nbrs,ip_ver):
     cur_nbrs = set(cur_routes_on_all_nbrs.keys())
     orig_nbrs = set(orig_routes_on_all_nbrs.keys())
     if cur_nbrs != orig_nbrs:
         logger.warn("Neighbor list mismatch: {}".format(cur_nbrs ^ orig_nbrs))
         return False
-
-    for hostname in orig_routes_on_all_nbrs.keys():
+    
+    routes_dut = parse_rib(duthost, ip_ver)
+    all_diffs_in_host_aspath = True
+    for hostname in list(orig_routes_on_all_nbrs.keys()):
         if orig_routes_on_all_nbrs[hostname] != cur_routes_on_all_nbrs[hostname]:
-            if len(orig_routes_on_all_nbrs[hostname]) > len(cur_routes_on_all_nbrs[hostname]):
-                logger.warn("Missing routes on host {}: {}".format(hostname, 
-                            set(orig_routes_on_all_nbrs[hostname]) - set(cur_routes_on_all_nbrs[hostname])))
-            else:
-                logger.warn("Additional routes on host {}: {}".format(hostname, 
-                            set(cur_routes_on_all_nbrs[hostname]) - set(orig_routes_on_all_nbrs[hostname])))
+            routes_diff =set(orig_routes_on_all_nbrs[hostname]) ^ set(cur_routes_on_all_nbrs[hostname])
+            for route in routes_diff:
+                if route not in list(routes_dut.keys()):
+                    all_diffs_in_host_aspath = False
+                    logger.warn("Missing route on host {}: {}".format(hostname, route))
+                    continue
+                aspaths = routes_dut[route]
+                # Filter out routes announced by this neigh
+                skip = False
+                if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
+                    for aspath in aspaths:
+                        if str(neigh_hosts[hostname]['conf']['bgp']['asn']) in aspath:
+                            logger.debug("Skipping route {} on host {}".format(route, hostname))
+                            skip = True
+                            break
+                    if not skip:
+                        all_diffs_in_host_aspath = False
+                        if route in orig_routes_on_all_nbrs[hostname]:
+                            logger.warn("Missing route on host {}: {}".format(hostname, route))
+                        else:
+                            logger.warn("Additional route on host {}: {}".format(hostname, route))
+
+    return all_diffs_in_host_aspath
 
 def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, community):
     logger.info("Verifying only loopback routes are announced to bgp neighbors")
@@ -266,9 +285,9 @@ def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, communit
     else:
         lo_addr = lo_addr_v6
     routes_on_all_nbrs = parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver)
-    for hostname, routes in routes_on_all_nbrs.items():
+    for hostname, routes in list(routes_on_all_nbrs.items()):
         logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
-        for prefix, received_community in routes.iteritems():
+        for prefix, received_community in list(routes.items()):
             if ipaddress.IPNetwork(prefix) != lo_addr:
                 logger.warn("route for {} is found on {}, which is not in loopback address".format(prefix, hostname))
                 return False
@@ -361,13 +380,12 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
     cur_v6_routes = {}
     # Verify that all routes advertised to neighbor at the start of the test
     if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-        log_missing_routes(orig_v4_routes, cur_v4_routes)
-        pytest.fail("Not all ipv4 routes are announced to neighbors")
+        if not check_and_log_routes_diff(duthost,nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+            pytest.fail("Not all ipv4 routes are announced to neighbors")
 
     if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
-        log_missing_routes(orig_v6_routes, cur_v6_routes)
-        pytest.fail("Not all ipv6 routes are announced to neighbors")
-
+        if not check_and_log_routes_diff(duthost,nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+            pytest.fail("Not all ipv6 routes are announced to neighbors")
 
 def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                    bgpmon_setup_teardown, nbrhosts):
@@ -403,7 +421,7 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
         wait_critical_processes(duthost)
 
         # Wait until bgp sessions are established on DUT
-        pytest_assert(wait_until(100, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()),
+        pytest_assert(wait_until(100, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT")
 
         # Wait until all routes are announced to neighbors
@@ -411,12 +429,12 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-            log_missing_routes(orig_v4_routes, cur_v4_routes)
-            pytest.fail("Not all ipv4 routes are announced to neighbors")
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                pytest.fail("Not all ipv4 routes are announced to neighbors")
 
         if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
-            log_missing_routes(orig_v6_routes, cur_v6_routes)
-            pytest.fail("Not all ipv6 routes are announced to neighbors")
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+                pytest.fail("Not all ipv6 routes are announced to neighbors")
 
 
 
@@ -435,8 +453,6 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         pytest.skip("TSA persistence not supported in the image")
 
     try:
-        #cur_nbrhosts = get_bgp_neighbor_hosts(duthost, nbrhosts)
-
         # Get all routes on neighbors before doing TSA
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
@@ -475,12 +491,13 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-            log_missing_routes(orig_v4_routes, cur_v4_routes)
-            pytest.fail("Not all ipv4 routes are announced to neighbors")
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                pytest.fail("Not all ipv4 routes are announced to neighbors")
 
         if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
-            log_missing_routes(orig_v6_routes, cur_v6_routes)
-            pytest.fail("Not all ipv6 routes are announced to neighbors")
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+                pytest.fail("Not all ipv6 routes are announced to neighbors")
+
 
 
 
@@ -503,6 +520,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         # Get all routes on neighbors before doing TSA
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
+
         config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
                       traffic_shift_away=True)
 
@@ -528,15 +546,16 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         # Verify DUT is in normal state.
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                       "DUT is not in normal state")
+
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-            log_missing_routes(orig_v4_routes, cur_v4_routes)
-            pytest.fail("Not all ipv4 routes are announced to neighbors")
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                pytest.fail("Not all ipv4 routes are announced to neighbors")
 
         if not wait_until(300, 3, 0,verify_current_routes_announced_to_neighs, duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
-            log_missing_routes(orig_v6_routes, cur_v6_routes)
-            pytest.fail("Not all ipv6 routes are announced to neighbors")
+            if not check_and_log_routes_diff(duthost,nbrhosts, orig_v6_routes, cur_v6_routes, 6):
+                pytest.fail("Not all ipv6 routes are announced to neighbors")
 

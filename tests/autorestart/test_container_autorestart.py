@@ -33,7 +33,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         feature_list, _ = duthost.get_feature_status()
-        for feature, status in feature_list.items():
+        for feature, status in list(feature_list.items()):
             if status == 'enabled':
                 duthost.shell("sudo config feature autorestart {} enabled".format(feature))
     yield
@@ -91,12 +91,14 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#syncd.*SAI_API_UNSPECIFIED:sai_api_query.*",
             ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_query_attribute_enum_values_capability.*",
             ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_object_type_get_availability.*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_SWITCH:sai_query_attribute_capability.*",
             ".*ERR syncd[0-9]*#syncd.*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode.*",
             ".*ERR syncd[0-9]*#syncd.*processQuadEvent.*",
             ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: invalid OIDs in fdb notifications.*",
             ".*ERR syncd[0-9]*#syncd.*process_on_fdb_event: FDB notification was not sent since it contain invalid "
             "OIDs.*",
             ".*ERR syncd[0-9]*#syncd.*saiGetMacAddress: failed to get mac address: SAI_STATUS_ITEM_NOT_FOUND.*",
+            ".*ERR syncd[0-9]*#syncd.*getSupportedBufferPoolCounters.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_lag_or_port_get: Invalid port type - 2.*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_bridge_port_isolation_group_get: Isolation group is only supported for "
@@ -107,6 +109,9 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#SDK.*sai_get_attributes: Failed attribs dispatch.*",
             ".*ERR syncd[0-9]*#SDK.*Failed command read at communication channel: Connection reset by peer.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
+            ".*ERR syncd[0-9]*#SDK.*validate_port: Can't add port which is under bridge.*",
+            ".*ERR syncd[0-9]*#SDK.*listFailedAttributes.*",
+            ".*ERR syncd[0-9]*#SDK.*processSingleVid: failed to create object SAI_OBJECT_TYPE_LAG_MEMBER: SAI_STATUS_INVALID_PARAMETER.*",
             # Known issue, captured here: https://github.com/sonic-net/sonic-buildimage/issues/10000 , ignore it for now
             ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
@@ -114,6 +119,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR teamd[0-9]*#teamsyncd.*readData.*Unable to initialize team socket.*",
             ".*ERR swss[0-9]*#orchagent.*set status: SAI_STATUS_ATTR_NOT_IMPLEMENTED_0.*",
             ".*ERR swss[0-9]*#orchagent.*setIntfVlanFloodType.*",
+            ".*ERR swss[0-9]*#orchagent.*applyDscpToTcMapToSwitch.*",
             ".*ERR swss[0-9]*#buffermgrd.*Failed to process invalid entry.*",
             ".*ERR snmp#snmpd.*",
             ".*ERR dhcp_relay#dhcp6?relay.*bind: Failed to bind socket to link local ipv6 address on interface .* "
@@ -155,6 +161,8 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR pmon#xcvrd.*initializeGlobalConfig.*",
             ".*ERR pmon#thermalctld.*Caught exception while initializing thermal manager.*",
             ".*ERR pmon#xcvrd.*Could not establish the active side.*",
+            ".*ERR pmon#xcvrd.*sx_api_host_ifc_trap_id_register_set exited with error.*",
+            ".*ERR pmon#xcvrd.*sx_api_host_ifc_close exited with error.*"
         ],
         'eventd': [
             ".*ERR eventd#eventd.*The eventd service started.*",
@@ -166,12 +174,21 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
     }
 
     feature = enum_dut_feature
+
+    impacted_duts = []
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        impacted_duts = duthosts
+    else:
+        impacted_duts = [duthost]
+
+    logger.info("Impacted DUTs: '{}'".format(impacted_duts))
 
     if loganalyzer:
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict['common'])
-        if feature in ignore_regex_dict:
-            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_dict[feature])
+        for a_dut in impacted_duts:
+            loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex_dict['common'])
+            if feature in ignore_regex_dict:
+                loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex_dict[feature])
 
 
 def get_group_program_info(duthost, container_name, group_name):
@@ -361,7 +378,7 @@ def check_all_critical_processes_status(duthost):
       Ture if critical processes are running. Otherwise False.
     """
     processes_status = duthost.all_critical_process_status()
-    for container_name, processes in processes_status.items():
+    for container_name, processes in list(processes_status.items()):
         if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
             logger.info("The status of checking process in container '{}' is: {}"
                         .format(container_name, processes["status"]))
@@ -394,7 +411,7 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
         check_all_critical_processes_status, duthost
     )
 
-    for feature_name in feature_autorestart_states.keys():
+    for feature_name in list(feature_autorestart_states.keys()):
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
                 service_name = asic.get_service_name(feature_name)
@@ -495,7 +512,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
                     "status": v["status"],
                     "exited_critical_process": v["exited_critical_process"]
                 }
-            } for k, v in processes_status.items() if v[
+            } for k, v in list(processes_status.items()) if v[
                 "status"
             ] is False and len(v["exited_critical_process"]) > 0
         ]
@@ -504,7 +521,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
              "\nProcess status {}").format(
                 failed_check, container_name,
-                [{x: v['state']} for x, v in duthost.get_bgp_neighbors().items() if v['state'] != 'established'],
+                [{x: v['state']} for x, v in list(duthost.get_bgp_neighbors().items()) if v['state'] != 'established'],
                 up_bgp_neighbors, pstatus
             )
         )
