@@ -11,7 +11,7 @@ import ptf.packet as packet
 if sys.version_info.major > 2:
     NATIVE_TYPE = (int, float, bool, list, dict, tuple, set, str, bytes, type(None))
 else:
-    NATIVE_TYPE = (int, float, int, bool, list, dict, tuple, set, str, bytes, str, type(None))     # noqa F821
+    NATIVE_TYPE = (int, float, long, bool, list, dict, tuple, set, str, bytes, unicode, type(None))     # noqa F821
 
 
 def _parse_layer(layer):
