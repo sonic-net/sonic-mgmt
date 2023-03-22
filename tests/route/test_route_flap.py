@@ -204,7 +204,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     iproute_info = get_ip_route_info(asichost)
     dst_prefix_list = []
     route_prefix_len = get_route_prefix_len(tbinfo, common_config)
-    
+
     for route_prefix in iproute_info:
         if "/{}".format(route_prefix_len) in route_prefix:
             # multia-asics can have more than 1 routes in iproute_info[route_prefix], even single-asics have only 1
