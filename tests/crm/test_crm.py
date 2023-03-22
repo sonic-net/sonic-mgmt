@@ -543,10 +543,10 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if used_percent < 1:
         routes_num = get_entries_num(new_crm_stats_route_used, new_crm_stats_route_available)
         if ip_ver == "4":
-            routes_list = " ".join([str(ipaddress.IPv4Address('2.0.0.1') + item) + "/32"
+            routes_list = " ".join([str(ipaddress.IPv4Address(u'2.0.0.1') + item) + "/32"
                                     for item in range(1, routes_num + 1)])
         elif ip_ver == "6":
-            routes_list = " ".join([str(ipaddress.IPv6Address('2001::') + item) + "/128"
+            routes_list = " ".join([str(ipaddress.IPv6Address(u'2001::') + item) + "/128"
                                     for item in range(1, routes_num + 1)])
         else:
             pytest.fail("Incorrect IP version specified - {}".format(ip_ver))

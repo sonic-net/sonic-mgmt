@@ -1,13 +1,8 @@
 import pytest
 import logging
 import time
-import tempfile
-import random
-if sys.version_info.major > 2:
-    from urllib.parse import urlparse
-else:
-    from urlparse import urlparse
 import ipaddress
+from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
