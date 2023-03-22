@@ -725,6 +725,13 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
+platform_tests/fwutil/test_fwutil.py:
+  skip:
+  reason: "Non-Mellanox platforms doesn't support fwutil for now"
+  conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7811
+
 platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
@@ -734,7 +741,7 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
 #######################################
 platform_tests/mellanox:
   skip:
-    reason: "Mellanox platform tests only supported on Mellanox devices" 
+    reason: "Mellanox platform tests only supported on Mellanox devices"
     conditions:
       - "asic_type not in ['mellanox']"
 
