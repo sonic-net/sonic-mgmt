@@ -79,8 +79,8 @@ bjw-pdu-126-132,5,bjw-can-7215-12,PSU1
 bjw-pdu-126-133,5,bjw-can-7215-12,PSU2
 bjw-pdu-126-132,36,bjw-can-7215-13,PSU1
 bjw-pdu-126-133,36,bjw-can-7215-13,PSU2
-bjw-pdu-126-132,19,bjw-can-e1031-3,PSU1
-bjw-pdu-126-133,19,bjw-can-e1031-3,PSU2
+bjw-pdu-126-132,19,bjw-can-e1031-1,PSU1
+bjw-pdu-126-133,19,bjw-can-e1031-1,PSU2
 bjw-pdu-126-135,17,bjw-can-serv-1,PSU1
 bjw-pdu-126-134,17,bjw-can-serv-1,PSU2
 bjw-pdu-126-135,21,bjw-can-serv-2,PSU1

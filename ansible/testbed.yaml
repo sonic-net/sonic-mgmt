@@ -1908,7 +1908,7 @@
   auto_recover: 'True'
   comment: Beijing Lab
 
-- conf-name: testbed-bjw-can-e1031-3
+- conf-name: testbed-bjw-can-e1031-1
   group-name: bjw7-1
   topo: m0
   ptf_image_name: docker-ptf
@@ -1918,7 +1918,7 @@
   server: server_bjw_7
   vm_base: VM57000
   dut:
-    - bjw-can-e1031-3
+    - bjw-can-e1031-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab

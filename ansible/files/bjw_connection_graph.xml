@@ -52,7 +52,7 @@
       <Device Hostname="bjw-can-7215-11" HwSku="Nokia-7215" Type="DevSonic"/>
       <Device Hostname="bjw-can-7050qx-1" HwSku="Arista-7050QX32S-Q32" Type="DevSonic"/>
       <Device Hostname="bjw-can-7050qx-2" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
-      <Device Hostname="bjw-can-e1031-3" HwSku="Celestica-E1031-T48S4" Type="DevSonic"/>
+      <Device Hostname="bjw-can-e1031-1" HwSku="Celestica-E1031-T48S4" Type="DevSonic"/>
       <Device Hostname="bjw-can-8102-1" HwSku="Cisco-8102-C64" Type="DevSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
@@ -523,58 +523,58 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet28/2" StartDevice="bjw-can-7215-6" StartPort="Ethernet49"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet28/3" StartDevice="bjw-can-7215-6" StartPort="Ethernet50"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet28/4" StartDevice="bjw-can-7215-6" StartPort="Ethernet51"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet0" StartDevice="bjw-can-e1031-3" StartPort="Ethernet0"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet1" StartDevice="bjw-can-e1031-3" StartPort="Ethernet1"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet2" StartDevice="bjw-can-e1031-3" StartPort="Ethernet2"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet3" StartDevice="bjw-can-e1031-3" StartPort="Ethernet3"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet4" StartDevice="bjw-can-e1031-3" StartPort="Ethernet4"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet5" StartDevice="bjw-can-e1031-3" StartPort="Ethernet5"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet6" StartDevice="bjw-can-e1031-3" StartPort="Ethernet6"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet7" StartDevice="bjw-can-e1031-3" StartPort="Ethernet7"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet8" StartDevice="bjw-can-e1031-3" StartPort="Ethernet8"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet9" StartDevice="bjw-can-e1031-3" StartPort="Ethernet9"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet10" StartDevice="bjw-can-e1031-3" StartPort="Ethernet10"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet11" StartDevice="bjw-can-e1031-3" StartPort="Ethernet11"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet12" StartDevice="bjw-can-e1031-3" StartPort="Ethernet12"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet13" StartDevice="bjw-can-e1031-3" StartPort="Ethernet13"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet14" StartDevice="bjw-can-e1031-3" StartPort="Ethernet14"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet15" StartDevice="bjw-can-e1031-3" StartPort="Ethernet15"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet16" StartDevice="bjw-can-e1031-3" StartPort="Ethernet16"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet17" StartDevice="bjw-can-e1031-3" StartPort="Ethernet17"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet18" StartDevice="bjw-can-e1031-3" StartPort="Ethernet18"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet19" StartDevice="bjw-can-e1031-3" StartPort="Ethernet19"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet20" StartDevice="bjw-can-e1031-3" StartPort="Ethernet20"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet21" StartDevice="bjw-can-e1031-3" StartPort="Ethernet21"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet22" StartDevice="bjw-can-e1031-3" StartPort="Ethernet22"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet23" StartDevice="bjw-can-e1031-3" StartPort="Ethernet23"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet24" StartDevice="bjw-can-e1031-3" StartPort="Ethernet24"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet25" StartDevice="bjw-can-e1031-3" StartPort="Ethernet25"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet26" StartDevice="bjw-can-e1031-3" StartPort="Ethernet26"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet27" StartDevice="bjw-can-e1031-3" StartPort="Ethernet27"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet28" StartDevice="bjw-can-e1031-3" StartPort="Ethernet28"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet29" StartDevice="bjw-can-e1031-3" StartPort="Ethernet29"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet30" StartDevice="bjw-can-e1031-3" StartPort="Ethernet30"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet31" StartDevice="bjw-can-e1031-3" StartPort="Ethernet31"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet32" StartDevice="bjw-can-e1031-3" StartPort="Ethernet32"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet33" StartDevice="bjw-can-e1031-3" StartPort="Ethernet33"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet34" StartDevice="bjw-can-e1031-3" StartPort="Ethernet34"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet35" StartDevice="bjw-can-e1031-3" StartPort="Ethernet35"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet36" StartDevice="bjw-can-e1031-3" StartPort="Ethernet36"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet37" StartDevice="bjw-can-e1031-3" StartPort="Ethernet37"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet38" StartDevice="bjw-can-e1031-3" StartPort="Ethernet38"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet39" StartDevice="bjw-can-e1031-3" StartPort="Ethernet39"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet40" StartDevice="bjw-can-e1031-3" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet41" StartDevice="bjw-can-e1031-3" StartPort="Ethernet41"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet42" StartDevice="bjw-can-e1031-3" StartPort="Ethernet42"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet43" StartDevice="bjw-can-e1031-3" StartPort="Ethernet43"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet44" StartDevice="bjw-can-e1031-3" StartPort="Ethernet44"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet45" StartDevice="bjw-can-e1031-3" StartPort="Ethernet45"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet46" StartDevice="bjw-can-e1031-3" StartPort="Ethernet46"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet47" StartDevice="bjw-can-e1031-3" StartPort="Ethernet47"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet27/1" StartDevice="bjw-can-e1031-3" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet27/2" StartDevice="bjw-can-e1031-3" StartPort="Ethernet49"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet27/3" StartDevice="bjw-can-e1031-3" StartPort="Ethernet50"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet27/4" StartDevice="bjw-can-e1031-3" StartPort="Ethernet51"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet0" StartDevice="bjw-can-e1031-1" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet1" StartDevice="bjw-can-e1031-1" StartPort="Ethernet1"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet2" StartDevice="bjw-can-e1031-1" StartPort="Ethernet2"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet3" StartDevice="bjw-can-e1031-1" StartPort="Ethernet3"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet4" StartDevice="bjw-can-e1031-1" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet5" StartDevice="bjw-can-e1031-1" StartPort="Ethernet5"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet6" StartDevice="bjw-can-e1031-1" StartPort="Ethernet6"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet7" StartDevice="bjw-can-e1031-1" StartPort="Ethernet7"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet8" StartDevice="bjw-can-e1031-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet9" StartDevice="bjw-can-e1031-1" StartPort="Ethernet9"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet10" StartDevice="bjw-can-e1031-1" StartPort="Ethernet10"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet11" StartDevice="bjw-can-e1031-1" StartPort="Ethernet11"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet12" StartDevice="bjw-can-e1031-1" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet13" StartDevice="bjw-can-e1031-1" StartPort="Ethernet13"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet14" StartDevice="bjw-can-e1031-1" StartPort="Ethernet14"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet15" StartDevice="bjw-can-e1031-1" StartPort="Ethernet15"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet16" StartDevice="bjw-can-e1031-1" StartPort="Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet17" StartDevice="bjw-can-e1031-1" StartPort="Ethernet17"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet18" StartDevice="bjw-can-e1031-1" StartPort="Ethernet18"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet19" StartDevice="bjw-can-e1031-1" StartPort="Ethernet19"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet20" StartDevice="bjw-can-e1031-1" StartPort="Ethernet20"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet21" StartDevice="bjw-can-e1031-1" StartPort="Ethernet21"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet22" StartDevice="bjw-can-e1031-1" StartPort="Ethernet22"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet23" StartDevice="bjw-can-e1031-1" StartPort="Ethernet23"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet24" StartDevice="bjw-can-e1031-1" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet25" StartDevice="bjw-can-e1031-1" StartPort="Ethernet25"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet26" StartDevice="bjw-can-e1031-1" StartPort="Ethernet26"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet27" StartDevice="bjw-can-e1031-1" StartPort="Ethernet27"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet28" StartDevice="bjw-can-e1031-1" StartPort="Ethernet28"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet29" StartDevice="bjw-can-e1031-1" StartPort="Ethernet29"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet30" StartDevice="bjw-can-e1031-1" StartPort="Ethernet30"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet31" StartDevice="bjw-can-e1031-1" StartPort="Ethernet31"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet32" StartDevice="bjw-can-e1031-1" StartPort="Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet33" StartDevice="bjw-can-e1031-1" StartPort="Ethernet33"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet34" StartDevice="bjw-can-e1031-1" StartPort="Ethernet34"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet35" StartDevice="bjw-can-e1031-1" StartPort="Ethernet35"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet36" StartDevice="bjw-can-e1031-1" StartPort="Ethernet36"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet37" StartDevice="bjw-can-e1031-1" StartPort="Ethernet37"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet38" StartDevice="bjw-can-e1031-1" StartPort="Ethernet38"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet39" StartDevice="bjw-can-e1031-1" StartPort="Ethernet39"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet40" StartDevice="bjw-can-e1031-1" StartPort="Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet41" StartDevice="bjw-can-e1031-1" StartPort="Ethernet41"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet42" StartDevice="bjw-can-e1031-1" StartPort="Ethernet42"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet43" StartDevice="bjw-can-e1031-1" StartPort="Ethernet43"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet44" StartDevice="bjw-can-e1031-1" StartPort="Ethernet44"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet45" StartDevice="bjw-can-e1031-1" StartPort="Ethernet45"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet46" StartDevice="bjw-can-e1031-1" StartPort="Ethernet46"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-5" EndPort="Ethernet47" StartDevice="bjw-can-e1031-1" StartPort="Ethernet47"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet27/1" StartDevice="bjw-can-e1031-1" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet27/2" StartDevice="bjw-can-e1031-1" StartPort="Ethernet49"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet27/3" StartDevice="bjw-can-e1031-1" StartPort="Ethernet50"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet27/4" StartDevice="bjw-can-e1031-1" StartPort="Ethernet51"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-z9332f-4" EndPort="Ethernet0" StartDevice="bjw-can-8102-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-z9332f-4" EndPort="Ethernet8" StartDevice="bjw-can-8102-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="bjw-can-z9332f-4" EndPort="Ethernet16" StartDevice="bjw-can-8102-1" StartPort="Ethernet16"/>
@@ -1570,9 +1570,6 @@
     <DevicesL3Info Hostname="bjw-can-ec9516-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.109/23"/>
     </DevicesL3Info>
-    <DevicesL3Info Hostname="bjw-can-e1031-3">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.125/23"/>
-    </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-720dt-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.112/23"/>
     </DevicesL3Info>
@@ -1657,6 +1654,9 @@
     </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-2700-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.101/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="bjw-can-e1031-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.125/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="bjw-can-z9332f-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.108/23"/>
@@ -1854,7 +1854,7 @@
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-7" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="23"/>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-6" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="24"/>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-5" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="25"/>
-      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-e1031-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="26"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-e1031-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="26"/>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-11" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="29"/>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-12" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="30"/>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-13" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="31"/>
@@ -1959,8 +1959,8 @@
       <PowerControlLinkInfo EndDevice="bjw-can-7215-12" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="5"/>
       <PowerControlLinkInfo EndDevice="bjw-can-7215-13" EndPort="PSU1" StartDevice="bjw-pdu-126-132" StartPort="36"/>
       <PowerControlLinkInfo EndDevice="bjw-can-7215-13" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="36"/>
-      <PowerControlLinkInfo EndDevice="bjw-can-e1031-3" EndPort="PSU1" StartDevice="bjw-pdu-126-132" StartPort="19"/>
-      <PowerControlLinkInfo EndDevice="bjw-can-e1031-3" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="19"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-e1031-1" EndPort="PSU1" StartDevice="bjw-pdu-126-132" StartPort="19"/>
+      <PowerControlLinkInfo EndDevice="bjw-can-e1031-1" EndPort="PSU2" StartDevice="bjw-pdu-126-133" StartPort="19"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-1" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-1" EndPort="PSU2" StartDevice="bjw-pdu-126-134" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="bjw-can-serv-2" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="21"/>

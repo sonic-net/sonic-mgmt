@@ -50,7 +50,7 @@ bjw-can-7215-6,10.150.22.124/23,Nokia-M0-7215,DevSonic,
 bjw-can-7215-11,10.150.22.134/23,Nokia-7215,DevSonic,
 bjw-can-7050qx-1,10.150.22.117/23,Arista-7050QX32S-Q32,DevSonic,
 bjw-can-7050qx-2,10.150.22.119/23,Arista-7050-QX-32S,DevSonic,
-bjw-can-e1031-3,10.150.22.125/23,Celestica-E1031-T48S4,DevSonic,
+bjw-can-e1031-1,10.150.22.125/23,Celestica-E1031-T48S4,DevSonic,
 bjw-can-8102-1,10.150.22.128/23,Cisco-8102-C64,DevSonic,
 bjw-pdu-126-132,10.150.126.132,Vertiv,Pdu,snmp
 bjw-pdu-126-133,10.150.126.133,Vertiv,Pdu,snmp
