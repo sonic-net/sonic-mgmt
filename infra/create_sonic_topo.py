@@ -489,6 +489,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('topo_8800-LC-48H-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-LC-48H-O.yml')
     if topo_type in ['t0', 'dualtor-56']:
         ftp_client.put('t0-leaf.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
     elif topo_type == 't1':
