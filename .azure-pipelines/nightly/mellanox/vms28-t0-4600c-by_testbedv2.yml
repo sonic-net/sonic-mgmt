@@ -60,20 +60,16 @@ parameters:
     default: 1920
 
 stages:
-  - job: nightly_test_by_testbedv2
-    displayName: "nightly test by TestbedV2"
-    continueOnError: false
-    steps:
-    - template: .azure-pipelines/run-test-scheduler-template.yml
-      parameters:
-        TOPOLOGY: t0-64
-        MIN_WORKER: 2
-        MAX_WORKER: 2
-        TEST_PLAN_TYPE: NIGHTLY
-        PLATFORM: PHYSICAL
-        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-        SCRIPTS: ${{ parameters.SCRIPTS }}
-        FEATURES: ${{ parameters.FEATURES }}
-        SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
-        FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
-        COMMON_EXTRA_PARAMS: "--topology t0,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }}"
+  - template: .azure-pipelines/run-test-scheduler-template.yml
+    parameters:
+      TOPOLOGY: t0-64
+      MIN_WORKER: 2
+      MAX_WORKER: 2
+      TEST_PLAN_TYPE: NIGHTLY
+      PLATFORM: PHYSICAL
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      SCRIPTS: ${{ parameters.SCRIPTS }}
+      FEATURES: ${{ parameters.FEATURES }}
+      SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+      FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+      COMMON_EXTRA_PARAMS: "--topology t0,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }}"
