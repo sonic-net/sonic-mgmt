@@ -122,11 +122,10 @@ def get_scope(testbed_tools_url):
     return scope
 
 
-def parse_list_from_str_in_kwarg(kwarg_dict, key):
-    if key in kwarg_dict:
-        value = kwarg_dict.get(key)
-        return [single_str.strip() for single_str in value.split(',')] if value else None
-    return None
+def parse_list_from_str(s):
+    if not s:
+        return None
+    return [single_str.strip() for single_str in s.split(',')]
 
 
 class TestPlanManager(object):
@@ -161,15 +160,15 @@ class TestPlanManager(object):
                min_worker=1, max_worker=2, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
-        testbed_name = parse_list_from_str_in_kwarg(kwargs, "testbed_name")
+        testbed_name = parse_list_from_str(kwargs.get("testbed_name", None))
         image_url = kwargs.get("image_url", None)
         hwsku = kwargs.get("hwsku", None)
         test_plan_type = kwargs.get("test_plan_type", "PR")
         platform = kwargs.get("platform", "kvm")
-        scripts = parse_list_from_str_in_kwarg(kwargs, "scripts")
-        features = parse_list_from_str_in_kwarg(kwargs, "features")
-        scripts_exclude = parse_list_from_str_in_kwarg(kwargs, "scripts_exclude")
-        features_exclude = parse_list_from_str_in_kwarg(kwargs, "features_exclude")
+        scripts = parse_list_from_str(kwargs.get("scripts", None))
+        features = parse_list_from_str(kwargs.get("features", None))
+        scripts_exclude = parse_list_from_str(kwargs.get("scripts_exclude", None))
+        features_exclude = parse_list_from_str(kwargs.get("features_exclude", None))
 
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
