@@ -204,7 +204,7 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     iproute_info = get_ip_route_info(asichost)
     dst_prefix_list = []
     route_prefix_len = get_route_prefix_len(tbinfo, common_config)
-
+    
     for route_prefix in iproute_info:
         if "/{}".format(route_prefix_len) in route_prefix:
             # multia-asics can have more than 1 routes in iproute_info[route_prefix], even single-asics have only 1
@@ -219,14 +219,14 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     route_to_ping = dst_prefix_list[0].route
     cmd = ' -c "show ip route {} json"'.format(route_to_ping)
     dev_port = None
+    internal_peers = duthost.get_internal_bgp_peers()
     if duthost.is_multi_asic:
         for asic in duthost.frontend_asics:
             dev = json.loads(asic.run_vtysh(cmd)['stdout'])
-            nexthops = dev[route_to_ping][0]['nexthops']
-            internal_peers = duthost.get_internal_bgp_peers()
+            nexthops = dev[route_to_ping][0]['nexthops']  
             for hop in nexthops:
                 is_internal_hop = hop['ip'] in internal_peers.keys()
-                if 'interfaceName' in hop.keys() and 'IB' not in hop['interfaceName'] and not is_internal_hop:
+                if 'interfaceName' in hop.keys() and not is_internal_hop:
                     dev_port = hop['interfaceName']
                     break
             if dev_port:
@@ -235,7 +235,8 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
         dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
         nexthops = dev[route_to_ping][0]['nexthops']
         for hop in nexthops:
-            if 'interfaceName' in hop.keys() and 'IB' not in hop['interfaceName']:
+            is_internal_hop = hop['ip'] in internal_peers.keys()
+            if 'interfaceName' in hop.keys() and not is_internal_hop:
                 dev_port = hop['interfaceName']
                 break
 
