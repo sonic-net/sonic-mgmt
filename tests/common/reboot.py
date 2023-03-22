@@ -178,7 +178,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
         return reboot_helper(reboot_kwargs)
 
-    dut_datetime = duthost.get_now_time()
+    dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
 
     if reboot_type != REBOOT_TYPE_POWEROFF:
@@ -247,7 +247,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
-    dut_uptime = duthost.get_up_time()
+    dut_uptime = duthost.get_up_time(utc_timezone=True)
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
         format(hostname)

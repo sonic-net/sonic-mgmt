@@ -974,12 +974,25 @@ class SonicHost(AnsibleHostBase):
 
         return namespace_ids, True
 
-    def get_up_time(self):
-        up_time_text = self.command("uptime -s")["stdout"]
-        return datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+    def get_up_time(self, utc_timezone=False):
 
-    def get_now_time(self):
-        now_time_text = self.command('date +"%Y-%m-%d %H:%M:%S"')["stdout"]
+        if utc_timezone:
+            current_time = self.get_now_time(utc_timezone=True)
+            uptime_seconds = self.get_uptime()
+            uptime_since = current_time - uptime_seconds
+        else:
+            up_time_text = self.command("uptime -s")["stdout"]
+            uptime_since = datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+
+        return uptime_since
+
+    def get_now_time(self, utc_timezone=False):
+
+        command = 'date +"%Y-%m-%d %H:%M:%S"'
+        if utc_timezone:
+            command += ' -u'
+        now_time_text = self.command(command)["stdout"]
+
         return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
 
     def get_uptime(self):
