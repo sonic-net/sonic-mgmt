@@ -1,12 +1,13 @@
-'''This script is to test BGP passive peering on SONiC.
 '''
+
+This script is to test BGP passive peering on SONiC.
+
+'''
+
 import logging
 
 import pytest
 import time
-from tests.common.utilities import InterruptableThread
-import textfsm
-import traceback
 
 from natsort import natsorted
 
