@@ -1652,6 +1652,8 @@ Totals               6450                 6449
             asic = "td3"
         elif "Broadcom Limited Device b980" in output:
             asic = "th3"
+        elif "Cisco Systems Inc Device a001" in output:
+            asic = "gb"
 
         return asic
 
