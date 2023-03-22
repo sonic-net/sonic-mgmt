@@ -1,5 +1,5 @@
 """
-    Script to query any SAI variable from syncd-rpc-container. The script supports any 
+    Script to query any SAI variable from syncd-rpc-container. The script supports any
     SAI variable that is defined in switch_sai_thrift.sai_headers library. This script
     needs to be run in the PTF container using the commandline:
 
@@ -56,5 +56,5 @@ class RPC_Caller(sai_base_test.ThriftInterfaceDataPlane):
                 queue_counters_results.append(thrift_results)
                 tc_count += 1
 
-        print (queue_counters_results)
+        print(queue_counters_results)
         return (queue_counters_results)

@@ -14,7 +14,7 @@ g_log_fp = None
 def log(message, output_on_console=False):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if output_on_console:
-        print "%s : %s" % (current_time, message)
+        print("%s : %s" % (current_time, message))
     global g_log_fp
     if g_log_fp is not None:
         g_log_fp.write("%s : %s\n" % (current_time, message))

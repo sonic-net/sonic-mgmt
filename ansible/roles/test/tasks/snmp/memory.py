@@ -4,7 +4,7 @@ import sys
 import time
 
 if len(sys.argv) != 2:
-    print "usage: fillmem <number-of-megabytes>"
+    print("usage: fillmem <number-of-megabytes>")
     sys.exit()
 
 count = int(sys.argv[1])

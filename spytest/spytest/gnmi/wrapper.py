@@ -86,7 +86,7 @@ def _gnmi_get(param, display=False, default_param=False):
     pretty  = False
     ret_val = {}
 
-    #print ("@_gnmi_get() param: %s"%param)
+    #print("@_gnmi_get() param: %s"%param)
     if default_param :
         param = _getDefaultParam(param)
 
@@ -99,15 +99,15 @@ def _gnmi_get(param, display=False, default_param=False):
         param.remove("-display")
 
     execution = [GNMI_GET] + list(map(str, param))
-    #print ("Executing GET %s"%(execution))
+    #print("Executing GET %s"%(execution))
 
     get_out = subprocess.Popen(execution, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     o, _ = get_out.communicate()
 
     #print( 'Output: ' + o.decode('ascii'))
-    #print ('code: ' + str(get_out.returncode))
+    #print('code: ' + str(get_out.returncode))
     if get_out.returncode != 0  :
-        #print 'Error: '  + str(o.decode('ascii'))
+        #print('Error: '  + str(o.decode('ascii')))
         error = _returnErr(o.decode('ascii'))
         ret_val = {"ok": False, 'errorCode': get_out.returncode, 'message': error}
     else :
@@ -115,7 +115,7 @@ def _gnmi_get(param, display=False, default_param=False):
         if rval != "" :
             if pretty :
                 val = json.loads(rval)
-                #print val
+                #print(val)
                 ret_val = json.dumps(val, indent=4, sort_keys=True)
             else:
                 ret_val = {"ok": True, "return": rval}
@@ -123,7 +123,7 @@ def _gnmi_get(param, display=False, default_param=False):
             ret_val = {"ok": False, "return": ""}
 
     if display :
-        print (str(ret_val))
+        print(str(ret_val))
 
     return ret_val
 
@@ -141,7 +141,7 @@ def gnmiCreateJsonFile(data={}, dut_name="sgnmi"):
         if os.path.exists(fpath):
             json_file = fpath
     except Exception as e:
-        print ("Unable to create/update file %s for GNMI! \n %s"%(fpath, str(e)) )
+        print("Unable to create/update file %s for GNMI! \n %s"%(fpath, str(e)) )
 
     return json_file
 
@@ -235,11 +235,11 @@ def _returnErr(output):
 
 def _getDefaultParam(input_params) :
     merge_params = input_params
-    #print "original params: ", input_params
+    #print("original params: ", input_params)
     stream = open(CONFIG_YAML, 'r')
     defaults = yaml.load(stream, Loader=yaml.FullLoader) # pylint: disable=no-member
     #for key, value in defaults.items():
-    #    print key + " : " + str(value)
+    #    print(key + " : " + str(value))
 
     if "-target_addr" not in input_params :
         target_addr = str(defaults["parameters"]["host"]) +":"+ str(defaults["parameters"]["port"])
@@ -249,7 +249,7 @@ def _getDefaultParam(input_params) :
         if option not in input_params:
             merge_params.append(option)
 
-    #print "new params: ", merge_params
+    #print("new params: ", merge_params)
     return merge_params
 
 def main():

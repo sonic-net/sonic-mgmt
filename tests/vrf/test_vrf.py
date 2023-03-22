@@ -1,7 +1,6 @@
 import sys
 import time
 import threading
-import queue
 import yaml
 import json
 import random
@@ -12,6 +11,7 @@ import traceback
 from collections import OrderedDict
 from natsort import natsorted
 from netaddr import IPNetwork
+from six.moves import queue
 
 import pytest
 

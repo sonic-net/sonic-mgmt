@@ -18,18 +18,18 @@ def resume_paused():
 
     conn = libvirt.open("qemu:///system")
     if conn == None:
-        print 'Failed to open connection to qemu:///system'
+        print('Failed to open connection to qemu:///system')
         exit(1)
 
     paused = [i.name() for i in conn.listAllDomains() if i.info()[0] == libvirt.VIR_DOMAIN_PAUSED]
 
     if len(paused) > 0:
-        print "Following VM are paused"
-        print "\n".join(paused)
+        print("Following VM are paused")
+        print("\n".join(paused))
         print
 
     for vm in paused:
-        print "Resume VM: " + vm.name()
+        print("Resume VM: " + vm.name())
         vm.resume()
 
     for _ in range(MAX_ATTEMPTS):
@@ -37,7 +37,7 @@ def resume_paused():
             break
         time.sleep(1)
     else:
-        print "Can't resume VMs:%s" % ", ".join(i.name() for i in conn.listAllDomains() if i.info()[0] == libvirt.VIR_DOMAIN_PAUSED)
+        print("Can't resume VMs:%s" % ", ".join(i.name() for i in conn.listAllDomains() if i.info()[0] == libvirt.VIR_DOMAIN_PAUSED))
         paused = []
 
     conn.close()
@@ -84,7 +84,7 @@ def get_port_id(ports):
     return port_map
 
 def cmd1(cmd):
-    print cmd
+    print(cmd)
 
 
 def reassign_ports(port_map, vm):
