@@ -82,16 +82,20 @@ def docker_network(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asi
            Sample output when docker hit the issue (Note that the IPv6 gateway is missing):
            "Config": [
                       {
-                       "Subnet": "240.127.1.1/24",
+                       "Subnet": "240.127.1.0/24",
                        "Gateway": "240.127.1.1"
                       },
                       {
                        "Subnet": "fd00::/80"
                       }
                      ]
+    When Gateway IP is missing, form the g/w IP as subnet + '1'.
+    IPv4 Gateway would be '240.127.1' + '1'
+    IPv6 Gateway would be 'fd00::' + '1'
     """
-    docker_network['bridge'] = {'IPv4Address' : ipam_info['Config'][0].get('Gateway', ipam_info['Config'][0].get('Subnet').split('/')[0]),
-                                'IPv6Address' : ipam_info['Config'][1].get('Gateway', ipam_info['Config'][1].get('Subnet').split('/')[0]+'1') }
+
+    docker_network['bridge'] = {'IPv4Address' : ipam_info['Config'][0].get('Gateway', ipam_info['Config'][0].get('Subnet').split('/')[0][:-1] + '1'),
+                                'IPv6Address' : ipam_info['Config'][1].get('Gateway', ipam_info['Config'][1].get('Subnet').split('/')[0] +' 1') }
 
     docker_network['container'] = {}
     for k, v in docker_containers_info.items():
