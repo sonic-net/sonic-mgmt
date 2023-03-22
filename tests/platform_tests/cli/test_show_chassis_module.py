@@ -1,7 +1,7 @@
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from util import get_field_range, get_fields, get_skip_mod_list, get_skip_logical_module_list
+from .util import get_field_range, get_fields, get_skip_mod_list, get_skip_logical_module_list
 
 logger = logging.getLogger('__name__')
 
@@ -45,7 +45,7 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname):
     res = parse_chassis_module(output['stdout_lines'], exp_headers)
 
     # by default will assume all modules should be shown online except in skip_module_list
-    for mod_idx in res.keys():
+    for mod_idx in list(res.keys()):
         if mod_idx in skip_mod_list:
             """
                In case the module is part of the skip logical LC which means LC may be physically
