@@ -60,7 +60,7 @@ parameters:
     default: 1920
 
 stages:
-  - template: ../../../run-test-scheduler-template.yml
+  - template: ../../run-test-scheduler-template.yml
     parameters:
       TOPOLOGY: t0-64
       MIN_WORKER: 2
