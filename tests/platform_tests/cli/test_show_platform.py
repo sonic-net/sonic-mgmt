@@ -13,7 +13,7 @@ import json
 import logging
 import re
 import pytest
-import util
+from . import util
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
@@ -315,7 +315,7 @@ def check_fan_status(duthost, cmd):
 
     # Check that all fans are showing valid status and also at-least one PSU is OK.
     num_fan_ok = 0
-    for a_fan in fans.values():
+    for a_fan in list(fans.values()):
         if a_fan['Status'] == "OK":
             num_fan_ok += 1
     return num_fan_ok > 0
@@ -421,3 +421,19 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     verify_show_platform_firmware_status_output(firmware_output_lines, duthost.hostname)
 
     # TODO: Test values against platform-specific expected data
+
+
+def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of `show platform pcieinfo`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = "show platform pcieinfo -c"
+
+    logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
+    pcieinfo_output_lines = duthost.command(cmd)["stdout_lines"]
+
+    passed_check_regexp = r'\[Passed\]|PASSED'
+    for line in pcieinfo_output_lines[1:]:
+        error_message = "Failed to validate output of command '{}' line: '{}'".format(cmd, line)
+        pytest_assert(re.search(passed_check_regexp, line), error_message)

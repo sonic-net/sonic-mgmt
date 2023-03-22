@@ -1,7 +1,14 @@
 import re
+import os
+import sys
 import logging
 import functools
 from tests.common.devices.base import AnsibleHostBase
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +59,8 @@ def adapt_interface_name(func):
         new_list = []
         for item in args_list:
             new_item = item
-            if isinstance(new_item, str):
-                if 'Ethernet' in new_item:
+            if isinstance(new_item, str) or isinstance(new_item, unicode) or isinstance(new_item, AnsibleUnsafeText):
+                if 'Ethernet' in new_item and 'GigabitEthernet' not in new_item:
                     new_item = re.sub(r'(^|\s)Ethernet', 'GigabitEthernet0/0/0/', new_item)
                 elif 'Port-Channel' in new_item:
                     new_item = re.sub(r'(^|\s)Port-Channel', 'Bundle-Ether', new_item)
@@ -259,7 +266,7 @@ class CiscoHost(AnsibleHostBase):
 
         def help(data, lookup_key, result):
             if isinstance(data, dict):
-                for k, v in data.items():
+                for k, v in list(data.items()):
                     if k == lookup_key:
                         result.append(data)
                     elif isinstance(v, (list, dict)):
@@ -283,7 +290,7 @@ class CiscoHost(AnsibleHostBase):
 
         def help(data, lookup_key, result):
             if isinstance(data, dict):
-                for k, v in data.items():
+                for k, v in list(data.items()):
                     if k == lookup_key:
                         result.append(v)
                     elif isinstance(v, (list, dict)):
@@ -298,3 +305,139 @@ class CiscoHost(AnsibleHostBase):
                             result.append(sub_result)
         help(json_data, lookup_key, result)
         return result
+
+    def _has_cli_cmd_failed(self, cmd_output_obj):
+        err_out = False
+        if 'stdout' in cmd_output_obj:
+            stdout = cmd_output_obj['stdout']
+            msg = stdout[-1] if type(stdout) == list else stdout
+            err_out = 'Cannot advertise' in msg
+
+        return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out
+
+    def load_configuration(self, config_file, backup_file=None):
+        if backup_file is None:
+            out = self.config(
+                src=config_file,
+                replace='config',
+            )
+        else:
+            out = self.config(
+                src=config_file,
+                replace='line',
+                backup='yes',
+                backup_options={
+                    'filename': os.path.basename(backup_file),
+                    'dir_path': os.path.dirname(backup_file),
+                }
+            )
+        return not self._has_cli_cmd_failed(out)
+
+    @adapt_interface_name
+    def get_portchannel_by_member(self, member_intf):
+        try:
+            command = 'show lacp {}'.format(member_intf)
+            output = self.commands(commands=[command])['stdout'][0]
+            regex_pc = re.compile(r'Bundle-Ether([0-9]+)', re.U)
+            for line in [item.strip().rstrip() for item in output.splitlines()]:
+                if regex_pc.match(line):
+                    return re.sub('Bundle-Ether', 'Port-Channel', line)
+        except Exception as e:
+            logger.error('Failed to get PortChannel for member interface "{}", exception: {}'.format(
+                        member_intf, repr(e)
+                        ))
+            return None
+
+    @adapt_interface_name
+    def no_isis_interface(self, isis_instance, interface):
+        out = self.config(
+            lines=['no interface {}'.format(interface)],
+            parents=['router isis {}'.format(isis_instance)])
+        return not self._has_cli_cmd_failed(out)
+
+    def get_lldp_neighbors(self):
+        """
+        run show lldp neighbros command to get lldp neighbors
+        """
+        try:
+            logger.info("Gathering LLDP details")
+            lldp_details = {}
+            command = "show lldp neighbors"
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            header_line = "Device ID       Local Intf                      Hold-time  Capability      Port ID"
+            end_line = "Total entries displayed:"
+            content_idx = 0
+            if not output['failed']:
+                output = [line.strip() for line in output['stdout_lines'][0] if len(line) > 0]
+                for idx, line in enumerate(output):
+                    if end_line in line:
+                        break
+                    if header_line in line:
+                        content_idx = idx
+                    if content_idx != 0 and content_idx < idx:
+                        line = re.split(r'\s+', line.strip())
+                        lldp_details.update(
+                            {line[1]: {'neighbor': line[0], 'local_interface': line[1], 'neighbor_interface': line[4]}}
+                        )
+                return lldp_details
+            else:
+                return "Falied to get lldp neighbors info due to {}".format(output)
+        except Exception as e:
+            return "Failed to get lldp neighbors info due to {}".format(str(e))
+
+    def get_all_lldp_neighbor_details_for_port(self, physical_port):
+        """
+        :param physical_port:
+        :return: complete lldp details for the port
+        """
+        try:
+            command = "show lldp neigh {} detail".format(physical_port)
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            if not output['failed']:
+                logger.debug('cisco lldp output: %s' % (output))
+                return output['stdout_lines'][0]
+            return "Failed to get lldp detail info for {} due to {}".format(physical_port, output)
+        except Exception as e:
+            return "Failed to get lldp detail info due to {}".format(str(e))
+
+    def get_platform_from_cli(self):
+        """
+        run show version command to get device platform info
+        """
+        try:
+            command = "show version | i ^cisco | utility head -n 1"
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            if not output['failed']:
+                logger.debug('cisco lldp output: %s' % (output))
+                return output['stdout_lines'][0][0].split()[1]
+            return "Failed to get platform info due to {}".format(output)
+        except Exception as e:
+            return "Failed to get platform info due to {}".format(str(e))
+
+    def get_version_from_cli(self):
+        """
+        run show version command to get device version info
+        """
+        try:
+            command = 'show version | in "Version      :"'
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            if not output['failed']:
+                logger.debug('cisco lldp output: %s' % (output))
+                return output['stdout'][0].split()[-1].strip()
+            return "Failed to get version info due to {}".format(output)
+        except Exception as e:
+            return "Failed to get version info due to {}".format(str(e))
+
+    def get_chassis_id_from_cli(self):
+        """
+        run show lldp command to get device chassis id via cli
+        """
+        try:
+            command = "show lldp | i Chassis ID:"
+            output = self.commands(commands=[command], module_ignore_errors=True)
+            if not output['failed']:
+                logger.debug('cisco lldp output: %s' % (output))
+                return output['stdout_lines'][0][0].split()[-1]
+            return "Failed to get chassis id info due to {}".format(output)
+        except Exception as e:
+            return "Failed to get chassis id info due to {}".format(str(e))

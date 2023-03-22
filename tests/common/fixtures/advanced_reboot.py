@@ -8,6 +8,7 @@ import pytest
 import time
 import os
 import traceback
+import six
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -167,12 +168,12 @@ class AdvancedReboot:
         self.mgFacts = self.duthost.get_extended_minigraph_facts(tbinfo)
 
         self.rebootData['arista_vms'] = [
-            attr['mgmt_addr'] for dev, attr in self.mgFacts['minigraph_devices'].items() if attr['hwsku'] == 'Arista-VM'
+            attr['mgmt_addr'] for dev, attr in list(self.mgFacts['minigraph_devices'].items()) if attr['hwsku'] == 'Arista-VM'
         ]
 
         self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
-        self.lagMemberCnt = len(self.mgFacts['minigraph_portchannels'].values()[0]['members'])
-        self.vlanMaxCnt = len(self.mgFacts['minigraph_vlans'].values()[0]['members']) - 1
+        self.lagMemberCnt = len(list(self.mgFacts['minigraph_portchannels'].values())[0]['members'])
+        self.vlanMaxCnt = len(list(self.mgFacts['minigraph_vlans'].values())[0]['members']) - 1
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
         self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
@@ -198,9 +199,9 @@ class AdvancedReboot:
         # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
         prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
         testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
-                      (1 << (32 - prefixLen))
+            (1 << (32 - prefixLen))
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(unicode(str(testNetwork) + '/{0}'.format(prefixLen))).network
+            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa F821
         )
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
@@ -468,7 +469,7 @@ class AdvancedReboot:
                 {'src': swssRec, 'dest': log_dir, 'flat': True},
             ],
         }
-        for host, logs in logFiles.items():
+        for host, logs in list(logFiles.items()):
             for log in logs:
                 host.fetch(**log)
         return log_dir
@@ -579,7 +580,7 @@ class AdvancedReboot:
                 self.__revertRebootOper(rebootOper)
             if 1 < len(self.rebootData['sadList']) != count:
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
-            failed_list = [(testcase, failures) for testcase, failures in test_results.items() if len(failures) != 0]
+            failed_list = [(testcase, failures) for testcase, failures in list(test_results.items()) if len(failures) != 0]
         pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed test: {}, "
                                              "failure summary:\n{}".format(self.request.node.name, failed_list))
         return result
@@ -631,11 +632,11 @@ class AdvancedReboot:
 
         # TODO: remove this parameter. Arista VMs can be read by ptf from peer_dev_info.
         self.rebootData['arista_vms'] = [
-            attr['mgmt_addr'] for dev, attr in testData['peer_dev_info'].items() if attr['hwsku'] == 'Arista-VM'
+            attr['mgmt_addr'] for dev, attr in list(testData['peer_dev_info'].items()) if attr['hwsku'] == 'Arista-VM'
         ]
         self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
 
-        testDataFiles = [{'source': source, 'name': name} for name, source in testData.items()]
+        testDataFiles = [{'source': source, 'name': name} for name, source in list(testData.items())]
         self.__transferTestDataFiles(testDataFiles, self.ptfhost)
         return event_counters
 
@@ -723,7 +724,7 @@ class AdvancedReboot:
             platform_dir="ptftests",
             platform="remote",
             params=params,
-            log_file=u'/tmp/advanced-reboot.ReloadTest.log',
+            log_file='/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors,
             timeout=REBOOT_CASE_TIMEOUT
         )
@@ -753,7 +754,7 @@ class AdvancedReboot:
     def __restorePrevDockerImage(self):
         """Restore previous docker image.
         """
-        for service_name, data in self.service_data.items():
+        for service_name, data in list(self.service_data.items()):
             if data['image_path_on_dut'] is None:
                 continue
 
@@ -805,7 +806,7 @@ class AdvancedReboot:
             self.disable_service_warmrestart()
             if not self.stayInTargetImage:
                 self.__restorePrevDockerImage()
-        
+
         if self.stayInTargetImage:
             logger.info('Stay in new image')
 

@@ -39,7 +39,7 @@ def portchannel_table(cfg_facts):
 
     pytest_require("PORTCHANNEL_INTERFACE" in cfg_facts, "Unsupported without port_channel")
     portchannel_table = {}
-    for portchannel, ip_addresses in cfg_facts["PORTCHANNEL_INTERFACE"].items():
+    for portchannel, ip_addresses in list(cfg_facts["PORTCHANNEL_INTERFACE"].items()):
         ips = {}
         for ip_address in ip_addresses:
             if _is_ipv4_address(ip_address.split("/")[0]):
@@ -54,7 +54,7 @@ def portchannel_table(cfg_facts):
 def check_portchannel_table(duthost, portchannel_table):
     """This is to check if portchannel interfaces are the same as t0 initial setup
     """
-    for portchannel_name, ips in portchannel_table.items():
+    for portchannel_name, ips in list(portchannel_table.items()):
         check_show_ip_intf(duthost, portchannel_name, [ips['ip']], [], is_ipv4=True)
         check_show_ip_intf(duthost, portchannel_name, [ips['ipv6']], [], is_ipv4=False)
 
@@ -207,7 +207,8 @@ def test_portchannel_interface_tc1_suite(rand_selected_dut, portchannel_table):
 
 def verify_po_running(duthost, portchannel_table):
     for portchannel_name in portchannel_table:
-        cmds = 'teamdctl {} state dump | python -c "import sys, json; print(json.load(sys.stdin)[\'runner\'][\'active\'])"'.format(portchannel_name)
+        cmds = 'teamdctl {} state dump | python -c \
+            "import sys, json; print(json.load(sys.stdin)[\'runner\'][\'active\'])"'.format(portchannel_name)
         output = duthost.shell(cmds, module_ignore_errors=True)
 
         pytest_assert(
@@ -221,7 +222,7 @@ def verify_attr_change(duthost, po_name, attr, value):
     attr:
         mtu: check if "mtu 3324" exists
             admin@vlab-01:~$ show interfaces status | grep -w ^PortChannel101
-            PortChannel101              N/A      40G   3324    N/A             N/A           routed      up       up     N/A         N/A
+            PortChannel101      N/A      40G   3324    N/A      N/A     routed      up       up     N/A         N/A
         min_links:
             TODO: further check
         admin_status: check if 3rd column start with "down"
@@ -235,17 +236,13 @@ def verify_attr_change(duthost, po_name, attr, value):
     if attr == "mtu":
         output = duthost.shell("show interfaces status | grep -w '^{}' | awk '{{print $4}}'".format(po_name))
 
-        pytest_assert(output['stdout'] == value,
-            "{} attribute {} failed to change to {}".format(po_name, attr, value)
-        )
+        pytest_assert(output['stdout'] == value, "{} attribute {} failed to change to {}".format(po_name, attr, value))
     elif attr == "min_links":
         pass
     elif attr == "admin_status":
         output = duthost.shell("show ip interfaces | grep -w '{}' | awk '{{print $3}}'".format(po_name))
 
-        pytest_assert(output['stdout'].startswith(value),
-            "{} {} change failed".format(po_name, attr)
-        )
+        pytest_assert(output['stdout'].startswith(value), "{} {} change failed".format(po_name, attr))
 
 
 def portchannel_interface_tc2_replace(duthost):
