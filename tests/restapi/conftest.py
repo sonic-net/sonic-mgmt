@@ -1,13 +1,9 @@
 import logging
 import pytest
-from tests.common import config_reload
 import urllib3
-import sys
-if sys.version_info.major > 2:
-    from urllib.parse import urlunparse
-else:
-    from urlparse import urlunparse
+from six.moves.urllib.parse import urlunparse
 
+from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 
@@ -23,7 +19,7 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Check if RESTAPI is enabled on the device
-    pyrequire(check_container_state(duthost, RESTAPI_CONTAINER_NAME, should_be_running=True), 
+    pyrequire(check_container_state(duthost, RESTAPI_CONTAINER_NAME, should_be_running=True),
                 "Test was not supported on devices which do not support RESTAPI!")
 
     # Create Root key

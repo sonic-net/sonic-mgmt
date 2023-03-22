@@ -42,7 +42,7 @@ import subprocess
 from ptf.mask import Mask
 import socket
 import ptf.packet as scapy
-import thread
+from six.moves import _thread as thread
 import threading
 from multiprocessing.pool import ThreadPool, TimeoutError
 import os
@@ -57,7 +57,7 @@ import json
 import re
 from collections import defaultdict
 import json
-import Queue
+from six.moves import queue as Queue
 import pickle
 from operator import itemgetter
 import scapy.all as scapyall
@@ -337,7 +337,7 @@ class ReloadTest(BaseTest):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.log_lock:
             if verbose and self.test_params['verbose'] or not verbose:
-                print "%s : %s" % (current_time, message)
+                print("%s : %s" % (current_time, message))
             self.log_fp.write("%s : %s\n" % (current_time, message))
             self.log_fp.flush()
 
@@ -364,7 +364,7 @@ class ReloadTest(BaseTest):
             _, mask = prefix.split('/')
             n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
 
-            for counter, i in enumerate(xrange(2, n_hosts + 2)):
+            for counter, i in enumerate(range(2, n_hosts + 2)):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
                 port = self.ports_per_vlan[vlan][i % len(self.ports_per_vlan[vlan])]
                 addr = self.host_ip(prefix, i)
@@ -372,7 +372,7 @@ class ReloadTest(BaseTest):
                 vlan_host_map[port][addr] = mac
 
             for counter, i in enumerate(
-                xrange(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
+                range(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
                 port = self.ports_per_vlan[vlan][i % len(self.ports_per_vlan[vlan])]
                 addr = self.host_ip(prefix, i)
@@ -814,7 +814,7 @@ class ReloadTest(BaseTest):
         from_t1_iter = itertools.cycle(self.from_t1)
         sent_count_vlan_to_t1 = 0
         sent_count_t1_to_vlan = 0
-        for i in xrange(self.packets_to_send):
+        for i in range(self.packets_to_send):
             payload = '0' * 60 + str(i)
             if (i % 5) == 0 :   # From vlan to T1.
                 packet = scapyall.Ether(self.from_vlan_packet)
@@ -834,7 +834,7 @@ class ReloadTest(BaseTest):
     def put_nowait(self, queue, data):
         try:
             queue.put_nowait(data)
-        except Queue.Full:
+        except queue.Full:
             pass
 
     def pre_reboot_test_setup(self):
@@ -1957,7 +1957,7 @@ class ReloadTest(BaseTest):
 
 
     def pingFromServers(self):
-        for i in xrange(self.nr_pc_pkts):
+        for i in range(self.nr_pc_pkts):
             testutils.send_packet(self, self.from_server_src_port, self.from_vlan_packet)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT)
@@ -1978,10 +1978,10 @@ class ReloadTest(BaseTest):
 
     def pingDut(self):
         if "allow_mac_jumping" in self.test_params and self.test_params['allow_mac_jumping']:
-            for i in xrange(self.ping_dut_pkts):
+            for i in range(self.ping_dut_pkts):
                 testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_macjump_packet)
         else:
-            for i in xrange(self.ping_dut_pkts):
+            for i in range(self.ping_dut_pkts):
                 src_port, packet = random.choice(self.ping_dut_packets)
                 testutils.send_packet(self, src_port, packet)
 
@@ -1997,7 +1997,7 @@ class ReloadTest(BaseTest):
         return total_rcv_pkt_cnt
 
     def arpPing(self):
-        for i in xrange(self.arp_ping_pkts):
+        for i in range(self.arp_ping_pkts):
             testutils.send_packet(self, self.arp_src_port, self.arp_ping)
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.arp_resp, [self.arp_src_port], timeout=self.PKT_TOUT)
         self.log("Send %5d Received %5d arp ping" % (self.arp_ping_pkts, total_rcv_pkt_cnt), True)
