@@ -1,4 +1,5 @@
 
+import copy
 import ipaddress
 import pytest
 import logging
