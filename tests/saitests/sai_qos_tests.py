@@ -1949,6 +1949,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
         if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
             # populate ARP
+            # sender's MAC address is corresponding PTF port's MAC address
+            # sender's IP address is caculated in tests/qos/qos_sai_base.py::QosSaiBase::__assignTestPortIps()
+            # for dualtor: sender_IP_address = DUT_default_VLAN_interface_IP_address + portIndex + 1
             for idx, ptid in enumerate(self.src_port_ids):
 
                 arpreq_pkt = simple_arp_packet(
@@ -1971,6 +1974,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, self.dst_port_id, arpreq_pkt)
         time.sleep(8)
 
+        # for dualtor, need to change test traffic's dest MAC address to point DUT's default VLAN interface
+        # and then DUT is able to correctly forward test traffic to dest PORT on PTF
+        # Reminder: need to change this dest MAC address after above ARP population to avoid corrupt ARP packet
         is_dualtor = self.test_params.get('is_dualtor', False)
         def_vlan_mac = self.test_params.get('def_vlan_mac', None)
         if is_dualtor and def_vlan_mac != None:
