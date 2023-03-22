@@ -40,7 +40,7 @@ import sys
 import random
 import logging
 import json
-
+import six
 import ipaddress
 import ptf
 import ptf.packet as scapy
@@ -250,7 +250,7 @@ class DecapPacketTest(BaseTest):
             print("ERROR: unexpected ttl_mode is configured")
             exit()
 
-        if ipaddress.ip_address(unicode(dst_ip)).version == 6:
+        if ipaddress.ip_address(six.text_type(dst_ip)).version == 6:
             inner_src_ip = self.DEFAULT_INNER_V6_PKT_SRC_IP
             # build inner packet, if triple_encap is True inner_pkt would be double encapsulated
             inner_pkt = self.create_ipv6_inner_pkt_only(inner_src_ip, dst_ip, tos_in, triple_encap, hlim=inner_ttl)
@@ -318,13 +318,13 @@ class DecapPacketTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         if self.ignore_ttl:
-            if ipaddress.ip_address(unicode(dst_ip)).version == 4:
+            if ipaddress.ip_address(six.text_type(dst_ip)).version == 4:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
 
-        inner_pkt_type = 'ipv4' if ipaddress.ip_address(unicode(dst_ip)).version == 4 else 'ipv6'
+        inner_pkt_type = 'ipv4' if ipaddress.ip_address(six.text_type(dst_ip)).version == 4 else 'ipv6'
 
         if outer_pkt_type == 'ipv4':
             outer_src_ip = pkt['IP'].src

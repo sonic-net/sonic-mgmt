@@ -18,10 +18,10 @@ pytestmark = [
 ]
 
 # TODO: Remove this once we no longer support Python 2
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = str
+    UNICODE_TYPE = unicode
 
 PTF_LAG_NAME = "bond1"
 DUT_LAG_NAME = "PortChannel1"

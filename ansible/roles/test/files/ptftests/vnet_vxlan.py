@@ -14,6 +14,7 @@ import os.path
 import json
 import ptf
 import time
+import six
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf import config
@@ -159,7 +160,7 @@ class VNET(BaseTest):
     def addLocalTest(self, test, entry):
         nhtest = dict(test)
         nhtest['src'], nhtest['port'], nhtest['vlan'], nhtest['vni'] = self.getSrvInfo(nhtest['name'], entry['ifname'])
-        prefix = ip_network(unicode(entry['pfx']))
+        prefix = ip_network(six.text_type(entry['pfx']))
         nhtest['src'] = str(list(prefix.hosts())[0])
         self.tests.append(nhtest)
 
