@@ -249,14 +249,27 @@ def get_advertised_routes(duthost, check_nei):
                 duthost, k, v["ip_version"], asic_id
             )
             logger.info(
-                "{} routes advertised to neighbor {}".format(len(bgp_routes_nei[k]), k)
+                "Asic {} {} routes advertised to neighbor {}".format(
+                    asic_id, len(bgp_routes_nei[k]), k
+                )
             )
     return bgp_routes_nei
 
 
 def routes_adv_done(duthost, orig_routes, check_nei):
     new_adv_routes = get_advertised_routes(duthost, check_nei)
-    return orig_routes == new_adv_routes
+    # compare keys between orig_routes and new_adv_routes
+    # then compare sub keys of orig_routes and new_adv_routes
+    if set(orig_routes.keys()) == set(new_adv_routes.keys()):
+        for key in orig_routes:
+            orig_keys = set(orig_routes[key].keys())
+            new_keys = set(new_adv_routes[key].keys())
+            if orig_keys != new_keys:
+                logger.info("Routes advertised to neighbor changed: {}".format(orig_keys ^ new_keys))
+                return False
+    else:
+        return False
+    return True
 
 
 @pytest.fixture(scope="module")
