@@ -1,9 +1,8 @@
 import pytest
-import time
 import logging
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
@@ -12,13 +11,13 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-@pytest.mark.parametrize("mtu", [1514,9114])
-def test_mtu(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, mtu, gather_facts):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+@pytest.mark.parametrize("mtu", [1514, 9114])
+def test_mtu(tbinfo, ptfhost, mtu, gather_facts):
 
     testbed_type = tbinfo['topo']['name']
 
-    log_file = "/tmp/mtu_test.{}-{}.log".format(mtu,datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+    log_file = "/tmp/mtu_test.{}-{}.log".format(mtu, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
 
     logging.info("Starting MTU test. PTF log file: %s" % log_file)
 
