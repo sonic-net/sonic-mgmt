@@ -35,12 +35,12 @@ parameters:
   # Custom run scripts, if both SCIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
-    default: ""
+    default: " "
     displayName: "Scripts to be executed"
 
   - name: FEATURES
     type: string
-    default: ""
+    default: " "
     displayName: "Features to be executed"
 
   # Custom skip scripts
@@ -51,7 +51,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: ""
+    default: " "
     displayName: "Features to be excluded"
 
   # Test timeout
