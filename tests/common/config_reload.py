@@ -73,6 +73,7 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
     :param duthost: DUT host object
     :param config_source: configuration source is 'config_db', 'minigraph' or 'running_golden_config'
     :param wait: wait timeout for DUT to initialize after configuration reload
+    :param override_config: override current config with '/etc/sonic/golden_config_db.json'
     :return:
     """
 
@@ -91,10 +92,12 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
+        cmd = 'config load_minigraph -y &>/dev/null'
         if traffic_shift_away:
-            duthost.shell('config load_minigraph -y -t &>/dev/null', executable="/bin/bash")
-        else:
-            duthost.shell('config load_minigraph -y &>/dev/null', executable="/bin/bash")
+            cmd += ' -t'
+        if override_config:
+            cmd += ' -o'
+        duthost.shell(cmd, executable="/bin/bash")
         time.sleep(60)
         if start_bgp:
             duthost.shell('config bgp startup all')

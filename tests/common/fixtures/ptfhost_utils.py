@@ -11,8 +11,9 @@ from jinja2 import Template
 
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.dut_utils import check_link_status
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
-
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -184,8 +185,9 @@ def _ptf_portmap_file(duthost, ptfhost, tbinfo):
             filename (str): returns the filename copied to PTF host
     """
     intfInfo = duthost.show_interface(command="status")['ansible_facts']['int_status']
-    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['oper_state'] == 'up'
-                and intfInfo[port]['admin_state'] == 'up']
+    portList = [port for port in intfInfo if port.startswith('Ethernet') and intfInfo[port]['admin_state'] == 'up']
+    pt_assert(wait_until(50, 5, 0, check_link_status, duthost, portList, 'up'), "Partial of Ethernet port didn't go up")
+
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portMapFile = "/tmp/default_interface_to_front_map.ini"
     with open(portMapFile, 'w') as file:

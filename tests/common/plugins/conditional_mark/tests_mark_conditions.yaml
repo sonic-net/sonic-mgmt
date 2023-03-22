@@ -445,13 +445,13 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_dr
   skip:
     reason: "Broadcom, Cisco and Marvell Asic will tolorate IP packets with 0xffff checksum"
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell'] and hwsku not in ['Arista-7280CR3-C40']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot'] and asic_subtype not in ['broadcom-dnx']"
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
   skip:
-    reason: "Mellanox Asic will drop IP packets with 0xffff checksum"
+    reason: "Mellanox and Broadcom DNX Asic will drop IP packets with 0xffff checksum"
     conditions:
-      - "asic_type in ['mellanox'] or hwsku in ['Arista-7280CR3-C40']"
+      - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
 
 #######################################
 #####            ipfwd            #####
@@ -779,6 +779,18 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
+  skip:
+    reason: "Lossy Queue Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
+  skip:
+    reason: "Lossless Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
     reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
@@ -836,38 +848,19 @@ show_techsupport/test_techsupport.py::test_techsupport:
 #######################################
 #####            snmp             #####
 #######################################
-snmp/test_snmp_interfaces.py::test_snmp_interfaces:
-  skip:
-    reason: "Interfaces not present on supervisor node."
-    conditions:
-      - "is_supervisor"
-
-snmp/test_snmp_lldp.py:
-  skip:
-    reason: "LLDP not supported on supervisor node."
-    conditions:
-      - "is_supervisor"
-
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
     conditions:
       - "topo_name in ['m0', 'mx']"
 
-snmp/test_snmp_phy_entity.py::test_psu_info:
-  skip:
-    reason: "Not supported on non supervisor node."
-    conditions:
-      - "is_supervisor"
-
 snmp/test_snmp_queue.py:
   skip:
     reason: "Unsupported for supervisor node / mx or m0 topo / multi-asic vs"
     conditions_logical_operator: 'OR'
     conditions:
-      - "is_supervisor"
-      - "topo_name in ['m0', 'mx']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/13289 and asic_type in ['vs'] and hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs'] and '202205' in branch"
+      - "topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
 
 #######################################
 #####            span             #####
@@ -951,45 +944,6 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
     reason: "Unsupported platform."
     conditions:
       - "asic_type not in ['mellanox', 'barefoot']"
-
-#######################################
-#####             voq             #####
-#######################################
-voq:
-  skip:
-    reason: Skip all HW SKUs that are not VOQ based (No Inband interface present) from running VOQ test cases
-    conditions:
-      - "len(VOQ_INBAND_INTERFACE) == 0"
-
-voq/test_voq_ipfwd.py:
-  skip:
-    reason: "Did not find any asic in the DUTs (linecards) that are connected to T1 VM's."
-    conditions:
-      - "not any('T1' in value['name'] for key, value in minigraph_neighbors.items())"
-
-voq/test_voq_ipfwd.py::test_host_route_table_bgp:
-  skip:
-    reason: "Has no inband interfaces, so must not be connected to fabric"
-    conditions:
-      - "len(BGP_VOQ_CHASSIS_NEIGHBOR) == 0"
-
-voq/test_voq_ipfwd.py::test_host_route_table_inband_addr:
-  skip:
-    reason: "Has no inband interfaces, so must not be connected to fabric."
-    conditions:
-      - "len(VOQ_INBAND_INTERFACE) == 0"
-
-voq/test_voq_nbr.py::TestGratArp::test_gratarp_macchange:
-  skip:
-    reason: "Can't run this test without any IP interfaces on ethernet ports."
-    conditions:
-      - "len(INTERFACE) == 0"
-
-voq/test_voq_nbr.py::test_neighbor_hw_mac_change:
-  skip:
-    reason: "Can't run this test without any IP interfaces on ethernet ports."
-    conditions:
-      - "len(INTERFACE) == 0"
 
 #######################################
 #####             vrf             #####

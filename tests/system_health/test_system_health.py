@@ -134,8 +134,11 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
                 # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
                 # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
                 category = '{}:{}'.format(container, critical_process)
-                expected_value = "Process '{}' in container '{}' is not running".format(critical_process, container)
-                result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, category, expected_value)
+                expected_values = ["Process '{}' in container '{}' is not running".format(critical_process, container),
+                                   "'{}' is not running".format(critical_process)]
+                result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info_any_of, duthost, category,
+                                    expected_values)
+
                 assert result == True, '{} is not recorded'.format(critical_process)
                 summary = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
                 assert summary == SUMMARY_NOT_OK, 'Expect summary {}, got {}'.format(SUMMARY_NOT_OK, summary)
@@ -364,6 +367,14 @@ def redis_get_system_health_info(duthost, db_id, key):
     cmd = 'redis-cli --raw -n {} HGETALL \"{}\"'.format(db_id, key)
     output = duthost.shell(cmd)['stdout'].strip()
     return output
+
+def check_system_health_info_any_of(duthost, category, expected_values):
+    value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, category)
+    for expected_value in expected_values:
+        if value == expected_value:
+            return True
+
+    return False
 
 def check_system_health_info(duthost, category, expected_value):
     value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, category)
