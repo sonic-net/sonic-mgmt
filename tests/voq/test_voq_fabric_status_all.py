@@ -81,7 +81,7 @@ def test_voq_fabric_link_status(duthosts):
                 # update link information on suppervisor
                 lkData = {'peer slot': slot, 'peer lk': lk, 'peer asic': asic}
                 fabricLk = referenceData[asic][lk]['peer lk']
-                fabricSlot = referenceData[asic][lk]['peer slot']
+                fabricSlot = int(referenceData[asic][lk]['peer slot'])
                 asicId = int(referenceData[asic][lk]['peer asic'])
                 asicId = (fabricSlot - 1) * 2 + asicId
                 fabricAsic = 'asic' + str(asicId)

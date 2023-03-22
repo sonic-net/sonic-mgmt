@@ -11,7 +11,7 @@ pytestmark = [
 
 supReferenceData = {}
 localModule = 0
-supervisorAsicBase = 300
+supervisorAsicBase = 1
 
 # Added a function to setup the reference data for sup.
 
@@ -24,6 +24,7 @@ def test_setup_reference_data(duthosts):
         logger.info("Please run the test on modular systems")
         return
     duthost = duthosts.supervisor_nodes[0]
+
     logger.info("duthost: {}".format(duthost.hostname))
     num_asics = duthost.num_asics()
     logger.info("num_asics: {}".format(num_asics))
@@ -66,6 +67,18 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
     referenceData = yaml.load(f)
     f.close()
 
+    # Load supervisor reference data
+    fileName = fabric_sku + ".yaml"
+    f = open("voq/fabric_data/{}".format(fileName))
+    pytest_assert(f, "Need to update expected data for {}".format(fileName))
+    supData = yaml.load(f)
+    f.close()
+
+    # base module Id for asics on supervisor
+    supervisorAsicBase = int(supData['moduleIdBase'])
+    # the number of ASICs on each fabric card of a supervisor
+    asicPerSlot = int(supData['asicPerSlot'])
+
     # Testing on Linecards
     num_asics = duthost.num_asics()
     for asic in range(num_asics):
@@ -90,7 +103,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
                           "Reference port data for {} not found!".format(localPortName))
             referencePortData = asicReferenceData[localPortName]
 
-            remoteSlot = referencePortData['peer slot']
+            remoteSlot = int(referencePortData['peer slot'])
             remoteAsic = int(referencePortData['peer asic'])
             remoteMod = supervisorAsicBase + (remoteSlot - 1)*2 + remoteAsic
             referenceRemoteModule = str(remoteMod)
@@ -106,8 +119,8 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
             fabricAsic = 'asic' + str(remoteMod - supervisorAsicBase)
             lkData = {'peer slot': slot, 'peer lk': localPortName, 'peer asic': asic, 'peer mod': localModule}
             supReferenceData[fabricAsic].update({referenceRemotePort: lkData})
-        # the module number increased by 2 for each asic.
-        localModule += 2
+        # the module number increased by 2
+        localModule += asicPerSlot
 
 # This test checks the output of the "show fabric reachability -n asic<n>"
 # command. It is only called one time and it iterates over all of the
