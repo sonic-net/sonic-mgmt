@@ -465,7 +465,7 @@ def acl_egress(duthosts, setup):
     dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
 
     for duthost in duthosts.frontend_nodes:
-       loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_egress")
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_egress")
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
             with loganalyzer:
