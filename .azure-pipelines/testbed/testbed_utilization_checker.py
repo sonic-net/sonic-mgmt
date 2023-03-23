@@ -19,6 +19,13 @@ root.addHandler(handler)
 
 server_host_map = {}
 
+TESTBED_FILE = "../../ansible/testbed.yaml"
+INVENTORY_POOL = ["../../ansible/str", 
+                  "../../ansible/str2", 
+                  "../../ansible/str3", 
+                  "../../ansible/strsvc", 
+                  "../../ansible/bjw"]
+
 
 def get_token(client_id, client_secret, proxies):
     token_url = 'https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/token'
@@ -41,11 +48,45 @@ def get_token(client_id, client_secret, proxies):
 
 def get_testbeds_list():
     testbed_list = []
-    with open("../../ansible/testbed.yaml") as fd:
+    with open(TESTBED_FILE) as fd:
         testbed_yml = yaml.load(fd, Loader=yaml.FullLoader)
     for item in range(len(testbed_yml)):
         testbed_list.append(testbed_yml[item]['conf-name'])
     return testbed_list
+
+
+def get_testbed_hwsku(testbed_utilization):
+    dut_hwsku_pair = {}
+    for inventory_file in INVENTORY_POOL:
+        with open(inventory_file) as fd:
+            inv_yml = yaml.load(fd, Loader=yaml.FullLoader)
+            for sonic_host in inv_yml:
+                if "vars" in inv_yml[sonic_host] and "hwsku" in inv_yml[sonic_host]["vars"]:
+                    hwsku = inv_yml[sonic_host]["vars"]["hwsku"]
+                    duts = inv_yml[sonic_host]["hosts"]
+                    for dut in duts:
+                        dut_hwsku_pair[dut] = hwsku
+                elif "hosts" in inv_yml[sonic_host]:
+                    for dut in inv_yml[sonic_host]["hosts"]:
+                        if inv_yml[sonic_host]["hosts"][dut] is not None \
+                                and "hwsku" in inv_yml[sonic_host]["hosts"][dut]:
+                            dut_hwsku_pair[dut] = inv_yml[sonic_host]["hosts"][dut]["hwsku"]
+                        else:
+                            dut_hwsku_pair[dut] = ""
+
+    for item in range(len(testbed_utilization)):
+        dut_name = testbed_utilization[item]["DutName"]
+        if ";" in dut_name:
+            hwskus = []
+            duts = dut_name.split(";")
+            for dut in duts:
+                if dut in dut_hwsku_pair:
+                   hwskus.append(dut_hwsku_pair[dut])
+            hwsku = ";".join(hwskus)
+            testbed_utilization[item]["HwSKU"] = hwsku
+        elif dut_name in dut_hwsku_pair:
+            testbed_utilization[item]["HwSKU"] = dut_hwsku_pair[dut_name]
+    return testbed_utilization
 
 
 def get_testbed_status(testbed, token, proxies):
@@ -112,10 +153,13 @@ def parse_testbed_status_result(testbed_status):
         else:
             if "duts" in testbed_info:
                 upload_info["DutName"] = testbed_info["duts"]
+            else:
+                upload_info["DutName"] = ""
             upload_info["LockedBy"] = "unknown"
         upload_info["Timestamp"] = testbed_status[testbed_name]["timestamp"]
         testbed_utilization.append(upload_info)
 
+    testbed_utilization = get_testbed_hwsku(testbed_utilization)
     return testbed_utilization
 
 

@@ -17,18 +17,14 @@ stages:
   - stage: TestbedUtilizationPolling
     jobs:
       - job: TestbedUtilizationPolling
-        pool: nightly
         timeoutInMinutes: 30
         variables:
           - group: TBSHARE_SECRETS
           - group: KUSTO_SECRETS
-          - group: SECRETS_JSON
           - name: skipComponentGovernanceDetection
             value: true
 
         steps:
-
-          - template: ../nightly/templates/get_secrets.yml
 
           - task: Bash@3
             displayName: Run Polling
