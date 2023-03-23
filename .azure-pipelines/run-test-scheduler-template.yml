@@ -74,6 +74,31 @@ parameters:
   type: string
   default: ""
 
+- name: REPO_NAME
+  type: string
+  default: ""
+
+- name: MGMT_BRANCH
+  type: string
+  default: ""
+
+- name: STOP_ON_FAILURE
+  type: string
+  default: ""
+
+- name: RETRY_TIMES
+  type: string
+  default: ""
+
+- name: DUMP_KVM_IF_FAIL
+  type: string
+  default: ""
+
+- name: REQUESTER
+  type: string
+  default: ""
+
+
 - name: SPECIFIED_PARAMS
   type: string
   default: "{}"
@@ -100,7 +125,13 @@ steps:
       --scripts "${{ parameters.SCRIPTS }}" \
       --features "${{ parameters.FEATURES }}" \
       --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
-      --features-exclude "${{ parameters.FEATURES_EXCLUDE }}"
+      --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
+      --repo-name ${{ parameters.REPO_NAME }} \
+      --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
+      --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
+      --retry-times ${{ parameters.RETRY_TIMES }} \
+      --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
+      --requester ${{ parameters.REQUESTER }}
 
       TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
