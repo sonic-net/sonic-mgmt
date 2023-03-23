@@ -53,7 +53,6 @@ def get_route_prefix_len(tbinfo, common_config):
 
 
 @pytest.fixture(scope="module")
-@pytest.mark.topology('t0', 'm0', 'mx')
 def announce_default_routes(localhost, tbinfo):
     """
     Fixture that will withdraw and announce default routes at teardown
@@ -62,6 +61,8 @@ def announce_default_routes(localhost, tbinfo):
 
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
+    if topo_name not in ['t0', 'm0', 'mx']:
+        return
     logger.info("withdraw and announce default ipv4 and ipv6 routes for {}".format(topo_name))
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action=WITHDRAW, path="../ansible/")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action=ANNOUNCE, path="../ansible/")
