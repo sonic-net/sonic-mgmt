@@ -172,11 +172,13 @@ def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
 
 
-def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
-                    get_function_conpleteness_level, announce_default_routes, enum_rand_one_frontend_asic_index):
+def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
+                    get_function_conpleteness_level, announce_default_routes, 
+                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get('common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
     # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
