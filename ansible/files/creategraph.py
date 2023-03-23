@@ -16,6 +16,7 @@ except ImportError:
 DEFAULT_DEVICECSV = 'sonic_lab_devices.csv'
 DEFAULT_LINKCSV = 'sonic_lab_links.csv'
 DEFAULT_CONSOLECSV = 'sonic_lab_console_links.csv'
+DEFAULT_BMCCSV = 'sonic_lab_bmc_links.csv'
 DEFAULT_PDUCSV = 'sonic_lab_pdu_links.csv'
 
 LAB_CONNECTION_GRAPH_ROOT_NAME = 'LabConnectionGraph'
@@ -271,7 +272,7 @@ class LabGraph(object):
 
 def get_file_names(args):
     if not args.inventory:
-        device, links, console, pdu = args.device, args.links, args.console, args.pdu
+        device, links, console, bmc, pdu = args.device, args.links, args.console, args.bmc, args.pdu
     else:
         device = 'sonic_{}_devices.csv'.format(args.inventory)
         links = 'sonic_{}_links.csv'.format(args.inventory)
@@ -288,6 +289,7 @@ def main():
     parser.add_argument("-d", "--device", help="device file [deprecate warning: use -i instead]", default=DEFAULT_DEVICECSV)
     parser.add_argument("-l", "--links", help="link file [deprecate warning: use -i instead]", default=DEFAULT_LINKCSV)
     parser.add_argument("-c", "--console", help="console connection file [deprecate warning: use -i instead]", default=DEFAULT_CONSOLECSV)
+    parser.add_argument("-b", "--bmc", help="bmc connection file [deprecate warning: use -i instead]", default=DEFAULT_BMCCSV)
     parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]", default=DEFAULT_PDUCSV)
     parser.add_argument("-i", "--inventory", help="specify inventory namei to generate device/link/console/pdu file names, default none", default=None)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
