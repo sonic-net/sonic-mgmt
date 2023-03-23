@@ -175,10 +175,6 @@ class TestPlanManager(object):
         features = parse_list_from_str(kwargs.get("features", None))
         scripts_exclude = parse_list_from_str(kwargs.get("scripts_exclude", None))
         features_exclude = parse_list_from_str(kwargs.get("features_exclude", None))
-        stop_on_failure = kwargs.get("stop_on_failure", True)
-        retry_times = kwargs.get("retry_times", 2)
-        dump_kvm_if_fail = kwargs.get("dump_kvm_if_fail", True)
-        requester = kwargs.get("requester", "Pull Request")
 
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
@@ -201,8 +197,8 @@ class TestPlanManager(object):
                 "max": max_worker
             },
             "test_option": {
-                "stop_on_failure": stop_on_failure,
-                "retry_times": retry_times,
+                "stop_on_failure": kwargs.get("stop_on_failure", True),
+                "retry_times": kwargs.get("retry_times", 2),
                 "test_cases": {
                     "features": features,
                     "scripts": scripts,
@@ -217,9 +213,9 @@ class TestPlanManager(object):
             "extra_params": {
                 "pull_request_id": pr_id,
                 "build_id": build_id,
-                "source_repo": kwargs["source_repo"],
+                "source_repo": kwargs.get("source_repo"),
                 "kvm_build_id": kvm_build_id,
-                "dump_kvm_if_fail": dump_kvm_if_fail,
+                "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", 2),
                 "mgmt_branch": kwargs["mgmt_branch"],
                 "testbed": {
                     "num_asic": kwargs["num_asic"],
@@ -231,7 +227,7 @@ class TestPlanManager(object):
                 }
             },
             "priority": 10,
-            "requester": requester
+            "requester": kwargs.get("requester", "Pull Request")
         })
         print('Creating test plan with payload: {}'.format(payload))
         headers = {
