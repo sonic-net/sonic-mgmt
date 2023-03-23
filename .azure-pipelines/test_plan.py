@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 
 import argparse
+import ast
 import json
 import os
 import sys
@@ -123,6 +124,11 @@ def get_scope(testbed_tools_url):
 
 
 def parse_list_from_str(s):
+    # Since Azure Pipeline doesn't support to receive an empty parameter,
+    # We use ' ' as a magic code for empty parameter.
+    # So we should consider ' ' as en empty input.
+    if isinstance(s, str):
+        s = s.strip()
     if not s:
         return None
     return [single_str.strip() for single_str in s.split(',')]
@@ -191,8 +197,8 @@ class TestPlanManager(object):
                 "max": max_worker
             },
             "test_option": {
-                "stop_on_failure": True,
-                "retry_times": 2,
+                "stop_on_failure": kwargs.get("stop_on_failure", True),
+                "retry_times": kwargs.get("retry_times", 2),
                 "test_cases": {
                     "features": features,
                     "scripts": scripts,
@@ -207,9 +213,9 @@ class TestPlanManager(object):
             "extra_params": {
                 "pull_request_id": pr_id,
                 "build_id": build_id,
-                "source_repo": repo_name,
+                "source_repo": kwargs.get("source_repo"),
                 "kvm_build_id": kvm_build_id,
-                "dump_kvm_if_fail": True,
+                "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", 2),
                 "mgmt_branch": kwargs["mgmt_branch"],
                 "testbed": {
                     "num_asic": kwargs["num_asic"],
@@ -221,7 +227,7 @@ class TestPlanManager(object):
                 }
             },
             "priority": 10,
-            "requester": "pull request"
+            "requester": kwargs.get("requester", "Pull Request")
         })
         print('Creating test plan with payload: {}'.format(payload))
         headers = {
@@ -425,6 +431,8 @@ if __name__ == "__main__":
         "--mgmt-branch",
         type=str,
         dest="mgmt_branch",
+        nargs='?',
+        const="master",
         default="master",
         required=False,
         help="Branch of sonic-mgmt repo to run the test"
@@ -490,9 +498,11 @@ if __name__ == "__main__":
         "--repo-name",
         type=str,
         dest="repo_name",
-        default="",
+        nargs='?',
+        const=None,
+        default=None,
         required=False,
-        help="Repository name from Azure Pipelines"
+        help="Repository name"
     )
     parser_create.add_argument(
         "--testbed-name",
@@ -584,6 +594,48 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="Exclude test features, Split by ',', like: 'bgp, lldp'"
+    )
+    parser_create.add_argument(
+        "--stop-on-failure",
+        type=ast.literal_eval,
+        dest="stop_on_failure",
+        nargs='?',
+        const='True',
+        default='True',
+        required=False,
+        choices=[True, False],
+        help="Stop whole test plan if test failed."
+    )
+    parser_create.add_argument(
+        "--retry-times",
+        type=int,
+        dest="retry_times",
+        nargs='?',
+        const=2,
+        default=2,
+        required=False,
+        help="Retry times after tests failed."
+    )
+    parser_create.add_argument(
+        "--dump-kvm-if-fail",
+        type=ast.literal_eval,
+        dest="dump_kvm_if_fail",
+        nargs='?',
+        const='True',
+        default='True',
+        required=False,
+        choices=[True, False],
+        help="Dump KVM DUT if test plan failed, only supports KVM test plan."
+    )
+    parser_create.add_argument(
+        "--requester",
+        type=str,
+        dest="requester",
+        nargs='?',
+        const='Pull Request',
+        default="Pull Request",
+        required=False,
+        help="Requester of the test plan."
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -695,6 +747,7 @@ if __name__ == "__main__":
                 scripts_exclude=args.scripts_exclude,
                 features_exclude=args.features_exclude,
                 output=args.output,
+                source_repo=repo_name,
                 mgmt_branch=args.mgmt_branch,
                 common_extra_params=args.common_extra_params,
                 num_asic=args.num_asic,
@@ -707,6 +760,10 @@ if __name__ == "__main__":
                 hwsku=args.hwsku,
                 test_plan_type=args.test_plan_type,
                 platform=args.platform,
+                stop_on_failure=args.stop_on_failure,
+                retry_times=args.retry_times,
+                dump_kvm_if_fail=args.dump_kvm_if_fail,
+                requester=args.requester,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
