@@ -17,7 +17,6 @@ import random
 import time
 import os
 import json
-import ipaddress
 
 import ptf
 import ptf.packet as scapy

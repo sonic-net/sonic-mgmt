@@ -1,5 +1,7 @@
 import pytest
 import logging
+import os
+import time
 
 from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
@@ -46,7 +48,7 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return rc == 0
 
 
-def do_reboot(duthost, localhost, duthosts, rw_user="", rw_pass=""):
+def do_reboot(duthost, localhost, duthosts):
     # occasionally reboot command fails with some kernel error messages
     # Hence retry if needed.
     #
@@ -213,6 +215,6 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
-        do_reboot(duthost, localhost, duthosts, rw_user, rw_pass)
+        do_reboot(duthost, localhost, duthosts)
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))

@@ -8,7 +8,7 @@
 ## Overview
 Replaces all instances of a pattern within a specified file. When using this method make sure that the pattern being used to match does not match the replacement text, otherwise the results may be undesirable.
 
-[docs](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/replace_module.html) used to help generate this page. 
+[docs](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/replace_module.html) used to help generate this page.
 
 ## Examples
 ```

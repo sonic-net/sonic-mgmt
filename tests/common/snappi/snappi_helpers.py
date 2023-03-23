@@ -7,7 +7,6 @@ chassis instead of reading it from fanout_graph_facts fixture.
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
-from tests.common.reboot import logger
 import time
 
 
@@ -80,13 +79,13 @@ class SnappiFanoutManager():
         self.current_snappi_port_list = None
         self.ip_address = '0.0.0.0'
 
-        for fanout in fanout_data.keys():
+        for fanout in list(fanout_data.keys()):
             self.fanout_list.append(fanout_data[fanout])
 
     def __parse_fanout_connections__(self):
         device_conn = self.last_device_connection_details
         retval = []
-        for key in device_conn.keys():
+        for key in list(device_conn.keys()):
             fanout_port = ansible_stdout_to_str(key)
             peer_port = ansible_stdout_to_str(device_conn[key]['peerport'])
             peer_device = ansible_stdout_to_str(device_conn[key]['peerdevice'])
@@ -129,7 +128,7 @@ class SnappiFanoutManager():
 
         # List of chassis cards and ports
         self.current_snappi_port_list = \
-             self.__parse_fanout_connections__()
+            self.__parse_fanout_connections__()
 
     def get_connection_details(self):
         """This function returns all the details associated with a particular
@@ -236,7 +235,7 @@ def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
 
     for i in range(len(snappi_ports)):
         if snappi_ports[i]['peer_port'] == dut_port:
-           return i
+            return i
 
     return None
 
@@ -251,7 +250,7 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
     poll_interval_sec: interval poll second
 
     Return:
-    returns number of attempts if arp is resolved within max attempts else fail 
+    returns number of attempts if arp is resolved within max attempts else fail
     """
     attempts = 0
     v4_gateway_macs_resolved = False

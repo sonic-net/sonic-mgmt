@@ -2,7 +2,7 @@ import logging
 import pytest
 
 logger = logging.getLogger(__name__)
- 
+
 
 @pytest.fixture
 def mock_transceiver_info_table(duthosts):
@@ -22,10 +22,10 @@ def mock_transceiver_info_table(duthosts):
 
     for dut in duthosts:
         cmds = []
-        mux_intfs = dut.get_running_config_facts()['MUX_CABLE'].keys()
-        
+        mux_intfs = list(dut.get_running_config_facts()['MUX_CABLE'].keys())
+
         for intf in mux_intfs:
-            for field, value in mock_values.items():
+            for field, value in list(mock_values.items()):
                 cmds.append(sonic_db_cmd.format(intf, field, value))
-        
+
         dut.shell_cmds(cmds=cmds)

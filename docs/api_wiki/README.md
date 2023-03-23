@@ -19,7 +19,7 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
     # example dut api call
     duthost.get_extended_minigraph_facts()
-    
+
     # example ptf api call
     ptfhost.shell("ls")
 ```
@@ -123,6 +123,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [check_default_route](sonichost_methods/check_default_route.md) - Provides the status of the default route
 
+- [clear_acl_counters](sonichost_methods/clear_acl_counters.md) - Clear ACL counters statistics.
+
 - [critical_process_status](sonichost_methods/critical_process_status.md) - Gets status of service and provides list of exited and running member processes.
 
 - [critical_services](sonichost_methods/critical_services.md) - Provides a list of critical services running on the SONiC host.
@@ -134,6 +136,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 - [delete_container](sonichost_methods/delete_container.md) - Removes a docker container from the DUT.
 
 - [facts](sonichost_methods/facts.md) - Returns platform information facts about the sonic device.
+
+- [get_acl_counter](sonichost_methods/get_acl_counter.md) - Read ACL counter of specific ACL table and ACL rule.
 
 - [get_asic_name](sonichost_methods/get_asic_name.md) - Returns name of current ASIC. For use in multi-ASIC environments.
 
@@ -318,7 +322,7 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [get_vtysh_cmd_for_namespace](multi_asic_methods/get_vtysh_cmd_for_namespace.md) - Provides modified VTYSH command provided ASIC namespace and command.
 
-- [has_config_subcommand](multi_asic_methods/has_config_subcommand.md) - Check if a config or show subcommand exists on the remote host. *WARNING*: to test whether it exists, the method will run the command. Ensure that there will be no negative sid-effects of having this command run on 
+- [has_config_subcommand](multi_asic_methods/has_config_subcommand.md) - Check if a config or show subcommand exists on the remote host. *WARNING*: to test whether it exists, the method will run the command. Ensure that there will be no negative sid-effects of having this command run on
 the remote host.
 
 - [is_bgp_state_idle](multi_asic_methods/is_bgp_state_idle.md) - Checks if all BGP peers are in IDLE state on the sonichost.
@@ -374,7 +378,7 @@ the remote host.
 
 - [get_ip_route_info](sonic_asic_methods/get_ip_route_info.md) - Returns route information for a destionation. The destination could an ip address or ip prefix.
 
-- [get_portchannel_and_members_in_ns](sonic_asic_methods/get_portchannel_and_members_in_ns.md) - Finds a portchannel present on ASIC interface's namspace and returns its name and members.
+- [get_portchannels_and_members_in_ns](sonic_asic_methods/get_portchannels_and_members_in_ns.md) - Finds a portchannel present on ASIC interface's namspace and returns its name and members.
 
 - [get_queue_oid](sonic_asic_methods/get_queue_oid.md) - Get the queue OID of given port and queue number.
 

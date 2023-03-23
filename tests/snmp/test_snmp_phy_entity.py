@@ -137,7 +137,7 @@ PSU_SENSOR_INFO = {
     'voltage': ('Voltage', 4, SENSOR_TYPE_VOLTAGE),
 }
 
-# The sort factor values are got from https://github.com/Azure/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
+# The sort factor values are got from https://github.com/sonic-net/sonic-snmpagent/blob/dfde06e2f5d70e23882af6c0f1af4ae43ec2fa43/src/sonic_ax_impl/mibs/ietf/transceiver_sensor_data.py#L18
 XCVR_SENSOR_PATTERN = {
     'temperature': {'sort_factor': 0, 'oid_base': SENSOR_TYPE_TEMP, 'extract_line_number': False},
     'voltage': {'sort_factor': 9000, 'oid_base': SENSOR_TYPE_VOLTAGE, 'extract_line_number': False},
@@ -206,9 +206,9 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     entity_mib = {}
     sensor_mib = {}
-    for oid, info in snmp_facts['snmp_physical_entities'].items():
+    for oid, info in list(snmp_facts['snmp_physical_entities'].items()):
         entity_mib[int(oid)] = info
-    for oid, info in snmp_facts['snmp_sensors'].items():
+    for oid, info in list(snmp_facts['snmp_sensors'].items()):
         sensor_mib[int(oid)] = info
 
     mib_info["entity_mib"] = entity_mib
@@ -277,15 +277,14 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         parent_name = entity_info['parent_name']
-        if parent_name == CHASSIS_KEY:
+        if 'PSU' in parent_name:
+            continue
+        elif parent_name == CHASSIS_KEY:
             parent_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
         else:
             parent_entity_info = redis_hgetall(duthost, STATE_DB, PHYSICAL_ENTITY_KEY_TEMPLATE.format(parent_name))
             parent_position = int(parent_entity_info['position_in_parent'])
-            if 'PSU' in parent_name:
-                parent_oid = MODULE_TYPE_PSU + parent_position * MODULE_INDEX_MULTIPLE
-            else:
-                parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
+            parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
         expect_oid = parent_oid + DEVICE_TYPE_FAN + position * DEVICE_INDEX_MULTIPLE
         assert expect_oid in snmp_physical_entity_info, 'Cannot find fan {} in physical entity mib'.format(name)
         fan_snmp_fact = snmp_physical_entity_info[expect_oid]
@@ -392,7 +391,7 @@ def _check_psu_sensor(duthost, psu_name, psu_info, psu_oid, snmp_physical_entity
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
-    for field, sensor_tuple in PSU_SENSOR_INFO.items():
+    for field, sensor_tuple in list(PSU_SENSOR_INFO.items()):
         expect_oid = psu_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
         if is_null_str(psu_info[field]):
             assert expect_oid not in snmp_physical_entity_info
@@ -498,7 +497,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     if not keys:
         pytest.skip('Fan information does not exist in DB, skipping this test')
     name_to_snmp_facts = {}
-    for oid, values in snmp_physical_entity_info.items():
+    for oid, values in list(snmp_physical_entity_info.items()):
         values['oid'] = oid
         name_to_snmp_facts[values['entPhysName']] = values
 
@@ -568,8 +567,8 @@ def _get_transceiver_sensor_data(duthost, name):
     key = XCVR_DOM_KEY_TEMPLATE.format(name)
     sensor_info = redis_hgetall(duthost, STATE_DB, key)
     sensor_data_list = []
-    for field, value in sensor_info.items():
-        for pattern, data in XCVR_SENSOR_PATTERN.items():
+    for field, value in list(sensor_info.items()):
+        for pattern, data in list(XCVR_SENSOR_PATTERN.items()):
             match_result = re.match(pattern, field)
             if match_result:
                 if data['extract_line_number']:
@@ -637,31 +636,35 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
     entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
 
     keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
+    # Ignore the test if the platform does not have psus (e.g Line card)
+    if not keys:
+        pytest.skip('PSU information does not exist in DB, skipping this test {}'.format(duthost.hostname))
     power_off_psu_found = False
     for key in keys:
         psu_info = redis_hgetall(duthost, STATE_DB, key)
+        if psu_info['presence'] == 'false' or psu_info['status'] == 'true':
+            continue
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
         entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_PSU + position * MODULE_INDEX_MULTIPLE
-        if psu_info['status'] != 'true':
-            assert expect_oid in entity_mib_info
-            for field, sensor_tuple in PSU_SENSOR_INFO.items():
-                sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
-                # entity_sensor_mib_info is only supported in image newer than 202012
-                if sensor_oid in entity_mib_info:
-                    if psu_info['current'] == '0.0' and psu_info['voltage'] == '0.0' and psu_info['power'] == '0.0':
-                        power_off_psu_found = True
-                        break
-                if is_sensor_test_supported(duthost):
-                    if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
-                        power_off_psu_found = True
-                        break
-                else:
-                    if sensor_oid not in entity_mib_info:
-                        power_off_psu_found = True
-                        break
+        assert expect_oid in entity_mib_info
+        for field, sensor_tuple in list(PSU_SENSOR_INFO.items()):
+            sensor_oid = expect_oid + DEVICE_TYPE_POWER_MONITOR + sensor_tuple[2]
+            # entity_sensor_mib_info is only supported in image newer than 202012
+            if sensor_oid in entity_mib_info:
+                if psu_info['current'] == '0.0' and psu_info['power'] == '0.0':
+                    power_off_psu_found = True
+                    break
+            if is_sensor_test_supported(duthost):
+                if sensor_oid not in entity_mib_info and sensor_oid not in entity_sensor_mib_info:
+                    power_off_psu_found = True
+                    break
+            else:
+                if sensor_oid not in entity_mib_info:
+                    power_off_psu_found = True
+                    break
     return power_off_psu_found
 
 
@@ -756,7 +759,8 @@ def redis_hgetall(duthost, db_id, key):
     content = output['stdout'].strip()
     if not content:
         return {}
-
+    # fix to make literal_eval() work with nested dictionaries
+    content = content.replace("'{", '"{').replace("}'", '}"')
     return ast.literal_eval(content)
 
 

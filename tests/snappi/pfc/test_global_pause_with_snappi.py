@@ -8,9 +8,9 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list
 
-from files.helper import run_pfc_test
+from .files.helper import run_pfc_test
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 
 def test_global_pause(snappi_api,

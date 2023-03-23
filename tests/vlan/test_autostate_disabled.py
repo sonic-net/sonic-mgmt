@@ -6,7 +6,7 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0", "m0", "mx")
 ]
 
 
@@ -56,7 +56,7 @@ class TestAutostateDisabled:
 
         # Pick a vlan for test
         vlan = vlan_available[0]
-        vlan_members = vlan_members_facts[vlan].keys()
+        vlan_members = list(vlan_members_facts[vlan].keys())
 
         try:
             # Shutdown all the members in vlan.

@@ -36,17 +36,8 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 def check_kernel_po_interface_cleaned(duthost, asic_index):
     namespace = duthost.get_namespace_from_asic_id(asic_index)
-    res = duthost.shell(duthost.get_linux_ip_cmd_for_namespace("ip link show | grep -c PortChannel", namespace),module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+    res = duthost.shell(duthost.get_linux_ip_cmd_for_namespace("ip link show | grep -c PortChannel", namespace),module_ignore_errors=True)["stdout_lines"][0]
     return res == '0'
-
-@pytest.fixture(scope="module", autouse=True)
-def check_topo_and_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
-
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-
-    if len(mg_facts['minigraph_portchannels'].keys()) == 0 and not duthost.is_multi_asic:
-        pytest.skip("Skip test due to there is no portchannel exists in current topology.")
 
 def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
@@ -73,7 +64,7 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     host_facts = duthost.setup()['ansible_facts']
 
     # Get the cpu information.
-    if host_facts.has_key("ansible_processor_vcpus"):
+    if "ansible_processor_vcpus" in host_facts:
         host_vcpus = int(host_facts['ansible_processor_vcpus'])
     else:
         res = duthost.shell("nproc")
@@ -83,7 +74,7 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
 
     # Get portchannel facts and interfaces.
     lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-    port_channel_intfs = lag_facts['names'].keys()
+    port_channel_intfs = list(lag_facts['names'].keys())
 
     # Add start marker to the DUT syslog
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='port_channel_cleanup')

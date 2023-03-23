@@ -1,4 +1,4 @@
-# This role creates a set of VM with veos or SONiC or Ubuntu for Kubernetes master
+# This role creates a set of VM with veos or SONiC or cisco or Ubuntu for Kubernetes master
 # Input parameters for the role:
 # - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
 # - id: sequence number for vm set on the host.
@@ -98,18 +98,18 @@
         - libvirt-daemon-system
         - qemu-system-x86
       become: yes
-      when: host_distribution_version.stdout == "20.04"
+      when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
   when: package_installation|bool
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip
-  when: pip_executable is not defined and host_distribution_version.stdout != "20.04"
+  when: pip_executable is not defined and host_distribution_version.stdout != "20.04" and host_distribution_version.stdout != "22.04"
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip3
-  when: pip_executable is not defined and host_distribution_version.stdout == "20.04"
+  when: pip_executable is not defined and (host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04")
 
 - name: remove old python packages
   pip: name=docker-py state=absent executable={{ pip_executable }}
@@ -132,7 +132,7 @@
     append: yes
     groups: libvirt
   become: yes
-  when: host_distribution_version.stdout == "20.04"
+  when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
 
 - name: Install br_netfilter kernel module
   become: yes
@@ -187,11 +187,11 @@
 
     - debug: msg="home_path = {{ home_path }} root_path = {{ root_path }}"
 
-- name: Require veos or SONiC VMs by default
+- name: Require veos or SONiC or cisco VMs by default
   set_fact:
     vm_required: true
 
-- name: veos or SONiC VMs not needed when setting up Kubernetes master
+- name: veos or SONiC or cisco VMs not needed when setting up Kubernetes master
   set_fact:
     vm_required: false
   when:

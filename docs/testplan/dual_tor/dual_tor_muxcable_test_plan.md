@@ -118,7 +118,7 @@ sudo show muxcable berinfo <physical_port> <target>
 1.  Without Traffic Tests
 
     These tests dont require any traffic to be  sent to/from the ToR and are standalone tests which can run on a DUT which has a muxcable
-    
+
     | Step | Goal | Expected results |
     |-|-|-|
     | Run Cli Command to get read_side of the muxcable | Read Side validation | Ensure the read side is one of the values which is expected from read side Cli command |
@@ -142,7 +142,7 @@ sudo show muxcable berinfo <physical_port> <target>
    Downstream: T1 -> ToR -> Server
 
     On the upstream side, traffic needs to be validated to be broadcasted on both the 2 ends of the Y-Cable. On the downstream side the traffic needs to be only forwarded by the active link.
-    
+
     | Step | Goal | Expected results |
     |-|-|-|
     | traffic validation from NIC to ToR | Traffic validation | Verify traffic is broadcasted from Server to both ToR; Traffic to be sent from fanout switch to ToR;Both the T1's should receive the packet from the server |
@@ -156,11 +156,11 @@ sudo show muxcable berinfo <physical_port> <target>
     | During toggle record number of frames dropped | Verify no/minimalistic packet loss during toggle/failover | Verify number of frames sent during a failover are equal to the frmaes received from ToR to server |
     ||||
     | Normal traffic test | traffic validation of Y-Cable | Verify the BER/EYE/SnR are read correctly and in accepatble range |
-    
+
 3. Diagnostic Tests
 
     Send traffic to server under active mux.
-    
+
     | Step | Goal | Expected results |
     |-|-|-|
     | PRBS test | PRBS functioning of Y-Cable | Verify the BER/EYE/SnR are read correctly and in accepatble range |

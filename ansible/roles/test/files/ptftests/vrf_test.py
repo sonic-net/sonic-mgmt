@@ -16,16 +16,13 @@ Usage:          Examples of how to use VRF test
 #---------------------------------------------------------------------
 import logging
 import re
-
+import six
 from ipaddress import ip_network
 from fib_test import FibTest
 import lpm
 import fib
 
 class FwdTest(FibTest):
-    _required_params = [
-        'router_macs',
-    ]
     class FwdDict(object):
         def __init__(self):
             self.ipv4 = {}
@@ -44,7 +41,7 @@ class FwdTest(FibTest):
                     self.add_entry(prefix, dst_ports)
 
         def add_entry(self, prefix, dst_ports):
-            prefix = ip_network(unicode(prefix))
+            prefix = ip_network(six.text_type(prefix))
             ip_range = lpm.LpmDict.IpInterval(prefix[0], prefix[-1])
             next_hop = fib.Fib.NextHop(dst_ports)
             if prefix.version == 4:
@@ -86,7 +83,7 @@ class FwdTest(FibTest):
         else:
             entries = self.fwd_dict.ipv6
 
-        for ip_range, next_hop in entries.iteritems():
+        for ip_range, next_hop in entries.items():
             self.check_ip_range(ip_range, next_hop, ipv4)
 
     #---------------------------------------------------------------------
@@ -106,7 +103,6 @@ class FwdTest(FibTest):
 
 class CapTest(FwdTest):
     _required_params=[
-        'router_macs',
         'random_vrf_list',
         'src_base_vid',
         'dst_base_vid'

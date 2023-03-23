@@ -2,7 +2,7 @@
 Description:    This file contains the decapasulation test for SONIC, to test decapsulation of IPv4 with double and
                 triple encapsulated packets
 
-                Design is available in https://github.com/Azure/SONiC/wiki/IPv4-Decapsulation-test
+                Design is available in https://github.com/sonic-net/SONiC/wiki/IPv4-Decapsulation-test
 
 Precondition:   Before the test start, all routes need to be defined as in the fib_info.txt file, in addition to the
                 decap rule that need to be set as the dspc_mode
@@ -40,7 +40,7 @@ import sys
 import random
 import logging
 import json
-
+import six
 import ipaddress
 import ptf
 import ptf.packet as scapy
@@ -97,14 +97,15 @@ class DecapPacketTest(BaseTest):
         self.ttl_mode = self.test_params.get('ttl_mode')
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get('single_fib_for_duts', False)
-
+        self.asic_type = self.test_params.get('asic_type')
         # multi asic platforms have internal routing hops
         # this param will be used to set the correct ttl values for inner packet
         # this value is zero for single asic platform
         self.max_internal_hops = self.test_params.get('max_internal_hops', 0)
         if self.max_internal_hops:
             self.TTL_RANGE = list(range(self.max_internal_hops + 1, 63))
-
+        if self.asic_type == "marvell":
+            fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):
             self.fibs.append(fib.Fib(fib_info_file))
@@ -249,7 +250,7 @@ class DecapPacketTest(BaseTest):
             print("ERROR: unexpected ttl_mode is configured")
             exit()
 
-        if ipaddress.ip_address(unicode(dst_ip)).version == 6:
+        if ipaddress.ip_address(six.text_type(dst_ip)).version == 6:
             inner_src_ip = self.DEFAULT_INNER_V6_PKT_SRC_IP
             # build inner packet, if triple_encap is True inner_pkt would be double encapsulated
             inner_pkt = self.create_ipv6_inner_pkt_only(inner_src_ip, dst_ip, tos_in, triple_encap, hlim=inner_ttl)
@@ -312,20 +313,18 @@ class DecapPacketTest(BaseTest):
         @outer_ttl: TTL for the outer layer
         @inner_ttl: TTL for the inner layer
         '''
-
         pkt, exp_pkt = self.create_encap_packet(dst_ip, src_port, dut_index, outer_pkt_type, triple_encap, outer_ttl, inner_ttl)
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         if self.ignore_ttl:
-            if ipaddress.ip_address(unicode(dst_ip)).version == 4:
+            if ipaddress.ip_address(six.text_type(dst_ip)).version == 4:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
 
-        inner_pkt_type = 'ipv4' if ipaddress.ip_address(unicode(dst_ip)).version == 4 else 'ipv6'
+        inner_pkt_type = 'ipv4' if ipaddress.ip_address(six.text_type(dst_ip)).version == 4 else 'ipv6'
 
         if outer_pkt_type == 'ipv4':
             outer_src_ip = pkt['IP'].src
@@ -423,10 +422,10 @@ class DecapPacketTest(BaseTest):
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
-            if self.single_fib:
-                active_dut_index = 0
-            else:
+            if self.single_fib == 'multiple-fib':
                 active_dut_index = int(self.ptf_test_port_map[str(src_port)]['target_dut'])
+            else:
+                active_dut_index = 0
             next_hop = self.fibs[active_dut_index][dst_ip]
             exp_port_list = next_hop.get_next_hop_list()
             if src_port in exp_port_list:

@@ -1,4 +1,4 @@
-from __future__ import print_function, division, absolute_import
+
 
 import inspect
 import logging
@@ -89,8 +89,8 @@ class FactsCache(with_metaclass(Singleton, object)):
                     logger.debug('Loaded cached facts "{}.{}" from {}'.format(zone, key, facts_file))
                     return self._cache[zone][key]
             except (IOError, ValueError) as e:
-                logger.info('Load cache file "{}" failed with exception: {}'\
-                    .format(os.path.abspath(facts_file), repr(e)))
+                logger.info('Load cache file "{}" failed with exception: {}'
+                            .format(os.path.abspath(facts_file), repr(e)))
                 return self.NOTEXIST
 
     def write(self, zone, key, value):
@@ -159,8 +159,8 @@ class FactsCache(with_metaclass(Singleton, object)):
                 shutil.rmtree(self._cache_location)
                 logger.debug('Removed all cache files under "{}"'.format(self._cache_location))
             except OSError as e:
-                logger.error('Remove cache folder "{}" failed with exception: {}'\
-                    .format(self._cache_location, repr(e)))
+                logger.error('Remove cache folder "{}" failed with exception: {}'
+                             .format(self._cache_location, repr(e)))
 
 
 def _get_default_zone(function, func_args, func_kargs):
@@ -170,20 +170,23 @@ def _get_default_zone(function, func_args, func_kargs):
         Add the namespace to the default zone.
     """
     hostname = None
-    unicode_type = str if sys.version_info.major == 3 else unicode
+    unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa F821
     if func_args:
         hostname = getattr(func_args[0], "hostname", None)
-    if not hostname or type(hostname) not in [ str, unicode_type ]:
+    if not hostname or type(hostname) not in [str, unicode_type]:
         raise ValueError("Failed to get attribute 'hostname' of type string from instance of type %s."
                          % type(func_args[0]))
     zone = hostname
-    arg_names = inspect.getargspec(function)[0]
+    if sys.version_info.major > 2:
+        arg_names = inspect.getfullargspec(function)[0]
+    else:
+        arg_names = inspect.getargspec(function)[0]
     if 'namespace' in arg_names:
         try:
             index = arg_names.index('namespace')
             namespace = func_args[index]
             if namespace and isinstance(namespace, str):
-                zone = "{}-{}".format(hostname,namespace)
+                zone = "{}-{}".format(hostname, namespace)
         except IndexError:
             pass
     return zone
@@ -195,8 +198,8 @@ def cached(name, zone_getter=None, after_read=None, before_write=None):
     The cached facts are to be stored by <name>.pickle. Because the cached pickle files must be stored under subfolder
     specified by zone, the decorate have an option to passed a zone getter function used to get zone. The zone getter
     function must have signature of '(function, func_args, func_kargs)' that 'function' is the decorated function,
-    'func_args' and 'func_kargs' are the parameters passed to the decorated function at runtime. The zone getter function
-    should raise an error if it fails to return a string as zone.
+    'func_args' and 'func_kargs' are the parameters passed to the decorated function at runtime.
+    The zone getter function should raise an error if it fails to return a string as zone.
     With default zone getter function, this decorator can try to find zone:
     if the function is a bound method of class AnsibleHostBase and its derivatives, it will try to use its
     attribute 'hostname' as zone, or raises an error if 'hostname' doesn't exists or is not a string.

@@ -79,8 +79,8 @@ class Example(object):
             warning to your client.)
 
         Note:
-            If there is some confusing behavior or specific use case or 
-            otherwise noteworthy thing that your method does, mention in a 
+            If there is some confusing behavior or specific use case or
+            otherwise noteworthy thing that your method does, mention in a
             note tag.
 
         Returns: [or "Yields"]

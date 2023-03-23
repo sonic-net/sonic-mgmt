@@ -15,7 +15,7 @@ import sys
 if sys.version_info.major == 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = basestring
+    STRING_TYPE = str
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -91,6 +91,17 @@ class TestModuleApi(PlatformApiTestBase):
             return True
         return False
 
+    def skip_module_other_than_myself(self, module_num, platform_api_conn):
+        if chassis.is_modular_chassis(platform_api_conn):
+            name = module.get_name(platform_api_conn, module_num)
+            module_slot = module.get_slot(platform_api_conn, module_num)
+            chassis_slot = chassis.get_my_slot(platform_api_conn)
+            if module_slot != chassis_slot:
+                logger.info("Skipping module {} since it is not the same module as myself".format(name))
+                return True
+            return False
+        return False
+
     def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
@@ -108,16 +119,18 @@ class TestModuleApi(PlatformApiTestBase):
             if self.expect(presence is not None, "Unable to retrieve module {} presence".format(i)):
                 if self.expect(isinstance(presence, bool), "Module {} presence appears incorrect".format(i)):
                     name = module.get_name(platform_api_conn, i)
-                    if name in self.skip_mod_list:
-                        self.expect(presence is False, "Module {} is not present".format(i))
-                    else:
+                    if name not in self.skip_mod_list:
                         self.expect(presence is True, "Module {} is not present".format(i))
+                    else:
+                        logger.info("Skipping module {} since it is part of skip_mod_list".format(name))
         self.assert_expectations()
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
+                continue
+            if self.skip_module_other_than_myself(i,platform_api_conn):
                 continue
             model = module.get_model(platform_api_conn, i)
             if self.expect(model is not None, "Unable to retrieve module {} model".format(i)):
@@ -128,6 +141,8 @@ class TestModuleApi(PlatformApiTestBase):
 
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
+                continue
+            if self.skip_module_other_than_myself(i,platform_api_conn):
                 continue
             serial = module.get_serial(platform_api_conn, i)
             if self.expect(serial is not None, "Module {}: Failed to retrieve serial number".format(i)):
@@ -174,6 +189,13 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
+            if self.skip_module_other_than_myself(i,platform_api_conn):
+                continue
+            # Need to skip FABRIC-CARDx as they do not have base_mac assigned
+            mod_name = module.get_name(platform_api_conn, i)
+            if "FABRIC-CARD" in mod_name:
+                logger.info("skipping get_base_mac for module {} which is a Fabric Card".format(mod_name))
+                continue
             base_mac = module.get_base_mac(platform_api_conn, i)
 	    if not self.expect(base_mac is not None, "Module {}: Failed to retrieve base MAC address".format(i)):
                 continue
@@ -185,7 +207,7 @@ class TestModuleApi(PlatformApiTestBase):
         Test that we can retrieve sane system EEPROM info from each module of the DUT via the platform API
         """
         # OCP ONIE TlvInfo EEPROM type codes defined here: https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
-        VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [
+        VALID_ONIE_TLVINFO_TYPE_CODES_LIST = list(map(str.lower,[
             ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME,
             ONIE_TLVINFO_TYPE_CODE_PART_NUMBER,
             ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER,
@@ -203,18 +225,26 @@ class TestModuleApi(PlatformApiTestBase):
             ONIE_TLVINFO_TYPE_CODE_SERVICE_TAG,
             ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT,
             ONIE_TLVINFO_TYPE_CODE_CRC32
-        ]
+        ]))
 
-        MINIMUM_REQUIRED_TYPE_CODES_LIST = [
+        MINIMUM_REQUIRED_TYPE_CODES_LIST = list(map(str.lower,[
             ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER,
             ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR,
             ONIE_TLVINFO_TYPE_CODE_CRC32
-        ]
+        ]))
 
         # TODO: Add expected system EEPROM info for each module to inventory file and compare against it
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
+            if self.skip_module_other_than_myself(i,platform_api_conn):
+                continue
+            # Need to skip FABRIC-CARDx as they do not have system_eeprom info
+            mod_name = module.get_name(platform_api_conn, i)
+            if "FABRIC-CARD" in mod_name:
+                logger.info("skipping test_get_system_eeprom_info for module {} which is a Fabric Card".format(mod_name))
+                continue
+
             syseeprom_info_dict = module.get_system_eeprom_info(platform_api_conn, i)
             if not self.expect(syseeprom_info_dict is not None, "Module {}: Failed to retrieve system EEPROM data".format(i)):
                 continue
@@ -222,7 +252,9 @@ class TestModuleApi(PlatformApiTestBase):
             if not self.expect(isinstance(syseeprom_info_dict, dict), "Module {}: System EEPROM data is not in the expected format".format(i)):
                 continue
 
-            syseeprom_type_codes_list = syseeprom_info_dict.keys()
+            # Some vendors returns unicode string with lower/mixed case which fails the TLV validation tests.
+            # so we always convert eveything to lower case string to perform the comparison to make this check more robust.
+            syseeprom_type_codes_list = list(map(str.lower,[str(x) for x in list(syseeprom_info_dict.keys())]))
 
             # Ensure that all keys in the resulting dictionary are valid ONIE TlvInfo type codes
             self.expect(set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST), "Module {}: Invalid TlvInfo type code found".format(i))
@@ -423,11 +455,13 @@ class TestModuleApi(PlatformApiTestBase):
         reboot_timeout = 300
         for mod_idx in range(self.num_modules):
             mod_name = module.get_name(platform_api_conn, mod_idx)
+            if self.skip_module_other_than_myself(mod_idx,platform_api_conn):
+                continue
             if mod_name in self.skip_mod_list:
                 logger.info("skipping reboot for module {} ".format(mod_name))
             else:
                 module_reboot = module.reboot(platform_api_conn, mod_idx, reboot_type)
-                pytest_assert(module_reboot == "True", "module {} reboot failed".format(mod_idx))
+                pytest_assert(module_reboot == bool(True), "module {} reboot failed".format(mod_idx))
                 sleep(reboot_timeout)
                 mod_status = module.get_oper_status(platform_api_conn, mod_idx)
                 pytest_assert(mod_status == "Online", "module {} boot up successful".format(mod_idx))
