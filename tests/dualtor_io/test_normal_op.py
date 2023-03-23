@@ -28,13 +28,15 @@ def test_normal_op_upstream(upper_tor_host, lower_tor_host,             # noqa F
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
         verify_tor_states(expected_active_host=upper_tor_host,
-                          expected_standby_host=lower_tor_host)
+                          expected_standby_host=lower_tor_host,
+                          skip_tunnel_route=False)
 
     if cable_type == CableType.active_active:
         send_server_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                           expected_standby_host=None,
-                          cable_type=cable_type)
+                          cable_type=cable_type,
+                          skip_tunnel_route=False)
 
 
 @pytest.mark.enable_active_active
