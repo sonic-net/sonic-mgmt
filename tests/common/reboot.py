@@ -178,7 +178,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
         return reboot_helper(reboot_kwargs)
 
-    dut_datetime = duthost.get_now_time()
+    dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
 
     if reboot_type != REBOOT_TYPE_POWEROFF:
@@ -247,7 +247,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
-    dut_uptime = duthost.get_up_time()
+    dut_uptime = duthost.get_up_time(utc_timezone=True)
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
         format(hostname)
@@ -262,7 +262,7 @@ def get_reboot_cause(dut):
     output = dut.shell('show reboot-cause')
     cause = output['stdout']
 
-    for type, ctrl in reboot_ctrl_dict.items():
+    for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):
             return type
 
@@ -378,7 +378,7 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     if reboot_cause_history_got:
         if not set(REBOOT_CAUSE_HISTORY_TITLE) == set(reboot_cause_history_got[0].keys()):
             logger.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".
-                          format(REBOOT_CAUSE_HISTORY_TITLE, reboot_cause_history_got[0].keys()))
+                          format(REBOOT_CAUSE_HISTORY_TITLE, list(reboot_cause_history_got[0].keys())))
             return False
 
     logger.info("Verify reboot-cause output are sorted in reverse chronological order")

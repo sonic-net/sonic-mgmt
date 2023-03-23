@@ -20,7 +20,7 @@ def test_fwutil_show(duthost):
         platform_comp = json.load(f)
 
     versions = show_firmware(duthost)
-    chassis = versions["chassis"].keys()[0]
+    chassis = list(versions["chassis"].keys())[0]
 
     show_fw_comp_set = set(versions["chassis"][chassis]["component"].keys())
     platform_comp_set = set(platform_comp["chassis"][chassis]["component"].keys())
@@ -84,7 +84,7 @@ def test_fwutil_update_next(duthost, localhost, pdu_controller, fw_pkg, random_c
 def test_fwutil_update_bad_config(duthost, random_component):
     """Tests that fwutil update validates the platform_components.json schema correctly."""
     versions = show_firmware(duthost)
-    chassis = versions["chassis"].keys()[0]  # Only one chassis
+    chassis = list(versions["chassis"].keys())[0]  # Only one chassis
 
     # Test fwutil update with config file without chassis section
     with open("platform_components.json", "w") as f:

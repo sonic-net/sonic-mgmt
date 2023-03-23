@@ -8,7 +8,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
-    enable_packet_aging, start_pfcwd
+    enable_packet_aging, start_pfcwd, sec_to_nanosec
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -70,8 +70,8 @@ def run_pfcwd_basic_test(api,
     detect_time_sec = get_pfcwd_detect_time(host_ans=duthost, intf=dut_port) / 1000.0
     restore_time_sec = get_pfcwd_restore_time(host_ans=duthost, intf=dut_port) / 1000.0
 
-    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd 
-    fake alerts caused by non-incremented packet counters during pfcwd detection periods"""
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
     warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
     warm_up_traffic_delay_sec = 0
 
@@ -129,11 +129,6 @@ def run_pfcwd_basic_test(api,
                      data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
                      data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
                      data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
-
-
-def sec_to_nanosec(secs):
-    """ Convert seconds to nanoseconds """
-    return secs * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -283,7 +278,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
 
     logger.info('Wait for Arp to Resolve ...')
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
-    
+
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START
