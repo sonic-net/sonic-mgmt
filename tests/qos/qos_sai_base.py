@@ -209,6 +209,13 @@ class QosSaiBase(QosBase):
                 bufferProfile (dict): Map of buffer profile attributes
         """
 
+        if table == "BUFFER_QUEUE_TABLE" and dut_asic.sonichost.facts['switch_type'] == 'voq':
+            # For VoQ chassis, the buffer queues config is based on system port
+            if dut_asic.sonichost.is_multi_asic:
+                port = "{}:{}:{}".format(dut_asic.sonichost.hostname, dut_asic.namespace, port)
+            else:
+                port = "{}:Asic0:{}".format(dut_asic.sonichost.hostname, port)
+
         if self.isBufferInApplDb(dut_asic):
             db = "0"
             keystr = "{0}:{1}:{2}".format(table, port, priorityGroup)
