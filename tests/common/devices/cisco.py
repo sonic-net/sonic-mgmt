@@ -355,6 +355,24 @@ class CiscoHost(AnsibleHostBase):
             parents=['router isis {}'.format(isis_instance)])
         return not self._has_cli_cmd_failed(out)
 
+    @adapt_interface_name
+    def set_isis_metric(self, interface, metric, isis_instance='test'):
+        out = self.config(
+            lines=['metric {}'.format(metric)],
+            parents=['router isis {}'.format(isis_instance),
+                     'interface {}'.format(interface),
+                     'address-family ipv4 unicast'])
+        return not self._has_cli_cmd_failed(out)
+
+    @adapt_interface_name
+    def no_isis_metric(self, interface, isis_instance='test'):
+        out = self.config(
+            lines=['no metric'],
+            parents=['router isis {}'.format(isis_instance),
+                     'interface {}'.format(interface),
+                     'address-family ipv4 unicast'])
+        return not self._has_cli_cmd_failed(out)
+
     def get_lldp_neighbors(self):
         """
         run show lldp neighbros command to get lldp neighbors
