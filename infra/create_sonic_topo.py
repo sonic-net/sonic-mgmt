@@ -70,7 +70,7 @@ def _create_parser():
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, sfd',
-                      required=False,default="mth64", choices=['sherman', 'm32', 'sfd'])
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'sfd'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -490,6 +490,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('topo_8800-LC-48H-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-LC-48H-O.yml')
+        ftp_client.put('topo_8800-RP-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-RP-O.yml')
         ftp_client.put('topo_t2_2lc_min_ports-masic.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
     if topo_type in ['t0', 'dualtor-56']:
         ftp_client.put('t0-leaf.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
