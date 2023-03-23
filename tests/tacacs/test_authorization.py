@@ -132,6 +132,9 @@ def check_authorization_tacacs_only(duthosts, enum_rand_one_per_hwsku_hostname, 
         Verify TACACS+ user run command in server side whitelist:
             If command have local permission, user can run command.
     """
+    # The "config tacacs add" commands will trigger hostcfgd to regenerate tacacs config.
+    # If we immediately run "show aaa" command, the client may still be using the first invalid tacacs server.
+    # The second valid tacacs may not take effect yet. Wait some time for the valid tacacs server to take effect.
     succeeded = wait_until(10, 1, 0, verify_show_aaa, remote_user_client)
     pytest_assert(succeeded)
 
@@ -174,11 +177,6 @@ def test_authorization_tacacs_only_some_server_down(
 
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-
-    # The above "config tacacs add" commands will trigger hostcfgd to regenerate tacacs config.
-    # If we immediately run "show aaa" command, the client may still be using the first invalid tacacs server.
-    # The second valid tacacs may not take effect yet. Wait some time for the valid tacacs server to take effect.
-    time.sleep(2)
 
     """
         Verify TACACS+ user run command in server side whitelist:
