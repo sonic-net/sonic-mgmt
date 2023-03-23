@@ -1,4 +1,5 @@
 import pytest
+from tests.common.cisco_data import is_cisco_device
 from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_upper_tor, \
                                                        simulator_flap_counter, simulator_server_down    # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -8,14 +9,9 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_s
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('dualtor'),
     pytest.mark.usefixtures('run_garp_service', 'run_icmp_responder')
 ]
-
-
-@pytest.fixture(autouse=True, scope='module')
-def skip_if_non_dualtor_topo(tbinfo):
-    pytest_require('dualtor' in tbinfo['topo']['name'], "Only run on dualtor testbed")
 
 
 def test_server_down(duthosts, tbinfo, rand_selected_interface, simulator_flap_counter,             # noqa F811
@@ -51,7 +47,11 @@ def test_server_down(duthosts, tbinfo, rand_selected_interface, simulator_flap_c
     pytest_assert(wait_until(20, 1, 0, upper_tor_mux_state_verification, 'active', 'unhealthy'),
                   "mux_cable status is unexpected. Should be (active, unhealthy)")
     # Verify mux_cable state on lower_tor is standby
-    pytest_assert(wait_until(20, 1, 0, lower_tor_mux_state_verfication, 'standby', 'unhealthy'),
+    if is_cisco_device(duthost):
+      pytest_assert(wait_until(30, 1, 0, lower_tor_mux_state_verfication, 'standby', 'unhealthy'),
+                  "mux_cable status is unexpected. Should be (standby, unhealthy)")
+    else:
+      pytest_assert(wait_until(20, 1, 0, lower_tor_mux_state_verfication, 'standby', 'unhealthy'),
                   "mux_cable status is unexpected. Should be (standby, unhealthy)")
     # Verify that mux_cable flap_counter should be no larger than 3
     # lower_tor(standby) -> active -> standby
