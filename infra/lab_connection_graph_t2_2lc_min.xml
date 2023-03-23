@@ -1,0 +1,43 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+      <Device Hostname="sfd-lc0" HwSku="8800-LC-48H-O" Type="DevSonic"/>
+      <Device Hostname="sfd-lc1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
+      <Device Hostname="sfd-01" HwSku="8800-RP-O" Type="DevSonic"/>
+      <Device Hostname="nexus-5" HwSku="C9336C-FX2" Type="FanoutLeaf"/>
+    </Devices>
+    <DeviceInterfaceLinks>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet0/1" StartDevice="sfd-lc0" StartPort="Ethernet16"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet0/2" StartDevice="sfd-lc0" StartPort="Ethernet20"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet1/1" StartDevice="sfd-lc0" StartPort="Ethernet32"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet2/1" StartDevice="sfd-lc0" StartPort="Ethernet100"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet2/2" StartDevice="sfd-lc0" StartPort="Ethernet112"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet3/1" StartDevice="sfd-lc0" StartPort="Ethernet92"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet4/1" StartDevice="sfd-lc1" StartPort="Ethernet8"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet4/2" StartDevice="sfd-lc1" StartPort="Ethernet12"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet5/1" StartDevice="sfd-lc1" StartPort="Ethernet24"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet6/1" StartDevice="sfd-lc1" StartPort="Ethernet92"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet6/2" StartDevice="sfd-lc1" StartPort="Ethernet100"/>
+        <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet7/1" StartDevice="sfd-lc1" StartPort="Ethernet112"/>
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+  <DataPlaneGraph>
+    <DevicesL3Info Hostname="nexus-5">
+	    <ManagementIPInterface Name="ManagementIp" Prefix="1.74.23.8/16"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="nexus-5">
+      <InterfaceVlan mode="Access" portname="Ethernet0/1" vlanids="0"/>
+      <InterfaceVlan mode="Access" portname="Ethernet0/2" vlanids="1"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="2"/>
+      <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="3"/>
+      <InterfaceVlan mode="Access" portname="Ethernet2/2" vlanids="4"/>
+      <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="5"/>
+      <InterfaceVlan mode="Access" portname="Ethernet4/1" vlanids="6"/>
+      <InterfaceVlan mode="Access" portname="Ethernet4/2" vlanids="7"/>
+      <InterfaceVlan mode="Access" portname="Ethernet5/1" vlanids="8"/>
+      <InterfaceVlan mode="Access" portname="Ethernet6/1" vlanids="9"/>
+      <InterfaceVlan mode="Access" portname="Ethernet6/2" vlanids="10"/>
+      <InterfaceVlan mode="Access" portname="Ethernet7/1" vlanids="11"/>
+    </DevicesL2Info>
+  </DataPlaneGraph>
+</LabConnectionGraph>

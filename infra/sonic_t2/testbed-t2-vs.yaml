@@ -1,0 +1,255 @@
+device_groups:
+  fanout:
+    host:
+    - nexus-5
+  lab:
+    children:
+    - sonic
+    - fanout
+    vars:
+      mgmt_subnet_mask_length: '24'
+  ptf:
+    host:
+    - docker-ptf
+  sonic:
+    children:
+    - sonic_cisco
+  sonic_cisco:
+    host:
+    - sfd-01
+    - sfd-lc0
+    - sfd-lc1
+    vars:
+      hwsku: Cisco-8102-C64 # TODO change this
+      iface_speed: '100000'
+devices:
+  sfd-01:
+    alias: null
+    ansible:
+      ansible_host: 192.168.122.47
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: cisco
+    credentials:
+      enable_password: cisco123
+      password: cisco123
+      username: cisco
+    device_type: DevSonic
+    hwsku: 8800-RP-O
+    os: sonic
+  sfd-lc0:
+    alias: null
+    ansible:
+      ansible_host: 192.168.122.48
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: cisco
+    credentials:
+      enable_password: cisco123
+      password: cisco123
+      username: cisco
+    device_type: DevSonic
+    hwsku: 8800-LC-48H-O
+    os: sonic
+  sfd-lc1:
+    alias: null
+    ansible:
+      ansible_host: 192.168.122.49
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: cisco
+    credentials:
+      enable_password: cisco123
+      password: cisco123
+      username: cisco
+    device_type: DevSonic
+    hwsku: 8800-LC-48H-O
+    os: sonic
+  nexus-5:
+    alias: null
+    ansible:
+      ansible_host: 10.251.0.13/23
+      ansible_ssh_pass: password
+      ansible_ssh_user: user
+      fanout_sonic_password: password
+      fanout_sonic_user: admin
+    credentials:
+      password: null
+      username: null
+    device_type: FanoutLeaf
+    hwsku: Arista-7260QX-64
+  docker-ptf:
+    device_type: blank
+    hwsku:
+    ansible:
+        ansible_ssh_user: root
+        ansible_host: 1.74.23.21/16
+        ansible_hostv6: fc0b::1/64
+        ansible_ssh_pass: root
+    credentials:
+        password: root
+        username: root
+  str-acs-serv-01:
+    alias: null
+    ansible:
+      ansible_become_pass: cisco123
+      ansible_host: 172.17.0.1/23
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: vxr
+      sonicadmin_initial_password: cisco123
+      sonicadmin_password: cisco123
+      sonicadmin_user: admin
+    credentials:
+      password: cisco123
+      username: vxr
+    device_type: server
+    hwsku: TestServ
+    mgmt_subnet_mask_length: '24'
+docker_registry:
+  docker_registry_host: sonicdev-microsoft.azurecr.io:443
+  docker_registry_password: sonic
+  docker_registry_username: 1dafc8d7-d19c-4f58-8653-e8d904f30dab
+host_vars:
+  str-acs-serv-01:
+    external_port: eth0
+    mgmt_bridge: br1
+    mgmt_gw: 172.17.0.1
+    mgmt_prefixlen: 24
+testbed:
+  docker-ptf:
+    comment: Test ptf mathilda
+    dut: sfd-01; sfd-lc0; sfd-lc1
+    group-name: sonic_cisco
+    ptf_image_name: docker-ptf-sfd
+    ptf_ip: 192.168.122.66/24
+    ptf_ipv6: fc0b::1/64
+    ptf: docker-ptf
+    server: server_1
+    topo: t2-vs
+    vm_base: VM0100
+    ansible:
+      ansible_ssh_user: root
+      ansible_host: 192.168.122.66/24
+      ansible_hostv6: fc0b::1/64
+      ansible_ssh_pass: root
+    credentials:
+      password: root
+      username: root
+
+testbed_config:
+  alias: t2virtualswitchtopologyTestbed # does this value matter?
+  name: testbed-t2-vs # does this value matter?
+  type: Physical
+topology:
+  sfd-lc0:
+    interfaces:
+      Ethernet0:
+        Bandwidth: 40000
+        EndDevice: VM0100 # Are the vEOS switches automatically named in this format? If so, how?
+        EndPort: Ethernet1
+        VlanID: 0
+        VlanMode: Access
+      Ethernet1:
+        Bandwidth: 40000
+        EndDevice: VM0100
+        EndPort: Ethernet2
+        VlanID: 1
+        VlanMode: Access
+      Ethernet2:
+        Bandwidth: 40000
+        EndDevice: VM0101
+        EndPort: Ethernet1
+        VlanID: 2
+        VlanMode: Access
+  sfd-lc1:
+    interfaces:
+      Ethernet0:
+        Bandwidth: 40000
+        EndDevice: VM0102 # Are the vEOS switches automatically named in this format? If so, how?
+        EndPort: Ethernet1
+        VlanID: 3
+        VlanMode: Access
+      Ethernet1:
+        Bandwidth: 40000
+        EndDevice: VM0102
+        EndPort: Ethernet2
+        VlanID: 4
+        VlanMode: Access
+      Ethernet2:
+        Bandwidth: 40000
+        EndDevice: VM0103
+        EndPort: Ethernet1
+        VlanID: 5
+        VlanMode: Access
+veos:
+  cd_image_filename: Aboot-veos-serial-8.0.0.iso
+  credentials:
+    password: 123456
+    username: admin
+  eos_ansible:
+    ansible_password: 123456
+    ansible_user: admin
+  hdd_image_filename: vEOS-lab-4.20.15M.vmdk
+  max_fp_num: 4
+  memory: 2097152
+  proxy_env:
+    http_proxy: http://173.36.224.108:80
+    https_proxy: http://173.36.224.108:80
+  root_path: /home/azure/veos-vm
+  skip_image_downloading: false
+  vm_console_base: 7000
+  vm_host_ansible:
+    ansible_password: cisco123
+    ansible_sudo_pass: cisco123
+    ansible_user: vxr
+  vm_images_url: https://acsbe.blob.core.windows.net/vmimages
+  vm_host_1:
+    STR-ACS-SERV-01:
+      ansible_host: 192.168.122.150
+  vms_1:
+    VM0100:
+      ansible_host: 192.168.122.94
+    VM0101:
+      ansible_host: 192.168.122.228
+    VM0102:
+      ansible_host: 192.168.122.40
+    VM0103:
+      ansible_host: 192.168.122.188
+veos_groups:
+  eos:
+    children:
+    - vms_1
+  server_1:
+    children:
+    - vm_host_1
+    - vms_1
+    vars:
+      host_var_file: host_vars/STR-ACS-SERV-01.yml
+  servers:
+    children:
+    - server_1
+    vars:
+      topologies: # Why are these listed here?
+      - t1
+      - t1-lag
+      - t1-64-lag
+      - t1-64-lag-clet
+      - t0
+      - t0-56
+      - t0-52
+      - ptf32
+      - ptf64
+      - t0-64
+      - t0-64-32
+      - t0-116
+      - dualtor-56
+      - t2-vs
+  vm_host:
+    children:
+    - vm_host_1
+  vm_host_1:
+    host:
+    - STR-ACS-SERV-01
+  vms_1:
+    host:
+    - VM0100
+    - VM0101
+    - VM0102
+    - VM0103
