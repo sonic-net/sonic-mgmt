@@ -102,7 +102,7 @@ class VNET(BaseTest):
         for routes in graph['vnet_local_routes']:
             for name, rt_list in routes.items():
                 if test['name'] == name.split('_')[0]:
-                    if self.total_routes <= self.max_routes_wo_scaling: 
+                    if self.total_routes <= self.max_routes_wo_scaling:
                         for entry in rt_list:
                             self.addLocalTest(test, entry)
                     else:
@@ -165,7 +165,7 @@ class VNET(BaseTest):
         self.tests.append(nhtest)
 
     def calculateTotalRoutes(self, graph):
-        self.total_routes = 0 
+        self.total_routes = 0
         for routes in graph['vnet_routes']:
             for name, rt_list in routes.items():
                 self.total_routes += len(rt_list)
@@ -332,13 +332,13 @@ class VNET(BaseTest):
 
         print
         for test in self.tests:
-            print test['name']
+            print(test['name'])
             self.FromServer(test)
-            print "  FromServer passed"
+            print("  FromServer passed")
             self.FromVM(test)
-            print "  FromVM  passed"
+            print("  FromVM  passed")
             self.Serv2Serv(test)
-            print "  Serv2Serv passed"
+            print("  Serv2Serv passed")
 
     def FromVM(self, test):
         rv = True
@@ -525,7 +525,7 @@ class VNET(BaseTest):
             serv_tests = rif_tests + peer_tests
 
             for serv in serv_tests:
-                print "  Testing Serv2Serv "
+                print("  Testing Serv2Serv ")
                 pkt = simple_tcp_packet(
                     pktlen=pkt_len,
                     eth_dst=self.dut_mac,
