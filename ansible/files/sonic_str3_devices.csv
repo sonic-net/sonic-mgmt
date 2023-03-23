@@ -49,6 +49,8 @@ pdu-116,10.3.155.116,Sentry,Pdu,snmp
 pdu-118,10.3.155.118,Sentry,Pdu,snmp
 pdu-122,10.3.155.122,Sentry,Pdu,snmp
 pdu-123,10.3.155.123,Sentry,Pdu,snmp
+pdu-119,10.3.155.119,Sentry4,Pdu,snmp
+pdu-120,10.3.155.120,Sentry4,Pdu,snmp
 console-182,10.3.145.182,Cisco,ConsoleServer,ssh
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh

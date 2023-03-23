@@ -2091,6 +2091,8 @@
       <DevicePowerControlInfo Hostname="pdu-118" HwSku="Sentry" ManagementIp="10.3.155.118" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-122" HwSku="Sentry" ManagementIp="10.3.155.122" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-123" HwSku="Sentry" ManagementIp="10.3.155.123" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-119" HwSku="Sentry4" ManagementIp="10.3.155.119" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-120" HwSku="Sentry4" ManagementIp="10.3.155.120" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-root03" EndPort="PSU1" StartDevice="pdu-116" StartPort="4"/>
