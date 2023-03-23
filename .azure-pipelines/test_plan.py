@@ -124,6 +124,11 @@ def get_scope(testbed_tools_url):
 
 
 def parse_list_from_str(s):
+    # Since Azure Pipeline doesn't support to receive an empty parameter,
+    # We use ' ' as a magic code for empty parameter.
+    # So we should consider ' ' as en empty input.
+    if isinstance(s, str):
+        s = s.strip()
     if not s:
         return None
     return [single_str.strip() for single_str in s.split(',')]
