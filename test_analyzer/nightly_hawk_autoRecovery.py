@@ -21,21 +21,10 @@ import datetime
 import tempfile
 import yaml
 
-from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
-from azure.kusto.ingest import IngestionProperties
+from nightly_hawk_autoRecovery_cfg import skip_testbeds_list
+from nightly_hawk_autoRecovery_cfg import trusty_images_url
 
-try:
-    from azure.kusto.ingest import KustoIngestClient
-except ImportError:
-    from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
-
-try:
-    from azure.kusto.ingest import DataFormat
-except ImportError:
-    from azure.kusto.data.data_format import DataFormat
-
-from test_testbeds_auto_recovery_cfg import skip_testbeds_list
-from test_testbeds_auto_recovery_cfg import golden_image_url
+from nightly_hawk_common import KustoChecker, KustoUploader, TbShare
 
 NIGHTLY_HAWK_DIR = os.path.abspath(os.path.dirname(__file__))
 SONIC_MGMT_DIR = os.path.dirname(NIGHTLY_HAWK_DIR)
@@ -91,182 +80,6 @@ class AUTO_RECOVERY_RC(object):
             255: 'Encountered error'
         }
         return _mapping[rc]
-
-
-
-class KustoChecker(object):
-    def __init__(self, cluster, tenant_id, client_id, client_key, database):
-        self.cluster = cluster
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_key = client_key
-        self.database = database
-
-        self.logger = logging.getLogger('KustoChecker')
-
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(
-            self.cluster,
-            self.client_id,
-            self.client_key,
-            self.tenant_id
-            )
-
-        self.client = KustoClient(kcsb)
-
-    def query(self, query):
-        self.logger.debug('Query String: {}'.format(query))
-        return self.client.execute(self.database, query)
-
-    def query_unhealthy_testbeds(self, date):
-        query_str = '''
-            TestReportPipeline
-            | where UploadTimestamp > ago({date})
-            | where FailedTasks contains "Run Tests" or FailedTasks contains "Upgrade Image" or FailedTasks contains "Deploy Minigraph"
-            | where TestbedName != ''
-            | distinct StartTimestamp, TestbedName, FailedTasks
-            '''.format(date=date)
-        return self.query(query_str)
-
-    def query_autoRecovery_testbeds(self, date):
-        query_str = '''
-            TestbedAutoRecoveryData
-            | where UTCTimestamp > ago({date})
-            | order by UTCTimestamp asc
-            | distinct UTCTimestamp, TestbedName, DutName, DutIP, Console, TriggerIcM ,Priority, Summary
-            '''.format(date=date)
-        return self.query(query_str)
-
-
-
-def create_kusto_checker():
-    # ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
-    # cluster = ingest_cluster.replace('ingest-', '')
-    # tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-    # client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-    # client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
-
-    ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-    cluster = ingest_cluster.replace('ingest-', '')
-    tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-    client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-    client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
-
-    if not all([cluster, tenant_id, client_id, client_key]):
-        raise RuntimeError('Could not load Kusto credentials from environment')
-
-    return KustoChecker(cluster, tenant_id, client_id, client_key, DATABASE)
-
-
-class KustoUploader(object):
-    def __init__(self, cluster, tenant_id, client_id, client_key, database):
-        self.cluster = cluster
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_key = client_key
-        self.database = database
-
-        self.logger = logging.getLogger('KustoUploader')
-
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(
-            self.cluster,
-            self.client_id,
-            self.client_key,
-            self.tenant_id
-            )
-
-        self.ingestion_client = KustoIngestClient(kcsb)
-
-
-
-
-def create_kusto_uploader():
-    # ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
-    # cluster = ingest_cluster.replace('ingest-', '')
-    # tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-    # client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-    # client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
-
-    ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-    # cluster = ingest_cluster.replace('ingest-', '')
-    tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-    client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-    client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
-
-    if not all([ingest_cluster, tenant_id, client_id, client_key]):
-        raise RuntimeError('Could not load Kusto credentials from environment')
-
-    return KustoUploader(ingest_cluster, tenant_id, client_id, client_key, DATABASE)
-
-
-
-def get_token(proxies):
-
-    client_id = os.environ.get('TBSHARE_AAD_CLIENT_ID')
-    client_secret = os.environ.get('TBSHARE_AAD_CLIENT_SECRET')
-
-    if not client_id or not client_secret:
-        logger.info("Need environment variables: TBSHARE_AAD_CLIENT_ID, TBSHARE_AAD_CLIENT_SECRET")
-        return None
-
-    token_url = 'https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/token'
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    payload = {
-        'resource': 'https://tbshare.azurewebsites.net',
-        'grant_type': 'client_credentials',
-        'client_id': client_id,
-        'client_secret': client_secret
-    }
-    try:
-        resp = requests.post(token_url, headers=headers, data=payload, proxies=proxies, timeout=10).json()
-        return resp['access_token']
-    except Exception as e:
-        logger.error("Get token failed with exception: {}".format(repr(e)))
-    return None
-
-
-def get_testbed(testbed, token, proxies):
-    try:
-        url = 'https://tbshare.azurewebsites.net/api/testbed/{}'.format(testbed)
-        headers = {
-            'Authorization': 'Bearer ' + token
-        }
-        return requests.get(url, headers=headers, proxies=proxies, timeout=30).json()
-    except:
-        return {}
-
-def lock_release_api(testbed, action, token, proxies, hours, user, reason, force, absolute):
-    try:
-        url = 'https://tbshare.azurewebsites.net/api/{}'.format(action)
-        headers = {
-            'Authorization': 'Bearer ' + token
-        }
-        params = {
-            'name': testbed,
-            'user': user,
-            'force': force
-        }
-        if action == 'lock':
-            # Extra params required only for lock
-            params.update({
-                'hours': hours,
-                'lock_reason': reason,
-                'absolute': absolute
-            })
-
-        result = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=10).json()
-        if 'failed' in result and result['failed']:
-            logger.error('{} testbed {} failed'.format(action, testbed))
-            if 'msg' in result:
-                logger.info(result['msg'])
-            return 2
-        else:
-            logger.info('{} testbed {} succeeded'.format(action, testbed))
-            return 0
-    except Exception as e:
-        logger.error('{} testbed {} failed with exception: {}'.format(action, testbed, repr(e)))
-        return 3
 
 
 def add_twodim_dict(thedict, key_a, key_b, val):
@@ -424,10 +237,10 @@ class Testbeds_auto_recovery(object):
         self.current_step = AUTO_RECOVERY_RC.SUCCESS
         self.collect_unhealthy_table_age = '24h'
         self.collect_autoRecovery_table_age = '24h'
-        self.kusto_checker = None
-        self.kusto_uploader = None
-        self.proxies = {'http': os.environ.get('http_proxy'), 'https': os.environ.get('http_proxy')}
-        self.token = get_token(self.proxies)
+        self.kusto_checker = self.create_kusto_checker()
+        self.kusto_uploader = self.create_kusto_uploader()
+        self.tb_share = TbShare()
+
         self.max_build_count = 3
         self.trigger_redeploy_id = 680
         self.trigger_sanitycheck_id = 682
@@ -439,9 +252,46 @@ class Testbeds_auto_recovery(object):
         self.current_loop = 0
         self.testbedName = None
         if golden_image:
-            self.upgradeImageUrl = golden_image_url
+            self.upgradeImageUrl = trusty_images_url
         else:
             self.upgradeImageUrl = get_Pipeline_ImageUrl()
+
+    def create_kusto_checker(self):
+        # ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
+        # cluster = ingest_cluster.replace('ingest-', '')
+        # tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
+        # client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
+        # client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
+
+        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
+        cluster = ingest_cluster.replace('ingest-', '')
+        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
+        client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
+        client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+
+        if not all([cluster, tenant_id, client_id, client_key]):
+            raise RuntimeError('Could not load Kusto credentials from environment')
+
+        return KustoChecker(cluster, tenant_id, client_id, client_key, DATABASE)
+
+    def create_kusto_uploader(self):
+        # ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
+        # cluster = ingest_cluster.replace('ingest-', '')
+        # tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
+        # client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
+        # client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
+
+        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
+        # cluster = ingest_cluster.replace('ingest-', '')
+        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
+        client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
+        client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+
+        if not all([ingest_cluster, tenant_id, client_id, client_key]):
+            raise RuntimeError('Could not load Kusto credentials from environment')
+
+        return KustoUploader(ingest_cluster, tenant_id, client_id, client_key, DATABASE)
+
 
     def parser_unhealthy_testbeds(self):
         self.current_step = AUTO_RECOVERY_RC.COLLECT_UNHEALTHY_TESTBED
@@ -488,7 +338,6 @@ class Testbeds_auto_recovery(object):
         logger.info("collect unhealthy testbeds ")
 
         # query unhealthy testbeds table, nightly pipeline build failed table
-        self.kusto_checker = create_kusto_checker()
         currentUnhealthyTable = self.kusto_checker.query_unhealthy_testbeds(self.collect_unhealthy_table_age)
         if self.verbose :
             logger.info("get currentUnhealthyTable {} ".format(currentUnhealthyTable))
@@ -508,8 +357,6 @@ class Testbeds_auto_recovery(object):
 
 
         # query autoRecovery table, find out testbeds which have not completed auto recover sequence 
-        if self.kusto_checker == None:
-            self.kusto_checker = create_kusto_checker()
         currentAutoRecoveryTable = self.kusto_checker.query_autoRecovery_testbeds(self.collect_autoRecovery_table_age)
         if self.verbose :
             logger.info("get currentAutoRecoveryTable {} ".format(currentAutoRecoveryTable))
@@ -898,16 +745,6 @@ class Testbeds_auto_recovery(object):
             custo_table_data.append(self.unhealthy_testbeds_ToCusto[testbed])
 
         logger.info("upload to custo {}".format(custo_table_data))
-
-        self.kusto_uploader = create_kusto_uploader()
-
-        props = IngestionProperties(
-            database=DATABASE,
-            table="TestbedAutoRecoveryData",
-            data_format=DataFormat.JSON,
-            ingestion_mapping_reference="TestbedAutoRecoveryDataMapping"
-        )
-
         with tempfile.NamedTemporaryFile(mode="w+") as temp:
             if isinstance(custo_table_data, list):
                 temp.writelines('\n'.join([json.dumps(entry) for entry in custo_table_data]))
@@ -917,23 +754,20 @@ class Testbeds_auto_recovery(object):
 
             if self.kusto_uploader.ingestion_client:
                 logger.info("Ingest to backup cluster...")
-                self.kusto_uploader.ingestion_client.ingest_from_file(temp.name, ingestion_properties=props)                
+                self.kusto_uploader.upload_file(temp.name, "TestbedAutoRecoveryData", "TestbedAutoRecoveryDataMapping")
 
         return
 
 
     def lock_release_testbed(self, testbed, lock_release):
         lock_release_statue = {}
-        if self.token == None :
-            lock_release_statue[lock_release] = "get token failed"
-            return False, lock_release_statue
 
         if self.verbose :
             logger.info("{} testbed {} ".format(lock_release, testbed))
 
         testbed_lock = {}
         for count in range(5):
-            testbed_lock = get_testbed(testbed, self.token, self.proxies)
+            testbed_lock = self.tb_share.get_testbed(testbed)
             if testbed_lock:
                 if testbed_lock.get('failed') == False:
                     break
@@ -954,10 +788,10 @@ class Testbeds_auto_recovery(object):
                     and len(testbed_lock['testbed']['release_time']) == 0) 
                 or testbed_lock['testbed']['locked_by'] == self.lock_user) :
 
-                lock_statue = lock_release_api(testbed, lock_release, self.token, self.proxies, self.lock_hours, self.lock_user, self.lock_reason, 'false', 'true')
+                lock_statue = self.tb_share.lock_release_api(testbed, lock_release, self.lock_hours, self.lock_user, self.lock_reason, 'false', 'true')
         else :
             if (testbed_lock['testbed']['locked_by']) == self.lock_user :
-                lock_statue = lock_release_api(testbed, lock_release, self.token, self.proxies, None, self.lock_user, None, 'true', 'false')
+                lock_statue = self.tb_share.lock_release_api(testbed, lock_release, None, self.lock_user, None, 'true', 'false')
 
 
         if lock_statue == None :

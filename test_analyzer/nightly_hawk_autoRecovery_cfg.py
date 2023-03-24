@@ -1,0 +1,337 @@
+
+skip_testbeds_list = [
+    'azd',
+    '3164',
+    '8101',
+    'ec9516',
+    '-t2-'
+]
+
+curr_convert_to_trusty_images_dict = {
+    '$(BJW_IMAGE_BFN_INTERNAL)'              :  {'trusty_image' : '$(BJW_TRUSTY_IMAGE_BFN_INTERNAL)'             , 'image' : 'sonic-barefoot.bin',            'vendor' : 'barefoot'},   
+    '$(BJW_IMAGE_BRCM_ABOOT_202205)'         :  {'trusty_image' : '$(BJW_TRUSTY_IMAGE_BRCM_ABOOT_202205)'        , 'image' : 'sonic-aboot-broadcom.swi',      'vendor' : 'broadcom'},
+    '$(BJW_IMAGE_BRCM_ABOOT_202205_SLIM)'    :  {'trusty_image' : '$(BJW_TRUSTY_IMAGE_BRCM_ABOOT_202205_SLIM)'   , 'image' : 'sonic-aboot-broadcom-slim.swi', 'vendor' : 'broadcom'},
+    '$(BJW_IMAGE_MARVELL_202205)'            :  {'trusty_image' : '$(BJW_TRUSTY_IMAGE_MARVELL_202205)'           , 'image' : 'sonic-marvell-armhf.bin',       'vendor' : 'marvell-armhf'},
+    '$(BJW_IMAGE_MLNX_202012)'               :  {'trusty_image' : '$(BJW_TRUSTY_IMAGE_MLNX_202012)'              , 'image' : 'sonic-mellanox.bin',            'vendor' : 'mellanox'},
+    '$(IMAGE_BRCM_201911)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_201911)'                  , 'image' : 'sonic-broadcom.bin',            'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_202012)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_202012)'                  , 'image' : 'sonic-broadcom.bin',            'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_202012_SLIM)'              :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_202012_SLIM)'             , 'image' : 'sonic-broadcom-slim.bin',       'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_202205)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_202205)'                  , 'image' : 'sonic-broadcom.bin',            'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_ABOOT_201911)'             :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_201911)'            , 'image' : 'sonic-aboot-broadcom.swi',      'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_ABOOT_202012)'             :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)'            , 'image' : 'sonic-aboot-broadcom.swi',      'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_ABOOT_202012_SLIM)'        :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012_SLIM)'       , 'image' : 'sonic-aboot-broadcom-slim.swi', 'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_ABOOT_202205)'             :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_202205)'            , 'image' : 'sonic-aboot-broadcom.swi',      'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_ABOOT_202205_SLIM)'        :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_202205_SLIM)'       , 'image' : 'sonic-aboot-broadcom-slim.swi', 'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_ABOOT_DNX_CHASSIS_202205)' :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_DNX_CHASSIS_202205)', 'image' : 'sonic-aboot-broadcom-dnx.swi',  'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_DNX_ABOOT_PUBLIC)'         :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_DNX_ABOOT_PUBLIC)'        , 'image' : 'sonic-aboot-broadcom-dnx.swi',  'vendor' : 'broadcom'},
+    '$(IMAGE_CISCO_ABOOT_202012)'            :  {'trusty_image' : '$(TRUSTY_IMAGE_CISCO_ABOOT_202012)'           , 'image' : 'sonic-cisco-8000.bin',          'vendor' : 'cisco-8000'},
+    '$(IMAGE_CISCO_ABOOT_202205)'            :  {'trusty_image' : '$(TRUSTY_IMAGE_CISCO_ABOOT_202205)'           , 'image' : 'sonic-cisco-8000-nosec.bin',    'vendor' : 'cisco-8000'},
+    '$(IMAGE_MARVELL_202012)'                :  {'trusty_image' : '$(TRUSTY_IMAGE_MARVELL_202012)'               , 'image' : 'sonic-marvell-armhf.bin',       'vendor' : 'marvell-armhf'},
+    '$(IMAGE_MARVELL_202205)'                :  {'trusty_image' : '$(TRUSTY_IMAGE_MARVELL_202205)'               , 'image' : 'sonic-marvell-armhf.bin',       'vendor' : 'marvell-armhf'},
+    '$(IMAGE_MLNX_201911)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_MLNX_201911)'                  , 'image' : 'sonic-mellanox.bin',            'vendor' : 'mellanox'},
+    '$(IMAGE_MLNX_202012)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_MLNX_202012)'                  , 'image' : 'sonic-mellanox.bin',            'vendor' : 'mellanox'},
+    '$(IMAGE_MLNX_202205)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_MLNX_202205)'                  , 'image' : 'sonic-mellanox.bin',            'vendor' : 'mellanox'},
+}
+
+trusty_images_url = {
+  'testbed-bjw-can-ec9516-1' : '$(BJW_TRUSTY_IMAGE_BFN_INTERNAL)',
+  'testbed-bjw-can-720dt-1'  : '$(BJW_TRUSTY_IMAGE_BRCM_ABOOT_202205)',
+  'testbed-bjw-can-720dt-2'  : '$(BJW_TRUSTY_IMAGE_BRCM_ABOOT_202205)',
+  'testbed-bjw-can-7215-1'   : '$(BJW_TRUSTY_IMAGE_MARVELL_202205)',
+  'testbed-bjw-can-2700-1'   : '$(BJW_TRUSTY_IMAGE_MLNX_202012)',
+  'vms20-t1-n3164-acs-4'     : '$(TRUSTY_IMAGE_BRCM_201911)',
+  'vmsvc1-t1-n3164-acs-1'    : '$(TRUSTY_IMAGE_BRCM_201911)',
+  'vms11-t0-on-4'            : '$(TRUSTY_IMAGE_BRCM_202012)',
+  'vms13-4-t0'               : '$(TRUSTY_IMAGE_BRCM_202012)',
+  'vms13-5-t1-lag'           : '$(TRUSTY_IMAGE_BRCM_202012)',
+  'vms21-t0-z9332f-02'       : '$(TRUSTY_IMAGE_BRCM_202012)',
+  'vms7-t0-dx010-4'          : '$(TRUSTY_IMAGE_BRCM_202012)',
+  'vms7-t0-dx010-5'          : '$(TRUSTY_IMAGE_BRCM_202012)',
+  'vms7-t0-s6100'            : '$(TRUSTY_IMAGE_BRCM_202012)',
+  'vms7-t0-s6100-4'          : '$(TRUSTY_IMAGE_BRCM_202012)',
+  'testbed-str-e1031-acs-1'  : '$(TRUSTY_IMAGE_BRCM_202012_SLIM)',
+  'testbed-str-e1031-acs-3'  : '$(TRUSTY_IMAGE_BRCM_202012_SLIM)',
+  'vms20-t1-dx010-6'         : '$(TRUSTY_IMAGE_BRCM_202205)',
+  'vms3-t1-dx010-1'          : '$(TRUSTY_IMAGE_BRCM_202205)',
+  'vms7-t1-s6100'            : '$(TRUSTY_IMAGE_BRCM_202205)',
+  'vms2-t1-7260-7'           : '$(TRUSTY_IMAGE_BRCM_ABOOT_201911)',
+  'vms20-t0-ixia-2'          : '$(TRUSTY_IMAGE_BRCM_ABOOT_201911)',
+  'vms24-t1-7050qx-acs-01'   : '$(TRUSTY_IMAGE_BRCM_ABOOT_201911)',
+  'vms6-t1-7060'             : '$(TRUSTY_IMAGE_BRCM_ABOOT_201911)',
+  'vms20-t0-7050cx3-1'       : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms20-t0-7050cx3-2'       : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms21-dual-t0-7050-3'     : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms21-dual-t0-7260'       : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms24-dual-t0-7050-1'     : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms24-dual-t0-7050-2'     : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms24-t0-7260-2'          : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms28-dual-t0-7260'       : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms7-t0-7260-1'           : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms7-t0-7260-2'           : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
+  'vms18-t0-7050qx-acs-02'   : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012_SLIM)',
+  'vms18-t1-7050qx-acs-03'   : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012_SLIM)',
+  'vms6-t0-7060'             : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012_SLIM)',
+  'vms20-t1-7050cx3-3'       : '$(TRUSTY_IMAGE_BRCM_ABOOT_202205)',
+  'vmsvc1-dual-t0-7050-1'    : '$(TRUSTY_IMAGE_BRCM_ABOOT_202205)',
+  'vmsvc1-dual-t0-7050-2'    : '$(TRUSTY_IMAGE_BRCM_ABOOT_202205)',
+  'vms3-t1-7280'             : '$(TRUSTY_IMAGE_BRCM_ABOOT_DNX_CHASSIS_202205)',
+  'vms28-t0-7280-4'          : '$(TRUSTY_IMAGE_BRCM_DNX_ABOOT_PUBLIC)',
+  'vms21-t1-8102-01'         : '$(TRUSTY_IMAGE_CISCO_ABOOT_202012)',
+  'vms28-dual-t0-8102'       : '$(TRUSTY_IMAGE_CISCO_ABOOT_202012)',
+  'vms28-t1-8102-02'         : '$(TRUSTY_IMAGE_CISCO_ABOOT_202012)',
+  'vms21-t1-8101-02'         : '$(TRUSTY_IMAGE_CISCO_ABOOT_202205)',
+  'testbed-str2-7215-acs-1'  : '$(TRUSTY_IMAGE_MARVELL_202012)',
+  'testbed-str2-7215-acs-3'  : '$(TRUSTY_IMAGE_MARVELL_202205)',
+  'vms1-8'                   : '$(TRUSTY_IMAGE_MLNX_201911)',
+  'vms2-2-t0-2700'           : '$(TRUSTY_IMAGE_MLNX_201911)',
+  'vms2-4-t0-2700'           : '$(TRUSTY_IMAGE_MLNX_201911)',
+  'vms20-t0-sn3800-2'        : '$(TRUSTY_IMAGE_MLNX_201911)',
+  'vms11-2-t0'               : '$(TRUSTY_IMAGE_MLNX_202012)',
+  'vms12-t0-3800'            : '$(TRUSTY_IMAGE_MLNX_202012)',
+  'vms21-t0-2700'            : '$(TRUSTY_IMAGE_MLNX_202012)',
+  'vms24-t0-3800-azd'        : '$(TRUSTY_IMAGE_MLNX_202012)',
+  'vms28-t0-4600c-03'        : '$(TRUSTY_IMAGE_MLNX_202012)',
+  'vms28-t0-4600c-04'        : '$(TRUSTY_IMAGE_MLNX_202012)',
+  'vms7-t0-4600c-2'          : '$(TRUSTY_IMAGE_MLNX_202012)',
+  'vms1-t1-2700'             : '$(TRUSTY_IMAGE_MLNX_202205)',
+  'vms18-t1-msn4600c-acs-1'  : '$(TRUSTY_IMAGE_MLNX_202205)',
+  'vms21-t1-2700-2'          : '$(TRUSTY_IMAGE_MLNX_202205)'
+}
+
+
+pipeline_testbeds = [
+    'testbed-bjw-can-2700-1', 'vms1-t1-2700', 'vms11-2-t0', 'vms12-t0-3800', 'vms18-t1-msn4600c-acs-1', 'vms2-t1-7260-7', 
+    'vms20-t0-7050cx3-1', 'vms20-t0-7050cx3-2', 'vms20-t1-7050cx3-3', 'vms20-t1-dx010-6', 'vms21-dual-t0-7050-3', 
+    'vms21-dual-t0-7260', 'vms21-t0-2700', 'vms21-t1-2700-2', 'vms24-dual-t0-7050-1', 'vms24-dual-t0-7050-2', 
+    'vms24-t0-7260-2', 'vms28-dual-t0-7260', 'vms28-t0-4600c-03', 'vms28-t0-4600c-04', 'vms28-t0-7280-4', 'vms3-t1-dx010-1', 
+    'vms7-t0-4600c-2', 'vms7-t0-7260-2', 'vms7-t0-dx010-4', 'vms7-t0-dx010-5', 'vms7-t0-s6100-4', 'vms7-t0-s6100', 
+    'vms7-t1-s6100', 'testbed-bjw-can-ec9516-1', 'vms11-t0-on-4', 'vms13-4-t0', 'vms13-5-t1-lag', 'vms7-t0-7260-1', 
+    'testbed-str2-7215-acs-1', 'vms6-t0-7060', 'vms6-t1-7060', 'vms1-8', 'vms20-t0-sn3800-2', 'vmsvc1-dual-t0-7050-1', 'vmsvc1-dual-t0-7050-2']  
+
+
+
+
+'''
+# get latest pipeline config 
+    pipeline_analyzer.create_branch_pipeline_list('internal')
+    pipeline_analyzer.create_branch_pipeline_list('master')
+    pipeline_analyzer.create_branch_pipeline_list('internal-202205')
+    pipeline_analyzer.create_branch_pipeline_list('internal-202012')
+'''
+nightly_pipeline_202012 = {
+  # 1: '8102-dual-vms28-1.SKIP-dualIO',
+  # 2: '8102-t1-vms21-1.202012',
+  # 3: '8102-t1-vms28-1.202012',
+  # 4: 'testbed-bjw-can-2700-1.202012',
+  # 5: 'testbed-bjw-can-7050qx-2.1.202012',
+  # 6: 'testbed-bjw-can-7050qx-2.2.202012',
+  # 7: 'testbed-bjw-can-e1031-3',
+  # 8: 'testbed-str-e1031-acs-1',
+  # 9: 'testbed-str-e1031-acs-3.202012',
+  # 10: 'testbed-str2-7215-acs-1.202012',
+  # 11: 'vms11-t0-on-4-s6000.202012',
+  # 12: 'vms12-t0-3800-platform_tests.202012',
+  # 13: 'vms13-4-t0-s6000.202012',
+  # 14: 'vms13-5-t1-s6000.202012',
+  # 15: 'vms13-t1-n3164-2.201911',
+  # 16: 'vms18-t0-7050qx-acs-02.202012',
+  # 17: 'vms18-t1-7050qx-acs-03.202012',
+  # 18: 'vms20-t0-7050cx3-1.202012',
+  # 19: 'vms20-t0-7050cx3-2.202012',
+  # 20: 'vms20-t0-ixia-2.202012',
+  # 21: 'vms21-dual-t0-7050-3.202012',
+  # 22: 'vms21-dual-t0-7260.202012',
+  # 23: 'vms21-t0-2700-non-platform_tests.202012',
+  # 24: 'vms21-t0-z9332f-02.202012',
+  # 25: 'vms21-t0-z9332f-02.PlatformOnly',
+  # 26: 'vms24-dual-t0-7050-1.202012',
+  # 27: 'vms24-dual-t0-7050-2.202012',
+  # 28: 'vms24-t0-3800-azd.202012',
+  # 29: 'vms24-t0-7260-2.202012',
+  # 30: 'vms28-dual-t0-7260.202012',
+  # 31: 'vms28-t0-4600c-03-platform_tests.202012',
+  # 32: 'vms28-t0-4600c-04-non-platform_tests.202012',
+  # 33: 'vms6-t0-7060.1.202012',
+  # 34: 'vms6-t0-7060.2.202012',
+  # 35: 'vms7-t0-7260-1.202012',
+  # 36: 'vms7-t0-7260-2.202012',
+  # 37: 'vms7-t0-dx010-4.202012',
+  # 38: 'vms7-t0-dx010-5.202012',
+  # 39: 'vms7-t0-s6100-4.202012',
+  # 40: 'vms7-t0-s6100.202012'
+}
+
+nightly_pipeline_202205 = {
+  # 1: 'testbed-bjw-can-2700-1.202205',
+  # 2: 'testbed-bjw-can-7050qx-1.1.202205',
+  # 3: 'testbed-bjw-can-7050qx-1.2.202205',
+  # 4: 'testbed-bjw-can-720dt-1',
+  # 5: 'testbed-bjw-can-720dt-2',
+  # 6: 'testbed-bjw-can-720dt-3.202205',
+  # 7: 'testbed-bjw-can-7215-1.202205',
+  # 8: 'testbed-bjw-can-7215-11.202205',
+  # 9: 'testbed-bjw-can-7215-6.202205',
+  # 10: 'testbed-str2-7215-acs-3.202205',
+  # 11: 'testbed-str2-pikez-acs-1',
+  # 12: 'vms1-8-t1-2700.202205',
+  # 13: 'vms1-t1-2700-platform_tests.202205',
+  # 14: 'vms11-2-t0-2700-2-platform_tests.202205',
+  # 15: 'vms12-t0-3800-platform_tests.202205',
+  # 16: 'vms18-t1-msn4600c-acs-1.202205',
+  # 17: 'vms2-t1-7260-7.202205',
+  # 18: 'vms20-t0-sn3800-2.202205',
+  # 19: 'vms20-t1-7050cx3-3-non-platform.202205',
+  # 20: 'vms20-t1-7050cx3-3-platform.202205',
+  # 21: 'vms20-t1-dx010-6.202205',
+  # 22: 'vms21-dual-t0-7050-3.202205',
+  # 23: 'vms21-dual-t0-7260.202205',
+  # 24: 'vms21-t0-2700-non-platform_tests.202205',
+  # 25: 'vms21-t1-2700-2-non-platform_tests.202205',
+  # 26: 'vms21-t1-8101-02.202205',
+  # 27: 'vms24-dual-t0-7050-1.202205',
+  # 28: 'vms24-dual-t0-7050-2.202205',
+  # 29: 'vms24-t1-7050qx-acs-01.1.202205',
+  # 30: 'vms24-t1-7050qx-acs-01.2.202205',
+  # 31: 'vms28-dual-t0-7260.202205',
+  # 32: 'vms28-t0-4600c-03-platform_tests.202205',
+  # 33: 'vms28-t0-4600c-04-non-platform_tests.202205',
+  # 34: 'vms3-t1-dx010-1.202205',
+  # 35: 'vms6-t1-7060-non-platform.202205',
+  # 36: 'vms6-t1-7060-platform.202205',
+  # 37: 'vms7-t0-4600c-2.202205',
+  # 38: 'vms7-t0-dx010-4.202205',
+  # 39: 'vms7-t0-dx010-5.202205',
+  # 40: 'vms7-t1-s6100-non-platform.202205',
+  # 41: 'vms7-t1-s6100-platform.202205',
+  # 42: 'vmsvc1-dual-t0-7050-1',
+  # 43: 'vmsvc1-dual-t0-7050-2-regular',
+  # 44: 'vmsvc1-dual-t0-7050-2'
+}
+
+
+nightly_pipeline_internal = {
+  # 1: 'testbed-bjw-can-2700-1.internal',
+  # 2: 'testbed-bjw-can-720dt-4.202211',
+  # 3: 'testbed-bjw-can-ec9516-1.internal',
+  # 4: 'vms1-t1-2700-platform_tests.internal',
+  # 5: 'vms11-2-t0-2700-2-platform_tests.internal',
+  # 6: 'vms11-t0-on-4-s6000.internal',
+  # 7: 'vms12-t0-3800-platform_tests.internal',
+  # 8: 'vms13-4-t0-s6000.internal',
+  # 9: 'vms13-5-t1-s6000.internal',
+  # 10: 'vms18-t1-msn4600c-acs-1.internal',
+  # 11: 'vms2-t1-7260-7.internal',
+  # 12: 'vms20-t0-7050cx3-1.internal',
+  # 13: 'vms20-t0-7050cx3-2.internal',
+  # 14: 'vms20-t1-7050cx3-3-non-platform.internal',
+  # 15: 'vms20-t1-7050cx3-3-platform.internal',
+  # 16: 'vms20-t1-dx010-6.internal',
+  # 17: 'vms21-dual-t0-7050-3.internal',
+  # 18: 'vms21-dual-t0-7260.internal',
+  # 19: 'vms21-t0-2700-non-platform_tests.internal',
+  # 20: 'vms21-t1-2700-2-non-platform_tests.internal',
+  # 21: 'vms24-dual-t0-7050-1.internal',
+  # 22: 'vms24-dual-t0-7050-2.internal',
+  # 23: 'vms24-t0-3800-azd.1',
+  # 24: 'vms24-t0-7260-2.internal',
+  # 25: 'vms28-dual-t0-7260.internal',
+  # 26: 'vms28-t0-4600c-03-platform_tests.internal',
+  # 27: 'vms28-t0-4600c-04-non-platform_tests.internal',
+  # 28: 'vms3-t1-7280.1',
+  # 29: 'vms3-t1-dx010-1.internal',
+  # 30: 'vms7-t0-4600c-2.internal',
+  # 31: 'vms7-t0-7260-1.internal',
+  # 32: 'vms7-t0-7260-2.internal',
+  # 33: 'vms7-t0-dx010-4.internal',
+  # 34: 'vms7-t0-dx010-5.internal',
+  # 35: 'vms7-t0-s6100-4.internal',
+  # 36: 'vms7-t0-s6100.internal',
+  # 37: 'vms7-t1-s6100-non-platform.internal',
+  # 38: 'vms7-t1-s6100-platform.internal'
+}
+
+nightly_pipeline_master = {
+  # 1: 'testbed-bjw-can-2700-1.master',
+  # 2: 'vms1-t1-2700-platform_tests.master',
+  # 3: 'vms11-2-t0-2700-2-platform_tests.master',
+  # 4: 'vms12-t0-3800-platform_tests.master',
+  # 5: 'vms18-t1-msn4600c-acs-1.master',
+  # 6: 'vms2-t1-7260-7.master',
+  # 7: 'vms20-t0-7050cx3-1.master',
+  # 8: 'vms20-t0-7050cx3-2.master',
+  # 9: 'vms20-t1-7050cx3-3-non-platform.master',
+  # 10: 'vms20-t1-7050cx3-3-platform.master',
+  # 11: 'vms20-t1-dx010-6.master',
+  # 12: 'vms21-dual-t0-7050-3.master',
+  # 13: 'vms21-t0-2700-non-platform_tests.master',
+  # 14: 'vms21-t1-2700-2-non-platform_tests.master',
+  # 15: 'vms24-dual-t0-7050-1.master',
+  # 16: 'vms24-dual-t0-7050-2.master',
+  # 17: 'vms24-t0-7260-2.master',
+  # 18: 'vms28-t0-4600c-03-platform_tests.master',
+  # 19: 'vms28-t0-4600c-04-non-platform_tests.master',
+  # 20: 'vms28-t0-7280-4.master',
+  # 21: 'vms3-t1-dx010-1.master',
+  # 22: 'vms7-t0-4600c-2.master',
+  # 23: 'vms7-t0-7260-2.master',
+  # 24: 'vms7-t0-dx010-4.master',
+  # 25: 'vms7-t0-dx010-5.master',
+  # 26: 'vms7-t0-s6100-4.master',
+  # 27: 'vms7-t0-s6100.master',
+  # 28: 'vms7-t1-s6100-non-platform.master',
+  # 29: 'vms7-t1-s6100-platform.master'
+}
+
+# fixme: TBD
+# need create the config automatically, need write a function to do it
+branch_verify_cfg={
+  'internal-202205': {
+    't0': {
+      'Arista-7260CX3-D108C8': [
+        
+      ],
+      'Arista-7050CX3-32S-C32': [
+        # 'vms2-t1-7260-7'
+      ],
+      'Arista-7050-QX-32S':[
+        'testbed-bjw-can-7050qx-1',   # 949   # 950
+        'vms24-t1-7050qx-acs-01'      # 951   # 952
+      ],
+      'Mellanox-SN2700': [
+        'vms21-t1-2700-2',             # 953
+      ],
+      'Mellanox-SN3800-D112C8': [
+        
+      ],
+      'ACS-MSN4600C': [
+        'vms28-t0-4600c-03'            # 954
+      ]
+    },
+    't1': {
+      'Arista-7260CX3-D108C8': [
+        
+      ],
+      'Arista-7050CX3-32S-C32': [
+        
+      ],
+      'Mellanox-SN2700': [
+      ],
+      'Mellanox-SN3800-D112C8': [
+        
+      ],
+      'ACS-MSN4600C': [
+        
+      ]
+    }
+  },
+  'master': {
+    
+  },
+  'internal-202012': {
+    
+  },
+  'internal': {
+    
+  },
+  
+}
