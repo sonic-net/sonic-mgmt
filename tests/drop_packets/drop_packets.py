@@ -377,10 +377,6 @@ def acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template
               dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_setup")
-        acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
-        if 'DATAACL' not in list(acl_facts.keys()):
-            pytest.skip("Skipping test since DATAACL table is not present on DUT")
-
         duthost.command("mkdir -p {}".format(dut_tmp_dir))
         dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
 
@@ -390,11 +386,17 @@ def acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template
         duthost.template(src=os.path.join(template_dir, del_acl_rules_template), dest=dut_clear_conf_file_path)
 
         logger.info("Applying {}".format(dut_conf_file_path))
-
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-        with loganalyzer:
-            duthost.command("config acl update full {}".format(dut_conf_file_path))
+        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
+            if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
+                continue
+            acl_facts = duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]
+            if 'DATAACL' not in acl_facts.keys():
+                pytest.skip("Skipping test since DATAACL table is not present on DUT")
 
+            with loganalyzer:
+                sonic_host_or_asic_inst.command("config acl update full {}".format(dut_conf_file_path))
 
 def acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
@@ -425,24 +427,39 @@ def acl_ingress(duthosts):
 
 
 def create_or_remove_acl_egress_table(duthost, setup, op):
-    acl_table_config = {
-        "table_name": "OUTDATAACL",
-        "table_ports": ",".join(duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]),
-        "table_stage": "egress",
-        "table_type": "L3"
-    }
-
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_create_or_remove_acl_egress_table")
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+        namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
+        if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
+            continue
+        acl_table_config = {
+            "table_name": "OUTDATAACL",
+            "table_ports": ",".join(duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]),
+            "table_stage": "egress",
+            "table_type": "L3"
+        }
+        table_port_list = []
+        if namespace:
+            for port in acl_table_config["table_ports"].split(','):
+                if port in setup['intf_per_namespace'][namespace]:
+                    table_port_list.append(port)
+        else:
+            table_port_list = acl_table_config["table_ports"].split(',')
+        if table_port_list == []:
+            continue
         if op == "add":
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
             logger.info("Creating ACL table: \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
-            sonic_host_or_asic_inst.command(
-                "config acl add table {} {} -s {} -p {}".format(
-                    acl_table_config["table_name"],
-                    acl_table_config["table_type"],
-                    acl_table_config["table_stage"],
-                    acl_table_config["table_ports"]
+            with loganalyzer:
+                #sonic_host_or_asic_inst.command(
+                sonic_host_or_asic_inst.command(
+                    "config acl add table {} {} -s {} -p {}".format(
+                        acl_table_config["table_name"],
+                        acl_table_config["table_type"],
+                        acl_table_config["table_stage"],
+                        ','.join(table_port_list)
+                    )
                 )
-            )
         elif op == "remove":
             logger.info("Removing ACL table \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
@@ -465,11 +482,8 @@ def acl_egress(duthosts, setup):
     dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
 
     for duthost in duthosts.frontend_nodes:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_egress")
         try:
-            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-            with loganalyzer:
-                create_or_remove_acl_egress_table(duthost, setup, "add")
+            create_or_remove_acl_egress_table(duthost, setup, "add")
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
@@ -1036,8 +1050,9 @@ def test_acl_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_fronten
         @summary: Verify that DUT drops packet with SRC IP 20.0.0.0/24 matched by ingress ACL
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    namespace = duthost.get_namespace_from_asic_id(ports_info['asic_index'])
     if tx_dut_ports[ports_info["dut_iface"]] not in \
-            duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
+            duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
         pytest.skip("RX DUT port absent in 'DATAACL' table")
 
     ip_src = "20.0.0.5"
@@ -1062,8 +1077,9 @@ def test_acl_egress_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_
         @summary: Verify that DUT drops packet with DST IP 192.168.144.1/24 matched by egress ACL and ACL drop counter incremented
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    namespace = duthost.get_namespace_from_asic_id(ports_info['asic_index'])
     if tx_dut_ports[ports_info["dut_iface"]] not in \
-            duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
+            duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
         pytest.skip("RX DUT port absent in 'DATAACL' table")
 
     ip_dst = "192.168.144.1"
