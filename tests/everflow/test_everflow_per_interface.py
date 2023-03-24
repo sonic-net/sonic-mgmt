@@ -26,16 +26,6 @@ EVERFLOW_SESSION_NAME = "everflow_session_per_interface"
 
 logger = logging.getLogger(__file__)
 
-@pytest.fixture(scope="module", autouse=True)
-def skip_if_not_supported(tbinfo, setup_info, ip_ver):
-
-    asic_type = setup_info[UP_STREAM]['everflow_dut'].facts["asic_type"]
-    unsupported_platforms = ["mellanox", "cisco-8000"]
-    # Skip ipv6 test on Mellanox platform
-    is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
-    # Skip ipv6 test on cisco-8000 platform
-    is_cisco_ipv4 = asic_type == 'cisco-8000' and ip_ver == 'ipv4'	
-    pytest_require(asic_type not in unsupported_platforms or is_mellanox_ipv4 or is_cisco_ipv4, "Match 'IN_PORTS' is not supported on {} platform".format(asic_type))
 
 def build_candidate_ports(duthost, tbinfo, ns):
     """
@@ -63,12 +53,12 @@ def build_candidate_ports(duthost, tbinfo, ns):
             candidate_ports.update({dut_port: ptf_idx})
         if len(unselected_ports) < 4 and dut_port not in candidate_ports:
             unselected_ports.update({dut_port: ptf_idx})
-    
+
         i = i + 1
 
     logger.info("Candidate testing ports are {}".format(candidate_ports))
     return candidate_ports, unselected_ports
-    
+
 
 def build_acl_rule_vars(candidate_ports, ip_ver):
     """
@@ -106,7 +96,7 @@ def setup_mirror_session_dest_ip_route(tbinfo, setup_info, apply_mirror_session)
     everflow_utils.add_route(remote_dut, apply_mirror_session["session_prefixes"][0], peer_ip, namespace)
     time.sleep(5)
 
-    yield (apply_mirror_session, BaseEverflowTest._get_tx_port_id_list(dest_port_ptf_id_list)) 
+    yield (apply_mirror_session, BaseEverflowTest._get_tx_port_id_list(dest_port_ptf_id_list))
 
     everflow_utils.remove_route(remote_dut, apply_mirror_session["session_prefixes"][0], peer_ip, namespace)
     remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"", namespace))
@@ -127,7 +117,7 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
     # Skip if EVERFLOW table doesn't exist
     pytest_require(len(output) > 2, "Skip test since {} dosen't exist".format(table_name))
     mg_facts =  setup_info[UP_STREAM]['remote_dut'].get_extended_minigraph_facts(tbinfo)
-    mirror_session_info, monitor_port_ptf_ids = setup_mirror_session_dest_ip_route 
+    mirror_session_info, monitor_port_ptf_ids = setup_mirror_session_dest_ip_route
     # Build testing port list
     candidate_ports, unselected_ports = build_candidate_ports(setup_info[UP_STREAM]['everflow_dut'], tbinfo, setup_info[UP_STREAM]['everflow_namespace'])
     pytest_require(len(candidate_ports) >= 1, "Not sufficient ports for testing")
@@ -149,7 +139,7 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
         "mirror_session_info": mirror_session_info,
         "monitor_port_ptf_ids": monitor_port_ptf_ids
     }
-    
+
     yield ret
 
     logger.info("Removing acl rule config from DUT")
@@ -191,7 +181,7 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     ingress from unselected ports are not captured
     """
     everflow_config = apply_acl_rule
-    packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'], everflow_config['mirror_session_info'], 
+    packet, exp_packet = generate_testing_packet(ptfadapter, setup_info[UP_STREAM]['everflow_dut'], everflow_config['mirror_session_info'],
                                                  setup_info[UP_STREAM]['ingress_router_mac'], setup_info, ip_ver)
     uplink_ports = everflow_config["monitor_port_ptf_ids"]
 
@@ -199,10 +189,10 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     for port, ptf_idx in everflow_config['candidate_ports'].items():
         logger.info("Verifying packet ingress from {} is mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, True)
-    
+
     # Verify that packet ingressed from unselected ports are not mirrored
     for port, ptf_idx in everflow_config['unselected_ports'].items():
         logger.info("Verifying packet ingress from {} is not mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, False)
-   
-   
+
+
