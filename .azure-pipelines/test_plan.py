@@ -141,6 +141,7 @@ class TestPlanManager(object):
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
+        self.token = None
         if self.tenant_id and self.client_id and self.client_secret:
             self._get_token(url)
 
@@ -215,6 +216,7 @@ class TestPlanManager(object):
                 "build_id": build_id,
                 "source_repo": kwargs.get("source_repo"),
                 "kvm_build_id": kvm_build_id,
+                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", 2),
                 "mgmt_branch": kwargs["mgmt_branch"],
                 "testbed": {
@@ -292,6 +294,8 @@ class TestPlanManager(object):
         headers = {
             "Content-Type": "application/json"
         }
+        if self.token:
+            headers["Authorization"] = "Bearer {}".format(self.token)
         start_time = time.time()
         http_exception_times = 0
         while (timeout < 0 or (time.time() - start_time) < timeout):
@@ -637,6 +641,16 @@ if __name__ == "__main__":
         required=False,
         help="Requester of the test plan."
     )
+    parser_create.add_argument(
+        "--max-execute-seconds",
+        type=int,
+        dest="max_execute_seconds",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Max execute seconds of the test plan."
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -764,6 +778,7 @@ if __name__ == "__main__":
                 retry_times=args.retry_times,
                 dump_kvm_if_fail=args.dump_kvm_if_fail,
                 requester=args.requester,
+                max_execute_seconds=args.max_execute_seconds,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
