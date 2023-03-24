@@ -174,7 +174,7 @@ sonic_arista_7050qx_32s_q32:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal4-4.1.0-3037060"
         "0x2F": "JPE18402553"
-        "0xFE": 3735928559
+        "0xFE": "0xDEADBEEF"
 
 sonic_arista_7050qx_32s_s4q31:
   vars:
@@ -284,7 +284,7 @@ sonic_arista_720dt:
         "0x24": "c0:69:11:b2:e0:0e"
         "0x25": "2022/06/10 11:19:51"
         "0x26": "01"
-        "0x27": "02.00"
+        "0x27": "03.00"
         "0x28": "x86_64-arista_720dt_48s"
         "0x2A": "0xffff"
         "0x2B": "Arista Networks"
@@ -477,7 +477,7 @@ sonic_nokia_7215:
         "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.1"
         "0x2A": "64"
         "0x2F": "CSM9W00FRA"
-        "0xFD": ""
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
         "0xFE": "0xBD73EAA8"
 
 sonic_e1031:
