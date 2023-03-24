@@ -141,6 +141,7 @@ class TestPlanManager(object):
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
+        self.token = None
         if self.tenant_id and self.client_id and self.client_secret:
             self._get_token(url)
 
@@ -293,6 +294,8 @@ class TestPlanManager(object):
         headers = {
             "Content-Type": "application/json"
         }
+        if self.token:
+            headers["Authorization"] = "Bearer {}".format(self.token)
         start_time = time.time()
         http_exception_times = 0
         while (timeout < 0 or (time.time() - start_time) < timeout):
