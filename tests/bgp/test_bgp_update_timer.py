@@ -12,8 +12,10 @@ from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import mux_server_url                                                           # noqa F811
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m    # noqa F811
+from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa F811
+from tests.common.dualtor.mux_simulator_control import (
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
+)  # noqa F811
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
@@ -28,7 +30,7 @@ ANNOUNCED_SUBNETS = [
     "10.10.100.32/27",
     "10.10.100.64/27",
     "10.10.100.96/27",
-    "10.10.100.128/27"
+    "10.10.100.128/27",
 ]
 NEIGHBOR_ASN0 = 61000
 NEIGHBOR_ASN1 = 61001
@@ -48,8 +50,13 @@ def log_bgp_updates(duthost, iface, save_path, ns):
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
     # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
-    stop_pcap = "sudo pkill -f '%s%s'" % (duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
-    start_pcap = "nohup {}{} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
+    stop_pcap = "sudo pkill -f '%s%s'" % (
+        duthost.asic_instance_from_namespace(ns).ns_arg,
+        start_pcap,
+    )
+    start_pcap = "nohup {}{} &".format(
+        duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
+    )
     duthost.shell(start_pcap)
     try:
         yield
@@ -71,36 +78,66 @@ def is_dualtor(tbinfo):
 
 
 @pytest.fixture
-def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                          is_dualtor, is_quagga, ptfhost, setup_interfaces, tbinfo):
+def common_setup_teardown(
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    is_dualtor,
+    is_quagga,
+    ptfhost,
+    setup_interfaces,
+    tbinfo,
+):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     conn0, conn1 = setup_interfaces
-    conn0_ns = DEFAULT_NAMESPACE if "namespace" not in list(conn0.keys()) else conn0["namespace"]
-    conn1_ns = DEFAULT_NAMESPACE if "namespace" not in list(conn1.keys()) else conn1["namespace"]
-    pytest_assert(conn0_ns == conn1_ns, "Test fail for conn0 on {} and conn1 on {} \
-                  started on different asics!".format(conn0_ns, conn1_ns))
+    conn0_ns = (
+        DEFAULT_NAMESPACE
+        if "namespace" not in list(conn0.keys())
+        else conn0["namespace"]
+    )
+    conn1_ns = (
+        DEFAULT_NAMESPACE
+        if "namespace" not in list(conn1.keys())
+        else conn1["namespace"]
+    )
+    pytest_assert(
+        conn0_ns == conn1_ns,
+        "Test fail for conn0 on {} and conn1 on {} \
+                  started on different asics!".format(
+            conn0_ns, conn1_ns
+        ),
+    )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
-    dut_type = ''
-    for k, v in list(mg_facts['minigraph_devices'].items()):
+    dut_type = ""
+    for k, v in list(mg_facts["minigraph_devices"].items()):
         if k == duthost.hostname:
-            dut_type = v['type']
+            dut_type = v["type"]
 
-    if dut_type in ['ToRRouter', 'SpineRouter']:
-        neigh_type = 'LeafRouter'
+    if dut_type in ["ToRRouter", "SpineRouter"]:
+        neigh_type = "LeafRouter"
     else:
-        neigh_type = 'ToRRouter'
+        neigh_type = "ToRRouter"
 
     logging.info(
-        "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}"
-        .format(conn0["neighbor_addr"].split("/")[0], conn0_ns, dut_asn,
-                conn0["local_addr"].split("/")[0], neigh_type))
+        "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}".format(
+            conn0["neighbor_addr"].split("/")[0],
+            conn0_ns,
+            dut_asn,
+            conn0["local_addr"].split("/")[0],
+            neigh_type,
+        )
+    )
     logging.info(
-        "pseudoswitch1 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}"
-        .format(conn1["neighbor_addr"].split("/")[0], conn1_ns, dut_asn,
-                conn1["local_addr"].split("/")[0], neigh_type))
+        "pseudoswitch1 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}".format(
+            conn1["neighbor_addr"].split("/")[0],
+            conn1_ns,
+            dut_asn,
+            conn1["local_addr"].split("/")[0],
+            neigh_type,
+        )
+    )
     bgp_neighbors = (
         BGPNeighbor(
             duthost,
@@ -114,7 +151,7 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             neigh_type,
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
-            is_passive=False
+            is_passive=False,
         ),
         BGPNeighbor(
             duthost,
@@ -128,8 +165,8 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             neigh_type,
             conn1_ns,
             is_multihop=is_quagga or is_dualtor,
-            is_passive=False
-        )
+            is_passive=False,
+        ),
     )
 
     return bgp_neighbors
@@ -139,6 +176,7 @@ def common_setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 def constants(is_quagga, setup_interfaces):
     class _C(object):
         """Dummy class to save test constants."""
+
         pass
 
     _constants = _C()
@@ -162,7 +200,7 @@ def bgp_update_packets(pcap_file):
     """Get bgp update packets from pcap file."""
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2
+        lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2,
     )
     return packets
 
@@ -175,7 +213,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route):
 
     # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
     # address the compatibility issue of scapy versions.
-    if hasattr(bgp, 'BGPNLRI_IPv4'):
+    if hasattr(bgp, "BGPNLRI_IPv4"):
         _route = bgp.BGPNLRI_IPv4(prefix=str(subnet))
     else:
         _route = (subnet.prefixlen, str(subnet.network_address))
@@ -185,7 +223,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route):
         # address the compatibility issue of scapy versions.
         path_attr_valid = False
         if "tp_len" in bgp_fields:
-            path_attr_valid = bgp_fields['tp_len'] > 0
+            path_attr_valid = bgp_fields["tp_len"] > 0
         elif "path_attr_len" in bgp_fields:
             path_attr_valid = bgp_fields["path_attr_len"] > 0
         return path_attr_valid and _route in bgp_fields["nlri"]
@@ -209,23 +247,31 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route):
         return withdrawn_len_valid and withdrawn_route_valid
     else:
         return False
-        
- 
+
+
 def is_neighbor_sessions_established(duthost, neighbors):
-        is_established = True
+    is_established = True
 
-        # handle both multi-sic and single-asic
-        bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
-        for neighbor in neighbors:
-            is_established &= neighbor.ip in bgp_facts["bgp_neighbors"] and \
-                bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+    # handle both multi-sic and single-asic
+    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
+        "ansible_facts"
+    ]
+    for neighbor in neighbors:
+        is_established &= (
+            neighbor.ip in bgp_facts["bgp_neighbors"]
+            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+        )
 
-        return is_established
-    
+    return is_established
+
+
 def test_bgp_update_timer_single_route(
-    common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):   # noqa F811
-
+    common_setup_teardown,
+    constants,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
+):  # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
@@ -234,7 +280,12 @@ def test_bgp_update_timer_single_route(
         n1.start_session()
 
         # ensure new sessions are ready
-        if not wait_until(WAIT_TIMEOUT, 5, 20, lambda: is_neighbor_sessions_established(duthost, (n0, n1))):
+        if not wait_until(
+            WAIT_TIMEOUT,
+            5,
+            20,
+            lambda: is_neighbor_sessions_established(duthost, (n0, n1)),
+        ):
             pytest.fail("Could not establish bgp sessions")
 
         announce_intervals = []
@@ -310,21 +361,29 @@ def test_bgp_update_timer_single_route(
         n1.stop_session()
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])
-            
+
 
 def test_bgp_update_timer_session_down(
-    common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):   # noqa F811
-    
+    common_setup_teardown,
+    constants,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
+):  # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
     try:
         n0.start_session()
         n1.start_session()
-        
+
         # ensure new sessions are ready
-        if not wait_until(WAIT_TIMEOUT, 5, 20, lambda: is_neighbor_sessions_established(duthost, (n0, n1))):
+        if not wait_until(
+            WAIT_TIMEOUT,
+            5,
+            20,
+            lambda: is_neighbor_sessions_established(duthost, (n0, n1)),
+        ):
             pytest.fail("Could not establish bgp sessions")
 
         withdraw_intervals = []
@@ -339,22 +398,29 @@ def test_bgp_update_timer_session_down(
         bgp_pcap = BGP_DOWN_LOG_TMPL
         with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
             duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
-            global current_time 
-            current_time = time.time()        
+            global current_time
+            current_time = time.time()
 
         with tempfile.NamedTemporaryFile() as tmp_pcap:
-                duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
-                duthost.file(path=bgp_pcap, state="absent")
-                bgp_updates = bgp_update_packets(tmp_pcap.name)
-                
+            duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
+            duthost.file(path=bgp_pcap, state="absent")
+            bgp_updates = bgp_update_packets(tmp_pcap.name)
+
         for bgp_update in bgp_updates:
             for i, route in enumerate(constants.routes):
                 if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
                     withdraw_intervals[i] = bgp_update.time - current_time
-        
+
         for i, route in enumerate(constants.routes):
             if withdraw_intervals[i] >= constants.update_interval_threshold:
-                pytest.fail("withdraw updates interval %d exceeds threshold %d" % (constants.update_interval_threshold))
+                pytest.fail(
+                    "withdraw route %s updates interval %d exceeds threshold %d"
+                    % (
+                        route["prefix"],
+                        withdraw_intervals[i],
+                        constants.update_interval_threshold,
+                    )
+                )
             if withdraw_intervals[i] == -1:
                 pytest.fail("withdraw updates route %s not found" % (route))
 
@@ -363,5 +429,3 @@ def test_bgp_update_timer_session_down(
         n1.stop_session()
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])
-
-
