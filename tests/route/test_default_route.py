@@ -58,8 +58,7 @@ def get_upstream_neigh(tb, device_neigh_metadata):
         upstream_neighbors.update({neigh_name: (ipv4_addr, ipv6_addr)})
     return upstream_neighbors
 
-def 
-
+def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, device_neigh_metadata):
 (tbinfo, bgp_name_to_ns_mapping, device_neigh_metadata):
     neigh_type = get_upstream_neigh_type(tbinfo['topo']['type'])
     asics = set()
