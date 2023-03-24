@@ -22,6 +22,7 @@ pytestmark = [
 
 PEER_COUNT = 2
 BGP_LOG_TMPL = "/tmp/bgp%d.pcap"
+BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
 ANNOUNCED_SUBNETS = [
     "10.10.100.0/27",
     "10.10.100.32/27",
@@ -156,61 +157,60 @@ def constants(is_quagga, setup_interfaces):
     return _constants
 
 
-def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                          toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):   # noqa F811
+def bgp_update_packets(pcap_file):
+    """Get bgp update packets from pcap file."""
+    packets = sniff(
+        offline=pcap_file,
+        lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2
+    )
+    return packets
 
-    def bgp_update_packets(pcap_file):
-        """Get bgp update packets from pcap file."""
-        packets = sniff(
-            offline=pcap_file,
-            lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2
-        )
-        return packets
 
-    def match_bgp_update(packet, src_ip, dst_ip, action, route):
-        """Check if the bgp update packet matches."""
-        if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
-            return False
-        subnet = ipaddress.ip_network(route["prefix"])
+def match_bgp_update(packet, src_ip, dst_ip, action, route):
+    """Check if the bgp update packet matches."""
+    if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
+        return False
+    subnet = ipaddress.ip_network(route["prefix"])
+
+    # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+    # address the compatibility issue of scapy versions.
+    if hasattr(bgp, 'BGPNLRI_IPv4'):
+        _route = bgp.BGPNLRI_IPv4(prefix=str(subnet))
+    else:
+        _route = (subnet.prefixlen, str(subnet.network_address))
+    bgp_fields = packet[bgp.BGPUpdate].fields
+    if action == "announce":
+        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+        # address the compatibility issue of scapy versions.
+        path_attr_valid = False
+        if "tp_len" in bgp_fields:
+            path_attr_valid = bgp_fields['tp_len'] > 0
+        elif "path_attr_len" in bgp_fields:
+            path_attr_valid = bgp_fields["path_attr_len"] > 0
+        return path_attr_valid and _route in bgp_fields["nlri"]
+    elif action == "withdraw":
+        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+        # address the compatibility issue of scapy versions.
+        withdrawn_len_valid = False
+        if "withdrawn_len" in bgp_fields:
+            withdrawn_len_valid = bgp_fields["withdrawn_len"] > 0
+        elif "withdrawn_routes_len" in bgp_fields:
+            withdrawn_len_valid = bgp_fields["withdrawn_routes_len"] > 0
 
         # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
         # address the compatibility issue of scapy versions.
-        if hasattr(bgp, 'BGPNLRI_IPv4'):
-            _route = bgp.BGPNLRI_IPv4(prefix=str(subnet))
-        else:
-            _route = (subnet.prefixlen, str(subnet.network_address))
-        bgp_fields = packet[bgp.BGPUpdate].fields
-        if action == "announce":
-            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-            # address the compatibility issue of scapy versions.
-            path_attr_valid = False
-            if "tp_len" in bgp_fields:
-                path_attr_valid = bgp_fields['tp_len'] > 0
-            elif "path_attr_len" in bgp_fields:
-                path_attr_valid = bgp_fields["path_attr_len"] > 0
-            return path_attr_valid and _route in bgp_fields["nlri"]
-        elif action == "withdraw":
-            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-            # address the compatibility issue of scapy versions.
-            withdrawn_len_valid = False
-            if "withdrawn_len" in bgp_fields:
-                withdrawn_len_valid = bgp_fields["withdrawn_len"] > 0
-            elif "withdrawn_routes_len" in bgp_fields:
-                withdrawn_len_valid = bgp_fields["withdrawn_routes_len"] > 0
+        withdrawn_route_valid = False
+        if "withdrawn" in bgp_fields:
+            withdrawn_route_valid = _route in bgp_fields["withdrawn"]
+        elif "withdrawn_routes" in bgp_fields:
+            withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
 
-            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-            # address the compatibility issue of scapy versions.
-            withdrawn_route_valid = False
-            if "withdrawn" in bgp_fields:
-                withdrawn_route_valid = _route in bgp_fields["withdrawn"]
-            elif "withdrawn_routes" in bgp_fields:
-                withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
-
-            return withdrawn_len_valid and withdrawn_route_valid
-        else:
-            return False
-
-    def is_neighbor_sessions_established(duthost, neighbors):
+        return withdrawn_len_valid and withdrawn_route_valid
+    else:
+        return False
+        
+ 
+def is_neighbor_sessions_established(duthost, neighbors):
         is_established = True
 
         # handle both multi-sic and single-asic
@@ -220,6 +220,10 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
                 bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
 
         return is_established
+    
+def test_bgp_update_timer_single_route(
+    common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):   # noqa F811
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -305,3 +309,58 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         n1.stop_session()
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])
+            
+
+def test_bgp_update_timer_session_down(
+    common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):   # noqa F811
+    
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    n0, n1 = common_setup_teardown
+    try:
+        n0.start_session()
+        n1.start_session()
+        
+        # ensure new sessions are ready
+        if not wait_until(90, 5, 20, lambda: is_neighbor_sessions_established(duthost, (n0, n1))):
+            pytest.fail("Could not establish bgp sessions")
+
+        withdraw_intervals = []
+        for _, route in enumerate(constants.routes):
+            withdraw_intervals.append(-1)
+            n0.announce_route(route)
+            time.sleep(constants.sleep_interval)
+            dut_route = duthost.get_route(route["prefix"], n0.namespace)
+            if not dut_route:
+                pytest.fail("announce route %s from n0 to dut failed" % route["prefix"])
+        # close bgp session n0, monitor withdraw info from dut to n1
+        bgp_pcap = BGP_DOWN_LOG_TMPL
+        with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
+            duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
+            global current_time 
+            current_time = time.time()        
+
+        with tempfile.NamedTemporaryFile() as tmp_pcap:
+                duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
+                duthost.file(path=bgp_pcap, state="absent")
+                bgp_updates = bgp_update_packets(tmp_pcap.name)
+                
+        for bgp_update in bgp_updates:
+            for i, route in enumerate(constants.routes):
+                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
+                    withdraw_intervals[i] = bgp_update.time - current_time
+        
+        for i, route in enumerate(constants.routes):
+            if withdraw_intervals[i] >= constants.update_interval_threshold:
+                pytest.fail("withdraw updates interval %d exceeds threshold %d" % (constants.update_interval_threshold))
+            if withdraw_intervals[i] == -1:
+                pytest.fail("withdraw updates route %s not found" % (route))
+
+    finally:
+        n0.stop_session()
+        n1.stop_session()
+        for route in constants.routes:
+            duthost.shell("ip route flush %s" % route["prefix"])
+
+
