@@ -9,6 +9,10 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
+pytestmark = [
+    pytest.mark.topology('any'),
+]
+
 logger = logging.getLogger(__name__)
 
 
