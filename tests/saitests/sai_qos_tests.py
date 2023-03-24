@@ -128,7 +128,7 @@ def show_counter(counter_name, ptftest, asic_type, ports, current=None, base=Non
                     'PgCnt'        : [[pg_counter_field_template.format(i) for i in range(PG_NUM)],        sai_thrift_read_pg_counters,      None, True],
                     'PgDrop'       : [[pg_drop_field_template.format(i) for i in range(PG_NUM)],           sai_thrift_read_pg_drop_counters, None, True],
                     'PtfCnt'       : [['rx', 'tx'],                                                        read_ptf_counters,                None, False]}
-    if counter_name not in counter_info:
+    if counter_name not in counter_info or ports == None:
         return None
 
     counter_fields = counter_info[counter_name][0]
