@@ -1,2 +1,2 @@
 StartDevice,StartPort,BmcIp,EndDevice,EndPort
-management-1,Ethernet10,192.168.11.1/23,dev-acs-serv-01,iDRAC
+management-1,Ethernet10,192.168.11.1/23,str-acs-serv-01,iDRAC
