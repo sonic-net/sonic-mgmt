@@ -35,8 +35,6 @@ stages:
 
         steps:
 
-          - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
-
           - task: Bash@3
             displayName: Run analyzer script
             inputs:

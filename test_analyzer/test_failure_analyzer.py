@@ -14,6 +14,7 @@ import requests
 import uuid
 import argparse
 import time
+import prettytable
 
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.kusto.data.helpers import dataframe_from_result_table
@@ -34,13 +35,15 @@ except ImportError:
 logging.basicConfig(
     stream=sys.stdout,
     level=logging.INFO,
-    format='%(asctime)s %(filename)s:%(name)s:%(lineno)d %(levelname)s - %(message)s')
+    format='%(asctime)s :%(name)s:%(lineno)d %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 CONFI_FILE = 'test_failure_config.json'
 DATABASE = 'SonicTestData'
 ICM_DATABASE = 'IcMDataWarehouse'
-PARENT_ID = "13410203"
+ADO_DATABASE = 'AzureDevOps'
+PARENT_ID1 = "13410203"
+PARENT_ID2 = "16726166"
 ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
 ICM_NUMBER_THRESHOLD = 9
 INCLUDED_BRANCH = ["20201231", "master", "internal", "20220531"]
@@ -92,6 +95,7 @@ class KustoConnector(object):
         self.config_info = config_info
         self.db_name = DATABASE
         self.icm_db_name = ICM_DATABASE
+        self.ado_db_name = ADO_DATABASE
         self.current_timestamp = datetime.utcnow()
 
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
@@ -131,6 +135,7 @@ class KustoConnector(object):
         service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
 
         icm_cluster = os.getenv("ICM_KUSTO_CLUSTER")
+        ado_cluster = os.getenv("ADO_KUSTO_CLUSTER")
 
         if not ingest_cluster or not tenant_id or not service_id or not service_key:
             logger.error(
@@ -160,10 +165,25 @@ class KustoConnector(object):
                                                                                             tenant_id)
 
             self.icm_client = KustoClient(icm_kcsb)
+        if not ado_cluster:
+            logger.error(
+                "Could not load ADO cluster url from environment, please check your environment setting.")
+            self._ado_client = None
+        else:
+            ado_kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ado_cluster,
+                                                                                            service_id,
+                                                                                            service_key,
+                                                                                            tenant_id)
+
+            self.ado_client = KustoClient(ado_kcsb)
 
     def icm_query(self, query):
         self.logger.debug('Query String: {}'.format(query))
         return self.icm_client.execute(self.icm_db_name, query)
+
+    def ado_query(self, query):
+        self.logger.debug('Query String: {}'.format(query))
+        return self.ado_client.execute(self.ado_db_name, query)
 
     def query(self, query):
         self.logger.debug('Query String: {}'.format(query))
@@ -183,6 +203,23 @@ class KustoConnector(object):
             '''
         logger.info("Query active icm:{}".format(query_str))
         return self.icm_query(query_str)
+
+    def query_ado(self):
+        """
+        Query active IcMs for SONiC Nightly Test queue.
+        """
+        query_str = '''
+            WorkItem
+            | where TeamProject == "One" and Tags contains "sonic-nightly" and WorkItemType == "Product Backlog Item"
+            | where IsDeleted != true
+            | summarize arg_max(CreatedDate,*) by WorkItemId
+            | extend URL =strcat("https://msazure.visualstudio.com/One/_workitems/edit/", WorkItemId)
+            | extend Owner=AssignedToDisplayName
+            | project WorkItemId,Title, Tags, Owner, CreatedDate, ChangedDate, State,URL 
+            | sort by CreatedDate desc
+            '''
+        logger.info("Query ado:{}".format(query_str))
+        return self.ado_query(query_str)
 
     def query_summary_results(self):
         """
@@ -227,6 +264,7 @@ class KustoConnector(object):
         | where not(AsicType has_any(ExcludeAsicList))
         | where Summary contains "test setup failure"
         | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
+        | extend FullCaseName = strcat(ModulePath,".",opTestCase)
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
         | join kind = inner LatestTestCaseRunFailureV2(timeBefore, ProdQualOSList, ResultFilterList)
                                                         on $left.OSVersion == $right.OSVersion,
@@ -236,15 +274,15 @@ class KustoConnector(object):
         | extend BranchName = tostring(split(OSVersion, '.')[0])
         | where not(BranchName has_any(ExcludeBranchList))
         | where BranchName has_any(ProdQualOSList)
-        | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId
+        | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId
         | distinct Timestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId,  TestbedName, ReproCount
         | where ReproCount >= {}
         | sort by ReproCount, ModulePath
         '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
-            self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
-            self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-            str(self.config_info['threshold']['duration_days']) + "d",
-            self.config_info['threshold']['totalcase'], start_time, end_time, self.config_info['threshold']['repro_count_limit_setup_error'])
+                   self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
+                   self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+                   str(self.config_info['threshold']['duration_days']) + "d",
+                   self.config_info['threshold']['totalcase'], start_time, end_time, self.config_info['threshold']['repro_count_limit_setup_error'])
         logger.info("Query test setup failure cases:{}".format(query_str))
         return self.query(query_str)
 
@@ -278,6 +316,7 @@ class KustoConnector(object):
         | where not(TopologyType has_any(ExcludeTopoList))
         | where not(AsicType has_any(ExcludeAsicList))
         | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
+        | extend FullCaseName = strcat(ModulePath,".",opTestCase)
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
         | join kind = inner LatestTestCaseRunFailure(timeBefore, ProdQualOSList, ResultFilterList)
                                                         on $left.OSVersion == $right.OSVersion,
@@ -289,21 +328,116 @@ class KustoConnector(object):
         | where BranchName has_any(ProdQualOSList)
         | where ReproCount >= {}
         | where ModulePath != ""
-        | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
+        | project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
         | sort by ReproCount, ModulePath, opTestCase, Result
         '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
-            self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
-            self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-            str(self.config_info['threshold']['duration_days']) + "d", self.config_info['threshold']['totalcase'],
-            start_time, end_time, self.config_info['threshold']['repro_count_limit'])
+                   self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
+                   self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+                   str(self.config_info['threshold']['duration_days']) +
+                   "d", self.config_info['threshold']['totalcase'],
+                   start_time, end_time, self.config_info['threshold']['repro_count_limit'])
         logger.info("Query failed cases:{}".format(query_str))
+        return self.query(query_str)
+
+    def query_failed_testcase_202012(self, exclude_case_list):
+        start_time = self.current_timestamp - \
+            timedelta(days=int(self.config_info['threshold']['history_days']))
+        end_time = self.current_timestamp
+
+        query_str = '''
+        let ProdQualOSList = dynamic(['20201231']);
+        let ResultFilterList = dynamic(["failure", "error"]);
+        let ExcludeTestbedList = dynamic({});
+        let ExcludeBranchList = dynamic({});
+        let ExcludeHwSkuList = dynamic({});
+        let ExcludeTopoList = dynamic({});
+        let ExcludeAsicList = dynamic({});
+        let timeBefore = {};
+        let totalcase_threshod = {};
+        let ExcludeCaseList = dynamic({});
+        FlatTestSummaryView
+        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
+        | where TotalCasesRun > totalcase_threshod
+        | join kind=innerunique FlatTestReportViewV4 on ReportId 
+        | where OSVersion has_any(ProdQualOSList)
+        | where Result in (ResultFilterList)
+        | where not(TestbedName has_any(ExcludeTestbedList))
+        | where not (HardwareSku has_any(ExcludeHwSkuList))
+        | where not(TopologyType has_any(ExcludeTopoList))
+        | where not(AsicType has_any(ExcludeAsicList))
+        | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
+        | extend FullCaseName = strcat(ModulePath,".",opTestCase)
+        | extend BranchName = tostring(split(OSVersion, '.')[0])
+        | where not(BranchName has_any(ExcludeBranchList))
+        | where BranchName has_any(ProdQualOSList)
+        | where not(FullCaseName has_any(ExcludeCaseList))
+        | where OSVersion !contains "cisco"
+        | where OSVersion !contains "nokia"
+        | where ModulePath != ""
+        | project Timestamp, Feature, ModulePath, FullTestPath, TestCase, opTestCase, FullCaseName, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
+        | sort by ModulePath, opTestCase, Result
+        '''.format(self.config_info["testbeds"]["excluded_testbed_keywords"],
+                   self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
+                   self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+                   str(self.config_info['threshold']['duration_days']) +
+                   "d", self.config_info['threshold']['totalcase'],
+                   exclude_case_list, start_time, end_time)
+        logger.info(
+            "Query 7 days's failed cases for branch 202012:{}".format(query_str))
+        return self.query(query_str)
+
+    def query_failed_testcase_202205(self, exclude_case_list):
+        start_time = self.current_timestamp - \
+            timedelta(days=int(self.config_info['threshold']['history_days']))
+        end_time = self.current_timestamp
+
+        query_str = '''
+        let ProdQualOSList = dynamic(['20220531']);
+        let ResultFilterList = dynamic(["failure", "error"]);
+        let ExcludeTestbedList = dynamic({});
+        let ExcludeBranchList = dynamic({});
+        let ExcludeHwSkuList = dynamic({});
+        let ExcludeTopoList = dynamic({});
+        let ExcludeAsicList = dynamic({});
+        let timeBefore = {};
+        let totalcase_threshod = {};
+        let ExcludeCaseList = dynamic({});
+        FlatTestSummaryView
+        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
+        | where TotalCasesRun > totalcase_threshod
+        | join kind=innerunique FlatTestReportViewV4 on ReportId 
+        | where OSVersion has_any(ProdQualOSList)
+        | where Result in (ResultFilterList)
+        | where not(TestbedName has_any(ExcludeTestbedList))
+        | where not (HardwareSku has_any(ExcludeHwSkuList))
+        | where not(TopologyType has_any(ExcludeTopoList))
+        | where not(AsicType has_any(ExcludeAsicList))
+        | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
+        | extend FullCaseName = strcat(ModulePath,".",opTestCase)
+        | extend BranchName = tostring(split(OSVersion, '.')[0])
+        | where not(BranchName has_any(ExcludeBranchList))
+        | where BranchName has_any(ProdQualOSList)
+        | where not(FullCaseName has_any(ExcludeCaseList))
+        | where OSVersion !contains "cisco"
+        | where OSVersion !contains "nokia"
+        | where ModulePath != ""
+        | project Timestamp, Feature, ModulePath, FullTestPath, TestCase, opTestCase, FullCaseName, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
+        | sort by ModulePath, opTestCase, Result
+        '''.format(self.config_info["testbeds"]["excluded_testbed_keywords"],
+                   self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
+                   self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+                   str(self.config_info['threshold']['duration_days']) +
+                   "d", self.config_info['threshold']['totalcase'],
+                   exclude_case_list, start_time, end_time)
+        logger.info(
+            "Query 7 days's failed cases for branch 202205:{}".format(query_str))
         return self.query(query_str)
 
     def query_history_results(self, testcase_name, module_path, is_module_path=False):
         """
         Query failed test cases for the past one day, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
-        project Timestamp, OSVersion, HardwareSku, TotalCasesRun, Successes, Failures, Errors, Skipped, TestbedName, TotalRuntime, AsicType, Platform, Topology, ReportId, UploadTimestamp, Asic, TopologyType, RunDate, BuildId, TestbedSponsor, Feature, TestCase, ModulePath, FilePath, StartLine, Runtime, Result, Error, Summary, StartTime, EndTime, FullTestPath, opTestCase
+        project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
         """
         start_time = self.current_timestamp - \
             timedelta(days=int(self.config_info['threshold']['history_days']))
@@ -319,7 +453,7 @@ class KustoConnector(object):
                 let ExcludeAsicList = dynamic({});
                 let totalcase_threshod = {};
                 FlatTestSummaryView
-                | where Timestamp > datetime({}) and Timestamp <= datetime({})
+                | where UploadTimestamp > datetime({}) and Timestamp <= datetime({})
                 | where TotalCasesRun > totalcase_threshod
                 | join kind=innerunique FlatTestReportViewV4 on ReportId
                 | where OSVersion has_any(ProdQualOSList)
@@ -329,16 +463,19 @@ class KustoConnector(object):
                 | where not(TopologyType has_any(ExcludeTopoList))
                 | where not(AsicType has_any(ExcludeAsicList))
                 | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
+                | extend FullCaseName = strcat(ModulePath,".",opTestCase)
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
                 | where BranchName has_any(ProdQualOSList)
+                | where OSVersion !contains "cisco"
+                | where OSVersion !contains "nokia"
                 | where ModulePath == "{}"
                 | order by StartTimeUTC desc
-                | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
+                | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
                 '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
-                    self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
-                    self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-                    self.config_info['threshold']['totalcase'], start_time, end_time,  module_path)
+                           self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
+                           self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+                           self.config_info['threshold']['totalcase'], start_time, end_time,  module_path)
         else:
             query_str = '''
                 let ProdQualOSList = dynamic({});
@@ -350,7 +487,7 @@ class KustoConnector(object):
                 let ExcludeAsicList = dynamic({});
                 let totalcase_threshod = {};
                 FlatTestSummaryView
-                | where Timestamp > datetime({}) and Timestamp <= datetime({})
+                | where UploadTimestamp > datetime({}) and Timestamp <= datetime({})
                 | where TotalCasesRun > totalcase_threshod
                 | join kind=innerunique FlatTestReportViewV4 on ReportId 
                 | where OSVersion has_any(ProdQualOSList)
@@ -360,16 +497,19 @@ class KustoConnector(object):
                 | where not(TopologyType has_any(ExcludeTopoList))
                 | where not(AsicType has_any(ExcludeAsicList))
                 | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
+                | extend FullCaseName = strcat(ModulePath,".",opTestCase)
                 | extend BranchName = tostring(split(OSVersion, '.')[0])
                 | where not(BranchName has_any(ExcludeBranchList))
                 | where BranchName has_any(ProdQualOSList)
+                | where OSVersion !contains "cisco"
+                | where OSVersion !contains "nokia"
                 | where opTestCase == "{}" and ModulePath == "{}"
                 | order by StartTimeUTC desc
-                | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, Result
+                | project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
                 '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
-                    self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
-                    self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-                    self.config_info['threshold']['totalcase'], start_time, end_time, testcase_name, module_path)
+                           self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
+                           self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
+                           self.config_info['threshold']['totalcase'], start_time, end_time, testcase_name, module_path)
         logger.info("Query hisotry results:{}".format(query_str))
         return self.query(query_str)
 
@@ -415,9 +555,7 @@ class KustoConnector(object):
         return
 
 
-class Analyzer(object):
-    """analyze failed test cases"""
-
+class BasicAnalyzer(object):
     def __init__(self, kusto_connector, config_info) -> None:
         self.kusto_connector = kusto_connector
         self.config_info = config_info
@@ -428,177 +566,399 @@ class Analyzer(object):
             self.config_info['worker_number']))
         logger.info(
             "====== initiate target parent relationships into memory list ======")
-        self.init_parent_relations2list(PARENT_ID)
-
-    def run(self, icm_limit):
+        # self.init_parent_relations2list([PARENT_ID1, PARENT_ID2])
         logger.info(
-            "========== Start searching failed test case ==============")
+            "Found {} work items for sonic-nightly.".format(len(self.child_standby_list)))
+
+    def collect_sonic_nightly_ado(self):
+        ado_response = self.kusto_connector.query_ado()
+        active_icm_df = dataframe_from_result_table(
+            ado_response.primary_results[0])
+        self.child_standby_list = active_icm_df.to_dict(orient='records')
+        logger.info("Existing ADO number: {}\n All ADO list={}".format(
+            len(self.child_standby_list, self.child_standby_list)))
+
+    def init_parent_relations2list(self, parent_id_list):
+        """
+        Request url of given parent_id to get its relations including parent, child, relative
+        Get child fields by above children url, then store one standby list for next function search_ADO
+        """
+        for parent_id in parent_id_list:
+            workitem_parent_url = "https://dev.azure.com/msazure/One/_apis/wit/workitems?id=" + \
+                str(parent_id) + "&$expand=all"
+            logger.info("parent workitem url:{}".format(workitem_parent_url))
+            try:
+                parent_relations = requests.get(
+                    workitem_parent_url, auth=AUTH).json()["relations"]
+                if not parent_relations:
+                    logger.error(
+                        "Failed to get work items from parent_id {}".format(parent_id))
+                    return
+
+                child_url_set = set()
+                for relation in parent_relations:
+                    if relation and relation["attributes"]["name"] == "Child":
+                        child_url_set.add(relation["url"])
+                child_url_list = list(child_url_set)
+            except Exception as e:
+                logger.error(
+                    "Get parent work item but throw an exception: {}".format((repr(e))))
+                logger.error(traceback.format_exc())
+                return
+
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(
+                    self.child_url_extract_fields, url) for url in child_url_list]
+                for future in as_completed(futures):
+                    self.child_standby_list.append(future.result())
+
+    def child_url_extract_fields(self, child_url):
+        if not child_url:
+            logger.eror("child url is null")
+            return
+        try:
+            child_dict = requests.get(child_url, auth=AUTH).json()
+            child_fields_dict = child_dict["fields"]
+            if not child_fields_dict:
+                logger.eror(
+                    "Failed to get fields of work items from child_id {}".format(child_dict["id"]))
+                return
+        except Exception as e:
+            logger.error(
+                "Get child work items but throw an exception: {}".format((repr(e))))
+            logger.error(traceback.format_exc())
+            return
+        child_core_attribute = {
+            "ID": child_dict["id"],
+            "title": child_fields_dict.get("System.Title", "No title"),
+            "URL": child_dict["url"],
+            "status": child_fields_dict.get("System.State", "No status"),
+            "owner": child_fields_dict["System.CreatedBy"].get("displayName", "No owner"),
+            "tags": child_fields_dict.get("System.Tags", "No tag"),
+            "createdDate": child_fields_dict.get("System.CreatedDate", "No CreatedDate"),
+            "changedDate": child_fields_dict.get("System.ChangedDate", "No ChangedDate")
+        }
+        return child_core_attribute
+
+
+class GeneralAnalyzer(BasicAnalyzer):
+    """analyze failed test cases"""
+
+    def __init__(self, kusto_connector, config_info, limitation=None) -> None:
+        super().__init__(kusto_connector, config_info)
+
+        self.icm_limit = limitation
+        if self.icm_limit is None:
+            self.icm_limit = int(self.new_icm_number_limit)
+        self.new_icm_number_limit = self.config_info['icm_limitation']['new_icm_number_limit']
+        self.setup_error_limit = self.config_info['icm_limitation']['setup_error_limit']
+        self.failure_limit = self.config_info['icm_limitation']['failure_limit']
+        self.platform_limit = self.config_info['icm_limitation']['platform_limit']
+        self.icm_20201231_limit = self.config_info['icm_limitation']['icm_20201231_limit']
+        self.icm_20220531_limit = self.config_info['icm_limitation']['icm_20220531_limit']
+        self.max_icm_count_per_module = self.config_info['icm_limitation']['max_icm_count_per_module']
+        self.active_icm_list, self.icm_count_dict = self.analyze_active_icm()
+
+    def run_setup_error(self):
+        logger.info(
+            "========== Start searching test setup error case ==============")
+
         waiting_list = []
         setup_errors_failures = self.collect_test_setup_failure()
         setup_errors_list = list(setup_errors_failures.keys())
-        for setup_error in setup_errors_list:
+        logger.info("Total setup error cases in waiting: {}".format(
+            len(setup_errors_list)))
+        for index, setup_error in enumerate(setup_errors_list):
             waiting_list.append((setup_error, True))
-        logger.info("waiting_list for setup error={}".format(waiting_list))
-        failed_testcases = self.collect_failed_testcase()
+            logger.info("{}: {}".format(index + 1, setup_error))
 
-        failed_testcases_list = list(failed_testcases.keys())
-        for failed_testcase in failed_testcases_list:
+        error_new_icm_table, error_duplicated_icm_table = self.multiple_process(
+            waiting_list)
+        return error_new_icm_table, error_duplicated_icm_table
+
+    def run_failure(self, branch=None, exclude_case_list=None):
+        waiting_list = []
+        if branch:
+            logger.info(
+                "========== Start searching failure case for branch {}==============".format(branch))
+            failed_testcases = self.collect_failed_testcase(
+                branch, exclude_case_list)
+            failed_testcases_list = list(failed_testcases.keys())
+            logger.info("Total failure cases for branch {} in waiting: {}".format(
+                branch, len(failed_testcases_list)))
+        else:
+            logger.info(
+                "========== Start searching failure case ==============")
+            failed_testcases = self.collect_failed_testcase()
+            failed_testcases_list = list(failed_testcases.keys())
+            logger.info("Total failure cases in waiting: {}".format(
+                len(failed_testcases_list)))
+
+        for index, failed_testcase in enumerate(failed_testcases_list):
             waiting_list.append((failed_testcase, False))
-        logger.info("Total failed cases: {} waiting_list={}".format(len(waiting_list), waiting_list))
-        logger.info(
-            "=============== Analyze active IcM ================")
-        active_icm_list, count_dict = self.analyze_active_icm()
+            logger.info("{}: {}".format(index + 1, failed_testcase))
+
+        failure_new_icm_table, failure_duplicated_icm_table = self.multiple_process(
+            waiting_list)
+        return failure_new_icm_table, failure_duplicated_icm_table
+
+    def multiple_process(self, waiting_list):
+        """Multiple process to analyze test cases"""
+        new_icm_count = 0
+        break_flag = False
+        new_icm_table = []
+        duplicated_icm_table = []
 
         logger.info(
             "============== Start searching history result ================")
-
-        new_icm_table = []
-        duplicated_icm_table = []
-        autoblame_table = []
-        if icm_limit is None:
-            icm_limit = int(
-                self.config_info["threshold"]["new_icm_number_limit"])
-        new_icm_count = 0
-        break_flag = False
-
         # We can use a with statement to ensure threads are cleaned up promptly
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.config_info['worker_number']) as executor:
+            tasks = []
             for (test_case_branch, is_module_path) in waiting_list:
                 # Start the load operations and mark each future with test case name
-                logger.info("Start analysising test_case_branch={}, is_module_path={}".format(test_case_branch, is_module_path))
-                future_to_testcase = {executor.submit(
-                    self.analysis_process, test_case_branch, is_module_path): test_case_branch}
-                for future in concurrent.futures.as_completed(future_to_testcase):
-                    testcase_task = future_to_testcase[future]
-                    try:
-                        kusto_data, autoblame_data = future.result()
-                    except Exception as exc:
-                        logger.error("Task {} generated an exception: {}".format(
-                            (testcase_task, exc)))
-                        logger.error(traceback.format_exc())
-                    new_icm_list = []
-                    duplicated_icm_list = []
-                    for idx, icm in enumerate(kusto_data):
-                        duplicated_flag = False
-                        # For loop every active IcM title, avoid generating smaller level IcM for same failure
-                        for icm_title in active_icm_list:
-                            # For platform_test, we aggregate branches, don't trigger same IcM for different branches
-                            if 'platform_tests' in icm['module_path']:
-                                icm_branch = icm['branch']
-                                for branch_name in INCLUDED_BRANCH:
-                                    replaced_title = icm['subject'].replace(icm_branch, branch_name)
-                                    if icm_title in ICM_PREFIX + replaced_title:
-                                        logger.info("For platform_tests, found same case for branch {}, not trigger IcM: \
-                                            active IcM {}, duplicated one {}".format(icm_branch, icm_title, ICM_PREFIX + icm['subject']))
-                                        icm['trigger_icm'] = False
-                                        duplicated_icm_list.append(icm)
-                                        duplicated_flag = True
-                                        break
-                                if duplicated_flag:
+                logger.info("Start analysising test_case_branch={}, is_module_path={}".format(
+                    test_case_branch, is_module_path))
+                tasks.append(executor.submit(
+                    self.analysis_process, test_case_branch, is_module_path))
+            for task in concurrent.futures.as_completed(tasks):
+                try:
+                    kusto_data = task.result()
+                except Exception as exc:
+                    logger.error("Task {} generated an exception: {}".format(
+                        (task, exc)))
+                    logger.error(traceback.format_exc())
+                new_icm_list = []
+                duplicated_icm_list = []
+                for idx, icm in enumerate(kusto_data):
+                    logger.info("Check if there is existing active IcM for {} is_module_path={}"
+                                .format(icm['subject'], is_module_path))
+                    duplicated_flag = False
+                    # For loop every active IcM title, avoid generating smaller level IcM for same failure
+                    for icm_title in self.active_icm_list:
+                        # For platform_test, we aggregate branches, don't trigger same IcM for different branches
+                        if 'platform_tests' in icm['module_path']:
+                            icm_branch = icm['branch']
+                            for branch_name in INCLUDED_BRANCH:
+                                replaced_title = icm['subject'].replace(
+                                    icm_branch, branch_name)
+                                if icm_title in ICM_PREFIX + replaced_title:
+                                    logger.info("For platform_tests, found same case for branch {}, not trigger IcM:\n active IcM {}, duplicated one {}".format(
+                                        icm_branch, icm_title, ICM_PREFIX + icm['subject']))
+                                    icm['trigger_icm'] = False
+                                    duplicated_icm_list.append(icm)
+                                    duplicated_flag = True
                                     break
-                            elif icm_title in ICM_PREFIX + icm['subject']:
-                                # Don't trigger IcM for duplicated cases, avoid IcM throttling
-                                logger.info("Found duplicated item in active IcM list, not trigger IcM: \
-                                    active IcM {}, duplicated one {}".format(icm_title, ICM_PREFIX + icm['subject']))
-                                icm['trigger_icm'] = False
-                                duplicated_icm_list.append(icm)
-                                duplicated_flag = True
+                            if duplicated_flag:
                                 break
-                        temp_uploading_list = []
-                        temp_uploading_list.extend(new_icm_list)
-                        temp_uploading_list.extend(new_icm_table)
-                        # For loop every uploading IcM title, avoid generating smaller level IcM for same failure
-                        for uploading_new_icm in temp_uploading_list:
-                            # For platform_test, we aggregate branches, don't trigger same IcM for different branches
-                            if 'platform_tests' in icm['module_path']:
-                                icm_branch = icm['branch']
-                                for branch_name in INCLUDED_BRANCH:
-                                    replaced_title = icm['subject'].replace(icm_branch, branch_name)
-                                    if uploading_new_icm['subject'] in replaced_title or replaced_title in uploading_new_icm['subject']:
-                                        logger.info("For platform_tests, found same case for branch {}, not trigger IcM: \
-                                            uploading IcM {}, duplicated one {}".format(icm_branch, icm_title, icm['subject']))
-                                        icm['trigger_icm'] = False
-                                        duplicated_icm_list.append(icm)
-                                        duplicated_flag = True
-                                        break
-                                if duplicated_flag:
-                                    break
-                            elif uploading_new_icm['subject'] in icm['subject'] or icm['subject'] in uploading_new_icm['subject']:
-                                # Don't trigger IcM for duplicated cases, avoid IcM throttling
-                                logger.info("Found duplicated item in uploading IcM list, not trigger IcM: \
-                                    uploading IcM {}, duplicated one {}".format(uploading_new_icm['subject'], icm['subject']))
-                                icm['trigger_icm'] = False
-                                duplicated_icm_list.append(icm)
-                                duplicated_flag = True
-                                break
+                        elif icm_title in ICM_PREFIX + icm['subject']:
+                            # Don't trigger IcM for duplicated cases, avoid IcM throttling
+                            logger.info("Found duplicated item in active IcM list, not trigger IcM:\n active IcM {}, duplicated one {}".format(
+                                icm_title, ICM_PREFIX + icm['subject']))
+                            icm['trigger_icm'] = False
+                            duplicated_icm_list.append(icm)
+                            duplicated_flag = True
+                            break
 
-                        if not duplicated_flag:
-                            module_path = icm['module_path']
-                            items = module_path.split('.')
-                            if new_icm_count >= icm_limit:
+                    if not duplicated_flag:
+                        module_path = icm['module_path']
+                        items = module_path.split('.')
+                        if 'everflow' in items[0]:
+                            if self.icm_count_dict['everflow_count'] >= self.max_icm_count_per_module:
                                 logger.info(
-                                    "We limit the number of new IcM to {}, idx={}".format(icm_limit, idx))
-                                break_flag = True
+                                    "There are already 10 IcMs for everflow, inhibit this one avoid generating so many similar cases.")
+                                kusto_data = kusto_data[:idx]
+                                logger.info("kusto_data={}".format(kusto_data))
+                                break
+                            else:
+                                self.icm_count_dict['everflow_count'] += 1
+                        if len(items) > 1 and 'test_qos_sai' in items[1]:
+                            if self.icm_count_dict['qos_sai_count'] >= self.max_icm_count_per_module:
+                                logger.info(
+                                    "There are already 10 IcMs for qos_sai, inhibit this one avoid generating so many similar cases.")
+                                kusto_data = kusto_data[:idx]
+                                logger.info("kusto_data={}".format(kusto_data))
+                                break
+                            else:
+                                self.icm_count_dict['qos_sai_count'] += 1
+                        if 'acl' in items[0]:
+                            if self.icm_count_dict['acl_count'] >= self.max_icm_count_per_module:
+                                logger.info(
+                                    "There are already 10 IcMs for acl, inhibit this one avoid generating so many similar cases.")
                                 kusto_data = kusto_data[:idx]
                                 break
-                            if 'everflow' in items[0]:
-                                if count_dict['everflow_count'] >= self.config_info['threshold']['max_icm_count_per_module']:
-                                    logger.info("There are already 10 IcMs for everflow, inhibit this one avoid generating so many similar cases.")
-                                    kusto_data = kusto_data[:idx]
-                                    logger.info("kusto_data={}".format(kusto_data))
-                                    break
-                                else:
-                                    count_dict['everflow_count'] += 1
-                            if len(items) > 1 and 'test_qos_sai' in items[1]:
-                                if count_dict['qos_sai_count'] >= self.config_info['threshold']['max_icm_count_per_module']:
-                                    logger.info("There are already 10 IcMs for qos_sai, inhibit this one avoid generating so many similar cases.")
-                                    kusto_data = kusto_data[:idx]
-                                    logger.info("kusto_data={}".format(kusto_data))
-                                    break
-                                else:
-                                    count_dict['qos_sai_count'] += 1
-                            if 'acl' in items[0]:
-                                if count_dict['acl_count'] >= self.config_info['threshold']['max_icm_count_per_module']:
-                                    logger.info("There are already 10 IcMs for acl, inhibit this one avoid generating so many similar cases.")
-                                    kusto_data = kusto_data[:idx]
-                                    break
-                                else:
-                                    count_dict['acl_count'] += 1
-                            logger.info("New IcM for this run: {} idx = {}".format(
-                                icm['subject'], idx))
-                            new_icm_list.append(icm)
-                            new_icm_count += 1
-                    if len(kusto_data) != 0:
-                        autoblame_table.extend(autoblame_data)
-                    if len(new_icm_list) != 0:
-                        new_icm_table.extend(new_icm_list)
-                    if len(duplicated_icm_list) != 0:
-                        duplicated_icm_table.extend(duplicated_icm_list)
-                    if break_flag:
-                        logger.info(
-                            "Stop handling as_complete more case... Last task {}...".format(testcase_task))
-                        break
-                if break_flag:
-                    logger.info(
-                        "Stop handling more case... Last case {}.".format(test_case_branch))
-                    break
+                            else:
+                                self.icm_count_dict['acl_count'] += 1
+                        logger.info("Got new IcM for this run: {} idx = {} is_module_path={}".format(
+                            icm['subject'], idx, is_module_path))
+                        new_icm_list.append(icm)
+                        new_icm_count += 1
 
-        logger.info("================= Upload to kusto =====================")
-        for kusto_row_data in duplicated_icm_table:
-            logger.info("Upload duplicated icm to kusto = {}".format(
-                json.dumps(kusto_row_data, indent=4)))
-        for kusto_row_data in new_icm_table:
-            logger.info("Upload new icm to kusto = {}".format(
-                json.dumps(kusto_row_data, indent=4)))
+                if len(new_icm_list) != 0:
+                    new_icm_table.extend(new_icm_list)
+                if len(duplicated_icm_list) != 0:
+                    duplicated_icm_table.extend(duplicated_icm_list)
+                # if break_flag:
+                #     logger.info(
+                #         "Stop handling as_complete more case... Last task {}...".format(testcase_task))
+                #     break
+                # if break_flag:
+                #     logger.info(
+                #         "Stop handling more case... Last case {}.".format(test_case_branch))
+                #     break
+        return new_icm_table, duplicated_icm_table
+
+    def deduplication(self, error_new_icm_table, failure_new_icm_table, new_icm_table_202012, new_icm_table_202205):
+        """
+        Reduplicate the IcM list, remove the duplicated IcM
+        """
+        duplicated_icm_list = []
+        unique_title = set()
+        final_icm_list = []
+        error_final_icm_list = []
+        count_platform_test = 0
+        count_general = 0
+        count_202012 = 0
+        count_202205 = 0
+
+        logger.info("limit the number of setup error cases to {}".format(
+            self.setup_error_limit))
+        logger.info("limit the number of general failure cases to {}".format(
+            self.failure_limit))
+        logger.info("limit the number of platform_tests cases to {}".format(
+            self.platform_limit))
+        logger.info("limit the number of 20201231 cases to {}".format(
+            self.icm_20201231_limit))
+        logger.info("limit the number of 20220531 cases to {}".format(
+            self.icm_20220531_limit))
+
+        if len(error_new_icm_table) > self.setup_error_limit:
+            error_final_icm_list = error_new_icm_table[:self.setup_error_limit+1]
+        else:
+            error_final_icm_list = error_new_icm_table
+
+        loop_data = [
+            {"table": failure_new_icm_table, "type": "general"},
+            {"table": new_icm_table_202012, "type": "202012"},
+            {"table": new_icm_table_202205, "type": "202205"},
+        ]
+        for data in loop_data:
+            icm_table = data['table']
+            failure_type = data['type']
+            for candidator in icm_table:
+                if candidator['subject'] in unique_title:
+                    candidator['trigger_icm'] = False
+                    duplicated_icm_list.append(candidator)
+                    logger.info("Found duplicated item in generated IcM list, not trigger IcM for:{}".format(
+                        candidator['subject']))
+                    continue
+                # If the title is not in unique_title set, check if it is duplicated with the uploading IcM
+                unique_title.add(candidator['subject'])
+                duplicated_flag = False
+
+                # For loop every uploading IcM title, avoid generating lower level IcM for same failure
+                for uploading_new_icm in final_icm_list:
+                    # For platform_test, we aggregate branches, don't trigger same IcM for different branches
+                    if 'platform_tests' in candidator['module_path']:
+                        icm_branch = candidator['branch']
+                        for branch_name in INCLUDED_BRANCH:
+                            replaced_title = candidator['subject'].replace(
+                                icm_branch, branch_name)
+                            # If the uploading IcM title is the lower than the one in final_icm_list, don't trigger IcM
+                            if uploading_new_icm['subject'] in replaced_title:
+                                logger.info("For platform_tests, found lower case for branch {}, not trigger IcM: \
+                                    the IcM in final_icm_list {}, duplicated one {}".format(icm_branch, uploading_new_icm['subject'], candidator['subject']))
+                                candidator['trigger_icm'] = False
+                                duplicated_icm_list.append(candidator)
+                                duplicated_flag = True
+                                break
+                            # if the uploading IcM title is the higher than the one in final_icm_list, replace the one in final_icm_list
+                            elif replaced_title in uploading_new_icm['subject']:
+                                logger.info("For platform_tests, found lower case for branch {}, replace {} in final_icm_list with \
+                                    {}".format(icm_branch, uploading_new_icm['subject'], candidator['subject']))
+                                final_icm_list.remove(uploading_new_icm)
+                                final_icm_list.append(candidator)
+                                duplicated_flag = True
+                                break
+                        if duplicated_flag:
+                            break
+                    # If the uploading IcM title is the lower than the one in final_icm_list, don't trigger IcM
+                    elif uploading_new_icm['subject'] in candidator['subject']:
+                        logger.info("Found lower case, not trigger IcM: \
+                            the IcM in final_icm_list {}, duplicated one {}".format(uploading_new_icm['subject'], candidator['subject']))
+                        candidator['trigger_icm'] = False
+                        duplicated_icm_list.append(candidator)
+                        duplicated_flag = True
+                        break
+                    # if the uploading IcM title is the higher than the one in final_icm_list, replace the one in final_icm_list
+                    elif candidator['subject'] in uploading_new_icm['subject']:
+                        # Don't trigger IcM for duplicated cases, avoid IcM throttling
+                        logger.info("Found lower case, replace {} in final_icm_list with \
+                                    {}".format(uploading_new_icm['subject'], candidator['subject']))
+                        final_icm_list.remove(uploading_new_icm)
+                        final_icm_list.append(candidator)
+                        duplicated_flag = True
+                        break
+                if not duplicated_flag:
+                    if failure_type == "general":
+                        count_general += 1
+                        if count_general > self.failure_limit:
+                            logger.info("Reach the limit of general case: {}, ignore this IcM {}".format(
+                                self.failure_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            break
+                    elif failure_type == "202012":
+                        count_202012 += 1
+                        if count_202012 > self.icm_20201231_limit:
+                            logger.info("Reach the limit of 202012 case: {}, ignore this IcM {}".format(
+                                self.icm_20201231_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            break
+                    elif failure_type == "202205":
+                        count_202205 += 1
+                        if count_202205 > self.icm_20220531_limit:
+                            logger.info("Reach the limit of 202205 case: {}, ignore this IcM {}".format(
+                                self.icm_20220531_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            break
+                    if 'platform_tests' in candidator['module_path']:
+                        count_platform_test += 1
+                        if count_platform_test > self.platform_limit:
+                            logger.info("Reach the limit of platform_test case, ignore this IcM {}".format(
+                                candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            continue
+                    logger.info("Add {} for type {} to final_icm_list".format(
+                        failure_type, candidator['subject']))
+                    final_icm_list.append(candidator)
+
+        return error_final_icm_list, final_icm_list, duplicated_icm_list
+
+    def upload_to_kusto(self, new_icm_table, duplicated_icm_table, autoblame_table):
+        """
+        Upload data to kusto
+        """
+        logger.info(
+            "================= Upload duplicated IcMs to kusto =====================")
+        self.print_analysis_table(duplicated_icm_table)
+        logger.info(
+            "================= Upload new IcMs to kusto =====================")
+        self.print_analysis_table(new_icm_table)
+        logger.info(
+            "================= Duplicated IcMs title list =====================")
         for index, duplicated_icm in enumerate(duplicated_icm_table):
-            logger.info("{} Duplicated IcM subject = {}".format(index + 1, duplicated_icm["subject"]))
+            logger.info("{} Duplicated IcM subject = {}".format(
+                index + 1, duplicated_icm["subject"]))
+        logger.info(
+            "================= New IcMs title list =====================")
         for index, new_icm in enumerate(new_icm_table):
-            logger.info("{} New IcM subject = {}".format(index + 1, new_icm["subject"]))
-        logger.info("There are {} duplicated IcMs in total for this run.".format(len(duplicated_icm_table)))
-        logger.info("There are {} new IcMs in total for this run.".format(len(new_icm_table)))
+            logger.info("{} New IcM subject = {}".format(
+                index + 1, new_icm["subject"]))
+        logger.info("There are {} duplicated IcMs in total for this run.".format(
+            len(duplicated_icm_table)))
+        logger.info("There are {} new IcMs in total for this run.".format(
+            len(new_icm_table)))
         logger.info("There are {} Autoblame commit in total.".format(
             len(autoblame_table)))
-
         # The actual ingested time is about 5 mins later after uploading to kusto
         # In order to make Geneva to capture incidents in time,
         # move upload_timestamp to 5 mins ago
@@ -614,7 +974,8 @@ class Analyzer(object):
             if icm_count < ICM_NUMBER_THRESHOLD - 1 and idx != len(new_icm_table) - 1:
                 icm_count += 1
             else:
-                logger.info("Upload {} new IcMs table to kusto.".format(len(upload_icm_table)))
+                logger.info("Upload {} new IcMs table to kusto.".format(
+                    len(upload_icm_table)))
                 # Set same upload timestamp for uploaded items
                 ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
                 for item in upload_icm_table:
@@ -624,14 +985,17 @@ class Analyzer(object):
                 icm_count = 0
                 # Don't need to sleep for the last upload
                 if idx != len(new_icm_table) - 1:
-                    logger.info("Sleep for 30 mins to cover kusto ingestion delay and avoid IcM throttling...")
-                    time.sleep(30*60)
+                    logger.info(
+                        "Sleep for 30 mins to cover kusto ingestion delay and avoid IcM throttling...")
+                    time.sleep(1)
 
         ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
         for row in duplicated_icm_table:
             row['upload_timestamp'] = ingested_time
-        logger.info("Upload {} duplicated IcMs table to kusto.".format(len(duplicated_icm_table)))
+        logger.info("Upload {} duplicated IcMs table to kusto.".format(
+            len(duplicated_icm_table)))
         self.kusto_connector.upload_analyzed_data(duplicated_icm_table)
+        return
 
     def collect_previous_upload_record(self):
         """ The table header looks like this, save all of these information
@@ -654,6 +1018,11 @@ class Analyzer(object):
         return active_icm_df
 
     def analyze_active_icm(self):
+        """
+        Collect and analyse the active IcM, print the active IcM information
+        """
+        logger.info(
+            "=============== Analyze active IcM ================")
         active_icm_df = self.collect_active_icm()
         active_icm_list = active_icm_df['Title'].tolist()
         active_icm_df["IcMPrintInfo"] = "Created at " + \
@@ -681,13 +1050,13 @@ class Analyzer(object):
             if 'acl' in items[0]:
                 acl_count += 1
 
-        count_dict = {
-                'everflow_count': everflow_count,
-                'qos_sai_count': qos_sai_count,
-                'acl_count': acl_count
-                }
-        logger.info("count for active IcM:{}".format(count_dict))
-        return active_icm_list, count_dict
+        icm_count_dict = {
+            'everflow_count': everflow_count,
+            'qos_sai_count': qos_sai_count,
+            'acl_count': acl_count
+        }
+        logger.info("count for active IcM:{}".format(icm_count_dict))
+        return active_icm_list, icm_count_dict
 
     def collect_summary_results(self):
         """ The table header looks like this, save all of these information
@@ -700,6 +1069,118 @@ class Analyzer(object):
 
         logger.info("Found {} valid pipeline results.".format(len(summary_df)))
         return summary_df
+
+    def collect_week_analyzed_data(self):
+        """ The table header looks like this, save all of these information
+        project Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType
+        """
+        week_data_response = self.kusto_connector.query_week_testcase()
+        week_data_df = dataframe_from_result_table(
+            week_data_response.primary_results[0])
+        total_count = len(week_data_response.primary_results[0].rows)
+        logger.info(
+            "Found {} test case for a week in total.".format(total_count))
+        # Split the DataFrame based on the 'summary' column
+        df_setup_error = week_data_df[week_data_df['Summary']
+                                      == 'test setup failure']
+        logger.info("Found {} setup error test case for a week in total.".format(
+            len(df_setup_error)))
+        df_left = week_data_df[week_data_df['Summary'] != 'test setup failure']
+        logger.info(
+            "Found {} failure test case for a week in total.".format(len(df_left)))
+
+        # Define the columns to group by
+        group_cols = ['opTestCase', 'ModulePath', 'OSVersion', 'TestbedName']
+
+        # Define the conditions to filter by
+        error_cond = (week_data_df['Summary'] == 'test setup failure')
+        failure_cond = (week_data_df['Result'] == 'failure')
+
+        # Group by the specified columns and count the number of errors and failures
+        error_counts = df_setup_error[error_cond].groupby(group_cols)[
+            'Result'].count()
+        failure_counts = df_left[failure_cond].groupby(group_cols)[
+            'Result'].count()
+        import pdb
+        pdb.set_trace()
+
+        # Filter out the rows where the error count is less than or equal to 2
+        error_counts_filtered = error_counts[error_counts >= 2]
+        failure_counts_filtered = failure_counts[failure_counts >= 2]
+        # Create an ordered dictionary of {testcase # branch: error count} pairs
+        error_list = []
+        failure_list = []
+        must_surface_list = []
+
+        for row in error_counts_filtered:
+            module_path = row['ModulePath']
+            branch = row['BranchName']
+            key = module_path + "#" + branch
+            if key in error_list:
+                continue
+            else:
+                error_list.append(key)
+
+        for row in failure_counts_filtered:
+            testcase = row['opTestCase']
+            branch = row['BranchName']
+            key = testcase + "#" + branch
+            if key in failure_list:
+                continue
+            else:
+                failure_list.append(key)
+
+        logger.info("Found {} kinds of test setup failure.".format(
+            len(error_counts_filtered)))
+
+        # Filter out the rows that match the test case and branch combinations with more than 2 errors or failures
+        df_setup_error_filtered = df_setup_error.set_index(group_cols)
+        df_setup_error_filtered = df_setup_error_filtered.drop(
+            index=error_counts_filtered.index)
+        df_setup_error_filtered = df_setup_error_filtered.reset_index()
+
+        df_left_filtered = df_left.set_index(group_cols)
+        df_left_filtered = df_left_filtered.drop(
+            index=failure_counts_filtered.index)
+        df_left_filtered = df_left_filtered.reset_index()
+
+        # Calculate pass rate for each test case and branch
+        pass_rates = df_left_filtered.groupby(['opTestCase', 'BranchName'])['Result'].apply(
+            lambda x: (x == 'success').sum() / len(x)).reset_index(name='pass_rate')
+
+        # Filter out rows with pass rate less than 1.0
+        zero_pass_rate = pass_rates[pass_rates['pass_rate'] <= 0]
+        low_pass_rate = pass_rates[0 < pass_rates['pass_rate'] < 1]
+
+        # Sort low pass rate by pass rate
+        zero_pass_rate = zero_pass_rate.sort_values(by='pass_rate')
+        for row in zero_pass_rate:
+            testcase = row['opTestCase']
+            branch = row['BranchName']
+            key = testcase + "#" + branch
+            if key in must_surface_list:
+                continue
+            else:
+                must_surface_list.append(key)
+
+        low_pass_rate = low_pass_rate.sort_values(by='pass_rate')
+        for row in low_pass_rate:
+            testcase = row['opTestCase']
+            branch = row['BranchName']
+            key = testcase + "#" + branch
+            if key in failure_list:
+                continue
+            else:
+                failure_list.append(key)
+
+        # Remove rows with low pass rate from df_left_filtered
+        for index, row in low_pass_rate.iterrows():
+            testcase = row['opTestCase']
+            branch = row['BranchName']
+            df_left_filtered = df_left_filtered.loc[~(
+                (df_left_filtered['opTestCase'] == testcase) & (df_left_filtered['BranchName'] == branch))]
+
+        return failure_list, error_list, must_surface_list
 
     def collect_test_setup_failure(self):
         """The table header looks like this, save all of these information
@@ -731,11 +1212,18 @@ class Analyzer(object):
             len(search_cases)))
         return search_cases
 
-    def collect_failed_testcase(self):
+    def collect_failed_testcase(self, search_branch=None, exclude_case_list=None):
         """The table header looks like this, save all of these information
-        project ReproCount, Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion,TestbedName, Summary, ReportId, UploadTimestamp, Asic, TopologyType, RunDate, BuildId, TestbedSponsor, StartLine, Runtime
+        project Timestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, Result, BranchName, OSVersion,TestbedName, Summary, ReportId, UploadTimestamp, Asic, TopologyType, RunDate, BuildId, TestbedSponsor, StartLine, Runtime
         """
-        failedcases_response = self.kusto_connector.query_failed_testcase()
+        if search_branch is None:
+            failedcases_response = self.kusto_connector.query_failed_testcase()
+        elif search_branch == '20201231':
+            failedcases_response = self.kusto_connector.query_failed_testcase_202012(
+                exclude_case_list)
+        elif search_branch == '20220531':
+            failedcases_response = self.kusto_connector.query_failed_testcase_202205(
+                exclude_case_list)
 
         search_cases = {}
         for row in failedcases_response.primary_results[0].rows:
@@ -745,39 +1233,39 @@ class Analyzer(object):
             key = module_path + '.' + testcase + "#" + branch
             if testcase in search_cases:
                 continue
-
             else:
                 if key not in search_cases:
                     search_cases[key] = {}
                     search_cases[key]['opTestCase'] = row['opTestCase']
-                    search_cases[key]['ReproCount'] = int(row['ReproCount'])
                     search_cases[key]['Result'] = row['Result']
                     search_cases[key]['OSVersion'] = row['OSVersion']
                     search_cases[key]['BranchName'] = row['BranchName']
 
         total_failedcase_count = len(
             failedcases_response.primary_results[0].rows)
-        logger.info("Found {} failed test cases in total.".format(
-            total_failedcase_count))
-        logger.info("Found {} kinds of failed test cases.".format(
-            len(search_cases)))
+
+        logger.info("Found {} failed test cases in total {}.".format(
+            total_failedcase_count, search_branch))
+        logger.info("Found {} kinds of failed test cases {}.".format(
+            len(search_cases), search_branch))
         return search_cases
 
     def analysis_process(self, test_case_branch, is_module_path=False):
         history_testcases, history_case_df = self.search_and_parse_history_results(
             test_case_branch, is_module_path)
-        kusto_data, autoblame_data = self.generate_kusto_data(
+        kusto_data = self.generate_kusto_data(
             test_case_branch, history_testcases, history_case_df, is_module_path)
-        logger.info("There are {} IcM for case {}.".format(
-            len(kusto_data), test_case_branch))
-        logger.info("There are {} Autoblame commits for case {}.".format(
-            len(autoblame_data), test_case_branch))
-        return kusto_data, autoblame_data
+        logger.info("There are {} IcM for case {} is_module_path={}.".format(
+            len(kusto_data), test_case_branch, is_module_path))
+        for item in kusto_data:
+            logger.info("IcM title: {}".format(item['subject']))
+        return kusto_data
 
     def search_and_parse_history_results(self, test_case_branch, is_module_path=False):
         """The table header looks like this, save all of these information
-        project Timestamp, OSVersion, HardwareSku, TestbedName, TotalRuntime, AsicType, Platform, Topology, ReportId, UploadTimestamp, Asic, TopologyType, RunDate, BuildId, TestbedSponsor, Feature, TestCase, ModulePath, FilePath, StartLine, Runtime, Result, Summary, StartTime, EndTime, FullTestPath, opTestCase
+        project Timestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
         """
+        testcase = None
         if is_module_path:
             items = test_case_branch.split("#")
             module_path = items[0]
@@ -799,53 +1287,38 @@ class Analyzer(object):
 
         tb_results = self.calculate_success_rate(
             case_branch_df, 'TestbedName', 'testbed')
-        asic_results = self.calculate_success_rate(case_branch_df, 'AsicType', 'asic')
+        asic_results = self.calculate_success_rate(
+            case_branch_df, 'AsicType', 'asic')
         hwsku_results = self.calculate_success_rate(
             case_branch_df, 'HardwareSku', 'hwsku')
         os_results = self.calculate_success_rate(
             case_branch_df, 'OSVersion', 'os_version')
 
-        hwsku_topo_results = {
-            'success_rate': {},
-            "consistent_failure_hwsku_topo": []
-        }
+        # hwsku_topo_results = self.calculate_combined_success_rate(case_branch_df, 'hwsku_topo')
 
-        success_rate_result = {}
-        sorted_results_dict = []
-        for index, row in case_branch_df.iterrows():
-            hwsku = row['HardwareSku']
-            topo = row['TopologyType']
-            hwsku_topo = hwsku + "_" + topo
-            if hwsku_topo not in success_rate_result:
-                hwsku_topo_aggr_df = case_branch_df[(case_branch_df['HardwareSku'] == hwsku) & (
-                    case_branch_df['TopologyType'] == topo)]
-                hwsku_topo_total_num = hwsku_topo_aggr_df.shape[0]
-                hwsku_topo_success = hwsku_topo_aggr_df[hwsku_topo_aggr_df['Result'] == 'success']
-                hwsku_topo_success_num = hwsku_topo_success.shape[0]
-                hwsku_topo_pass_rate = round(
-                    hwsku_topo_success_num * 100 / hwsku_topo_total_num)
-                if hwsku_topo_pass_rate == 0:
-                    hwsku_topo_results["consistent_failure_hwsku_topo"].append(
-                        hwsku_topo)
-                success_rate_result.update({hwsku_topo: "{}%/{}/{}".format(
-                    hwsku_topo_pass_rate, hwsku_topo_success_num, hwsku_topo_total_num)})
-        for k, v in sorted(success_rate_result.items(), key=lambda item: int(item[1].split("%")[0])):
-            sorted_results_dict.append(k + " : " + v)
-
-        hwsku_topo_results['success_rate'] = sorted_results_dict
+        if branch in ['20201231', '20220531']:
+            # branch_df = case_branch_df[case_branch_df['BranchName'] == branch]
+            # latest_osversion = branch_df['OSVersion'].max()
+            # branch_df = branch_df[branch_df['OSVersion'] == latest_osversion]
+            hwsku_osversion_results = self.calculate_combined_success_rate(
+                case_branch_df, 'hwsku_osversion')
 
         # Find out the latest failure row
         options = ['error', 'failure']
         fmt = '%Y-%m-%d %H:%M:%S'
         failed_df = case_branch_df[case_branch_df['Result'].isin(options)]
+        latest_failure_timestamp_ori = None
         if failed_df.shape[0] != 0:
             latest_row = failed_df.iloc[0]
             tb_results["latest_failure_testbed"] = latest_row['TestbedName']
             asic_results["latest_failure_asic"] = latest_row['AsicType']
             hwsku_results["latest_failure_hwsku"] = latest_row['HardwareSku']
-            hwsku_topo_results["latest_failure_hwsku_topo"] = latest_row['HardwareSku'] + \
-                "_" + latest_row['TopologyType']
+            # hwsku_topo_results["latest_failure_hwsku_topo"] = latest_row['HardwareSku'] + \
+            # "_" + latest_row['TopologyType']
             os_results["latest_failure_os_version"] = latest_row['OSVersion']
+            if branch in ['20201231', '20220531']:
+                hwsku_osversion_results["latest_failure_hwsku_osversion"] = latest_row['HardwareSku'] + \
+                    "_" + latest_row['OSVersion']
             latest_failure_timestamp_ori = latest_row['Timestamp']
             latest_failure_timestamp = latest_failure_timestamp_ori.to_pydatetime()
             latest_failure_timestr = latest_failure_timestamp.strftime(fmt)
@@ -856,8 +1329,11 @@ class Analyzer(object):
             oldest_failure_timestr = oldest_failure_timestamp.strftime(fmt)
             history_testcases[test_case_branch]['latest_failure_timestamp'] = latest_failure_timestr
             history_testcases[test_case_branch]['oldest_failure_timestamp'] = oldest_failure_timestr
+        else:
+            logger.error("Attention!!! There is no failure found case for {}.".format(test_case_branch))
 
-        total_success_num = case_branch_df[case_branch_df['Result'] == 'success'].shape[0]
+        total_success_num = case_branch_df[case_branch_df['Result']
+                                           == 'success'].shape[0]
         total_num = case_branch_df.shape[0]
         history_testcases[test_case_branch]['total_success_rate'] = "{}%/{}/{}".format(
             round(total_success_num * 100 / total_num), total_success_num, total_num)
@@ -866,30 +1342,103 @@ class Analyzer(object):
         history_testcases[test_case_branch]['per_testbed_info'] = tb_results
         history_testcases[test_case_branch]['per_asic_info'] = asic_results
         history_testcases[test_case_branch]['per_hwsku_info'] = hwsku_results
-        history_testcases[test_case_branch]['per_hwsku_topo_info'] = hwsku_topo_results
+        # history_testcases[test_case_branch]['per_hwsku_topo_info'] = hwsku_topo_results
+        if branch in ['20201231', '20220531']:
+            history_testcases[test_case_branch]['per_hwsku_osversion_info'] = hwsku_osversion_results
         history_testcases[test_case_branch]['per_os_version_info'] = os_results
 
         module_path = case_branch_df.iloc[0]["ModulePath"]
         feature = case_branch_df.iloc[0]["Feature"]
+        full_casename = case_branch_df.iloc[0]["FullCaseName"]
+        history_testcases[test_case_branch]['testcase'] = testcase if testcase else module_path
         history_testcases[test_case_branch]['module_path'] = module_path
+        history_testcases[test_case_branch]['full_casename'] = full_casename
         history_testcases[test_case_branch]['feature'] = feature
+        history_testcases[test_case_branch]['branch'] = branch
 
         # Check if recent test cases all failed, but previous ones are success.
         # Threshold is recent_failure_tolerance_day in config file, in case of flaky case
-        time_df = case_branch_df[(case_branch_df['Timestamp'] > latest_failure_timestamp_ori) & (
-            case_branch_df['Result'] == 'success')]
-        if time_df.shape[0] == 0:
-            logger.info("{} Since {}, all test cases are failed.".format(
-                test_case_branch, oldest_failure_timestamp))
-            current_time = datetime.now(timezone.utc)
-            td = current_time - oldest_failure_timestamp
-            td_hours = int(round(td.total_seconds() / 3600))
-            if round(td_hours / 24) > self.config_info['threshold']['recent_failure_tolerance_day']:
-                logger.info("{} All recent test cases  failed for more than {} days".format(
-                    test_case_branch, self.config_info['threshold']['recent_failure_tolerance_day']))
-                history_testcases[test_case_branch]['is_recent_failure'] = True
-
+        if latest_failure_timestamp_ori:
+            time_df = case_branch_df[(case_branch_df['Timestamp'] > latest_failure_timestamp_ori) & (
+                case_branch_df['Result'] == 'success')]
+            if time_df.shape[0] == 0:
+                logger.info("{} Since {}, all test cases are failed.".format(
+                    test_case_branch, oldest_failure_timestamp))
+                current_time = datetime.now(timezone.utc)
+                td = current_time - oldest_failure_timestamp
+                td_hours = int(round(td.total_seconds() / 3600))
+                if round(td_hours / 24) > self.config_info['threshold']['recent_failure_tolerance_day']:
+                    logger.info("{} All recent test cases  failed for more than {} days".format(
+                        test_case_branch, self.config_info['threshold']['recent_failure_tolerance_day']))
+                    history_testcases[test_case_branch]['is_recent_failure'] = True
+        logger.info(
+            "{} After success rate calculation".format(test_case_branch))
+        self.print_analysis_table([history_testcases[test_case_branch]])
         return history_testcases, case_df
+
+    def calculate_combined_success_rate(self, data_df, combine_type):
+        if combine_type == "hwsku_topo":
+            hwsku_topo_results = {
+                'success_rate': {},
+                "consistent_failure_hwsku_topo": []
+            }
+
+            success_rate_result = {}
+            sorted_results_dict = []
+            for index, row in data_df.iterrows():
+                hwsku = row['HardwareSku']
+                topo = row['TopologyType']
+                hwsku_topo = hwsku + "_" + topo
+                if hwsku_topo not in success_rate_result:
+                    hwsku_topo_aggr_df = data_df[(data_df['HardwareSku'] == hwsku) & (
+                        data_df['TopologyType'] == topo)]
+                    hwsku_topo_total_num = hwsku_topo_aggr_df.shape[0]
+                    hwsku_topo_success = hwsku_topo_aggr_df[hwsku_topo_aggr_df['Result'] == 'success']
+                    hwsku_topo_success_num = hwsku_topo_success.shape[0]
+                    hwsku_topo_pass_rate = round(
+                        hwsku_topo_success_num * 100 / hwsku_topo_total_num)
+                    if hwsku_topo_pass_rate == 0:
+                        hwsku_topo_results["consistent_failure_hwsku_topo"].append(
+                            hwsku_topo)
+                    success_rate_result.update({hwsku_topo: "{}%/{}/{}".format(
+                        hwsku_topo_pass_rate, hwsku_topo_success_num, hwsku_topo_total_num)})
+            for k, v in sorted(success_rate_result.items(), key=lambda item: int(item[1].split("%")[0])):
+                sorted_results_dict.append(k + " : " + v)
+
+            hwsku_topo_results['success_rate'] = sorted_results_dict
+            return hwsku_topo_results
+
+        elif combine_type == "hwsku_osversion":
+            hwsku_osversion_results = {
+                'success_rate': {},
+                "consistent_failure_hwsku_osversion": []
+            }
+
+            success_rate_result = {}
+            sorted_results_dict = []
+            for index, row in data_df.iterrows():
+                hwsku = row['HardwareSku']
+                osversion = row['OSVersion']
+                hwsku_osversion = hwsku + "_" + osversion
+                if hwsku_osversion not in success_rate_result:
+                    hwsku_osversion_aggr_df = data_df[(data_df['HardwareSku'] == hwsku) & (
+                        data_df['OSVersion'] == osversion)]
+                    hwsku_osversion_total_num = hwsku_osversion_aggr_df.shape[0]
+                    hwsku_osversion_success = hwsku_osversion_aggr_df[
+                        hwsku_osversion_aggr_df['Result'] == 'success']
+                    hwsku_osversion_success_num = hwsku_osversion_success.shape[0]
+                    hwsku_osversion_pass_rate = round(
+                        hwsku_osversion_success_num * 100 / hwsku_osversion_total_num)
+                    if hwsku_osversion_pass_rate == 0:
+                        hwsku_osversion_results["consistent_failure_hwsku_osversion"].append(
+                            hwsku_osversion)
+                    success_rate_result.update({hwsku_osversion: "{}%/{}/{}".format(
+                        hwsku_osversion_pass_rate, hwsku_osversion_success_num, hwsku_osversion_total_num)})
+            for k, v in sorted(success_rate_result.items(), key=lambda item: int(item[1].split("%")[0])):
+                sorted_results_dict.append(k + " : " + v)
+
+            hwsku_osversion_results['success_rate'] = sorted_results_dict
+            return hwsku_osversion_results
 
     def calculate_success_rate(self, data_df, column_name, category):
         results_dict = {}
@@ -921,7 +1470,6 @@ class Analyzer(object):
 
     def generate_kusto_data(self, case_name_branch, history_testcases, history_case_df, is_module_path=False):
         kusto_table = []
-        autoblame_table = []
         kusto_row_data = {
             'failure_level_info': {},
             'trigger_icm': False,
@@ -939,25 +1487,31 @@ class Analyzer(object):
             branch = items[1]
 
         kusto_row_data['testcase'] = case_name
-        kusto_row_data['branch'] = branch.lower()
-        kusto_row_data['module_path'] = module_path
+        kusto_row_data['branch'] = history_testcases[case_name_branch]['branch']
+        kusto_row_data['module_path'] = history_testcases[case_name_branch]['module_path']
+        kusto_row_data['full_casename'] = history_testcases[case_name_branch]['full_casename']
         kusto_row_data['per_testbed_info'] = history_testcases[case_name_branch]['per_testbed_info']
         kusto_row_data['per_asic_info'] = history_testcases[case_name_branch]['per_asic_info']
         kusto_row_data['per_hwsku_info'] = history_testcases[case_name_branch]['per_hwsku_info']
-        kusto_row_data['per_hwsku_topo_info'] = history_testcases[case_name_branch]['per_hwsku_topo_info']
+        if branch in ['202012', '202205']:
+            kusto_row_data['per_hwsku_osversion_info'] = history_testcases[case_name_branch]['per_hwsku_osversion_info']
         kusto_row_data['per_os_version_info'] = history_testcases[case_name_branch]['per_os_version_info']
-        kusto_row_data['failure_level_info']['latest_failure_timestamp'] = history_testcases[case_name_branch]['latest_failure_timestamp']
-        kusto_row_data['failure_level_info']['oldest_failure_timestamp'] = history_testcases[case_name_branch]['oldest_failure_timestamp']
+        kusto_row_data['failure_level_info']['latest_failure_timestamp'] = history_testcases[case_name_branch]['latest_failure_timestamp'] if 'latest_failure_timestamp' in history_testcases[case_name_branch] else 'NO_FAILURE_TIMESTAMP'
+        kusto_row_data['failure_level_info']['oldest_failure_timestamp'] = history_testcases[case_name_branch]['oldest_failure_timestamp'] if 'oldest_failure_timestamp' in history_testcases[case_name_branch] else 'NO_FAILURE_TIMESTAMP'
 
-        kusto_row_data['failure_level_info']['total_success_rate_' + branch] = history_testcases[case_name_branch]['total_success_rate']
+        kusto_row_data['failure_level_info']['total_success_rate_' +
+                                             branch] = history_testcases[case_name_branch]['total_success_rate']
         for branch_name in INCLUDED_BRANCH:
             # import pdb;pdb.set_trace()
             if branch_name != branch:
-                case_branch_df = history_case_df[history_case_df['BranchName'] == branch_name]
-                total_success_num = case_branch_df[case_branch_df['Result'] == 'success'].shape[0]
+                case_branch_df = history_case_df[history_case_df['BranchName']
+                                                 == branch_name]
+                total_success_num = case_branch_df[case_branch_df['Result']
+                                                   == 'success'].shape[0]
                 total_num = case_branch_df.shape[0]
                 if total_num == 0:
-                    logger.info("{} is not ran on {}.".format(case_name, branch_name))
+                    logger.info("{} is not ran on {}.".format(
+                        case_name, branch_name))
                     continue
                 else:
                     kusto_row_data['failure_level_info']['total_success_rate_' + branch_name] = "{}%/{}/{}".format(
@@ -969,53 +1523,65 @@ class Analyzer(object):
         else:
             kusto_row_data['failure_level_info']['is_test_case'] = True
 
-        # Search related ADO work items with case name
-        related_workitem = self.search_ADO([case_name, module_path], False)
-        if len(related_workitem) == 0:
-            logger.info("Didn't find any related ADO work item for case {} module path {}.".format(
-                case_name, module_path))
-        else:
-            kusto_row_data['failure_level_info']['found_related_workitem'] = True
-            logger.info("Found {} related ADO work item for case {} module path {}".format(
-                len(related_workitem), case_name, module_path))
-            logger.debug("Related ADO work item:{}".format(related_workitem))
-
-        # Search related commits with keywords and bracnh
-        keywords = [case_name]
-        keywords.extend(kusto_row_data['module_path'].split("."))
-        tag = ''
-        if branch.lower() == '20220531' or branch.lower() == '20201231':
-            consistent_failure_os_version = history_testcases[case_name_branch][
-                'per_os_version_info']["consistent_failure_os_version"]
-            if consistent_failure_os_version and len(consistent_failure_os_version) > 0:
-                tag = consistent_failure_os_version[0]
-            else:
-                tag = history_testcases[case_name_branch]['per_os_version_info']['latest_failure_os_version']
-
-        fmt = '%Y-%m-%d %H:%M:%S'
-        end_time = history_testcases[case_name_branch]['oldest_failure_timestamp']
-        end_time = datetime.strptime(end_time, fmt)
-        end_time_str = end_time.strftime(fmt)
-        start_time = end_time - timedelta(days=7)
-        start_time_str = start_time.strftime(fmt)
-        logger.info("keywords={} tag={} start_time={}, end_time={}".format(
-            keywords, tag, start_time_str, end_time_str))
-        report_uuid, commit_results = self.search_autoblame(
-            keywords, branch, tag, start_time_str, end_time_str)
-        if report_uuid is not None:
-            kusto_row_data['failure_level_info']['found_related_commit'] = True
-            logger.info("Found {} related commits for case {} autoblame_id={}".format(
-                len(commit_results['commits']), case_name_branch, report_uuid))
-            logger.debug("Related commits for case {}:{}".format(
-                case_name_branch, commit_results['commits']))
-            autoblame_table.extend(commit_results['commits'])
-        kusto_row_data["autoblame_id"] = report_uuid
-
         # Check and set trigger icm flag
         history_case_branch_df = history_case_df[history_case_df['BranchName'] == branch]
         kusto_table = self.trigger_icm(
             case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, is_module_path)
-        return kusto_table, autoblame_table
+        return kusto_table
+
+    def generate_autoblame_ado_data(self, uploading_data_list):
+        autoblame_table = []
+        related_workitem = []
+        for kusto_row_data in uploading_data_list:
+            # Search related ADO work items with case name
+            case_name = kusto_row_data['testcase']
+            module_path = kusto_row_data['module_path']
+            branch = kusto_row_data['branch']
+            logger.debug("Start to search related ADO work item for case {} branch {}.".format(
+                case_name, branch))
+
+            # related_workitem = self.search_ADO([case_name, module_path], False)
+            if len(related_workitem) == 0:
+                logger.debug("Didn't find any related ADO work item for case {} module path {}.".format(
+                    case_name, module_path))
+            else:
+                kusto_row_data['failure_level_info']['found_related_workitem'] = True
+                logger.info("Found {} related ADO work item for case {} module path {}".format(
+                    len(related_workitem), case_name, module_path))
+                logger.debug(
+                    "Related ADO work item:{}".format(related_workitem))
+
+            # Search related commits with keywords and bracnh
+            keywords = [case_name]
+            keywords.extend(kusto_row_data['module_path'].split("."))
+            tag = ''
+            if branch in ['20220531', '20201231']:
+                consistent_failure_os_version = kusto_row_data[
+                    'per_os_version_info']["consistent_failure_os_version"]
+                if consistent_failure_os_version and len(consistent_failure_os_version) > 0:
+                    tag = consistent_failure_os_version[0]
+                else:
+                    tag = kusto_row_data['per_os_version_info']['latest_failure_os_version']
+
+            fmt = '%Y-%m-%d %H:%M:%S'
+            end_time = kusto_row_data['failure_level_info']['oldest_failure_timestamp']
+            end_time = datetime.strptime(end_time, fmt)
+            end_time_str = end_time.strftime(fmt)
+            start_time = end_time - timedelta(days=7)
+            start_time_str = start_time.strftime(fmt)
+            logger.info("keywords={} tag={} start_time={}, end_time={}".format(
+                keywords, tag, start_time_str, end_time_str))
+            report_uuid, commit_results = self.search_autoblame(
+                keywords, branch, tag, start_time_str, end_time_str)
+            if report_uuid is not None:
+                kusto_row_data['failure_level_info']['found_related_commit'] = True
+                logger.info("Found {} related commits for case {} branch {} autoblame_id={}".format(
+                    len(commit_results['commits']), case_name, branch, report_uuid))
+                logger.debug("Related commits for case {} branch {}:{}".format(
+                    case_name, branch, commit_results['commits']))
+                autoblame_table.extend(commit_results['commits'])
+            kusto_row_data["autoblame_id"] = report_uuid
+        return uploading_data_list, autoblame_table
 
     def trigger_icm(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, is_module_path=False):
         kusto_table = []
@@ -1046,9 +1612,11 @@ class Analyzer(object):
             kusto_row_data['failure_level_info']['is_full_failure'] = True
             kusto_row_data['trigger_icm'] = True
             if is_module_path:
-                kusto_row_data['subject'] = "[" + module_path + "][" + branch + "]"
+                kusto_row_data['subject'] = "[" + \
+                    module_path + "][" + branch + "]"
             else:
-                kusto_row_data['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "]"
+                kusto_row_data['subject'] = "[" + module_path + \
+                    "][" + case_name + "][" + branch + "]"
             kusto_table.append(kusto_row_data)
         elif total_success_rate < regression_success_rate_threshold:
             logger.info("Success rate of {} on branch {} is lower than {}.".format(
@@ -1056,13 +1624,15 @@ class Analyzer(object):
             # kusto_row_data['failure_level_info']['is_regression'] = True
             kusto_row_data['trigger_icm'] = True
             if is_module_path:
-                kusto_row_data['subject'] = "[" + module_path + "][" + branch + "]"
+                kusto_row_data['subject'] = "[" + \
+                    module_path + "][" + branch + "]"
             else:
-                kusto_row_data['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "]"
+                kusto_row_data['subject'] = "[" + module_path + \
+                    "][" + case_name + "][" + branch + "]"
             kusto_table.append(kusto_row_data)
         else:
             # Step 2. Check if every os version has success rate lower than threshold
-            # For one specific os version, for 202012 and 202205, only check its success rate when total case is higher than 3,
+            # For one specific os version, for 20201231 and 20220531, only check its success rate when total case is higher than 3,
             # for internal and master, only check its success rate when total case is higher than 2,
             # otherwise ignore this os version.
             per_os_version_info = history_testcases[case_name_branch]["per_os_version_info"]
@@ -1081,9 +1651,11 @@ class Analyzer(object):
                         # kusto_row_data['failure_level_info']['is_regression'] = True
                         kusto_row_data['trigger_icm'] = True
                         if is_module_path:
-                            kusto_row_data['subject'] = "[" + module_path + "][" + branch + "]"
+                            kusto_row_data['subject'] = "[" + \
+                                module_path + "][" + branch + "]"
                         else:
-                            kusto_row_data['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "]"
+                            kusto_row_data['subject'] = "[" + module_path + \
+                                "][" + case_name + "][" + branch + "]"
                         kusto_table.append(kusto_row_data)
                         logger.info("{} os_version {} success_rate {} generate one IcM.".format(
                             case_name_branch, os_version, success_rate))
@@ -1105,9 +1677,12 @@ class Analyzer(object):
                     # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
                     new_kusto_row_data_asic['trigger_icm'] = True
                     if is_module_path:
-                        new_kusto_row_data_asic['subject'] = "[" + module_path + "][" + branch + "][" + asic + "]"
+                        new_kusto_row_data_asic['subject'] = "[" + \
+                            module_path + "][" + branch + "][" + asic + "]"
                     else:
-                        new_kusto_row_data_asic['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "][" + asic + "]"
+                        new_kusto_row_data_asic['subject'] = "[" + module_path + \
+                            "][" + case_name + "][" + \
+                            branch + "][" + asic + "]"
                     kusto_table.append(new_kusto_row_data_asic)
                 elif int(success_rate.split("%")[0]) == 100:
                     logger.info("{} The success rate on asic {} is 100%, skip it.".format(
@@ -1115,11 +1690,11 @@ class Analyzer(object):
                     continue
                 else:
                     asic_case_df = history_case_branch_df[history_case_branch_df['AsicType'] == asic]
-                    logger.info("{} asic_case_df for asic {} is :{}".format(
+                    logger.debug("{} asic_case_df for asic {} is :{}".format(
                         case_name_branch, asic, asic_case_df))
                     filter_success_rate_results = self.calculate_success_rate(
                         asic_case_df, 'HardwareSku', 'hwsku')
-                    logger.info("{} success rate after filtering by asic {}: {}".format(
+                    logger.debug("{} success rate after filtering by asic {}: {}".format(
                         case_name_branch, asic, json.dumps(filter_success_rate_results, indent=4)))
                     asic_hwsku_results.update(
                         {asic: filter_success_rate_results})
@@ -1141,12 +1716,74 @@ class Analyzer(object):
                         # new_kusto_row_data_hwsku['failure_level_info']['is_regression'] = True
                         new_kusto_row_data_hwsku['trigger_icm'] = True
                         if is_module_path:
-                            new_kusto_row_data_hwsku['subject'] = "[" + module_path + "][" + branch + "][" + asic + "][" + hwsku + "]"
+                            new_kusto_row_data_hwsku['subject'] = "[" + module_path + \
+                                "][" + branch + "][" + \
+                                asic + "][" + hwsku + "]"
                         else:
                             new_kusto_row_data_hwsku['subject'] = "[" + module_path + "][" + case_name + \
-                                    "][" + branch + "][" + asic + "][" + hwsku + "]"
+                                "][" + branch + "][" + \
+                                asic + "][" + hwsku + "]"
                         kusto_table.append(new_kusto_row_data_hwsku)
+            if kusto_table:
+                logger.debug("{} Found {} IcMs. Not check hwsku_osversion anymore.".format(
+                    case_name_branch, len(kusto_table)))
+                return kusto_table
+            # Step 5. Check hwsku_osversion level for release branches
+            if branch in ['20201231', '20220531']:
+                # per_hwsku_osversion_info = history_testcases[case_name_branch]["per_hwsku_osversion_info"]
+                branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
+                latest_osversion = branch_df['OSVersion'].max()
+                branch_df = branch_df[branch_df['OSVersion']
+                                      == latest_osversion]
+                hwsku_osversion_results = self.calculate_combined_success_rate(
+                    branch_df, 'hwsku_osversion')
 
+                for hwsku_osversion_pass_rate in hwsku_osversion_results["success_rate"]:
+                    hwsku_osversion = hwsku_osversion_pass_rate.split(":")[
+                        0].strip()
+                    success_rate = hwsku_osversion_pass_rate.split(":")[
+                        1].strip()
+                    if int(success_rate.split("%")[0]) < regression_success_rate_threshold:
+                        new_kusto_row_data_hwsku_osversion = kusto_row_data.copy()
+                        # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
+                        new_kusto_row_data_hwsku_osversion['trigger_icm'] = True
+                        if is_module_path:
+                            new_kusto_row_data_hwsku_osversion['subject'] = "[" + \
+                                module_path + "][" + branch + \
+                                "][" + hwsku_osversion + "]"
+                        else:
+                            new_kusto_row_data_hwsku_osversion['subject'] = "[" + module_path + \
+                                "][" + case_name + "][" + branch + \
+                                "][" + hwsku_osversion + "]"
+                        kusto_table.append(new_kusto_row_data_hwsku_osversion)
+                    elif int(success_rate.split("%")[0]) == 100:
+                        logger.debug("{} The success rate on hwsku_osversion {} is 100%, skip it.".format(
+                            case_name_branch, hwsku_osversion))
+                        continue
+            if kusto_table:
+                logger.debug("{} Found {} IcMs. Not check hwsku_topo anymore.".format(
+                    case_name_branch, len(kusto_table)))
+                return kusto_table
+            # # Step 6. Check hwsku_topo level for release branches
+            # if branch in ['20201231', '20220531']:
+            #     per_hwsku_topo_info = history_testcases[case_name_branch]["per_hwsku_topo_info"]
+
+            #     for hwsku_topo_pass_rate in per_hwsku_topo_info["success_rate"]:
+            #         hwsku_topo = hwsku_topo_pass_rate.split(":")[0].strip()
+            #         success_rate = hwsku_topo_pass_rate.split(":")[1].strip()
+            #         if int(success_rate.split("%")[0]) < regression_success_rate_threshold:
+            #             new_kusto_row_data_hwsku_topo = kusto_row_data.copy()
+            #             # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
+            #             new_kusto_row_data_hwsku_topo['trigger_icm'] = True
+            #             if is_module_path:
+            #                 new_kusto_row_data_hwsku_topo['subject'] = "[" + module_path + "][" + branch + "][" + hwsku_topo + "]"
+            #             else:
+            #                 new_kusto_row_data_hwsku_topo['subject'] = "[" + module_path + "][" + case_name + "][" + branch + "][" + hwsku_topo + "]"
+            #             kusto_table.append(new_kusto_row_data_hwsku_topo)
+            #         elif int(success_rate.split("%")[0]) == 100:
+            #             logger.debug("{} The success rate on hwsku_topo {} is 100%, skip it.".format(
+            #                 case_name_branch, hwsku_topo))
+            #             continue
         # TODO: check if case is recent failure
         # if 'is_recent_failure' in history_testcases[case_name_branch] and history_testcases[case_name_branch]['is_recent_failure']:
         #     kusto_row_data['failure_level_info']['is_recent_failure'] = True
@@ -1203,7 +1840,7 @@ class Analyzer(object):
             # timestamp +items uuid,list
             # store to kusto
             if len(upload_datas) == 0:
-                logger.info("No commit found for keywords {} on branch {}".format(
+                logger.debug("No commit found for keywords {} on branch {}".format(
                     keywords, branch_list))
                 return None, None
             res['commits'] = upload_datas
@@ -1213,67 +1850,6 @@ class Analyzer(object):
             logger.error(traceback.format_exc())
             return None, None
         return reportid, res
-
-    def init_parent_relations2list(self, parent_id):
-        """
-        Request url of given parent_id to get its relations including parent, child, relative
-        Get child fields by above children url, then store one standby list for next function search_ADO
-        """
-        workitem_parent_url = "https://dev.azure.com/msazure/One/_apis/wit/workitems?id=" + \
-            str(parent_id) + "&$expand=all"
-        logger.info("parent workitem url:{}".format(workitem_parent_url))
-        try:
-            parent_relations = requests.get(
-                workitem_parent_url, auth=AUTH).json()["relations"]
-            if not parent_relations:
-                logger.error(
-                    "Failed to get work items from parent_id {}".format(parent_id))
-                return
-
-            child_url_set = set()
-            for relation in parent_relations:
-                if relation and relation["attributes"]["name"] == "Child":
-                    child_url_set.add(relation["url"])
-            child_url_list = list(child_url_set)
-        except Exception as e:
-            logger.error(
-                "Get parent work item but throw an exception: {}".format((repr(e))))
-            logger.error(traceback.format_exc())
-            return
-
-        with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(
-                self.child_url_extract_fields, url) for url in child_url_list]
-            for future in as_completed(futures):
-                self.child_standby_list.append(future.result())
-
-    def child_url_extract_fields(self, child_url):
-        if not child_url:
-            logger.eror("child url is null")
-            return
-        try:
-            child_dict = requests.get(child_url, auth=AUTH).json()
-            child_fields_dict = child_dict["fields"]
-            if not child_fields_dict:
-                logger.eror(
-                    "Failed to get fields of work items from child_id {}".format(child_dict["id"]))
-                return
-        except Exception as e:
-            logger.error(
-                "Get child work items but throw an exception: {}".format((repr(e))))
-            logger.error(traceback.format_exc())
-            return
-        child_core_attribute = {
-            "ID": child_dict["id"],
-            "title": child_fields_dict.get("System.Title", "No title"),
-            "URL": child_dict["url"],
-            "status": child_fields_dict.get("System.State", "No status"),
-            "owner": child_fields_dict["System.CreatedBy"].get("displayName", "No owner"),
-            "tags": child_fields_dict.get("System.Tags", "No tag"),
-            "createdDate": child_fields_dict.get("System.CreatedDate", "No CreatedDate"),
-            "changedDate": child_fields_dict.get("System.ChangedDate", "No ChangedDate")
-        }
-        return child_core_attribute
 
     def search_ADO(self, keywords, is_resolved_included=False):
         """
@@ -1302,6 +1878,74 @@ class Analyzer(object):
 
         return result_list
 
+    def print_analysis_table(self, table):
+        if not table:
+            return
+        try:
+            case_table = prettytable.PrettyTable()
+            if 'failure_level_info' in table[0].keys():
+                header = ["Index", "TestInfo", "FailureLevelInfo", "PerAsicTestInfo", "PerHwskuTestInfo",
+                          'PerTestbedTestInfo', 'PerOSVersionTestInfo']
+            else:
+                header = ["TestInfo", "PerAsicTestInfo", "PerHwskuTestInfo",
+                          'PerTestbedTestInfo', 'PerOSVersionTestInfo']
+            if 'per_hwsku_osversion_info' in table[0].keys():
+                header.append('PerHwskuOsversionTestInfo')
+
+            case_table.field_names = header
+            case_table.align = "l"  # left align
+            case_table.max_width = 1000  # maximun width of all columns
+            for idx, case in enumerate(table):
+                FailureLevelInfo = []
+                PerHwskuOsversionTestInfo = []
+                content = []
+
+                if 'trigger_icm' not in case:
+                    TestInfo = case['testcase'] + "\n"+case['module_path'] + \
+                        "\n"+case['branch'] + "\n" + case['latest_failure_timestamp'] + \
+                        "\n" + case['oldest_failure_timestamp'] + "\n" + "end"
+                else:
+                    TestInfo = case['testcase'] + "\n"+case['module_path'] + \
+                        "\n"+case['branch'] + "\n" + str(case['trigger_icm']) + "\n" + "end"
+                if 'failure_level_info' in case.keys():
+                    FailureLevelInfo = json.dumps(
+                        case['failure_level_info'], indent=4)
+
+                PerAsicTestInfo = json.dumps(case['per_asic_info'], indent=4)
+                PerHwskuTestInfo = json.dumps(case['per_hwsku_info'], indent=4)
+                PerTestbedTestInfo = json.dumps(
+                    case['per_testbed_info'], indent=4)
+                if 'per_hwsku_osversion_info' in case.keys():
+                    PerHwskuOsversionTestInfo = json.dumps(
+                        case['per_hwsku_osversion_info'], indent=4)
+                PerOSVersionTestInfo = json.dumps(
+                    case['per_os_version_info'], indent=4)
+
+                if 'FailureLevelInfo' in case_table.field_names:
+                    content = [idx + 1, TestInfo, FailureLevelInfo, PerAsicTestInfo,
+                               PerHwskuTestInfo, PerTestbedTestInfo, PerOSVersionTestInfo]
+                else:
+                    content = [TestInfo, PerAsicTestInfo,
+                               PerHwskuTestInfo, PerTestbedTestInfo, PerOSVersionTestInfo]
+                if 'PerHwskuOsversionTestInfo' in case_table.field_names:
+                    content.append(PerHwskuOsversionTestInfo)
+                case_table.add_row(content)
+            case_table.hrules = prettytable.ALL
+            case_table.vrules = prettytable.ALL
+
+            print(case_table)
+        except Exception as e:
+            logger.error(
+                "Print analysis table failed with exception: {}".format(repr(e)))
+            logger.error(traceback.format_exc())
+            logger.info("table header length {}: {}".format(
+                len(case_table.field_names), case_table.field_names))
+            logger.info("table content length {}: {}".format(
+                len(content), content))
+            logger.info("case: {}".format(json.dumps(case, indent=4)))
+
+        return
+
 
 def parse_config_file():
     configuration = {}
@@ -1318,9 +1962,99 @@ def main(icm_limit):
     start_time = datetime.utcnow()
     configuration = parse_config_file()
     kusto_connector = KustoConnector(configuration)
-    analyzer = Analyzer(kusto_connector, configuration)
+    exclude_case_list = []
 
-    analyzer.run(icm_limit)
+    general = GeneralAnalyzer(kusto_connector, configuration, icm_limit)
+    error_new_icm_table, error_duplicated_icm_table = general.run_setup_error()
+    for case in error_new_icm_table + error_duplicated_icm_table:
+        exclude_case_list.append(case['full_casename'])
+
+    failure_new_icm_table, failure_duplicated_icm_table = general.run_failure()
+    for case in failure_new_icm_table + failure_duplicated_icm_table:
+        exclude_case_list.append(case['full_casename'])
+    logger.info("=================Exclude the following cases=================")
+    for index, case in enumerate(exclude_case_list):
+        logger.info("{}: {}".format(index + 1, case))
+
+    new_icm_table_202012, duplicated_icm_table_202012 = general.run_failure(
+        "20201231", exclude_case_list)
+
+    new_icm_table_202205, duplicated_icm_table_202205 = general.run_failure(
+        "20220531", exclude_case_list)
+
+    logger.info("=================Setup error cases=================")
+    logger.info("Found {} IcM for setup error cases".format(
+        len(error_new_icm_table)))
+    for index, case in enumerate(error_new_icm_table):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+    logger.info("Found {} duplicated IcM for setup error cases".format(
+        len(error_duplicated_icm_table)))
+    for index, case in enumerate(error_duplicated_icm_table):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+
+    logger.info("=================General failure cases=================")
+    logger.info("Found {} IcM for general failure cases".format(
+        len(failure_new_icm_table)))
+    for index, case in enumerate(failure_new_icm_table):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+    logger.info("Found {} duplicated IcM for general failure cases".format(
+        len(failure_duplicated_icm_table)))
+    for index, case in enumerate(failure_duplicated_icm_table):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+
+    logger.info("=================202012 failure cases=================")
+    logger.info("Found {} IcM for 202012 failure cases".format(
+        len(new_icm_table_202012)))
+    for index, case in enumerate(new_icm_table_202012):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+    logger.info("Found {} duplicated IcM for 202012 failure cases".format(
+        len(duplicated_icm_table_202012)))
+    for index, case in enumerate(duplicated_icm_table_202012):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+
+    logger.info("=================202205 failure cases=================")
+    logger.info("Found {} IcM for 202205 failure cases".format(
+        len(new_icm_table_202205)))
+    for index, case in enumerate(new_icm_table_202205):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+    logger.info("Found {} duplicated IcM for 202205 failure cases".format(
+        len(duplicated_icm_table_202205)))
+    for index, case in enumerate(duplicated_icm_table_202205):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+
+    final_error_list, final_failure_list, uploading_dupplicated_list = general.deduplication(
+        error_new_icm_table, failure_new_icm_table, new_icm_table_202012, new_icm_table_202205)
+    logger.info(
+        "=================After deduplication, final result=================")
+    logger.info("Will report {} new error cases".format(len(final_error_list)))
+    for index, case in enumerate(final_error_list):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+    logger.info("Will report {} new failure cases".format(
+        len(final_failure_list)))
+    for index, case in enumerate(final_failure_list):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+    logger.info("Will report {} duplicated cases".format(
+        len(uploading_dupplicated_list)))
+    for index, case in enumerate(uploading_dupplicated_list):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+
+    duplicated_icm_table = error_duplicated_icm_table + failure_duplicated_icm_table + \
+        duplicated_icm_table_202012 + duplicated_icm_table_202205 + uploading_dupplicated_list
+    logger.info(
+        "=================After deduplication, total duplicated IcMs=================")
+    logger.info("Total duplicated cases {}".format(len(duplicated_icm_table)))
+    for index, case in enumerate(duplicated_icm_table):
+        logger.info("{}: {}".format(index + 1, case['subject']))
+
+    final_list, autoblame_table = general.generate_autoblame_ado_data(
+        final_error_list + final_failure_list)
+    logger.info("=================AutoBlame items=================")
+    logger.info("Total Autoblame items {}: one example {}".format(len(autoblame_table), autoblame_table[0]))
+    # for index, case in enumerate(autoblame_table):
+    #     logger.info("{}: {} {}".format(
+    #         index + 1, case['autoblame_id']))
+
+    general.upload_to_kusto(final_list, duplicated_icm_table, autoblame_table)
 
     end_time = datetime.utcnow()
     logger.info("Cost {} for this run.".format(end_time - start_time))
