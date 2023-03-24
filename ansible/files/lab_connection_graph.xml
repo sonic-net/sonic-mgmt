@@ -1,10 +1,10 @@
 <LabConnectionGraph>
   <PhysicalNetworkGraphDeclaration>
     <Devices>
-      <Device Hostname="str-msn2700-01" HwSku="Mellanox-2700" Type="DevSonic"/>
-      <Device Hostname="str-7260-10" HwSku="Arista-7260QX-64" Type="FanoutLeaf"/>
-      <Device Hostname="str-7260-11" HwSku="Arista-7260QX-64" Type="FanoutRoot"/>
-      <Device Hostname="str-acs-serv-01" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="str-msn2700-01" HwSku="Mellanox-2700" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str-7260-10" HwSku="Arista-7260QX-64" Os="sonic" Type="FanoutLeaf"/>
+      <Device Hostname="str-7260-11" HwSku="Arista-7260QX-64" Os="eos" Type="FanoutRoot"/>
+      <Device Hostname="str-acs-serv-01" HwSku="TestServ" Os="ubuntu" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet1" StartDevice="str-msn2700-01" StartPort="Ethernet0"/>
@@ -98,9 +98,9 @@
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
-      <DeviceConsoleInfo Hostname="console-1" HwSku="Cisco" ManagementIp="192.168.10.1/23" Protocol="ssh" Type="ConsoleServer"/>
-      <DeviceConsoleInfo Hostname="console-2" HwSku="Sonic" ManagementIp="192.168.10.2/23" Protocol="ssh" Type="ConsoleServer"/>
-      <DeviceConsoleInfo Hostname="management-1" HwSku="Sonic" ManagementIp="192.168.10.3/23" Protocol="" Type="MgmtTsToRRouter"/>
+      <DeviceConsoleInfo Hostname="console-1" HwSku="Cisco" ManagementIp="192.168.10.1/23" Os="sonic" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-2" HwSku="Sonic" ManagementIp="192.168.10.2/23" Os="cisco" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="management-1" HwSku="Sonic" ManagementIp="192.168.10.3/23" Os="sonic" Protocol="" Type="MgmtTsToRRouter"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-msn2700-01" Proxy="root" StartDevice="console-1" StartPort="10"/>
@@ -111,7 +111,7 @@
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
     <DevicesBmcInfo>
-      <DeviceBmcInfo Hostname="management-1" HwSku="Sonic" ManagementIp="192.168.10.3/23" Protocol="" Type="MgmtTsToRRouter"/>
+      <DeviceBmcInfo Hostname="management-1" HwSku="Sonic" ManagementIp="192.168.10.3/23" Os="sonic" Protocol="" Type="MgmtTsToRRouter"/>
     </DevicesBmcInfo>
     <BmcLinksInfo>
       <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
@@ -119,8 +119,8 @@
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
-      <DevicePowerControlInfo Hostname="pdu-1" HwSku="Apc" ManagementIp="192.168.9.2" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-2" HwSku="Sentry" ManagementIp="192.168.9.3" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-1" HwSku="Apc" ManagementIp="192.168.9.2" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-2" HwSku="Sentry" ManagementIp="192.168.9.3" Os="" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
       <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU1" StartDevice="pdu-1" StartPort="1"/>
