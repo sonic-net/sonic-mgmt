@@ -1,0 +1,4 @@
+[flake8]
+per-file-ignores =
+    # line too long
+    tests/macsec/macsec_helper.py: E501

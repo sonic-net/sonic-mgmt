@@ -2,11 +2,16 @@ import pexpect
 import logging
 import time
 import re
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 
 TOTAL_PACKETS = 100
 logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 
 def test_console_escape(duthost_console, duthost):

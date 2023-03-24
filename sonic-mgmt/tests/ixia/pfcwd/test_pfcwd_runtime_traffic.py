@@ -1,25 +1,19 @@
 import pytest
 
-from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+from tests.common.helpers.assertions import pytest_require
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config
-from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api, ixia_testbed_config                 # noqa F401
+from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list                     # noqa F401
 
 from .files.pfcwd_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
 
-def test_pfcwd_runtime_traffic(ixia_api,
-                               ixia_testbed_config,
-                               conn_graph_facts,
-                               fanout_graph_facts,
-                               duthosts,
-                               rand_one_dut_hostname,
-                               rand_one_dut_portname_oper_up,
-                               all_prio_list,
-                               prio_dscp_map):
+
+def test_pfcwd_runtime_traffic(ixia_api, ixia_testbed_config, conn_graph_facts, fanout_graph_facts,     # noqa F811
+                               duthosts, rand_one_dut_hostname, rand_one_dut_portname_oper_up,
+                               all_prio_list, prio_dscp_map):                                           # noqa F811
     """
     Test PFC watchdog's impact on runtime traffic
 

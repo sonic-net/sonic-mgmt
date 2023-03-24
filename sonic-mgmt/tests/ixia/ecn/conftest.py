@@ -4,6 +4,7 @@ from tests.common.system_utils import docker
 
 import pytest
 
+
 def pytest_addoption(parser):
     '''
     Add option to ECN pytest
@@ -14,6 +15,7 @@ def pytest_addoption(parser):
     '''
     add_ecn_args(parser)
 
+
 @pytest.fixture(scope="module", autouse=True)
 def ptfhost(ansible_adhoc, request):
     ptf_name = request.config.getoption("--ixia_ptf_name")
@@ -23,6 +25,7 @@ def ptfhost(ansible_adhoc, request):
     else:
         print("No ixia_ptf_name argument is given, No ptf access will work.")
         return
+
 
 @pytest.fixture(scope="module", autouse=True)
 def prepare_ptf(ptfhost):
@@ -36,10 +39,11 @@ def prepare_ptf(ptfhost):
         ptfhost.file(path='/root/ixia_ptftests', state="absent")
         ptfhost.file(path='/root/ixia_saitests', state="absent")
 
+
 # Pulled from qos_sai_base.py
 @pytest.fixture(scope='module', autouse=True)
 def swapSyncd(request, ptfhost, duthosts, rand_one_dut_hostname, creds):
-    """ 
+    """
         Swap syncd on DUT host
 
         Args:

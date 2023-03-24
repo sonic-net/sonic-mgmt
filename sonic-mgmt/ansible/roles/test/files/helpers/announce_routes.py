@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import cPickle
 import os
 import time
 import sys

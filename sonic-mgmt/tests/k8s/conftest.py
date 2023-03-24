@@ -7,8 +7,10 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(autouse=True)
 def check_k8s_vms(k8scluster):
     """
-    This fixture runs before each k8s test to make sure that Kubernetes API server is reachable on all backend master servers
-    This fixture also runs after each test to start kubelet if necessary- in case test code stopped kubelet, and test failed before reaching logic to start kubelet
+    This fixture runs before each k8s test to make sure that Kubernetes API server is reachable
+    on all backend master servers
+    This fixture also runs after each test to start kubelet if necessary- in case test code stopped kubelet,
+    and test failed before reaching logic to start kubelet
 
     Args:
     k8scluster:  Shortcut fixture for getting Kubernetes master hosts
@@ -30,10 +32,10 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
     # When loganalyzer is disabled, the object could be None
     if loganalyzer:
-         ignoreRegex = [
-             ".*Max retries exceeded with url: /admin.conf.*",
-             ".*for troubleshooting tips.*",
-             ".*kubeproxy.*",
-         ]
-         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+        ignoreRegex = [
+            ".*Max retries exceeded with url: /admin.conf.*",
+            ".*for troubleshooting tips.*",
+            ".*kubeproxy.*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
     yield

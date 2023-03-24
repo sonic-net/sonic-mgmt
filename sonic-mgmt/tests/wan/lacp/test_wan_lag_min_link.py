@@ -5,7 +5,7 @@ import logging
 import ipaddress
 import threading
 
-from queue import Queue
+from six.moves.queue import Queue
 from ptf import testutils, mask, packet
 from tests.common import config_reload
 from tests.common.utilities import wait_until

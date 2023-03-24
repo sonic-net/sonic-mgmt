@@ -17,7 +17,7 @@ pytestmark = [
     pytest.mark.topology('t2')
 ]
 
-ADDR = ipaddress.IPv4Interface("50.1.1.1/24")
+ADDR = ipaddress.IPv4Interface(u"50.1.1.1/24")
 
 
 def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):

@@ -17,8 +17,8 @@ class ACSDataplaneTest(BaseTest):
         BaseTest.setUp(self)
 
         self.test_params = test_params_get()
-        print "You specified the following test-params when invoking ptf:"
-        print self.test_params
+        print("You specified the following test-params when invoking ptf:")
+        print(self.test_params)
 
         # shows how to use a filter on all our tests
         add_filter(not_ipv6_filter)

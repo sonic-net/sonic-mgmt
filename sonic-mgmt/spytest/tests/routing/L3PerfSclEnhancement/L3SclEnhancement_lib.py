@@ -383,7 +383,7 @@ def ip_incr(ip,octet):
    ip_list[octet] = str(int(ip_list[octet]) + 1)
    return '.'.join(ip_list)
 
-#print (ip_incr("8.0.0.1",2))
+#print(ip_incr("8.0.0.1",2))
 
 def ip_range(ip,octet,scl):
     i=0
@@ -403,7 +403,7 @@ def ip_range(ip,octet,scl):
             j += 1
     return ip_list
 
-#print ip_range('8.0.0.1',2,1000)
+#print(ip_range('8.0.0.1',2,1000))
 
 def ipv6_list(ipv6,count):
     j=0

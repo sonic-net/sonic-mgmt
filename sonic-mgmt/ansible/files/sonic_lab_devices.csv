@@ -2,3 +2,4 @@ Hostname,ManagementIp,HwSku,Type,Protocol
 sonic-ucs-m3-2,1.74.23.19,,blank,ssh
 nexus-5,1.74.23.8,C9336C-FX2,fanout,ssh
 sherman-01,1.74.23.17/16,36x100Gb,DevSonic,ssh
+

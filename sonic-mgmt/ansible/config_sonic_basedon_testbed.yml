@@ -592,7 +592,7 @@
          - name: restart bgp container
            become: true
            shell: docker restart bgp
-        when: topo == "wan-ecmp"
+        when: topo == "wan-ecmp" or topo == "wan-pub-isis"
 
       - block:
         - name: set the default grpc credential file path

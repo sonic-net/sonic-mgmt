@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-from urllib import response     # noqa F401
+from six.moves.urllib import response     # noqa F401
 import grpc
 
 from collections import namedtuple

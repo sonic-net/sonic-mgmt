@@ -30,6 +30,9 @@ all:
             console-2:
               ansible_host: 192.168.10.2
               os: sonic
+            management-1:
+              ansible_host: 192.168.10.3
+              os: sonic
     ptf:
       hosts:
         ptf_ptf1:

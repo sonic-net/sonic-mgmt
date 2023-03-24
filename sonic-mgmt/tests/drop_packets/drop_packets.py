@@ -14,7 +14,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzerError
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
 
 
@@ -296,9 +296,10 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
 
 @pytest.fixture
-def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthosts, loganalyzer):
+def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthosts):
     """Shut RIF interface and return neighbor IP address attached to this interface."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_rif_port_down")
     wait_after_ports_up = 30
 
     if not setup["rif_members"]:
@@ -317,16 +318,16 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
 
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
 
-    loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
-    with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] as _:
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
+    with loganalyzer as _:
         fanout_neighbor.shutdown(fanout_intf)
 
     time.sleep(1)
 
     yield ip_dst
 
-    loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
-    with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] as _:
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+    with loganalyzer as _:
         fanout_neighbor.no_shutdown(fanout_intf)
         time.sleep(wait_after_ports_up)
 
@@ -372,9 +373,10 @@ def ports_info(ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     return data
 
 
-def acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+def acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
               dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_setup")
         acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
         if 'DATAACL' not in list(acl_facts.keys()):
             pytest.skip("Skipping test since DATAACL table is not present on DUT")
@@ -389,15 +391,16 @@ def acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_r
 
         logger.info("Applying {}".format(dut_conf_file_path))
 
-        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-        with loganalyzer[duthost.hostname]:
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+        with loganalyzer:
             duthost.command("config acl update full {}".format(dut_conf_file_path))
 
 
-def acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path):
+def acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
-        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-        with loganalyzer[duthost.hostname]:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_teardown")
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+        with loganalyzer:
             logger.info("Applying {}".format(dut_clear_conf_file_path))
             duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
             logger.info("Removing {}".format(dut_tmp_dir))
@@ -406,7 +409,7 @@ def acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path):
 
 
 @pytest.fixture
-def acl_ingress(duthosts, loganalyzer):
+def acl_ingress(duthosts):
     """ Create acl rule defined in config file. Delete rule after test case finished """
     base_dir = os.path.dirname(os.path.realpath(__file__))
     template_dir = os.path.join(base_dir, 'acl_templates')
@@ -415,10 +418,10 @@ def acl_ingress(duthosts, loganalyzer):
     dut_tmp_dir = os.path.join("tmp", os.path.basename(base_dir))
     dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
 
-    acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+    acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
               dut_clear_conf_file_path)
     yield
-    acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path)
+    acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path)
 
 
 def create_or_remove_acl_egress_table(duthost, setup, op):
@@ -448,7 +451,7 @@ def create_or_remove_acl_egress_table(duthost, setup, op):
 
 
 @pytest.fixture
-def acl_egress(duthosts, loganalyzer, setup):
+def acl_egress(duthosts, setup):
     """
     Create acl table OUTDATAACL
     Create acl rule defined in config file.
@@ -462,9 +465,10 @@ def acl_egress(duthosts, loganalyzer, setup):
     dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
 
     for duthost in duthosts.frontend_nodes:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_egress")
         try:
-            loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-            with loganalyzer[duthost.hostname]:
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+            with loganalyzer:
                 create_or_remove_acl_egress_table(duthost, setup, "add")
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
@@ -472,10 +476,10 @@ def acl_egress(duthosts, loganalyzer, setup):
             create_or_remove_acl_egress_table(duthost, setup, "remove")
             raise err
 
-    acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+    acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
               dut_clear_conf_file_path)
     yield
-    acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path)
+    acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path)
 
     for duthost in duthosts.frontend_nodes:
         create_or_remove_acl_egress_table(duthost, setup, "remove")
