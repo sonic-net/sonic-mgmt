@@ -51,6 +51,7 @@ parameters:
         - vms24-t0-3800-azd-2
       server_svc_3:
       server_bjw_6:
+      server_29:
 
 jobs:
   - job: TriggerDeepClean
