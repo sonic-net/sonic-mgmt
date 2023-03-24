@@ -359,6 +359,12 @@ everflow/test_everflow_per_interface.py:
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-default]:
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox']"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
     strict: True
