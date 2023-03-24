@@ -2,7 +2,7 @@ import pytest
 from tests.common.cisco_data import is_cisco_device
 from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_upper_tor, \
                                                        simulator_flap_counter, simulator_server_down    # noqa F401
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status, rand_selected_interface           # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                                      # noqa: F401
