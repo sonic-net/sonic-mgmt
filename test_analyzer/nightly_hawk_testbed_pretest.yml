@@ -43,7 +43,7 @@ parameters:
     displayName: "Agent pool"
 
 stages:
-  - template: nightly_pretest.yml
+  - template: nightly_hawk_nightly_pretest.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
