@@ -1,6 +1,8 @@
 import pytest
+import functools
 from swan_agent_helpers import get_swan_agent_file
 from swan_agent_helpers import load_swan_agent, remove_swan_agent
+
 
 def pytest_collection_modifyitems(config, items):
     if not config.getoption("--swan_agent"):
@@ -16,11 +18,10 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture(scope="module")
-def swan_agent_setup_teardown(isis_common_setup_teardown, request):
-    target_devices = []
+def swan_agent_setup_teardown(isis_common_setup_teardown, request, localhost):
     selected_connections = isis_common_setup_teardown
     (dut_host, dut_port, nbr_host, nbr_port) = selected_connections[0]
 
-    load_swan_agent(dut_host)
+    load_swan_agent(dut_host, localhost)
     request.addfinalizer(functools.partial(remove_swan_agent, dut_host))
     yield dut_host
