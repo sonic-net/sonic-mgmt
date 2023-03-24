@@ -987,7 +987,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                 if idx != len(new_icm_table) - 1:
                     logger.info(
                         "Sleep for 30 mins to cover kusto ingestion delay and avoid IcM throttling...")
-                    time.sleep(1)
+                    time.sleep(30 * 60)
 
         ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
         for row in duplicated_icm_table:
@@ -1493,7 +1493,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         kusto_row_data['per_testbed_info'] = history_testcases[case_name_branch]['per_testbed_info']
         kusto_row_data['per_asic_info'] = history_testcases[case_name_branch]['per_asic_info']
         kusto_row_data['per_hwsku_info'] = history_testcases[case_name_branch]['per_hwsku_info']
-        if branch in ['202012', '202205']:
+        if branch in ['20201231', '20220531']:
             kusto_row_data['per_hwsku_osversion_info'] = history_testcases[case_name_branch]['per_hwsku_osversion_info']
         kusto_row_data['per_os_version_info'] = history_testcases[case_name_branch]['per_os_version_info']
         kusto_row_data['failure_level_info']['latest_failure_timestamp'] = history_testcases[case_name_branch]['latest_failure_timestamp'] if 'latest_failure_timestamp' in history_testcases[case_name_branch] else 'NO_FAILURE_TIMESTAMP'
