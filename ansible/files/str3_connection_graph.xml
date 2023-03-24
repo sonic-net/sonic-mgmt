@@ -2160,8 +2160,8 @@
       <PowerControlLinkInfo EndDevice="str3-acs-serv-63" EndPort="PSU2" StartDevice="pdu-115" StartPort="39"/>
       <PowerControlLinkInfo EndDevice="str3-7060-acs-1" EndPort="PSU1" StartDevice="pdu-120" StartPort="32"/>
       <PowerControlLinkInfo EndDevice="str3-7060-acs-1" EndPort="PSU2" StartDevice="pdu-119" StartPort="32"/>
-      <PowerControlLinkInfo EndDevice="str3-7060-acs-2" EndPort="PSU1" StartDevice="pdu-120" StartPort="23"/>
-      <PowerControlLinkInfo EndDevice="str3-7060-acs-2" EndPort="PSU2" StartDevice="pdu-119" StartPort="23"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-2" EndPort="PSU1" StartDevice="pdu-89" StartPort="10"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-2" EndPort="PSU2" StartDevice="pdu-90" StartPort="12"/>
       <PowerControlLinkInfo EndDevice="str3-7060-acs-3" EndPort="PSU1" StartDevice="pdu-120" StartPort="35"/>
       <PowerControlLinkInfo EndDevice="str3-7060-acs-3" EndPort="PSU2" StartDevice="pdu-119" StartPort="35"/>
       <PowerControlLinkInfo EndDevice="str3-7060-acs-fan-01" EndPort="PSU1" StartDevice="pdu-120" StartPort="34"/>

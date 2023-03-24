@@ -64,8 +64,8 @@ pdu-115,38,str3-acs-serv-63,PSU1
 pdu-115,39,str3-acs-serv-63,PSU2
 pdu-120,32,str3-7060-acs-1,PSU1
 pdu-119,32,str3-7060-acs-1,PSU2
-pdu-120,23,str3-7060-acs-2,PSU1
-pdu-119,23,str3-7060-acs-2,PSU2
+pdu-89,10,str3-7060-acs-2,PSU1
+pdu-90,12,str3-7060-acs-2,PSU2
 pdu-120,35,str3-7060-acs-3,PSU1
 pdu-119,35,str3-7060-acs-3,PSU2
 pdu-120,34,str3-7060-acs-fan-01,PSU1
