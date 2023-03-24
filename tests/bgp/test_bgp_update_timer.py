@@ -5,6 +5,7 @@ import logging
 import pytest
 import tempfile
 import time
+import six
 
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
@@ -209,7 +210,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route):
     """Check if the bgp update packet matches."""
     if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
         return False
-    subnet = ipaddress.ip_network(route["prefix"].decode())
+    subnet = ipaddress.ip_network(six.u(route["prefix"]))
 
     # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
     # address the compatibility issue of scapy versions.
@@ -400,6 +401,7 @@ def test_bgp_update_timer_session_down(
             duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
             global current_time
             current_time = time.time()
+            time.sleep(constants.sleep_interval)
 
         with tempfile.NamedTemporaryFile() as tmp_pcap:
             duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
