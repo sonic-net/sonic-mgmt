@@ -98,6 +98,9 @@ parameters:
   type: string
   default: ""
 
+- name: MAX_EXECUTE_SECONDS
+  type: string
+  default: ""
 
 - name: SPECIFIED_PARAMS
   type: string
@@ -131,7 +134,8 @@ steps:
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
       --retry-times ${{ parameters.RETRY_TIMES }} \
       --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
-      --requester ${{ parameters.REQUESTER }}
+      --requester "${{ parameters.REQUESTER }}" \
+      --max-execute-seconds ${{ parameters.MAX_EXECUTE_SECONDS }}
 
       TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
