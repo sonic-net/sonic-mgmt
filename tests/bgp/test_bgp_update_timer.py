@@ -34,6 +34,7 @@ NEIGHBOR_ASN0 = 61000
 NEIGHBOR_ASN1 = 61001
 NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
+WAIT_TIMEOUT = 120
 
 
 @contextlib.contextmanager
@@ -170,7 +171,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route):
     """Check if the bgp update packet matches."""
     if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
         return False
-    subnet = ipaddress.ip_network(route["prefix"])
+    subnet = ipaddress.ip_network(route["prefix"].decode())
 
     # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
     # address the compatibility issue of scapy versions.
@@ -233,7 +234,7 @@ def test_bgp_update_timer_single_route(
         n1.start_session()
 
         # ensure new sessions are ready
-        if not wait_until(90, 5, 20, lambda: is_neighbor_sessions_established(duthost, (n0, n1))):
+        if not wait_until(WAIT_TIMEOUT, 5, 20, lambda: is_neighbor_sessions_established(duthost, (n0, n1))):
             pytest.fail("Could not establish bgp sessions")
 
         announce_intervals = []
@@ -323,7 +324,7 @@ def test_bgp_update_timer_session_down(
         n1.start_session()
         
         # ensure new sessions are ready
-        if not wait_until(90, 5, 20, lambda: is_neighbor_sessions_established(duthost, (n0, n1))):
+        if not wait_until(WAIT_TIMEOUT, 5, 20, lambda: is_neighbor_sessions_established(duthost, (n0, n1))):
             pytest.fail("Could not establish bgp sessions")
 
         withdraw_intervals = []
