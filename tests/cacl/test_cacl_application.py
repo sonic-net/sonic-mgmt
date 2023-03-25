@@ -73,18 +73,25 @@ def docker_network(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asi
     """
     FIXME: Work around dockerd issue. The Gateway entry might be missing. In that case, use 'Subnet' instead.
            Sample output when docker hit the issue (Note that the IPv6 gateway is missing):
-				"Config": [
-					{
-						"Subnet": "240.127.1.1/24",
-						"Gateway": "240.127.1.1"
-					},
-					{
-						"Subnet": "fd00::/80"
-					}
-				]
+           "Config": [
+                      {
+                       "Subnet": "240.127.1.0/24",
+                       "Gateway": "240.127.1.1"
+                      },
+                      {
+                       "Subnet": "fd00::/80"
+                      }
+                     ]
+    When Gateway IP is missing, form the g/w IP as subnet + '1'.
+    IPv4 Gateway would be '240.127.1' + '1'
+    IPv6 Gateway would be 'fd00::' + '1'
     """
-    docker_network['bridge'] = {'IPv4Address' : ipam_info['Config'][0].get('Gateway', ipam_info['Config'][0].get('Subnet')),
-                                'IPv6Address' : ipam_info['Config'][1].get('Gateway', ipam_info['Config'][1].get('Subnet')) }
+    docker_network['bridge'] = {'IPv4Address': ipam_info['Config'][0].get('Gateway',
+                                                                          ipam_info['Config'][0].get('Subnet')
+                                                                          .split('/')[0][:-1] + '1'),
+                                'IPv6Address': ipam_info['Config'][1].get('Gateway',
+                                                                          ipam_info['Config'][1].get('Subnet')
+                                                                          .split('/')[0] + '1')}
 
     docker_network['container'] = {}
     for k,v in docker_containers_info.items():
@@ -328,6 +335,10 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                     else:
                         pytest.fail("Unrecognized IP address type on interface '{}': {}".format(iface_name, ip_ntwrk))
 
+def append_midplane_traffic_rules(duthost, iptables_rules):
+    result = duthost.shell('ip link show | grep -w "eth1-midplane"', module_ignore_errors=True)['stdout']
+    if result:
+        iptables_rules.append("-A INPUT -i eth1-midplane -j ACCEPT")
 
 def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby):
     iptables_rules = []
@@ -517,6 +528,10 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         # Default drop rules
         iptables_rules.append("-A INPUT -j DROP")
         ip6tables_rules.append("-A INPUT -j DROP")
+
+    # IP Table rule to allow eth1-midplane traffic for chassis
+    if asic_index is None:
+        append_midplane_traffic_rules(duthost, iptables_rules)
 
     return iptables_rules, ip6tables_rules
 
@@ -833,7 +848,7 @@ def test_multiasic_cacl_application(duthosts, tbinfo, enum_rand_one_per_hwsku_ho
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     verify_cacl(duthost, tbinfo, localhost, creds, docker_network, None, enum_frontend_asic_index)
-    # Check added to handle testing on supervisor which could be multi-asic dut without any frontend asic 
+    # Check added to handle testing on supervisor which could be multi-asic dut without any frontend asic
     if enum_frontend_asic_index:
         verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
 
