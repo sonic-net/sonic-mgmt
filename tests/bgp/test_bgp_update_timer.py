@@ -399,7 +399,6 @@ def test_bgp_update_timer_session_down(
         bgp_pcap = BGP_DOWN_LOG_TMPL
         with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
             duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
-            global current_time
             current_time = time.time()
             time.sleep(constants.sleep_interval)
 
