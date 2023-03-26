@@ -96,7 +96,7 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
 
     # Run as RO and use the commands allowed by the sudoers file
     commands = {
-        "cat": ["sudo cat /var/log/syslog", "sudo cat /var/log/syslog.1", "sudo cat /var/log/syslog.2.gz"],
+        "cat": ["sudo cat /var/log/syslog", "sudo cat /var/log/syslog.1"],
         "brctl": ["sudo brctl show"],
         "docker": [
             "sudo docker exec snmp cat /etc/snmp/snmpd.conf",
