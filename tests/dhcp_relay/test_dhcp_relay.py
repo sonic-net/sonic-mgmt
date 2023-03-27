@@ -3,6 +3,7 @@ import pytest
 import random
 import time
 import logging
+import re
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
