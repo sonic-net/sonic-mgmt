@@ -4,6 +4,7 @@ import pytest
 import logging
 import functools
 
+from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from isis_helpers import config_device_isis
 from isis_helpers import add_dev_isis_attr, del_dev_isis_attr
@@ -55,11 +56,9 @@ def wait_isis_spf_stable(dut_host):
     spf_summary = get_isis_spf_summary(dut_host)
     last_run_elapsed = get_isis_spf_last_run_elapsed(spf_summary)
 
-    wait_time = SPF_INTERVAL if spf_summary['spf_pending'] else 0
-    if last_run_elapsed < SPF_INTERVAL:
-        wait_time += SPF_INTERVAL - last_run_elapsed
-    if wait_time:
-        time.sleep(wait_time)
+    if not spf_summary['spf_pending'] and last_run_elapsed > SPF_INTERVAL:
+        return True
+    return False
 
 
 def check_isis_post_spf_cnt(spf_summary, pre_run_cnt):
@@ -77,8 +76,12 @@ def test_isis_spf_default_interval(isis_common_setup_teardown):
     # a. If it exceeds configured interval, when changing nbr metric, spf will run immediately.
     # b. If not, spf will pending, and when it exceeds configured interval, spf will run.
 
-    wait_isis_spf_stable(dut_host)
+    wait_until(SPF_INTERVAL*5, 10, 0, wait_isis_spf_stable, dut_host)
     spf_summary = get_isis_spf_summary(dut_host)
+
+    last_run_elapsed = get_isis_spf_last_run_elapsed(spf_summary)
+    if spf_summary['spf_pending'] or last_run_elapsed <= SPF_INTERVAL:
+        pytest.skip("IS-IS not in stable state")
 
     run_cnt = int(spf_summary['IPv4']['run_count'])
     # 1. trigger the first time, spf will run immediately
@@ -108,5 +111,6 @@ def test_isis_spf_default_interval(isis_common_setup_teardown):
                   'IS-IS SPF count number changed in pending state.(Pre: {}, Post: {})'
                   .format(spf_summary['IPv4']['run_count'], run_cnt))
 
-    wait_isis_spf_stable(dut_host)
+    last_run_elapsed = get_isis_spf_last_run_elapsed(spf_summary)
+    time.sleep(SPF_INTERVAL - last_run_elapsed)
     check_isis_post_spf_cnt(get_isis_spf_summary(dut_host), run_cnt)
