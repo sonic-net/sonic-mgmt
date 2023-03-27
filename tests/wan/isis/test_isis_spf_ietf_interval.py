@@ -32,11 +32,11 @@ def isis_set_isis_ietf_spf_params(isis_common_setup_teardown, request):
     selected_connections = isis_common_setup_teardown
 
     config_key_list = ['spf_init_delay', 'spf_short_delay', 'spf_long_delay', 'spf_hold_down', 'spf_time_to_learn']
-    config_dict = {'spf_init_delay': '6000',
-                   'spf_short_delay': '12000',
-                   'spf_long_delay': '18000',
-                   'spf_hold_down': '23000',
-                   'spf_time_to_learn': '15000'}
+    config_dict = {'spf_init_delay': '1000',
+                   'spf_short_delay': '25000',
+                   'spf_long_delay': '35000',
+                   'spf_hold_down': '50000',
+                   'spf_time_to_learn': '40000'}
     for (dut_host, _, _, _) in selected_connections:
         add_dev_isis_attr(dut_host, config_dict)
         target_devices.append(dut_host)
@@ -73,10 +73,11 @@ def wait_for_quiet_state(dut_host):
     if RUN_REGEX.match(spf_facts['holddown_state']):
         holddown_time = RUN_REGEX.match(spf_facts['holddown_state']).group(1)
 
-    wait_time = math.ceil(int(max(pending_time, holddown_time)) / 1000.0)
+    wait_time = math.ceil(max(int(pending_time), int(holddown_time)) / 1000.0)
     time.sleep(wait_time)
 
     spf_facts = get_isis_level2_spf_facts(dut_host)
+
     pytest_assert(spf_facts['spf_delay_status'] == 'Not scheduled',
                   'IS-IS spf delay status {} is not "Not scheduled".'.format(spf_facts['spf_delay_status']))
     pytest_assert(spf_facts['state'] == QUIET,
@@ -86,7 +87,7 @@ def wait_for_quiet_state(dut_host):
 
 def wait_for_short_wait_state(dut_host, nbr_host, nbr_port):
     spf_facts = get_isis_level2_spf_facts(dut_host)
-    if spf_facts['state'] == SHORT_WAIT:
+    if spf_facts['state'] == SHORT_WAIT and PENDING_REGEX.match(spf_facts['spf_delay_status']) is None:
         return spf_facts
     wait_for_quiet_state(dut_host)
     trigger_lsp_update(nbr_host, nbr_port)
@@ -120,7 +121,7 @@ def wait_for_long_wait_state(dut_host, nbr_host, nbr_port):
 
 
 @pytest.mark.parametrize("spf_state", [QUIET, SHORT_WAIT, LONG_WAIT])
-def test_isis_spf_ietf_delay_igp_event(isis_common_setup_teardown, spf_state, capsys):
+def test_isis_spf_ietf_delay_igp_event(isis_common_setup_teardown, spf_state):
     selected_connections = isis_common_setup_teardown
     (dut_host, dut_port, nbr_host, nbr_port) = selected_connections[0]
 
@@ -139,9 +140,6 @@ def test_isis_spf_ietf_delay_igp_event(isis_common_setup_teardown, spf_state, ca
     end_time = datetime.datetime.now()
     time_diff = end_time - start_time
     time_diff = time_diff.total_seconds() * 1000
-
-    # with capsys.disabled():
-    #     print(json.dumps(spf_facts, indent=4))
 
     # with IGP event, timer should start in all state
     pytest_assert(spf_facts['spf_delay_status'] != 'Not scheduled',
@@ -168,7 +166,7 @@ def test_isis_spf_ietf_delay_igp_event(isis_common_setup_teardown, spf_state, ca
 
 
 @pytest.mark.parametrize("spf_state", [QUIET, SHORT_WAIT, LONG_WAIT])
-def test_isis_spf_ietf_delay_timeout(isis_common_setup_teardown, spf_state, capsys):
+def test_isis_spf_ietf_delay_timeout(isis_common_setup_teardown, spf_state):
     selected_connections = isis_common_setup_teardown
     (dut_host, dut_port, nbr_host, nbr_port) = selected_connections[0]
 
@@ -189,10 +187,6 @@ def test_isis_spf_ietf_delay_timeout(isis_common_setup_teardown, spf_state, caps
     wait_time = math.ceil(int(PENDING_REGEX.match(pre_spf_facts['spf_delay_status']).group(1)) / 1000.0)
     time.sleep(wait_time)
     spf_facts = get_isis_level2_spf_facts(dut_host)
-
-    # with capsys.disabled():
-    #     print(json.dumps(pre_spf_facts, indent=4))
-    #     print(json.dumps(spf_facts, indent=4))
 
     pre_run_cnt = int(pre_spf_facts['IPv4']['run_count'])
     run_cnt = int(spf_facts['IPv4']['run_count'])
