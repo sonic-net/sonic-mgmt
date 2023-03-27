@@ -143,3 +143,15 @@ def add_advanced_reboot_args(parser):
             "which helps to keep total runtime within desired limits. Avg time per case: " +\
             "sad(3h45m), multi_sad(5h), sad_bgp(1h5m), sad_lag_member(1h15m), sad_lag(1h15m), sad_vlan_port(1h10m), sad_inboot(1h20m)",
     )
+
+    parser.addoption(
+        "--single_sad_only",
+        action="store_true",
+        default=False
+    )
+
+    parser.addoption(
+        "--multi_sad_only",
+        action="store_true",
+        default=False
+    )
