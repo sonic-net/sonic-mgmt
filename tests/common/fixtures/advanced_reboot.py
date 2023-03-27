@@ -17,6 +17,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.dualtor.data_plane_utils import get_peerhost
+from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,6 @@ HOST_MAX_COUNT = 126
 TIME_BETWEEN_SUCCESSIVE_TEST_OPER = 420
 PTFRUNNER_QLEN = 1000
 REBOOT_CASE_TIMEOUT = 2100
-DUAL_TOR_MODE = False
 
 
 class AdvancedReboot:
@@ -97,9 +97,11 @@ class AdvancedReboot:
         self.vlanMaxCnt = 0
         self.hostMaxCnt = HOST_MAX_COUNT
         if "dualtor" in self.getTestbedType():
-            DUAL_TOR_MODE = True
-            other_duthost = get_peerhost(duthosts, duthost)
-            self.other_duthost = other_duthost if other_duthost != duthost else None
+            self.dual_tor_mode = True
+            peer_duthost = get_standbyhost(duthosts, duthost)
+            self.peer_duthost = peer_duthost if peer_duthost != duthost else None
+        else:
+            self.dual_tor_mode = False
 
         self.__buildTestbedData(tbinfo)
 
@@ -164,10 +166,6 @@ class AdvancedReboot:
         Accessor method for testbed's topology name
         """
         return self.tbinfo['topo']['name']
-    
-    def get_mux_status(self, duthost):
-        cmd = 'show mux status --json'
-        return json.loads(duthost.shell(cmd)['stdout'])
 
     def __buildTestbedData(self, tbinfo):
         """
@@ -175,8 +173,8 @@ class AdvancedReboot:
         """
 
         self.mgFacts = self.duthost.get_extended_minigraph_facts(tbinfo)
-        if DUAL_TOR_MODE:
-            self.other_mgFacts = self.other_duthost.get_extended_minigraph_facts(tbinfo)
+        if self.dual_tor_mode:
+            self.peer_mgFacts = self.peer_duthost.get_extended_minigraph_facts(tbinfo)
 
         self.rebootData['arista_vms'] = [
             attr['mgmt_addr'] for dev, attr in self.mgFacts['minigraph_devices'].items() if attr['hwsku'] == 'Arista-VM'
@@ -612,7 +610,7 @@ class AdvancedReboot:
         return self.runRebootTest()
 
     def __setupRebootOper(self, rebootOper):
-        if DUAL_TOR_MODE:
+        if self.dual_tor_mode:
             for device in self.duthosts:
                 device.shell("config mux mode manual all")
 
@@ -638,10 +636,10 @@ class AdvancedReboot:
             'neigh_port_info': copy.deepcopy(self.mgFacts['minigraph_neighbors']),
         }
 
-        if DUAL_TOR_MODE:
+        if self.dual_tor_mode:
             dualtor_testData = {
-                'peer_ports': copy.deepcopy(self.other_mgFacts['minigraph_ptf_indices']),
-                'dut_mux_status': copy.deepcopy(self.get_mux_status(self.duthost)),
+                'peer_ports': copy.deepcopy(self.peer_mgFacts['minigraph_ptf_indices']),
+                'dut_mux_status': copy.deepcopy(show_muxcable_status(self.duthost)),
             }
             testData.update(dualtor_testData)
 
@@ -665,7 +663,7 @@ class AdvancedReboot:
             rebootOper.verify()
 
     def __revertRebootOper(self, rebootOper):
-        if "dualtor" in self.getTestbedType():
+        if self.dual_tor_mode:
             for device in self.duthosts:
                 device.shell("config mux mode auto all")
 
@@ -713,9 +711,8 @@ class AdvancedReboot:
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
         }
 
-        if DUAL_TOR_MODE:
+        if self.dual_tor_mode:
             params.update({
-            "is_dualtor": True,
             "peer_ports_file": self.rebootData['peer_ports_file'],
             "dut_mux_status": self.rebootData['dut_mux_status_file'],
             })
@@ -837,7 +834,7 @@ class AdvancedReboot:
             logger.info('Stay in new image')
 
 @pytest.fixture
-def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, rand_unselected_dut, ptfhost, localhost, tbinfo,
+def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo,
                         creds):
     """
     Pytest test fixture that provides access to AdvancedReboot test fixture
