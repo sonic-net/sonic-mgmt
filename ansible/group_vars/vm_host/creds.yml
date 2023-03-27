@@ -1,10 +1,10 @@
 ---
-ansible_user: cisco
-ansible_password: C1sco.123
-ansible_become_password: C1sco.123
+ansible_user: use_own_value
+ansible_password: use_own_value
+ansible_become_password: use_own_value
 
 # Use the following username/password variables to login to vm hosts
 # instead of the default variables (defined above).
-vm_host_user: cisco
-vm_host_password: C1sco.123
-vm_host_become_password: C1sco.123
+vm_host_user: use_own_value
+vm_host_password: use_own_value
+vm_host_become_password: use_own_value

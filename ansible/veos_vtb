@@ -102,7 +102,7 @@ all:
         mgmt_subnet_mask_length: 24
         mgmt_subnet_v6_mask_length: 64
         ansible_connection: multi_passwd_ssh
-        ansible_altpassword: C1sco.123
+        ansible_altpassword: YourPaSsWoRd
       hosts:
         vlab-01:
           ansible_host: 10.250.0.101
@@ -277,8 +277,8 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: cisco
-      vm_host_user: cisco
+      ansible_user: use_own_value
+      vm_host_user: use_own_value
 
 vms_1:
   hosts:
