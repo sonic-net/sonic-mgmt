@@ -12,6 +12,7 @@ t0:
   - cacl/test_cacl_function.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
+  - dns/test_dns_resolv_conf.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_bgp_prefix.py
