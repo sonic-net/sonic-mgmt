@@ -3,13 +3,13 @@ name: $(Build.DefinitionName)_Running_Init_$(Build.BuildId)_$(Date:yyyyMMdd)
 trigger: none
 pr: none
 
-schedules:
-  - cron: "0 18 * * Tue,Sun"
-    displayName: Nightly SAI Testing Scheduler
-    branches:
-      include:
-        - internal
-    always: true
+# schedules:
+#  - cron: "0 18 * * Tue,Sun"
+#    displayName: Nightly SAI Testing Scheduler
+#    branches:
+#      include:
+#       - internal
+#    always: true
 
 variables:
   - template: ../../templates/template_variables.yml
