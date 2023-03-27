@@ -61,7 +61,7 @@ class Connection(ConnectionBase):
         self._ssh_command += ['-o', 'ConnectTimeout=' + str(self.timeout)]
 
     def _remove_unprintable(self, buff):
-        return filter(lambda x: x in string.printable, buff)
+        return ''.join([x for x in buff if x in string.printable])
 
     def _spawn_connect(self):
         last_user = None
@@ -106,7 +106,7 @@ class Connection(ConnectionBase):
         if attempt == len(self.login['user']):
             raise AnsibleError("none of the passwords in the book works")
 
-        self.before_backup = client.before.split()
+        self.before_backup = client.before.decode().split()
 
         # determine the sku
         client.sendline('show version')
@@ -115,6 +115,7 @@ class Connection(ConnectionBase):
             # It may be that right after fanout starts
             # the OS on fanout sends few promts which may not
             # include 'show version' output
+            client.before = client.before.decode()
             if 'show version' in client.before:
                 if 'Arista' in client.before:
                     self.sku = 'eos'
@@ -241,7 +242,7 @@ class Connection(ConnectionBase):
             self._display.vvv('> %s' % (cmd), host=self.host)
             client.sendline(cmd)
             client.expect(prompts)
-            before = self._remove_unprintable(client.before)
+            before = self._remove_unprintable(client.before.decode())
             stdout += before
             self._display.vvv('< %s' % (before), host=self.host)
 
