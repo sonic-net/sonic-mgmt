@@ -29,7 +29,8 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder              
 from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
-from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp
+from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp, derive_out_dscp_from_inner_dscp
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -102,7 +103,12 @@ def build_encapsulated_ip_packet(
 
     inner_ttl = random.choice(list(range(3, 65)))
     inner_ecn = random.choice(list(range(0, 3)))
+    if is_tunnel_qos_remap_enabled(tor):
+        outer_dscp = derive_out_dscp_from_inner_dscp(tor, inner_dscp)
+    outer_ecn = inner_ecn
+
     logging.info("Inner DSCP: {0:06b}, Inner ECN: {1:02b}".format(inner_dscp, inner_ecn))
+    logging.info("Outer DSCP: {0:06b}, Outer ECN: {1:02b}".format(outer_dscp, outer_ecn))
 
     inner_packet = testutils.simple_ip_packet(
         ip_src="1.1.1.1",
@@ -116,9 +122,9 @@ def build_encapsulated_ip_packet(
         eth_src=ptfadapter.dataplane.get_mac(0, 0),
         ip_src=peer_ipv4_address,
         ip_dst=tor_ipv4_address,
-        ip_dscp=inner_dscp,
+        ip_dscp=outer_dscp,
         ip_ttl=255,
-        ip_ecn=inner_ecn,
+        ip_ecn=outer_ecn,
         inner_frame=inner_packet
     )
     logging.info("the encapsulated packet to send:\n%s", dump_scapy_packet_show_output(packet))
