@@ -158,6 +158,9 @@ steps:
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state LOCK_TESTBED
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
+      CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
+      CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
     displayName: Lock testbed
 
   - script: |
@@ -171,6 +174,9 @@ steps:
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state PREPARE_TESTBED
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
+      CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
+      CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
     displayName: Prepare testbed
 
   - script: |
@@ -182,6 +188,9 @@ steps:
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
+      CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
+      CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
     displayName: Run test
 
   - script: |
@@ -194,6 +203,9 @@ steps:
     condition: succeededOrFailed()
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
+      CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
+      CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
     displayName: KVM dump
 
   - script: |

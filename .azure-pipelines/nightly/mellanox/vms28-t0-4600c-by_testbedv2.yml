@@ -59,6 +59,34 @@ parameters:
     type: number
     default: 1920
 
+  - name: REPO_NAME
+    type: string
+    default: Networking-acs-buildimage
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal
+
+  - name: STOP_ON_FAILURE
+    type: string
+    default: False
+
+  - name: RETRY_TIMES
+    type: string
+    default: 1
+
+  - name: DUMP_KVM_IF_FAIL
+    type: string
+    default: False
+
+  - name: REQUESTER
+    type: string
+    default: "Nightly Test"
+
+  - name: MAX_EXECUTE_SECONDS
+    type: string
+    default: 172800
+
 stages:
 - stage: Test
 
@@ -67,10 +95,11 @@ stages:
 
   jobs:
   - job: nightly_test_by_TestbedV2
-    displayName: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)_by_TestbedV2
+    displayName: NightlyTest_by_TestbedV2
     timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
     continueOnError: false
-    pool: ubuntu-20.04
+    pool:
+      vmImage: ubuntu-20.04
     steps:
     - template: ../../run-test-scheduler-template.yml
       parameters:
@@ -85,3 +114,10 @@ stages:
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
         COMMON_EXTRA_PARAMS: "--topology t0,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }}"
+        REPO_NAME: ${{ parameters.REPO_NAME }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+        DUMP_KVM_IF_FAIL: ${{ parameters.DUMP_KVM_IF_FAIL }}
+        REQUESTER: ${{ parameters.REQUESTER }}
+        MAX_EXECUTE_SECONDS: ${{ parameters.MAX_EXECUTE_SECONDS }}
