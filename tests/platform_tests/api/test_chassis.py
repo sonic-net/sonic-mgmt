@@ -435,6 +435,9 @@ class TestChassisApi(PlatformApiTestBase):
                 for port,data in list(interface_facts.items()):
                     if data['type'] == 'RJ45':
                         expected_num_sfps += 1
+            elif 'sn5600' in duthost.facts.get("platform"):
+                # 5600 platform has an extra service port which is also counted in SFP object lists
+                expected_num_sfps += 1
             pytest_assert(num_sfps == expected_num_sfps,
                           "Number of sfps ({}) does not match expected number ({})"
                           .format(num_sfps, expected_num_sfps))
