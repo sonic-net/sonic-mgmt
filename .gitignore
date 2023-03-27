@@ -16,4 +16,3 @@ tests/metadata
 .vscode/
 .idea/
 
-tests/priority/*
