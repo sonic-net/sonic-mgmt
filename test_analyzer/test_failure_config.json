@@ -34,7 +34,7 @@
     },
     "icm_limitation": {
         "setup_error_limit": 10,
-        "failure_limit": 30,
+        "failure_limit": 10,
         "platform_limit": 10,
         "icm_20201231_limit": 10,
         "icm_20220531_limit": 10,

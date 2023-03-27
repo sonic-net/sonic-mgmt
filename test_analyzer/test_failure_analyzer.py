@@ -341,7 +341,7 @@ class KustoConnector(object):
 
     def query_failed_testcase_202012(self, exclude_case_list):
         start_time = self.current_timestamp - \
-            timedelta(days=int(self.config_info['threshold']['history_days']))
+            timedelta(days=int(self.config_info['threshold']['duration_days']))
         end_time = self.current_timestamp
 
         query_str = '''
@@ -388,7 +388,7 @@ class KustoConnector(object):
 
     def query_failed_testcase_202205(self, exclude_case_list):
         start_time = self.current_timestamp - \
-            timedelta(days=int(self.config_info['threshold']['history_days']))
+            timedelta(days=int(self.config_info['threshold']['duration_days']))
         end_time = self.current_timestamp
 
         query_str = '''
