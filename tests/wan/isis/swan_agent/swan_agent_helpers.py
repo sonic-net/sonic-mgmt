@@ -23,7 +23,7 @@ def get_swan_agent_file():
 def extract_swan_agent_file(localhost):
     regex_swan_agent_tar = "swanagentsonic-*.x86_64.tar"
     target = get_latest_file(regex_swan_agent_tar)
-    localhost.shell("tar -xf {}".format(target))
+    localhost.shell("tar -xf {} -C {}".format(target, SWAN_AGENT_PATH))
 
 
 def get_containerid(dut_host):
