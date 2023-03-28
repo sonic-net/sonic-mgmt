@@ -820,7 +820,8 @@ class QosSaiBase(QosBase):
                     docker=docker,
                     action=action,
                     service=service
-                )
+                ),
+                module_ignore_errors=True
             )
             logger.info("{}ed {}".format(action, service))
 
@@ -848,6 +849,8 @@ class QosSaiBase(QosBase):
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
             {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpd"},
             {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpmon"},
+            {"docker": dut_asic.get_docker_name("radv"), "service": "radvd"},
+            {"docker": dut_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
