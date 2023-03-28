@@ -1,0 +1,9 @@
+Value av1 (\d+\.\d+)
+Value av2 (\d+\.\d+)
+Value av3 (\d+\.\d+)
+Value cpuus (\d+\.\d+)
+Value cpusy (\d+\.\d+)
+
+Start
+ ^.*load average: ${av1}, ${av2}, ${av3}
+ ^%Cpu\(s\):\s+${cpuus}\s+us,\s+${cpusy}\s+sy,
