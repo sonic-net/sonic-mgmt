@@ -282,7 +282,8 @@ def test_perf_add_remove_routes(tbinfo, duthosts, ptfadapter, enum_rand_one_per_
         ptf_dst_ports = []
         for nh_ports in nexthop_intf:
             if nh_ports.startswith("PortChannel"):
-                ptf_dst_ports.append(port_indices[mg_facts['minigraph_portchannels'][nh_ports]['members'][0]])
+                for member in mg_facts['minigraph_portchannels'][nh_ports]['members']:
+                    ptf_dst_ports.append(port_indices[member])
             else:
                 ptf_dst_ports.append(port_indices[nh_ports])
         dst_nws = random.sample(prefixes,10)
