@@ -129,7 +129,7 @@ def show_counter(counter_name, ptftest, asic_type, ports, current=None, base=Non
                     'PgDrop'       : [[pg_drop_field_template.format(i) for i in range(PG_NUM)],           sai_thrift_read_pg_drop_counters, None, True],
                     'PtfCnt'       : [['rx', 'tx'],                                                        read_ptf_counters,                None, False]}
     if counter_name not in counter_info or ports == None:
-        return None
+        return (None, None)
 
     counter_fields = counter_info[counter_name][0]
     counter_query = counter_info[counter_name][1]
@@ -3946,7 +3946,6 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         Tx is disabled on the egress port to trigger PFC pause.
         """
         switch_init(self.client)
-        stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
         active_tor_mac = self.test_params['active_tor_mac']
@@ -3956,6 +3955,8 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = self.test_params['src_port_id']
         dst_port_id = self.test_params['dst_port_id']
         dst_port_ip = self.test_params['dst_port_ip']
+
+        stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', [src_port_id, dst_port_id]), silent=True)
 
         inner_dscp = int(self.test_params['dscp'])
         tunnel_traffic_test = False
@@ -4025,7 +4026,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             # Verify PFC pause frame is generated on expected PG
             assert(rx_counters[pg] > rx_counters_base[pg])
         finally:
-            show_stats(self.__class__.__name__, self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), bases=stats)
+            show_stats(self.__class__.__name__, self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', [src_port_id, dst_port_id]), bases=stats)
             # Enable tx on dest port
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
