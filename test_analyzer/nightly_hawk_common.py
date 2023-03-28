@@ -283,6 +283,27 @@ class NightlyPipelineCheck(object):
         # logger.info("pipeline id {} : {} {} {}   ".format(pipeline_id, file_name, pipeline_name, path))
         return file_name, pipeline_name, path
 
+    def decode_cron(self, cron_expression):
+        parts = cron_expression.split()
+        if len(parts) != 5:
+            return cron_expression
+        minute = int(parts[0])
+        hour = int(parts[1])
+        day_of_month = parts[2]
+        month = parts[3]
+        day_of_week = parts[4].split(',')
+
+        new_hour = hour + 8
+        day_over = ""
+        if new_hour >= 24:
+            new_hour -= 24
+            # day_of_week = [int(x) + 1 for x in day_of_week]
+            day_over = "+1"
+
+        schedule = "{:02d}:{:02d} {} {}".format(new_hour, minute, day_of_week, day_over)
+        logger.debug("cron_expression {} -> {} ".format(cron_expression, schedule))
+        return schedule
+
 
     def parser_nightly_pipeline_yml_File(self, fileName):
         logger.info("fileName{} ".format(fileName))
@@ -326,7 +347,7 @@ class NightlyPipelineCheck(object):
                 logger.info("schedules ERROR {}".format(pipeline_file_dict['schedules']))
                 raise RuntimeError('schedules ERROR {} '.format(pipeline_file_dict['schedules']))
             branch_name = pipeline_file_dict['schedules'][0]['branches']['include'][0]
-            schedules = pipeline_file_dict['schedules'][0]['cron']
+            schedules = self.decode_cron(pipeline_file_dict['schedules'][0]['cron'])
 
             return testbed_name, branch_name, image_url, schedules, testbed_specific, nightly_test_timeout
 

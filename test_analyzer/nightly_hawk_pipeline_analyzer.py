@@ -653,7 +653,14 @@ class Nightly_hawk_pipeline_analyzer(object):
             pipeline_save_row = self.curr_row
             pipeline_save_col = self.curr_col
 
-            # logger.debug("add [{}][{}] : {} ".format(self.curr_row, self.curr_col, "pipeline name"))
+            testbed_name = self.nightly_pipelines_dict[branch][pipeline_index]['testbed_name']
+            schedules = {}
+            for key in ["master", "internal", "internal-202205", "internal-202012", "internal-201911"]:
+                data = self.pipeline_parser_analyzer_dict[testbed_name].get(key, {})
+                schedules_tmp = "\n".join(yml_info.get("schedule", "") for yml_info in data.values())
+                schedules[key] = schedules_tmp
+                logger.debug("data {} schedules[key]  {} ".format(data, schedules[key]))
+
             pipeline_detail_head = { 
                                         "index" : pipeline_index, 
                                         "pipeline_name" : self.nightly_pipelines_dict[branch][pipeline_index]['pipeline_name'],
@@ -661,6 +668,12 @@ class Nightly_hawk_pipeline_analyzer(object):
                                         "testbed_name" : self.nightly_pipelines_dict[branch][pipeline_index]['testbed_name'],
                                         "schedule" : self.nightly_pipelines_dict[branch][pipeline_index]['schedule'],
                                         "image_url" : self.nightly_pipelines_dict[branch][pipeline_index]['image_url'],
+
+                                        "schedule-int" : schedules.get("internal", ""),
+                                        "schedule-master" : schedules.get("master", ""),
+                                        "schedule-202205" : schedules.get("internal-202205", ""),
+                                        "schedule-202012" : schedules.get("internal-202012", ""),
+                                        "schedule-201911" : schedules.get("internal-221911", ""),
                                     }
             logger.debug("pipeline_index {} {}".format(pipeline_index, pipeline_detail_head)) 
 
@@ -683,6 +696,9 @@ class Nightly_hawk_pipeline_analyzer(object):
                 if item_name == 'index':
                     ws_sheet[get_column_letter(self.curr_col)+str(self.curr_row)].fill = PatternFill("solid", fgColor='FFA500')
                     ws_sheet[get_column_letter(self.curr_col + 1)+str(self.curr_row)].fill = PatternFill("solid", fgColor='FFA500')
+                elif "schedule-" in item_name:
+                    ws_sheet[get_column_letter(self.curr_col)+str(self.curr_row)].fill = PatternFill("solid", fgColor='C0C0C0')
+                    ws_sheet[get_column_letter(self.curr_col + 1)+str(self.curr_row)].fill = PatternFill("solid", fgColor='C0C0C0')
 
                 self.curr_row += 1
                 self.curr_col = 1
