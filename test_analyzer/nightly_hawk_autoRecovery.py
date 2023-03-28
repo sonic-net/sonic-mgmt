@@ -836,7 +836,15 @@ class Testbeds_auto_recovery(object):
                         logger.info("testbeds {} show version CMD: {}".format(self.unhealthy_testbeds[testbed]['TestbedName'], cmd_line))
                     os.system(cmd_line)
 
+                # in internal branch, use internal branch to deploy and sanity check
                 payload = {
+                    "resources": {
+                        "repositories": {
+                            "self": {
+                                "refName": "refs/heads/internal",
+                            }
+                        }
+                    },
                     "templateParameters" : {
                         "TESTBED_NAME" : self.unhealthy_testbeds[testbed]['TestbedName'] ,
                         "RUN_STOP_TOPO_VMS" : 'false',
@@ -852,6 +860,13 @@ class Testbeds_auto_recovery(object):
                 if image_url != None:
                     logger.info("testbed {} upgrade image url {} agent_pool {} ".format(testbed, image_url, self.agent_pool))
                     payload = {
+                        "resources": {
+                            "repositories": {
+                                "self": {
+                                    "refName": "refs/heads/internal",
+                                }
+                            }
+                        },
                         "templateParameters" : {
                             "TESTBED_NAME" : self.unhealthy_testbeds[testbed]['TestbedName'] ,
                             "IMAGE_URL" : image_url,
@@ -861,6 +876,13 @@ class Testbeds_auto_recovery(object):
                 else:
                     logger.warning("WARNING testbed {} upgrade image url is None, agent_pool {} ".format(testbed, self.agent_pool))
                     payload = {
+                        "resources": {
+                            "repositories": {
+                                "self": {
+                                    "refName": "refs/heads/internal",
+                                }
+                            }
+                        },
                         "templateParameters" : {
                             "TESTBED_NAME" : self.unhealthy_testbeds[testbed]['TestbedName'] ,
                             "AGENT_POOL" : self.agent_pool
