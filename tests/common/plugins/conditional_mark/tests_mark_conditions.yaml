@@ -35,7 +35,7 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
 
 arp/test_unknown_mac.py:
   skip:
-    reason: "Not supported on cisco-8000 all releases asics"
+    reason: "Not supported on cisco-8000 platform"
     conditions:
       - "asic_type in ['cisco-8000']"
 
