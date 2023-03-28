@@ -11,6 +11,7 @@ import requests
 import yaml
 from enum import Enum
 
+__metaclass__ = type
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
 
