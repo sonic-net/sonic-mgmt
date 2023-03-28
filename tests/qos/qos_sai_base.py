@@ -20,6 +20,7 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +69,13 @@ class QosBase:
                 dutTestParams (dict): DUT host test params
         """
         # update router mac
+        dut_test_params["basicParams"]["asic_id"] = enum_frontend_asic_index
         if dut_test_params["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params["basicParams"]["router_mac"] = ''
 
-        dut_test_params["basicParams"]["asic_id"] = enum_frontend_asic_index
-        # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
-        # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
-        if "dualtor" in tbinfo["topo"]["name"]:
+        elif "dualtor" in tbinfo["topo"]["name"]:
+            # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+            # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
             dut_test_params["basicParams"]["is_dualtor"] = True
             vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
             if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
@@ -85,6 +86,15 @@ class QosBase:
                             dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
                             break
             pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"] is not None, "Dual-TOR miss default VLAN MAC address")
+        else:
+            try:
+                duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+                asic = duthost.asic_instance().asic_index
+                dut_test_params['basicParams']["router_mac"] = duthost.shell(
+                    'sonic-db-cli -n asic{} CONFIG_DB hget "DEVICE_METADATA|localhost" mac'.format(asic))['stdout']
+            except RunAnsibleModuleFail:
+                dut_test_params['basicParams']["router_mac"] = duthost.shell(
+                    'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
 
         yield dut_test_params
 
@@ -208,6 +218,13 @@ class QosSaiBase(QosBase):
             Returns:
                 bufferProfile (dict): Map of buffer profile attributes
         """
+
+        if table == "BUFFER_QUEUE_TABLE" and dut_asic.sonichost.facts['switch_type'] == 'voq':
+            # For VoQ chassis, the buffer queues config is based on system port
+            if dut_asic.sonichost.is_multi_asic:
+                port = "{}:{}:{}".format(dut_asic.sonichost.hostname, dut_asic.namespace, port)
+            else:
+                port = "{}:Asic0:{}".format(dut_asic.sonichost.hostname, port)
 
         if self.isBufferInApplDb(dut_asic):
             db = "0"
@@ -803,7 +820,8 @@ class QosSaiBase(QosBase):
                     docker=docker,
                     action=action,
                     service=service
-                )
+                ),
+                module_ignore_errors=True
             )
             logger.info("{}ed {}".format(action, service))
 
@@ -831,6 +849,8 @@ class QosSaiBase(QosBase):
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
             {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpd"},
             {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpmon"},
+            {"docker": dut_asic.get_docker_name("radv"), "service": "radvd"},
+            {"docker": dut_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']

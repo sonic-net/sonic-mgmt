@@ -1,4 +1,4 @@
-import SocketServer
+from six.moves import socketserver
 import pickle
 import socket
 import argparse
@@ -15,14 +15,14 @@ g_log_fp = None
 def log(message, output_on_console=False):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if output_on_console:
-        print "%s : %s" % (current_time, message)
+        print("%s : %s" % (current_time, message))
     global g_log_fp
     if g_log_fp is not None:
         g_log_fp.write("%s : %s\n" % (current_time, message))
         g_log_fp.flush()
 
 
-class TCPHandler(SocketServer.StreamRequestHandler):
+class TCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
         data = pickle.load(self.rfile)
         log("Received request: %s" % str(data))
@@ -170,7 +170,7 @@ def main():
 
     x_table = generate_x_table(base_vm, dut)
 
-    server = SocketServer.TCPServer(("0.0.0.0", 9877), TCPHandler)
+    server = socketserver.TCPServer(("0.0.0.0", 9877), TCPHandler)
     server.request_queue_size = 64
     server.allow_reuse_address = True
     server.x_table = x_table
@@ -180,4 +180,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
