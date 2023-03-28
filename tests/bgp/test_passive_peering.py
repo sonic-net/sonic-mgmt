@@ -57,7 +57,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
 
     setup_info = {
         'duthost': duthost,
-        'neighhost': tor_neighbors[tor1]["host"],
+        'neighhost': tor_neighbors[tor1],
         'tor1': tor1,
         'dut_asn': dut_asn,
         'neigh_asn': neigh_asn[tor1],
@@ -75,7 +75,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
     logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(namespace),
                                                           module_ignore_errors=True)))
     logger.info("Neighbor BGP Config: {}".format(
-        nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
+        tor_neighbors[tor1].eos_command(commands=["show run | section bgp"])))
     logger.info('Setup_info: {}'.format(setup_info))
 
     #  get baseline BGP CPU and Memory Utilization
@@ -92,7 +92,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
 
     cmd = ["no neighbor {} password 0 {}".format(dut_ip_v4, peer_password), "no neighbor {} password 0 {}"
            .format(dut_ip_v6, peer_password)]
-    nbrhosts[tor1]["host"].eos_config(lines=cmd, parents="router bgp {}".format(neigh_asn))
+    tor_neighbors[tor1].eos_config(lines=cmd, parents="router bgp {}".format(neigh_asn[tor1]))
 
 def test_bgp_passive_peering_ipv4(setup, enum_rand_one_frontend_asic_index):
     #configure passive EBGP peering session on DUT and ensure adjacency stays established (IPv4)
