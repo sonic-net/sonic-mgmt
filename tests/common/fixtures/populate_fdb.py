@@ -60,7 +60,7 @@ class PopulateFdb:
         """
         mgVlanPorts = []
         mgFacts = self.duthost.get_extended_minigraph_facts(tbinfo)
-        for vlan, config in mgFacts["minigraph_vlans"].items():
+        for vlan, config in list(mgFacts["minigraph_vlans"].items()):
             for port in config["members"]:
                 mgVlanPorts.append({
                     "port": port,

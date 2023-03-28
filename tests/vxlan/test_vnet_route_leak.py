@@ -4,8 +4,8 @@ import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from vnet_constants import *
-from vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
+from .vnet_constants import *
+from .vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
                        apply_dut_config_files, generate_dut_config_files
 from tests.common.config_reload import config_reload
 

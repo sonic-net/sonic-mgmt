@@ -119,7 +119,7 @@ def collect(duthosts, tbinfo):
         res[dut_hostname]['vm_links'] = get_vm_links(tbinfo, dut_indx)
         host_interfaces = tbinfo['topo']['ptf_map'][str(dut_indx)]
         res[dut_hostname]['vm_link_on_ptf'] = host_interfaces[res[dut_hostname]['vm_links'][0]]
-        _ = [host_interfaces.pop(vm) for vm in res[dut_hostname]['vm_links'] if vm in host_interfaces.keys()]
+        _ = [host_interfaces.pop(vm) for vm in res[dut_hostname]['vm_links'] if vm in list(host_interfaces.keys())]
         res[dut_hostname]['host_interfaces'] = natsorted(host_interfaces)
         res[dut_hostname]['ptf_map'] = host_interfaces
         res[dut_hostname]['all_links'] = natsorted(res[dut_hostname]['host_interfaces'] + res[dut_hostname]['devices_interconnect_interfaces'] + res[dut_hostname]['vm_links'])
