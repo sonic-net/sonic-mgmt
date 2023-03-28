@@ -35,7 +35,8 @@ class QosParamCisco(object):
             skip_reason = "ingress_lossless_pool not defined, nothing to test"
             self.__mark_skip("shared_res_size_1", skip_reason)
             self.__mark_skip("shared_res_size_2", skip_reason)
-        elif self.is_large_sms:
+            return
+        if self.is_large_sms:
             res_1 = {"dscps": [8, 8, 8, 8, 1, 1, 1, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                      "pgs": [0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                      "queues": [0, 0, 0, 0, 1, 1, 1, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
