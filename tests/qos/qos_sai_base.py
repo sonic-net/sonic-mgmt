@@ -758,7 +758,8 @@ class QosSaiBase(QosBase):
                     docker=docker,
                     action=action,
                     service=service
-                )
+                ),
+                module_ignore_errors=True
             )
             logger.info("{}ed {}".format(action, service))
 
