@@ -130,10 +130,29 @@ def check_server_received(ptfhost, data):
     hex = binascii.hexlify(data.encode('ascii'))
     hex_string = hex.decode()
 
-    # Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string
+    """
+      Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string:
+            1. tac_plus server start with '-d 2058' parameter to log received data in following format in tac_plus.log:
+                    Thu Mar  9 06:26:16 2023 [75483]: data[140] = 0xf8, xor'ed with hash[12] = 0xab -> 0x53
+                    Thu Mar  9 06:26:16 2023 [75483]: data[141] = 0x8d, xor'ed with hash[13] = 0xc2 -> 0x4f
+                In above log, the 'data[140] = 0xf8' is received data.
+
+            2. Following sed command will extract the received data from tac_plus.log:
+                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log
+
+            3. Following set command will join all received data to hex string:
+                    sed ':a; N; $!ba; s/\\n//g'
+
+            4. Then the grep command will check if the received hex data containes expected hex string.
+                    grep '{0}'".format(hex_string)
+
+      Also suppress following Flake8 error/warning:
+            W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
+            E501 : Line too long. Following sed command difficult to split to multiple line.
+    """
     sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string) # noqa W605 E501
     res = ptfhost.shell(sed_command)
-    logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+    logger.info(sed_command)
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) > 0)
 
