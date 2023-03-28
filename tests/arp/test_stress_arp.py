@@ -64,7 +64,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     """
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
-        normalized_level = "basic"
+        normalized_level = "debug"
 
     ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available") - \
         get_crm_resources(duthost, "ipv4_neighbor", "used")
@@ -141,8 +141,7 @@ def add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info,
 
         ptfadapter.dataplane.flush()
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
-        get_ipv6_entries_status(duthost, fake_src_addr)
-        wait_until(20, 1, 0, lambda: get_ipv6_entries_status is True)
+        wait_until(20, 1, 0, get_ipv6_entries_status, duthost, fake_src_addr)
         ptfhost.shell("ip -6 addr del {}/64 dev eth1".format(fake_src_addr))
 
 
@@ -155,7 +154,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
-        normalized_level = "basic"
+        normalized_level = "debug"
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
     ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - \
