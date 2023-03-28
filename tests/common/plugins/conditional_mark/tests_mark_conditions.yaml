@@ -33,6 +33,12 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     conditions:
       - "release not in ['202012']"
 
+arp/test_stress_arp.py:
+  skip:
+    resason: "Extremely long long run time."
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/7874
+
 #######################################
 #####            bfd              #####
 #######################################
