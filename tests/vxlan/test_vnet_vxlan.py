@@ -236,14 +236,14 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
 def get_expected_flow_counter_packets_number(vnet_json_data):
     total_routes = 0
     for routes in vnet_json_data['vnet_routes']:
-        for name, rt_list in routes.items():
+        for name, rt_list in list(routes.items()):
             total_routes += len(rt_list)
             for peers in vnet_json_data['vnet_peers']:
-                for key, peer in peers.items():
+                for key, peer in list(peers.items()):
                     if name.split('_')[0] == key:
                         total_routes += len(rt_list)
             for l_routes in vnet_json_data['vnet_local_routes']:
-                for l_name, l_rt_list in l_routes.items():
+                for l_name, l_rt_list in list(l_routes.items()):
                     if name == l_name:
                         total_routes += len(l_rt_list)
 

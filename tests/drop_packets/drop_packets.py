@@ -14,7 +14,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzerError
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
 
 
@@ -176,8 +176,8 @@ def is_mellanox_fanout(duthost, localhost):
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
     fanout_obj = None
-    for fanout_name, fanout_obj in fanouthosts.items():
-        for interface, interface_info in conn_graph_facts['device_conn'][duthost.hostname].items():
+    for fanout_name, fanout_obj in list(fanouthosts.items()):
+        for interface, interface_info in list(conn_graph_facts['device_conn'][duthost.hostname].items()):
             if fanout_name == interface_info.get('peerdevice'):
                 break
     return fanout_obj
@@ -253,7 +253,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     # Gather ansible facts
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    for port_channel, interfaces in mg_facts['minigraph_portchannels'].items():
+    for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):
         for iface in interfaces["members"]:
             port_channel_members[iface] = port_channel
 
@@ -274,10 +274,10 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
     # Compose list of sniff ports
     neighbor_sniff_ports = []
-    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+    for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
         neighbor_sniff_ports.append(mg_facts['minigraph_ptf_indices'][dut_port])
 
-    for vlan_name, vlans_data in mg_facts["minigraph_vlans"].items():
+    for vlan_name, vlans_data in list(mg_facts["minigraph_vlans"].items()):
         configured_vlans.append(int(vlans_data["vlanid"]))
 
     setup_information = {
@@ -296,14 +296,15 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
 
 @pytest.fixture
-def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthosts, loganalyzer):
+def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthosts):
     """Shut RIF interface and return neighbor IP address attached to this interface."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_rif_port_down")
     wait_after_ports_up = 30
 
     if not setup["rif_members"]:
         pytest.skip("RIF interface is absent")
-    rif_member_iface = setup["rif_members"].keys()[0]
+    rif_member_iface = list(setup["rif_members"].keys())[0]
 
     vm_name = setup["mg_facts"]["minigraph_neighbors"][rif_member_iface].get("name", None)
     pytest_assert(vm_name, 'Neighbor not found for RIF member "{}"'.format(rif_member_iface))
@@ -317,16 +318,16 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
 
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
 
-    loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
-    with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] as _:
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
+    with loganalyzer as _:
         fanout_neighbor.shutdown(fanout_intf)
 
     time.sleep(1)
 
     yield ip_dst
 
-    loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
-    with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] as _:
+    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+    with loganalyzer as _:
         fanout_neighbor.no_shutdown(fanout_intf)
         time.sleep(wait_after_ports_up)
 
@@ -349,7 +350,7 @@ def ports_info(ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     data = {}
-    data["dut_iface"] = random.choice(tx_dut_ports.keys())
+    data["dut_iface"] = random.choice(list(tx_dut_ports.keys()))
     # Check which asic owns this interface
     for ns in duthost.get_asic_namespace_list():
         if data["dut_iface"] in setup['intf_per_namespace'][ns if ns is not DEFAULT_NAMESPACE else '']:
@@ -372,11 +373,12 @@ def ports_info(ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     return data
 
 
-def acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+def acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
               dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_setup")
         acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
-        if 'DATAACL' not in acl_facts.keys():
+        if 'DATAACL' not in list(acl_facts.keys()):
             pytest.skip("Skipping test since DATAACL table is not present on DUT")
 
         duthost.command("mkdir -p {}".format(dut_tmp_dir))
@@ -389,15 +391,16 @@ def acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_r
 
         logger.info("Applying {}".format(dut_conf_file_path))
 
-        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-        with loganalyzer[duthost.hostname]:
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+        with loganalyzer:
             duthost.command("config acl update full {}".format(dut_conf_file_path))
 
 
-def acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path):
+def acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
-        loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-        with loganalyzer[duthost.hostname]:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_teardown")
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+        with loganalyzer:
             logger.info("Applying {}".format(dut_clear_conf_file_path))
             duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
             logger.info("Removing {}".format(dut_tmp_dir))
@@ -406,7 +409,7 @@ def acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path):
 
 
 @pytest.fixture
-def acl_ingress(duthosts, loganalyzer):
+def acl_ingress(duthosts):
     """ Create acl rule defined in config file. Delete rule after test case finished """
     base_dir = os.path.dirname(os.path.realpath(__file__))
     template_dir = os.path.join(base_dir, 'acl_templates')
@@ -415,10 +418,10 @@ def acl_ingress(duthosts, loganalyzer):
     dut_tmp_dir = os.path.join("tmp", os.path.basename(base_dir))
     dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
 
-    acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+    acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
               dut_clear_conf_file_path)
     yield
-    acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path)
+    acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path)
 
 
 def create_or_remove_acl_egress_table(duthost, setup, op):
@@ -448,7 +451,7 @@ def create_or_remove_acl_egress_table(duthost, setup, op):
 
 
 @pytest.fixture
-def acl_egress(duthosts, loganalyzer, setup):
+def acl_egress(duthosts, setup):
     """
     Create acl table OUTDATAACL
     Create acl rule defined in config file.
@@ -462,9 +465,10 @@ def acl_egress(duthosts, loganalyzer, setup):
     dut_clear_conf_file_path = os.path.join(dut_tmp_dir, del_acl_rules_template)
 
     for duthost in duthosts.frontend_nodes:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_egress")
         try:
-            loganalyzer[duthost.hostname].expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-            with loganalyzer[duthost.hostname]:
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+            with loganalyzer:
                 create_or_remove_acl_egress_table(duthost, setup, "add")
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
@@ -472,10 +476,10 @@ def acl_egress(duthosts, loganalyzer, setup):
             create_or_remove_acl_egress_table(duthost, setup, "remove")
             raise err
 
-    acl_setup(duthosts, loganalyzer, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
+    acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
               dut_clear_conf_file_path)
     yield
-    acl_teardown(duthosts, loganalyzer, dut_tmp_dir, dut_clear_conf_file_path)
+    acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path)
 
     for duthost in duthosts.frontend_nodes:
         create_or_remove_acl_egress_table(duthost, setup, "remove")
@@ -677,7 +681,7 @@ def test_dst_ip_absent(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, por
             tcp_dport=pkt_fields["tcp_dport"])
 
     group = "L3"
-    print("msm group {}, setup {}".format(group, setup))
+    print(("msm group {}, setup {}".format(group, setup)))
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
@@ -791,7 +795,7 @@ def test_ip_is_zero_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, a
     if setup.get("platform_asic") == "broadcom-dnx" and addr_direction == "src":
         pytest.skip("Src IP zero packets are not dropped on Broadcom DNX platform currently")
 
-    do_test(group, pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+    do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()), tx_dut_ports)
 
 
 def test_dst_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -1024,7 +1028,7 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
     log_pkt_params(ports_info["dut_iface"], ethernet_dst, ports_info["src_mac"], pkt.getlayer("IP").dst, pkt_fields["ipv4_src"])
 
     group = "L3"
-    do_test(group, pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+    do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()), tx_dut_ports)
 
 def test_acl_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tx_dut_ports, pkt_fields, acl_ingress,
                   ports_info):

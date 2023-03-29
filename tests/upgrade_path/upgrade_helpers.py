@@ -3,8 +3,8 @@ import logging
 import time
 import tempfile
 import random
-from urlparse import urlparse
 import ipaddress
+from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
@@ -65,7 +65,7 @@ def install_sonic(duthost, image_url, tbinfo):
     if urlparse(image_url).scheme in ('http', 'https',):
         mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
         mg_gwaddr = ipaddress.IPv4Address(mg_gwaddr)
-        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
+        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
         for nexthop in rtinfo_v4['nexthops']:
             if mg_gwaddr == nexthop[0]:
                 break

@@ -1,14 +1,14 @@
 import pytest
 import logging
 
-from cases_ptf_warmreboot import WARM_REBOOT_PTF_TEST_CASE
-from conftest import get_sai_test_container_name
-from conftest import saiserver_warmboot_config
-from conftest import stop_and_rm_sai_test_container
-from sai_infra import run_case_from_ptf
-from sai_infra import store_test_result
-from sai_infra import *  # noqa: F403 F401
-from conftest import *  # noqa: F403 F401
+from .cases_ptf_warmreboot import WARM_REBOOT_PTF_TEST_CASE
+from .conftest import get_sai_test_container_name
+from .conftest import saiserver_warmboot_config
+from .conftest import stop_and_rm_sai_test_container
+from .sai_infra import run_case_from_ptf
+from .sai_infra import store_test_result
+from .sai_infra import *  # noqa: F403 F401
+from .conftest import *  # noqa: F403 F401
 
 
 logger = logging.getLogger(__name__)

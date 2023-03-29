@@ -73,7 +73,7 @@ class DutHosts(object):
         Returns:
             [MultiAsicSonicHost]: Returns the specified duthost in duthosts. It is an instance of MultiAsicSonicHost.
         """
-        unicode_type = str if sys.version_info.major == 3 else unicode      # noqa F821
+        unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa F821
         if type(index) == int:
             return self.nodes[index]
         elif type(index) in [str, unicode_type]:

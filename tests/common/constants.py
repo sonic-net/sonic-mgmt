@@ -18,3 +18,7 @@ DEFAULT_SSH_CONNECT_PARAMS = {
         "password": "password"
     }
 }
+# resolv.conf expected nameservers
+RESOLV_CONF_NAMESERVERS = {
+    "public": []
+}

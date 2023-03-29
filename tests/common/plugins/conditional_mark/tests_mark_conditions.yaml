@@ -33,6 +33,12 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     conditions:
       - "release not in ['202012']"
 
+arp/test_stress_arp.py:
+  skip:
+    resason: "Extremely long long run time."
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/7874
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -354,9 +360,10 @@ ecmp/inner_hashing/test_fgnhg_inner_hashing_internal.py:
 ecmp/test_fgnhg.py:
   xfail:
     reason: "case failed waiting for fix"
+    conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6558
+      - "https://github.com/sonic-net/sonic-mgmt/issues/6558 and platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/7755 and ('x86_64-mlnx_msn' in platform or 'x86_64-nvidia' in platform)"
 
 #######################################
 #####         everflow            #####
@@ -370,6 +377,12 @@ everflow/test_everflow_per_interface.py:
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-default]:
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
@@ -430,10 +443,11 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Not working on non-mellanox platform"
+    reason: "Not working on non-mellanox platform or T1 topo"
+    conditions_logical_operator: "OR"
     conditions:
-      - "asic_type not in ['mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7704
+      - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/7704"
+      - "'t1' in topo_name"
 
 #######################################
 #####      iface_namingmode       #####
