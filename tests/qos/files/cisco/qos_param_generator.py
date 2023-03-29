@@ -1,5 +1,7 @@
 class QosParamCisco(object):
-    def __init__(self, qos_params, bufferConfig):
+    SMALL_SMS_PLATFORMS = ["x86_64-8102_64h_o-r0"]
+
+    def __init__(self, qos_params, duthost, bufferConfig):
         '''
         Initialize parameters all tests will use
         '''
@@ -14,8 +16,7 @@ class QosParamCisco(object):
         if "egress_lossy_pool" in self.bufferConfig["BUFFER_POOL"]:
             self.egress_pool_size = self.bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
         # Find SMS size
-        small_sms = 64 * (2 ** 20)
-        self.is_large_sms = self.ingress_pool_size + self.ingress_pool_headroom > small_sms
+        self.is_large_sms = duthost.facts['platform'] not in self.SMALL_SMS_PLATFORMS
 
     def run(self):
         '''
