@@ -457,11 +457,17 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
             if kmin > kmin_old:
                 host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmax {}'.format(asic_value, p, kmax))
                 host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmin {}'.format(asic_value, p, kmin))
-                host_ans.shell('bdmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                try:
+                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                except Exception:
+                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
             else:
                 host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmin {}'.format(asic_value, p, kmin))
                 host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmax {}'.format(asic_value, p, kmax))
-                host_ans.shell('bdmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                try:
+                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                except Exception:
+                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
     return True
 
 
@@ -499,8 +505,10 @@ def disable_ecn(host_ans, prio, asic_value='None'):
         host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} off'.format(asic_value, prio))
-        host_ans.shell('bdmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-
+        try:
+            host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+        except Exception:
+            host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value='None'):
     """
