@@ -141,6 +141,7 @@ def wait_for_device_reachable(localhost):
 
     return wait_for_device_reachable
 
+
 @pytest.fixture
 def wait_for_mux_container(localhost):
     """
@@ -148,7 +149,6 @@ def wait_for_mux_container(localhost):
     """
 
     def wait_for_mux_container(duthost, timeout=100, check_interval=1):
-        dut_ip = duthost.mgmt_ip
         logger.info("Waiting for mux container to start on {}"
                     .format((duthost.hostname)))
         wait_time = 0
@@ -161,10 +161,11 @@ def wait_for_mux_container(localhost):
                 time.sleep(check_interval)
                 wait_time += check_interval
 
-        #Could not detect mux container so raise exception
+        # Could not detect mux container so raise exception
         raise Exception("Mux container is not up after {} seconds".format(timeout))
 
     return wait_for_mux_container
+
 
 @contextlib.contextmanager
 def shutdown_bgp_sessions_on_duthost():
