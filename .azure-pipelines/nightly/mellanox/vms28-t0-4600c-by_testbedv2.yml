@@ -17,6 +17,16 @@ variables:
   - group: SAITHRIFT_URLS
 
 parameters:
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+    displayName: "AGENT POOL"
+
   - name: TESTBED_NAME
     type: string
     default: "vms28-t0-4600c-03, vms28-t0-4600c-04"
@@ -98,8 +108,7 @@ stages:
     displayName: NightlyTest_by_TestbedV2
     timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
     continueOnError: false
-    pool:
-      vmImage: ubuntu-20.04
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
     - template: ../../run-test-scheduler-template.yml
       parameters:
