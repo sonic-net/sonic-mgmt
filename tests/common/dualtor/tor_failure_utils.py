@@ -96,7 +96,7 @@ def tor_blackhole_traffic():
 
 
 @pytest.fixture
-def reboot_tor(localhost, wait_for_device_reachable):
+def reboot_tor(localhost, wait_for_device_reachable, wait_for_mux_container):
     """
     Reboot TOR
     """
@@ -113,6 +113,8 @@ def reboot_tor(localhost, wait_for_device_reachable):
 
     for duthost in torhost:
         wait_for_device_reachable(duthost)
+    for duthost in torhost:
+        wait_for_mux_container(duthost)
 
 
 @pytest.fixture
@@ -136,12 +138,33 @@ def wait_for_device_reachable(localhost):
             raise Exception("DUT {} did not startup after reboot"
                             .format((duthost.hostname)))
         logger.info("SSH started on {}, wait for mux container to start".format((duthost.hostname)))
-        # wait for networking service to reset mgmt interface and
-        # mux container to start. It start 60s after other containers.
-        time.sleep(60)
 
     return wait_for_device_reachable
 
+@pytest.fixture
+def wait_for_mux_container(localhost):
+    """
+    Returns a function that waits for mux container to be available on a device
+    """
+
+    def wait_for_mux_container(duthost, timeout=100, check_interval=1):
+        dut_ip = duthost.mgmt_ip
+        logger.info("Waiting for mux container to start on {}"
+                    .format((duthost.hostname)))
+        wait_time = 0
+        while wait_time <= timeout:
+            output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' mux")['stdout_lines']
+            if "running" in str(output):
+                logger.info("MUX container started on {}".format((duthost.hostname)))
+                return
+            else:
+                time.sleep(check_interval)
+                wait_time += check_interval
+
+        #Could not detect mux container so raise exception
+        raise Exception("Mux container is not up after {} seconds".format(timeout))
+
+    return wait_for_mux_container
 
 @contextlib.contextmanager
 def shutdown_bgp_sessions_on_duthost():
