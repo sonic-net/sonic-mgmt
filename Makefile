@@ -2,6 +2,7 @@ PYTHON := python3.8
 BIN := pyats/bin
 TESTFILE ?= sanity_scripts.txt
 GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_sim.tar.gz
+TEMP_TESTFILE := $(shell mktemp)
 
 .PHONY: init t0_run t1_run collect
 
@@ -34,3 +35,17 @@ collect:
 	cd infra; scp -r $(BUILD_ID) sonic-ci-1-lnx:/home/report_server_pv/
 	cd infra; scp -r $(BUILD_ID) sonic-ci-2-lnx:/home/report_server_pv/
 	cd infra; scp -r $(BUILD_ID) sonic-ci-3-lnx:/home/report_server_pv/
+
+ut_t0:
+	echo "Running UT on T0 with ${TEST_LIST}"
+	# create_sonic_topo only accepts a file for list of tests. Create temp file
+	echo $(TEST_LIST) | sed 's/,/\n/g' >> $(TEMP_TESTFILE)
+	infra/pyats/bin/python \
+		infra/create_sonic_topo.py \
+		-f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml \
+		-u cisco -p cisco123 \
+		-t t0-64 \
+		-c -r -s $(TEMP_TESTFILE) \
+		-b $(GOLDENCODE) \
+		--cicd --cicd_clean --create_allure_report
+	rm $(TEMP_TESTFILE)
