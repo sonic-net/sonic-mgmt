@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms24-t0-3800-azd
+    default: vms20-t0-sn3800-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
