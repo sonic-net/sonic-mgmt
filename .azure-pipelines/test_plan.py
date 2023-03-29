@@ -11,6 +11,7 @@ import requests
 import yaml
 from enum import Enum
 
+__metaclass__ = type
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
 
@@ -73,22 +74,22 @@ class AbstractStatus():
 
 class InitStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.INIT)
+        super(InitStatus, self).__init__(TestPlanStatus.INIT)
 
 
 class LockStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.LOCK_TESTBED)
+        super(LockStatus, self).__init__(TestPlanStatus.LOCK_TESTBED)
 
 
 class PrePareStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.PREPARE_TESTBED)
+        super(PrePareStatus, self).__init__(TestPlanStatus.PREPARE_TESTBED)
 
 
 class ExecutingStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.EXECUTING)
+        super(ExecutingStatus, self).__init__(TestPlanStatus.EXECUTING)
 
     def print_logs(self, test_plan_id, resp_data, start_time):
         print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
@@ -98,22 +99,22 @@ class ExecutingStatus(AbstractStatus):
 
 class KvmDumpStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.KVMDUMP)
+        super(KvmDumpStatus, self).__init__(TestPlanStatus.KVMDUMP)
 
 
 class FailedStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.FAILED)
+        super(FailedStatus, self).__init__(TestPlanStatus.FAILED)
 
 
 class CancelledStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.CANCELLED)
+        super(CancelledStatus, self).__init__(TestPlanStatus.CANCELLED)
 
 
 class FinishStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.FINISHED)
+        super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
 
 
 def get_scope(testbed_tools_url):
