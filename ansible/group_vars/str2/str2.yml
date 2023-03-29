@@ -35,7 +35,7 @@ tacacs_passkey: starlab
 
 # Determine whether enable tacacs authentication during deploy-minigraph. If false, use local authentication.
 # If yes, authenticate using servers configured in `tacacs_servers`
-tacacs_enabled_by_default: true
+tacacs_enabled_by_default: false
 
 #'SnmpResources in minigraph
 snmp_servers: ['10.3.145.98']
