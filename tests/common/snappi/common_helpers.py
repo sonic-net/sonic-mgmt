@@ -510,6 +510,7 @@ def disable_ecn(host_ans, prio, asic_value='None'):
         except Exception:
             host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
+
 def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value='None'):
     """
     Configure buffer threshold (a.k.a., alpha)
