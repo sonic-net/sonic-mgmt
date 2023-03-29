@@ -8,6 +8,7 @@ import pytest
 import time
 import os
 import traceback
+import six
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -200,7 +201,7 @@ class AdvancedReboot:
         testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
             (1 << (32 - prefixLen))
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(str(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa F821
+            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa F821
         )
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
@@ -390,7 +391,6 @@ class AdvancedReboot:
 
         logger.info('Copy ARP responder to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
-        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest="/root/ptftests/advanced_reboot_sniffer.py")
         # Replace fast-reboot script
         if self.replaceFastRebootScript:
             logger.info('Replace fast-reboot script on DUT  {}'.format(self.duthost.hostname))

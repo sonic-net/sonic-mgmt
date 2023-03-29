@@ -16,7 +16,7 @@ Usage:          Examples of how to use VRF test
 #---------------------------------------------------------------------
 import logging
 import re
-
+import six
 from ipaddress import ip_network
 from fib_test import FibTest
 import lpm
@@ -41,7 +41,7 @@ class FwdTest(FibTest):
                     self.add_entry(prefix, dst_ports)
 
         def add_entry(self, prefix, dst_ports):
-            prefix = ip_network(unicode(prefix))
+            prefix = ip_network(six.text_type(prefix))
             ip_range = lpm.LpmDict.IpInterval(prefix[0], prefix[-1])
             next_hop = fib.Fib.NextHop(dst_ports)
             if prefix.version == 4:

@@ -338,7 +338,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     peer_switch_key = 'PEER_SWITCH|{}'.format(peer_switch_hostname)
     device_meta_key = 'DEVICE_METADATA|localhost'
     restart_swss = False
-    if dut.get_asic_name() in ['th2', 'td3']:
+    if dut.get_asic_name() in ['th2', 'td3', 'gb']:
         restart_swss = True
     cmd = 'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
     dut.shell(cmd=cmd)

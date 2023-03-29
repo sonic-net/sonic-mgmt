@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
+import base64
 import json
 import time
 import sys
 import argparse
-from urllib.request import urlopen, urlretrieve, Request, build_opener, install_opener
-import base64
+from six.moves.urllib.request import urlopen, urlretrieve, Request, build_opener, install_opener
 
 _start_time = None
 _last_time = None
