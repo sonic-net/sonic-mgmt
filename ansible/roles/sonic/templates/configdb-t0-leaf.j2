@@ -41,26 +41,18 @@
 {% endif %}
     },
     "BGP_NEIGHBOR": {
-        "{{ host['bgp']['peers'][configuration_properties['common']['dut_asn']][0] }}": {
+{% for peer in host['bgp']['peers'][configuration_properties['common']['dut_asn']] %}
+        "{{ peer | lower }}": {
             "admin_status": "up",
             "asn": "{{ configuration_properties['common']['dut_asn'] }}",
             "holdtime": "10",
             "keepalive": "3",
-            "local_addr": "{{ host['interfaces']['Port-Channel1']['ipv4'].split('/')[0] }}",
+            "local_addr": "{{ host['interfaces']['Port-Channel1']['ipv6' if ':' in peer else 'ipv4'].split('/')[0] | lower }}",
             "name": "{{ hostname }}",
             "nhopself": "0",
             "rrclient": "0"
         },
-        "{{ host['bgp']['peers'][configuration_properties['common']['dut_asn']][1] }}": {
-            "admin_status": "up",
-            "asn": "{{ configuration_properties['common']['dut_asn'] }}",
-            "holdtime": "10",
-            "keepalive": "3",
-            "local_addr": "{{ host['interfaces']['Port-Channel1']['ipv6'].split('/')[0] }}",
-            "name": "{{ hostname }}",
-            "nhopself": "0",
-            "rrclient": "0"
-        },
+{% endfor %}
         "{{ configuration_properties['common']['nhipv4'] }}": {
             "admin_status": "up",
             "asn": "{{ configuration_properties['common']['leaf_asn_start'] }}",
@@ -71,12 +63,12 @@
             "nhopself": "0",
             "rrclient": "0"
         },
-        "{{ configuration_properties['common']['nhipv6'] }}": {
+        "{{ configuration_properties['common']['nhipv6'] | lower }}": {
             "admin_status": "up",
             "asn": "{{ configuration_properties['common']['leaf_asn_start'] }}",
             "holdtime": "10",
             "keepalive": "3",
-            "local_addr": "{{ host['bp_interface']['ipv6'].split('/')[0] }}",
+            "local_addr": "{{ host['bp_interface']['ipv6'].split('/')[0] | lower }}",
             "name": "exabgp_v6",
             "nhopself": "0",
             "rrclient": "0"
