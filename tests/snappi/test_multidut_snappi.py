@@ -2,13 +2,12 @@ import time
 import pytest
 import random
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts                  # noqa: F401
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, snappi_api,\
-    snappi_dut_base_config, get_multidut_snappi_ports, get_multidut_tgen_peer_port_set
+    snappi_dut_base_config, get_multidut_snappi_ports, get_multidut_tgen_peer_port_set                   # noqa: F401
 from tests.common.snappi.snappi_helpers import wait_for_arp
 from tests.common.snappi.port import select_ports
-from tests.common.snappi.qos_fixtures import prio_dscp_map
+from tests.common.snappi.qos_fixtures import prio_dscp_map                                               # noqa: F401
 from tests.snappi.variables import config_set, line_card_choice
 
 SNAPPI_POLL_DELAY_SEC = 2
@@ -22,7 +21,8 @@ def __gen_all_to_all_traffic(testbed_config,
                              conn_data,
                              fanout_data,
                              priority,
-                             prio_dscp_map):
+                             prio_dscp_map              # noqa: F811
+                             ):
 
     rate_percent = 100 / (len(port_config_list) - 1)
     duration_sec = 2
@@ -82,14 +82,13 @@ def __gen_all_to_all_traffic(testbed_config,
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_snappi(request,
                 duthosts,
-                snappi_api,
-                conn_graph_facts,
-                fanout_graph_facts,
+                snappi_api, conn_graph_facts, fanout_graph_facts,               # noqa: F811
                 rand_one_dut_lossless_prio,
-                prio_dscp_map,
+                prio_dscp_map,                                                  # noqa: F811
                 line_card_choice,
                 linecard_configuration_set,
-                get_multidut_snappi_ports,):
+                get_multidut_snappi_ports                                       # noqa: F811
+                ):
     """
     Test if we can use Snappi API generate traffic in a testbed
 

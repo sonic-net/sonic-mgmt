@@ -4,10 +4,11 @@ This module contains the snappi fixture
 import pytest
 import logging
 import snappi
+import sys
 import random
 import snappi_convergence
 from ipaddress import ip_address, IPv4Address, IPv6Address
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, get_ipv6_addrs_in_subnet
 from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
@@ -576,9 +577,7 @@ def snappi_dut_base_config(duthost_list,
 
 
 @pytest.fixture(scope="function")
-def get_multidut_snappi_ports(duthosts,
-                              conn_graph_facts,
-                              fanout_graph_facts):
+def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):            # noqa: F811
 
     """
     Populate tgen ports and connected DUT ports info of T0 testbed and returns as a list
@@ -599,16 +598,12 @@ def get_multidut_snappi_ports(duthosts,
         }
         ports = []
         for index, host in enumerate(duthosts):
-            snappi_fanout = get_peer_snappi_chassis(
-                                                    conn_data=conn_graph_facts,
-                                                    dut_hostname=host.hostname
-                                                    )
             snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
             for i in range(0, 3):
                 try:
                     snappi_fanout_list.get_fanout_device_details(i)
                 except Exception:
-                    raise Exception("Error: Error Getting get_fanout_device_details")
+                    pass
             snappi_ports = snappi_fanout_list.get_ports(peer_device=host.hostname)
             for port in snappi_ports:
                 port['location'] = get_snappi_port_location(port)
@@ -758,7 +753,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
     return True
 
 
-def get_dut_interconnected_ports(conn_graph_facts, src_host, dst_host):
+def get_dut_interconnected_ports(conn_graph_facts, src_host, dst_host):     # noqa: F811
     ports = []
     for key, value in conn_graph_facts['device_conn'][src_host].items():
         if value['peerdevice'] == dst_host:
@@ -768,6 +763,10 @@ def get_dut_interconnected_ports(conn_graph_facts, src_host, dst_host):
 
 def get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, number_of_tgen_peer_ports=2):
     linecards = {}
+    try:
+        from itertools import izip_longest as zip_longest
+    except ImportError:
+        from itertools import zip_longest
 
     for port in ports:
         if port['peer_device'] in linecards:
@@ -796,8 +795,9 @@ def get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, number_
         # need 2 asic  minimum one port from each asic
         for line_card, asics in linecards.items():
             if len(asics.keys()) >= 2:
-                peer_ports = list(zip(*asics.values()))
+                peer_ports = list(zip_longest(*asics.values()))
                 peer_ports = [item for sublist in peer_ports for item in sublist]
+                peer_ports = list(filter(None, peer_ports))
                 return peer_ports[:number_of_tgen_peer_ports]
             else:
                 raise Exception('Error: Invalid line_card_choice or Not enough ports')
@@ -820,7 +820,7 @@ def get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, number_
         # Different line card and minimum one port from different asic number
         if len(linecards.keys()) >= 2:
             host_asic = list(zip(config_set[line_card_choice]['hostname'], config_set[line_card_choice]['asic']))
-            peer_ports = list(zip(*[linecards[host][asic] for host, asic in host_asic]))
+            peer_ports = list(zip_longest(*[linecards[host][asic] for host, asic in host_asic]))
             peer_ports = [item for sublist in peer_ports for item in sublist]
             peer_ports = list(filter(None, peer_ports))
             return peer_ports[:number_of_tgen_peer_ports]
@@ -837,16 +837,19 @@ def create_ip_list(value, count, mask=32, incr=0):
             mask: subnet mask for the ips to be created
             incr: increment value of the ip
     '''
+    if sys.version_info.major == 2:
+        value = unicode(value)          # noqa: F821
+
     ip_list = [value]
     for i in range(1, count):
-        if ip_address(unicode(value)).version == 4:
+        if ip_address(value).version == 4:
             incr1 = pow(2, (32 - int(mask))) + incr
-            value = (IPv4Address(unicode(value)) + incr1).compressed
-        elif ip_address(unicode(value)).version == 6:
+            value = (IPv4Address(value) + incr1).compressed
+        elif ip_address(value).version == 6:
             if mask == 32:
                 mask = 64
             incr1 = pow(2, (128 - int(mask))) + incr
-            value = (IPv6Address(unicode(value)) + incr1).compressed
+            value = (IPv6Address(value) + incr1).compressed
         ip_list.append(value)
 
     return ip_list
