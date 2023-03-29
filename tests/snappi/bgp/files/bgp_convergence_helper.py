@@ -1,3 +1,4 @@
+import logging
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import (wait, wait_until)
@@ -147,7 +148,7 @@ def run_rib_in_convergence_test(cvg_api,
                                         port_count,
                                         number_of_routes,
                                         route_type,
-                                        port_speed,) 
+                                        port_speed,)
 
     """
         Run the convergence test by withdrawing all routes at once and
@@ -362,7 +363,7 @@ def __tgen_bgp_config(cvg_api,
             bgpv4_peer.as_type = BGP_TYPE
             bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
             bgpv4_peer.as_number = int(TGEN_AS_NUM)
-            route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) 
+            route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1])
             route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
             as_path = route_range.as_path
             as_path_segment = as_path.segments.add()
@@ -397,7 +398,7 @@ def __tgen_bgp_config(cvg_api,
             ipv6_stack.address = temp_tg_port[i-1]['ipv6']
             ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
             ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
-            
+
             bgpv6 = config.devices[i-1].bgp
             bgpv6.router_id = temp_tg_port[i-1]['peer_ip']
             bgpv6_int = bgpv6.ipv6_interfaces.add()
@@ -791,7 +792,7 @@ def get_RIB_IN_capacity(cvg_api,
                 bgpv4_peer.as_type = BGP_TYPE
                 bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
                 bgpv4_peer.as_number = int(TGEN_AS_NUM)
-                route_range = bgpv4_peer.v4_routes.add(name="Network_Group%d" % i) 
+                route_range = bgpv4_peer.v4_routes.add(name="Network_Group%d" % i)
                 route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
@@ -825,7 +826,7 @@ def get_RIB_IN_capacity(cvg_api,
                 ipv6_stack.address = temp_tg_port[i-1]['ipv6']
                 ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
                 ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
-                
+
                 bgpv6 = config.devices[i-1].bgp
                 bgpv6.router_id = temp_tg_port[i-1]['peer_ip']
                 bgpv6_int = bgpv6.ipv6_interfaces.add()
