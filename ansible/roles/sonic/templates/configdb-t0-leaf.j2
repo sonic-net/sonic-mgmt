@@ -37,7 +37,7 @@
 {% endif %}
 {% if host['bp_interface']['ipv6'] is defined %}
         "{{ bp_ifname | replace("-", "") }}|{{ host['bp_interface']['ipv6'] }}": {}
-{% endif %}	
+{% endif %}
 {% endif %}
     },
     "BGP_NEIGHBOR": {
