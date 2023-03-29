@@ -9,8 +9,8 @@ from ipaddress import ip_address
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_container_state
-from vnet_constants import *
-from vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
+from tests.vxlan.vnet_constants import *
+from tests.vxlan.vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
                        apply_dut_config_files, generate_dut_config_files
 
 
@@ -267,7 +267,7 @@ class VnetMonitorTest:
             masked_exp_pkt.set_do_not_care(offset_do_not_care * 8, len_do_not_care * 8)
             log_str = "do_not_care  mask :\n" + str(masked_exp_pkt)
             logging.info(log_str)
-        
+
         masked_exp_pkt.set_ignore_extra_bytes()
 
         testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, self.net_ports)

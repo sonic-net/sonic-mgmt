@@ -7,9 +7,10 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
+from tests.vxlan.vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY,\
+    VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
 
-from vnet_utils import generate_dut_config_files, safe_open_template, \
+from tests.vxlan.vnet_utils import generate_dut_config_files, safe_open_template, \
                        apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
