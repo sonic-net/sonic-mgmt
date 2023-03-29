@@ -89,6 +89,7 @@ def test_snappi(request,
                 linecard_configuration_set,
                 get_multidut_snappi_ports                                       # noqa: F811
                 ):
+
     """
     Test if we can use Snappi API generate traffic in a testbed
 

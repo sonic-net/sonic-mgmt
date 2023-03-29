@@ -578,7 +578,6 @@ def snappi_dut_base_config(duthost_list,
 
 @pytest.fixture(scope="function")
 def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):            # noqa: F811
-
     """
     Populate tgen ports and connected DUT ports info of T0 testbed and returns as a list
     Args:
