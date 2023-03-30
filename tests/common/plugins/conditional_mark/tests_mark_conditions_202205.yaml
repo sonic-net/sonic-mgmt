@@ -140,14 +140,6 @@ qos/test_pfc_pause.py::test_no_pfc:
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6716
 
-qos/test_qos_sai.py::TestQosSai::testParameter:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6666
-
 qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
@@ -229,30 +221,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXoffLimit:
       - https://github.com/sonic-net/sonic-mgmt/issues/6666
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6666
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6666
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6666
-
-qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
     conditions:
