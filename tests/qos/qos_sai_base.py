@@ -20,6 +20,7 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
