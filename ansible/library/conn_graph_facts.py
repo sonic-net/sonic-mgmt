@@ -81,18 +81,15 @@ EXAMPLES='''
               "HwSku": "Arista-7260QX-64",
               "Type": "FanoutLeaf"
             },
-          "device_conn": [
-          {
-             "StartPort": "Ethernet0",
-             "EndPort": "Ethernet33",
-             "StartDevice": "str-s6000-on-1",
-             "VlanID": "233",
-             "BandWidth": "40000",
-             "VlanMode": "Access",
-             "EndDevice": "str-7260-01"
-           },
-           {...}
-           ],
+          "device_conn": {
+              "str-7260-11": {
+                  "Ethernet0": {
+                      "peerdevice": "str-7050qx-2",
+                      "peerport": "Ethernet4",
+                      "speed": "40000"
+                  },
+              }
+          },
            "device_vlan_range": {
               "VlanRange": "201-980,1041-1100"
             },
@@ -164,21 +161,16 @@ class Parse_Lab_Graph():
         devices = deviceroot.findall('Device')
         if devices is not None:
             for dev in devices:
-                hostname = dev.attrib['Hostname']
+                attributes = dev.attrib
+                hostname = attributes['Hostname']
                 if hostname is not None:
                     deviceinfo[hostname] = {}
-                    hwsku = dev.attrib['HwSku']
-                    devtype = dev.attrib['Type']
-                    card_type = "Linecard"
-                    if 'CardType' in dev.attrib:
-                        card_type = dev.attrib['CardType']
-                    hwsku_type = "predefined"
-                    if "HwSkuType" in dev.attrib:
-                        hwsku_type = dev.attrib["HwSkuType"]
-                    deviceinfo[hostname]['HwSku'] = hwsku
-                    deviceinfo[hostname]['Type'] = devtype
-                    deviceinfo[hostname]['CardType'] = card_type
-                    deviceinfo[hostname]["HwSkuType"] = hwsku_type
+                    deviceinfo[hostname]["Hostname"] = hostname
+                    deviceinfo[hostname]['HwSku'] = attributes.get('HwSku')
+                    deviceinfo[hostname]['Type'] = attributes.get('Type')
+                    deviceinfo[hostname]['CardType'] = attributes.get('CardType', 'Linecard')
+                    deviceinfo[hostname]['HwSkuType'] = attributes.get('HwSkuType', 'predefined')
+                    deviceinfo[hostname]['Os'] = attributes.get('Os')
                     self.links[hostname] = {}
         devicel2info = {}
         devicel3s = self.root.find(self.dpgtag).findall('DevicesL3Info')
@@ -199,6 +191,7 @@ class Parse_Lab_Graph():
             for l3info in devicel3s:
                 hostname = l3info.attrib['Hostname']
                 if hostname is not None:
+                    deviceinfo[hostname]["Hostname"] = hostname
                     management_ip = l3info.find('ManagementIPInterface').attrib['Prefix']
                     deviceinfo[hostname]['ManagementIp'] = management_ip
                     mgmtip = ipaddress.IPNetwork(management_ip)
@@ -220,17 +213,19 @@ class Parse_Lab_Graph():
             devicescsg = devicecsgroot.findall('DeviceConsoleInfo')
             if devicescsg is not None:
                 for dev in devicescsg:
-                    hostname = dev.attrib['Hostname']
+                    attributes = dev.attrib
+                    hostname = attributes['Hostname']
                     if hostname is not None:
                         deviceinfo[hostname] = {}
-                        hwsku = dev.attrib['HwSku']
-                        devtype = dev.attrib['Type']
-                        protocol = dev.attrib['Protocol']
-                        mgmt_ip = dev.attrib['ManagementIp']
-                        deviceinfo[hostname]['HwSku'] = hwsku
-                        deviceinfo[hostname]['Type'] = devtype
-                        deviceinfo[hostname]['Protocol'] = protocol
+                        deviceinfo[hostname]["Hostname"] = hostname
+                        deviceinfo[hostname]['HwSku'] = attributes.get('HwSku')
+                        deviceinfo[hostname]['Type'] = attributes.get('Type')
+                        deviceinfo[hostname]['Protocol'] = attributes.get('Protocol')
+                        deviceinfo[hostname]['Os'] = attributes.get('Os')
+                        mgmt_ip = attributes.get('ManagementIp')
+                        management_gw = str(ipaddress.IPNetwork(mgmt_ip).network+1)
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
+                        deviceinfo[hostname]['ManagementGw'] = management_gw
                         self.consolelinks[hostname] = {}
             console_link_root = console_root.find('ConsoleLinksInfo')
             if console_link_root:
@@ -272,17 +267,17 @@ class Parse_Lab_Graph():
             devicesbmcg = devicebmcgroot.findall('DeviceBmcInfo')
             if devicesbmcg is not None:
                 for dev in devicesbmcg:
-                    hostname = dev.attrib['Hostname']
+                    attributes = dev.attrib
+                    hostname = attributes['Hostname']
                     if hostname is not None:
                         deviceinfo[hostname] = {}
-                        hwsku = dev.attrib['HwSku']
-                        devtype = dev.attrib['Type']
-                        protocol = dev.attrib['Protocol']
-                        mgmt_ip = dev.attrib['ManagementIp']
+                        deviceinfo[hostname]["Hostname"] = hostname
+                        deviceinfo[hostname]['HwSku'] = attributes.get('HwSku')
+                        deviceinfo[hostname]['Type'] = attributes.get('Type')
+                        deviceinfo[hostname]['Protocol'] = attributes.get('Protocol')
+                        deviceinfo[hostname]['Os'] = attributes.get('Os')
+                        mgmt_ip = attributes.get('ManagementIp')
                         management_gw = str(ipaddress.IPNetwork(mgmt_ip).network+1)
-                        deviceinfo[hostname]['HwSku'] = hwsku
-                        deviceinfo[hostname]['Type'] = devtype
-                        deviceinfo[hostname]['Protocol'] = protocol
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
                         deviceinfo[hostname]['ManagementGw'] = management_gw
                         self.bmclinks[hostname] = {}
@@ -323,6 +318,7 @@ class Parse_Lab_Graph():
                     hostname = dev.attrib['Hostname']
                     if hostname is not None:
                         deviceinfo[hostname] = {}
+                        deviceinfo[hostname]["Hostname"] = hostname
                         hwsku = dev.attrib['HwSku']
                         devtype = dev.attrib['Type']
                         protocol = dev.attrib['Protocol']
