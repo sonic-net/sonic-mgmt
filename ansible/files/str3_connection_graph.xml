@@ -1,53 +1,53 @@
 <LabConnectionGraph>
   <PhysicalNetworkGraphDeclaration>
     <Devices>
-      <Device Hostname="str3-7260cx3-acs-root03" HwSku="Arista-7260CX3-64" Type="FanoutRoot"/>
-      <Device Hostname="str3-acs-serv-61" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="str3-acs-serv-62" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="str3-acs-serv-63" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="str3-7260cx3-acs-fan-01" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str3-7260cx3-acs-fan-02" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str3-7260cx3-acs-fan-03" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str3-7260cx3-acs-fan-04" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str3-7260cx3-acs-fan-05" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str3-7260cx3-acs-fan-06" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str3-7260cx3-acs-fan-07" HwSku="Arista-7260CX3-C64" Type="FanoutLeafSonic"/>
-      <Device Hostname="str3-7260cx3-acs-fan-08" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str2-7260cx3-acs-fan-23" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str2-7260cx3-acs-fan-35" HwSku="Arista-7260CX3" Type="FanoutLeaf"/>
-      <Device Hostname="str3-8101-fanout-01" HwSku="Cisco-8101-C64" Type="FanoutLeaf"/>
-      <Device Hostname="str3-8101-fanout-02" HwSku="Cisco-8101-C64" Type="FanoutLeaf"/>
-      <Device Hostname="str3-8101-fanout-03" HwSku="Cisco-8101-O8C48" Type="FanoutLeaf"/>
-      <Device Hostname="str3-8102-01" HwSku="Cisco-8102-C64" Type="DevSonic"/>
-      <Device Hostname="str3-8102-05" HwSku="Cisco-8102-C64" Type="DevSonic"/>
-      <Device Hostname="str3-8102-06" HwSku="Cisco-8102-C64" Type="DevSonic"/>
-      <Device Hostname="str3-8101-32fh-01" HwSku="Cisco-8101-O32" Type="DevSonic"/>
-      <Device Hostname="str3-8101-01" HwSku="Cisco-8101-C64" Type="DevSonic"/>
-      <Device Hostname="str3-8101-02" HwSku="Cisco-8101-O8C48" Type="DevSonic"/>
-      <Device Hostname="str3-8800-sup-1" HwSku="8800-RP-O" Type="DevSonic"/>
-      <Device Hostname="str3-8800-sup-2" HwSku="8800-RP-O" Type="DevSonic"/>
-      <Device Hostname="str3-8800-lc1-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
-      <Device Hostname="str3-8800-lc2-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
-      <Device Hostname="str3-8800-lc3-1" HwSku="8800-LC-48H-O" Type="DevSonic"/>
-      <Device Hostname="str3-8800-lc4-1" HwSku="88-LC0-36FH-MO" Type="DevSonic"/>
-      <Device Hostname="str3-7808-sup-1" HwSku="Arista-7808R3A-FM" Type="DevSonic"/>
-      <Device Hostname="str3-7800-lc1-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
-      <Device Hostname="str3-7800-lc2-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
-      <Device Hostname="str3-7800-lc3-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
-      <Device Hostname="str3-7800-lc4-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
-      <Device Hostname="str3-7800-lc5-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
-      <Device Hostname="str3-7800-lc6-1" HwSku="Arista-7800R3-48CQ2-C48" Type="DevSonic"/>
-      <Device Hostname="str3-7800-lc7-1" HwSku="Arista-7800R3-48CQM2-C48" Type="DevSonic"/>
-      <Device Hostname="str3-7800-lc8-1" HwSku="Arista-7800R3A-36DM2-D36" Type="DevSonic"/>
-      <Device Hostname="str3-z9332f-01" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
-      <Device Hostname="str3-z9332f-02" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
-      <Device Hostname="str3-z9332f-04" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
-      <Device Hostname="str3-z9332f-06" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
-      <Device Hostname="str3-7060-acs-1" HwSku="Arista-7060CX-32S-D48C8" Type="DevSonic"/>
-      <Device Hostname="str3-7060-acs-2" HwSku="Arista-7060CX-32S-D48C8" Type="DevSonic"/>
-      <Device Hostname="str3-7060-acs-3" HwSku="Arista-7060CX-32S-C32" Type="DevSonic"/>
-      <Device Hostname="str3-7060-acs-fan-01" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
-      <Device Hostname="str3-dx010-acs-1" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
+      <Device Hostname="str3-7260cx3-acs-root03" HwSku="Arista-7260CX3-64" Os="" Type="FanoutRoot"/>
+      <Device Hostname="str3-acs-serv-61" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="str3-acs-serv-62" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="str3-acs-serv-63" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="str3-7260cx3-acs-fan-01" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-02" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-03" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-04" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-05" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-06" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-07" HwSku="Arista-7260CX3-C64" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="str3-7260cx3-acs-fan-08" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str2-7260cx3-acs-fan-23" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str2-7260cx3-acs-fan-35" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-8101-fanout-01" HwSku="Cisco-8101-C64" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-8101-fanout-02" HwSku="Cisco-8101-C64" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-8101-fanout-03" HwSku="Cisco-8101-O8C48" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-8102-01" HwSku="Cisco-8102-C64" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8102-05" HwSku="Cisco-8102-C64" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8102-06" HwSku="Cisco-8102-C64" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8101-32fh-01" HwSku="Cisco-8101-O32" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8101-01" HwSku="Cisco-8101-C64" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8101-02" HwSku="Cisco-8101-O8C48" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-sup-1" HwSku="8800-RP-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-sup-2" HwSku="8800-RP-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc1-1" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc2-1" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc3-1" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc4-1" HwSku="88-LC0-36FH-MO" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7808-sup-1" HwSku="Arista-7808R3A-FM" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7800-lc1-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7800-lc2-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7800-lc3-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7800-lc4-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7800-lc5-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7800-lc6-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7800-lc7-1" HwSku="Arista-7800R3-48CQM2-C48" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7800-lc8-1" HwSku="Arista-7800R3A-36DM2-D36" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-z9332f-01" HwSku="DellEMC-Z9332f-O32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="str3-z9332f-02" HwSku="DellEMC-Z9332f-O32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="str3-z9332f-04" HwSku="DellEMC-Z9332f-O32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="str3-z9332f-06" HwSku="DellEMC-Z9332f-O32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="str3-7060-acs-1" HwSku="Arista-7060CX-32S-D48C8" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7060-acs-2" HwSku="Arista-7060CX-32S-D48C8" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7060-acs-3" HwSku="Arista-7060CX-32S-C32" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7060-acs-fan-01" HwSku="Arista-7060CX-32S" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-dx010-acs-1" HwSku="Celestica-DX010-C32" Os="sonic" Type="FanoutLeafSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-acs-serv-61" EndPort="enp59s0f1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet4/1"/>
@@ -2044,9 +2044,9 @@
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
-      <DeviceConsoleInfo Hostname="console-182" HwSku="Cisco" ManagementIp="10.3.145.182" Protocol="ssh" Type="ConsoleServer"/>
-      <DeviceConsoleInfo Hostname="console-194" HwSku="Cisco" ManagementIp="10.3.145.194" Protocol="ssh" Type="ConsoleServer"/>
-      <DeviceConsoleInfo Hostname="console-197" HwSku="Cisco" ManagementIp="10.3.145.197" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-182" HwSku="Cisco" ManagementIp="10.3.145.182" Os="" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-194" HwSku="Cisco" ManagementIp="10.3.145.194" Os="" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-197" HwSku="Cisco" ManagementIp="10.3.145.197" Os="" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-01" Proxy="admin" StartDevice="console-197" StartPort="28"/>
@@ -2077,22 +2077,25 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-dx010-acs-1" Proxy="admin" StartDevice="console-212" StartPort="3"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
+  <BmcGraphDeclaration>
+    <DevicesBmcInfo/>
+  </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
-      <DevicePowerControlInfo Hostname="pdu-85" HwSku="Apc" ManagementIp="10.3.155.85" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-86" HwSku="Apc" ManagementIp="10.3.155.86" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-88" HwSku="Sentry" ManagementIp="10.3.155.88" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-89" HwSku="Apc" ManagementIp="10.3.155.89" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-90" HwSku="Apc" ManagementIp="10.3.155.90" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-91" HwSku="Sentry" ManagementIp="10.3.155.91" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-92" HwSku="Sentry" ManagementIp="10.3.155.92" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-115" HwSku="Sentry" ManagementIp="10.3.155.115" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-116" HwSku="Sentry" ManagementIp="10.3.155.116" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-118" HwSku="Sentry" ManagementIp="10.3.155.118" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-122" HwSku="Sentry" ManagementIp="10.3.155.122" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-123" HwSku="Sentry" ManagementIp="10.3.155.123" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-119" HwSku="Sentry4" ManagementIp="10.3.155.119" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-120" HwSku="Sentry4" ManagementIp="10.3.155.120" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-85" HwSku="Apc" ManagementIp="10.3.155.85" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-86" HwSku="Apc" ManagementIp="10.3.155.86" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-88" HwSku="Sentry" ManagementIp="10.3.155.88" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-89" HwSku="Apc" ManagementIp="10.3.155.89" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-90" HwSku="Apc" ManagementIp="10.3.155.90" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-91" HwSku="Sentry" ManagementIp="10.3.155.91" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-92" HwSku="Sentry" ManagementIp="10.3.155.92" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-115" HwSku="Sentry" ManagementIp="10.3.155.115" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-116" HwSku="Sentry" ManagementIp="10.3.155.116" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-118" HwSku="Sentry" ManagementIp="10.3.155.118" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-122" HwSku="Sentry" ManagementIp="10.3.155.122" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-123" HwSku="Sentry" ManagementIp="10.3.155.123" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-119" HwSku="Sentry4" ManagementIp="10.3.155.119" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-120" HwSku="Sentry4" ManagementIp="10.3.155.120" Os="" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-root03" EndPort="PSU1" StartDevice="pdu-116" StartPort="4"/>

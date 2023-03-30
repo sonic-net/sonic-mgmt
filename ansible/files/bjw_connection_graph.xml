@@ -1,59 +1,59 @@
 <LabConnectionGraph>
   <PhysicalNetworkGraphDeclaration>
     <Devices>
-      <Device Hostname="bjw-can-7260-root-1" HwSku="Arista-7260CX3-64" Type="FanoutRoot"/>
-      <Device Hostname="bjw-can-7060-fanout-1" HwSku="Arista-7060CX-32S" Type="FanoutLeaf"/>
-      <Device Hostname="bjw-can-z9332f-1" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-z9332f-2" HwSku="DellEMC-Z9332f-O32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-z9332f-3" HwSku="DellEMC-Z9332f-C32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-z9332f-4" HwSku="DellEMC-Z9332f-C32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-slx-can-2" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-slx-can-4" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-slx-5" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-slx-6" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-slx-7" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-slx-8" HwSku="Celestica-DX010-C32" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-7215-2" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-7215-3" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-7215-4" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-7215-5" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-7215-7" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-7215-8" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-7215-12" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-7215-13" HwSku="Nokia-7215" Type="FanoutLeafSonic"/>
-      <Device Hostname="bjw-can-serv-1" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-2" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-3" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-4" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-5" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-6" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-7" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-8" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-9" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-10" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-11" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-12" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-13" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-14" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-15" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-serv-16" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="bjw-can-720dt-1" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
-      <Device Hostname="bjw-can-720dt-2" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
-      <Device Hostname="bjw-can-720dt-3" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
-      <Device Hostname="bjw-can-720dt-4" HwSku="Arista-720DT-G48S4" Type="DevSonic"/>
-      <Device Hostname="bjw-can-ec9516-1" HwSku="newport" Type="DevSonic"/>
-      <Device Hostname="bjw-can-ec9516-2" HwSku="newport" Type="DevSonic"/>
-      <Device Hostname="bjw-can-2700-1" HwSku="Mellanox-SN2700" Type="DevSonic"/>
-      <Device Hostname="bjw-can-2700-2" HwSku="Mellanox-SN2700" Type="DevSonic"/>
-      <Device Hostname="bjw-slx-can-1" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
-      <Device Hostname="bjw-slx-can-3" HwSku="Celestica-DX010-C32" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7215-1" HwSku="Nokia-M0-7215" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7215-6" HwSku="Nokia-M0-7215" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7215-11" HwSku="Nokia-7215" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7050qx-1" HwSku="Arista-7050QX32S-Q32" Type="DevSonic"/>
-      <Device Hostname="bjw-can-7050qx-2" HwSku="Arista-7050-QX-32S" Type="DevSonic"/>
-      <Device Hostname="bjw-can-e1031-1" HwSku="Celestica-E1031-T48S4" Type="DevSonic"/>
-      <Device Hostname="bjw-can-8102-1" HwSku="Cisco-8102-C64" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7260-root-1" HwSku="Arista-7260CX3-64" Os="" Type="FanoutRoot"/>
+      <Device Hostname="bjw-can-7060-fanout-1" HwSku="Arista-7060CX-32S" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="bjw-can-z9332f-1" HwSku="DellEMC-Z9332f-O32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-z9332f-2" HwSku="DellEMC-Z9332f-O32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-z9332f-3" HwSku="DellEMC-Z9332f-C32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-z9332f-4" HwSku="DellEMC-Z9332f-C32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-slx-can-2" HwSku="Celestica-DX010-C32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-slx-can-4" HwSku="Celestica-DX010-C32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-slx-5" HwSku="Celestica-DX010-C32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-slx-6" HwSku="Celestica-DX010-C32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-slx-7" HwSku="Celestica-DX010-C32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-slx-8" HwSku="Celestica-DX010-C32" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-2" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-3" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-4" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-5" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-7" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-8" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-12" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-7215-13" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
+      <Device Hostname="bjw-can-serv-1" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-2" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-3" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-4" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-5" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-6" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-7" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-8" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-9" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-10" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-11" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-12" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-13" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-14" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-15" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-serv-16" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="bjw-can-720dt-1" HwSku="Arista-720DT-G48S4" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-720dt-2" HwSku="Arista-720DT-G48S4" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-720dt-3" HwSku="Arista-720DT-G48S4" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-720dt-4" HwSku="Arista-720DT-G48S4" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-ec9516-1" HwSku="newport" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-ec9516-2" HwSku="newport" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-2700-1" HwSku="Mellanox-SN2700" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-2700-2" HwSku="Mellanox-SN2700" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-slx-can-1" HwSku="Celestica-DX010-C32" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-slx-can-3" HwSku="Celestica-DX010-C32" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7215-1" HwSku="Nokia-M0-7215" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7215-6" HwSku="Nokia-M0-7215" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7215-11" HwSku="Nokia-7215" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7050qx-1" HwSku="Arista-7050QX32S-Q32" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-7050qx-2" HwSku="Arista-7050-QX-32S" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-e1031-1" HwSku="Celestica-E1031-T48S4" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="bjw-can-8102-1" HwSku="Cisco-8102-C64" Os="sonic" Type="DevSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-3" EndPort="Ethernet0" StartDevice="bjw-can-720dt-1" StartPort="Ethernet0"/>
@@ -1825,8 +1825,8 @@
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
-      <DeviceConsoleInfo Hostname="bjw-can-7215-10" HwSku="Nokia-7215" ManagementIp="10.150.22.10" Protocol="ssh" Type="ConsoleServer"/>
-      <DeviceConsoleInfo Hostname="bjw-can-7215-9" HwSku="Nokia-7215" ManagementIp="10.150.22.11" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="bjw-can-7215-10" HwSku="Nokia-7215" ManagementIp="10.150.22.10" Os="sonic" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="bjw-can-7215-9" HwSku="Nokia-7215" ManagementIp="10.150.22.11" Os="sonic" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-2700-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="1"/>
@@ -1869,14 +1869,17 @@
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-10" Proxy="admin" StartDevice="bjw-can-7215-9" StartPort="48"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
+  <BmcGraphDeclaration>
+    <DevicesBmcInfo/>
+  </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
-      <DevicePowerControlInfo Hostname="bjw-pdu-126-132" HwSku="Vertiv" ManagementIp="10.150.126.132" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="bjw-pdu-126-133" HwSku="Vertiv" ManagementIp="10.150.126.133" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="bjw-pdu-126-134" HwSku="Vertiv" ManagementIp="10.150.126.134" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="bjw-pdu-126-135" HwSku="Vertiv" ManagementIp="10.150.126.135" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="bjw-pdu-126-136" HwSku="Vertiv" ManagementIp="10.150.126.136" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="bjw-pdu-126-137" HwSku="Vertiv" ManagementIp="10.150.126.137" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="bjw-pdu-126-132" HwSku="Vertiv" ManagementIp="10.150.126.132" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="bjw-pdu-126-133" HwSku="Vertiv" ManagementIp="10.150.126.133" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="bjw-pdu-126-134" HwSku="Vertiv" ManagementIp="10.150.126.134" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="bjw-pdu-126-135" HwSku="Vertiv" ManagementIp="10.150.126.135" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="bjw-pdu-126-136" HwSku="Vertiv" ManagementIp="10.150.126.136" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="bjw-pdu-126-137" HwSku="Vertiv" ManagementIp="10.150.126.137" Os="" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
       <PowerControlLinkInfo EndDevice="bjw-can-7215-10" EndPort="PSU1" StartDevice="bjw-pdu-126-135" StartPort="1"/>
