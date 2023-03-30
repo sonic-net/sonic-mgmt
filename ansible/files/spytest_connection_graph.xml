@@ -3270,10 +3270,10 @@
       <InterfaceVlan mode="Access" portname="Ethernet30/1" vlanids="1131"/>
       <InterfaceVlan mode="Access" portname="Ethernet31/1" vlanids="1132"/>
       <InterfaceVlan mode="Access" portname="Ethernet32/1" vlanids="1133"/>
-      <InterfaceVlan mode="Access" portname="Ethernet36/1" vlanids="1162"/>
+      <InterfaceVlan mode="Access" portname="Ethernet33/1" vlanids="1162"/>
       <InterfaceVlan mode="Access" portname="Ethernet34/1" vlanids="1163"/>
       <InterfaceVlan mode="Access" portname="Ethernet35/1" vlanids="1164"/>
-      <InterfaceVlan mode="Access" portname="Ethernet34/1" vlanids="1165"/>
+      <InterfaceVlan mode="Access" portname="Ethernet36/1" vlanids="1165"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str2-msn4600c-acs-04">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.63/23"/>
