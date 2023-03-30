@@ -41,7 +41,7 @@ arp/test_stress_arp.py:
 
 arp/test_unknown_mac.py:
   skip:
-    reason: "Not supported on cisco-8000 platform"
+    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
     conditions:
       - "asic_type in ['cisco-8000']"
 
