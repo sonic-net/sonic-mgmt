@@ -473,14 +473,14 @@ class TestShowQueue():
                 pass
 
         # For the test to be valid, we should have at least one interface selected
-        assert( len( interfaces ) > 0 )
+        assert (len(interfaces) > 0)
 
         intfsChecked = 0
         if mode == 'alias':
             for intf in interfaces:
                 alias = setup['port_name_map'].get(intf)
                 if not alias:
-                   continue
+                    continue
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
                                   .format(alias), queue_counter) is not None) \
                     and (setup['port_alias_map'][alias] not in queue_counter)
@@ -488,14 +488,14 @@ class TestShowQueue():
         elif mode == 'default':
             for intf in interfaces:
                 if intf not in setup['port_name_map']:
-                   continue
+                    continue
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
                                   .format(intf), queue_counter) is not None) \
                     and (setup['port_name_map'][intf] not in queue_counter)
                 intfsChecked += 1
 
         # At least one interface should have been checked to have a valid result
-        assert( intfsChecked > 0 )
+        assert(intfsChecked > 0)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
