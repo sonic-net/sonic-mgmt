@@ -313,9 +313,9 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
 #######################################
 dut_console:
   skip:
-    reason: "Not supported vs testbed."
-    conditions:
-      - "asic_type in ['vs']"
+    reason: "Not supported vs testbed. / Public console account is not available."
+#    conditions:
+#      - "asic_type in ['vs']"
 
 #######################################
 #####             ecmp            #####
