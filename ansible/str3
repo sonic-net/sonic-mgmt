@@ -750,6 +750,8 @@ sonic_arista32_100:
     str3-7060-acs-3:
       ansible_host: 10.3.146.243
       hwsku: Arista-7060CX-32S-C32
+  vars:
+    iface_speed: 100000
 
 server:
   hosts:
