@@ -11,6 +11,7 @@ import sys
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.cisco_data import is_cisco_device
 #from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
     import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result  # noqa F401
@@ -1071,6 +1072,21 @@ class QosSaiBase(QosBase):
                                                            duthost,
                                                            tbinfo["topo"]["name"])
                 qosParams = qpm.run()
+        elif is_cisco_device(duthost):
+            bufferConfig = self.dutBufferConfig(duthost)
+            pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL does not exist in bufferConfig')
+            pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE does not exist in bufferConfig')
+            pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE does not exist in bufferConfig')
+            pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG does not exist in bufferConfig')
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/cisco/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamCisco(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                    duthost,
+                                                    bufferConfig)
+            qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
