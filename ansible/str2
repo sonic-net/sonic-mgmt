@@ -1508,6 +1508,13 @@ sonic_cisco_sup:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x87079ED0"
+      skip_logical_modules:
+          'supervisor':
+            - SUPERVISOR1
+          'line-cards':
+            - LINE-CARD1
+            - LINE-CARD2
+            - LINE-CARD3
       skip_modules:
           'line-cards':
             - LINE-CARD1
@@ -1569,6 +1576,12 @@ sonic_cisco_sup:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x87079ED0"
+      skip_logical_modules:
+          'supervisor':
+            - SUPERVISOR1
+          'line-cards':
+            - LINE-CARD0
+            - LINE-CARD4
       skip_modules:
           'line-cards':
             - LINE-CARD0
