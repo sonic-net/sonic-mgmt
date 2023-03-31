@@ -39,6 +39,12 @@ arp/test_stress_arp.py:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/7874
 
+arp/test_unknown_mac.py:
+  skip:
+    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -657,6 +663,12 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_warm_reboot.py:
+   skip:
+     reason: "Warm Reboot is not supported in T2."
+     conditions:
+        - "'t2' in topo_name"
 
 #######################################
 #####         platform_tests      #####
