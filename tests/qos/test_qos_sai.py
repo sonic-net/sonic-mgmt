@@ -668,12 +668,15 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
 
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        qosConfig = dutQosConfig["param"]
         testPortIps = dutConfig["testPortIps"]
 
         if not sharedResSizeKey in list(qosConfig.keys()):
             pytest.skip("Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
+
+        if "skip" in qosConfig[sharedResSizeKey]:
+            # Skip if buffer pools and profiles are not be present, marked by qos param generator
+            pytest.skip(qosConfig[sharedResSizeKey]["skip"])
 
         self.updateTestPortIdIp(dutConfig, qosConfig[sharedResSizeKey])
 
