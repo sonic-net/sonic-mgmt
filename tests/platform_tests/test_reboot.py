@@ -25,6 +25,7 @@ from tests.common.platform.interface_utils import check_all_interface_informatio
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import get_plt_reboot_ctrl
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -96,6 +97,9 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
     else:
+        plt_reboot_ctrl = get_plt_reboot_ctrl(dut, 'check_interfaces_and_services', 'cold')
+        if plt_reboot_ctrl:
+            MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl['wait']
         logging.info("Wait {} seconds for all the transceivers to be detected".format(MAX_WAIT_TIME_FOR_INTERFACES))
         result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
                             xcvr_skip_list)
