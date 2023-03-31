@@ -46,7 +46,7 @@ def load_memory(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost.copy(src='snmp/memory.py', dest='/tmp/memory.py')
     duthost.shell("nohup python /tmp/memory.py > /dev/null 2>&1 &")
     yield
-    duthost.shell("killall python /tmp/memory.py", module_ignore_errors=True)
+    duthost.shell("pkill -SIGTERM -f 'python /tmp/memory.py'", module_ignore_errors=True)
 
 def collect_memory(duthost):
     """
