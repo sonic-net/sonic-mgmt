@@ -467,8 +467,17 @@ class TestShowQueue():
 
         for key in buffer_queue_keys:
             try:
+                fields = key.split("|")
+                # The format of BUFFER_QUEUE entries on VOQ chassis is
+                #   'BUFFER_QUEUE|<host name>|<asic-name>|Ethernet32|0-2'
+                # where 'host name' could be any host in the chassis, including those from other
+                # cards. This test only cares about local interfaces, so we can filter out the rest
+                if duthost.facts['switch_type'] == 'voq':
+                    hostname = fields[1]
+                    if hostname != duthost.hostname:
+                        continue
                 # The interface name is always the last but one field in the BUFFER_QUEUE entry key
-                interfaces.add(key.split('|')[-2])
+                interfaces.add(fields[-2])
             except IndexError:
                 pass
 
@@ -478,9 +487,7 @@ class TestShowQueue():
         intfsChecked = 0
         if mode == 'alias':
             for intf in interfaces:
-                alias = setup['port_name_map'].get(intf)
-                if not alias:
-                    continue
+                alias = setup['port_name_map'][intf]
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
                                   .format(alias), queue_counter) is not None) \
                     and (setup['port_alias_map'][alias] not in queue_counter)
