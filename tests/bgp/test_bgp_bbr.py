@@ -48,6 +48,11 @@ def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='disabled'), dest='/tmp/disable_bbr.json')
     duthost.copy(content=bgp_bbr_config.render(BGP_BBR_STATUS='enabled'), dest='/tmp/enable_bbr.json')
 
+    yield
+
+    duthost.copy(src="./bgp/templates/del_bgp_bbr_config.json", dest='/tmp/del_bgp_bbr_config.json')
+    duthost.shell("configlet -d -j {}".format("/tmp/del_bgp_bbr_config.json"))
+
 
 @pytest.fixture(scope='module')
 def bbr_default_state(setup):
@@ -91,8 +96,6 @@ def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defau
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
-    if tbinfo['topo']['type'] != 't1':
-        pytest.skip('Unsupported topology type: {}, supported: {}'.format(tbinfo['topo']['type'], 't1'))
 
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:
@@ -110,10 +113,8 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
-    t2_neighbors = [neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T2')]
+    tor_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith('T0')])
     tor1 = tor_neighbors[0]
-    other_vms = tor_neighbors[1:] + t2_neighbors
 
     neigh_peer_map = defaultdict(dict)
     for bgp_neigh in mg_facts['minigraph_bgp']:
@@ -125,10 +126,18 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
             neigh_peer_map[name].update({'peer_addr_v6': peer_addr})
 
     tor1_namespace = DEFAULT_NAMESPACE
-    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+    for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
         if tor1 == neigh['name']:
             tor1_namespace = neigh['namespace']
             break
+
+    # Modifying other_vms for multi-asic, check bgps on asic of tor1_namespace
+    other_vms = []
+    for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
+        if neigh['name'] == tor1:
+            continue
+        if neigh['namespace'] == tor1_namespace:
+            other_vms.append(neigh['name'])
 
     # Announce route to one of the T0 VM
     tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
@@ -178,7 +187,7 @@ def update_routes(action, ptfip, port, route):
         logger.error('Unsupported route update operation.')
         return
     url = 'http://%s:%d' % (ptfip, port)
-    data = {'commands': msg }
+    data = {'commands': msg}
     r = requests.post(url, data=data)
     assert r.status_code == 200
 
@@ -217,11 +226,11 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         # Check route on tor1
         logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
         tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
-        if not route.prefix in tor1_route['vrfs']['default']['bgpRouteEntries'].keys():
+        if route.prefix not in list(tor1_route['vrfs']['default']['bgpRouteEntries'].keys()):
             logging.warn('No route for {} found on {}'.format(route.prefix, tor1))
             return False
         tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-            ['asPathEntry']['asPath']
+            ['asPathEntry']['asPath']   # noqa E211
         if not tor1_route_aspath == route.aspath:
             logging.warn('On {} expected aspath: {}, actual aspath: {}'.format(tor1, route.aspath, tor1_route_aspath))
             return False
@@ -241,12 +250,17 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
             # Route path from DUT: -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
             dut_route_aspath_expected = '{} {}'.format(tor1_asn, route.aspath)
             if not dut_route_aspath == dut_route_aspath_expected:
-                logging.warn('On DUT expected aspath: {}, actual aspath: {}'.format(dut_route_aspath_expected, dut_route_aspath))
+                logging.warn('On DUT expected aspath: {}, actual aspath: {}'
+                             .format(dut_route_aspath_expected, dut_route_aspath))
                 return False
             if 'advertisedTo' not in dut_route:
                 logging.warn("DUT didn't advertise the route")
                 return False
-            advertised_to = set([bgp_neighbors[_]['name'] for _ in dut_route['advertisedTo']])
+            advertised_to = set()
+            for _ in dut_route['advertisedTo']:
+                # For multi-asic dut, dut_route included duthost which is not a BGP neighbor
+                if _ in list(bgp_neighbors.keys()):
+                    advertised_to.add(bgp_neighbors[_]['name'])
             for vm in other_vms:
                 if vm not in advertised_to:
                     logging.warn("DUT didn't advertise route to neighbor %s" % vm)
@@ -270,12 +284,12 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         vm_route['failed'] = False
         vm_route['message'] = 'Checking route {} on {} passed'.format(str(route), node)
         if accepted:
-            if route.prefix not in vm_route['vrfs']['default']['bgpRouteEntries'].keys():
+            if route.prefix not in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
                 vm_route['failed'] = True
                 vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
             else:
                 tor_route_aspath = vm_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-                    ['asPathEntry']['asPath']
+                    ['asPathEntry']['asPath']   # noqa E211
                 # Route path from other VMs: -> DUT(T1) -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
                 tor_route_aspath_expected = '{} {} {}'.format(dut_asn, tor1_asn, route.aspath)
                 if tor_route_aspath != tor_route_aspath_expected:
@@ -283,7 +297,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                     vm_route['message'] = 'On {} expected aspath: {}, actual aspath: {}'\
                         .format(node, tor_route_aspath_expected, tor_route_aspath)
         else:
-            if route.prefix in vm_route['vrfs']['default']['bgpRouteEntries'].keys():
+            if route.prefix in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
                 vm_route['failed'] = True
                 vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
         results[node] = vm_route
@@ -295,20 +309,23 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
     pytest_assert(wait_until(5, 1, 0, check_tor1, nbrhosts, setup, route), 'tor1 check failed')
 
     # check DUT
-    pytest_assert(wait_until(5, 1, 0, check_dut, duthost, other_vms, bgp_neighbors, setup, route, accepted=accepted), 'DUT check failed')
+    pytest_assert(wait_until(5, 1, 0, check_dut, duthost, other_vms, bgp_neighbors,
+                  setup, route, accepted=accepted), 'DUT check failed')
 
-    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted}, other_vms, timeout=120)
+    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted},
+                           other_vms, timeout=120, concurrent_tasks=6)
 
     failed_results = {}
-    for node, result in results.items():
+    for node, result in list(results.items()):
         if result['failed']:
             failed_results[node] = result
 
-    pytest_assert(not failed_results, 'Checking route {} failed, failed_results: {}'\
-        .format(str(route), json.dumps(failed_results, indent=2)))
+    pytest_assert(not failed_results, 'Checking route {} failed, failed_results: {}'
+                  .format(str(route), json.dumps(failed_results, indent=2)))
 
 
-def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_enabled, setup, prepare_routes):
+def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts,
+                                       config_bbr_enabled, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']
@@ -317,7 +334,8 @@ def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True)
 
 
-def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_enabled, setup, prepare_routes):
+def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts,
+                                            config_bbr_enabled, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route_dual_dut_asn = setup['bbr_route_dual_dut_asn']
     bbr_route_v6_dual_dut_asn = setup['bbr_route_v6_dual_dut_asn']
@@ -326,7 +344,8 @@ def test_bbr_enabled_dual_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbr
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
 
 
-def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts, config_bbr_disabled, setup, prepare_routes):
+def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts,
+                                        config_bbr_disabled, setup, prepare_routes):
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']

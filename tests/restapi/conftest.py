@@ -1,9 +1,9 @@
 import logging
 import pytest
-from tests.common import config_reload
 import urllib3
-from urlparse import urlunparse
+from six.moves.urllib.parse import urlunparse
 
+from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 
@@ -19,7 +19,7 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Check if RESTAPI is enabled on the device
-    pyrequire(check_container_state(duthost, RESTAPI_CONTAINER_NAME, should_be_running=True), 
+    pyrequire(check_container_state(duthost, RESTAPI_CONTAINER_NAME, should_be_running=True),
                 "Test was not supported on devices which do not support RESTAPI!")
 
     # Create Root key
@@ -120,13 +120,14 @@ def construct_url(duthosts, rand_one_dut_hostname):
         return endpoint
     return get_endpoint
 
+
 @pytest.fixture
 def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     VLAN_INDEX = 0
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    vlan_interfaces = mg_facts["minigraph_vlans"].values()[VLAN_INDEX]["members"]
-    if vlan_interfaces is not None:
-        return vlan_interfaces
-    else:
-        return []
+    if mg_facts["minigraph_vlans"] != {}:
+        vlan_interfaces = list(mg_facts["minigraph_vlans"].values())[VLAN_INDEX]["members"]
+        if vlan_interfaces is not None:
+            return vlan_interfaces
+    return []

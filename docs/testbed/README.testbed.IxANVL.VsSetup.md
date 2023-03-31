@@ -1,56 +1,56 @@
 # Testbed Setup with Keysight IxANVL container and SONIC Virtual DUT
- 
- This document describes the steps to setup a testbed with Keysight IxANVL container and SONIC Virtual DUT to run BGP conformance test cases. 
- 
- ### Testbed server 
- The schematic diagram below provides an overview of the setup. 
- ![](img\keysight_ixanvl_testbed_topology.png) 
- 
- ### Network connections 
- - The testbed server has 1 network port: 
-   - A management port to manage the server, IxANVL container, sonic-mgmt container running on the server. 
- 
- ### Prepare testbed server 
- 
+
+ This document describes the steps to setup a testbed with Keysight IxANVL container and SONIC Virtual DUT to run BGP conformance test cases.
+
+ ### Testbed server
+ The schematic diagram below provides an overview of the setup.
+ ![](img\keysight_ixanvl_testbed_topology.png)
+
+ ### Network connections
+ - The testbed server has 1 network port:
+   - A management port to manage the server, IxANVL container, sonic-mgmt container running on the server.
+
+ ### Prepare testbed server
+
  - If the testbed host is a VM, then it must support nested virtualization
    - [Instructions for Hyper-V based VMs](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization#configure-nested-virtualization)
- - Python version should be atleast `2.7.17`. 
- - Install docker as below. The docker here is needed to run the sonic-mgmt container. 
+ - Python version should be atleast `2.7.17`.
+ - Install docker as below. The docker here is needed to run the sonic-mgmt container.
 
-     ```shell 
-     $ wget -O get-docker.sh https://get.docker.com/ 
-  
-     $ sudo ./get-docker.sh 
-     ``` 
- - [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/). 
+     ```shell
+     $ wget -O get-docker.sh https://get.docker.com/
+
+     $ sudo ./get-docker.sh
+     ```
+ - [Install Docker CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
  - Be sure to follow the [post-install instructions](https://docs.docker.com/install/linux/linux-postinstall/) so that you don't need sudo privileges to run docker commands.
  - Run the host setup script to install required packages and initialize the management bridge network
 
      ```
-     git clone https://github.com/Azure/sonic-mgmt
+     git clone https://github.com/sonic-net/sonic-mgmt
      cd sonic-mgmt/ansible
-     sudo ./setup-management-network.sh
+     sudo -H ./setup-management-network.sh
      ```
 
      **NOTE** setup-management-network.sh can fail on a check of br1 exists or not. In that case you can modify the script and comment out if checks of line 45 and line 49 until the issue is fixed.
 
-   This step creates a bridge interface called 'br1' in your host. It is the management bridge of the topology that is to be deployed. 
+   This step creates a bridge interface called 'br1' in your host. It is the management bridge of the topology that is to be deployed.
    To access outside networks other than management network run the below script. The access to the outside network may be needed in case any host outside the testbed is used to activate the licenses needed to run IxANVL. That host will then become the License Server for the IxANVL application.
 
      ```
      cd sonic-mgmt/ansible
      sudo ./setup-br1-nat.sh <external-iface-host> (external-iface-host can be any interface which connects to other networks. Mostly this is the LAN interface of the host.)
 	 ```
- 
+
   - Download Keysight IxANVL container image from the below location
-    - [IxANVL](https://downloads.ixiacom.com/support/downloads_and_updates/eb/1558879/anvl_docker_image.tar). The path is not of ixia webserver as IxANVL container is not released yet. Once released the path will be properly updated. 
- 
-     Downloaded files would be like below - 
-     - `anvl_docker_image.tar` 
- 
+    - [IxANVL](https://downloads.ixiacom.com/support/downloads_and_updates/eb/1558879/anvl_docker_image.tar). The path is not of ixia webserver as IxANVL container is not released yet. Once released the path will be properly updated.
+
+     Downloaded files would be like below -
+     - `anvl_docker_image.tar`
+
    - Place the downloaded file in a folder say `~/keysight_images`.
-     Setup a local docker registry for IxANVL container image.  
-     > **Note** If you load the *IxANVL* docker image in your docker registry then you need not place `anvl_container.tar` inside the `~/keysight_images` folder. In that case you need to consider the `docker_registry_host` in `ansible/vars/docker_registry.yml` file. If local file is used it will not pull from the docker registry. 
+     Setup a local docker registry for IxANVL container image.
+     > **Note** If you load the *IxANVL* docker image in your docker registry then you need not place `anvl_container.tar` inside the `~/keysight_images` folder. In that case you need to consider the `docker_registry_host` in `ansible/vars/docker_registry.yml` file. If local file is used it will not pull from the docker registry.
      > **Note** For setting up local docker registry please follow the instructions from the link: (https://docs.docker.com/registry/deploying/)
      To setup local docker registry in docker host below are the commands that need to be run:
 
@@ -151,7 +151,7 @@
 	$ ./testbed-cli.sh -t testbed.csv -m veos_vtb add-topo ixanvl-vs-conf password.txt
 	```
    - Verify that you can login to the SONiC KVM using Mgmt IP = 10.250.0.101 and admin:password.
-  
+
  ### Run a Pytest
  	Now that the testbed has been fully setup and configured, let's run a simple test to make sure everything is functioning as expected.
 

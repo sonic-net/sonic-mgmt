@@ -98,15 +98,13 @@ def parse_asic_external_link(link, asic_name, hostname):
     # if chassis internal is false, the interface name will be
     # interface alias which should be converted to asic port name
     if (enddevice.lower() == hostname.lower()):
-        if ((endport in port_alias_to_port_asic_alias_map) and
-                (asic_name.lower() in port_alias_to_port_asic_alias_map[endport].lower())):
+        if endport in port_alias_to_port_asic_alias_map:
             endport = port_alias_to_port_asic_alias_map[endport]
             neighbors[port_alias_asic_map[endport]] = {'name': startdevice, 'port': startport}
             if bandwidth:
                 port_speeds[port_alias_map[endport]] = bandwidth
     elif (startdevice.lower() == hostname.lower()):
-        if ((startport in port_alias_to_port_asic_alias_map) and
-                (asic_name.lower() in port_alias_to_port_asic_alias_map[startport].lower())):
+        if startport in port_alias_to_port_asic_alias_map:
             startport = port_alias_to_port_asic_alias_map[startport]
             neighbors[port_alias_asic_map[startport]] = {'name': enddevice, 'port': endport}
             if bandwidth:
@@ -315,6 +313,8 @@ def parse_dpg(dpg, hname):
                 peer_addr_val = ipaddr_val + 1
             else:
                 peer_addr_val = ipaddr_val - 1
+        else:
+            peer_addr_val = ipaddr_val + 1
 
         if peer_addr_val is not None:
             intf['peer_addr'] = ipaddress.IPAddress(peer_addr_val)
@@ -419,7 +419,7 @@ def parse_dpg(dpg, hname):
             if vintftype is not None:
                 vlan_attributes['type'] = vintftype.text
             vlans[vintfname] = vlan_attributes
-            ports.pop(vintfname)
+            ports.pop(vintfname, None)
 
         aclintfs = child.find(str(QName(ns, "AclInterfaces")))
         acls = {}

@@ -15,6 +15,7 @@ This document describes the steps to setup the testbed and deploy a topology.
       python3-pip \
       curl \
       git \
+      openssh-server \
       make
     ```
 - Install Python prerequisites
@@ -55,39 +56,79 @@ This document describes the steps to setup the testbed and deploy a topology.
  - reboot
     - at minimum terminate ssh connection or log out and log back in
     - this is needed for the permissions to be update, otherwise next step will fail
-
-## Setup Docker Registry for `docker-ptf`
-
-The PTF docker container is used to send and receive data plane packets to the DUT.
-
-1. Build `docker-ptf` image
+## Download an cEOS VM image
+We use EOS-based VMs or SONiC VMs to simulate neighboring devices in both virtual and physical testbeds. You can use vEOS or SONiC image as neighbor devices, this method can be found in [vEOS (KVM-based) image](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#option-1-veos-kvm-based-image) and [SONiC image](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#option-3-use-sonic-image-as-neighboring-devices). But for the physical testbed, we recommend using cEOS for **its less consumption of both memory and interaction with the kernel**. To achieve the use of cEOS as neighbor devices, we need to do serveral steps.
+1. Pull debian jessie
     ```
-    git clone --recursive https://github.com/Azure/sonic-buildimage.git
+    docker pull debian:jessie
+    docker tag debian:latest debian:jessie #if the tag is not shown as jessie
+    ```
+2. Download and import cEOS image manually
+Download the [cEOS image from Arista](https://www.arista.com/en/support/software-download)(select version: cEOS-lab-4.25.10M.tar)
+3. Import the cEOS image (it will take several minutes to import, so please be patient!)
+    ```
+    docker import cEOS-lab-4.25.10M.tar ceosimage:4.25.10M
+    ```
+After imported successfully, you can check it by 'docker images'
+```
+$ docker images
+REPOSITORY                                     TAG           IMAGE ID       CREATED         SIZE
+ceosimage                                      4.25.10M     31433ff0fb9b   50 seconds ago     1.62GB
+debian                                         jessie        e7d08cddf791   24 months ago   114MB
+debian                                         latest        e7d08cddf791   24 months ago   114MB
+```
+**Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
+
+
+## Build and Run `docker-ptf`
+
+1. The PTF docker container is used to send and receive data plane packets to the DUT. In 'add-topo' step, you can use the Microsoft docker registry host [`/ansible/vars/docker_registry.yml`](/ansible/vars/docker_registry.yml) to obtain docker-ptf directly (**recommended**).
+
+2. If you are using a **local registry** to save the **docker-ptf**, you should obtain a local `docker-ptf` image first:
+   You can **either** build a `docker-ptf` from buildimage repo:
+    ```
+    git clone --recursive https://github.com/sonic-net/sonic-buildimage.git
     cd sonic-buildimage
     make configure PLATFORM=vs ;#takes about 1 hour or more
     make target/docker-ptf.gz
     ```
-   You can also download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&buildId=42750&target=target%2Fdocker-ptf.gz).
-
-2. Setup your own [Docker Registry](https://docs.docker.com/registry/) and upload `docker-ptf` to your registry.
+   **or** download a pre-built `docker-ptf` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fdocker-ptf.gz) . Then, load the docker-ptf into the docker images:
+    ```
+    docker load < docker-ptf.gz
+    ```
+   **Then**, setup your own [Docker Registry](https://docs.docker.com/registry/) and upload `docker-ptf` to your registry:
+    ```
+    docker pull registry
+    docker run -d -p 5000:5000 --name registry registry:latest
+    docker image tag docker-ptf 127.0.0.1:5000/docker-ptf
+    docker push 127.0.0.1:5000/docker-ptf
+    ```
+    Also, if you are using a local registry, in later `Prepare Testbed Configuration` step, you have to update the docker registry information in [`vars/docker_registry.yml`](/ansible/vars/docker_registry.yml).
+    ```
+    #docker_registry_host: sonicdev-microsoft.azurecr.io:443
+    docker_registry_host: 127.0.0.1:5000
+    docker_registry_username: root
+    docker_registry_password: root
+    ```
 
 ## Build and Run `docker-sonic-mgmt`
 
 Managing the testbed and running tests requires various dependencies to be installed and configured. We have built a `docker-sonic-mgmt` image that takes care of these dependencies so you can use `ansible-playbook`, `pytest`, and `spytest`.
 
-1.  Build `docker-sonic-mgmt` image from scratch:
+1.  Build `docker-sonic-mgmt` image from scratch (**not recommended**):
     ```
-    git clone --recursive https://github.com/Azure/sonic-buildimage.git
+    git clone --recursive https://github.com/sonic-net/sonic-buildimage.git
     cd sonic-buildimage
     make configure PLATFORM=generic
     make target/docker-sonic-mgmt.gz
     ```
 
-    You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master/docker-sonic-mgmt.gz&definitionId=194&artifactName=docker-sonic-mgmt&buildId=42201&target=target%2Fdocker-sonic-mgmt.gz).
+    You can also download a pre-built `docker-sonic-mgmt` image [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&definitionId=194&artifactName=docker-sonic-mgmt&target=target%2Fdocker-sonic-mgmt.gz) (**recommended**).
+
 
 2. Clone the `sonic-mgmt` repo into your working directory:
     ```
-    git clone https://github.com/Azure/sonic-mgmt
+    git clone https://github.com/sonic-net/sonic-mgmt.git
     ```
 
 3. Setup management port configuration using this sample `/etc/network/interfaces`:
@@ -135,18 +176,20 @@ Managing the testbed and running tests requires various dependencies to be insta
             max-age: 0
           dhcp4: no
           dhcp6: no
+
     ```
+    Since the bridge is assigned a virtual ip address, it is better to have one more management network interface (e.g. ma1) so that you can access your server from your lab.
+
     alternatively use this script but settings will be lost on reboot
 
     ```
-    sudo bash ./sonic-mgmt/ansible/setup-management-network.sh
+    sudo -H ./sonic-mgmt/ansible/setup-management-network.sh
     ```
 4. Reboot the setup just to be sure the networking is ok
 
 5. Create a `docker-sonic-mgmt` container. Note that you must mount your clone of `sonic-mgmt` inside the container to access the deployment and testing scripts:
     ```
     docker load < docker-sonic-mgmt.gz
-    docker load < docker-ptf.gz
     docker run -v $PWD:/data -it docker-sonic-mgmt bash
     cd /data/sonic-mgmt
     ```
@@ -173,12 +216,6 @@ Once you are in the docker container, you need to modify the testbed configurati
         ```
 
 - VMs
-    - Download [vEOS-lab image from Arista](https://www.arista.com/en/support/software-download).
-
-    - Copy these image files to `~/veos-vm/images` on your testbed server:
-        - `Aboot-veos-serial-8.0.0.iso`
-        - `vEOS-lab-4.20.15M.vmdk`
-
     - Update /ansible/group_vars/vm_host/main.yml with the location of the veos files or veos file name if you downloaded a different version
     - Update the VM IP addresses in the [`ansible/veos`](/ansible/veos) inventory file. These IP addresses should be in the management subnet defined above.
 
@@ -190,28 +227,17 @@ Once you are in the docker container, you need to modify the testbed configurati
     ansible_user: admin
     EOT
     ```
+    -update the cEOS vars in [`ansible/group_vars/all/ceos.ymal`](/ansible/group_vars/all/ceos.yml).
+    ```
+    ceos_image_filename: cEOS64-lab-4.25.10M.tar
+    ceos_image_orig: ceosimage:4.25.10M
+    ceos_image: ceosimage:4.25.10M
+    skip_ceos_image_downloading: true
+    ```
+    **NOTE: We are using local ceos image, hence the skip ceos image downloading should be set as true.
 
-- PTF Docker
-    - Update the docker registry information in [`vars/docker_registry.yml`](/ansible/vars/docker_registry.yml).
 
-## Setup VMs on the Server
-
-1. Start the VMs:
-    ```
-    # /data/sonic-mgmt/ansible
-    ./testbed-cli.sh start-vms server_1 password.txt
-    ```
-    Please note: `password.txt` is the ansible vault password file name/path. Ansible allows users to use `ansible-vault` to encrypt password files. By default, this shell script **requires** a password file. If you are not using `ansible-vault`, just create an empty file and pass the file name to the command line. **The file name and location is created and maintained by the user.**
-    ```
-    echo "" > ./password.txt
-    ```
-
-2. Check that all the VMs are up and running:
-    ```
-    ansible -m ping -i veos server_1
-    ```
-
-## Deploy Fanout Switch VLAN
+## Deploy physical Fanout Switch VLAN
 
 You need to specify all physical connections that exist in the lab before deploying the fanout and running the tests.
 
@@ -225,13 +251,52 @@ Our fanout switches deploy using the Arista switch's eosadmin shell login. If yo
 - Improve testbed root fanout switch configuration method.
 - Update the inventory file format. Some of the early fanout definition files have duplicated fields with the inventory file. We should adopt a new inventory file and improve the lab graph.
 
-## Deploy Topology
 
+## Setup VMs and add topology on the Server
+For we are using cEOS now, the start-vms step is combined into add topo step.
 - Update `testbed.csv` with your data. At the least, you should update the PTF management interface settings.
-- To deploy a topology run: ```./testbed-cli.sh add-topo vms-t1 ~/.password```
-- To remove a topology run: ```./testbed-cli.sh remove-topo vms-t1 ~/.password```
+- To deploy a topology run: ```./testbed-cli.sh -m veos -k ceos add-topo vms-t0 password.txt```
+- To remove a topology run: ```./testbed-cli.sh -m veos -k ceos remove-topo vms-t0 password.txt```
 
 **NOTE:** The last step in `testbed-cli.sh` is trying to re-deploy the Vlan range in the root fanout switch to match the VLAN range specified in the topology. In other words, it's trying to change the "allowed" Vlan for the Arista switch ports. If you have a different type of switch, this may or may not work. Please review the steps and update accordingly if necessary. If you comment out the last step, you may manually swap Vlan ranges in the root fanout to make the testbed topology switch work.
+
+When ```add-topo``` step finished, you can check the cEOS on your server (outside the docker-sonic-mgmt)
+```
+CONTAINER ID   IMAGE                                 COMMAND                  CREATED         STATUS        PORTS                                       NAMES
+d3c0609b6072   ceosimage:4.25.10M                 "/sbin/init systemd.…"   30 hours ago    Up 30 hours                                               ceos_vms1-1_VM0103
+44e00555ef1f   ceosimage:4.25.10M                 "/sbin/init systemd.…"   30 hours ago    Up 30 hours                                               ceos_vms1-1_VM0102
+290769ffee8a   ceosimage:4.25.10M                 "/sbin/init systemd.…"   30 hours ago    Up 30 hours                                               ceos_vms1-1_VM0101
+fcffb9e0106e   ceosimage:4.25.10M                 "/sbin/init systemd.…"   30 hours ago    Up 30 hours                                               ceos_vms1-1_VM0100
+8e8f8d9aff8a   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0103
+835ae77bc3cd   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0102
+afdcd58f7d88   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0101
+9b29d5e7f083   debian:jessie                         "bash"                   30 hours ago    Up 30 hours                                               net_vms1-1_VM0100
+```
+
+You can login to the cEOS
+```
+docker exec -it ceos_vms1-1_VM0101 Cli
+ARISTA02T1>show version
+ cEOSLab
+Hardware version:
+Serial number:
+Hardware MAC address: 1673.3c9c.7d68
+System MAC address: 1673.3c9c.7d68
+
+Software image version: 4.25.10M-29053933.42510M (engineering build)
+Architecture: i686
+Internal build version: 4.25.10M-29053933.42510M
+Internal build ID: bfec0be6-4a3e-40f1-89e5-446718454c89
+
+cEOS tools version: 1.1
+Kernel version: 5.4.0-135-generic
+
+Uptime: 0 weeks, 1 days, 6 hours and 10 minutes
+Total memory: 32407156 kB
+Free memory: 24488032 kB
+
+```
+
 
 ## Deploy Minigraph
 

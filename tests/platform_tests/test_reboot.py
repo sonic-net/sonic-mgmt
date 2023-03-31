@@ -5,7 +5,7 @@ Check platform status after reboot. Three types of reboot are covered in this sc
 * Warm reboot
 
 This script is to cover the test case 'Reload configuration' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
 import re
@@ -79,21 +79,6 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(dut)
 
-    if reboot_type is not None:
-        logging.info("Check reboot cause")
-        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
-            "got reboot-cause failed after rebooted by %s" % reboot_type
-
-        if "201811" in dut.os_version or "201911" in dut.os_version:
-            logging.info("Skip check reboot-cause history for version before 202012")
-        else:
-            logger.info("Check reboot-cause history")
-            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
-                              REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
-        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
-            logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
-            return
-
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
     else:
@@ -107,7 +92,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         for asic_index in dut.get_frontend_asic_ids():
             # Get the interfaces pertaining to that asic
             interface_list = get_port_map(dut, asic_index)
-            interfaces_per_asic = {k:v for k, v in interface_list.items() if k in interfaces}
+            interfaces_per_asic = {k:v for k, v in list(interface_list.items()) if k in interfaces}
             check_transceiver_basic(dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
         logging.info("Check pmon daemon status")
@@ -124,6 +109,20 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         logging.info("Check sysfs")
         check_sysfs(dut)
 
+    if reboot_type is not None:
+        logging.info("Check reboot cause")
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
+            "got reboot-cause failed after rebooted by %s" % reboot_type
+
+        if "201811" in dut.os_version or "201911" in dut.os_version:
+            logging.info("Skip check reboot-cause history for version before 202012")
+        else:
+            logger.info("Check reboot-cause history")
+            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
+                              REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
+        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
+            logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
+            return
 
 def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
     """

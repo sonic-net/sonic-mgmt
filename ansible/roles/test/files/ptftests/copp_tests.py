@@ -39,7 +39,7 @@ class ControlPlaneBaseTest(BaseTest):
     TASK_TIMEOUT = 600  # Wait up to 10 minutes for tasks to complete
 
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
-    DEFAULT_SEND_INTERVAL_SEC = 10
+    DEFAULT_SEND_INTERVAL_SEC = 30
     DEFAULT_RECEIVE_WAIT_TIME = 3
 
     def __init__(self):
@@ -71,7 +71,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.my_mac = {}
         self.peer_mac = {}
-        for port_id, port in self.dataplane.ports.iteritems():
+        for port_id, port in self.dataplane.ports.items():
             if port_id[0] == 0:
                 self.my_mac[port_id[1]] = port.mac()
             elif port_id[0] == 1:
@@ -119,7 +119,7 @@ class ControlPlaneBaseTest(BaseTest):
                 testutils.send_packet(self, send_intf, packet)
                 pre_send_count += 1
 
-            rcv_pkt_cnt = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0], timeout=5)
+            rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, packet, [recv_intf[1]], recv_intf[0], timeout=5)
             self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (pre_send_count, rcv_pkt_cnt))
 
 
@@ -144,7 +144,8 @@ class ControlPlaneBaseTest(BaseTest):
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
 
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)  # Wait a little bit for all the packets to make it through
-        recv_count = testutils.count_matched_packets(self, packet, recv_intf[1], recv_intf[0], timeout=10)
+        recv_count = testutils.count_matched_packets_all_ports(self, packet, [recv_intf[1]], recv_intf[0], timeout=10)
+        self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
         post_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
         post_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)

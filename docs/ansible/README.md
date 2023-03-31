@@ -64,7 +64,7 @@ roles/
     sonicv2/              # role for installing SONiC v2 components (syncd, orchagent, quagga, etc)
 
     sonic_test/           # same kind of structure as above, but for the integration test role,
-                          #        see http://github.com/Azure/sonic-integrationtest
+                          #        see http://github.com/sonic-net/sonic-integrationtest
     sonic_s6000/          # place Dell s6000 specific tasks here
     sonic_msn2700/        # place Mellanox msn2700 specific tasks here
 ```

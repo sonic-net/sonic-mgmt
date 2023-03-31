@@ -2,7 +2,7 @@
 Check SFP using ethtool
 
 This script covers the test case 'Check SFP using ethtool' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
 import os
@@ -10,7 +10,7 @@ import json
 import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.mellanox_data import SPC3_HWSKUS
-from check_hw_mgmt_service import check_hw_management_service
+from .check_hw_mgmt_service import check_hw_management_service
 
 pytestmark = [
     pytest.mark.asic('mellanox'),

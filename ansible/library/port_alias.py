@@ -20,7 +20,7 @@ short_description:   Find SONiC device port alias mapping if there is alias mapp
 Description:
         Minigraph file is using SONiC device alias to describe the interface name, it's vendor and and hardware platform dependent
         This module is used to find the correct port_config.ini for the hwsku and return Ansible ansible_facts.port_alias
-        The definition of this mapping is specified in http://github.com/azure/sonic-buildimage/device
+        The definition of this mapping is specified in http://github.com/sonic-net/sonic-buildimage/device
         You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container
         For multi-asic platforms, port_config.ini for each asic will be parsed to get the port_alias information.
         When bringing up the testbed, port-alias will only contain external interfaces, so that vs image can come up with
@@ -54,6 +54,9 @@ ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', '
 MACHINE_CONF = '/host/machine.conf'
 ONIE_PLATFORM_KEY = 'onie_platform'
 ABOOT_PLATFORM_KEY = 'aboot_platform'
+NVIDIA_BF_PLATFORM_KEY = 'bf_platform'
+
+PLATFORM_KEYS = [ONIE_PLATFORM_KEY, ABOOT_PLATFORM_KEY, NVIDIA_BF_PLATFORM_KEY]
 
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
 
@@ -74,7 +77,7 @@ class SonicPortAliasMap():
                 tokens = line.split('=')
                 key = tokens[0].strip()
                 value = tokens[1].strip()
-                if key == ONIE_PLATFORM_KEY or key == ABOOT_PLATFORM_KEY:
+                if key in PLATFORM_KEYS: 
                     return value
         return None
 
@@ -100,6 +103,7 @@ class SonicPortAliasMap():
         portspeed = {}
         # Front end interface asic names
         front_panel_asic_ifnames = {}
+        front_panel_asic_id = {}
         # All asic names
         asic_if_names = []
         sysports = []
@@ -168,7 +172,10 @@ class SonicPortAliasMap():
                         aliasmap[alias] = name
                         if role == "Ext" and (asic_name_index != -1) and (len(mapping) > asic_name_index):
                             asicifname = mapping[asic_name_index]
-                            front_panel_asic_ifnames[alias] = asicifname
+                            # we only want following ASIC info in minigraph for multi-asic
+                            if asic_id is not None:
+                                front_panel_asic_ifnames[alias] = asicifname
+                                front_panel_asic_id[alias] = "ASIC" + str(asic_id)
                     if (asic_name_index != -1) and (len(mapping) > asic_name_index):
                         asicifname = mapping[asic_name_index]
                         asic_if_names.append(asicifname)
@@ -203,7 +210,7 @@ class SonicPortAliasMap():
             sysport['hostname'] = hostname
             sysports.insert(0, sysport)
 
-        return (aliases, portmap, aliasmap, portspeed, front_panel_asic_ifnames, asic_if_names,
+        return (aliases, portmap, aliasmap, portspeed, front_panel_asic_ifnames, front_panel_asic_id, asic_if_names,
                 sysports)
 
 def main():
@@ -228,6 +235,7 @@ def main():
         sysports = []
         # Map of ASIC interface names to front panel interfaces
         front_panel_asic_ifnames = {}
+        front_panel_asic_ifs_asic_id = {}
         # { asic_name: [ asic interfaces] }
         asic_if_names = {}
 
@@ -237,6 +245,7 @@ def main():
                                            'port_alias_map': aliasmap,
                                            'port_speed': portspeed,
                                            'front_panel_asic_ifnames': [],
+                                           'front_panel_asic_ids': [],
                                            'asic_if_names': asic_if_names,
                                            'sysports': sysports})
            return
@@ -245,10 +254,10 @@ def main():
         slotid = None
         if 'switchids' in m_args and m_args['switchids'] != None and len(m_args['switchids']):
            switchids = m_args['switchids']
-        
+
         if 'slotid' in m_args and m_args['slotid'] != None:
            slotid = m_args['slotid']
-        # When this script is invoked on sonic-mgmt docker, num_asic 
+        # When this script is invoked on sonic-mgmt docker, num_asic
         # parameter is passed.
         if m_args['num_asic'] is not None:
             num_asic = m_args['num_asic']
@@ -278,8 +287,8 @@ def main():
                 switchid = switchids[asic_id]
             if num_asic == 1:
                 asic_id = None
-            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, asicifnames_asic,
-             sysport_asic) = allmap.get_portmap(asic_id, include_internal, hostname, switchid, slotid)
+            (aliases_asic, portmap_asic, aliasmap_asic, portspeed_asic, front_panel_asic, front_panel_asic_ids,
+             asicifnames_asic, sysport_asic) = allmap.get_portmap(asic_id, include_internal, hostname, switchid, slotid)
             if aliases_asic is not None:
                 aliases.extend(aliases_asic)
             if portmap_asic is not None:
@@ -290,6 +299,8 @@ def main():
                 portspeed.update(portspeed_asic)
             if front_panel_asic is not None:
                 front_panel_asic_ifnames.update(front_panel_asic)
+            if front_panel_asic_ids is not None:
+                front_panel_asic_ifs_asic_id.update(front_panel_asic_ids)
             if asicifnames_asic is not None:
                 asic = 'ASIC' + str(asic_id)
                 asic_if_names[asic] = asicifnames_asic
@@ -300,15 +311,18 @@ def main():
         aliases.sort(key=lambda x: int(x[1]))
         # Get ASIC interface names list based on sorted aliases
         front_panel_asic_ifnames_list = []
+        front_panel_asic_ifs_asic_id_list = []
         for k in aliases:
             if k[0] in front_panel_asic_ifnames:
                 front_panel_asic_ifnames_list.append(front_panel_asic_ifnames[k[0]])
+                front_panel_asic_ifs_asic_id_list.append(front_panel_asic_ifs_asic_id[k[0]])
 
         module.exit_json(ansible_facts={'port_alias': [k[0] for k in aliases],
                                         'port_name_map': portmap,
                                         'port_alias_map': aliasmap,
                                         'port_speed': portspeed,
                                         'front_panel_asic_ifnames': front_panel_asic_ifnames_list,
+                                        'front_panel_asic_ifs_asic_id': front_panel_asic_ifs_asic_id_list,
                                         'asic_if_names': asic_if_names,
                                         'sysports': sysports})
 

@@ -29,7 +29,7 @@ import sys
 if sys.version_info.major == 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = basestring
+    STRING_TYPE = str
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -66,7 +66,7 @@ def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname):
     port_map = get_physical_port_indices(duthost)
     result = []
     visited_intfs = set()
-    for intf in natsorted(port_map.keys()):
+    for intf in natsorted(list(port_map.keys())):
         if intf in visited_intfs:
             continue
         visited_intfs.add(intf)
@@ -94,7 +94,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(expected_value is not None,
                       "Unable to get expected value for '{}' from platform.json file".format(key))
 
-        pytest_assert(value == expected_value,
+        pytest_assert(re.match(expected_value, value),
                       "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
     def compare_value_with_device_facts(self, duthost, key, value, case_sensitive=True):
@@ -217,12 +217,12 @@ class TestChassisApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
         # Convert all keys of syseeprom_info_dict into lower case
-        syseeprom_info_dict = {k.lower() : v for k, v in syseeprom_info_dict.items()}
+        syseeprom_info_dict = {k.lower() : v for k, v in list(syseeprom_info_dict.items())}
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
         
         # case sensitive,so make all characters lowercase
-        syseeprom_type_codes_list = [key.lower() for key in syseeprom_info_dict.keys()]
+        syseeprom_type_codes_list = [key.lower() for key in list(syseeprom_info_dict.keys())]
         VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [key.lower() for key in VALID_ONIE_TLVINFO_TYPE_CODES_LIST]
         MINIMUM_REQUIRED_TYPE_CODES_LIST = [key.lower() for key in MINIMUM_REQUIRED_TYPE_CODES_LIST]
         
@@ -244,7 +244,7 @@ class TestChassisApi(PlatformApiTestBase):
         host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
         expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
         # Ignore case of keys in syseeprom_info
-        expected_syseeprom_info_dict = {k.lower(): v for k, v in expected_syseeprom_info_dict.items()}
+        expected_syseeprom_info_dict = {k.lower(): v for k, v in list(expected_syseeprom_info_dict.items())}
 
         for field in expected_syseeprom_info_dict:
             pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
@@ -274,7 +274,8 @@ class TestChassisApi(PlatformApiTestBase):
                 pytest.skip("No components found on device")
 
         if duthost.facts.get("chassis"):
-            expected_num_components = len(duthost.facts.get("chassis").get('components'))
+            components = duthost.facts.get("chassis").get('components')
+            expected_num_components = 0 if components is None else len(components)
             pytest_assert(num_components == expected_num_components,
                           "Number of components ({}) does not match expected number ({})"
                           .format(num_components, expected_num_components))
@@ -427,10 +428,13 @@ class TestChassisApi(PlatformApiTestBase):
 
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
+            interface_facts = duthost.show_interface(command='status')['ansible_facts']['int_status']
             if duthost.facts.get("platform") == 'x86_64-nvidia_sn2201-r0':
                 # On SN2201, there are 48 RJ45 ports which are also counted in SFP object lists
                 # So we need to adjust test case accordingly
-                expected_num_sfps += 48
+                for port,data in list(interface_facts.items()):
+                    if data['type'] == 'RJ45':
+                        expected_num_sfps += 1
             pytest_assert(num_sfps == expected_num_sfps,
                           "Number of sfps ({}) does not match expected number ({})"
                           .format(num_sfps, expected_num_sfps))
@@ -530,13 +534,13 @@ class TestChassisApi(PlatformApiTestBase):
     def test_get_supervisor_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if chassis.is_modular_chassis(platform_api_conn):
             sup_slot = chassis.get_supervisor_slot(platform_api_conn)
-            pytest_assert(isinstance(sup_slot, int), "supervisor slot is not type integer")
+            pytest_assert(isinstance(sup_slot, int) or isinstance(sup_slot, STRING_TYPE), "supervisor slot is not type integer")
         else:
             pytest.skip("skipped as this test is applicable to modular chassis only")
 
     def test_get_my_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         if chassis.is_modular_chassis(platform_api_conn):
             my_slot = chassis.get_my_slot(platform_api_conn)
-            pytest_assert(isinstance(my_slot, int), "supervisor slot is not type integer")
+            pytest_assert(isinstance(my_slot, int) or isinstance(my_slot, STRING_TYPE), "supervisor slot is not type integer")
         else:
             pytest.skip("skipped as this test is applicable to modular chassis only")

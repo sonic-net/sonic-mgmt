@@ -11,6 +11,7 @@ import ipaddress
 import pytest
 import logging
 import time
+import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ def kill_bgpd():
     def kill_bgpd(duthost, shutdown_all=True):
         torhost.append(duthost)
         bgp_neighbors = duthost.get_bgp_neighbors()
-        up_bgp_neighbors = [k.lower() for k, v in bgp_neighbors.items() if v["state"] == "established"]
+        up_bgp_neighbors = [k.lower() for k, v in list(bgp_neighbors.items()) if v["state"] == "established"]
         if shutdown_all and up_bgp_neighbors:
             logger.info("Kill bgpd process on {}".format(duthost.hostname))
             duthost.shell("pkill -9 bgpd")
@@ -78,20 +79,17 @@ def tor_blackhole_traffic():
 
     for duthost in torhost:
         lo_ipv4 = None
-        lo_ipv6 = None
         config_facts = duthost.config_facts(
                             host=duthost.hostname, source="running"
                        )['ansible_facts']
         los = config_facts.get("LOOPBACK_INTERFACE", {})
         logger.info("Loopback IPs: {}".format(los))
-        for k, v in los.items():
+        for k, v in list(los.items()):
             if k == "Loopback0":
-                for ipstr in v.keys():
+                for ipstr in list(v.keys()):
                     ip = ipaddress.ip_interface(ipstr)
                     if ip.version == 4:
                         lo_ipv4 = ip
-                    elif ip.version == 6:
-                        lo_ipv6 = ip
 
         duthost.shell("ip -4 route add 0.0.0.0/0 nexthop via {}"
                       .format(lo_ipv4.ip))
@@ -116,6 +114,7 @@ def reboot_tor(localhost, wait_for_device_reachable):
     for duthost in torhost:
         wait_for_device_reachable(duthost)
 
+
 @pytest.fixture
 def wait_for_device_reachable(localhost):
     """
@@ -139,3 +138,29 @@ def wait_for_device_reachable(localhost):
         logger.info("SSH started on {}".format((duthost.hostname)))
 
     return wait_for_device_reachable
+
+
+@contextlib.contextmanager
+def shutdown_bgp_sessions_on_duthost():
+    """Shutdown all BGP sessions on a device"""
+    duthosts = []
+
+    def _shutdown_bgp_sessions_on_duthost(duthost):
+        duthosts.append(duthost)
+        logger.info("Shutdown all BGP sessions on {}".format(duthost.hostname))
+        duthost.shell("config bgp shutdown all")
+
+    try:
+        yield _shutdown_bgp_sessions_on_duthost
+    finally:
+        time.sleep(1)
+        for duthost in duthosts:
+            logger.info("Startup all BGP sessions on {}".format(duthost.hostname))
+            duthost.shell("config bgp startup all")
+
+
+@pytest.fixture
+def shutdown_bgp_sessions():
+    """Shutdown all bgp sessions on a device."""
+    with shutdown_bgp_sessions_on_duthost() as shutdown_util:
+        yield shutdown_util

@@ -1,3 +1,4 @@
+import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
@@ -8,12 +9,12 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
 from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
-from files.pfcwd_basic_helper import run_pfcwd_basic_test
-from files.helper import skip_pfcwd_test
+from .files.pfcwd_basic_helper import run_pfcwd_basic_test
+from tests.snappi.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [ pytest.mark.topology('tgen') ]
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 def test_pfcwd_basic_single_lossless_prio(snappi_api,
@@ -50,7 +51,6 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
 
     testbed_config, port_config_list = snappi_testbed_config
     lossless_prio = int(lossless_prio)
@@ -101,7 +101,6 @@ def test_pfcwd_basic_multi_lossless_prio(snappi_api,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
 
     testbed_config, port_config_list = snappi_testbed_config
 
@@ -157,7 +156,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
+    skip_warm_reboot(duthost, reboot_type)
 
     testbed_config, port_config_list = snappi_testbed_config
     lossless_prio = int(lossless_prio)
@@ -220,7 +219,6 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
 
     testbed_config, port_config_list = snappi_testbed_config
 
@@ -280,7 +278,6 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,
                    "Priority and port are not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
 
     testbed_config, port_config_list = snappi_testbed_config
     lossless_prio = int(lossless_prio)
@@ -342,7 +339,6 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_pfcwd_test(duthost=duthost, trigger_pfcwd=trigger_pfcwd)
 
     testbed_config, port_config_list = snappi_testbed_config
 

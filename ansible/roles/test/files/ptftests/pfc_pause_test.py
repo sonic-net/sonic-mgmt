@@ -7,7 +7,6 @@ import random
 import socket
 import sys
 import struct
-import ipaddress
 import re
 
 import ptf
@@ -202,7 +201,7 @@ class PfcPauseTest(BaseTest):
 
         if self.debug:
             log_file.close()
-        print "Passes: %d / %d" % (pass_cnt, self.pkt_count)
+        print("Passes: %d / %d" % (pass_cnt, self.pkt_count))
 
     def tearDown(self):
         reset_filters()

@@ -27,4 +27,3 @@ A dictionary is returned with information on the remote host's laoded image. The
         - `available` - List of available images
         - `current` - Currently loaded image
         - `next` - latest available image
-        

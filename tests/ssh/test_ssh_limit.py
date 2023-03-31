@@ -55,9 +55,14 @@ def modify_templates(duthost, tacacs_creds, creds):
     hwsku = duthost.facts["hwsku"]
     type = get_device_type(duthost)
     user = tacacs_creds['local_user']
-    
-    # Duthost shell not support run command with J2 template in command text.
-    admin_session = ssh_connect_remote(dut_ip, creds['sonicadmin_user'], creds['sonicadmin_password'])
+
+    try:
+        # Duthost shell not support run command with J2 template in command text.
+        admin_session = ssh_connect_remote(dut_ip, creds['sonicadmin_user'], creds['sonicadmin_password'])
+    except paramiko.AuthenticationException:
+        # try ssh with ansible_altpassword again
+        sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
+        admin_session = ssh_connect_remote(dut_ip, creds['sonicadmin_user'], sonic_admin_alt_password)
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
     additional_content = "session  required  pam_limits.so"
@@ -109,7 +114,7 @@ def get_login_result(ssh_session):
             if len(data) == 0:
                 # when receive zero length data, channel closed
                 break
-            login_message += data
+            login_message += data.decode("utf-8")
 
         time.sleep(1)
 
