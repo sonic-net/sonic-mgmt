@@ -39,6 +39,12 @@ arp/test_stress_arp.py:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/7874
 
+arp/test_unknown_mac.py:
+  skip:
+    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            bfd              #####
 #######################################
