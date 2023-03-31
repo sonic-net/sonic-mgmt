@@ -309,7 +309,6 @@ class ReloadTest(BaseTest):
                 else:
                     ports_in_vlan.append(self.port_indices[ifname])
             ports_per_vlan[vlan] = ports_in_vlan
-        self.log("ports_per_vlan: %s" % ports_per_vlan)
 
         active_portchannels = list()
         for neighbor_info in list(self.vm_dut_map.values()):
@@ -435,7 +434,6 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[key]['ptf_ports'] = []
                 if self.is_dualtor:
                     self.peer_vm_dut_map[key] = dict()
-                    # initialize all the port mapping
                     self.peer_vm_dut_map[key]['dut_ports'] = []
 
     def get_portchannel_info(self):

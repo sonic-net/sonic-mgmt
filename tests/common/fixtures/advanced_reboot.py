@@ -98,8 +98,8 @@ class AdvancedReboot:
         self.hostMaxCnt = HOST_MAX_COUNT
         if "dualtor" in self.getTestbedType():
             self.dual_tor_mode = True
-            peer_duthost = get_standbyhost(duthosts, duthost)
-            self.peer_duthost = peer_duthost if peer_duthost != duthost else None
+            peer_duthost = get_peerhost(duthosts, duthost)
+            self.peer_duthost = peer_duthost
         else:
             self.dual_tor_mode = False
 
@@ -195,7 +195,7 @@ class AdvancedReboot:
 
         self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
-                                        self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+                                                  self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:

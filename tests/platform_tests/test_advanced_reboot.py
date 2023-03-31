@@ -14,7 +14,6 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip, show_muxcab
 from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_upper_tor, toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.utilities import wait_until
-from tests.conftest import rand_selected_dut
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -105,7 +104,7 @@ def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_he
         toggle_mux_size = len(mux_list) / 2
         for i in range(toggle_mux_size):
             itfs, _ = rand_selected_interface(duthost)
-            # Select half of interfaces and set to active to upper ToR
+            # Select half of interfaces and toggle to active on upper ToR
             toggle_simulator_port_to_upper_tor(itfs)
 
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
