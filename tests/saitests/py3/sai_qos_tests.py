@@ -2312,23 +2312,38 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.src_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in self.src_port_ids]
 
-        # Correct any destination ports that may be in a lag
         for i in range(len(self.dst_port_ids)):
             src_port_id = self.src_port_ids[i]
             dst_port_id = self.dst_port_ids[i]
+            src_port_mac = self.src_port_macs[i]
             dst_port_mac = self.dst_port_macs[i]
             src_port_ip = self.src_port_ips[i]
             dst_port_ip = self.dst_port_ips[i]
-            real_dst_port_id = get_rx_port(
-                self,
-                0,
-                src_port_id,
-                self.router_mac if self.router_mac != '' else dst_port_mac,
-                dst_port_ip, src_port_ip
-            )
-            if real_dst_port_id != dst_port_id:
-                print("Corrected dst port from {} to {}".format(dst_port_id, real_dst_port_id), file=sys.stderr)
-                self.dst_port_ids[i] = real_dst_port_id
+
+            if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
+                # Send a packet from each ptf dst port to make DUT generate FDB for the destination ports
+                ttl = 64
+                pkt = construct_ip_pkt(64,
+                                       src_port_mac,
+                                       dst_port_mac,
+                                       dst_port_ip,
+                                       src_port_ip,
+                                       0,
+                                       None,
+                                       ttl=64)
+                send_packet(self, dst_port_id, pkt, 1)
+            else:
+                # Correct any destination ports that may be in a lag
+                real_dst_port_id = get_rx_port(
+                    self,
+                    0,
+                    src_port_id,
+                    self.router_mac if self.router_mac != '' else dst_port_mac,
+                    dst_port_ip, src_port_ip
+                )
+                if real_dst_port_id != dst_port_id:
+                    print("Corrected dst port from {} to {}".format(dst_port_id, real_dst_port_id), file=sys.stderr)
+                    self.dst_port_ids[i] = real_dst_port_id
 
         time.sleep(8)
 
