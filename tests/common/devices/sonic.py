@@ -37,6 +37,9 @@ class SonicHost(AnsibleHostBase):
     """
     DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
+    """
+    setting either one of shell_user/shell_pw or ssh_user/ssh_passwd pair should yield the same result.
+    """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
                  ssh_user=None, ssh_passwd=None):

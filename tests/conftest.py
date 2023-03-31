@@ -578,7 +578,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
                 else:
-                    #TODO: support mlnx
+                    # when os is mellanox, not supported
                     pytest.fail("os other than sonic and eos not supported")
 
                 eos_shell_user = None
