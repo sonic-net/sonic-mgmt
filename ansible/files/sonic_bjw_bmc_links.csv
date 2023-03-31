@@ -1,0 +1,11 @@
+StartDevice,StartPort,BmcIp,EndDevice,EndPort
+bjw-can-7215-10,etp2,10.150.23.2/23,bjw-can-serv-2,iDRAC
+bjw-can-7215-10,etp3,10.150.23.3/23,bjw-can-serv-3,iDRAC
+bjw-can-7215-10,etp4,10.150.23.4/23,bjw-can-serv-4,iDRAC
+bjw-can-7215-10,etp5,10.150.23.5/23,bjw-can-serv-5,iDRAC
+bjw-can-7215-10,etp6,10.150.23.6/23,bjw-can-serv-6,iDRAC
+bjw-can-7215-10,etp7,10.150.23.7/23,bjw-can-serv-7,iDRAC
+bjw-can-7215-10,etp8,10.150.23.8/23,bjw-can-serv-8,iDRAC
+bjw-can-7215-10,etp9,10.150.23.9/23,bjw-can-serv-9,iDRAC
+bjw-can-7215-10,etp10,10.150.23.10/23,bjw-can-serv-10,iDRAC
+bjw-can-7215-10,etp11,10.150.23.11/23,bjw-can-serv-11,iDRAC

@@ -138,7 +138,7 @@ sonic:
     sonic_cisco_8102:
     sonic_cisco_8101:
     sonic_cisco_8101_C64:
-    sonic_cisco_8101_C48T8:
+    sonic_cisco_8101_O8C48:
     sonic_cisco_lc_100G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
@@ -230,9 +230,9 @@ sonic_cisco_8101:
         cold:
           timeout: 300
           wait: 90
-sonic_cisco_8101_C64:
+sonic_cisco_8101_O8C48:
   vars:
-    hwsku: Cisco-8101-C64
+    hwsku: Cisco-8101-O8C48
     iface_speed: 100000
   hosts:
     str3-8101-01:
@@ -256,11 +256,6 @@ sonic_cisco_8101_C64:
         cold:
           timeout: 300
           wait: 90
-sonic_cisco_8101_C48T8:
-  vars:
-    hwsku: Cisco-8101-O8C48
-    iface_speed: 100000
-  hosts:
     str3-8101-02:
       ansible_host: 10.3.146.191
       model: 8101-32FH-O
@@ -755,6 +750,8 @@ sonic_arista32_100:
     str3-7060-acs-3:
       ansible_host: 10.3.146.243
       hwsku: Arista-7060CX-32S-C32
+  vars:
+    iface_speed: 100000
 
 server:
   hosts:

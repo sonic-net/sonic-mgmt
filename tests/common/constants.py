@@ -20,5 +20,6 @@ DEFAULT_SSH_CONNECT_PARAMS = {
 }
 # resolv.conf expected nameservers
 RESOLV_CONF_NAMESERVERS = {
-    "public": []
+    "public": [],
+    "microsoft": ["10.64.5.5"]
 }

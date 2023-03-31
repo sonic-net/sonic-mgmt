@@ -1023,7 +1023,7 @@
 
 - conf-name: vms61-t1-8101-02
   group-name: vms61-5
-  topo: t1-64-lag
+  topo: t1-56-lag
   ptf_image_name: docker-ptf
   ptf: vms61-5
   ptf_ip: 10.64.247.37/23

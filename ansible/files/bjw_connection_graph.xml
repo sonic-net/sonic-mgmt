@@ -1825,7 +1825,7 @@
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
-      <DeviceConsoleInfo Hostname="bjw-can-7215-10" HwSku="Nokia-7215" ManagementIp="10.150.22.10" Os="sonic" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="bjw-can-7215-10" HwSku="Nokia-7215" ManagementIp="10.150.22.10" Os="sonic" Protocol="ssh" Type="MgmtTsToRRouter"/>
       <DeviceConsoleInfo Hostname="bjw-can-7215-9" HwSku="Nokia-7215" ManagementIp="10.150.22.11" Os="sonic" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
@@ -1870,7 +1870,21 @@
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
-    <DevicesBmcInfo/>
+    <DevicesBmcInfo>
+      <DeviceBmcInfo Hostname="bjw-can-7215-10" HwSku="Nokia-7215" ManagementIp="10.150.22.10" Os="sonic" Protocol="ssh" Type="MgmtTsToRRouter"/>
+    </DevicesBmcInfo>
+    <BmcLinksInfo>
+      <BmcLinkInfo BmcIp="10.150.23.2/23" EndDevice="bjw-can-serv-2" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp2"/>
+      <BmcLinkInfo BmcIp="10.150.23.3/23" EndDevice="bjw-can-serv-3" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp3"/>
+      <BmcLinkInfo BmcIp="10.150.23.4/23" EndDevice="bjw-can-serv-4" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp4"/>
+      <BmcLinkInfo BmcIp="10.150.23.5/23" EndDevice="bjw-can-serv-5" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp5"/>
+      <BmcLinkInfo BmcIp="10.150.23.6/23" EndDevice="bjw-can-serv-6" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp6"/>
+      <BmcLinkInfo BmcIp="10.150.23.7/23" EndDevice="bjw-can-serv-7" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp7"/>
+      <BmcLinkInfo BmcIp="10.150.23.8/23" EndDevice="bjw-can-serv-8" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp8"/>
+      <BmcLinkInfo BmcIp="10.150.23.9/23" EndDevice="bjw-can-serv-9" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp9"/>
+      <BmcLinkInfo BmcIp="10.150.23.10/23" EndDevice="bjw-can-serv-10" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp10"/>
+      <BmcLinkInfo BmcIp="10.150.23.11/23" EndDevice="bjw-can-serv-11" EndPort="iDRAC" StartDevice="bjw-can-7215-10" StartPort="etp11"/>
+    </BmcLinksInfo>
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
