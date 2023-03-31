@@ -68,7 +68,7 @@ class NxosHost(AnsibleHostBase):
             raise Exception("Unable to execute template\n{}".format(res["stdout"]))
 
     def get_auto_negotiation_mode(self, interface_name):
-        output = self.eos_command(commands=[{
+        output = self.nxos_command(commands=[{
             'command': 'show interfaces %s status' % interface_name,
             'output': 'json'
         }])
