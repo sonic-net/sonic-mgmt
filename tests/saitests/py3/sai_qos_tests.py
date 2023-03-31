@@ -2322,7 +2322,6 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
             if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
                 # Send a packet from each ptf dst port to make DUT generate FDB for the destination ports
-                ttl = 64
                 pkt = construct_ip_pkt(64,
                                        src_port_mac,
                                        dst_port_mac,
