@@ -58,5 +58,5 @@ bjw-pdu-126-134,10.150.126.134,Vertiv,Pdu,snmp,
 bjw-pdu-126-135,10.150.126.135,Vertiv,Pdu,snmp,
 bjw-pdu-126-136,10.150.126.136,Vertiv,Pdu,snmp,
 bjw-pdu-126-137,10.150.126.137,Vertiv,Pdu,snmp,
-bjw-can-7215-10,10.150.22.10,Nokia-7215,ConsoleServer,ssh,sonic
+bjw-can-7215-10,10.150.22.10,Nokia-7215,MgmtTsToRRouter,ssh,sonic
 bjw-can-7215-9,10.150.22.11,Nokia-7215,ConsoleServer,ssh,sonic
