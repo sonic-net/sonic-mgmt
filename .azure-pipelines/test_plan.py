@@ -135,24 +135,6 @@ def parse_list_from_str(s):
     return [single_str.strip() for single_str in s.split(',')]
 
 
-def get_scope(testbed_tools_url):
-    scope = "api://sonic-testbed-tools-dev/.default"
-    if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net":
-        scope = "api://sonic-testbed-tools-prod/.default"
-    return scope
-
-
-def parse_list_from_str(s):
-    # Since Azure Pipeline doesn't support to receive an empty parameter,
-    # We use ' ' as a magic code for empty parameter.
-    # So we should consider ' ' as en empty input.
-    if isinstance(s, str):
-        s = s.strip()
-    if not s:
-        return None
-    return [single_str.strip() for single_str in s.split(',')]
-
-
 class TestPlanManager(object):
 
     def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
