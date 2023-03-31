@@ -88,7 +88,7 @@ def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request
 
 @pytest.mark.device_type('vs')
 def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_health, duthosts, advanceboot_loganalyzer, 
-    capture_interface_counters, toggle_all_simulator_ports, rand_selected_dut, toggle_simulator_port_to_upper_tor):
+    capture_interface_counters, toggle_all_simulator_ports, enum_rand_one_per_hwsku_frontend_hostname, toggle_simulator_port_to_upper_tor):
     '''
     Warm reboot test case is run using advacned reboot test fixture
 
@@ -97,7 +97,7 @@ def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_he
     '''
     testing_mode = testing_config
     if testing_mode == DUAL_TOR_MODE:
-        duthost = rand_selected_dut
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         toggle_all_simulator_ports(LOWER_TOR)
         check_result = wait_until(120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
         validate_check_result(check_result, duthosts, get_mux_status)
@@ -105,7 +105,7 @@ def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_he
         toggle_mux_size = len(mux_list) / 2
         for i in range(toggle_mux_size):
             itfs, _ = rand_selected_interface(duthost)
-            # Set upper_tor as active
+            # Select half of interfaces and set to active to upper ToR
             toggle_simulator_port_to_upper_tor(itfs)
 
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
