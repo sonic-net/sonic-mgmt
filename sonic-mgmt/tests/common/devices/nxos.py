@@ -69,7 +69,7 @@ class NxosHost(AnsibleHostBase):
 
     def get_auto_negotiation_mode(self, interface_name):
         output = self.nxos_command(commands=[{
-            'command': 'show interfaces %s status' % interface_name,
+            'command': 'show interface %s status' % interface_name,
             'output': 'json'
         }])
         if self._has_cli_cmd_failed(output):
