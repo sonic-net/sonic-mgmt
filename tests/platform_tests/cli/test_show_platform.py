@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import pytest
+import six
 from . import util
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
@@ -281,8 +282,12 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".
                   format(duthost.hostname))
     if len(raw_output_lines) == 1:
-        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Fan Not detected",
-                      "Unexpected fan status output on '{}'".format(duthost.hostname))
+        if six.PY2:
+            pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Fan Not detected",
+                          "Unexpected fan status output on '{}'".format(duthost.hostname))
+        else:
+            pytest_assert(raw_output_lines[0].strip() == "Fan Not detected",
+                          "Unexpected fan status output on '{}'".format(duthost.hostname))
     else:
         pytest_assert(len(raw_output_lines) > 2,
                       "There must be at least two lines of output if any fan is detected on '{}'".
@@ -340,8 +345,12 @@ def verify_show_platform_temperature_output(raw_output_lines, hostname):
 
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".format(hostname))
     if len(raw_output_lines) == 1:
-        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thermal Not detected",
-                      "Unexpected thermal status output on '{}'".format(hostname))
+        if six.PY2:
+            pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thermal Not detected",
+                          "Unexpected thermal status output on '{}'".format(hostname))
+        else:
+            pytest_assert(raw_output_lines[0].strip() == "Thermal Not detected",
+                          "Unexpected thermal status output on '{}'".format(hostname))
     else:
         pytest_assert(len(raw_output_lines) > 2,
                       "There must be at least two lines of output if any thermal is detected on '{}'".format(hostname))
