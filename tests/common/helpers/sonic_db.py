@@ -1,5 +1,6 @@
 import logging
 import json
+import six
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.devices.sonic_asic import SonicAsic
 
@@ -87,7 +88,10 @@ class SonicDbCli(object):
         if result == {}:
             raise SonicDbKeyNotFound("Key: %s, field: %s not found in sonic-db cmd: %s" % (key, field, cmd))
         else:
-            return result['stdout'].decode('unicode-escape')
+            if six.PY2:
+                return result['stdout'].decode('unicode-escape')
+            else:
+                return result['stdout']
 
     def get_and_check_key_value(self, key, value, field=None):
         """
