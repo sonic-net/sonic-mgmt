@@ -359,6 +359,7 @@ syslog/__init__.py
 syslog/conftest.py
 syslog/syslog_utils.py
 syslog/test_syslog.py
+syslog/test_syslog_rate_limit.py
 crm/conftest.py
 crm/test_crm.py
 mpls/test_mpls.py
