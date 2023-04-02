@@ -1708,10 +1708,10 @@ str2-7804-lc7-1,Ethernet112,str2-7260cx3-acs-fan-21,Ethernet29/1,100000,1130,Acc
 str2-7804-lc7-1,Ethernet116,str2-7260cx3-acs-fan-21,Ethernet30/1,100000,1131,Access
 str2-7804-lc7-1,Ethernet120,str2-7260cx3-acs-fan-21,Ethernet31/1,100000,1132,Access
 str2-7804-lc7-1,Ethernet124,str2-7260cx3-acs-fan-21,Ethernet32/1,100000,1133,Access
-str2-7804-lc3-1,Ethernet112,str2-7260cx3-acs-fan-21,Ethernet36/1,100000,1162,Access
+str2-7804-lc3-1,Ethernet112,str2-7260cx3-acs-fan-21,Ethernet33/1,100000,1162,Access
 str2-7804-lc3-1,Ethernet116,str2-7260cx3-acs-fan-21,Ethernet34/1,100000,1163,Access
 str2-7804-lc3-1,Ethernet120,str2-7260cx3-acs-fan-21,Ethernet35/1,100000,1164,Access
-str2-7804-lc3-1,Ethernet124,str2-7260cx3-acs-fan-21,Ethernet34/1,100000,1165,Access
+str2-7804-lc3-1,Ethernet124,str2-7260cx3-acs-fan-21,Ethernet36/1,100000,1165,Access
 str2-7804-lc3-1,Ethernet0,str2-7260cx3-acs-fan-22,Ethernet33/1,100000,1134,Access
 str2-7804-lc3-1,Ethernet4,str2-7260cx3-acs-fan-22,Ethernet34/1,100000,1135,Access
 str2-7804-lc3-1,Ethernet8,str2-7260cx3-acs-fan-22,Ethernet35/1,100000,1136,Access
