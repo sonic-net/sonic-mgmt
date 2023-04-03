@@ -727,8 +727,8 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 #######################################
 platform_tests/fwutil/test_fwutil.py:
   skip:
-  reason: "Non-Mellanox platforms doesn't support fwutil for now"
-  conditions:
+    reason: "Non-Mellanox platforms doesn't support fwutil for now"
+    conditions:
       - "asic_type not in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/7811
 
