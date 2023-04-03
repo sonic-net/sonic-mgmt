@@ -34,10 +34,10 @@
     },
     "icm_limitation": {
         "setup_error_limit": 10,
-        "failure_limit": 10,
+        "failure_limit": 20,
         "platform_limit": 10,
-        "icm_20201231_limit": 10,
-        "icm_20220531_limit": 10,
+        "icm_20201231_limit": 5,
+        "icm_20220531_limit": 5,
         "new_icm_number_limit": 30,
         "max_icm_count_per_module": 10
     },

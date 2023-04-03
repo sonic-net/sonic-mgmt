@@ -15,7 +15,7 @@ str-7260cx3-11,Ethernet53/1,str-e1031-acs-4,Ethernet48,10000,3821-3868,Trunk
 str-7260cx3-11,Ethernet14/1,str-acs-serv-11,p4p1,40000,,Trunk
 str-7260cx3-11,Ethernet15/1,str-acs-serv-12,ens4f0,40000,,Trunk
 str-7260cx3-11,Ethernet16/1,str-acs-serv-13,enp130s0f0,40000,,Trunk
-str-7260cx3-11,Ethernet17/1,str-acs-serv-03,p5p1,40000,,Trunk
+str-7260cx3-11,Ethernet17/1,str-acs-serv-03,p5p0,40000,,Trunk
 str-7260cx3-11,Ethernet18/1,str-acs-serv-03,p5p2,40000,,Trunk
 str-7260cx3-11,Ethernet19/1,str-acs-serv-01,p4p1,40000,,Trunk
 str-7260cx3-11,Ethernet20/1,str-acs-serv-01,p4p2,40000,,Trunk

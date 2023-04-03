@@ -2049,7 +2049,10 @@ def main(icm_limit):
     final_list, autoblame_table = general.generate_autoblame_ado_data(
         final_error_list + final_failure_list)
     logger.info("=================AutoBlame items=================")
-    logger.info("Total Autoblame items {}: one example {}".format(len(autoblame_table), autoblame_table[0]))
+    if autoblame_table:
+        logger.info("Total number of Autoblame items {}".format(len(autoblame_table)))
+    else:
+        logger.error("There is something wrong with Autoblame search.")
     # for index, case in enumerate(autoblame_table):
     #     logger.info("{}: {} {}".format(
     #         index + 1, case['autoblame_id']))
