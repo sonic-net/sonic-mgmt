@@ -4,6 +4,7 @@ import ipaddress
 import time
 import natsort
 import random
+import six
 import re
 from collections import defaultdict
 
@@ -228,7 +229,7 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
 
         # Check traffic get forwarded to the nexthop
-        ip_dst = str(ipaddress.ip_network(str(prefix))[1])
+        ip_dst = ipaddress.ip_network(six.u(prefix))[1]
         # try to refresh arp entry before traffic testing to improve stability
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
