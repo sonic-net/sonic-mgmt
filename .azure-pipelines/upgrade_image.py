@@ -24,6 +24,7 @@ if ansible_path not in sys.path:
 
 
 from devutil.devices import init_localhost, init_testbed_sonichosts                 # noqa E402
+from devutil.sonic_helpers import upgrade_image                                     # noqa E402
 
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa E402
 
@@ -107,7 +108,7 @@ def main(args):
     conn_graph_facts = localhost.conn_graph_facts(
         hosts=sonichosts.hostnames,
         filepath=os.path.join(ansible_path, "files")
-    )["localhost"]["ansible_facts"]
+    )["ansible_facts"]
 
     if args.always_power_cycle or args.power_cycle_unreachable:
         pdu_managers = get_pdu_managers(sonichosts, conn_graph_facts)
@@ -129,7 +130,7 @@ def main(args):
         logger.info("Power cycle unreachable")
         ping_results = {}
         needs_sleep = False
-        for hostname, ip in zip(sonichosts.hostnames, sonichosts.ipaddrs):
+        for hostname, ip in zip(sonichosts.hostnames, sonichosts.ips):
             logger.info("Ping {} @{} from localhost".format(hostname, ip))
             ping_failed = localhost.command(
                 "timeout 2 ping {} -c 1".format(ip), module_ignore_errors=True
@@ -154,7 +155,8 @@ def main(args):
     # Upgrade to prev image
     if not args.skip_prev_image:
         logger.info("upgrade to prev image at {}".format(args.prev_image_url))
-        upgrade_success = sonichosts.upgrade_image(
+        upgrade_success = upgrade_image(
+            sonichosts,
             localhost,
             args.prev_image_url,
             upgrade_type=args.upgrade_type,
@@ -172,7 +174,8 @@ def main(args):
 
     # Upgrade to target image
     logger.info("upgrade to target image at {}".format(args.image_url))
-    upgrade_success = sonichosts.upgrade_image(
+    upgrade_success = upgrade_image(
+        sonichosts,
         localhost,
         args.image_url,
         upgrade_type=args.upgrade_type,

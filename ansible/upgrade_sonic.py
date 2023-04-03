@@ -3,6 +3,7 @@ import logging
 import sys
 
 from devutil.devices import init_localhost, init_sonichosts, init_testbed_sonichosts
+from devutil.sonic_helpers import upgrade_image
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -20,7 +21,7 @@ RC_INVALID_ARGS = 5
 
 def main(args):
 
-    localhost = init_localhost(args.inventory, args.verbosity)
+    localhost = init_localhost(args.inventory, options={"verbosity": args.verbosity})
     if not localhost:
         sys.exit(RC_INIT_FAILED)
 
@@ -31,7 +32,8 @@ def main(args):
     if not sonichosts:
         sys.exit(RC_INIT_FAILED)
 
-    result = sonichosts.upgrade_image(
+    result = upgrade_image(
+        sonichosts,
         localhost,
         args.image_url,
         upgrade_type=args.upgrade_type,
@@ -108,11 +110,11 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--disk-usage-percent",
+        "--disk-used-percent",
         type=int,
-        dest="disk_usage_percent",
+        dest="disk_used_percent",
         default=50,
-        help="Disk usage percent."
+        help="Disk used percent."
     )
 
     parser.add_argument(
