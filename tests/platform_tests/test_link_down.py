@@ -127,7 +127,8 @@ def link_status_on_all_fanouts(localhost, fanouts_and_ports, up=True):
     """
     Return:
         True: if up=True, and all links on all fanout hosts are up
-        False: if up=False, and all link on all fanout hosts are down
+              or
+              if up=False, and all link on all fanout hosts are down
     """
     link_status_on_host(localhost, fanouts_and_ports, up)
     logger.info("All interfaces on all fanouts are {}!".format('up' if up else 'down'))
