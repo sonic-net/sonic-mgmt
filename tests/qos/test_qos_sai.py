@@ -154,7 +154,7 @@ class TestQosSai(QosSaiBase):
 
     def testParameter(
         self, duthost, dutConfig, dutQosConfig, ingressLosslessProfile,
-        ingressLossyProfile, egressLosslessProfile, dualtor_ports, releaseAllPorts, populateArpEntries
+        ingressLossyProfile, egressLosslessProfile, dualtor_ports
     ):
         logger.info("asictype {}".format(duthost.facts["asic_type"]))
         logger.info("config {}".format(dutConfig))
@@ -164,7 +164,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xoffProfile", ["xoff_1", "xoff_2", "xoff_3", "xoff_4"])
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile, releaseAllPorts, populateArpEntries
+        ingressLosslessProfile, egressLosslessProfile
     ):
         """
             Test QoS SAI XOFF limits
@@ -240,7 +240,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testPfcStormWithSharedHeadroomOccupancy(
         self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,
-        dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile, releaseAllPorts, populateArpEntries
+        dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
     ):
         """
             Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link.
@@ -411,7 +411,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testQosSaiPfcXonLimit(
         self, xonProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, releaseAllPorts, populateArpEntries
+        ingressLosslessProfile
     ):
         """
             Test QoS SAI XON limits
@@ -504,7 +504,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2",
                              "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
-            self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig, singleMemberPortStaticRoute, nearbySourcePorts, releaseAllPorts, populateArpEntries
+            self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig, singleMemberPortStaticRoute, nearbySourcePorts
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -567,7 +567,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, releaseAllPorts, populateArpEntries
+        ingressLosslessProfile
     ):
         """
             Test QoS SAI Headroom pool size
@@ -651,7 +651,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("sharedResSizeKey", ["shared_res_size_1", "shared_res_size_2"])
     def testQosSaiSharedReservationSize(
-        self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig, releaseAllPorts, populateArpEntries
+        self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig
     ):
         """
             Test QoS SAI shared reservation size
@@ -721,7 +721,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiHeadroomPoolWatermark(
         self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,  ptfhost, dutTestParams,
         dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize,
-        resetWatermark, releaseAllPorts, populateArpEntries
+        resetWatermark
     ):
         """
             Test QoS SAI Headroom pool watermark
@@ -802,7 +802,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
     def testQosSaiBufferPoolWatermark(
         self, request, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLossyProfile, resetWatermark, releaseAllPorts, populateArpEntries
+        ingressLosslessProfile, egressLossyProfile, resetWatermark,
     ):
         """
             Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
@@ -878,7 +878,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, releaseAllPorts, populateArpEntries
+        ingressLossyProfile
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -948,7 +948,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute, releaseAllPorts, populateArpEntries
+            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1018,7 +1018,7 @@ class TestQosSai(QosSaiBase):
                 setup_markings_dut(duthost, localhost, **original_voq_markings)
 
     def testQosSaiDscpQueueMapping(
-        self, duthost, ptfhost, dutTestParams, dutConfig, dut_qos_maps, releaseAllPorts, populateArpEntries
+        self, duthost, ptfhost, dutTestParams, dutConfig, dut_qos_maps
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1065,7 +1065,7 @@ class TestQosSai(QosSaiBase):
         )
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
-    def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams, dutConfig, direction, dut_qos_maps, releaseAllPorts, populateArpEntries):
+    def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams, dutConfig, direction, dut_qos_maps):
         """
             Test QoS SAI DSCP to queue mapping.
             We will have separated DSCP_TO_TC_MAP for uplink/downlink ports on T1 if PCBB enabled.
@@ -1125,7 +1125,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDot1pQueueMapping(
-        self, ptfhost, dutTestParams, dutConfig, releaseAllPorts, populateArpEntries
+        self, ptfhost, dutTestParams, dutConfig
     ):
         """
             Test QoS SAI Dot1p to queue mapping
@@ -1163,7 +1163,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDot1pPgMapping(
-        self, ptfhost, dutTestParams, dutConfig, releaseAllPorts, populateArpEntries
+        self, ptfhost, dutTestParams, dutConfig
     ):
         """
             Test QoS SAI Dot1p to PG mapping
@@ -1201,7 +1201,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDwrr(
-        self, ptfhost, duthost, dutTestParams, dutConfig, dutQosConfig, releaseAllPorts, populateArpEntries
+        self, ptfhost, duthost, dutTestParams, dutConfig, dutQosConfig,
     ):
         """
             Test QoS SAI DWRR
@@ -1270,7 +1270,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, releaseAllPorts, populateArpEntries
+        resetWatermark
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1349,7 +1349,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPgHeadroomWatermark(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, resetWatermark, releaseAllPorts, populateArpEntries
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, resetWatermark,
     ):
         """
             Test QoS SAI PG headroom watermark test
@@ -1414,7 +1414,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, releaseAllPorts, populateArpEntries
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig
     ):
         """
             Test QoS SAI PG drop counter
@@ -1468,7 +1468,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, releaseAllPorts, populateArpEntries
+        resetWatermark
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -1543,7 +1543,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpToPgMapping(
-        self, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps, releaseAllPorts, populateArpEntries
+        self, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
@@ -1592,7 +1592,7 @@ class TestQosSai(QosSaiBase):
         )
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
-    def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost, dutTestParams, dutConfig, direction, dut_qos_maps, releaseAllPorts, populateArpEntries):
+    def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost, dutTestParams, dutConfig, direction, dut_qos_maps):
         """
             Test QoS SAI DSCP to PG mapping ptf test.
             Since we are using different DSCP_TO_TC_MAP on uplink/downlink port, the test case also need to 
@@ -1651,7 +1651,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrrWeightChange(
         self, ptfhost, duthost, dutTestParams, dutConfig, dutQosConfig,
-        updateSchedProfile, releaseAllPorts, populateArpEntries
+        updateSchedProfile
     ):
         """
             Test QoS SAI DWRR runtime weight change
