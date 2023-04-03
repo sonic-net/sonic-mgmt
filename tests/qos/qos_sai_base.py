@@ -1112,7 +1112,7 @@ class QosSaiBase(QosBase):
             duthost.file(path=file["path"], state="absent")
 
     @pytest.fixture(scope='class', autouse=True)
-    def handleFdbAging(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def handleFdbAging(self, tbinfo, duthosts, lower_tor_host, enum_rand_one_per_hwsku_frontend_hostname):
         """
             Disable FDB aging and reenable at the end of tests
 
@@ -1125,7 +1125,10 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         fdbAgingTime = 0
 
         self.__deleteTmpSwitchConfig(duthost)
