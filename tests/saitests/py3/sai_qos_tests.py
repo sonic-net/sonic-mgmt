@@ -1289,11 +1289,12 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
 
         # get a snapshot of counter values at recv and transmit ports
         recv_counters_base1, queue_counters = sai_thrift_read_port_counters(
-            self.src_client, port_list['src'][src_port_1_id])
+            self.src_client, asic_type, port_list['src'][src_port_1_id])
         recv_counters_base2, queue_counters = sai_thrift_read_port_counters(
-            self.src_client, port_list['src'][src_port_2_id])
+            self.src_client, asic_type, port_list['src'][src_port_2_id])
         xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
-            self.dst_client, port_list['dst'][dst_port_id])
+            self.dst_client, asic_type, port_list['dst'][dst_port_id])
+
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -1327,11 +1328,11 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters1, queue_counters = sai_thrift_read_port_counters(
-                self.src_client, port_list['src'][src_port_1_id])
+                self.src_client, asic_type, port_list['src'][src_port_1_id])
             recv_counters2, queue_counters = sai_thrift_read_port_counters(
-                self.src_client, port_list['src'][src_port_2_id])
+                self.src_client, asic_type, port_list['src'][src_port_2_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(
-                self.dst_client, port_list['dst'][dst_port_id])
+                self.dst_client, asic_type, port_list['dst'][dst_port_id])
             # recv port no pfc
             pfc_txd = recv_counters1[pg] - recv_counters_base1[pg]
             assert pfc_txd == 0, "Unexpected PFC TX {} on port {}".format(pfc_txd, src_port_1_id)
@@ -1368,11 +1369,11 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters_base1 = recv_counters1
             recv_counters_base2 = recv_counters2
             recv_counters1, queue_counters = sai_thrift_read_port_counters(
-                self.src_client, port_list['src'][src_port_1_id])
+                self.src_client, asic_type, port_list['src'][src_port_1_id])
             recv_counters2, queue_counters = sai_thrift_read_port_counters(
-                self.src_client, port_list['src'][src_port_2_id])
+                self.src_client, asic_type, port_list['src'][src_port_2_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(
-                self.dst_client, port_list['dst'][dst_port_id])
+                self.dst_client, asic_type, port_list['dst'][dst_port_id])
             # recv port pfc
             assert recv_counters1[pg] > recv_counters_base1[pg], "PFC TX counters did not increase for port {}".format(src_port_1_id)
             assert recv_counters2[pg] > recv_counters_base2[pg], "PFC TX counters did not increase for port {}".format(src_port_2_id)
