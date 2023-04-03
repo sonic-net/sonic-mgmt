@@ -1045,7 +1045,7 @@ class QosSaiBase(QosBase):
             {"docker": src_asic.get_docker_name("bgp"), "service": "bgpd"},
             {"docker": src_asic.get_docker_name("bgp"), "service": "bgpmon"},
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
-            {"docker": src_asic.get_docker_name("swss"), "service": "radvd"}
+            {"docker": src_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
         dst_services = []
         if src_asic != dst_asic:
@@ -1055,7 +1055,7 @@ class QosSaiBase(QosBase):
                 {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpd"},
                 {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpmon"},
                 {"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
-                {"docker": dst_asic.get_docker_name("swss"), "service": "radvd"},
+                {"docker": dst_asic.get_docker_name("swss"), "service": "arp_update"},
             ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
