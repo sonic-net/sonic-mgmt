@@ -47,12 +47,13 @@ stages:
           - group: GIT_SECRETS
           - group: NIGHTLY_HAWK
           - group: TBSHARE_SECRETS
+          - group: SECRETS_JSON
           - name: skipComponentGovernanceDetection
             value: true
 
         steps:
 
-          - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
+          # - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
 
           - task: Bash@3
             displayName: Run auto recovery script
@@ -69,51 +70,6 @@ stages:
                 echo "LIBRARY '${{ parameters.LIBRARY }}'"
                 echo "IMAGE_TAG '${{ parameters.IMAGE_TAG }}'"
                 python3 nightly_hawk_branch_verify.py -b '${{ parameters.BRANCH }}' -n '${{ parameters.TESTBEDS_NAME }}' -i '${{ parameters.IMAGE_TAG }}'
-
-
-                # if [[ -n ${{ parameters.TESTBEDS_NAME }} ]]; then
-                #     echo "TESTBEDS_NAME '${{ parameters.TESTBEDS_NAME }}'"
-                # else
-                #     echo "TESTBEDS_NAME None"
-                # fi
-
-                # if [[ -n ${{ parameters.LIBRARY }} ]]; then
-                #     echo "LIBRARY '${{ parameters.LIBRARY }}'"
-                # else
-                #     echo "LIBRARY None"
-                # fi
-
-                # if [[ -n ${{ parameters.IMAGE_TAG }} ]]; then
-                #     echo "IMAGE_TAG '${{ parameters.IMAGE_TAG }}'"
-                # else
-                #     echo "IMAGE_TAG None"
-                # fi
-
-                # if [[ -n ${{ parameters.TESTBEDS_NAME }} && ${{ parameters.TESTBEDS_NAME }} != "None" && ${{ parameters.TESTBEDS_NAME }} != null && ${{ parameters.TESTBEDS_NAME }} != "" ]]; then
-                #     if [[ -n ${{ parameters.IMAGE_TAG }} && ${{ parameters.IMAGE_TAG }} != "None" && ${{ parameters.IMAGE_TAG }} != null && ${{ parameters.IMAGE_TAG }} != "" ]]; then
-                #         echo 'testbeds name with image tag'
-                #         python3 nightly_hawk_branch_verify.py -b '${{ parameters.BRANCH }}' -n '${{ parameters.TESTBEDS_NAME }}' -i '${{ parameters.IMAGE_TAG }}'
-                #     else
-                #         echo 'testbeds name without image tag'
-                #         python3 nightly_hawk_branch_verify.py -b '${{ parameters.BRANCH }}' -n '${{ parameters.TESTBEDS_NAME }}'
-                #     fi
-                # elif [[ -n ${{ parameters.LIBRARY }} && ${{ parameters.LIBRARY }} != "None" && ${{ parameters.LIBRARY }} != null && ${{ parameters.LIBRARY }} != "" ]]; then
-                #     if [[ -n ${{ parameters.IMAGE_TAG }} && ${{ parameters.IMAGE_TAG }} != "None" && ${{ parameters.IMAGE_TAG }} != null && ${{ parameters.IMAGE_TAG }} != "" ]]; then
-                #         echo 'testbeds library with image tag'
-                #         python3 nightly_hawk_branch_verify.py -b '${{ parameters.BRANCH }}' -l '${{ parameters.LIBRARY }}' -i '${{ parameters.IMAGE_TAG }}'
-                #     else
-                #         echo 'testbeds library without image tag'
-                #         python3 nightly_hawk_branch_verify.py -b '${{ parameters.BRANCH }}' -l '${{ parameters.LIBRARY }}'
-                #     fi
-                # else
-                #     if [[ -n ${{ parameters.IMAGE_TAG }} && ${{ parameters.IMAGE_TAG }} != "None" && ${{ parameters.IMAGE_TAG }} != null && ${{ parameters.IMAGE_TAG }} != "" ]]; then
-                #         echo 'testbeds auto with image tag'
-                #         python3 nightly_hawk_branch_verify.py -b '${{ parameters.BRANCH }}' -i '${{ parameters.IMAGE_TAG }}'
-                #     else
-                #         echo 'testbeds auto without image tag'
-                #         python3 nightly_hawk_branch_verify.py -b '${{ parameters.BRANCH }}'
-                #     fi
-                # fi
 
             env:
               TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
