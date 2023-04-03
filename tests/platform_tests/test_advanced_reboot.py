@@ -9,15 +9,37 @@ from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder
-from tests.common.fixtures.ptfhost_utils import run_garp_service
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip, show_muxcable_status
+from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_upper_tor, toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result
+from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),
     pytest.mark.skip_check_dut_health
 ]
+
+SINGLE_TOR_MODE = 'single'
+DUAL_TOR_MODE = 'dual'
+
 logger = logging.getLogger()
+
+
+@pytest.fixture(scope="module", params=[SINGLE_TOR_MODE, DUAL_TOR_MODE])
+def testing_config(request, tbinfo):
+    testing_mode = request.param
+    if 'dualtor' in tbinfo['topo']['name']:
+        if testing_mode == SINGLE_TOR_MODE:
+            pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")
+        if testing_mode == DUAL_TOR_MODE:
+            yield testing_mode
+    else:
+        if testing_mode == DUAL_TOR_MODE:
+            pytest.skip("skip DUAL_TOR_MODE tests on Single ToR testbeds")
+        yield testing_mode
+
 
 def pytest_generate_tests(metafunc):
     input_sad_cases = metafunc.config.getoption("sad_case_list")
@@ -62,15 +84,29 @@ def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request
     flush_dbs(duthost)
     advancedReboot.runRebootTestcase()
 
+
 @pytest.mark.device_type('vs')
-def test_warm_reboot(request, get_advanced_reboot, verify_dut_health,
-    advanceboot_loganalyzer, capture_interface_counters):
+def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_health, duthosts, advanceboot_loganalyzer, 
+    capture_interface_counters, toggle_all_simulator_ports, enum_rand_one_per_hwsku_frontend_hostname, toggle_simulator_port_to_upper_tor):
     '''
     Warm reboot test case is run using advacned reboot test fixture
 
     @param request: Spytest commandline argument
     @param get_advanced_reboot: advanced reboot test fixture
     '''
+    testing_mode = testing_config
+    if testing_mode == DUAL_TOR_MODE:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        toggle_all_simulator_ports(LOWER_TOR)
+        check_result = wait_until(120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+        validate_check_result(check_result, duthosts, get_mux_status)
+        mux_list = show_muxcable_status(duthost)
+        toggle_mux_size = len(mux_list) / 2
+        for i in range(toggle_mux_size):
+            itfs, _ = rand_selected_interface(duthost)
+            # Select half of interfaces and toggle to active on upper ToR
+            toggle_simulator_port_to_upper_tor(itfs)
+
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',\
         advanceboot_loganalyzer=advanceboot_loganalyzer)
     advancedReboot.runRebootTestcase()
@@ -149,6 +185,15 @@ def test_cancelled_warm_reboot(request, add_fail_step_to_reboot, verify_dut_heal
     add_fail_step_to_reboot('warm-reboot')
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot', allow_fail=True)
     advancedReboot.runRebootTestcase()
+
+
+def rand_selected_interface(tor):
+    """Select a random interface to test."""
+    server_ips = mux_cable_server_ip(tor)
+    iface = str(random.choice(server_ips.keys()))
+    logging.info("select DUT interface %s to test.", iface)
+    return iface, server_ips[iface]
+
 
 def flush_dbs(duthost):
     """
