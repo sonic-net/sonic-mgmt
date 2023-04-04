@@ -3,6 +3,14 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+# run on internal or private image
+schedules:
+  - cron: "0 2 * * 5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal-202205
+    always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
@@ -30,7 +38,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: ""
+    default: '-I "process_monitoring radv scp ssh syslog system_health lldp memory_checker monit pc pfcwd portstat qos route show_techsupport snmp tacacs metadata_scripts telemetry"'
     displayName: Testbed specific
 
 stages:
