@@ -331,33 +331,35 @@ def load_basic_facts(session):
         inv_name = tbinfo['inv_name']
     else:
         inv_name = 'lab'
+    # Since internal repo add vendor test support, add check to see if it's sonic-os, other wise skip load facts.
+    vendor = session.config.getoption("--dut_vendor", "sonic")
+    if vendor == "sonic":
+        # Load DUT basic facts
+        _facts = load_dut_basic_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load DUT basic facts
-    _facts = load_dut_basic_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load minigraph basic facts
+        _facts = load_minigraph_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load minigraph basic facts
-    _facts = load_minigraph_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load config basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load config basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load switch capabilities basic facts
+        _facts = load_switch_capabilities_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load switch capabilities basic facts
-    _facts = load_switch_capabilities_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load console basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load console basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
-
-    # Load possible other facts here
+        # Load possible other facts here
 
     return results
 
