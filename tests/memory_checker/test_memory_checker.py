@@ -183,17 +183,21 @@ def install_stress_utility(duthost, creds, container_name):
     # Get proxy settings from creds
     http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
     https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+    exit_code = 0
 
     # Shutdown bgp for having ability to install stress tool
     logger.info("Shutting down all BGP sessions ...")
     duthost.shell("config bgp shutdown all")
     logger.info("All BGP sessions are shut down!...")
-    install_cmd_result = duthost.shell("docker exec {} bash -c 'export http_proxy={} \
+    output = duthost.shell("docker exec {} bash -c 'which stress'".format(container_name), module_ignore_errors=True)
+    if output["rc"] != 0:
+        install_cmd_result = duthost.shell("docker exec {} bash -c 'export http_proxy={} \
                                         && export https_proxy={} \
                                         && apt-get update -y \
                                         && apt-get install stress -y'".format(container_name, http_proxy, https_proxy))
 
-    exit_code = install_cmd_result["rc"]
+        exit_code = install_cmd_result["rc"]
+
     pytest_assert(exit_code == 0, "Failed to install 'stress' utility!")
     logger.info("'stress' utility was installed.")
 
