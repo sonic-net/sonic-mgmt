@@ -110,8 +110,12 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname,
 
     # Immediately after one config reload command, another shouldn't execute and wait for system checks
     logging.info("Checking config reload after system is up")
+    # Check if all database containers have started
+    wait_until(60, 1, 0, check_database_status, duthost)
+    # Check if interfaces-config.service is exited
+    wait_until(60, 1, 0, check_interfaces_config_service_status, duthost)
     out = duthost.shell("sudo config reload -y",
-                        executable="/bin/bash", module_ignore_errors=True)
+			 executable="/bin/bash", module_ignore_errors=True)
     assert "Retry later" in out['stdout']
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
 
