@@ -30,7 +30,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MLNX_INTERNAL)
+    default: $(SAITHRIFT_MLNX_202012)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
