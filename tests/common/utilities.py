@@ -14,7 +14,7 @@ import sys
 import threading
 import time
 import traceback
-from io import BytesIO
+from io import StringIO
 from ast import literal_eval
 
 import pytest
@@ -502,7 +502,7 @@ def compare_crm_facts(left, right):
 
 def dump_scapy_packet_show_output(packet):
     """Dump packet show output to string."""
-    _stdout, sys.stdout = sys.stdout, BytesIO()
+    _stdout, sys.stdout = sys.stdout, StringIO()
     try:
         packet.show()
         return sys.stdout.getvalue()
@@ -800,6 +800,7 @@ def get_upstream_neigh_type(topo_type, is_upper=True):
         return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
 
 def get_downstream_neigh_type(topo_type, is_upper=True):
     """
