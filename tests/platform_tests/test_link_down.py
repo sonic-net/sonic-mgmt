@@ -174,8 +174,11 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     # Also make sure fanout hosts' links are down
     link_status_on_all_fanouts(localhost, fanouts_and_ports, up=False)
 
-    # Wait for ssh port to open up on the DUT
+    # Wait for ssh port to open up on the SUP
     wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
+    # Wait for ssh port to open up on the linecards
+    for linecard in duthosts.frontend_nodes:
+        wait_for_startup(linecard, localhost, 0, MAX_TIME_TO_REBOOT)
 
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
