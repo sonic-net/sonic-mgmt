@@ -40,12 +40,5 @@ ut_t0:
 	echo "Running UT on T0 with ${TEST_LIST}"
 	# create_sonic_topo only accepts a file for list of tests. Create temp file
 	echo $(TEST_LIST) | sed 's/,/\n/g' >> $(TEMP_TESTFILE)
-	cd infra && ./pyats/bin/python \
-		create_sonic_topo.py \
-		-f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml \
-		-u cisco -p cisco123 \
-		-t t0-64 \
-		-c -r -s $(TEMP_TESTFILE) \
-		-b $(GOLDENCODE) \
-		--cicd --cicd_clean --create_allure_report
+	$(MAKE) TESTFILE=$(TEMP_TESTFILE) t0_run
 	rm $(TEMP_TESTFILE)
