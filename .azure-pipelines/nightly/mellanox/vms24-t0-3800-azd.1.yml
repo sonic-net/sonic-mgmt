@@ -8,7 +8,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal
+        - internal-202012
     always: true
 
 variables:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms20-t0-sn3800-2
+    default: vms24-t0-3800-azd
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-S "platform_tests"'
     displayName: Testbed specific
 
   # Custom skip scripts
@@ -44,6 +44,10 @@ parameters:
     type: string
     default: "vrf/test_vrf.py vrf/test_vrf_attr.py"
     displayName: "Skip Scripts"
+
+  - name: TEST_IN_BRANCH_UPGRADE
+    default: true
+    type: boolean
 
   # Test timeout
   - name: NIGHTLY_TEST_TIMEOUT
@@ -55,5 +59,6 @@ stages:
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL}}
+      TEST_IN_BRANCH_UPGRADE: ${{ parameters.TEST_IN_BRANCH_UPGRADE }}
