@@ -506,7 +506,14 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
         # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
         disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
 
-    router_macs = [duthost.facts['router_mac'] for duthost in duthosts]
+    router_macs = []
+    all_dut_names = [duthost.hostname for duthost in duthosts]
+    for a_dut_name in tbinfo['duts']:
+        if a_dut_name in all_dut_names:
+            duthost = duthosts[a_dut_name]
+            router_macs.append(duthost.facts['router_mac'])
+        else:
+            router_macs.append(None)
 
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
@@ -536,17 +543,20 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             }
         else:
             # PTF port is mapped to single DUT
+            dut_index_for_pft_port = int(dut_intf_map.keys()[0])
+            if router_macs[dut_index_for_pft_port] is None:
+                continue
             target_dut_index = int(list(dut_intf_map.keys())[0])
             target_dut_port = int(list(dut_intf_map.values())[0])
             router_mac = router_macs[target_dut_index]
-            target_hostname = duthosts[target_dut_index].hostname
+            target_hostname = tbinfo['duts'][target_dut_index]
 
             if len(duts_minigraph_facts[target_hostname]) > 1:
                 # Dealing with multi-asic target dut
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[target_hostname]):
                     idx, mg_facts = mg_facts_tuple
                     if target_dut_port in list(mg_facts['minigraph_port_indices'].values()):
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]\
+                        router_mac = duts_running_config_facts[target_hostname][list_idx][1]\
                         ['DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
 
