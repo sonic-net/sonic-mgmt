@@ -223,11 +223,8 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     dut_device_conn = device_conn[dut_hostname]
     peer_devices = [dut_device_conn[port]['peerdevice'] for port in dut_device_conn]
     peer_devices = list(set(peer_devices))
-
     if len(peer_devices) == 1:
         return peer_devices[0]
-    elif len(peer_devices) > 1:
-        return peer_devices[-1]
     else:
         return None
 
@@ -418,6 +415,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
         If configuration succeeds (bool)
     """
 
+    asic_type = str(host_ans.facts["asic_type"])
     if not isinstance(kmin, int) or \
        not isinstance(kmax, int) or \
        not isinstance(pmax, int):
@@ -446,28 +444,26 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
             return False
 
         """ Ensure that Kmin is no larger than Kmax during the update """
-        if asic_value == 'None':
-            if kmin > kmin_old:
-                host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
-                host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
-            else:
-                host_ans.shell('sudo ecnconfig -p {} -gmin {}'.format(p, kmin))
-                host_ans.shell('sudo ecnconfig -p {} -gmax {}'.format(p, kmax))
+
+        gmx_cmd = 'sudo ecnconfig -p {} -gmax {}'
+        gmin_cmd = 'sudo ecnconfig -p {} -gmin {}'
+
+        if asic_value != 'None':
+            gmx_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmax {}' % asic_value
+            gmin_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmin {}' % asic_value
+            if asic_type == 'broadcom':
+                try:
+                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                except Exception:
+                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+
+        if kmin > kmin_old:
+            host_ans.shell(gmx_cmd.format(p, kmax))
+            host_ans.shell(gmin_cmd.format(p, kmin))
         else:
-            if kmin > kmin_old:
-                host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmax {}'.format(asic_value, p, kmax))
-                host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmin {}'.format(asic_value, p, kmin))
-                try:
-                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
-                except Exception:
-                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
-            else:
-                host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmin {}'.format(asic_value, p, kmin))
-                host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -gmax {}'.format(asic_value, p, kmax))
-                try:
-                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
-                except Exception:
-                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+            host_ans.shell(gmin_cmd.format(p, kmin))
+            host_ans.shell(gmx_cmd.format(p, kmax))
+
     return True
 
 
@@ -504,11 +500,13 @@ def disable_ecn(host_ans, prio, asic_value='None'):
     if asic_value == 'None':
         host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
     else:
+        asic_type = str(host_ans.facts["asic_type"])
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} off'.format(asic_value, prio))
-        try:
-            host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-        except Exception:
-            host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+        if asic_type == 'broadcom':
+            try:
+                host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+            except Exception:
+                host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 
 def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value='None'):

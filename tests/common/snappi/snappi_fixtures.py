@@ -524,7 +524,6 @@ def cvg_api(snappi_api_serv_ip,
 
 
 def snappi_dut_base_config(duthost_list,
-                           tgen_ports,
                            snappi_ports,
                            snappi_api):
     """
@@ -543,6 +542,8 @@ def snappi_dut_base_config(duthost_list,
     """ Generate L1 config """
 
     config = snappi_api.config()
+    tgen_ports = [port['location'] for port in snappi_ports]
+
     new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
                         for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
     pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
@@ -591,9 +592,9 @@ def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):  
         host_names = line_card_info['hostname']
         asic_info = line_card_info['asic']
         asic_port_map = {
-            "asic0": ['Ethernet%d' % i for i in range(0, 144, 8)],
-            "asic1": ['Ethernet%d' % i for i in range(144, 284, 8)],
-            "None": ['Ethernet%d' % i for i in range(0, 128, 4)],
+            "asic0": ['Ethernet%d' % i for i in range(0, 72, 4)],
+            "asic1": ['Ethernet%d' % i for i in range(72, 144, 4)],
+            "None": ['Ethernet%d' % i for i in range(0, 144, 4)],
         }
         ports = []
         for index, host in enumerate(duthosts):
@@ -610,6 +611,7 @@ def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):  
                     for asic in asic_info:
                         if port["peer_port"] in asic_port_map[asic] and hostname in port['peer_device']:
                             port['asic_value'] = asic
+                            port['asic_type'] = host.facts["asic_type"]
                             ports.append(port)
         return ports
     return _get_multidut_snappi_ports
@@ -750,14 +752,6 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
         port_config_list.append(port_config)
 
     return True
-
-
-def get_dut_interconnected_ports(conn_graph_facts, src_host, dst_host):     # noqa: F811
-    ports = []
-    for key, value in conn_graph_facts['device_conn'][src_host].items():
-        if value['peerdevice'] == dst_host:
-            ports.append((key, value['peerport']))
-    return ports
 
 
 def get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, number_of_tgen_peer_ports=2):

@@ -7,7 +7,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
     get_multidut_tgen_peer_port_set, cleanup_config                                                 # noqa: F401
-from tests.common.snappi.qos_fixtures import prio_dscp_map_dut_base, lossless_prio_list_dut_base
+from tests.common.snappi.qos_fixtures import lossless_prio_list, prio_dscp_map                      # noqa: F401
 from tests.snappi.variables import config_set, line_card_choice
 from files.multidut_helper import run_pfc_test
 logger = logging.getLogger(__name__)
@@ -21,6 +21,8 @@ def test_global_pause(snappi_api,                                   # noqa: F811
                       conn_graph_facts,                             # noqa: F811
                       fanout_graph_facts,                           # noqa: F811
                       duthosts,
+                      prio_dscp_map,                                # noqa: F811
+                      lossless_prio_list,                           # noqa: F811
                       line_card_choice,
                       linecard_configuration_set,
                       get_multidut_snappi_ports                     # noqa: F811
@@ -62,15 +64,12 @@ def test_global_pause(snappi_api,                                   # noqa: F811
         assert False, "Need Minimum of 2 ports for the test"
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-    tgen_ports = [port['location'] for port in snappi_ports]
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    prio_dscp_map = prio_dscp_map_dut_base(duthost1)
     all_prio_list = prio_dscp_map.keys()
-    test_prio_list = lossless_prio_list_dut_base(duthost1)
+    test_prio_list = lossless_prio_list
     bg_prio_list = [x for x in all_prio_list if x not in test_prio_list]
 
     run_pfc_test(api=snappi_api,
