@@ -1,6 +1,6 @@
 import time
 import re
-from tests.common.helpers.dut_utils import is_container_running
+from tests.common.utilities import get_image_type
 
 GNMI_CONTAINER_NAME = ''
 GNMI_PROGRAM_NAME = ''
@@ -12,30 +12,30 @@ GNMI_SERVER_START_WAIT_TIME = 15
 def gnmi_container(duthost):
     global GNMI_CONTAINER_NAME
     if len(GNMI_CONTAINER_NAME) == 0:
-        if is_container_running(duthost, "gnmi"):
-            GNMI_CONTAINER_NAME = "gnmi"
-        else:
+        if get_image_type(duthost) == "public":
             GNMI_CONTAINER_NAME = "telemetry"
+        else:
+            GNMI_CONTAINER_NAME = "gnmi"
     return GNMI_CONTAINER_NAME
 
 
 def gnmi_program(duthost):
     global GNMI_PROGRAM_NAME
     if len(GNMI_PROGRAM_NAME) == 0:
-        if is_container_running(duthost, "gnmi"):
-            GNMI_PROGRAM_NAME = "gnmi-native"
-        else:
+        if get_image_type(duthost) == "public":
             GNMI_PROGRAM_NAME = "telemetry"
+        else:
+            GNMI_PROGRAM_NAME = "gnmi-native"
     return GNMI_PROGRAM_NAME
 
 
 def gnmi_port(duthost):
     global GNMI_PORT
     if GNMI_PORT == 0:
-        if is_container_running(duthost, "gnmi"):
-            GNMI_CONFIG_KEY = 'GNMI|gnmi'
-        else:
+        if get_image_type(duthost) == "public":
             GNMI_CONFIG_KEY = 'TELEMETRY|gnmi'
+        else:
+            GNMI_CONFIG_KEY = 'GNMI|gnmi'
         port = duthost.shell("redis-cli -n 4 hget '%s' 'port'" % GNMI_CONFIG_KEY)['stdout']
         GNMI_PORT = int(port)
     return GNMI_PORT
