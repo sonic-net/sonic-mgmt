@@ -68,6 +68,8 @@ def get_port_channel():
                 "admin_status": "up",
                 "min_links": "1",
                 "mtu": "9100",
+                "tpid": "0x8100",
+                "lacp_key": "auto",
                 "members": list(sonic_local_ports)
             }
         }
