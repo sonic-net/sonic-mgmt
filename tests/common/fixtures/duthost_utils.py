@@ -460,17 +460,26 @@ def dut_qos_maps(get_src_dst_asic_and_duts):
             sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
 
         # port_qos_map
-        maps['port_qos_map'] = json.loads(dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout'])
+        port_qos_map = dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['port_qos_map'] = json.loads(port_qos_map) if port_qos_map else None
+
         # dscp_to_tc_map
-        maps['dscp_to_tc_map'] = json.loads(dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout'])
+        dscp_to_tc_map = dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['dscp_to_tc_map'] = json.loads(dscp_to_tc_map) if dscp_to_tc_map else None
+
         # tc_to_queue_map
-        maps['tc_to_queue_map'] = json.loads(dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout'])
+        tc_to_queue_map = dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_queue_map'] = json.loads(tc_to_queue_map) if tc_to_queue_map else None
+
         # tc_to_priority_group_map
-        maps['tc_to_priority_group_map'] = json.loads(dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout'])
+        tc_to_priority_group_map = dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_priority_group_map'] = json.loads(tc_to_priority_group_map) if tc_to_priority_group_map else None
+
         # tc_to_dscp_map
-        maps['tc_to_dscp_map'] = json.loads(dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout'])
-    except:
-        pass
+        tc_to_dscp_map = dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_dscp_map'] = json.loads(tc_to_dscp_map) if tc_to_dscp_map else None
+    except Exception as e:
+        logger.error("Got exception: " + repr(e))
     return maps
 
 
