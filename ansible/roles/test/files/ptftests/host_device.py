@@ -1,0 +1,30 @@
+class HostDevice(object):
+
+    @staticmethod
+    def getHostDeviceInstance(*args, **kwargs):
+        return sonic.Sonic(*args, **kwargs)
+        #return arista.Arista(*args, **kwargs)
+
+    def connect(self):
+        raise NotImplementedError
+
+    def disconect(self):
+        raise NotImplementedError
+
+    def run(self):
+        raise NotImplementedError
+
+    def verify_neigh_lag_no_flap(self):
+        raise NotImplementedError
+
+    def change_bgp_neigh_state(self, asn, is_up=True):
+        raise NotImplementedError
+
+    def change_bgp_route(self, cfg_map):
+        raise NotImplementedError
+
+    def verify_bgp_neigh_state(self, dut=None, state="Active"):
+        raise NotImplementedError
+
+import arista 
+import sonic

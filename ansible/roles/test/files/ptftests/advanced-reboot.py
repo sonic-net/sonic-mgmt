@@ -83,7 +83,7 @@ from multiprocessing.pool import ThreadPool, TimeoutError
 from fcntl import ioctl
 from collections import defaultdict
 from device_connection import DeviceConnection
-from arista import Arista
+from host_device import HostDevice
 
 
 class StateMachine():
@@ -400,11 +400,15 @@ class ReloadTest(BaseTest):
 
         try:
             res = async_res.get(timeout=seconds)
-        except Exception as err:
-            # TimeoutError and Exception's from func
-            # captured here
+        except TimeoutError as err:
+            # TimeoutError captured here
             signal.set()
             raise type(err)(message)
+        except Exception as err:
+            # Propagate exceptions up
+            signal.set()
+            raise err
+        self.log("Timeout is returning {}.".format(res))
         return res
 
     def generate_vlan_servers(self):
@@ -924,7 +928,7 @@ class ReloadTest(BaseTest):
     def put_nowait(self, queue, data):
         try:
             queue.put_nowait(data)
-        except queue.Full:
+        except Queue.Full:
             pass
 
     def pre_reboot_test_setup(self):
@@ -1433,7 +1437,8 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.neigh_handle = Arista(neigh, None, self.test_params)
+            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map if x['mgmt_addr'] == neigh][0]
+            self.neigh_handle = HostDevice.getHostDeviceInstance(neigh, None, self.test_params)
             self.neigh_handle.connect()
             fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
             self.neigh_handle.disconnect()
@@ -1578,7 +1583,8 @@ class ReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
-        ssh = Arista(ip, queue, self.test_params, log_cb=self.log)
+        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values() if x['mgmt_addr'] == ip][0]
+        ssh = HostDevice.getHostDeviceInstance(ip, queue, self.test_params, log_cb=self.log)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         self.log('SSH thread for VM {} finished'.format(ip))
 
