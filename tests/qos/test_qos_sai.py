@@ -547,7 +547,10 @@ class TestQosSai(QosSaiBase):
         dst_port_id, dst_port_ip = singleMemberPortStaticRoute
         src_port_1_id, src_port_2_id = nearbySourcePorts
 
-        testPortIps = dutConfig["testPortIps"]
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -702,7 +705,12 @@ class TestQosSai(QosSaiBase):
         """
 
         qosConfig = dutQosConfig["param"]
-        testPortIps = dutConfig["testPortIps"]
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
 
         if not sharedResSizeKey in qosConfig.keys():
             pytest.skip("Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
@@ -713,10 +721,11 @@ class TestQosSai(QosSaiBase):
 
         self.updateTestPortIdIp(dutConfig, qosConfig[sharedResSizeKey])
 
-        port_idx_to_id = testPortIps.keys()
+        src_port_idx_to_id = list(src_testPortIps.keys())
+        dst_port_idx_to_id = list(dst_testPortIps.keys())
         # Translate requested port indices to available port IDs
-        src_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
-        dst_port_ids = [port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
+        src_port_ids = [src_port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
+        dst_port_ids = [dst_port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -727,9 +736,9 @@ class TestQosSai(QosSaiBase):
             "pgs": qosConfig[sharedResSizeKey]["pgs"],
             "queues": qosConfig[sharedResSizeKey]["queues"],
             "src_port_ids": src_port_ids,
-            "src_port_ips": [testPortIps[port]['peer_addr'] for port in src_port_ids],
+            "src_port_ips": [src_testPortIps[port]['peer_addr'] for port in src_port_ids],
             "dst_port_ids": dst_port_ids,
-            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in dst_port_ids],
+            "dst_port_ips": [dst_testPortIps[port]['peer_addr'] for port in dst_port_ids],
             "pkt_counts":  qosConfig[sharedResSizeKey]["pkt_counts"],
             "shared_limit_bytes": qosConfig[sharedResSizeKey]["shared_limit_bytes"],
             "hwsku":dutTestParams['hwsku']

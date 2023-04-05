@@ -8,6 +8,8 @@ import yaml
 import random
 import os
 import sys
+import copy
+
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 import copy
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -1250,7 +1252,11 @@ class QosSaiBase(QosBase):
                                                        egressLosslessProfile,
                                                        egressLossyProfile,
                                                        sharedHeadroomPoolSize,
-                                                       dutConfig["dualTor"]
+                                                       dutConfig["dualTor"],
+                                                       get_src_dst_asic_and_duts['src_dut_index'],
+                                                       get_src_dst_asic_and_duts['src_asic_index'],
+                                                       get_src_dst_asic_and_duts['dst_dut_index'],
+                                                       get_src_dst_asic_and_duts['dst_asic_index']
                                                        )
             qosParams = qpm.run()
 
