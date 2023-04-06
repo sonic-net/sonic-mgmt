@@ -15,6 +15,7 @@ import ptf.packet as packet
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -43,18 +44,6 @@ DEFAULT_SERVER_IP = "192.168.0.3"
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
-# Describe upstream neighbor of dut in different topos
-UPSTREAM_NEIGHBOR_MAP = {
-    "t0": "t1",
-    "t1": "t2",
-    "m0": "m1"
-}
-# Describe downstream neighbor of dut in different topos
-DOWNSTREAM_NEIGHBOR_MAP = {
-    "t0": "server",
-    "t1": "t0",
-    "m0": "mx"
-}
 # Topo that downstream neighbor of DUT are servers
 DOWNSTREAM_SERVER_TOPO = ["t0"]
 
