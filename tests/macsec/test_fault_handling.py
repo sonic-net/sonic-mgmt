@@ -1,17 +1,12 @@
 from time import sleep
 import pytest
 import logging
-import re
-import scapy.all as scapy
-import ptf.testutils as testutils
-from collections import Counter
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from tests.common import config_reload
-from .macsec_helper import *
-from .macsec_config_helper import *
-from .macsec_platform_helper import *
+from .macsec_helper import get_appl_db
+from .macsec_config_helper import disable_macsec_port, enable_macsec_port, delete_macsec_profile, set_macsec_profile
+from .macsec_platform_helper import get_eth_ifname, find_portchannel_from_member, get_portchannel
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +102,8 @@ class TestFaultHandling():
 
         # Wait till macsec session has gone down.
         wait_until(20, 3, 0,
-            lambda: not duthost.iface_macsec_ok(port_name) and
-                    not nbr["host"].iface_macsec_ok(nbr["port"]))
+                   lambda: not duthost.iface_macsec_ok(port_name) and
+                   not nbr["host"].iface_macsec_ok(nbr["port"]))
 
         # Set a wrong cak to the profile
         primary_cak = "0" * len(primary_cak)
