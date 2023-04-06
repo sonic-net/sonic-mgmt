@@ -35,7 +35,7 @@ def sonic_db_cli(host, cmd):
     return ast.literal_eval(host.shell(cmd)["stdout_lines"][0])
 
 
-def get_all_ifnames(host, asic = None):
+def get_all_ifnames(host, asic=None):
     cmd_prefix = " "
     if host.is_multi_asic and asic is not None:
         ns = host.get_namespace_from_asic_id(asic.asic_index)

@@ -6,12 +6,10 @@ import scapy.all as scapy
 import ptf.testutils as testutils
 from collections import Counter
 
-from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from tests.common import config_reload
-from .macsec_helper import *
-from .macsec_config_helper import *
-from .macsec_platform_helper import *
+from .macsec_helper import create_pkt, create_exp_pkt, check_macsec_pkt,\
+                           get_ipnetns_prefix, get_macsec_sa_name, get_macsec_counters
+from .macsec_platform_helper import get_portchannel, find_portchannel_from_member
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +22,8 @@ pytestmark = [
 class TestDataPlane():
     BATCH_COUNT = 10
 
-    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links, upstream_links, ptfadapter, wait_mka_establish):
+    def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links,
+                                upstream_links, ptfadapter, wait_mka_establish):
         ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 100)
 
         down_link = list(downstream_links.values())[0]
@@ -60,7 +59,7 @@ class TestDataPlane():
             logging.info(payload)
             # Source mac address is not useful in this test case and we use an arbitrary mac address as the source
             pkt = create_pkt(
-                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_host_ip, bytes(payload,encoding='utf8'))
+                "00:01:02:03:04:05", dut_macaddress, "1.2.3.4", up_host_ip, bytes(payload, encoding='utf8'))
             exp_pkt = create_exp_pkt(pkt, pkt[scapy.IP].ttl - 1)
 
             fail_message = ""
@@ -164,7 +163,7 @@ class TestDataPlane():
         ret = duthost.command(
             "{} ping -c {} -s {} {}".format(get_ipnetns_prefix(duthost, port_name), PKT_NUM, PKT_OCTET, nbr_ip_addr))
         assert not ret['failed']
-        sleep(10) # wait 10s for polling counters
+        sleep(10)   # wait 10s for polling counters
 
         # Sum up end counter
         egress_end_counters = Counter()

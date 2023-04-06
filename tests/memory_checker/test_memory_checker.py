@@ -243,7 +243,8 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
 
     pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   "Skips testing memory_checker of container '{}' "
+                   "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
 
     duthost = duthosts[dut_name]
@@ -284,7 +285,8 @@ def remove_and_restart_container(duthosts, creds, enum_dut_feature_container,
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
 
     pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   "Skips testing memory_checker of container '{}' "
+                   "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
 
     duthost = duthosts[dut_name]
@@ -404,7 +406,7 @@ def get_container_mem_usage(duthost, container_name):
     Returns:
         mem_usage: A string represents memory usage.
     """
-    get_mem_usage_cmd = "docker stats --no-stream --format \{{\{{.MemUsage\}}\}} {}".format(container_name)
+    get_mem_usage_cmd = r"docker stats --no-stream --format \{{\{{.MemUsage\}}\}} {}".format(container_name)
     cmd_result = duthost.shell(get_mem_usage_cmd)
 
     exit_code = cmd_result["rc"]
@@ -490,7 +492,8 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
 
 
 @pytest.mark.parametrize("test_setup_and_cleanup",
-                         ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry"'],
+                         ['    if status == 3 for 1 times within 2 cycles '
+                          'then exec "/usr/bin/restart_service telemetry"'],
                          indirect=["test_setup_and_cleanup"])
 def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
                         enum_rand_one_per_hwsku_frontend_hostname):
@@ -512,7 +515,8 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
 
     pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   "Skips testing memory_checker of container '{}' "
+                   "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
 
     duthost = duthosts[dut_name]
@@ -524,7 +528,8 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
     vm_workers = 6
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
+                   and (("20191130" in duthost.os_version and
+                         parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
                    "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
 
@@ -535,7 +540,8 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
 
 
 @pytest.mark.parametrize("test_setup_and_cleanup",
-                         ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry"'],
+                         ['    if status == 3 for 1 times within 2 cycles '
+                          'then exec "/usr/bin/restart_service telemetry"'],
                          indirect=["test_setup_and_cleanup"])
 def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
                                      enum_rand_one_per_hwsku_frontend_hostname):
@@ -560,7 +566,8 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
 
     pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   "Skips testing memory_checker of container '{}' "
+                   "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
 
     duthost = duthosts[dut_name]
@@ -572,7 +579,8 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
     vm_workers = 6
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and ("20201231" in duthost.os_version or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
+                   and ("20201231" in duthost.os_version or
+                        parse_version(duthost.kernel_version) > parse_version("4.9.0")),
                    "Test is not supported for platform Celestica E1031, 20191130 and older image versions!")
 
     logger.info("Checks whether '{}' is running ...".format(container_name))
@@ -587,7 +595,8 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
 
 
 @pytest.mark.parametrize("test_setup_and_cleanup",
-                         ['    if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
+                         ['    if status == 3 for 1 times within 2 cycles then exec '
+                          '"/usr/bin/restart_service telemetry" repeat every 2 cycles'],
                          indirect=["test_setup_and_cleanup"])
 def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
                           enum_rand_one_per_hwsku_frontend_hostname):
@@ -611,7 +620,8 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
 
     pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   "Skips testing memory_checker of container '{}' "
+                   "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
 
     duthost = duthosts[dut_name]
@@ -623,7 +633,8 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
     vm_workers = 6
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
+                   and (("20191130" in duthost.os_version and
+                         parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
                    "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
 
@@ -650,7 +661,7 @@ def check_log_message(duthost, container_name):
         None.
     """
     expected_alerting_messages = []
-    expected_alerting_messages.append(".*\[memory_checker\] Exits without checking memory usage.*'telemetry'.*")
+    expected_alerting_messages.append(r".*\[memory_checker\] Exits without checking memory usage.*'telemetry'.*")
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="memory_checker_skip_removed_container")
     loganalyzer.expect_regex = []
@@ -686,7 +697,8 @@ def test_memory_checker_without_container_created(duthosts, enum_dut_feature_con
                    .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
 
     pytest_require(container_name == "telemetry",
-                   "Skips testing memory_checker of container '{}' since memory monitoring is only enabled for 'telemetry'."
+                   "Skips testing memory_checker of container '{}' "
+                   "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
 
     duthost = duthosts[dut_name]
@@ -697,7 +709,8 @@ def test_memory_checker_without_container_created(duthosts, enum_dut_feature_con
     container_name = "telemetry"
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
-                   and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
+                   and (("20191130" in duthost.os_version and
+                         parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
                    "Test is not supported for platform Celestica E1031, 20191130.72 and older image versions!")
 
