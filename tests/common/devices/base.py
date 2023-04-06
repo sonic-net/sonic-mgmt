@@ -96,6 +96,8 @@ class AnsibleHostBase(object):
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
 
+        module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
+        complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
         res = self.module(*module_args, **complex_args)[self.hostname]
 
         if verbose:
