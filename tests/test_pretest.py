@@ -237,7 +237,7 @@ def collect_dut_pfc_pause_delay_params(dut):
         pfc_pause_delay_test_params[200] = False
     else:
         pfc_pause_delay_test_params = None
-    
+
     return pfc_pause_delay_test_params
 
 
@@ -285,7 +285,7 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
     file_name = tbname + '.json'
     folder = 'pfc_headroom_test_params'
 
-    
+
     filepath = os.path.join(folder, file_name)
     try:
         if not os.path.exists(folder):
@@ -393,7 +393,6 @@ def test_conn_graph_valid(duthost, localhost):
 def test_connect_to_internal_nameserver(duthosts, enum_dut_hostname):
     cmds = [
         "echo nameserver 10.64.5.5 > /etc/resolv.conf",
-        "systemctl restart systemd-resolved"
     ]
 
     duthost = duthosts[enum_dut_hostname]
