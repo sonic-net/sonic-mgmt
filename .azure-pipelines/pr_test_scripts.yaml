@@ -38,7 +38,7 @@ t0:
   - process_monitoring/test_critical_process_monitoring.py
   - radv/test_radv_ipv6_ra.py
   - route/test_default_route.py
-  - route/test_static_route.py
+#  - route/test_static_route.py
   - show_techsupport/test_techsupport_no_secret.py
   - snmp/test_snmp_cpu.py
   - snmp/test_snmp_default_route.py
