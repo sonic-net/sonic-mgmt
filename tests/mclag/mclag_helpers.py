@@ -25,7 +25,9 @@ PC_NAME_TEMPLATE = 'PortChannel{0:04d}'
 MCLAG_LOCAL_IP = ipaddress.IPv4Interface(u"10.100.1.1/30")
 MCLAG_PEER_IP = ipaddress.IPv4Interface(u"{}/{}".format(MCLAG_LOCAL_IP.ip + 1, MCLAG_LOCAL_IP._prefixlen))
 MCLAG_PEER_LINK_IP_ACTIVE = ipaddress.IPv4Interface(u"13.1.1.1/30")
-MCLAG_PEER_LINK_IP_STANDBY = ipaddress.IPv4Interface(u"{}/{}".format(MCLAG_PEER_LINK_IP_ACTIVE.ip + 1, MCLAG_PEER_LINK_IP_ACTIVE._prefixlen))
+MCLAG_PEER_LINK_IP_STANDBY = ipaddress.IPv4Interface(u"{}/{}"
+                                                     .format(MCLAG_PEER_LINK_IP_ACTIVE.ip + 1,
+                                                             MCLAG_PEER_LINK_IP_ACTIVE._prefixlen))
 PEER_LINK_NAME = PC_NAME_TEMPLATE.format(100)
 SUBNET_CHECK = u'192.168.0.0/16'
 ACTION_FORWARD = 'FORWARD'
@@ -47,7 +49,7 @@ def parse_vm_vlan_port(vlan):
         vlan_index = vlan
         ptf_index = vlan
     else:
-        m = re.match("(\d+)\.(\d+)@(\d+)", vlan)
+        m = re.match(r"(\d+)\.(\d+)@(\d+)", vlan)
         (dut_index, vlan_index, ptf_index) = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
     return (dut_index, vlan_index, ptf_index)
 
@@ -88,6 +90,7 @@ def check_lags_on_ptf(ptfhost, mclag_interfaces):
     res = re.findall(r'PortChannel\d+', out)
     pytest_assert(len(res) == len(mclag_interfaces), "Not all PortChannels are up on PTF, {}".format(','.join(res)))
 
+
 def get_vm_links(tbinfo, dut_index):
     """
     Collect info about links that lead to VMs on each DUT from Testbed info
@@ -105,6 +108,7 @@ def get_vm_links(tbinfo, dut_index):
                 result.append(str(vlan_indx))
     return result
 
+
 def check_partner_lag_member(ptfhost, mclag_info, state='UP'):
     """
     Check partner oper state of memeber's on PTF
@@ -119,7 +123,9 @@ def check_partner_lag_member(ptfhost, mclag_info, state='UP'):
     for pc in mclag_info:
         member = mclag_info[pc].get('member_on_ptf', '')
         if str(member).isdigit():
-            res = ptfhost.shell("cat /sys/class/net/{}/lower_eth{}/bonding_slave/ad_partner_oper_port_state".format(pc, member))['stdout']
+            res = ptfhost.shell(
+                "cat /sys/class/net/{}/lower_eth{}/bonding_slave/ad_partner_oper_port_state"
+                .format(pc, member))['stdout']
             result.add(res)
     if id_to_check in result and len(result) == 1:
         logger.info("Partner lag member status = {}, expected {}".format(result, id_to_check))
@@ -153,7 +159,7 @@ def get_port_number(ptfhost, src_port):
         src_port: Port name
     """
     map = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
-    reversed_map = {map[k]:k for k in map}
+    reversed_map = {map[k]: k for k in map}
     if not str(src_port).isdigit():
         return int(reversed_map[src_port])
     return int(src_port)
@@ -177,6 +183,7 @@ def get_dst_port(duthost1, duthost2, get_routes, dst_ip, collect):
         elif dst_ip in ipaddress.IPv4Network(route2):
             dst_port = collect[duthost2.hostname]['vm_link_on_ptf']
             return dst_port
+
 
 def generate_and_verify_traffic(duthost1, duthost2, ptfadapter, ptfhost, src_port, dst_ip, router_mac, get_routes,
                                 collect, down_link_on_dut=None, pkt_action=ACTION_FORWARD):
@@ -264,7 +271,7 @@ def predict_exp_ttl(duthost1, duthost2, dst_ip, link_down_on_dut):
     """
     dut = duthost2 if link_down_on_dut == duthost1.hostname else duthost1
     nexthop = dut.get_ip_route_info(ipaddress.ip_address(str(dst_ip)))['nexthops']
-    ttl = TTL - 2  if PEER_LINK_NAME in nexthop[0] else TTL - 1
+    ttl = TTL - 2 if PEER_LINK_NAME in nexthop[0] else TTL - 1
     return ttl
 
 
@@ -276,7 +283,8 @@ def get_dut_routes(duthost, collect, mg_facts):
         collect: Fixture which collects main info about link connection
         mg_facts: Dict with minigraph facts for each DUT
     """
-    port_indices = {mg_facts[duthost.hostname]['minigraph_port_indices'][k]:k for k in mg_facts[duthost.hostname]['minigraph_port_indices']}
+    port_indices = {mg_facts[duthost.hostname]['minigraph_port_indices'][k]: k
+                    for k in mg_facts[duthost.hostname]['minigraph_port_indices']}
     vm_link = collect[duthost.hostname]['vm_links'][0]
     vm_interface_name = port_indices[int(vm_link)]
     ip = duthost.show_ip_interface()['ansible_facts']['ip_interfaces'][vm_interface_name]['peer_ipv4']
@@ -293,7 +301,8 @@ def add_mclag_and_orphan_ports(duthost, collect, mg_facts, ip_base=0):
         mg_facts: Dict with minigraph facts for each DUT
         ip_base: ip base index to be used
     """
-    port_indices = {mg_facts[duthost.hostname]['minigraph_port_indices'][k]:k for k in mg_facts[duthost.hostname]['minigraph_port_indices']}
+    port_indices = {mg_facts[duthost.hostname]['minigraph_port_indices'][k]: k
+                    for k in mg_facts[duthost.hostname]['minigraph_port_indices']}
     cmds = []
     for indx, link in enumerate(collect[duthost.hostname]['host_interfaces']):
         index = indx + 1
@@ -348,7 +357,8 @@ def apply_mclag(duthost, collect, mclag_id, mclag_local_ip, mclag_peer_ip):
     cmds.append('config feature state iccpd enabled')
     cmds.append('sleep 60')
     cmds.append("config mclag add {} {} {}".format(mclag_id, mclag_local_ip, mclag_peer_ip))
-    cmds.append("config mclag member add {} {}".format(mclag_id, ','.join(collect[duthost.hostname]['mclag_interfaces'])))
+    cmds.append("config mclag member add {} {}"
+                .format(mclag_id, ','.join(collect[duthost.hostname]['mclag_interfaces'])))
     duthost.shell_cmds(cmds=cmds)
 
 
@@ -364,7 +374,8 @@ def remove_vlan_members(duthost, mg_facts):
     for i in mg_facts[duthost.hostname]['minigraph_vlans'][vlan]['members']:
         cmd.append("config interface shutdown {}".format(i))
         cmd.append("sleep 1")
-        cmd.append("config vlan member del {} {}".format(mg_facts[duthost.hostname]['minigraph_vlans'][vlan]['vlanid'], i))
+        cmd.append("config vlan member del {} {}"
+                   .format(mg_facts[duthost.hostname]['minigraph_vlans'][vlan]['vlanid'], i))
     duthost.shell_cmds(cmds=cmd)
 
 
@@ -403,7 +414,8 @@ def check_keepalive_link(duthost1, duthost2, status):
     dut1_keepalive_status = duthost1.shell("mclagdctl dump state|grep keepalive")['stdout'].split(":")[-1].strip()
     dut2_keepalive_status = duthost2.shell("mclagdctl dump state|grep keepalive")['stdout'].split(":")[-1].strip()
     pytest_assert(dut1_keepalive_status == dut2_keepalive_status == status,
-                  "Keepalive status should be {} not {}, {}".format(status, dut1_keepalive_status, dut2_keepalive_status))
+                  "Keepalive status should be {} not {}, {}"
+                  .format(status, dut1_keepalive_status, dut2_keepalive_status))
 
 
 def gen_list_pcs_to_check(duthost, mg_facts, collect):

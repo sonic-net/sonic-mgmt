@@ -2,16 +2,12 @@ from time import sleep
 import pytest
 import logging
 import re
-import scapy.all as scapy
-import ptf.testutils as testutils
-from collections import Counter
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from tests.common import config_reload
-from .macsec_helper import *
-from .macsec_config_helper import *
-from .macsec_platform_helper import *
+from .macsec_helper import check_wpa_supplicant_process, check_appl_db, check_mka_session,\
+                           get_mka_session, get_sci, get_appl_db, get_ipnetns_prefix
+from .macsec_platform_helper import get_platform, get_macsec_ifname
 
 logger = logging.getLogger(__name__)
 
