@@ -8,7 +8,8 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.asic('mellanox')
+    pytest.mark.asic('mellanox'),
+    pytest.mark.topology('any'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -83,7 +84,8 @@ def get_detection_restoration_times(duthost):
     Args:
         duthost: DUT host object
     """
-
+ 
+    duthost.shell('config pfcwd start --action drop all 400 --restoration-time 400', module_ignore_errors=True)
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
 

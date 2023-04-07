@@ -11,6 +11,7 @@ import requests
 import yaml
 from enum import Enum
 
+__metaclass__ = type
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
 
@@ -73,22 +74,22 @@ class AbstractStatus():
 
 class InitStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.INIT)
+        super(InitStatus, self).__init__(TestPlanStatus.INIT)
 
 
 class LockStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.LOCK_TESTBED)
+        super(LockStatus, self).__init__(TestPlanStatus.LOCK_TESTBED)
 
 
 class PrePareStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.PREPARE_TESTBED)
+        super(PrePareStatus, self).__init__(TestPlanStatus.PREPARE_TESTBED)
 
 
 class ExecutingStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.EXECUTING)
+        super(ExecutingStatus, self).__init__(TestPlanStatus.EXECUTING)
 
     def print_logs(self, test_plan_id, resp_data, start_time):
         print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
@@ -98,22 +99,22 @@ class ExecutingStatus(AbstractStatus):
 
 class KvmDumpStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.KVMDUMP)
+        super(KvmDumpStatus, self).__init__(TestPlanStatus.KVMDUMP)
 
 
 class FailedStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.FAILED)
+        super(FailedStatus, self).__init__(TestPlanStatus.FAILED)
 
 
 class CancelledStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.CANCELLED)
+        super(CancelledStatus, self).__init__(TestPlanStatus.CANCELLED)
 
 
 class FinishStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.FINISHED)
+        super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
 
 
 def get_scope(testbed_tools_url):
@@ -141,6 +142,7 @@ class TestPlanManager(object):
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
+        self.token = None
         if self.tenant_id and self.client_id and self.client_secret:
             self._get_token(url)
 
@@ -215,6 +217,7 @@ class TestPlanManager(object):
                 "build_id": build_id,
                 "source_repo": kwargs.get("source_repo"),
                 "kvm_build_id": kvm_build_id,
+                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", 2),
                 "mgmt_branch": kwargs["mgmt_branch"],
                 "testbed": {
@@ -292,6 +295,8 @@ class TestPlanManager(object):
         headers = {
             "Content-Type": "application/json"
         }
+        if self.token:
+            headers["Authorization"] = "Bearer {}".format(self.token)
         start_time = time.time()
         http_exception_times = 0
         while (timeout < 0 or (time.time() - start_time) < timeout):
@@ -637,6 +642,16 @@ if __name__ == "__main__":
         required=False,
         help="Requester of the test plan."
     )
+    parser_create.add_argument(
+        "--max-execute-seconds",
+        type=int,
+        dest="max_execute_seconds",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Max execute seconds of the test plan."
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -764,6 +779,7 @@ if __name__ == "__main__":
                 retry_times=args.retry_times,
                 dump_kvm_if_fail=args.dump_kvm_if_fail,
                 requester=args.requester,
+                max_execute_seconds=args.max_execute_seconds,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
