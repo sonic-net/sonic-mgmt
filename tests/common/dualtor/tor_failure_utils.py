@@ -158,7 +158,7 @@ def check_mux_feature(duthost):
     mux        always_disabled  enabled
     """
     output = duthost.shell("show feature status mux")['stdout_lines']
-    return not "disabled" in str(output)
+    return "disabled" not in str(output)
 
 def check_mux_container(duthost):
     output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' mux")['stdout_lines']
