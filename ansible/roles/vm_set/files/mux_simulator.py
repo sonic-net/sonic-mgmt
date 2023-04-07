@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import traceback
+import time
 
 from collections import defaultdict
 from logging.handlers import RotatingFileHandler
@@ -38,8 +39,9 @@ MUX_NIC_PREFIX = 'mu'      # With adaptive name, MUX NIC could be: muxy-vms21-1-
 
 OUTPUT = 'output'
 DROP = 'drop'
-
+          
 GET_MUX_COUNTER = 0
+START_TIME = time.time()
 
 app = Flask(__name__)
 
@@ -667,15 +669,19 @@ def mux_status(vm_set, port_index):
         object: Return a flask response object.
     """
     global GET_MUX_COUNTER
+    global START_TIME
     _validate_vm_set(vm_set)
     if not g_muxes.has_mux(port_index):
         abort(404, 'Unknown bridge, vm_set={}, port_index={}'.format(vm_set, port_index))
 
     if request.method == 'GET':
         GET_MUX_COUNTER += 1
-        if GET_MUX_COUNTER % 100 == 0:
+        elapsed_time = time.time() - START_TIME
+        if elapsed_time > 60 or GET_MUX_COUNTER % 100 == 0:
+            app.logger.info('===== No.{} GET method since last log ====='.format(GET_MUX_COUNTER))
             app.logger.info('===== {} GET {} with port {} ====='.format(request.remote_addr, request.url, port_index))
             GET_MUX_COUNTER = 0
+            START_TIME = time.time()
         return g_muxes.get_mux_status(port_index)
     elif request.method == 'POST':
         # Set the active side of mux
@@ -700,12 +706,16 @@ def all_mux_status(vm_set):
         object: Return a flask response object.
     """
     global GET_MUX_COUNTER
+    global START_TIME
     _validate_vm_set(vm_set)
     if request.method == 'GET':
         GET_MUX_COUNTER += 1
-        if GET_MUX_COUNTER % 100 == 0:
+        elapsed_time = time.time() - START_TIME
+        if elapsed_time > 60 or GET_MUX_COUNTER % 100 == 0:
+            app.logger.info('===== No.{} GET method since last log ====='.format(GET_MUX_COUNTER))
             app.logger.info('===== {} GET {} with all ports ====='.format(request.remote_addr, request.url))
             GET_MUX_COUNTER = 0
+            START_TIME = time.time()
         return g_muxes.get_mux_status()
     elif request.method == 'POST':
         # Set the active side for all mux bridges
