@@ -172,12 +172,10 @@ def wait_for_mux_container(duthost):
 
     def wait_for_mux_container(duthost, timeout=100, check_interval=1):
         if not wait_until(timeout, check_interval, 0, check_mux_feature, duthost):
-            logger.info("mux feature is not enabled on {}"
-                    .format((duthost.hostname)))
+            logger.info("mux feature is not enabled on {}".format((duthost.hostname)))
             return
 
-        logger.info("Waiting for mux container to start on {}"
-                    .format((duthost.hostname)))
+        logger.info("Waiting for mux container to start on {}".format((duthost.hostname)))
 
         if not wait_until(timeout, check_interval, 0, check_mux_container, duthost):
             # Could not detect mux container so raise exception
