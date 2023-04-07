@@ -18,6 +18,11 @@ from tests.common.dualtor.nic_simulator_control import restart_nic_simulator    
 from tests.common.config_reload import config_reload
 
 
+pytestmark = [
+    pytest.mark.topology("dualtor")
+]
+
+
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_grpc_server_failure_config_standby_config_auto_upstream_active(
