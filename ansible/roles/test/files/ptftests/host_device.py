@@ -1,9 +1,13 @@
 class HostDevice(object):
 
     @staticmethod
-    def getHostDeviceInstance(*args, **kwargs):
-        return sonic.Sonic(*args, **kwargs)
-        #return arista.Arista(*args, **kwargs)
+    def getHostDeviceInstance(neighbor_type, *args, **kwargs):
+        if neighbor_type == "eos":
+            return arista.Arista(*args, **kwargs)
+        elif neighbor_type == "sonic":
+            return sonic.Sonic(*args, **kwargs)
+        else:
+            raise NotImplementedError
 
     def connect(self):
         raise NotImplementedError

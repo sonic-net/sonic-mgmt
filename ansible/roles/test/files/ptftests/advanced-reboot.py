@@ -177,6 +177,7 @@ class ReloadTest(BaseTest):
         self.check_param('bgp_v4_v6_time_diff', 40, required=False)
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
+        self.check_param('neighbor_type', 'eos', required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -1438,7 +1439,7 @@ class ReloadTest(BaseTest):
         """
         for neigh in self.ssh_targets:
             self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map if x['mgmt_addr'] == neigh][0]
-            self.neigh_handle = HostDevice.getHostDeviceInstance(neigh, None, self.test_params)
+            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh, None, self.test_params)
             self.neigh_handle.connect()
             fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
             self.neigh_handle.disconnect()
@@ -1584,7 +1585,7 @@ class ReloadTest(BaseTest):
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
         self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values() if x['mgmt_addr'] == ip][0]
-        ssh = HostDevice.getHostDeviceInstance(ip, queue, self.test_params, log_cb=self.log)
+        ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue, self.test_params, log_cb=self.log)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         self.log('SSH thread for VM {} finished'.format(ip))
 
