@@ -19,6 +19,11 @@ class QosParamMellanox(object):
                 'cell_size': 144,
                 'headroom_overhead': 64,
                 'private_headroom': 30
+            },
+            'spc4': {
+                'cell_size': 192,
+                'headroom_overhead': 47,
+                'private_headroom': 30
             }
         }
         self.asic_type = asic_type
