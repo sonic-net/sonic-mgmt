@@ -33,6 +33,18 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     conditions:
       - "release not in ['202012']"
 
+arp/test_stress_arp.py:
+  skip:
+    resason: "Extremely long long run time."
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/7874
+
+arp/test_unknown_mac.py:
+  skip:
+    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -75,6 +87,13 @@ bgp/test_bgp_multipath_relax.py:
     reason: "Not supported topology backend."
     conditions:
       - "'backend' in topo_name"
+
+bgp/test_bgp_session_flap.py:
+  skip:
+    reason: "Skip t1 for now, there is some issue for this case."
+    conditions:
+      - "'t1' in topo_type"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7963
 
 bgp/test_bgp_slb.py:
   skip:
@@ -358,6 +377,12 @@ everflow/test_everflow_per_interface.py:
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-default]:
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
@@ -645,6 +670,12 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_warm_reboot.py:
+   skip:
+     reason: "Warm Reboot is not supported in T2."
+     conditions:
+        - "'t2' in topo_name"
 
 #######################################
 #####         platform_tests      #####

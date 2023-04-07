@@ -1,3 +1,4 @@
+import logging
 from tabulate import tabulate
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
@@ -192,7 +193,7 @@ def __tgen_bgp_config(api,
     ipv6_2.address = temp_tg_port[1]['ipv6']
     ipv6_2.gateway = temp_tg_port[1]['peer_ipv6']
     ipv6_2.prefix = int(temp_tg_port[1]['ipv6_prefix'])
-    
+
     bgpv4 = config.devices[1].bgp
     bgpv4.router_id = temp_tg_port[1]['peer_ip']
     bgpv4_int = bgpv4.ipv4_interfaces.add()
@@ -202,7 +203,7 @@ def __tgen_bgp_config(api,
     bgpv4_peer.as_type = BGP_TYPE
     bgpv4_peer.peer_address = temp_tg_port[1]['peer_ip']
     bgpv4_peer.as_number = int(TGEN_AS_NUM)
-    route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes") 
+    route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes")
     route_range1.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
     as_path = route_range1.as_path
     as_path_segment = as_path.segments.add()
@@ -267,7 +268,7 @@ def print_port_stats(api,port_names):
         port_table.append(port_stats[0].frames_rx_rate)
         table1.append(port_table)
     columns = ['Dut Port', 'Tgen Port', 'Tx. Frame Rate', 'Rx. Frame Rate']
-    logger.info("\n%s" % 
+    logger.info("\n%s" %
     tabulate(table1, headers=columns, tablefmt="psql"))
 
 
