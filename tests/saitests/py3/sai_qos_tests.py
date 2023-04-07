@@ -214,12 +214,12 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
     # Returns whether 1 packet was successfully enqueued.
     if asic_type in ['cisco-8000']:
         queue_counters_base = sai_thrift_read_queue_occupancy(
-            test_case.dst_client, dst_port_id)
+            test_case.dst_client, "dst", dst_port_id)
         max_packets = 500
         for packet_i in range(max_packets):
             send_packet(test_case, src_port_id, pkt, 1)
             queue_counters = sai_thrift_read_queue_occupancy(
-                test_case.clients['dst'], dst_port_id)
+                test_case.clients['dst'], "dst", dst_port_id)
             if queue_counters[queue] > queue_counters_base[queue]:
                 print("fill_leakout_plus_one: Success, sent %d packets, queue occupancy bytes rose from %d to %d" % (
                     packet_i + 1, queue_counters_base[queue], queue_counters[queue]), file=sys.stderr)
@@ -3698,7 +3698,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                 # Account for leakout
                 if 'cisco-8000' in asic_type:
                     queue_counters=sai_thrift_read_queue_occupancy(
-                        self.dst_client, dst_port_id)
+                        self.dst_client, "dst", dst_port_id)
                     occ_pkts=queue_counters[queue] // (packet_length + 24)
                     leaked_pkts=pkts_num_trig_pfc - occ_pkts
                     print("resending leaked packets {}".format(
