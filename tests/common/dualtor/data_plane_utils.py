@@ -125,7 +125,8 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay, allow_disruption
 def verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic=False):
     # Wait for the IO to complete before doing checks
     if verify:
-        validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption, delay=delay, allow_disruption_before_traffic=allow_disruption_before_traffic)
+        validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption, delay=delay,
+                                 allow_disruption_before_traffic=allow_disruption_before_traffic)
     return tor_IO.get_test_results()
 
 

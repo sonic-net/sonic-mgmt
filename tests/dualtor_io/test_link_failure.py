@@ -392,14 +392,17 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
             )
 
             send_server_to_t1_with_action(
-                upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                allowed_disruption=1, action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up")
+                upper_tor_host,
+                verify=True,
+                delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+                allowed_disruption=1,
+                action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up")
             )
 
             verify_tor_states(
                 expected_active_host=[upper_tor_host, lower_tor_host],
                 expected_standby_host=None,
-                cable_type=cable_type,
+                cable_type=cable_type
             )
 
         finally:
@@ -444,15 +447,18 @@ def test_active_link_admin_down_config_reload_link_up_downstream_standby(
             # after config reload, it takes time to setup the zero-mac tunnel routes for
             # the mux server ips, so there will be disruption before traffic.
             send_t1_to_server_with_action(
-                upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                allowed_disruption=1, action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up"),
+                upper_tor_host,
+                verify=True,
+                delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+                allowed_disruption=1,
+                action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up"),
                 allow_disruption_before_traffic=True
             )
 
             verify_tor_states(
                 expected_active_host=[upper_tor_host, lower_tor_host],
                 expected_standby_host=None,
-                cable_type=cable_type,
+                cable_type=cable_type
             )
 
         finally:
