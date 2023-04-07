@@ -66,7 +66,7 @@ num_vnet_batch: {{ num_vnet_batch }}
   {% set num_routes_iterations = ((num_routes/num_routes_batch)/(num_vnet/num_vnet_batch))|round|int %}
   {% if num_routes_iterations == 0 %} {% set num_routes_iterations = 1 %} {% endif %}
 {% endif %}
-{% set topo_vlan = minigraph_vlans.keys()[0] %}
+{% set topo_vlan = minigraph_vlans.keys()|list|first %}
 
 {# Max RIFs support currently is 128 #}
 {% if num_vnet > 128 %}
