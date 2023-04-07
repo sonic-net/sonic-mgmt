@@ -116,9 +116,9 @@ echo "Cleaning up the DUTs /var/log directory"
 
 if [[ $tbname == ixre-chassis8* ]]
 then
-  echo "./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c \"$tests\" -p $log_path -e \"-m express --neighbor_type sonic\""
-  ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p $log_path -e "-m express --neighbor_type sonic"
+  echo "./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -m individual -c \"$tests\" -p $log_path -e \"-m express --neighbor_type sonic\""
+  ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -m individual -c "$tests" -p $log_path -e "-m express --neighbor_type sonic"
 else
-  echo "./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c \"$tests\" -p $log_path -e \"-m express\""
-  ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p $log_path -e "-m express"
+  echo "./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -m individual -c \"$tests\" -p $log_path -e \"-m express\""
+  ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -m individual -c "$tests" -p $log_path -e "-m express"
 fi

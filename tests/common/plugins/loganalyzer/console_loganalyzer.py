@@ -4,9 +4,9 @@ import re
 import time
 import pprint
 
-import system_msg_handler
+from . import system_msg_handler
 
-from system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
+from .system_msg_handler import AnsibleLogAnalyzer as ansible_loganalyzer
 from os.path import join, split
 from os.path import normpath
 
