@@ -1457,22 +1457,30 @@ class ReloadTest(BaseTest):
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
-        lacp_pdu_down_times = lacp_pdu_times.get("lacp_down")
-        lacp_pdu_up_times = lacp_pdu_times.get("lacp_up")
-        self.log('lacp_pdu_down_times: IP:{}: {}'.format(ip, lacp_pdu_down_times))
-        self.log('lacp_pdu_up_times: IP:{}: {}'.format(ip, lacp_pdu_up_times))
-        lacp_pdu_before_reboot = float(lacp_pdu_down_times[-1]) if\
-            lacp_pdu_down_times and len(lacp_pdu_down_times) > 0 else None
-        lacp_pdu_after_reboot = float(lacp_pdu_up_times[0]) if\
-            lacp_pdu_up_times and len(lacp_pdu_up_times) > 0 else None
-        if ('warm-reboot' in self.reboot_type or 'service-warm-restart' in self.reboot_type) and lacp_pdu_before_reboot and lacp_pdu_after_reboot:
-            lacp_time_diff = lacp_pdu_after_reboot - lacp_pdu_before_reboot
-            if lacp_time_diff >= 90 and not self.kvm_test:
+        lacp_pdu_all_times = lacp_pdu_times.get("lacp_all")
+
+        self.log('lacp_pdu_all_times: IP:{}: {}'.format(ip, lacp_pdu_all_times))
+
+        # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
+        max_lacp_session_wait = None
+        if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
+            lacp_pdu_all_times.sort()
+            max_lacp_session_wait = 0
+            prev_time = lacp_pdu_all_times[0]
+            for new_time in lacp_pdu_all_times[1:]:
+                lacp_session_wait = new_time - prev_time
+                if lacp_session_wait > max_lacp_session_wait:
+                    max_lacp_session_wait = lacp_session_wait
+                prev_time = new_time
+
+        if 'warm-reboot' in self.reboot_type:
+            if max_lacp_session_wait and max_lacp_session_wait >= 90 and not self.kvm_test:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +\
-                    " post-reboot lacpdu came after {}s of lacpdu pre-boot".format(lacp_time_diff))
-        else:
-            lacp_time_diff = None
-        self.lacp_session_pause[ip] = lacp_time_diff
+                    " post-reboot lacpdu came after {}s of lacpdu pre-boot".format(max_lacp_session_wait))
+            elif not max_lacp_session_wait and not self.kvm_test:
+                self.fails['dut'].add("LACP session timing not captured")
+
+        self.lacp_session_pause[ip] = max_lacp_session_wait
 
 
     def wait_until_cpu_port_down(self, signal):
