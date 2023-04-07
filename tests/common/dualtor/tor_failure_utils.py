@@ -142,6 +142,7 @@ def wait_for_device_reachable(localhost):
 
     return wait_for_device_reachable
 
+
 def check_mux_feature(duthost):
     """
     Check output of 'show feature status mux' to find if feature is enabled.
@@ -160,9 +161,11 @@ def check_mux_feature(duthost):
     output = duthost.shell("show feature status mux")['stdout_lines']
     return "disabled" not in str(output)
 
+
 def check_mux_container(duthost):
     output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' mux")['stdout_lines']
     return "running" in str(output)
+
 
 @pytest.fixture
 def wait_for_mux_container(duthost):
