@@ -138,7 +138,7 @@ def wait_for_device_reachable(localhost):
         if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
             raise Exception("DUT {} did not startup after reboot"
                             .format((duthost.hostname)))
-        logger.info("SSH started on {}, wait for mux container to start".format((duthost.hostname)))
+        logger.info("SSH started on {}".format((duthost.hostname)))
 
     return wait_for_device_reachable
 
