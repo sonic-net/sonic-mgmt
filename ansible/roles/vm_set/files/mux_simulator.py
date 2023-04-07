@@ -39,6 +39,8 @@ MUX_NIC_PREFIX = 'mu'      # With adaptive name, MUX NIC could be: muxy-vms21-1-
 OUTPUT = 'output'
 DROP = 'drop'
 
+GET_MUX_COUNTER = 0
+
 app = Flask(__name__)
 
 g_muxes = None              # Global variable holding instance of the class Muxes
@@ -664,11 +666,16 @@ def mux_status(vm_set, port_index):
     Returns:
         object: Return a flask response object.
     """
+    global GET_MUX_COUNTER
     _validate_vm_set(vm_set)
     if not g_muxes.has_mux(port_index):
         abort(404, 'Unknown bridge, vm_set={}, port_index={}'.format(vm_set, port_index))
 
     if request.method == 'GET':
+        GET_MUX_COUNTER += 1
+        if GET_MUX_COUNTER % 100 == 0:
+            app.logger.info('===== {} GET {} with port {} ====='.format(request.remote_addr, request.url, port_index))
+            GET_MUX_COUNTER = 0
         return g_muxes.get_mux_status(port_index)
     elif request.method == 'POST':
         # Set the active side of mux
@@ -692,8 +699,13 @@ def all_mux_status(vm_set):
     Returns:
         object: Return a flask response object.
     """
+    global GET_MUX_COUNTER
     _validate_vm_set(vm_set)
     if request.method == 'GET':
+        GET_MUX_COUNTER += 1
+        if GET_MUX_COUNTER % 100 == 0:
+            app.logger.info('===== {} GET {} with all ports ====='.format(request.remote_addr, request.url))
+            GET_MUX_COUNTER = 0
         return g_muxes.get_mux_status()
     elif request.method == 'POST':
         # Set the active side for all mux bridges
