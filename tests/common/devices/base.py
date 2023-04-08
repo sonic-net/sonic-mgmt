@@ -32,6 +32,12 @@ class AnsibleHostBase(object):
     on the host.
     """
 
+    class CustomEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, bytes):
+                return obj.decode('utf-8')
+            return super().default(obj)
+
     def __init__(self, ansible_adhoc, hostname, *args, **kwargs):
         if hostname == 'localhost':
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
@@ -65,8 +71,8 @@ class AnsibleHostBase(object):
                     line_number,
                     self.hostname,
                     self.module_name,
-                    json.dumps(module_args),
-                    json.dumps(complex_args)
+                    json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder),
+                    json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder)
                 )
             )
         else:
@@ -90,6 +96,8 @@ class AnsibleHostBase(object):
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
 
+        module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
+        complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
         res = self.module(*module_args, **complex_args)[self.hostname]
 
         if verbose:
@@ -99,7 +107,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name, json.dumps(res)
+                    self.module_name, json.dumps(res, cls=AnsibleHostBase.CustomEncoder)
                 )
             )
         else:
