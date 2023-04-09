@@ -74,12 +74,6 @@ def switch_init(client):
         else:
             print("unknown switch attribute")
 
-    # TOFIX in brcm sai: This causes the following error on td2 (a7050-qx-32s)
-    # ERR syncd: brcm_sai_set_switch_attribute:842 updating switch mac addr failed with error -2.
-    attr_value = sai_thrift_attribute_value_t(mac='00:77:66:55:44:33')
-    attr = sai_thrift_attribute_t(id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
-    client.sai_thrift_set_switch_attribute(attr)
-
     # wait till the port are up
     time.sleep(10)
 
