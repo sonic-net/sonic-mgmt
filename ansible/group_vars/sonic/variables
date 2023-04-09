@@ -17,7 +17,8 @@ broadcom_jr2_hwskus: ['Arista-7800R3-48CQ2-C48']
 mellanox_spc1_hwskus: [ 'ACS-MSN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010', 'Mellanox-SN2700', 'Mellanox-SN2700-D48C8' ]
 mellanox_spc2_hwskus: [ 'ACS-MSN3700', 'ACS-MSN3700C', 'ACS-MSN3800', 'Mellanox-SN3800-D112C8' , 'ACS-MSN3420']
 mellanox_spc3_hwskus: [ 'ACS-MSN4700', 'ACS-MSN4600', 'ACS-MSN4600C', 'ACS-MSN4410', 'Mellanox-SN4600C-D112C8', 'Mellanox-SN4600C-C64']
-mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus }}"
+mellanox_spc4_hwskus: [ 'ACS-SN5600' ]
+mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus + mellanox_spc4_hwskus }}"
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
