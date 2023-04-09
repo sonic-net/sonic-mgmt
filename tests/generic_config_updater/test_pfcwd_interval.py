@@ -9,7 +9,8 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.asic('mellanox')
+    pytest.mark.asic('mellanox'),
+    pytest.mark.topology('any'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ def ensure_application_of_updated_config(duthost, value):
 
 def prepare_pfcwd_interval_config(duthost, value):
     """
-    Prepares config db by setting pfcwd poll interval to specified value. If value is empty string, delete the current entry. 
+    Prepares config db by setting pfcwd poll interval to specified value. If value is empty string, delete the current entry.
 
     Args:
         duthost: DUT host object
@@ -65,26 +66,27 @@ def prepare_pfcwd_interval_config(duthost, value):
     """
 
     logger.info("Setting configdb entry pfcwd poll interval to value: {}".format(value))
-   
+
     if value:
         cmd = "pfcwd interval {}".format(value)
     else:
         cmd = "sonic-db-cli CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
-    
+
     duthost.shell(cmd)
 
 
 def get_detection_restoration_times(duthost):
     """
     Returns detection_time, restoration_time for an interface. Poll_interval must be greater than both in order to be valid
-    
+
     Args:
         duthost: DUT host object
     """
-     
+
+    duthost.shell('config pfcwd start --action drop all 400 --restoration-time 400', module_ignore_errors=True)
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
-    
+
     for line in pfcwd_config['stdout_lines']:
         if line.startswith('Ethernet'):
             interface = line.split()[0] # Since line starts with Ethernet, we can safely use 0 index
@@ -93,7 +95,7 @@ def get_detection_restoration_times(duthost):
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read detection time")
             detection_time = output["stdout"]
-            
+
             cmd = "sonic-db-cli CONFIG_DB hget \"PFC_WD|{}\" \"restoration_time\" ".format(interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read restoration time")
@@ -102,7 +104,7 @@ def get_detection_restoration_times(duthost):
             return int(detection_time), int(restoration_time)
 
     pytest_assert(True, "Failed to read detection_time and/or restoration time")
-            
+
 
 def get_new_interval(duthost, is_valid):
     """
@@ -130,8 +132,8 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
     detection_time, restoration_time = get_detection_restoration_times(duthost)
     pre_status = max(detection_time, restoration_time)
     field_pre_status_to_value_map = {"existing": "{}".format(pre_status), "nonexistent": ""}
-    
-    prepare_pfcwd_interval_config(duthost, field_pre_status_to_value_map[field_pre_status]) 
+
+    prepare_pfcwd_interval_config(duthost, field_pre_status_to_value_map[field_pre_status])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of pfcwd poll interval and operation: {}".format(tmpfile, operation))
@@ -140,14 +142,14 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
 
     json_patch = [
         {
-            "op": "{}".format(operation), 
-            "path": "/PFC_WD/GLOBAL/POLL_INTERVAL", 
+            "op": "{}".format(operation),
+            "path": "/PFC_WD/GLOBAL/POLL_INTERVAL",
             "value": "{}".format(value)
         }]
-    
+
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    
+
         if is_valid_config_update:
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, value)

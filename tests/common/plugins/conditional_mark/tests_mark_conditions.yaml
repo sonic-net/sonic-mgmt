@@ -33,14 +33,39 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     conditions:
       - "release not in ['202012']"
 
+arp/test_stress_arp.py:
+  skip:
+    resason: "Extremely long long run time."
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/7874
+
+arp/test_unknown_mac.py:
+  skip:
+    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            bfd              #####
 #######################################
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for 201911 images or older, other than mlnx4600c and cosco-8102. Skipping the test"
+    reason: "Test not supported for 201911 images or older, other than mlnx4600c and cisco-8102. Skipping the test"
     conditions:
       - "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+
+bfd/test_bfd.py::test_bfd_basic:
+  skip:
+    reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0']"
+
+bfd/test_bfd.py::test_bfd_scale:
+  skip:
+    reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0']"
+
 
 #######################################
 #####            bgp              #####
@@ -614,6 +639,12 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_warm_reboot.py:
+   skip:
+     reason: "Warm Reboot is not supported in T2."
+     conditions:
+        - "'t2' in topo_name"
 
 #######################################
 #####         platform_tests      #####

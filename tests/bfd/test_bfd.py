@@ -3,6 +3,8 @@ import random
 import time
 import json
 
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+
 pytestmark = [
     pytest.mark.topology('t1')
 ]

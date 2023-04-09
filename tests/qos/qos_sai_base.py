@@ -8,6 +8,7 @@ import yaml
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.cisco_data import is_cisco_device
 from tests.common.dualtor.dual_tor_utils import upper_tor_host,lower_tor_host,dualtor_ports
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
@@ -818,7 +819,8 @@ class QosSaiBase(QosBase):
                     docker=docker,
                     action=action,
                     service=service
-                )
+                ),
+                module_ignore_errors=True
             )
             logger.info("{}ed {}".format(action, service))
 
@@ -844,8 +846,10 @@ class QosSaiBase(QosBase):
         services = [
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
-            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpd"},
-            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpmon"},
+            {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpd"},
+            {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpmon"},
+            {"docker": dut_asic.get_docker_name("radv"), "service": "radvd"},
+            {"docker": dut_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
@@ -1066,6 +1070,21 @@ class QosSaiBase(QosBase):
                                                            duthost,
                                                            tbinfo["topo"]["name"])
                 qosParams = qpm.run()
+        elif is_cisco_device(duthost):
+            bufferConfig = self.dutBufferConfig(duthost)
+            pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL does not exist in bufferConfig')
+            pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE does not exist in bufferConfig')
+            pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE does not exist in bufferConfig')
+            pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG does not exist in bufferConfig')
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/cisco/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamCisco(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                    duthost,
+                                                    bufferConfig)
+            qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
@@ -1127,7 +1146,7 @@ class QosSaiBase(QosBase):
             duthost.file(path=file["path"], state="absent")
 
     @pytest.fixture(scope='class', autouse=True)
-    def handleFdbAging(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def handleFdbAging(self, tbinfo, duthosts, lower_tor_host, enum_rand_one_per_hwsku_frontend_hostname):
         """
             Disable FDB aging and reenable at the end of tests
 
@@ -1140,7 +1159,10 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         fdbAgingTime = 0
 
         self.__deleteTmpSwitchConfig(duthost)
@@ -1191,6 +1213,10 @@ class QosSaiBase(QosBase):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+
+        dut_asic.command('sonic-clear fdb all')
+        dut_asic.command('sonic-clear arp')
+
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulate"
