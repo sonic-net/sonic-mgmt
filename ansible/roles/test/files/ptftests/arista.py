@@ -53,8 +53,7 @@ class Arista(object):
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
         self.reboot_type = test_params['reboot_type']
         self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
-        self.lacp_pdu_time_on_down = list()
-        self.lacp_pdu_time_on_up = list()
+        self.lacp_pdu_timings = list()
 
     def __del__(self):
         self.disconnect()
@@ -160,7 +159,6 @@ class Arista(object):
         portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
         sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
-        self.collect_lacppdu_time = True
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = None
@@ -171,17 +169,11 @@ class Arista(object):
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
-                if cmd == 'cpu_down':
+
+                if (cmd == 'cpu_down' or cmd == 'cpu_going_up' or cmd == 'cpu_up'):
                     last_lacppdu_time_before_reboot = self.check_last_lacppdu_time()
                     if last_lacppdu_time_before_reboot is not None:
-                        self.lacp_pdu_time_on_down.append(last_lacppdu_time_before_reboot)
-                if (cmd == 'cpu_going_up' or cmd == 'cpu_up') and self.collect_lacppdu_time:
-                    # control plane is back up, start polling for new lacp-pdu
-                    last_lacppdu_time_after_reboot = self.check_last_lacppdu_time()
-                    if last_lacppdu_time_before_reboot is not None and last_lacppdu_time_after_reboot is not None and \
-                            int(last_lacppdu_time_after_reboot) > int(last_lacppdu_time_before_reboot):
-                        self.lacp_pdu_time_on_up.append(last_lacppdu_time_after_reboot)
-                        self.collect_lacppdu_time = False # post-reboot lacp-pdu is received, stop the polling
+                        self.lacp_pdu_timings.append(last_lacppdu_time_before_reboot)
 
             cur_time = time.time()
             info = {}
@@ -286,7 +278,9 @@ class Arista(object):
                 self.fails.add(msg)
 
         self.log('Finishing run()')
-        return self.fails, self.info, cli_data, log_data, {"lacp_down": self.lacp_pdu_time_on_down, "lacp_up": self.lacp_pdu_time_on_up}
+        return self.fails, self.info, cli_data, log_data, {
+            "lacp_all": list(set(self.lacp_pdu_timings))
+            }
 
     def extract_from_logs(self, regexp, data):
         raw_data = []
