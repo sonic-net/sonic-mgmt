@@ -83,7 +83,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
 
 def dut_update_ra_interval(duthost, ra, interval):
     logging.info("Updating %s to %d in RADVd's config file:%s", ra, int(interval), RADV_CONF_FILE)
-    cmd = r"sed -ie 's/\(.*\)\({}\) \([[:digit:]]\+\)/\\1\\2 {}/' {}".format(ra, interval, RADV_CONF_FILE)
+    cmd = "sed -ie 's/\(.*\)\({}\) \([[:digit:]]\+\)/\\1\\2 {}/' {}".format(ra, interval, RADV_CONF_FILE)   # noqa W605
     duthost.shell("docker exec radv {}".format(cmd))
 
 
