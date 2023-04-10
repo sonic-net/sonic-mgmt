@@ -12,7 +12,6 @@ import abc
 import argparse
 import contextlib
 import fcntl
-import functools
 import grpc
 import json
 import logging
@@ -638,7 +637,7 @@ class InterruptableThread(threading.Thread):
             if suppress_exception:
                 return self._e
             else:
-                raise(self._e) from None
+                raise (self._e) from None
 
 
 class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
@@ -899,7 +898,8 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                      json.dumps(list(self.ovs_bridges.keys()), indent=4))
 
         self.servers = {}
-        self.servers = {nic_addr: NiCServer(nic_addr, ovs_bridge, binding_port) for nic_addr, ovs_bridge in self.ovs_bridges.items()}
+        self.servers = {nic_addr: NiCServer(nic_addr, ovs_bridge, binding_port)
+                        for nic_addr, ovs_bridge in self.ovs_bridges.items()}
         self.mgmt_server = MgmtServer(self.mgmt_port_address, binding_port, self.servers)
 
     def _find_all_server_nics(self):
