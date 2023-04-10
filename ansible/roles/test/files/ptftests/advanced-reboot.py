@@ -241,6 +241,7 @@ class ReloadTest(BaseTest):
         self.packets_to_send = min(
             int(self.time_to_listen / (self.send_interval + 0.0015)), 70000)
 
+
         # Thread pool for background watching operations
         self.pool = ThreadPool(processes=3)
 
@@ -1488,11 +1489,8 @@ class ReloadTest(BaseTest):
         if not self.kvm_test and\
                 (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
                  self.reboot_type or 'service-warm-restart' in self.reboot_type):
-<<<<<<< 0ef5e0acf5da45145b9480934ba1d285dc973f75
-=======
             self.sender_thr = threading.Thread(target=self.send_in_background)
             self.sniff_thr = threading.Thread(target=self.sniff_in_background)
->>>>>>> [pre-commit] Fix style issues in test scripts under `tests/p*` folder (#7968)
             # Event for the sniff_in_background status.
             self.sniffer_started = threading.Event()
             self.sniff_thr.start()
@@ -1809,8 +1807,6 @@ class ReloadTest(BaseTest):
         self.log('Pcapng file converted into pcap file')
         # Remove tmp pcapng file
         subprocess.call(['rm', '-f', pcapng_full_capture])
-<<<<<<< 0ef5e0acf5da45145b9480934ba1d285dc973f75
-=======
 
     def send_and_sniff(self):
         """
@@ -1825,7 +1821,6 @@ class ReloadTest(BaseTest):
         self.sender_thr.start()
         self.sniff_thr.join()
         self.sender_thr.join()
->>>>>>> [pre-commit] Fix style issues in test scripts under `tests/p*` folder (#7968)
 
     def check_tcp_payload(self, packet):
         """
