@@ -674,7 +674,12 @@ class QosSaiBase(QosBase):
 
         dutTopo = "topo-"
 
-        if dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
+        if dutAsic == "gb" and topo == "t2":
+            if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
+                dutTopo = "topo-any"
+            else:
+                dutTopo = "topo-" + topo
+        elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
             # Default topo is any
@@ -1576,3 +1581,44 @@ class QosSaiBase(QosBase):
         dut_asic.command("sleep 70")
         dut_asic.command("counterpoll watermark disable")
         dut_asic.command("counterpoll queue disable")
+
+    @pytest.fixture(scope='function', autouse=False)
+    def set_static_route(self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
+        # Get portchannels.
+        # find the one that is backplane based.
+        # set a static route through that portchannel.
+        # remove when done.
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            yield
+            return
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        if src_asic == dst_asic:
+            yield
+            return
+        dst_ip = dutConfig["testPorts"]["dst_port_ip"]
+        bp_portchannels = dst_asic.command("show interface portchannel -n asic{}".format(dst_asic.asic_index))['stdout']
+        regx = re.compile("(PortChannel[0-9]+)")
+        portchannel = None
+        for l in bp_portchannels.split("\n"):
+            if "-BP" in l:
+                match = regx.search(l)
+                if match:
+                    portchannel = match.group(1)
+                    break
+        if not portchannel:
+            raise RuntimeError("Couldn't find the backplane porchannel from {}".format(bp_portchannels))
+
+        ip_address_out = dst_asic.command("show ip interface -n asic{}".format(dst_asic.asic_index))['stdout']
+        address = None
+        for line in ip_address_out.split("\n"):
+            if portchannel in line:
+                prefix = next(s for s in line.split(" ")[1:] if s)
+                address = prefix.split("/")[0]
+                break
+        if not address:
+            raise RuntimeError("Couldn't find the gw address out of show int output, needed:{}".format(portchannel))
+
+        src_asic.shell("ip netns exec asic{} route add {} gw {}".format(src_asic.asic_index, dst_ip, address))
+        yield
+        src_asic.shell("ip netns exec asic{} route del {} gw {}".format(src_asic.asic_index, dst_ip, address))
