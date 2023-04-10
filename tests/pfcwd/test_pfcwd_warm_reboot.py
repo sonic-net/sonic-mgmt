@@ -7,8 +7,8 @@ import time
 import traceback
 
 from tests.common.broadcom_data import is_broadcom_device
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
@@ -20,23 +20,24 @@ from tests.ptf_runner import ptf_runner
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
-TESTCASE_INFO = {'no_storm': { 'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
-                               'desc': "Test PFC storm detect/restore before and after warm boot" },
-                 'storm': { 'test_sequence': ["detect", "warm-reboot", "detect", "restore"],
-                            'desc': "Test PFC storm detect with on going storm after warm boot followed by restore" },
-                 'async_storm': { 'test_sequence': ["storm_defer", "warm-reboot", "detect", "restore"],
-                                  'desc': "Test PFC async storm start/end with warm boot followed by detect/restore" }
-                }
-ACTIONS = { 'detect': 0,
-            'restore': 1,
-            'storm_defer': 2
-          }
+TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
+                              'desc': "Test PFC storm detect/restore before and after warm boot"},
+                 'storm': {'test_sequence': ["detect", "warm-reboot", "detect", "restore"],
+                           'desc': "Test PFC storm detect with on going storm after warm boot followed by restore"},
+                 'async_storm': {'test_sequence': ["storm_defer", "warm-reboot", "detect", "restore"],
+                                 'desc': "Test PFC async storm start/end with warm boot followed by detect/restore"}
+                 }
+ACTIONS = {'detect': 0,
+           'restore': 1,
+           'storm_defer': 2
+           }
 
 pytestmark = [pytest.mark.disable_loganalyzer,
               pytest.mark.topology('t0')
-             ]
+              ]
 
 logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_pfcwd_wb_tests(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -53,7 +54,9 @@ def skip_pfcwd_wb_tests(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     SKIP_LIST = ["td2"]
     asic_type = duthost.get_asic_name()
-    pytest_require(not (is_broadcom_device(duthost) and asic_type in SKIP_LIST), "Warm reboot is not supported on {}".format(asic_type))
+    pytest_require(not (is_broadcom_device(duthost) and asic_type in SKIP_LIST),
+                   "Warm reboot is not supported on {}".format(asic_type))
+
 
 @pytest.fixture(autouse=True)
 def setup_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -70,6 +73,7 @@ def setup_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("pfcwd stop")
     time.sleep(5)
     duthost.command("pfcwd start_default")
+
 
 class PfcCmd(object):
     @staticmethod
@@ -183,7 +187,7 @@ class SetupPfcwdFunc(object):
         peer_info = {'peerdevice': self.peer_device,
                      'hwsku': self.fanout_info[self.peer_device]['device_info']['HwSku'],
                      'pfc_fanout_interface': self.neighbors[port]['peerport']
-                    }
+                     }
 
         if storm_defer:
             self.storm_handle[port][queue] = PFCStorm(self.dut, self.fanout_info, self.fanout,
@@ -217,7 +221,7 @@ class SendVerifyTraffic(object):
         self.router_mac = router_mac
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
-        self.pfc_wd_test_port =  pfc_params['test_port']
+        self.pfc_wd_test_port = pfc_params['test_port']
         self.pfc_wd_test_port_id = pfc_params['test_port_id']
         self.pfc_wd_test_port_ids = pfc_params['test_port_ids']
         self.pfc_wd_test_neighbor_addr = pfc_params['test_neighbor_addr']
@@ -235,7 +239,7 @@ class SendVerifyTraffic(object):
         """
         logger.info("Check for egress {} on Tx port {}".format(wd_action, self.pfc_wd_test_port))
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
-        if wd_action == "forward" and  type(self.pfc_wd_test_port_ids) == list:
+        if wd_action == "forward" and type(self.pfc_wd_test_port_ids) == list:
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         ptf_params = {'router_mac': self.router_mac,
                       'queue_index': self.queue,
@@ -286,7 +290,7 @@ class SendVerifyTraffic(object):
         if detect:
             rx_action = "drop"
             tx_action = "drop"
-            wd_action="drop"
+            wd_action = "drop"
         else:
             rx_action = "forward"
             tx_action = "forward"
@@ -295,7 +299,8 @@ class SendVerifyTraffic(object):
         if dut.facts['asic_type'] in ['mellanox', 'cisco-8000']:
             rx_action = "forward"
 
-        logger.info("--- Verify PFCwd function for pfcwd action {}, Tx traffic {}, Rx traffic {} ---".format(wd_action, tx_action, rx_action))
+        logger.info("--- Verify PFCwd function for pfcwd action {}, Tx traffic {}, Rx traffic {} ---"
+                    .format(wd_action, tx_action, rx_action))
         self.verify_tx_egress(tx_action)
         self.verify_rx_ingress(rx_action)
 
@@ -315,7 +320,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
         # where to search the logs
         start_marker = None
         if first_detect_after_wb:
-            start_marker = "NOTICE swss#orchagent: :- setWarmStartState: orchagent warm start state changed to initialized"
+            start_marker = ("NOTICE swss#orchagent: :- setWarmStartState: "
+                            "orchagent warm start state changed to initialized")
         self.loganalyzer = LogAnalyzer(ansible_host=self.dut,
                                        marker_prefix="pfcwd_wb_storm_detect_port_{}_queue_{}".format(port, queue),
                                        start_marker=start_marker)
@@ -458,8 +464,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         logger.info("--- Disabling fake storm on port {} queue {}".format(port, queue))
                         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
-    def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, enum_fanout_graph_facts, ptfhost,
-                        duthost, localhost, fanouthosts, two_queues):
+    def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, enum_fanout_graph_facts,    # noqa F811
+                        ptfhost, duthost, localhost, fanouthosts, two_queues):
         """
         Helper method that initializes the vars and starts the test execution
 
@@ -549,8 +555,9 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         yield request.param
 
-    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts, ptfhost, duthosts,
-                      enum_rand_one_per_hwsku_frontend_hostname, localhost, fanouthosts, two_queues):
+    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
+                      ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                      localhost, fanouthosts, two_queues):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -559,12 +566,13 @@ class TestPfcwdWb(SetupPfcwdFunc):
             testcase_action(fixture): testcase to execute (values: 'no_storm', 'storm', 'async_storm')
 
                 'no_storm' : PFCwd storm detection/restore before and after warm reboot
-                'storm' : PFC storm started and detected before warm-reboot. Storm is ongoing during warm boot and lasts
-                          past the warm boot finish. Verifies if the storm is detected after warm-reboot.
+                'storm' : PFC storm started and detected before warm-reboot.
+                          Storm is ongoing during warm boot and lasts past the warm boot finish.
+                          Verifies if the storm is detected after warm-reboot.
                           PFC storm is stopped and 465 restored after warm boot
                 'async_storm': PFC storm asynchronously starts at a random time and lasts a random period at fanout.
-                               Warm reboot is done. Wait for all the storms to finish and then verify the storm detect/restore
-                               logic
+                               Warm reboot is done. Wait for all the storms to finish
+                               and then verify the storm detect/restore logic
 
             setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
             enum_fanout_graph_facts(fixture) : fanout graph info

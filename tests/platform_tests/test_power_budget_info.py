@@ -36,7 +36,8 @@ def test_power_redis_db(duthosts, enum_supervisor_dut_hostname, tbinfo):
                 if n_psu not in skip_mod_list:
                     sup_power = float(out_dict[pb_name]['value'][out_val])
                     pytest_assert(sup_power > 0,
-                                  "expected supplied power value for psu {} greater than 0 but got {}".format(n_psu, sup_power))
+                                  "expected supplied power value for psu {} greater than 0 but got {}"
+                                  .format(n_psu, sup_power))
                     exp_total_supp_power += sup_power
                 else:
                     logger.debug("psu {} in skip list skipping check".format(n_psu))

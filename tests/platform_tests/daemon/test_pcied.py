@@ -14,7 +14,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
-from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
+from tests.common.platform.processes_utils import check_critical_processes
 from tests.common.utilities import compose_dict_from_cli, skip_release, wait_until
 
 logger = logging.getLogger(__name__)
@@ -39,15 +39,16 @@ pcie_devices_status_tbl_key = ""
 status_field = "status"
 expected_pcied_devices_status = "PASSED"
 
+
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
-    ## add delay for pcied ready
+    # add delay for pcied ready
     time.sleep(60)
 
     if daemon_en_status is False:
-        pytest.skip("{} is not enabled in {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
+        pytest.skip("{} is not enabled in {} {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -56,10 +57,11 @@ def teardown_module(duthosts, rand_one_dut_hostname):
     yield
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status is not "RUNNING":
+    if daemon_status != "RUNNING":
         duthost.start_pmon_daemon(daemon_name)
         time.sleep(10)
-    logger.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
+    logger.info(
+        "Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     check_critical_processes(duthost, watch_secs=10)
 
 
@@ -67,24 +69,28 @@ def teardown_module(duthosts, rand_one_dut_hostname):
 def check_daemon_status(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status is not "RUNNING":
+    if daemon_status != "RUNNING":
         duthost.start_pmon_daemon(daemon_name)
         time.sleep(10)
+
 
 def check_pcie_devices_table_ready(duthost):
     if duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES"):
         return True
     return False
 
+
 @pytest.fixture(scope="module", autouse=True)
-def get_pcie_devices_tbl_key(duthosts,rand_one_dut_hostname):
+def get_pcie_devices_tbl_key(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911"])
-    pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost), "PCIE_DEVICES table is empty")
+    pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost),
+                  "PCIE_DEVICES table is empty")
     command_output = duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES")
 
     global pcie_devices_status_tbl_key
     pcie_devices_status_tbl_key = command_output["stdout"]
+
 
 def collect_data(duthost):
     keys = duthost.shell('sonic-db-cli STATE_DB KEYS "PCIE_DEVICE|*"')['stdout_lines']
@@ -98,18 +104,22 @@ def collect_data(duthost):
     dev_summary_status = duthost.get_pmon_daemon_db_value(pcie_devices_status_tbl_key, status_field)
     return {'status': dev_summary_status, 'devices': dev_data}
 
+
 def wait_data(duthost, expected_key_count):
     class shared_scope:
         data_after_restart = {}
+
     def _collect_data():
         shared_scope.data_after_restart = collect_data(duthost)
         device_keys_found = len(shared_scope.data_after_restart['devices'])
         if device_keys_found != 0:
-            logger.info("Expected PCIE device keys :{}, Current device key count {}".format(expected_key_count, device_keys_found))
+            logger.info("Expected PCIE device keys :{}, Current device key count {}".format(
+                expected_key_count, device_keys_found))
         return device_keys_found == expected_key_count
     pcied_pooling_interval = 60
     wait_until(pcied_pooling_interval, 6, 0, _collect_data)
     return shared_scope.data_after_restart
+
 
 @pytest.fixture(scope='module')
 def data_before_restart(duthosts, rand_one_dut_hostname):
@@ -127,13 +137,15 @@ def test_pmon_pcied_running_status(duthosts, rand_one_dut_hostname, data_before_
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status == expected_running_status,
-                          "{} expected running status is {} but is {}".format(daemon_name, expected_running_status, daemon_status))
+                  "{} expected running status is {} but is {}"
+                  .format(daemon_name, expected_running_status, daemon_status))
     pytest_assert(daemon_pid != -1,
-                          "{} expected pid is a positive integer but is {}".format(daemon_name, daemon_pid))
+                  "{} expected pid is a positive integer but is {}".format(daemon_name, daemon_pid))
 
     daemon_db_value = data_before_restart['status']
     pytest_assert(daemon_db_value == expected_pcied_devices_status,
-                          "Expected {} {} is {} but is {}".format(get_pcie_devices_tbl_key, status_field, expected_pcied_devices_status, daemon_db_value))
+                  "Expected {} {} is {} but is {}"
+                  .format(get_pcie_devices_tbl_key, status_field, expected_pcied_devices_status, daemon_db_value))
     pytest_assert(data_before_restart['devices'], 'pcied data not found in DB')
 
 
@@ -150,9 +162,10 @@ def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_on
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status == expected_stopped_status,
-                          "{} expected stopped status is {} but is {}".format(daemon_name, expected_stopped_status, daemon_status))
+                  "{} expected stopped status is {} but is {}"
+                  .format(daemon_name, expected_stopped_status, daemon_status))
     pytest_assert(daemon_pid == -1,
-                          "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
+                  "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
     data = collect_data(duthost)
     pytest_assert(not data['status'], "DB data is not cleared on daemon stop")
@@ -161,19 +174,25 @@ def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_on
     duthost.start_pmon_daemon(daemon_name)
     time.sleep(10)
 
-    post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(
+        daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
+                  "{} expected restarted status is {} but is {}"
+                  .format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+                  "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
-                          "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
+                  "Restarted {} pid should be bigger than {} but it is {}"
+                  .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
-    data_after_restart = wait_data(duthost, len(data_before_restart['devices']))
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
+    data_after_restart = wait_data(
+        duthost, len(data_before_restart['devices']))
+    pytest_assert(data_after_restart == data_before_restart,
+                  'DB data present before and after restart does not match')
 
 
-def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
+def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts,
+                                          rand_one_dut_hostname, data_before_restart):
     """
     @summary: This test case is to check the pcied terminated and restarted status
     """
@@ -182,25 +201,31 @@ def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts, rand_on
     skip_release(duthost, ["201811", "201911"])
 
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
+    logger.info("{} daemon is {} with pid {}".format(
+        daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status != expected_running_status and pre_daemon_pid != daemon_pid,
-                         "{} status for SIG_TERM should not be {} with pid:{}!".format(daemon_name, daemon_status, daemon_pid))
+                  "{} status for SIG_TERM should not be {} with pid:{}!"
+                  .format(daemon_name, daemon_status, daemon_pid))
 
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
+                  "{} expected restarted status is {} but is {}"
+                  .format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+                  "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
-                          "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    data_after_restart = wait_data(duthost, len(data_before_restart['devices']))
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
+                  "Restarted {} pid should be bigger than {} but it is {}"
+                  .format(daemon_name, pre_daemon_pid, post_daemon_pid))
+    data_after_restart = wait_data(
+        duthost, len(data_before_restart['devices']))
+    pytest_assert(data_after_restart == data_before_restart,
+                  'DB data present before and after restart does not match')
 
 
 def test_pmon_pcied_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname, data_before_restart):
@@ -208,23 +233,27 @@ def test_pmon_pcied_kill_and_start_status(check_daemon_status, duthosts, rand_on
     @summary: This test case is to check the pcied killed unexpectedly (automatically restarted) status
     """
     duthost = duthosts[rand_one_dut_hostname]
-    pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(
+        daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
     duthost.stop_pmon_daemon(daemon_name, SIG_KILL, pre_daemon_pid)
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(daemon_status != expected_running_status,
-                          "{} unexpected killed status is not {}".format(daemon_name, daemon_status))
+                  "{} unexpected killed status is not {}".format(daemon_name, daemon_status))
 
     time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
-                          "{} expected restarted status is {} but is {}".format(daemon_name, expected_running_status, post_daemon_status))
+                  "{} expected restarted status is {} but is {}"
+                  .format(daemon_name, expected_running_status, post_daemon_status))
     pytest_assert(post_daemon_pid != -1,
-                          "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+                  "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
     pytest_assert(post_daemon_pid > pre_daemon_pid,
-                          "Restarted {} pid should be bigger than {} but it is {}".format(daemon_name, pre_daemon_pid, post_daemon_pid))
+                  "Restarted {} pid should be bigger than {} but it is {}"
+                  .format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost, len(data_before_restart['devices']))
-    pytest_assert(data_after_restart == data_before_restart, 'DB data present before and after restart does not match')
+    pytest_assert(data_after_restart == data_before_restart,
+                  'DB data present before and after restart does not match')

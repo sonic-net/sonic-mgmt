@@ -1,15 +1,26 @@
-# ptf -t "config_file='/tmp/vxlan_decap.json';vxlan_enabled=True;dut_host=10.0.0.1;sonic_admin_user=admin;sonic_admin_password=admin" --platform-dir ptftests --test-dir ptftests --platform remote vxlan-decap
-
+"""
+        ptf -t "config_file='/tmp/vxlan_decap.json';vxlan_enabled=True;\
+            dut_host=10.0.0.1;sonic_admin_user=admin;sonic_admin_password=admin"\
+            --platform-dir ptftests\
+            --test-dir ptftests\
+            --platform remote vxlan-decap
+"""
 # The test checks vxlan decapsulation for the dataplane.
 # The test runs three tests for each vlan on the DUT:
-# 1. 'Vxlan'            : Sends encapsulated packets to PortChannel interfaces and expects to see the decapsulated inner packets on the corresponding vlan interface.
-# 2. 'RegularLAGtoVLAN' : Sends regular packets to PortChannel interfaces and expects to see the packets on the corresponding vlan interface.
-# 3. 'RegularVLANtoLAG' : Sends regular packets to Vlan member interfaces and expects to see the packets on the one of PortChannel interfaces.
+# 1. 'Vxlan'            : Sends encapsulated packets to PortChannel interfaces and expects to see
+#     the decapsulated inner packets on the corresponding vlan interface.
+# 2. 'RegularLAGtoVLAN' : Sends regular packets to PortChannel interfaces and expects to see
+#     the packets on the corresponding vlan interface.
+# 3. 'RegularVLANtoLAG' : Sends regular packets to Vlan member interfaces and expects to see
+#     the packets on the one of PortChannel interfaces.
 #
 # The test has 6 parameters:
-# 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
-# 2. 'vxlan_enabled' is a boolean parameter. When the parameter is true the test will fail if vxlan test failing. When the parameter is false the test will not fail. By default this parameter is false.
-# 3. 'count' is an integer parameter. It defines how many packets are sent for each combination of ingress/egress interfaces. By default the parameter equal to 1
+# 1. 'config_file' is a filename of a file which contains all necessary information to run the test.
+#    The file is populated by ansible. This parameter is mandatory.
+# 2. 'vxlan_enabled' is a boolean parameter. When the parameter is true the test will fail if vxlan test failing.
+#    When the parameter is false the test will not fail. By default this parameter is false.
+# 3. 'count' is an integer parameter. It defines how many packets are sent for
+#    each combination of ingress/egress interfaces. By default the parameter equal to 1
 # 4. 'dut_hostname' is the name of dut.
 # 5. 'sonic_admin_user': User name to login dut
 # 6. 'sonic_admin_password': Password for sonic_admin_user to login dut
@@ -20,22 +31,22 @@ import os.path
 import json
 import time
 import pprint
-import ptf
-import ptf.packet as scapy
-from ptf.base_tests import BaseTest
-from ptf import config
-import ptf.testutils as testutils
-from ptf.testutils import *
-from ptf.dataplane import match_exp_pkt
-from ptf.mask import Mask
-from ptf.testutils import dp_poll
 import datetime
 import subprocess
 import traceback
 import socket
 import struct
-from device_connection import DeviceConnection
 import re
+
+import ptf
+import ptf.packet as scapy
+import ptf.testutils as testutils
+from ptf.base_tests import BaseTest
+from ptf.testutils import dp_poll, simple_tcp_packet, simple_arp_packet, simple_vxlan_packet
+from ptf.mask import Mask
+
+from device_connection import DeviceConnection
+
 
 def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, device_number=0, timeout=1):
     """
@@ -43,12 +54,14 @@ def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, devi
     stop waiting when expected number of packets is received
     """
     if timeout <= 0:
-        raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
+        raise Exception("%s() requires positive timeout value." %
+                        sys._getframe().f_code.co_name)
 
     total_rcv_pkt_cnt = 0
     end_time = time.time() + timeout
     while time.time() < end_time:
-        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout, exp_pkt=exp_packet)
+        result = dp_poll(test, device_number=device_number,
+                         port_number=port, timeout=timeout, exp_pkt=exp_packet)
         if isinstance(result, test.dataplane.PollSuccess):
             total_rcv_pkt_cnt += 1
             if total_rcv_pkt_cnt == exp_packet_number:
@@ -58,13 +71,15 @@ def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, devi
 
     return total_rcv_pkt_cnt
 
+
 def count_matched_packets_all_ports_helper(test, exp_packet, exp_packet_number, ports=[], device_number=0, timeout=1):
     """
     Add exp_packet_number to original ptf interface in order to
     stop waiting when expected number of packets is received
     """
     if timeout <= 0:
-        raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
+        raise Exception("%s() requires positive timeout value." %
+                        sys._getframe().f_code.co_name)
 
     last_matched_packet_time = time.time()
     total_rcv_pkt_cnt = 0
@@ -75,7 +90,7 @@ def count_matched_packets_all_ports_helper(test, exp_packet, exp_packet_number, 
         result = dp_poll(test, device_number=device_number, timeout=timeout)
         if isinstance(result, test.dataplane.PollSuccess):
             if (result.port in ports and
-                  ptf.dataplane.match_exp_pkt(exp_packet, result.packet)):
+                    ptf.dataplane.match_exp_pkt(exp_packet, result.packet)):
                 total_rcv_pkt_cnt += 1
                 if total_rcv_pkt_cnt == exp_packet_number:
                     break
@@ -84,6 +99,7 @@ def count_matched_packets_all_ports_helper(test, exp_packet, exp_packet_number, 
             break
 
     return total_rcv_pkt_cnt
+
 
 class Vxlan(BaseTest):
     def __init__(self):
@@ -151,7 +167,7 @@ class Vxlan(BaseTest):
                 if host_ip != gw:
                     break
                 else:
-                    addr += 1 # skip gw
+                    addr += 1  # skip gw
             res[port] = host_ip
             addr += 1
 
@@ -176,15 +192,18 @@ class Vxlan(BaseTest):
         self.dut_hostname = self.test_params['dut_hostname']
 
         if 'sonic_admin_user' not in self.test_params:
-            raise Exception("required parameter 'sonic_admin_user' is not present")
+            raise Exception(
+                "required parameter 'sonic_admin_user' is not present")
         self.sonic_admin_user = self.test_params['sonic_admin_user']
 
         if 'sonic_admin_password' not in self.test_params:
-            raise Exception("required parameter 'sonic_admin_password' is not present")
+            raise Exception(
+                "required parameter 'sonic_admin_password' is not present")
         self.sonic_admin_password = self.test_params['sonic_admin_password']
 
         if 'sonic_admin_alt_password' not in self.test_params:
-            raise Exception("required parameter 'sonic_admin_alt_password' is not present")
+            raise Exception(
+                "required parameter 'sonic_admin_alt_password' is not present")
         self.sonic_admin_alt_password = self.test_params['sonic_admin_alt_password']
 
         if not os.path.isfile(config):
@@ -196,7 +215,8 @@ class Vxlan(BaseTest):
         self.pc_info = []
         self.net_ports = []
         for name, val in graph['minigraph_portchannels'].items():
-            members = [graph['minigraph_port_indices'][member] for member in val['members']]
+            members = [graph['minigraph_port_indices'][member]
+                       for member in val['members']]
             self.net_ports.extend(members)
             ip = None
 
@@ -205,7 +225,8 @@ class Vxlan(BaseTest):
                     ip = d['peer_addr']
                     break
             else:
-                raise Exception("Portchannel '%s' ip address is not found" % name)
+                raise Exception(
+                    "Portchannel '%s' ip address is not found" % name)
 
             self.pc_info.append((ip, members))
 
@@ -215,7 +236,8 @@ class Vxlan(BaseTest):
             test = {}
             test['name'] = name
             test['intf_alias'] = data['members']
-            test['acc_ports'] = [graph['minigraph_port_indices'][member] for member in data['members']]
+            test['acc_ports'] = [graph['minigraph_port_indices'][member]
+                                 for member in data['members']]
             vlan_id = int(name.replace('Vlan', ''))
             test['vni'] = vni_base + vlan_id
             test['src_ip'] = "8.8.8.8"
@@ -231,7 +253,8 @@ class Vxlan(BaseTest):
                 raise Exception("Vlan '%s' is not found" % name)
 
             test['vlan_gw'] = gw
-            test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(gw, prefixlen, test['acc_ports'])
+            test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(
+                gw, prefixlen, test['acc_ports'])
 
             self.tests.append(test)
         self.log('Collected tests: {}'.format(pprint.pformat(self.tests)))
@@ -253,7 +276,7 @@ class Vxlan(BaseTest):
         self.generate_ArpResponderConfig()
 
         self.cmd(["supervisorctl", "restart", "arp_responder"])
-        #Wait a short time for asp_reponder to be ready
+        # Wait a short time for asp_reponder to be ready
         time.sleep(10)
         self.dataplane.flush()
         self.dut_connection = DeviceConnection(
@@ -314,10 +337,11 @@ class Vxlan(BaseTest):
         try:
             for test in self.tests:
                 self.RegularLAGtoVLAN(test, True)
-                #wait sometime for DUT to build FDB and ARP table
+                # wait sometime for DUT to build FDB and ARP table
                 res = self.wait_dut(test, TIMEOUT)
                 self.log_dut_status()
-                self.assertTrue(res, "DUT is not ready after {} seconds".format(TIMEOUT))
+                self.assertTrue(
+                    res, "DUT is not ready after {} seconds".format(TIMEOUT))
 
         except Exception as e:
             err = str(e)
@@ -359,24 +383,28 @@ class Vxlan(BaseTest):
                 self.log("RegularLAGtoVLAN = {} {}".format(res_f, out_f))
                 if not res_f:
                     self.log_dut_status()
-                self.assertTrue(res_f, "RegularLAGtoVLAN test failed:\n  %s\n" % (out_f))
+                self.assertTrue(
+                    res_f, "RegularLAGtoVLAN test failed:\n  %s\n" % (out_f))
 
                 res_t, out_t = self.RegularVLANtoLAG(test)
                 self.log("RegularVLANtoLAG = {} {}".format(res_t, out_t))
                 if not res_t:
                     self.log_dut_status()
-                self.assertTrue(res_t, "RegularVLANtoLAG test failed:\n  %s\n" % (out_t))
+                self.assertTrue(
+                    res_t, "RegularVLANtoLAG test failed:\n  %s\n" % (out_t))
 
                 res_v, out_v = self.Vxlan(test)
                 self.log("Vxlan = {} {}".format(res_v, out_v))
                 if self.vxlan_enabled:
                     if not res_v:
                         self.log_dut_status()
-                    self.assertTrue(res_v, "VxlanTest failed:\n  %s\n"  % (out_v))
+                    self.assertTrue(
+                        res_v, "VxlanTest failed:\n  %s\n" % (out_v))
                 else:
                     if res_v:
                         self.log_dut_status()
-                    self.assertFalse(res_v, "VxlanTest: vxlan works, but it must have been disabled!\n")
+                    self.assertFalse(
+                        res_v, "VxlanTest: vxlan works, but it must have been disabled!\n")
         except AssertionError as e:
             err = str(e)
             trace = traceback.format_exc()
@@ -391,13 +419,11 @@ class Vxlan(BaseTest):
         if ret != 0:
             raise AssertionError(err)
 
-
     def runTest(self):
         # Warm-up first
         self.warmup()
         # test itself
         self.work_test()
-
 
     def Vxlan(self, test):
         for i, n in enumerate(test['acc_ports']):
@@ -413,16 +439,16 @@ class Vxlan(BaseTest):
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
 
-    def RegularLAGtoVLAN(self, test, wu = False):
+    def RegularLAGtoVLAN(self, test, wu=False):
         for i, n in enumerate(self.net_ports):
             for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkRegularRegularLAGtoVLAN(a, n, test, wu)
                 if wu:
-                    #Wait a short time for building FDB and ARP table
+                    # Wait a short time for building FDB and ARP table
                     time.sleep(0.5)
                 if not res and not wu:
                     return False, out + " | net_port_rel=%d acc_port_rel=%d" % (i, j)
-            #We only loop all acc_ports in warmup
+            # We only loop all acc_ports in warmup
             if wu:
                 break
         return True, ""
@@ -430,7 +456,8 @@ class Vxlan(BaseTest):
     def RegularVLANtoLAG(self, test):
         for i, (dst, ports) in enumerate(self.pc_info):
             for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkRegularRegularVLANtoLAG(a, ports, dst, test)
+                res, out = self.checkRegularRegularVLANtoLAG(
+                    a, ports, dst, test)
                 if not res:
                     return False, out + " | pc_info_rel=%d acc_port_rel=%d" % (i, j)
         return True, ""
@@ -441,18 +468,18 @@ class Vxlan(BaseTest):
         src_ip = test['vlan_ip_prefixes'][acc_port]
 
         packet = simple_tcp_packet(
-                         eth_dst=dst_mac,
-                         eth_src=src_mac,
-                         ip_src=src_ip,
-                         ip_dst=dst_ip,
-                       )
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
+        )
         exp_packet = simple_tcp_packet(
-                         eth_dst=self.random_mac,
-                         eth_src=self.dut_mac,
-                         ip_src=src_ip,
-                         ip_dst=dst_ip,
-                         ip_ttl = 63,
-                       )
+            eth_dst=self.random_mac,
+            eth_src=self.dut_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
+            ip_ttl=63,
+        )
 
         exp_packet = Mask(exp_packet)
         exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -460,14 +487,15 @@ class Vxlan(BaseTest):
         self.dataplane.flush()
         for i in range(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = count_matched_packets_all_ports_helper(self, exp_packet, self.nr, pc_ports, timeout=20)
+        nr_rcvd = count_matched_packets_all_ports_helper(
+            self, exp_packet, self.nr, pc_ports, timeout=20)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
-            arg = self.nr, nr_rcvd, str(acc_port), str(pc_ports), src_mac, dst_mac, src_ip, dst_ip
+            arg = self.nr, nr_rcvd, str(acc_port), str(
+                pc_ports), src_mac, dst_mac, src_ip, dst_ip
             out = "sent = %d rcvd = %d | src_port=%s dst_ports=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
         return rv, out
-
 
     def checkRegularRegularLAGtoVLAN(self, acc_port, net_port, test, wu):
         src_mac = self.random_mac
@@ -476,32 +504,34 @@ class Vxlan(BaseTest):
         dst_ip = test['vlan_ip_prefixes'][acc_port]
 
         packet = simple_tcp_packet(
-                         eth_dst=dst_mac,
-                         eth_src=src_mac,
-                         ip_src=src_ip,
-                         ip_dst=dst_ip,
-                       )
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
+        )
 
         exp_packet = simple_tcp_packet(
-                         eth_dst=self.ptf_mac_addrs['eth%d' % acc_port],
-                         eth_src=self.vlan_mac,
-                         ip_src=src_ip,
-                         ip_dst=dst_ip,
-                         ip_ttl = 63,
-                       )
+            eth_dst=self.ptf_mac_addrs['eth%d' % acc_port],
+            eth_src=self.vlan_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
+            ip_ttl=63,
+        )
 
         self.dataplane.flush()
         for i in range(self.nr):
             testutils.send_packet(self, net_port, packet)
         # We don't care if expected packet is received during warming up
         if not wu:
-            nr_rcvd = count_matched_packets_helper(self, exp_packet, self.nr, acc_port, timeout=20)
+            nr_rcvd = count_matched_packets_helper(
+                self, exp_packet, self.nr, acc_port, timeout=20)
         else:
             nr_rcvd = 0
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
-            arg = self.nr, nr_rcvd, str(net_port), str(acc_port), src_mac, dst_mac, src_ip, dst_ip
+            arg = self.nr, nr_rcvd, str(net_port), str(
+                acc_port), src_mac, dst_mac, src_ip, dst_ip
             out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
         return rv, out
 
@@ -514,31 +544,34 @@ class Vxlan(BaseTest):
         ip_dst = self.loopback_ip
 
         inpacket = simple_arp_packet(
-                         eth_dst=inner_dst_mac,
-                         eth_src=inner_src_mac,
-                         arp_op=2,
-                         ip_snd=inner_src_ip,
-                         ip_tgt=inner_dst_ip,
-                         hw_snd=inner_src_mac,
-                         hw_tgt=inner_dst_mac
-                       )
+            eth_dst=inner_dst_mac,
+            eth_src=inner_src_mac,
+            arp_op=2,
+            ip_snd=inner_src_ip,
+            ip_tgt=inner_dst_ip,
+            hw_snd=inner_src_mac,
+            hw_tgt=inner_dst_mac
+        )
 
         packet = simple_vxlan_packet(
-                       eth_dst=dst_mac,
-                       eth_src=src_mac,
-                       ip_src=test['src_ip'],
-                       ip_dst=ip_dst,
-                       vxlan_vni=test['vni'],
-                       inner_frame=inpacket
-                 )
+            eth_dst=dst_mac,
+            eth_src=src_mac,
+            ip_src=test['src_ip'],
+            ip_dst=ip_dst,
+            vxlan_vni=test['vni'],
+            inner_frame=inpacket
+        )
 
         self.dataplane.flush()
         for i in range(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = count_matched_packets_helper(self, inpacket, self.nr, acc_port, timeout=20)
+        nr_rcvd = count_matched_packets_helper(
+            self, inpacket, self.nr, acc_port, timeout=20)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
-            arg = self.nr, nr_rcvd, str(net_port), str(acc_port), src_mac, dst_mac, test['src_ip'], ip_dst, inner_src_mac, inner_dst_mac, inner_src_ip, inner_dst_ip, test['vni']
-            out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s | Inner: src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s vni=%s" % arg
+            arg = self.nr, nr_rcvd, str(net_port), str(acc_port), src_mac, dst_mac,\
+                test['src_ip'], ip_dst, inner_src_mac, inner_dst_mac, inner_src_ip, inner_dst_ip, test['vni']
+            out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s "\
+                "src_ip=%s dst_ip=%s | Inner: src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s vni=%s" % arg
         return rv, out

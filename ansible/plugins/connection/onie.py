@@ -1,20 +1,13 @@
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
-import os
-import subprocess
 import shlex
-import pipes
 import pexpect
-import random
-import select
-import fcntl
-import pwd
-import time
 
 from ansible import constants as C
-from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound
+from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound      # noqa F401
 from ansible.plugins.connection import ConnectionBase
+
 
 class Connection(ConnectionBase):
     ''' ssh based connections with expect '''
@@ -70,10 +63,10 @@ class Connection(ConnectionBase):
 
         self.template = kwargs['template']
         if kwargs['host'] is not None:
-            self.host     = kwargs['host']
-        self.url      = kwargs['url']
-        self.install  = kwargs['install']
-        self.nretry   = kwargs['retry']
+            self.host = kwargs['host']
+        self.url = kwargs['url']
+        self.install = kwargs['install']
+        self.nretry = kwargs['retry']
 
         self._build_command()
 
@@ -94,7 +87,7 @@ class Connection(ConnectionBase):
             self._display.vvv('> %s' % (cmd), host=self.host)
             client.sendline(cmd)
             client.expect(prompts)
-        
+
             stdout += client.before
             self._display.vvv('< %s' % (client.before), host=self.host)
 
@@ -105,15 +98,18 @@ class Connection(ConnectionBase):
             attempt = 0
             while attempt < self.nretry:
                 client.sendline("onie-nos-install %s" % self.url)
-                i = client.expect(["Installed SONiC base image SONiC-OS successfully"] + prompts)
+                i = client.expect(
+                    ["Installed SONiC base image SONiC-OS successfully"] + prompts)
                 stdout += client.before
                 if i == 0:
                     break
                 elif i == 1:
                     attempt += 1
-                    self._display.vvv("Installation fails, retry %d..." % attempt, host=self.host)
+                    self._display.vvv(
+                        "Installation fails, retry %d..." % attempt, host=self.host)
                 else:
-                    raise AnsibleError("Failed to install sonic image. %s" % stdout)
+                    raise AnsibleError(
+                        "Failed to install sonic image. %s" % stdout)
             self._display.vvv("SONiC installed.", host=self.host)
             # for some platform, e.g., DELL S6000, it will do hard reboot,
             # which will not give EOF

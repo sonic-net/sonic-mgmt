@@ -1,11 +1,11 @@
 import pytest
 import logging
 
-from tests.common.fixtures.advanced_reboot import get_advanced_reboot
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot       # noqa F401
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import skip_release
-from tests.platform_tests.verify_dut_health import verify_dut_health  # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # lgtm[py/unused-import]
+from tests.platform_tests.verify_dut_health import verify_dut_health        # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -32,7 +32,7 @@ def get_builtin_services(duthost):
 
 
 def get_running_services(duthost):
-    services = duthost.shell('docker ps --format \{\{.Names\}\}')['stdout_lines']
+    services = duthost.shell(r'docker ps --format \{\{.Names\}\}')['stdout_lines']
     return services
 
 
@@ -91,7 +91,8 @@ def select_services_to_warmrestart(duthost, request):
     return [service for service in all_services if passes_all_checks(service)]
 
 
-def test_service_warm_restart(request, duthosts, rand_one_dut_hostname, verify_dut_health, get_advanced_reboot,
+def test_service_warm_restart(request, duthosts, rand_one_dut_hostname,
+                              verify_dut_health, get_advanced_reboot,       # noqa F811
                               advanceboot_loganalyzer, capture_interface_counters):
     duthost = duthosts[rand_one_dut_hostname]
 

@@ -58,7 +58,8 @@ def __macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_
                 continue
         if ret.port in MACSEC_INFOS and MACSEC_INFOS[ret.port]:
             encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt = MACSEC_INFOS[ret.port]
-            pkt, decap_success = __decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
+            pkt, decap_success = __decap_macsec_pkt(
+                pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
             if decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                 return ret
         recent_packets.append(pkt)
