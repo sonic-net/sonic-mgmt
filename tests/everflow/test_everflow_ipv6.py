@@ -9,7 +9,7 @@ from everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
 from everflow_test_utilities import setup_info  # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1", "m0")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
@@ -37,7 +37,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         Remove the route as part of cleanup.
         """
         duthost = duthosts[rand_one_dut_hostname]
-        if setup_info['topo'] == 't0':
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
             # On T0 testbed, the collector IP is routed to T1
             namespace = setup_info[UP_STREAM]['namespace']
             tx_port = setup_info[UP_STREAM]["dest_port"][0]
