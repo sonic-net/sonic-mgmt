@@ -1,5 +1,6 @@
 import re
-from ipaddress import ip_address, ip_network
+from ipaddress import ip_network
+
 
 class Fdb():
     def __init__(self, file_path):
@@ -12,7 +13,8 @@ class Fdb():
 
         with open(file_path, 'r') as f:
             for line in f.readlines():
-                if pattern.match(line): continue
+                if pattern.match(line):
+                    continue
                 entry = line.split(' ', 1)
                 prefix = ip_network(str(entry[0]))
                 self._vlan_dict[prefix] = [int(i) for i in entry[1].split()]

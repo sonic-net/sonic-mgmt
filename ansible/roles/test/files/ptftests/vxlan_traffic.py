@@ -125,6 +125,7 @@ class VXLAN(BaseTest):
         Testcase for VxLAN. Currently implements encap testcase.
         decap is TBD.
     '''
+
     def __init__(self):
         BaseTest.__init__(self)
 

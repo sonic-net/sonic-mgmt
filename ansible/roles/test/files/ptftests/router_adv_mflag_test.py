@@ -1,6 +1,6 @@
 # Packet Test Framework imports
 import logging
-
+import os
 import ptf
 import ptf.testutils as testutils
 import scapy.layers.inet6 as inet6
@@ -20,6 +20,7 @@ ALL_ROUTERS_MULTICAST_MAC_ADDRESS = '33:33:00:00:00:02'
 ALL_NODES_IPV6_MULTICAST_ADDRESS = 'ff02::1'
 ALL_ROUTERS_IPV6_MULTICAST_ADDRESS = 'ff02::2'
 ICMPV6_SOLICITED_RA_TIMEOUT_SECS = 1
+
 
 class DataplaneBaseTest(BaseTest):
     def __init__(self):
@@ -51,15 +52,16 @@ class DataplaneBaseTest(BaseTest):
     @summary: Creates an ICMPv6 router advertisement packet with ICMPv6 prefix option
 
     """
+
     def create_icmpv6_router_advertisement_packet_send(self, dst_mac, dst_ip, src_mac, src_ip):
         ether = Ether(dst=dst_mac, src=src_mac)
         ip6 = IPv6(src=src_ip, dst=dst_ip, fl=0, tc=0, hlim=255)
-        icmp6 = RA(code=0,M=1,O=0)
-        #NOTE: Test expects RA packet to contain route prefix as the first option
+        icmp6 = RA(code=0, M=1, O=0)
+        # NOTE: Test expects RA packet to contain route prefix as the first option
         icmp6 /= PrefixInfo(type=3, len=4)
         rapkt = ether / ip6 / icmp6
         scapy2.sendp(rapkt, iface="eth1")
-        logging.info(scapy2.sniff(iface='eth1',timeout=10))
+        logging.info(scapy2.sniff(iface='eth1', timeout=10))
         return rapkt
 
     """
@@ -73,6 +75,7 @@ class DataplaneBaseTest(BaseTest):
         6. ICMPv6 prefix option (i.e type == 3 and len == 4)
 
     """
+
     def mask_off_dont_care_ra_packet_fields(self, rapkt):
         masked_rapkt = Mask(rapkt)
         masked_rapkt.set_ignore_extra_bytes()
@@ -104,12 +107,14 @@ class DataplaneBaseTest(BaseTest):
 
         return masked_rapkt
 
+
 """
 @summary: This test is to validate the unsolicted router advertisements sent on
 the VLAN network of the ToR. In this test we listen on the first PTF port
 (Eg eth0) for any RA messages.
 
 """
+
 
 class RadvUnSolicitedRATest(DataplaneBaseTest):
     def __init__(self):
@@ -128,12 +133,11 @@ class RadvUnSolicitedRATest(DataplaneBaseTest):
         self.radv_max_ra_interval = int(self.test_params['max_ra_interval'])
 
         rapkt = self.create_icmpv6_router_advertisement_packet_send(
-                                                src_mac=self.downlink_vlan_mac,
-                                                dst_mac=ALL_NODES_MULTICAST_MAC_ADDRESS,
-                                                src_ip=self.downlink_vlan_ip6,
-                                                dst_ip=ALL_NODES_IPV6_MULTICAST_ADDRESS)
+            src_mac=self.downlink_vlan_mac,
+            dst_mac=ALL_NODES_MULTICAST_MAC_ADDRESS,
+            src_ip=self.downlink_vlan_ip6,
+            dst_ip=ALL_NODES_IPV6_MULTICAST_ADDRESS)
         self.masked_rapkt = self.mask_off_dont_care_ra_packet_fields(rapkt)
-
 
     def tearDown(self):
         DataplaneBaseTest.tearDown(self)
@@ -152,16 +156,16 @@ class RadvUnSolicitedRATest(DataplaneBaseTest):
                      self.downlink_vlan_ip6,
                      self.ptf_port_index)
 
-
     def runTest(self):
         self.verify_periodic_router_advertisement_with_m_flag()
-        
+
 
 """
 @summary: This test validates the solicited router advertisement sent on the VLAN network of the ToR
 We simulate the ToR sending the ICMPv6 router solicitation packet through one of the PTF port (eg eth0)
 
 """
+
 
 class RadvSolicitedRATest(DataplaneBaseTest):
     def __init__(self):
@@ -181,10 +185,10 @@ class RadvSolicitedRATest(DataplaneBaseTest):
         self.radv_max_ra_interval = int(self.test_params['max_ra_interval'])
 
         rapkt = self.create_icmpv6_router_advertisement_packet_send(
-                                    src_mac=self.downlink_vlan_mac,
-                                    dst_mac=self.ptf_port_mac,
-                                    src_ip=self.downlink_vlan_ip6,
-                                    dst_ip=self.ptf_port_ip6)
+            src_mac=self.downlink_vlan_mac,
+            dst_mac=self.ptf_port_mac,
+            src_ip=self.downlink_vlan_ip6,
+            dst_ip=self.ptf_port_ip6)
 
         self.masked_rapkt = self.mask_off_dont_care_ra_packet_fields(rapkt)
         self.rs_packet = self.create_icmpv6_router_solicitation_packet()
@@ -192,11 +196,11 @@ class RadvSolicitedRATest(DataplaneBaseTest):
     def tearDown(self):
         DataplaneBaseTest.tearDown(self)
 
-
     """
     @summary: Creates a solicited RA packet originating from PTF port
 
     """
+
     def create_icmpv6_router_solicitation_packet(self):
         ether = Ether(dst=ALL_ROUTERS_MULTICAST_MAC_ADDRESS,
                       src=self.ptf_port_mac)
@@ -213,17 +217,20 @@ class RadvSolicitedRATest(DataplaneBaseTest):
     @summary: Sends ICMPv6 router solicitation packet on PTF port
 
     """
+
     def ptf_send_icmpv6_router_solicitation(self):
         logging.info("Sending ICMPv6 router solicitation on PTF port:eth%s",
                      self.ptf_port_index)
         ret = testutils.send_packet(self, self.ptf_port_index, self.rs_packet)
         assert len(self.rs_packet) == ret, \
-               "Failed to send ICMPv6 router solicitation on PTF eth%s".format(self.ptf_port_index)
+            "Failed to send ICMPv6 router solicitation on PTF eth {}".format(
+                self.ptf_port_index)
 
     """
     @summary: Verify the received solicited RA packet from the router/DUT
 
     """
+
     def verify_solicited_router_advertisement_with_m_flag(self):
         testutils.verify_packet(self,
                                 self.masked_rapkt,
@@ -232,7 +239,7 @@ class RadvSolicitedRATest(DataplaneBaseTest):
         logging.info("Received solicited RA from:%s on PTF eth%d having M=1",
                      self.downlink_vlan_ip6,
                      self.ptf_port_index)
-        
+
     def runTest(self):
         count = 5
         while count > 0:

@@ -15,10 +15,10 @@ In order to migrate docker-ptf smoothly and incrementally, we plan to do it step
 
 Migration includes 4 stages:
 
-## Stage 1: Prepare Python3 virtual environment in docker-ptf
+    # Stage 1: Prepare Python3 virtual environment in docker-ptf
 Add Python3 virtual environment in docker-ptf, we will keep Python2 in this stage for incremental migration.
 
-[PR](https://github.com/sonic-net/sonic-buildimage/pull/10599) to address this.
+[PR](https: // github.com/sonic-net/sonic-buildimage/pull/10599) to address this.
 
 `/root/env-python3/bin/ptf` is installed and will be used for `ptftests` Python3 scripts.
 
@@ -27,7 +27,7 @@ Add Python3 virtual environment in docker-ptf, we will keep Python2 in this stag
 This stage was completed.
 
 
-## Stage 2: Migrate `ptftests` scripts one by one, feature by feature
+# Stage 2: Migrate `ptftests` scripts one by one, feature by feature
 
 There are 36 scripts under `ansible/role/test/files/ptftests` in `sonic-mgmt` repo, including nearly 20 features.
 There are 11 scripts under `ansible/role/test/files/acstests` as well.
@@ -38,9 +38,9 @@ There are 11 scripts under `ansible/role/test/files/acstests` as well.
 2to3 is a tool which can covert script from Python2 to Python3 automatically.
 
 The command looks like this:
-`2to3 --write --nobackups ansible/role/test/files/ptftests/your_script`
+`2to3 - -write - -nobackups ansible/role/test/files/ptftests/your_script`
 
-Here is the [doc](https://docs.python.org/3/library/2to3.html) for 2to3.
+Here is the[doc](https: // docs.python.org/3/library/2to3.html) for 2to3.
 
 
 If it is not available on your host, you need to first install the following packages:
@@ -62,9 +62,9 @@ Then you can check changes with `git diff`
 
 `ansible/role/test/files/ptftests/py3` is a new added subfolder for Python3 scripts.
 
-`ptf` command will load all scripts under `--test-dir` before running test. It will fail if some modules can't be imported.
+`ptf` command will load all scripts under `- -test-dir` before running test. It will fail if some modules can't be imported.
 
-For Python3 scripts, they will call `/root/env-python3/bin/ptf` command, `--test-dir` is `ptftests/py3`, it only loads all script under `ptftests/py3`, don't check the scripts under `ptftests`.
+For Python3 scripts, they will call `/ root/env-python3/bin/ptf` command, `--test-dir` is `ptftests/py3`, it only loads all script under `ptftests/py3`, don't check the scripts under `ptftests`.
 
 But for left Python2 scripts, they will still call `ptf` command, `--test-dir` is `ptftests`, it will load all scripts under `ptftests` even scripts under subfolder `py3`.
 So make sure it doesn't have incompatible issue when running `ptf` command.
@@ -81,47 +81,45 @@ if MACSEC_SUPPORTED:
     import scapy.contrib.macsec as scapy_macsec
 ```
 
-If your scripts involves the following library scripts, please create a **soft link** under `py3` for them after modification. Other remained scripts of Python2 will still use them. They will be used for both sides during the period of migration.
- - `lmp.py`
- - `fib.py`
- - `fib_test.py`
- - `device_connection.py`
+If your scripts involves the following library scripts, please create a ** soft link ** under `py3` for them after modification. Other remained scripts of Python2 will still use them. They will be used for both sides during the period of migration.
+- `lmp.py`
+- `fib.py`
+- `fib_test.py`
+- `device_connection.py`
 
 **Important: These library scripts should be both Python2 and Python3 compatible.**
 
 
-Please check [this PR](https://github.com/sonic-net/sonic-mgmt/pull/5490) for reference.
+Please check[this PR](https: // github.com/sonic-net/sonic-mgmt/pull/5490) for reference.
 
 **3. Update `tests` script to call virtual env ptf**
 
-Add `is_python3=True` parameter for `ptf_runner` in your test script. Such as:
+Add `is_python3 = True` parameter for `ptf_runner` in your test script. Such as:
 
 ```
-        ptf_runner(ptfhost,
-                   "ptftests",
-                   "dhcpv6_relay_test.DHCPTest",
-                   platform_dir="ptftests",
-                   params={"hostname": duthost.hostname,
-                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
-                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
-                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs']),
-                           "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
-                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
-                           "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
-                   log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+ptf_runner(ptfhost,
+           "ptftests",
+           "dhcpv6_relay_test.DHCPTest",
+           platform_dir="ptftests",
+           params={"hostname": duthost.hostname,
+                   "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                   "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                   "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs']),
+                   "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
+                   "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                   "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                   "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
+                   "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
+           log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 ```
 
 
-
-It will run `/root/env-python3/bin/ptf` instead of `ptf` which is used for Python2 now.
+It will run `/ root/env-python3/bin/ptf` instead of `ptf` which is used for Python2 now.
 And it will also call your modified ptftests scripts under subfolder `py3`.
 
 That's the difference of usage between Python2 and Python3 script.
 
-Please take [DHCP Relay PR](https://github.com/sonic-net/sonic-mgmt/pull/5534)  and [dir bcast RP](https://github.com/sonic-net/sonic-mgmt/pull/5540)for reference.
-
+Please take[DHCP Relay PR](https: // github.com/sonic-net/sonic-mgmt/pull/5534) and [dir bcast RP](https: // github.com/sonic-net/sonic-mgmt/pull/5540)for reference.
 
 
 **4. Run test cases with correct docker-ptf image to do verification**
@@ -131,22 +129,22 @@ Please take [DHCP Relay PR](https://github.com/sonic-net/sonic-mgmt/pull/5534)  
 For Python3, scripts use `ptf 0.9.3` and `scapy 2.4.5`, some packet format could be different, we have to retest scripts manually before submit PR.
 
 - Check `docker-ptf` image
-Login to `docker-ptf` container to check if it's correct image. If there is `env-python3` under `/root`, it means you are using the correct image.
+Login to `docker-ptf` container to check if it's correct image. If there is `env-python3` under `/ root`, it means you are using the correct image.
 
 ```
-azure@STR-ACS-SERV-07:~$ docker exec -it ptf_vms7-11 bash
-root@72cf0e0442c3:~# cd /root
-root@72cf0e0442c3:~# ls
+azure@STR-ACS-SERV-07: ~$ docker exec - it ptf_vms7-11 bash
+root@72cf0e0442c3: ~  # cd /root
+root@72cf0e0442c3: ~  # ls
 debs  env-python3  gnxi  python-saithrift_0.9.4_amd64.deb
-root@72cf0e0442c3:~#
+root@72cf0e0442c3: ~
 ```
 Otherwise, it will throw exception to ask you to update `docker-ptf` image.
 
 
 - Submit PR
-Please add **[python3]** in your RP title.
+Please add ** [python3] ** in your RP title.
 
-## Stage 3: Migrate other functionaly scripts which run in docker-ptf
+# Stage 3: Migrate other functionaly scripts which run in docker-ptf
 Some functional scripts are also copied and ran in docker-ptf, such as:
 - `scripts/arp_responder.py`
 - `scripts/garp_service.py`
@@ -159,16 +157,12 @@ Some functional scripts are also copied and ran in docker-ptf, such as:
 - `ansible/library/exabgp.py`
 - `arp/files/ferret.py`
 
-During migration of these scripts, make sure to call `/root/env-python3/bin/python3` to run them.
+During migration of these scripts, make sure to call `/ root/env-python3/bin/python3` to run them.
 
-## Stage 4: Migrate docker-ptf to pure Python3 environment
+# Stage 4: Migrate docker-ptf to pure Python3 environment
 When stage 3 is done, this could be the final stage:
 - Update docker-ptf's Dockerfile, use bullseye and will no install Python2, just keep Python3 environment.
 - Move all ptftests scripts from `py3` subfolder to `ptftests` fodler.
-- Remove `is_python3` parameter in ptf_runner, remove `/root/env-python3/bin/ptf` part, just call `ptf` command.
-- Remove `is_python3=True` for all tests scripts.
+- Remove `is_python3` parameter in ptf_runner, remove `/ root/env-python3/bin/ptf` part, just call `ptf` command.
+- Remove `is_python3 = True` for all tests scripts.
 - Remove those checkers for Python version in `ptftests` scripts.
-
-
-
-
