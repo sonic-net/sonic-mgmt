@@ -88,6 +88,13 @@ bgp/test_bgp_multipath_relax.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_session_flap.py:
+  skip:
+    reason: "Skip t1 for now, there is some issue for this case."
+    conditions:
+      - "'t1' in topo_type"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7963
+
 bgp/test_bgp_slb.py:
   skip:
     reason: "Skip over topologies which doesn't support slb."
@@ -314,6 +321,12 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
+dualtor/test_orchagent_active_tor_downstream.py::test_downstream_ecmp_nexthops:
+  skip:
+    reason: "On Mellanox SPC1 platforms, due to HW limitation, the hierarchy ecmp behavior is not exactly as expected in the test case."
+    conditions:
+      - "asic_gen == 'spc1'"
+
 #######################################
 #####         dut_console         #####
 #######################################
@@ -424,6 +437,13 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
 
+generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
+  skip:
+    reason: 'Skipping test on mellanox platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/7733'
+    conditions:
+      - "asic_type in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7733
+
 #######################################
 #####           http              #####
 #######################################
@@ -487,9 +507,9 @@ ip/test_ip_packet.py:
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
   skip:
-    reason: "Broadcom, Cisco, Barefoot and Marvell Asic will tolorate IP packets with 0xffff checksum"
+    reason: "Broadcom, Cisco, Barefoot, Innovium and Marvell Asic will tolorate IP packets with 0xffff checksum"
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot'] and asic_subtype not in ['broadcom-dnx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'innovium'] and asic_subtype not in ['broadcom-dnx']"
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
   skip:
@@ -934,7 +954,7 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot','innovium']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','innovium']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:

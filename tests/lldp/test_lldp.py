@@ -17,12 +17,16 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     unpatch_lldpctl(localhost, duthost)
 
 
-def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, collect_techsupport_all_duts, enum_frontend_asic_index):
+def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
+              collect_techsupport_all_duts, enum_frontend_asic_index):
     """ verify the LLDP message on DUT """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
+    config_facts = duthost.asic_instance(
+        enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    lldpctl_facts = duthost.lldpctl_facts(
+        asic_instance_id=enum_frontend_asic_index,
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
     if not list(lldpctl_facts['lldpctl'].items()):
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
     for k, v in list(lldpctl_facts['lldpctl'].items()):
@@ -46,13 +50,17 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
                 not sent since it contain invalid OIDs, bug.*",
         ])
 
-    res = duthost.shell("docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
+    res = duthost.shell(
+        "docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
-    lldpctl_facts = duthost.lldpctl_facts(asic_instance_id=enum_frontend_asic_index, skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
-    config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    lldpctl_facts = duthost.lldpctl_facts(
+        asic_instance_id=enum_frontend_asic_index,
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
+    config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname,
+                                                                                source="running")['ansible_facts']
     if not list(lldpctl_facts['lldpctl'].items()):
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
-    # We use the MAC of mgmt port to generate chassis ID as LLDPD dose. 
+    # We use the MAC of mgmt port to generate chassis ID as LLDPD dose.
     # To be compatible with PR #3331, we keep using router MAC on T2 devices
     switch_mac = ""
     if tbinfo["topo"]["type"] != "t2":
@@ -68,20 +76,23 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
     for k, v in list(lldpctl_facts['lldpctl'].items()):
         try:
             hostip = v['chassis']['mgmt-ip']
-        except:
+        except Exception:
             logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
             hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
 
-        nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
+        nei_lldp_facts = localhost.lldp_facts(
+            host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
         neighbor_interface = v['port']['ifname']
         # Verify the published DUT system name field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
         # Verify the published DUT chassis id field is not empty
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
-               "0x%s" % (switch_mac.replace(':', ''))
+            "0x%s" % (switch_mac.replace(':', ''))
         # Verify the published DUT system description field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc'] == dut_system_description
         # Verify the published DUT port id field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == config_facts['PORT'][k]['alias']
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == \
+            config_facts['PORT'][k]['alias']
         # Verify the published DUT port description field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == config_facts['PORT'][k]['description']
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
+            config_facts['PORT'][k]['description']
