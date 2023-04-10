@@ -158,7 +158,7 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
         # "...Error: After applying patch to config, there are still some parts not updated\n"
         # The above error is possible, if some control plane component is making an update.
         # We can ignore rc, as DB comp is the final check. So skip it.
-        assert res["rc"] == 0, "Failed to apply patch"
+        # assert res["rc"] == 0, "Failed to apply patch"
 
     do_pause(PAUSE_CLET_APPLY, "Pause after applying add patch")
 
@@ -204,10 +204,10 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
         # "...Error: After applying patch to config, there are still some parts not updated\n"
         # The above error is possible, if some control plane component is making an update.
         # We can ignore rc, as DB comp is the final check. So skip it.
-        assert res["rc"] == 0, "Failed to apply patch"
+        # assert res["rc"] == 0, "Failed to apply patch"
 
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_rm_t0_dir,
             no_t0_db_dir, "generic_patch_rm_t0"), \
-            "DB compare failed after removing T0 via generic patch updater"
+            "DB compare failed after adding T0 via generic patch updater"
 
 
