@@ -744,12 +744,57 @@ sonic_arista32_100:
     str3-7060-acs-1:
       ansible_host: 10.3.146.240
       hwsku: Arista-7060CX-32S-D48C8
+      model: DCS-7060CX-32S
+      serial: SSJ17111898
+      base_mac: 28:99:3a:a0:97:30
+      syseeprom_info:
+        "0x21": "DCS-7060CX-32S"
+        "0x22": "ASY0171710B0"
+        "0x23": "SSJ17111898"
+        "0x24": "28:99:3a:a0:97:30"
+        "0x25": "2017/07/01 13:12:45"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7060_cx32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.2-4757975"
+        "0x2F": "SSJ17111898"
     str3-7060-acs-2:
       ansible_host: 10.3.146.242
       hwsku: Arista-7060CX-32S-D48C8
+      model: DCS-7060CX-32S
+      serial: SGD20445310
+      base_mac: d4:af:f7:ff:fe:14
+      syseeprom_info:
+        "0x21": "DCS-7060CX-32S"
+        "0x22": "ASY0171710F0"
+        "0x23": "SGD20445310"
+        "0x24": "d4:af:f7:ff:fe:14"
+        "0x25": "2020/11/04 22:38:24"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7060_cx32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.10-14653765"
+        "0x2F": "SGD20445310"
     str3-7060-acs-3:
       ansible_host: 10.3.146.243
       hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial: SGD20436388
+      base_mac: d4:af:f7:ff:70:48
+      syseeprom_info:
+        "0x21": "DCS-7060CX-32S"
+        "0x22": "ASY0171710F0"
+        "0x23": "SGD20436388"
+        "0x24": "d4:af:f7:ff:70:48"
+        "0x25": "2020/11/04 09:11:22"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7060_cx32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.10-14653765"
+        "0x2F": "SGD20436388"
   vars:
     iface_speed: 100000
 

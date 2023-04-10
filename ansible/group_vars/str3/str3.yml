@@ -24,6 +24,8 @@ erspan_dest: ['10.20.6.16']
 #'RadiusResources' in minigraph
 radius_servers: []
 
+radius_passkey: testing123
+
 # It can be a real lab tacacs server.
 tacacs_servers: ['10.3.145.14', '10.3.145.15']
 
