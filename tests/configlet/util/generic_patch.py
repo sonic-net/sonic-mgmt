@@ -178,7 +178,6 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
 def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
     # Load config with T0
     #
-    logger.info("JXIE: inside gp to rm")
     if not skip_load:
         duthost.copy(src=os.path.join(orig_db_dir, "config_db.json"),
                 dest="/etc/sonic/config_db.json")
@@ -195,12 +194,10 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
     patch_files = _list_patch_files(patch_rm_t0_dir)
 
     CMD = CMD_APPLY_HACK if hack_apply else CMD_APPLY
-    logger.info("JXIE: inside gp start apply")
+
     for fl in patch_files:
         sonic_fl = os.path.join("/etc/sonic", fl)
-        logger.info("JXIE: inside gp before copy")
         duthost.copy(src=os.path.join(patch_rm_t0_dir, fl), dest=sonic_fl)
-        logger.info("JXIE: inside gp after copy")
         res = duthost.shell(CMD.format(sonic_fl), module_ignore_errors=True)
 
         # HACK: TODO: There are scenarios, where it applies patch and still consider as failed

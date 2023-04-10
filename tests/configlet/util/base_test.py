@@ -280,7 +280,7 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         set_log_prefix_msg("patch_add")
         generic_patch.generic_patch_add_t0(duthost, skip_load = skip_clet_test,
                 hack_apply=hack_apply)
-    logger.info("JXIE: start to rm")
+
     if not skip_generic_rm:
         # generic_patch_rm_t0 expects T0 added.
         # Via clet or generic_add; Else load orig config

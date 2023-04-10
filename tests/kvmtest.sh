@@ -224,7 +224,6 @@ test_t2() {
 test_t1_lag() {
     tgname=t1_lag
     tests="\
-    configlet/test_add_rack.py \
     bgp/test_bgp_allow_list.py \
     bgp/test_bgp_bbr.py \
     bgp/test_bgp_bounce.py \
@@ -233,6 +232,7 @@ test_t1_lag() {
     bgp/test_bgp_update_timer.py \
     bgp/test_bgpmon.py \
     bgp/test_traffic_shift.py \
+    configlet/test_add_rack.py \
     container_checker/test_container_checker.py \
     http/test_http_copy.py \
     ipfwd/test_mtu.py \
