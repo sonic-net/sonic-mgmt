@@ -17,7 +17,7 @@ class FanoutHost(object):
     For running ansible module on the Fanout switch
     """
 
-    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd, shell_user=None, shell_passwd=None):
+    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd, eos_shell_user=None, eos_shell_passwd=None):
         self.hostname = hostname
         self.type = device_type
         self.host_to_fanout_port_map = {}
@@ -26,8 +26,8 @@ class FanoutHost(object):
             self.os = os
             self.fanout_port_alias_to_name = {}
             self.host = SonicHost(ansible_adhoc, hostname,
-                                  shell_user=shell_user,
-                                  shell_passwd=shell_passwd)
+                                  ssh_user=user,
+                                  ssh_passwd=passwd)
         elif os == 'onyx':
             self.os = os
             self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)

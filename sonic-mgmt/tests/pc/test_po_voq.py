@@ -8,6 +8,7 @@ pytestmark = [
     pytest.mark.topology('t2')
 ]
 
+
 def get_asic_with_pc(duthost):
     """
     Returns Asic with portchannel
@@ -24,6 +25,7 @@ def get_asic_with_pc(duthost):
                                             asic_index=asic.asic_index)['ansible_facts']
         if 'PORTCHANNEL' in config_facts:
             return asic
+
 
 @pytest.fixture(scope='module')
 def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -105,6 +107,7 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         if voq_lag.is_lag_in_app_db(asic):
             voq_lag.delete_lag(duthost, asic)
 
+
 def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):
     """
     Test to verify when a LAG members is added/deleted via CLI on an ASIC,
@@ -120,6 +123,6 @@ def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
     voq_lag.verify_lag_member_in_app_db(asic, portchannel_members)
     voq_lag.verify_lag_member_in_chassis_db(duthosts, portchannel_members)
-    voq_lag.verify_lag_member_in_asic_db(duthost.asics, tmp_lag_id,portchannel_members)
+    voq_lag.verify_lag_member_in_asic_db(duthost.asics, tmp_lag_id, portchannel_members)
     remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     voq_lag.verify_lag_member_in_remote_asic_db(remote_duthosts, tmp_lag_id, portchannel_members, deleted=True)

@@ -135,7 +135,3 @@ def get_skip_logical_module_list(duthost, mod_key=None):
                     for mod_id in dut_vars['skip_logical_modules'][mod_type]:
                         skip_logical_mod_list.append(mod_id)
     return skip_logical_mod_list
-
-
-
-

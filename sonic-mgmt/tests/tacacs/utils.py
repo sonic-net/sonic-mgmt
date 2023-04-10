@@ -193,9 +193,10 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     # Find ld lib symbolic link target, and fix the tac_plus config file
     fix_ld_path_in_config(duthost, ptfhost)
 
+    # config TACACS+ to use debug flag: '-d 2058', so received data will write to /var/log/tac_plus.log
     ptfhost.lineinfile(
         path="/etc/default/tacacs+",
-        line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"",
+        line="DAEMON_OPTS=\"-d 2058 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"",
         regexp='^DAEMON_OPTS=.*'
     )
     check_all_services_status(ptfhost)
