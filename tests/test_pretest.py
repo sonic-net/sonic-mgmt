@@ -281,14 +281,12 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
 
     file_name = tbname + '.json'
     folder = 'pfc_headroom_test_params'
-
-    
     filepath = os.path.join(folder, file_name)
     try:
         if not os.path.exists(folder):
             os.mkdir(folder)
         with open(filepath, 'w') as yf:
-            json.dump({ tbname : pfc_pause_delay_params}, yf, indent=4)
+            json.dump({tbname: pfc_pause_delay_params}, yf, indent=4)
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
