@@ -244,9 +244,9 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
             # config reload on active tor
             duthost.shell('config save -y')
             if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
-                config_reload(duthost, wait=400)
+                config_reload(duthost, wait=500)
             else:
-                config_reload(duthost, wait=350)
+                config_reload(duthost, wait=450)
             # FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
