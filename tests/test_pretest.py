@@ -331,7 +331,8 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
                 if len(selected_ports) == max_interfaces_per_dut:
                     break
                 auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
-                if auto_neg_mode is not None:
+                fec_mode = duthost.get_port_fec(dut_port)
+                if auto_neg_mode is not None and fec_mode is not None:
                     speeds = get_common_supported_speeds(duthost, dut_port, fanout, fanout_port)
                     selected_ports[dut_port] = {
                         'fanout': fanout.hostname,
