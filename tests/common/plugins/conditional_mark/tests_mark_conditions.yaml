@@ -327,6 +327,12 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
+dualtor/test_orchagent_active_tor_downstream.py::test_downstream_ecmp_nexthops:
+  skip:
+    reason: "On Mellanox SPC1 platforms, due to HW limitation, the hierarchy ecmp behavior is not exactly as expected in the test case."
+    conditions:
+      - "asic_gen == 'spc1'"
+
 #######################################
 #####         dut_console         #####
 #######################################
@@ -960,7 +966,7 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic or release version"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot','innovium']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','innovium']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
