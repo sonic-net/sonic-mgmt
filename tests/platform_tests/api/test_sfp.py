@@ -381,9 +381,10 @@ class TestSfpApi(PlatformApiTestBase):
 
                         if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
-                                                           self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS + \
-                                                           ["active_apsel_hostlane{}".format(n)
-                                                            for n in range(1, info_dict['host_lane_count'] + 1)]
+                                                           self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + \
+                                                           ["active_apsel_hostlane{}"
+                                                            .format(i) for i in
+                                                            range(1, info_dict['host_lane_count'] + 1)]
                         else:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
                     missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
@@ -402,8 +403,8 @@ class TestSfpApi(PlatformApiTestBase):
                     unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS +
                                                              self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
-                        # hardware_rev is applicable only for QSFP-DD or OSFP
-                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        # hardware_rev is applicable only for QSFP-DD
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] == "QSFP-DD":
                             continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
@@ -759,14 +760,9 @@ class TestSfpApi(PlatformApiTestBase):
                 if ret is None:
                     logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
-                if state is True:
-                    delay = self.lp_mode_assert_delay(info_dict)
-                else:
-                    delay = self.lp_mode_deassert_delay(info_dict)
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}"
                             .format("enable" if state is True else "disable", i))
-                self.expect(wait_until(5, 1, delay,
-                                       self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
                             "Transceiver {} expected low-power state {} is not aligned with the real state"
                             .format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
@@ -813,8 +809,7 @@ class TestSfpApi(PlatformApiTestBase):
             power_override = sfp.get_power_override(platform_api_conn, i)
             if self.expect(power_override is not None,
                            "Unable to retrieve transceiver {} power override data".format(i)):
-                self.expect(power_override is power_override_bit_value_pretest,
-                            "Transceiver {} power override data is incorrect".format(i))
+                self.expect(power_override is False, "Transceiver {} power override data is incorrect".format(i))
         self.assert_expectations()
 
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):

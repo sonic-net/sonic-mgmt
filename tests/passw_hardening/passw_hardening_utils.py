@@ -2,7 +2,6 @@ import logging
 import os
 import difflib
 import operator
-import six
 from tests.common.helpers.assertions import pytest_assert
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))

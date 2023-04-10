@@ -89,7 +89,7 @@ class PfcCmd(object):
             counter value(string)
         """
         asic = dut.get_queue_oid_asic_instance(queue_oid)
-        return six.text_type(asic.run_redis_cmd(
+        return asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", "2", "HGET",
                 "COUNTERS:{}".format(queue_oid), attr
@@ -163,7 +163,7 @@ class PfcCmd(object):
             db = "4"
             pg_pattern = "BUFFER_PG|{}|3-4"
 
-        pg_profile = six.text_type(asic.run_redis_cmd(
+        pg_profile = asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", db, "HGET",
                 pg_pattern.format(port), "profile"
@@ -174,7 +174,7 @@ class PfcCmd(object):
             pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        alpha = six.text_type(asic.run_redis_cmd(
+        alpha = asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "dynamic_th"
             ]
