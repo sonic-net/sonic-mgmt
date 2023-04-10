@@ -92,8 +92,8 @@ class LabGraph(object):
         """
         Given the device hostname and port alias, return the corresponding port name.
         """
-        devtype = self.devices[device_hostname]['Type'].lower()
-        if 'sonic' not in devtype:
+        os = self.devices[device_hostname].get('Os', '').lower()
+        if os != 'sonic':
             raise Exception("Cannot convert port alias to name for non-SONiC device {}".format(device_hostname))
         hwsku = self.devices[device_hostname]['HwSku']
         port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
@@ -146,8 +146,8 @@ class LabGraph(object):
         # For SONiC devices (DUT/Fanout), convert port alias to port name. Updates in `links_group_by_devices` will
         # also be reflected in `self.links`, because they are holding reference to the same underlying `link` variable.
         for device, links in links_group_by_devices.items():
-            devtype = self.devices[device]['Type'].lower()
-            if 'sonic' not in devtype:
+            os = self.devices[device].get('Os', '').lower()
+            if os != 'sonic':
                 continue
             ports = []
             for link in links:
