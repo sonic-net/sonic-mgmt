@@ -1,7 +1,13 @@
 import datetime
 import ipaddress
+import sys
 
 from tests.common import constants
+import sys
+
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
 
 
 class TrafficPorts(object):
@@ -16,7 +22,7 @@ class TrafficPorts(object):
         """
         self.mg_facts = mg_facts
         self.bgp_info = self.mg_facts['minigraph_bgp']
-        self.port_idx_info = self.mg_facts['minigraph_port_indices']
+        self.port_idx_info = self.mg_facts['minigraph_ptf_indices']
         self.pc_info = self.mg_facts['minigraph_portchannels']
         self.vlan_info = self.mg_facts['minigraph_vlans']
         self.neighbors = neighbors
@@ -58,7 +64,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for intf in self.mg_facts['minigraph_interfaces']:
-            if ipaddress.ip_address(unicode(intf['addr'])).version != 4:
+            if ipaddress.ip_address(str(intf['addr'])).version != 4:
                 continue
             # first port
             if not self.pfc_wd_rx_port:
@@ -77,7 +83,7 @@ class TrafficPorts(object):
                 pfc_wd_test_neighbor_addr = None
 
                 for item in self.bgp_info:
-                    if ipaddress.ip_address(unicode(item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(item['addr'])).version != 4:
                         continue
                     if not self.pfc_wd_rx_neighbor_addr and item['peer_addr'] == self.pfc_wd_rx_port_addr:
                         self.pfc_wd_rx_neighbor_addr = item['addr']
@@ -120,7 +126,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for item in self.mg_facts['minigraph_portchannel_interfaces']:
-            if ipaddress.ip_address(unicode(item['addr'])).version != 4:
+            if ipaddress.ip_address(str(item['addr'])).version != 4:
                 continue
             pc = item['attachto']
             # first port
@@ -142,7 +148,7 @@ class TrafficPorts(object):
                 pfc_wd_test_neighbor_addr = None
 
                 for bgp_item in self.bgp_info:
-                    if ipaddress.ip_address(unicode(bgp_item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(bgp_item['addr'])).version != 4:
                         continue
                     if not self.pfc_wd_rx_neighbor_addr and bgp_item['peer_addr'] == self.pfc_wd_rx_port_addr:
                         self.pfc_wd_rx_neighbor_addr = bgp_item['addr']
@@ -188,8 +194,12 @@ class TrafficPorts(object):
             temp_ports (dict): port info constructed from the vlan interfaces
         """
         temp_ports = dict()
-        vlan_details = self.vlan_info.values()[0]
-        vlan_members = vlan_details['members']
+        # In Python2, dict.values() returns list object, but in Python3 returns an iterable but not indexable object.
+        # So that convert to list explicitly.
+        vlan_details = list(self.vlan_info.values())[0]
+        # Filter(remove) PortChannel interfaces from VLAN members list
+        vlan_members = [port for port in vlan_details['members'] if 'PortChannel' not in port]
+
         vlan_type = vlan_details.get('type')
         vlan_id = vlan_details['vlanid']
         rx_port = self.pfc_wd_rx_port if isinstance(self.pfc_wd_rx_port, list) else [self.pfc_wd_rx_port]
@@ -215,7 +225,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for sub_intf in self.mg_facts['minigraph_vlan_sub_interfaces']:
-            if ipaddress.ip_address(unicode(sub_intf['addr'])).version != 4:
+            if ipaddress.ip_address(str(sub_intf['addr'])).version != 4:
                 continue
             intf_name, vlan_id = sub_intf['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
             # first port
@@ -236,7 +246,7 @@ class TrafficPorts(object):
                 pfc_wd_test_neighbor_addr = None
 
                 for item in self.bgp_info:
-                    if ipaddress.ip_address(unicode(item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(item['addr'])).version != 4:
                         continue
                     if not self.pfc_wd_rx_neighbor_addr and item['peer_addr'] == self.pfc_wd_rx_port_addr:
                         self.pfc_wd_rx_neighbor_addr = item['addr']
@@ -300,7 +310,7 @@ def select_test_ports(test_ports):
     selected_ports = dict()
     rx_ports = set()
     seed = int(datetime.datetime.today().day)
-    for port, port_info in test_ports.items():
+    for port, port_info in list(test_ports.items()):
         rx_port = port_info["rx_port"]
         if isinstance(rx_port, (list, tuple)):
             rx_ports.update(rx_port)
@@ -310,11 +320,11 @@ def select_test_ports(test_ports):
             selected_ports[port] = port_info
 
     # filter out selected ports that also act as rx ports
-    selected_ports = {p: pi for p, pi in selected_ports.items()
+    selected_ports = {p: pi for p, pi in list(selected_ports.items())
                       if p not in rx_port}
 
     if not selected_ports:
-        random_port = test_ports.keys()[0]
+        random_port = list(test_ports.keys())[0]
         selected_ports[random_port] = test_ports[random_port]
 
     return selected_ports

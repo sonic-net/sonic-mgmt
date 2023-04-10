@@ -4,8 +4,8 @@ import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from vnet_constants import *
-from vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
+from .vnet_constants import *
+from .vnet_utils import cleanup_vnet_routes, cleanup_dut_vnets, cleanup_vxlan_tunnels, \
                        apply_dut_config_files, generate_dut_config_files
 from tests.common.config_reload import config_reload
 
@@ -68,7 +68,7 @@ def configure_dut(request, minigraph_facts, duthosts, rand_one_dut_hostname, vne
         duthost.shell(DELETE_BACKUP_CONFIG_DB_CMD)
 
         cleanup_vnet_routes(duthost, vnet_test_params, num_routes)
-        cleanup_dut_vnets(duthost, minigraph_facts, vnet_config)
+        cleanup_dut_vnets(duthost, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
 
         logger.info("Restarting BGP and waiting for BGP sessions")

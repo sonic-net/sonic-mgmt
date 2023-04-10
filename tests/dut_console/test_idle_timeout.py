@@ -1,7 +1,6 @@
-import pytest
-import pexpect
 import logging
 import time
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 
@@ -9,6 +8,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TMOUT = "900"
 SET_TMOUT = "10"
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 
 def test_timeout(duthost_console, duthost):
     logger.info("Get default session idle timeout")

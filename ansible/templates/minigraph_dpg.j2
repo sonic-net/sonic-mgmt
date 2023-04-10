@@ -104,6 +104,7 @@
       <RsvpInterfaces/>
       <Hostname>{{ inventory_hostname }}</Hostname>
       <PortChannelInterfaces>
+{% if vm_topo_config['topo_type'] != 'wan' %}
 {% for index in range(vms_number) %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(intf_names[vms[index]])  %}
@@ -122,6 +123,18 @@
           <AttachTo>{{ port_channel_intf }}</AttachTo>
           <SubInterface/>
         </PortChannel>
+{% endfor %}
+{% endif %}
+{% elif 'wan_dut_configuration' in vm_topo_config %}
+{% for ifname, params in vm_topo_config['wan_dut_configuration'][dut_index|int]['interfaces'].items() %}
+{% if ifname.startswith('PortChannel') %}
+{% set port_channel_intf=';'.join(params['intfs'] | map('extract', port_alias)) %}
+        <PortChannel>
+          <Name>{{ ifname }}</Name>
+          <AttachTo>{{ port_channel_intf }}</AttachTo>
+          <SubInterface/>
+        </PortChannel>
+{% endif %}
 {% endfor %}
 {% endif %}
       </PortChannelInterfaces>
@@ -165,7 +178,7 @@
 {% endif %}
       </VlanInterfaces>
       <IPInterfaces>
-{% if card_type is not defined or card_type != 'supervisor' %}
+{% if (card_type is not defined or card_type != 'supervisor') and (vm_topo_config['topo_type'] != 'wan') %}
 {% for index in range(vms_number) %}
 {% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
         <IPInterface>
@@ -206,11 +219,30 @@
 {%   endif %}
 {% endfor %}
 {% endif %}
+{% elif vm_topo_config['topo_type'] == 'wan' and 'wan_dut_configuration' in vm_topo_config %}
+{% for ifname, params in vm_topo_config['wan_dut_configuration'][dut_index|int]['interfaces'].items() %}
+{% if ifname.startswith('PortChannel') %}
+{% if 'ipv4' in params %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ ifname }}</AttachTo>
+          <Prefix>{{ params['ipv4'] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% if 'ipv6' in params %}
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>{{ ifname }}</AttachTo>
+          <Prefix>{{ params['ipv6'] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% endif %}
+{% endfor %}
 {% endif %}
       </IPInterfaces>
       <DataAcls/>
       <AclInterfaces>
-{% if card_type is not defined or card_type != 'supervisor' %}
+{% if switch_type is not defined or switch_type != 'dpu' %}
         <AclInterface>
           <InAcl>NTP_ACL</InAcl>
           <AttachTo>NTP</AttachTo>
@@ -222,6 +254,12 @@
           <Type>SNMP</Type>
         </AclInterface>
         <AclInterface>
+          <AttachTo>VTY_LINE</AttachTo>
+          <InAcl>ssh-only</InAcl>
+          <Type>SSH</Type>
+        </AclInterface>
+{% if card_type is not defined or card_type != 'supervisor' %}
+        <AclInterface>
           <AttachTo>ERSPAN</AttachTo>
           <InAcl>Everflow</InAcl>
           <Type>Everflow</Type>
@@ -231,12 +269,7 @@
           <InAcl>EverflowV6</InAcl>
           <Type>EverflowV6</Type>
         </AclInterface>
-        <AclInterface>
-          <AttachTo>VTY_LINE</AttachTo>
-          <InAcl>ssh-only</InAcl>
-          <Type>SSH</Type>
-        </AclInterface>
-{% if enable_data_plane_acl|default('true')|bool %}
+{% if enable_data_plane_acl|default('true')|bool and vm_topo_config['topo_type'] != 'wan' %}
         <AclInterface>
           <AttachTo>
 {%- set acl_intfs = [] -%}
@@ -259,6 +292,7 @@
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif %}
 {% endif %}
 {% endif %}
       </AclInterfaces>
@@ -334,4 +368,3 @@
 {% endif %}
 {% include 'minigraph_dpg_asic.j2' %}
   </DpgDec>
-

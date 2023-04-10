@@ -3,6 +3,7 @@ import pytest
 import logging
 import time
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.common.platform.transceiver_utils import parse_transceiver_info
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 
@@ -34,13 +35,10 @@ def check_services(duthost):
     Perform a health check of services
     """
     logging.info("Wait until all critical services are fully started")
-    # Wait until 300 seconds after boot up since a part of the services has delayed start (e.g., snmp)
-    wait_until_uptime(duthost, 300)
+    pytest_assert(wait_until(330, 30, 0, duthost.critical_services_fully_started),
+                  "dut.critical_services_fully_started is False")
 
     logging.info("Check critical service status")
-    if not duthost.critical_services_fully_started():
-        raise RebootHealthError("dut.critical_services_fully_started is False")
-
     for service in duthost.critical_services:
         status = duthost.get_service_props(service)
         if status["ActiveState"] != "active":
@@ -87,7 +85,7 @@ def check_neighbors(duthost, tbinfo):
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     mg_facts  = duthost.get_extended_minigraph_facts(tbinfo)
 
-    for value in bgp_facts['bgp_neighbors'].values():
+    for value in list(bgp_facts['bgp_neighbors'].values()):
         # Verify bgp sessions are established
         if value['state'] != 'established':
             raise RebootHealthError("BGP session not established")

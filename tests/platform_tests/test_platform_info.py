@@ -2,7 +2,7 @@
 Check platform information
 
 This script covers the test case 'Check platform information' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import json
 import logging
@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
-from thermal_control_test_helper import *
+from .thermal_control_test_helper import *
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -46,7 +46,7 @@ LOG_EXPECT_INSUFFICIENT_FAN_NUM_RE = '.*Insufficient number of working fans warn
 LOG_EXPECT_INSUFFICIENT_FAN_NUM_CLEAR_RE = '.*Insufficient number of working fans warning cleared:.*'
 
 # These error messages are not triggered by platform test cases,
-# Ref to https://github.com/Azure/sonic-buildimage/issues/8944
+# Ref to https://github.com/sonic-net/sonic-buildimage/issues/8944
 SKIP_ERROR_LOG_COMMON = ['.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_get:.* queue egress Min limit get failed with error Invalid parameter.*',
                          '.*ERR syncd#syncd:.*collectQueueCounters: QUEUE_WATERMARK_STAT_COUNTER: failed to get stats of queue.*']
 
@@ -251,7 +251,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
     psu_test_results = {}
     pytest_require(check_all_psu_on(duthost, psu_test_results), "Some PSU are still down, skip rest of the testing in this case")
 
-    pytest_assert(len(psu_test_results.keys()) == psu_num, \
+    pytest_assert(len(list(psu_test_results.keys())) == psu_num, \
         "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus"))
 
     logging.info("Start testing turn off/on PSUs")

@@ -2,10 +2,10 @@
 Verify that the hw-management service is running properly
 
 This script covers test case 'Ensure that the hw-management service is running properly' in the SONiC platform test
-plan: https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+plan: https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import pytest
-from check_hw_mgmt_service import check_hw_management_service
+from .check_hw_mgmt_service import check_hw_management_service
 
 pytestmark = [
     pytest.mark.asic('mellanox'),

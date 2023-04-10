@@ -1,6 +1,6 @@
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
-from qos_fixtures import leaf_fanouts
-from qos_helpers import eos_to_linux_intf
+from .qos_fixtures import leaf_fanouts
+from .qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 import os
 import time
 import pytest
@@ -86,8 +86,15 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
             peer_device = conn_facts[intf]['peerdevice']
             peer_port = conn_facts[intf]['peerport']
             peerdev_ans = fanouthosts[peer_device]
+            fanout_os = peerdev_ans.get_fanout_os()
             fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
-            peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
+            if fanout_os == "nxos":
+                peer_port_name = nxos_to_linux_intf(peer_port)
+            elif fanout_os == "sonic":
+                peer_port_name = sonic_to_linux_intf(peer_port)
+            else:
+                peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
+
             if is_pfc:
                 for priority in range(PRIO_COUNT):
                     if fanout_hwsku == "MLNX-OS":
@@ -126,8 +133,15 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
                 peer_device = conn_facts[intf]['peerdevice']
                 peer_port = conn_facts[intf]['peerport']
                 peerdev_ans = fanouthosts[peer_device]
+                fanout_os = peerdev_ans.get_fanout_os()
                 fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
-                peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
+                if fanout_os == "nxos":
+                    peer_port_name = nxos_to_linux_intf(peer_port)
+                elif fanout_os == "sonic":
+                    peer_port_name = sonic_to_linux_intf(peer_port)
+                else:
+                    peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
+
                 if fanout_hwsku == "MLNX-OS":
                     cmd = 'docker exec %s "python %s -i %s -p %d -t %d -n %d"' % (onyx_pfc_container_name, PFC_GEN_FILE_ABSULOTE_PATH, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
                     peerdev_ans.host.config(cmd)

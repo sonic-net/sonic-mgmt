@@ -46,6 +46,14 @@ def pytest_addoption(parser):
         help="Location of your custom inventory file. "
              "If it is not specified, and inv_name not in testbed.csv, 'lab' will be used")
 
+    parser.addoption(
+        '--dynamic_update_skip_reason',
+        action='store_true',
+        dest='dynamic_update_skip_reason',
+        default=False,
+        help="Dynamically update the skip reason based on the conditions, "
+             "by default it will not use the static reason specified in the mark conditions file")
+
 
 def load_conditions(session):
     """Load the content from mark conditions file
@@ -80,7 +88,7 @@ def load_conditions(session):
             with open(conditions_file) as f:
                 logger.debug('Loaded test mark conditions file: {}'.format(conditions_file))
                 conditions = yaml.safe_load(f)
-                for key, value in conditions.items():
+                for key, value in list(conditions.items()):
                     conditions_list.append({key: value})
     except Exception as e:
         logger.error('Failed to load {}, exception: {}'.format(conditions_files, repr(e)), exc_info=True)
@@ -105,18 +113,19 @@ def read_asic_name(hwsku):
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
 
-        for key, value in asic_name.items():
+        for key, value in list(asic_name.copy().items()):
             if ('td' not in key) and ('th' not in key) and ('spc' not in key):
                 asic_name.pop(key)
 
-        for name, hw in asic_name.items():
+        for name, hw in list(asic_name.items()):
             if hwsku in hw:
                 return name.split('_')[1]
 
         return "unknown"
 
-    except IOError as e:
+    except IOError:
         return None
+
 
 def load_dut_basic_facts(inv_name, dut_name):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
@@ -146,6 +155,7 @@ def load_dut_basic_facts(inv_name, dut_name):
         logger.error('Failed to load dut basic facts, exception: {}'.format(repr(e)))
 
     return results
+
 
 def get_basic_facts(session):
     testbed_name = session.config.option.testbed
@@ -201,6 +211,7 @@ def load_minigraph_facts(inv_name, dut_name):
 
     return results
 
+
 def load_config_facts(inv_name, dut_name):
     """Run 'ansible -m config_facts -a 'host={{hostname}} source='persistent' ' command to get some basic config facts.
 
@@ -217,7 +228,8 @@ def load_config_facts(inv_name, dut_name):
     logger.info('Getting config basic facts')
     try:
         # get config basic faces
-        ansible_cmd = ['ansible', '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name), '{}'.format(dut_name), '-a', 'host={} source=\'persistent\''.format(dut_name)]
+        ansible_cmd = ['ansible', '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name),
+                       '{}'.format(dut_name), '-a', 'host={} source=\'persistent\''.format(dut_name)]
         raw_output = subprocess.check_output(ansible_cmd).decode('utf-8')
         logger.debug('raw config basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -230,6 +242,7 @@ def load_config_facts(inv_name, dut_name):
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
 
     return results
+
 
 def load_switch_capabilities_facts(inv_name, dut_name):
     """Run 'ansible -m switch_capabilities_facts' command to get some basic config facts.
@@ -259,6 +272,7 @@ def load_switch_capabilities_facts(inv_name, dut_name):
 
     return results
 
+
 def load_console_facts(inv_name, dut_name):
     """Run 'ansible -m console_facts' command to get some basic console facts.
 
@@ -287,6 +301,7 @@ def load_console_facts(inv_name, dut_name):
 
     return results
 
+
 def load_basic_facts(session):
     """Load some basic facts that can be used in condition statement evaluation.
 
@@ -307,41 +322,44 @@ def load_basic_facts(session):
 
     results['topo_type'] = tbinfo['topo']['type']
     results['topo_name'] = tbinfo['topo']['name']
+    results['testbed'] = testbed_name
 
     dut_name = tbinfo['duts'][0]
     if session.config.option.customize_inventory_file:
         inv_name = session.config.option.customize_inventory_file
-    elif 'inv_name' in tbinfo.keys():
+    elif 'inv_name' in list(tbinfo.keys()):
         inv_name = tbinfo['inv_name']
     else:
         inv_name = 'lab'
+    # Since internal repo add vendor test support, add check to see if it's sonic-os, other wise skip load facts.
+    vendor = session.config.getoption("--dut_vendor", "sonic")
+    if vendor == "sonic":
+        # Load DUT basic facts
+        _facts = load_dut_basic_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load DUT basic facts
-    _facts = load_dut_basic_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load minigraph basic facts
+        _facts = load_minigraph_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load minigraph basic facts
-    _facts = load_minigraph_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load config basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load config basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load switch capabilities basic facts
+        _facts = load_switch_capabilities_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load switch capabilities basic facts
-    _facts = load_switch_capabilities_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load console basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load console basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
-
-    # Load possible other facts here
+        # Load possible other facts here
 
     return results
 
@@ -373,7 +391,7 @@ def find_longest_matches(nodeid, conditions):
     return longest_matches
 
 
-def update_issue_status(condition_str):
+def update_issue_status(condition_str, session):
     """Replace issue URL with 'True' or 'False' based on its active state.
 
     If there is an issue URL is found, this function will try to query state of the issue and replace the URL
@@ -383,6 +401,7 @@ def update_issue_status(condition_str):
 
     Args:
         condition_str (str): Condition string that may contain issue URLs.
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         str: New condition string with issue URLs already replaced with 'True' or 'False'.
@@ -392,11 +411,17 @@ def update_issue_status(condition_str):
         logger.debug('No issue specified in condition')
         return condition_str
 
-    results = check_issues(issues)
+    issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+
+    unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
+    if unknown_issues:
+        results = check_issues(unknown_issues)
+        issue_status_cache.update(results)
+        session.config.cache.set('ISSUE_STATUS', issue_status_cache)
 
     for issue_url in issues:
-        if issue_url in results:
-            replace_str = str(results[issue_url])
+        if issue_url in issue_status_cache:
+            replace_str = str(issue_status_cache[issue_url])
         else:
             # Consider the issue as active anyway if unable to get issue state
             replace_str = 'True'
@@ -405,14 +430,18 @@ def update_issue_status(condition_str):
     return condition_str
 
 
-def evaluate_condition(condition, basic_facts):
+def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basic_facts, session):
     """Evaluate a condition string based on supplied basic facts.
 
     Args:
+        dynamic_update_skip_reason(bool): Dynamically update the skip reason based on the conditions, if it is true,
+            it will update the skip reason, else will not.
+        mark_details (dict): The mark detail infos specified in the mark conditions file.
         condition (str): A raw condition string that can be evaluated using python "eval()" function. The raw condition
             string may contain issue URLs that need further processing.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         bool: True or False based on condition string evaluation result.
@@ -420,41 +449,53 @@ def evaluate_condition(condition, basic_facts):
     if condition is None or condition.strip() == '':
         return True    # Empty condition item will be evaluated as True. Equivalent to be ignored.
 
-    condition_str = update_issue_status(condition)
+    condition_str = update_issue_status(condition, session)
     try:
-        return bool(eval(condition_str, basic_facts))
-    except Exception as e:
+        condition_result = bool(eval(condition_str, basic_facts))
+        if condition_result and dynamic_update_skip_reason:
+            mark_details['reason'].append(condition)
+        return condition_result
+    except Exception:
         logger.error('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
             condition,
             condition_str))
         return False
 
 
-def evaluate_conditions(conditions, basic_facts, conditions_logical_operator):
+def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, basic_facts,
+                        conditions_logical_operator, session):
     """Evaluate all the condition strings.
 
     Evaluate a single condition or multiple conditions. If multiple conditions are supplied, apply AND or OR
     logical operation to all of them based on conditions_logical_operator(by default AND).
 
     Args:
+        dynamic_update_skip_reason(bool): Dynamically update the skip reason based on the conditions, if it is true,
+            it will update the skip reason, else will not.
+        mark_details (dict): The mark detail infos specified in the mark conditions file.
         conditions (str or list): Condition string or list of condition strings.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
         conditions_logical_operator (str): logical operator which should be applied to conditions(by default 'AND')
+        session (obj): Pytest session object, for getting cached data.
 
     Returns:
         bool: True or False based on condition strings evaluation result.
     """
+    if dynamic_update_skip_reason:
+        mark_details['reason'] = []
     if isinstance(conditions, list):
         # Apply 'AND' or 'OR' operation to list of conditions based on conditions_logical_operator(by default 'AND')
         if conditions_logical_operator == 'OR':
-            return any([evaluate_condition(c, basic_facts) for c in conditions])
+            return any([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                        for c in conditions])
         else:
-            return all([evaluate_condition(c, basic_facts) for c in conditions])
+            return all([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                        for c in conditions])
     else:
         if conditions is None or conditions.strip() == '':
             return True
-        return evaluate_condition(conditions, basic_facts)
+        return evaluate_condition(dynamic_update_skip_reason, mark_details, conditions, basic_facts, session)
 
 
 def pytest_collection(session):
@@ -500,7 +541,7 @@ def pytest_collection_modifyitems(session, config, items):
         return
     logger.info('Available basic facts that can be used in conditional skip:\n{}'.format(
         json.dumps(basic_facts, indent=2)))
-
+    dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     for item in items:
         longest_matches = find_longest_matches(item.nodeid, conditions)
 
@@ -509,8 +550,8 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in longest_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
-                for mark_name, mark_details in list(match.values())[0].items():
-
+                for mark_name, mark_details in list(list(match.values())[0].items()):
+                    conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
                     if not mark_details:
                         add_mark = True
@@ -520,13 +561,18 @@ def pytest_collection_modifyitems(session, config, items):
                             # Unconditionally add mark
                             add_mark = True
                         else:
-                            conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
-                            add_mark = evaluate_conditions(mark_conditions, basic_facts, conditions_logical_operator)
+                            add_mark = evaluate_conditions(dynamic_update_skip_reason, mark_details, mark_conditions,
+                                                           basic_facts, conditions_logical_operator, session)
 
                     if add_mark:
                         reason = ''
                         if mark_details:
                             reason = mark_details.get('reason', '')
+                            if isinstance(reason, list):
+                                if conditions_logical_operator == "AND":
+                                    reason = " and\n".join(reason)
+                                else:
+                                    reason = " or\n".join(reason)
 
                         if mark_name == 'xfail':
                             strict = False

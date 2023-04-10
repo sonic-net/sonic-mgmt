@@ -2,15 +2,15 @@
 Check SFP status using sfpshow.
 
 This script covers test case 'Check SFP status and configure SFP' in the SONiC platform test plan:
-https://github.com/Azure/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
+https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 
 import logging
 import pytest
 
-from util import parse_eeprom
-from util import parse_output
-from util import get_dev_conn
+from .util import parse_eeprom
+from .util import parse_output
+from .util import get_dev_conn
 
 cmd_sfp_presence = "sudo sfpshow presence"
 cmd_sfp_eeprom = "sudo sfpshow eeprom"

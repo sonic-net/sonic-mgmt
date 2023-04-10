@@ -14,6 +14,7 @@ from sub_ports_helpers import setup_vlan
 from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import check_sub_port
 from sub_ports_helpers import remove_sub_port
+from sub_ports_helpers import create_sub_port_on_dut
 
 
 pytestmark = [
@@ -27,7 +28,8 @@ class TestSubPorts(object):
     """
     TestSubPorts class for testing sub-port interfaces
     """
-    def test_packet_routed_with_valid_vlan(self, duthost, ptfhost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
+    def test_packet_routed_with_valid_vlan(self, duthost, ptfhost, ptfadapter, apply_config_on_the_dut,
+                                           apply_config_on_the_ptf):
         """
         Validates that packet routed if sub-ports have valid VLAN ID.
 
@@ -44,7 +46,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in sub_ports.items():
+        for sub_port, value in list(sub_ports.items()):
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
                                         src_port=value['neighbor_port'],
@@ -53,33 +55,6 @@ class TestSubPorts(object):
                                         ip_dst=value['ip'],
                                         pkt_action='fwd')
 
-    def test_packet_routed_with_invalid_vlan(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
-        """
-        Validates that packet aren't routed if sub-ports have invalid VLAN ID.
-
-        Test steps:
-            1.) Setup correct configuration of sub-ports on the DUT.
-            2.) Setup different VLAN IDs on directly connected interfaces of sub-ports on the PTF.
-            3.) Create ICMP packet.
-            4.) Send ICMP request packet from PTF to DUT.
-            5.) Verify that DUT doesn't send ICMP reply packet to PTF.
-            6.) Clear configuration of sub-ports on the DUT.
-            7.) Clear configuration of sub-ports on the DUT.
-
-        Pass Criteria: PTF doesn't get ICMP reply packet from DUT.
-        """
-        sub_ports = apply_config_on_the_dut['sub_ports']
-
-        for sub_port, value in sub_ports.items():
-            generate_and_verify_traffic(duthost=duthost,
-                                        ptfadapter=ptfadapter,
-                                        src_port=value['neighbor_port'],
-                                        ip_src=value['neighbor_ip'],
-                                        dst_port=sub_port,
-                                        ip_dst=value['ip'],
-                                        pkt_action='drop')
-
-    @pytest.mark.parametrize("port_type", ["port"])
     def test_untagged_packet_not_routed(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
         Validates that untagged packet aren't routed.
@@ -97,7 +72,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut["sub_ports"]
 
-        for sub_port, config in sub_ports.items():
+        for sub_port, config in list(sub_ports.items()):
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
                                         src_port=config["neighbor_port"],
@@ -108,7 +83,8 @@ class TestSubPorts(object):
                                         untagged_icmp_request=True
                                         )
 
-    def test_admin_status_down_disables_forwarding(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
+    def test_admin_status_down_disables_forwarding(self, duthost, ptfadapter, apply_config_on_the_dut,
+                                                   apply_config_on_the_ptf):
         """
         Validates that admin status DOWN disables packet forwarding.
 
@@ -133,7 +109,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in sub_ports.items():
+        for sub_port, value in list(sub_ports.items()):
             shutdown_port(duthost, sub_port)
             generate_and_verify_traffic(duthost=duthost,
                                         ptfadapter=ptfadapter,
@@ -143,7 +119,7 @@ class TestSubPorts(object):
                                         ip_dst=value['ip'],
                                         pkt_action='drop')
 
-            for next_sub_port, next_value in sub_ports.items():
+            for next_sub_port, next_value in list(sub_ports.items()):
                 if next_sub_port != sub_port:
                     generate_and_verify_traffic(duthost=duthost,
                                                 ptfadapter=ptfadapter,
@@ -162,43 +138,6 @@ class TestSubPorts(object):
                                         ip_dst=value['ip'],
                                         pkt_action='fwd')
 
-
-    def test_max_numbers_of_sub_ports(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
-        """
-        Validates that 256 sub-ports can be created per port or LAG
-
-        Test steps:
-            1.) Setup configuration of 256 sub-ports on the DUT.
-            2.) Setup configuration of 256 sub-ports on the PTF.
-            3.) Create ICMP packet.
-            4.) Send ICMP request packet from PTF to DUT.
-            5.) Verify that DUT sends ICMP reply packet to PTF.
-            6.) Clear configuration of sub-ports on the DUT.
-            7.) Clear configuration of sub-ports on the PTF.
-
-        Pass Criteria: PTF gets ICMP reply packet from DUT.
-
-        Note:
-            The running of the test case takes about 80 minutes.
-        """
-        sub_ports_new = dict()
-        sub_ports = apply_config_on_the_dut['sub_ports']
-        sub_ports_new[sub_ports.keys()[0]] = sub_ports[sub_ports.keys()[0]]
-        sub_ports_new[sub_ports.keys()[-1]] = sub_ports[sub_ports.keys()[-1]]
-
-        rand_sub_ports = sub_ports.keys()[random.randint(1, len(sub_ports)-1)]
-        sub_ports_new[rand_sub_ports] = sub_ports[rand_sub_ports]
-
-        for sub_port, value in sub_ports_new.items():
-            generate_and_verify_traffic(duthost=duthost,
-                                        ptfadapter=ptfadapter,
-                                        src_port=value['neighbor_port'],
-                                        ip_src=value['neighbor_ip'],
-                                        dst_port=sub_port,
-                                        ip_dst=value['ip'],
-                                        pkt_action='fwd')
-
-
     def test_mtu_inherited_from_parent_port(self, duthost, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
         Validates that MTU settings of sub-ports inherited from parent port
@@ -213,14 +152,13 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port in sub_ports.keys():
+        for sub_port in list(sub_ports.keys()):
             sub_port_mtu = int(get_port_mtu(duthost, sub_port))
             # Get name of parent port from name of sub-port
             port = sub_port.split('.')[0]
             port_mtu = int(get_port_mtu(duthost, port))
 
             pytest_assert(sub_port_mtu == port_mtu, "MTU of {} doesn't inherit MTU of {}".format(sub_port, port))
-
 
     def test_vlan_config_impact(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
@@ -242,7 +180,7 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in sub_ports.items():
+        for sub_port, value in list(sub_ports.items()):
             # Get VLAN ID from name of sub-port
             vlan_vid = int(sub_port.split('.')[1])
             # Create a VLAN RIF
@@ -260,8 +198,7 @@ class TestSubPorts(object):
                                         ip_dst=value['ip'],
                                         pkt_action='fwd')
 
-
-    @pytest.mark.parametrize("type_of_traffic", ['TCP-UDP-ICMP',])
+    @pytest.mark.parametrize("type_of_traffic", ['TCP-UDP-ICMP', ])
     def test_routing_between_sub_ports(self, type_of_traffic, duthost, ptfadapter, apply_route_config):
         """
         Validates that packets are routed between sub-ports.
@@ -290,7 +227,7 @@ class TestSubPorts(object):
         sub_ports = apply_route_config['sub_ports']
         type_of_traffic = type_of_traffic.split('-')
 
-        for src_port, next_hop_sub_ports in new_sub_ports.items():
+        for src_port, next_hop_sub_ports in list(new_sub_ports.items()):
             for sub_port, _ in next_hop_sub_ports:
                 generate_and_verify_traffic(duthost=duthost,
                                             ptfadapter=ptfadapter,
@@ -302,8 +239,9 @@ class TestSubPorts(object):
                                             type_of_traffic=type_of_traffic,
                                             ttl=63)
 
-    @pytest.mark.parametrize("type_of_traffic, port_type", [["TCP-UDP-ICMP", "PORT"]])
-    def test_routing_between_sub_ports_unaffected_by_sub_ports_removal(self, type_of_traffic, duthost, ptfadapter, apply_route_config):
+    @pytest.mark.parametrize("type_of_traffic", ["TCP-UDP-ICMP", ])
+    def test_routing_between_sub_ports_unaffected_by_sub_ports_removal(self, type_of_traffic, duthost, ptfadapter,
+                                                                       apply_route_config):
         """
         Validates that the routing of packets between sub-ports are not affected by the removal of other sub ports.
 
@@ -335,7 +273,7 @@ class TestSubPorts(object):
 
         # find to-be-removed sub ports
         sub_ports_to_remove = set(sub_ports.keys())
-        for sub_port, next_hop_sub_ports in new_sub_ports.items():
+        for sub_port, next_hop_sub_ports in list(new_sub_ports.items()):
             sub_ports_to_remove.remove(sub_port)
             for next_hop_sub_port, _ in next_hop_sub_ports:
                 sub_ports_to_remove.remove(next_hop_sub_port)
@@ -344,7 +282,7 @@ class TestSubPorts(object):
         for sub_port in sub_ports_to_remove:
             remove_sub_port(duthost, sub_port, sub_ports[sub_port]["ip"])
 
-        for src_port, next_hop_sub_ports in new_sub_ports.items():
+        for src_port, next_hop_sub_ports in list(new_sub_ports.items()):
             for sub_port, _ in next_hop_sub_ports:
                 generate_and_verify_traffic(duthost=duthost,
                                             ptfadapter=ptfadapter,
@@ -356,9 +294,12 @@ class TestSubPorts(object):
                                             type_of_traffic=type_of_traffic,
                                             ttl=63)
 
+        for sub_port in sub_ports_to_remove:
+            create_sub_port_on_dut(duthost, sub_port, sub_ports[sub_port]["ip"])
 
-    @pytest.mark.parametrize("type_of_traffic", ['TCP-UDP-ICMP',])
-    def test_routing_between_sub_ports_and_port(self, request, type_of_traffic, duthost, ptfadapter, apply_route_config_for_port):
+    @pytest.mark.parametrize("type_of_traffic", ['TCP-UDP-ICMP', ])
+    def test_routing_between_sub_ports_and_port(self, request, type_of_traffic, duthost, ptfadapter,
+                                                apply_route_config_for_port):
         """
         Validates that packets are routed between sub-ports.
 
@@ -392,7 +333,7 @@ class TestSubPorts(object):
         if 'l3' in request.node.name:
             pktlen = 104
 
-        for src_port, next_hop_sub_ports in port_map.items():
+        for src_port, next_hop_sub_ports in list(port_map.items()):
             for sub_port, _ in next_hop_sub_ports['dst_ports']:
                 generate_and_verify_traffic(duthost=duthost,
                                             ptfadapter=ptfadapter,
@@ -404,7 +345,6 @@ class TestSubPorts(object):
                                             type_of_traffic=type_of_traffic,
                                             ttl=63,
                                             pktlen=pktlen)
-
 
     def test_tunneling_between_sub_ports(self, duthost, ptfadapter, apply_tunnel_table_to_dut, apply_route_config):
         """
@@ -428,7 +368,7 @@ class TestSubPorts(object):
         new_sub_ports = apply_route_config['new_sub_ports']
         sub_ports = apply_route_config['sub_ports']
 
-        for src_port, next_hop_sub_ports in new_sub_ports.items():
+        for src_port, next_hop_sub_ports in list(new_sub_ports.items()):
             for sub_port, _ in next_hop_sub_ports:
                 generate_and_verify_traffic(duthost=duthost,
                                             ptfadapter=ptfadapter,
@@ -440,7 +380,6 @@ class TestSubPorts(object):
                                             pkt_action='fwd',
                                             type_of_traffic='decap',
                                             ttl=63)
-
 
     def test_balancing_sub_ports(self, duthost, ptfhost, ptfadapter, apply_balancing_config):
         """
@@ -478,11 +417,67 @@ class TestSubPorts(object):
                                         ttl=63)
 
 
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
-    if loganalyzer and loganalyzer[duthost.hostname]:
-        ignore_regex_list = [
-            ".*ERR teamd[0-9]*#tlm_teamd.*process_add_queue: Can't connect to teamd after.*attempts. LAG 'PortChannel.*'",
-            ".*ERR swss[0-9]*#orchagent.*update: Failed to get port by bridge port ID.*"
-        ]
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
+class TestSubPortsNegative(object):
+    def test_packet_routed_with_invalid_vlan(self, duthost, ptfadapter, apply_config_on_the_dut,
+                                             apply_config_on_the_ptf):
+        """
+        Validates that packet aren't routed if sub-ports have invalid VLAN ID.
+
+        Test steps:
+            1.) Setup correct configuration of sub-ports on the DUT.
+            2.) Setup different VLAN IDs on directly connected interfaces of sub-ports on the PTF.
+            3.) Create ICMP packet.
+            4.) Send ICMP request packet from PTF to DUT.
+            5.) Verify that DUT doesn't send ICMP reply packet to PTF.
+            6.) Clear configuration of sub-ports on the DUT.
+            7.) Clear configuration of sub-ports on the DUT.
+
+        Pass Criteria: PTF doesn't get ICMP reply packet from DUT.
+        """
+        sub_ports = apply_config_on_the_dut['sub_ports']
+
+        for sub_port, value in sub_ports.items():
+            generate_and_verify_traffic(duthost=duthost,
+                                        ptfadapter=ptfadapter,
+                                        src_port=value['neighbor_port'],
+                                        ip_src=value['neighbor_ip'],
+                                        dst_port=sub_port,
+                                        ip_dst=value['ip'],
+                                        pkt_action='drop')
+
+
+class TestSubPortStress(object):
+    def test_max_numbers_of_sub_ports(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
+        """
+        Validates that 256 sub-ports can be created per port or LAG
+
+        Test steps:
+            1.) Setup configuration of 256 sub-ports on the DUT.
+            2.) Setup configuration of 256 sub-ports on the PTF.
+            3.) Create ICMP packet.
+            4.) Send ICMP request packet from PTF to DUT.
+            5.) Verify that DUT sends ICMP reply packet to PTF.
+            6.) Clear configuration of sub-ports on the DUT.
+            7.) Clear configuration of sub-ports on the PTF.
+
+        Pass Criteria: PTF gets ICMP reply packet from DUT.
+
+        Note:
+            The running of the test case takes about 80 minutes.
+        """
+        sub_ports_new = dict()
+        sub_ports = apply_config_on_the_dut['sub_ports']
+        sub_ports_new[sub_ports.keys()[0]] = sub_ports[sub_ports.keys()[0]]
+        sub_ports_new[sub_ports.keys()[-1]] = sub_ports[sub_ports.keys()[-1]]
+
+        rand_sub_ports = sub_ports.keys()[random.randint(1, len(sub_ports)-1)]
+        sub_ports_new[rand_sub_ports] = sub_ports[rand_sub_ports]
+
+        for sub_port, value in sub_ports_new.items():
+            generate_and_verify_traffic(duthost=duthost,
+                                        ptfadapter=ptfadapter,
+                                        src_port=value['neighbor_port'],
+                                        ip_src=value['neighbor_ip'],
+                                        dst_port=sub_port,
+                                        ip_dst=value['ip'],
+                                        pkt_action='fwd')

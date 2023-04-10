@@ -22,14 +22,13 @@ def obj_serialize(obj):
     ''' JSON serializer for objects not serializable by default json library code
         We simply return a dictionary containing the object's class and module
     '''
-    syslog.syslog(syslog.LOG_WARNING,
-            'Unserializable object: {}.{} at {}'.format(
-                obj.__module__, obj.__class__.__name__, hex(id(obj))))
+    syslog.syslog(syslog.LOG_WARNING, 'Unserializable object: {}.{} at {}'
+                  .format(obj.__module__, obj.__class__.__name__, hex(id(obj))))
 
     data = {
         '__class__': obj.__class__.__name__,
         '__module__': obj.__module__,
-        'object_id' : hex(id(obj))
+        'object_id': hex(id(obj))
     }
     return data
 
@@ -93,9 +92,12 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
 
         try:
             res = getattr(obj, api)(*args)
-        except NotImplementedError as e:
+        except NotImplementedError:
             syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
 
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
         self.wfile.write(json.dumps({'res': res}, default=obj_serialize).encode('utf-8'))
 
 

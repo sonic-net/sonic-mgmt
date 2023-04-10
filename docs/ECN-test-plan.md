@@ -44,9 +44,9 @@ The test cases depicted in this document aim to do functional testing of ECN beh
 ### Testbed
 
 ```
-+-------------+      +--------------+      +-------------+       
-| Keysight TX |------|   SONiC DUT  |------| Keysight RX | 
-+-------------+      +--------------+      +-------------+ 
++-------------+      +--------------+      +-------------+
+| Keysight TX |------|   SONiC DUT  |------| Keysight RX |
++-------------+      +--------------+      +-------------+
 
 Keysight ports are connected via SONiC switch as shown in the illustration above.
 ```
@@ -126,7 +126,7 @@ This test aims to verify the DUT’s ECN marking accuracy, e.g., if the actual E
   2. PFC PAUSE storm: Persistent PFC pause frames from the Keysight
         Rx port to the Keysight Tx port. The priorities of PFC pause
         frames should be the same as that of 'Test data traffic'. And the
-        inter-frame transmission interval should be lesser than the 
+        inter-frame transmission interval should be lesser than the
         per-frame pause duration.
 
 #### Test Steps

@@ -1,27 +1,28 @@
-import ptf.packet as scapy
-import ptf.dataplane as dataplane
+import ptf.packet as scapy  # noqa F401
+import ptf.dataplane as dataplane   # noqa F401
 import acs_base_test
 from ptf.base_tests import BaseTest
-from ptf.testutils import *
-from ptf.mask import Mask
 import scapy.all as scapy2
 from time import sleep
 from threading import Thread
+
 
 class FailingTest(BaseTest):
     '''
         Test designed to fail
     '''
     def runTest(self):
-            a = 5 / 0
-            pass
+        a = 5 / 0   # noqa F841
+        pass
+
 
 class SucceessTest(BaseTest):
     '''
         Test designed for success
     '''
     def runTest(self):
-            pass
+        pass
+
 
 class SendTCP(acs_base_test.ACSDataplaneTest):
     '''
@@ -47,7 +48,7 @@ class SendTCP(acs_base_test.ACSDataplaneTest):
 
         pkt = scapy2.Ether()
         pkt /= scapy2.IP(src="21.0.0.2", dst="22.0.0.2")
-        pkt /= scapy2.TCP(dport = 80, flags="S", seq=42)
+        pkt /= scapy2.TCP(dport=80, flags="S", seq=42)
         pkt /= ("badabadaboom")
 
         t = Thread(target=self.Sniffer, args=("eth2",))
@@ -58,55 +59,52 @@ class SendTCP(acs_base_test.ACSDataplaneTest):
         if self.sniffed_cnt == 0:
             self.assertTrue(False)
 
+        # res = scapy2.sniff(iface="eth2", timeout=3)
+        # print(res)
+        # if res:
+        #     raise
 
-        #res = scapy2.sniff(iface="eth2", timeout=3)
-        #print res
-        #if res:
-        #    raise
+        # if reply:
+        #     raise
+        # print("================______====\n")
+        # print(reply)
+        # print(error)
+        # print("================______====\n")
+        # if reply:
+        #     reply.show()
+        # (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, port_number=0, timeout=5)
+        # send_packet(self, 0, pkt)
+        # (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, port_number=0, timeout=5)
 
-        #if reply:
-        #    raise
-        #print "================______====\n"
-        #print reply
-        #print error
-        #print "================______====\n"
-        #if reply:
-        #    reply.show()
-        #(rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, port_number=0, timeout=5)
-        #send_packet(self, 0, pkt)
-        #(rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, port_number=0, timeout=5)
+        # verify_packet(self, masked_exp_pkt, 1)
+
+        # mpkt = Mask(pkt)
+        # mpkt.set_do_not_care(0, 14*8)
+        # mpkt.set_do_not_care(16*8, 49*8)
+        # verify_packet(self, mpkt, 0)
+        # (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, port_number=0, timeout=5)
+        # print("================______====\n")
+        # y = 0
+        # for x in rcv_pkt:
+        #     print("%d - %X" % (y, ord(x)))
+        #     y +=1
 
 
-#        verify_packet(self, masked_exp_pkt, 1)
-
-
-        #mpkt = Mask(pkt)
-        #mpkt.set_do_not_care(0, 14*8)
-        #mpkt.set_do_not_care(16*8, 49*8)
-        #verify_packet(self, mpkt, 0)
-        #(rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, port_number=0, timeout=5)
-        #print "================______====\n"
-        #y = 0
-        #for x in rcv_pkt:
-        #    print "%d - %X" % (y, ord(x))
-        #    y +=1
 """
 (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, timeout=3)
-        print "================______====\n"
+        print("================______====\n")
         y = 0
         for x in rcv_pkt:
-            print "%d - %X" % (y, ord(x))
+            print("%d - %X" % (y, ord(x)))
             y +=1
 
         y = 0
         for x in str(pkt):
-            print "%d - %X" % (y, ord(x))
+            print("%d - %X" % (y, ord(x)))
             y +=1
 """
 
-
 """
-
         pkt = scapy.Ether()
         pkt /= scapy.IP(src="21.0.0.2", dst="22.0.0.2")
         pkt /= scapy.TCP(sport = 8192, dport = 80, flags="S", seq=42)
@@ -134,7 +132,7 @@ from ptf.mask import Mask
 
 class ACLpermit(acs_base_test.ACSDataplaneTest):
     def runTest(self):
-        print "The test is passed"
+        print("The test is passed")
         pass
        # pkt = simple_ip_packet( eth_dst='00:01:02:03:04:05',
        #                         eth_src='00:06:07:08:09:0a',

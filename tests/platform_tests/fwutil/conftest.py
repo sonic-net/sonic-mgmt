@@ -2,28 +2,31 @@ import tarfile
 import json
 import pytest
 import logging
-
+import os
 from random import randrange
-
+import subprocess
 from fwutil_common import show_firmware
 
 logger = logging.getLogger(__name__)
 
-DUT_HOME="/home/admin"
-DEVICES_PATH="/usr/share/sonic/device"
+DUT_HOME = "/home/admin"
+DEVICES_PATH = "/usr/share/sonic/device"
 FS_PATH_TEMPLATE = "/host/image-{}/fs.squashfs"
 FS_RW_TEMPLATE = "/host/image-{}/rw"
 FS_WORK_TEMPLATE = "/host/image-{}/work"
 FS_MOUNTPOINT_TEMPLATE = "/tmp/image-{}-fs"
 OVERLAY_MOUNTPOINT_TEMPLATE = "/tmp/image-{}-overlay"
 
-def check_path_exists(path):
-    return duthost.stat(path = path)["stat"]["exists"] 
+
+def check_path_exists(duthost, path):
+    return duthost.stat(path=path)["stat"]["exists"]
+
 
 def pytest_generate_tests(metafunc):
     val = metafunc.config.getoption('--fw-pkg')
-    if 'fw_pkg_name' in metafunc.fixturenames and val is not None:
+    if 'fw_pkg_name' in metafunc.fixturenames:
         metafunc.parametrize('fw_pkg_name', [val], scope="module")
+
 
 @pytest.fixture(scope='module')
 def fw_pkg(fw_pkg_name):
@@ -32,8 +35,8 @@ def fw_pkg(fw_pkg_name):
     logger.info("Unpacking firmware package to ./firmware")
     try:
         os.mkdir("firmware")
-    except Exception as e:
-        pass # Already exists, thats fine
+    except OSError:
+        pass  # Already exists, thats fine
     with tarfile.open(fw_pkg_name, "r:gz") as f:
         f.extractall("./firmware/")
         with open('./firmware/firmware.json', 'r') as fw:
@@ -41,26 +44,27 @@ def fw_pkg(fw_pkg_name):
             yield fw_data
     subprocess.call("rm -rf firmware", shell=True)
 
+
 @pytest.fixture(scope='function')
 def random_component(duthost, fw_pkg):
-    chass = show_firmware(duthost)["chassis"].keys()[0]
-    components = fw_pkg["chassis"].get(chass, {}).get("component", []).keys()
+    chass = list(show_firmware(duthost)["chassis"].keys())[0]
+    components = list(fw_pkg["chassis"].get(chass, {}).get("component", []).keys())
     if 'ONIE' in components:
         components.remove('ONIE')
     if len(components) == 0:
         pytest.skip("No suitable components found in config file for platform {}.".format(duthost.facts['platform']))
+    return components[randrange(len(components))]
 
-    return components[randrange(len(components))] 
 
 @pytest.fixture(scope='function')
 def host_firmware(localhost, duthost):
     logger.info("Starting local python server to test URL firmware update....")
-    comm = "python3 -m http.server --directory {}".format(os.path.join(DEVICES_PATH, 
-        duthost.facts['platform']))
+    comm = "python3 -m http.server --directory {}".format(os.path.join(DEVICES_PATH, duthost.facts['platform']))
     duthost.command(comm, module_ignore_errors=True, module_async=True)
     yield "http://localhost:8000/"
     logger.info("Stopping local python server.")
     duthost.command('pkill -f "{}"'.format(comm), module_ignore_errors=True)
+
 
 @pytest.fixture(scope='function')
 def next_image(duthost, fw_pkg):
@@ -68,7 +72,7 @@ def next_image(duthost, fw_pkg):
     # Install next version of sonic
     current = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
 
-    image = fw_pkg.get("images", {}).keys()
+    image = list(fw_pkg.get("images", {}).keys())
     target = None
 
     for i in image:
@@ -96,6 +100,7 @@ def next_image(duthost, fw_pkg):
     overlay_mountpoint = OVERLAY_MOUNTPOINT_TEMPLATE.format(target)
 
     logger.info("Attempting to stage test firware onto newly-installed image.")
+    # noinspection PyBroadException
     try:
         duthost.command("mkdir -p {}".format(fs_mountpoint))
         duthost.command("mkdir -p {}".format(fs_rw))
@@ -112,7 +117,7 @@ def next_image(duthost, fw_pkg):
             overlay_mountpoint
         )
         duthost.command(cmd)
-    except Exception as e:
+    except Exception:
         duthost.command("sonic-installer remove {} -y".format("SONiC-OS-{}".format(target)))
         pytest.fail("Failed to setup next-image.")
 
@@ -120,4 +125,3 @@ def next_image(duthost, fw_pkg):
 
     logger.info("Ensuring correct image is set to default boot.")
     duthost.command("sonic-installer remove {} -y".format("SONiC-OS-{}".format(target)))
-
