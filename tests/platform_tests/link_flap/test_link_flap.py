@@ -2,9 +2,7 @@
 Tests the link flap in SONiC.
 """
 import logging
-
 import pytest
-import random
 
 from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link, check_orch_cpu_utilization
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -17,6 +15,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
 ]
+
 
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -37,14 +36,16 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     logger.info("Memory Status at start: %s", memory_output)
 
     # Record Redis Memory at start
-    start_time_redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
+    start_time_redis_memory = duthost.shell(
+        r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
     logger.info("Redis Memory: %s M", start_time_redis_memory)
 
-     # Make Sure Orch CPU < orch_cpu_threshold before starting test.
+    # Make Sure Orch CPU < orch_cpu_threshold before starting test.
     logger.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
     pytest_assert(wait_until(100, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                "Orch CPU utilization {} > orch cpu threshold {} before link flap"
-                .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
+                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                          orch_cpu_threshold))
 
     loop_times = get_loop_times
 
@@ -74,7 +75,8 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     logger.info("Orchagent CPU Util at end: %s", orch_cpu)
 
     # Record Redis Memory at end
-    end_time_redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
+    end_time_redis_memory = duthost.shell(
+        r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
     logger.info("Redis Memory at start: %s M", start_time_redis_memory)
     logger.info("Redis Memory at end: %s M", end_time_redis_memory)
 
@@ -86,11 +88,12 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     if incr_redis_memory > 0.0:
         percent_incr_redis_memory = (incr_redis_memory / float(start_time_redis_memory)) * 100
         logger.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
-        pytest_assert(percent_incr_redis_memory < 5, "Redis Memory Increase more than expected: {}".format(percent_incr_redis_memory))
+        pytest_assert(percent_incr_redis_memory < 5, "Redis Memory Increase more than expected: {}"
+                      .format(percent_incr_redis_memory))
 
     # Orchagent CPU should consume < orch_cpu_threshold at last.
     logger.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
     pytest_assert(wait_until(45, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                "Orch CPU utilization {} > orch cpu threshold {} before link flap"
-                .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
-
+                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                          orch_cpu_threshold))

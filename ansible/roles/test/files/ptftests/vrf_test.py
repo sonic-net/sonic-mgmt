@@ -8,12 +8,13 @@ Usage:          Examples of how to use VRF test
                     --relax\
                     --debug info \
                     --log-file /tmp/vrf_Capacity_test.FwdTest.log \
-                    -t 'testbed_type="t0";router_mac="3c:2c:99:c4:81:2a";dst_ports=[[14]];dst_vid=3001;dst_ips=["200.200.200.1"];src_vid=2001;src_ports=[2]'
+                    -t 'testbed_type="t0";router_mac="3c:2c:99:c4:81:2a";dst_ports=[[14]];\
+                    dst_vid=3001;dst_ips=["200.200.200.1"];src_vid=2001;src_ports=[2]'
 '''
 
-#---------------------------------------------------------------------
+# ---------------------------------------------------------------------
 # Global imports
-#---------------------------------------------------------------------
+# ---------------------------------------------------------------------
 import logging
 import re
 import six
@@ -21,6 +22,7 @@ from ipaddress import ip_network
 from fib_test import FibTest
 import lpm
 import fib
+
 
 class FwdTest(FibTest):
     class FwdDict(object):
@@ -49,7 +51,7 @@ class FwdTest(FibTest):
             else:
                 self.ipv6[ip_range] = next_hop
 
-    #---------------------------------------------------------------------
+    # ---------------------------------------------------------------------
 
     def setUp(self):
         """
@@ -65,9 +67,11 @@ class FwdTest(FibTest):
                             If both fwd_info and dst_ips are specifed, fwd_info is prefered.
         """
         super(FwdTest, self).setUp()
-        self.test_balancing = self.test_params.get('test_balancing', False)  # default not to test balancing
+        self.test_balancing = self.test_params.get(
+            'test_balancing', False)  # default not to test balancing
         self.fib_info_files = self.test_params.get('fib_info_files', None)
-        self.dst_ports = self.test_params.get('dst_ports', None)  # dst_ports syntax example: [[0, 1], [2, 3, 4]]
+        # dst_ports syntax example: [[0, 1], [2, 3, 4]]
+        self.dst_ports = self.test_params.get('dst_ports', None)
         self.dst_ips = self.test_params.get('dst_ips', None)
 
         self.fwd_dict = FwdTest.FwdDict()
@@ -86,7 +90,7 @@ class FwdTest(FibTest):
         for ip_range, next_hop in entries.items():
             self.check_ip_range(ip_range, next_hop, ipv4)
 
-    #---------------------------------------------------------------------
+    # ---------------------------------------------------------------------
 
     def runTest(self):
         """
@@ -102,7 +106,7 @@ class FwdTest(FibTest):
 
 
 class CapTest(FwdTest):
-    _required_params=[
+    _required_params = [
         'random_vrf_list',
         'src_base_vid',
         'dst_base_vid'
@@ -130,7 +134,8 @@ class CapTest(FwdTest):
             self.src_vid = self.src_base_vid + vrf_idx
             self.dst_vid = self.dst_base_vid + vrf_idx
 
-            logging.info("test vrf {} from Vlan{} to Vlan{}".format(vrf_idx, self.src_vid, self.dst_vid))
+            logging.info("test vrf {} from Vlan{} to Vlan{}".format(
+                vrf_idx, self.src_vid, self.dst_vid))
 
             # IPv4 Test
             if (self.test_ipv4):
