@@ -46,7 +46,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
 
         # Obtain the link-local IPv6 address of the DUT's downlink VLAN interface
         downlink_vlan_iface['mac'] = duthost.get_dut_iface_mac(vlan_iface_name)
-        cmd = (r"ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'"
+        cmd = ("ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'"      # noqa W605
                .format(vlan_iface_name))
         res = duthost.shell(cmd)
         ip6 = ipaddress.IPv6Address(str(res['stdout']))
@@ -59,7 +59,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
         ptf_port = {}
         ptf_port['port_idx'] = mg_facts['minigraph_ptf_indices'][vlan_info_dict['members'][0]]
         ptf_port['name'] = "eth" + str(ptf_port['port_idx'])
-        cmd = (r"ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'"
+        cmd = ("ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'"      # noqa W605
                .format(ptf_port['name']))
         res = ptfhost.shell(cmd)
         ip6 = ipaddress.IPv6Address(str(res['stdout']))
