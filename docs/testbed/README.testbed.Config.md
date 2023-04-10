@@ -12,6 +12,12 @@
 
 - [```ansible/files/sonic_lab_links.csv```](/ansible/files/sonic_lab_links.csv): Helper file helps you to create lab_connection_graph.xml, list all physical links between DUT, Fanoutleaf and Fanout root switches, servers and vlan configurations for each link
 
+- [```ansible/files/sonic_lab_pdu_links.csv```](/ansible/files/sonic_lab_pdu_links.csv): Helper file helps you to create lab_connection_graph.xml, list all pdu links between devices and pdu devices. For details about pdu configuraions, check doc [pdu wiring](./README.testbed.PDUWiring.md)
+
+- [```ansible/files/sonic_lab_bmc_links.csv```](/ansible/files/sonic_lab_bmc_links.csv): Helper file helps you to create lab_connection_graph.xml, list all bmc links between devices and management devices.
+
+- [```ansible/files/sonic_lab_console_links.csv```](/ansible/files/sonic_lab_console_links.csv): Helper file helps you to create lab_connection_graph.xml, list all console links between devices and management devices.
+
 - [```ansible/files/lab_connection_graph.xml```](/ansible/files/lab_connection_graph.xml): This is the lab graph file for library/conn_graph_facts.py to parse and get all lab fanout switch connections information. If you have only one fanout switch, you may go head manually modify the sample lab_connection_graph.xml file to set bot your fanout leaf and fanout root switch management IP point to the same fanout switch management IP and make sure all DUT and Fanout name and IP are matching your testbed.
 
 - [```ansible/files/creategraph.py```](/ansible/files/creategraph.py): Helper file helps you generate a lab_connection_graph.xml based on the device file and link file specified above.
