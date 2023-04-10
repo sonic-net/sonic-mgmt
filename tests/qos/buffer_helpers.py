@@ -31,7 +31,8 @@ class DutDbInfo:
         for key in list(self.asic_db.keys()):
             if buffer_profile_oid in key:
                 return key
-        raise Exception("Not find the profile key for {}".format(buffer_profile_oid))
+        raise Exception(
+            "Not find the profile key for {}".format(buffer_profile_oid))
 
     def get_buffer_profile_info_from_asic_db(self, buffer_profile_key):
         return self.asic_db.get(buffer_profile_key).get("value")
