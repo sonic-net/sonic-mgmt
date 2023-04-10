@@ -565,29 +565,38 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                 host_vars = ansible_adhoc().options[
                     'inventory_manager'].get_host(fanout_host).vars
                 os_type = host_vars.get('os', 'eos')
-                admin_user = creds['fanout_admin_user']
-                admin_password = creds['fanout_admin_password']
-                # `fanout_network_user` and `fanout_network_password` are for
-                # accessing the non-shell CLI of fanout.
-                # Ansible will use this set of credentail for establishing
-                # `network_cli` connection with device when applicable.
-                network_user = creds.get('fanout_network_user', admin_user)
-                network_password = creds.get('fanout_network_password',
-                                             admin_password)
-                shell_user = creds.get('fanout_shell_user', admin_user)
-                shell_password = creds.get('fanout_shell_pass', admin_password)
-                if os_type == 'sonic':
-                    shell_user = creds.get('fanout_sonic_user', None)
-                    shell_password = creds.get('fanout_sonic_password', None)
+                if 'fanout_tacacs_user' in creds:
+                    fanout_user = creds['fanout_tacacs_user']
+                    fanout_password = creds['fanout_tacacs_password']
+                elif 'fanout_tacacs_{}_user'.format(os_type) in creds:
+                    fanout_user = creds['fanout_tacacs_{}_user'.format(os_type)]
+                    fanout_password = creds['fanout_tacacs_{}_password'.format(os_type)]
+                elif os_type == 'sonic':
+                    fanout_user = creds.get('fanout_sonic_user', None)
+                    fanout_password = creds.get('fanout_sonic_password', None)
+                elif os_type == 'eos':
+                    fanout_user = creds.get('fanout_network_user', None)
+                    fanout_password = creds.get('fanout_network_password', None)
+                else:
+                    # when os is mellanox, not supported
+                    pytest.fail("os other than sonic and eos not supported")
+
+                eos_shell_user = None
+                eos_shell_password = None
+                if os_type == "eos":
+                    admin_user = creds['fanout_admin_user']
+                    admin_password = creds['fanout_admin_password']
+                    eos_shell_user = creds.get('fanout_shell_user', admin_user)
+                    eos_shell_password = creds.get('fanout_shell_password', admin_password)
 
                 fanout = FanoutHost(ansible_adhoc,
                                     os_type,
                                     fanout_host,
                                     'FanoutLeaf',
-                                    network_user,
-                                    network_password,
-                                    shell_user=shell_user,
-                                    shell_passwd=shell_password)
+                                    fanout_user,
+                                    fanout_password,
+                                    eos_shell_user=eos_shell_user,
+                                    eos_shell_passwd=eos_shell_password)
                 fanout.dut_hostnames = [dut_host]
                 fanout_hosts[fanout_host] = fanout
 
