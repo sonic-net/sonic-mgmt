@@ -394,8 +394,7 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
             send_server_to_t1_with_action(
                 upper_tor_host,
                 verify=True,
-                delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                allowed_disruption=1,
+                allowed_disruption=0,
                 action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up")
             )
 
@@ -449,8 +448,7 @@ def test_active_link_admin_down_config_reload_link_up_downstream_standby(
             send_t1_to_server_with_action(
                 upper_tor_host,
                 verify=True,
-                delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                allowed_disruption=1,
+                allowed_disruption=0,
                 action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up"),
                 allow_disruption_before_traffic=True
             )
