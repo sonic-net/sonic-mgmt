@@ -234,7 +234,7 @@ def collect_dut_pfc_pause_delay_params(dut):
         pfc_pause_delay_test_params[200] = False
     else:
         pfc_pause_delay_test_params = None
-    
+
     return pfc_pause_delay_test_params
 
 
