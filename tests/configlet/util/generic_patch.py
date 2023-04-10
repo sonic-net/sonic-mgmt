@@ -152,7 +152,7 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
     for fl in patch_files:
         sonic_fl = os.path.join("/etc/sonic", fl)
         duthost.copy(src=os.path.join(patch_add_t0_dir, fl), dest=sonic_fl)
-        res = duthost.shell(CMD.format(sonic_fl), module_ignore_errors=True)
+        duthost.shell(CMD.format(sonic_fl), module_ignore_errors=True)
 
         # HACK: TODO: There are scenarios, where it applies patch and still consider as failed
         # "...Error: After applying patch to config, there are still some parts not updated\n"
@@ -198,7 +198,7 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
     for fl in patch_files:
         sonic_fl = os.path.join("/etc/sonic", fl)
         duthost.copy(src=os.path.join(patch_rm_t0_dir, fl), dest=sonic_fl)
-        res = duthost.shell(CMD.format(sonic_fl), module_ignore_errors=True)
+        duthost.shell(CMD.format(sonic_fl), module_ignore_errors=True)
 
         # HACK: TODO: There are scenarios, where it applies patch and still consider as failed
         # "...Error: After applying patch to config, there are still some parts not updated\n"
