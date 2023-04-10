@@ -22,6 +22,8 @@ erspan_dest: ['10.20.6.16']
 #'RadiusResources' in minigraph
 radius_servers: []
 
+radius_passkey: testing123
+
 #'TacacsGroup' in minigraph
 tacacs_group: 'BeijingLab'
 
