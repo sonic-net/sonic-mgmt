@@ -29,6 +29,7 @@ import datetime
 import subprocess
 import sys
 from jinja2 import Environment, FileSystemLoader
+import re
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -594,6 +595,11 @@ def add_vEOS_cfg(data):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    chan.send('env \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
     chan.send('unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \n')
     time.sleep(3)
     resp = chan.recv(9999)
@@ -692,14 +698,29 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    if os.getenv("MODE"):
+        sanity_mode = os.getenv("MODE")
+    else:
+        sanity_mode = os.getenv("SANITY_MODE")
+    sanity_index = os.getenv("SANITY_INDEX")
+    job_base_name = os.getenv("JOB_BASE_NAME").replace("_", "")
+    timestamp = re.sub(r'[^a-zA-Z0-9]', '', os.getenv("TIMESTAMP"))
     build_id = os.getenv("BUILD_ID")
     if build_id is None:
         build_id = 99999
 
+    if sanity_index:
+        build_project_name = "sonic-{}-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, sanity_index, timestamp)
+    else:
+        build_project_name = "sonic-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, timestamp)
+
+
+    print("calling run_scripts.py, the allure report build name is ", build_project_name)
+
     delta1 = datetime.datetime.now()
     tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
     if create_allure_report:
-        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_id))
+        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_project_name))
     else:
         chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
     time.sleep(3)
