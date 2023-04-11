@@ -402,13 +402,19 @@ def acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_teardown")
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-        with loganalyzer:
-            logger.info("Applying {}".format(dut_clear_conf_file_path))
-            duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
-            logger.info("Removing {}".format(dut_tmp_dir))
-            duthost.command("rm -rf {}".format(dut_tmp_dir))
-            time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
-
+        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
+            if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
+                continue
+            with loganalyzer:
+                logger.info("Applying {}".format(dut_clear_conf_file_path))
+                sonic_host_or_asic_inst.command("config acl update full {}".format(dut_clear_conf_file_path))
+                logger.info("Removing {}".format(dut_tmp_dir))
+                time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
+                # full update on one of the frontend namespace will apply to 
+                # to all frontend namepsace
+                break
+        duthost.command("rm -rf {}".format(dut_tmp_dir))
 
 @pytest.fixture
 def acl_ingress(duthosts):
