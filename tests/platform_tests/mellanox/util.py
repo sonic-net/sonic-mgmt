@@ -215,7 +215,8 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
                 ["Application Advertisement", "ChannelThresholdValues", "ModuleThresholdValues"])
             expected_keys = expected_keys - excluded_keys
 
-    if "Identifier" in sfp_eeprom_info and sfp_eeprom_info["Identifier"] == "SFP/SFP+/SFP28":
+    sfp_type_for_excluded_monitor_threshold_key = ["SFP/SFP+/SFP28", "OSFP 8X Pluggable Transceiver"]
+    if "Identifier" in sfp_eeprom_info and sfp_eeprom_info["Identifier"] in sfp_type_for_excluded_monitor_threshold_key:
         excluded_keys = excluded_keys | {"ChannelMonitorValues", "ChannelThresholdValues", "ModuleMonitorValues",
                                          "ModuleThresholdValues"}
         expected_keys = (expected_keys | {
