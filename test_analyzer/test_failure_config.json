@@ -2,8 +2,8 @@
     "worker_number": 10,
     "run_timeout": 3600,
     "testbeds": {
-        "excluded_testbed_keywords": ["ixia", "t2", "3132", "e1031", "s6100", "s6000", "7280", "slx", "3164", "8101", "azd", "vms11-2-t0", "vms28-dual-t0-8102", "vms61-dual-mixed-8102", "vms61-t0-8102-01"],
-        "excluded_testbed_keywords_setup_error": ["ixia", "t2", "3132", "e1031", "s6100", "s6000", "7280", "slx", "3164", "8101", "azd", "vms11-2-t0", "vms28-dual-t0-8102", "vms61-dual-mixed-8102", "vms61-t0-8102-01"]
+        "excluded_testbed_keywords": ["ixia", "t2", "3132", "e1031", "s6100", "s6000", "7280", "slx", "3164", "8101", "8102", "azd", "vms63", "vms3-t1-dx010-1", "vms11-2-t0"],
+        "excluded_testbed_keywords_setup_error": ["ixia", "t2", "3132", "e1031", "s6100", "s6000", "7280", "slx", "3164", "8101", "8102", "azd", "vms63", "vms3-t1-dx010-1", "vms11-2-t0"]
     },
     "hwsku": {
         "excluded_hwsku": ["Force10-S6000", "Force10-S6100"]
