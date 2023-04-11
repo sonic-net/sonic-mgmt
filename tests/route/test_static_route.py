@@ -5,6 +5,7 @@ import time
 import natsort
 import random
 import re
+import six
 from collections import defaultdict
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py # noqa F811
@@ -228,7 +229,7 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
 
         # Check traffic get forwarded to the nexthop
-        ip_dst = str(ipaddress.ip_network(str(prefix))[1])
+        ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
         # try to refresh arp entry before traffic testing to improve stability
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
