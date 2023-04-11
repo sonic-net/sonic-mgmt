@@ -1,15 +1,18 @@
 import logging
 import pytest
 import pprint
+import random
+import os
 
 logger = logging.getLogger(__name__)
 
-DUT_TMP_DIR='/tmp'
+DUT_TMP_DIR = '/tmp'
 
-LABEL_POP_ROUTES='label_pop_routes'
-LABEL_PUSH_ROUTES='label_push_routes'
-LABEL_SWAP_ROUTES='label_swap_routes'
-LABEL_DEL_ROUTES='label_del_routes'
+LABEL_POP_ROUTES = 'label_pop_routes'
+LABEL_PUSH_ROUTES = 'label_push_routes'
+LABEL_SWAP_ROUTES = 'label_swap_routes'
+LABEL_DEL_ROUTES = 'label_del_routes'
+
 
 @pytest.fixture(scope='module')
 def setup(duthost, tbinfo, ptfadapter):
@@ -23,71 +26,71 @@ def setup(duthost, tbinfo, ptfadapter):
         pytest.skip('Unsupported topology')
 
     # gather ansible facts
-    mg_facts=duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    host_facts=duthost.setup()['ansible_facts']
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    host_facts = duthost.setup()['ansible_facts']
 
-    tor_ports_ids={}
-    tor_ports=[]
-    spine_ports_ids={}
-    spine_ports=[]
-    tor_addr={}
-    tor_peer_addr={}
-    spine_addr={}
-    spine_peer_addr={}
-    tor_mac={}
-    spine_mac={}
+    tor_ports_ids = {}
+    tor_ports = []
+    spine_ports_ids = {}
+    spine_ports = []
+    tor_addr = {}
+    tor_peer_addr = {}
+    spine_addr = {}
+    spine_peer_addr = {}
+    tor_mac = {}
+    spine_mac = {}
 
-    all_ifs=[]
+    all_ifs = []
 
-    ip_ifaces=duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
+    ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
 
-    for k,v in list(ip_ifaces[0].items()):
+    for k, v in list(ip_ifaces[0].items()):
         all_ifs.append(k)
         logger.info(ip_ifaces[0][k])
         if 'T0' in v['bgp_neighbor']:
             tor_ports.append(k)
-            tor_addr[k]=v['ipv4']
-            tor_peer_addr[k]=v['peer_ipv4']
+            tor_addr[k] = v['ipv4']
+            tor_peer_addr[k] = v['peer_ipv4']
         elif 'T2' in v['bgp_neighbor']:
-            spine_ports.append(k) 
-            spine_addr[k]=v['ipv4']    
-            spine_peer_addr[k]=v['peer_ipv4']           
-    
+            spine_ports.append(k)
+            spine_addr[k] = v['ipv4']
+            spine_peer_addr[k] = v['peer_ipv4']
+
     logger.info('tor_ports: {}'.format(tor_ports))
-    logger.info('spine_ports: {}'.format(spine_ports))    
-    logger.info('tor_addr: {}'.format(tor_addr)) 
-  
+    logger.info('spine_ports: {}'.format(spine_ports))
+    logger.info('tor_addr: {}'.format(tor_addr))
+
     for dut_port in tor_ports:
-        port_id=mg_facts['minigraph_port_indices'][dut_port]
-        tor_ports_ids[dut_port]=port_id
-        ansible_port='ansible_'+dut_port
-        tor_mac[dut_port]=host_facts[ansible_port]['macaddress']
-    
+        port_id = mg_facts['minigraph_port_indices'][dut_port]
+        tor_ports_ids[dut_port] = port_id
+        ansible_port = 'ansible_'+dut_port
+        tor_mac[dut_port] = host_facts[ansible_port]['macaddress']
+
     for dut_port in spine_ports:
-        port_id=mg_facts['minigraph_port_indices'][dut_port]
-        spine_ports_ids[dut_port]=port_id
-        ansible_port='ansible_'+dut_port
-        spine_mac[dut_port]=host_facts[ansible_port]['macaddress']
+        port_id = mg_facts['minigraph_port_indices'][dut_port]
+        spine_ports_ids[dut_port] = port_id
+        ansible_port = 'ansible_'+dut_port
+        spine_mac[dut_port] = host_facts[ansible_port]['macaddress']
 
     logger.info('spine_mac: {}'.format(spine_mac))
     logger.info('spine_ports_ids: {}'.format(spine_ports_ids))
 
-    src_port=random.choice(spine_ports)
-    dst_port=random.choice(tor_ports)
+    src_port = random.choice(spine_ports)
+    dst_port = random.choice(tor_ports)
 
-    dst_pid=tor_ports_ids[dst_port]
-    src_pid=spine_ports_ids[src_port]
+    dst_pid = tor_ports_ids[dst_port]
+    src_pid = spine_ports_ids[src_port]
 
-    dst_mac=tor_mac[dst_port]
-    src_mac=spine_mac[src_port]
+    dst_mac = tor_mac[dst_port]
+    src_mac = spine_mac[src_port]
 
-    dst_addr=tor_addr[dst_port]
-    src_addr=spine_addr[src_port]
+    dst_addr = tor_addr[dst_port]
+    src_addr = spine_addr[src_port]
 
-    dst_peer_addr=tor_peer_addr[dst_port]
-    src_peer_addr=spine_peer_addr[src_port]
+    dst_peer_addr = tor_peer_addr[dst_port]
+    src_peer_addr = spine_peer_addr[src_port]
 
-    setup_information={
+    setup_information = {
         'duthost': duthost,
         'dut_tmp_dir': DUT_TMP_DIR,
         'dst_ip_spine_blocked': '192.168.144.1',

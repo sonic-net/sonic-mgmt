@@ -71,7 +71,8 @@ def test_thermal_state_db(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     thermal_out = duthost.command("redis-dump -d 6 -y -k \"TEMP*\"")
     out_dict = json.loads(thermal_out['stdout'])
     pytest_assert(len(list(out_dict.keys())) == num_thermals,
-                  "num of thermal sensors incorrect expected {} but got {}".format(num_thermals, len(list(out_dict.keys()))))
+                  "num of thermal sensors incorrect expected {} but got {}"
+                  .format(num_thermals, len(list(out_dict.keys()))))
     result = check_therm_data(out_dict)
     pytest_assert(not result,
                   "Warning status incorrect for following thermal sensors:\n{}".format("\n".join(result)))

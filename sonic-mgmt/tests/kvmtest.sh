@@ -154,6 +154,7 @@ test_t0() {
       popd
     else
       tests="\
+      dns/test_dns_resolv_conf.py \
       generic_config_updater/test_aaa.py \
       generic_config_updater/test_bgpl.py \
       generic_config_updater/test_bgp_prefix.py \
