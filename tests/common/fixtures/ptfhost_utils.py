@@ -3,7 +3,7 @@ import os
 import pytest
 import logging
 import yaml
-
+import six
 import requests
 
 from ipaddress import ip_interface
@@ -380,8 +380,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
                 server_ipv4 = str(server_ipv4_base_addr + i)
                 server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
-                mux_cable_table[intf]['server_ipv4'] = str(server_ipv4)    # noqa F821
-                mux_cable_table[intf]['server_ipv6'] = str(server_ipv6)    # noqa F821
+                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa F821
+                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa F821
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']

@@ -6,11 +6,13 @@ router isis {{ isis_instance }}
  net {{ isis_net }}
 {% endif %}
  is-type level-2-only
+ lsp-gen-interval initial-wait 0 secondary-wait 0 maximum-wait 0 level 2
  address-family ipv4 unicast
  metric-style wide
  !
  address-family ipv6 unicast
  metric-style wide
+ !
 {% if isis_intfs is defined %}
 {% for name in isis_intfs %}
 {% if name.startswith('Ethernet') %}
