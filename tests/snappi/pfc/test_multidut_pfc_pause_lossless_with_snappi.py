@@ -48,7 +48,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
         N/A
     """
     if line_card_choice not in linecard_configuration_set.keys():
-        assert False, "Invalid line_card_choice value passed in parameter"
+        pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
         dut_list = random.sample(duthosts, 2)
@@ -58,12 +58,12 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1 = duthost2 = dut_list[0]
     else:
-        assert False, "Hostname can't be an empty list"
+        pytest_require(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
     if len(snappi_port_list) < 2:
-        assert False, "Need Minimum of 2 ports for the test"
+        pytest_require(False, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
     tgen_ports = [port['location'] for port in snappi_ports]
