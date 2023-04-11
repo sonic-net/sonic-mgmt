@@ -2,6 +2,7 @@
     Pytest configuration used by the read MAC tests.
 """
 
+
 def pytest_addoption(parser):
     """
         Adding arguments required for read MAC metadata testcase
