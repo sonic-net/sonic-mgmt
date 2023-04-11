@@ -1,5 +1,6 @@
 import logging
 import pytest
+import re
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
@@ -7,6 +8,8 @@ from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+
+pytest.mark.topology('any')
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +87,12 @@ def get_pg_lossless_profiles(duthost):
     pg_lossless_profiles_lst = []
 
     for pg_lossless_profile_str in pg_lossless_profiles_str:
-        pg_lossless_profile = pg_lossless_profile_str[21:]
+        # Regex search for pg_lossless profiles
+        match = re.search(r"pg_lossless(.*)", pg_lossless_profile_str)
+        if match:
+            pg_lossless_profile = match.group()
+        else:
+            continue
         pg_lossless_profiles_lst.append(pg_lossless_profile)
 
     return pg_lossless_profiles_lst if len(pg_lossless_profiles_lst) > 0 else None
