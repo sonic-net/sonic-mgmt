@@ -196,11 +196,15 @@ class QosParamMellanox(object):
         lossy_queue = self.qos_params_mlnx['lossy_queue_1']
         lossy_queue['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp - 1
         lossy_queue['cell_size'] = self.cell_size
+        if self.asic_type == "spc4":
+            lossy_queue['packet_size'] = 600
 
         wm_shared_lossy = {}
         wm_shared_lossy['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         wm_shared_lossy['cell_size'] = self.cell_size
         wm_shared_lossy["pkts_num_margin"] = 3
+        if self.asic_type == "spc4":
+            wm_shared_lossy["packet_size"] = 600
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
