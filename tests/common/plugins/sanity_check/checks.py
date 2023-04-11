@@ -531,10 +531,17 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
 
     for row in upper_tor_mux_config:
         port_name = row["port"]
+        port_idx = str(duts_minigraph_facts[dut_upper_tor.hostname][0][1]['minigraph_port_indices'][port_name])
         if "cable_type" in row:
             if row["cable_type"] and row["cable_type"] not in (CableType.active_active, CableType.active_standby):
                 err_msg = "Unsupported cable type %s for %s" % (row["cable_type"], port_name)
                 return False, err_msg, {}
+            elif row["cable_type"]:
+                port_cable_types[port_idx] = row["cable_type"]
+            else:
+                port_cable_types[port_idx] = CableType.default_type
+        else:
+            port_cable_types[port_idx] = CableType.default_type
 
     duts_parsed_mux_status = {}
     err_msg_from_mux_status = []
