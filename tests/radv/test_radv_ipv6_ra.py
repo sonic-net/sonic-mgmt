@@ -3,13 +3,13 @@ import logging
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_garp_service                                # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder                              # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr                         # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import cable_type                                     # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service                                # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                              # noqa F401
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr                         # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
@@ -46,7 +46,8 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
 
         # Obtain the link-local IPv6 address of the DUT's downlink VLAN interface
         downlink_vlan_iface['mac'] = duthost.get_dut_iface_mac(vlan_iface_name)
-        cmd = "ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'".format(vlan_iface_name)
+        cmd = ("ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'"      # noqa W605
+               .format(vlan_iface_name))
         res = duthost.shell(cmd)
         ip6 = ipaddress.IPv6Address(str(res['stdout']))
         pytest_assert(ip6.is_link_local,
@@ -58,7 +59,8 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
         ptf_port = {}
         ptf_port['port_idx'] = mg_facts['minigraph_ptf_indices'][vlan_info_dict['members'][0]]
         ptf_port['name'] = "eth" + str(ptf_port['port_idx'])
-        cmd = "ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'".format(ptf_port['name'])
+        cmd = ("ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'"      # noqa W605
+               .format(ptf_port['name']))
         res = ptfhost.shell(cmd)
         ip6 = ipaddress.IPv6Address(str(res['stdout']))
         pytest_assert(ip6.is_link_local,
@@ -81,7 +83,7 @@ def radv_test_setup(request, duthosts, ptfhost, tbinfo):
 
 def dut_update_ra_interval(duthost, ra, interval):
     logging.info("Updating %s to %d in RADVd's config file:%s", ra, int(interval), RADV_CONF_FILE)
-    cmd = "sed -ie 's/\(.*\)\({}\) \([[:digit:]]\+\)/\\1\\2 {}/' {}".format(ra, interval, RADV_CONF_FILE)
+    cmd = "sed -ie 's/\(.*\)\({}\) \([[:digit:]]\+\)/\\1\\2 {}/' {}".format(ra, interval, RADV_CONF_FILE)   # noqa W605
     duthost.shell("docker exec radv {}".format(cmd))
 
 
@@ -128,7 +130,7 @@ def test_radv_router_advertisement(
         duthost, ptfhost,
         radv_test_setup,
         dut_update_radv_periodic_ra_interval,
-        toggle_all_simulator_ports_to_upper_tor):
+        toggle_all_simulator_ports_to_upper_tor):       # noqa F811
     for vlan_intf in radv_test_setup:
         # Run the RADV test on the PTF host
         logging.info("Verifying RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
@@ -152,7 +154,8 @@ def test_radv_router_advertisement(
 """
 
 
-def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_test_setup, toggle_all_simulator_ports_to_upper_tor):
+def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_test_setup,
+                                        toggle_all_simulator_ports_to_upper_tor):       # noqa F811
     for vlan_intf in radv_test_setup:
         # Run the RADV solicited RA test on the PTF host
         logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
@@ -172,7 +175,7 @@ def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_
 
 
 """
-@summary: Test validates the M flag in RADVd's periodic router advertisement sent on each VLAN interface 
+@summary: Test validates the M flag in RADVd's periodic router advertisement sent on each VLAN interface
 
 """
 
@@ -181,7 +184,7 @@ def test_unsolicited_router_advertisement_with_m_flag(
     request, tbinfo,
     duthost, ptfhost,
     radv_test_setup,
-    toggle_all_simulator_ports_to_upper_tor,
+    toggle_all_simulator_ports_to_upper_tor,        # noqa F811
 ):
     for vlan_intf in radv_test_setup:
         # Run the RADV test on the PTF host
@@ -206,7 +209,8 @@ def test_unsolicited_router_advertisement_with_m_flag(
 """
 
 
-def test_solicited_router_advertisement_with_m_flag(request, tbinfo, ptfhost, duthost, radv_test_setup, toggle_all_simulator_ports_to_upper_tor):
+def test_solicited_router_advertisement_with_m_flag(request, tbinfo, ptfhost, duthost, radv_test_setup,
+                                                    toggle_all_simulator_ports_to_upper_tor):       # noqa F811
     for vlan_intf in radv_test_setup:
         # Run the RADV solicited RA test on the PTF host
         logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",

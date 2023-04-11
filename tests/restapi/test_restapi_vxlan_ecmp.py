@@ -39,7 +39,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members):
     logger.info("Creating default vxlan tunnel")
     r = restapi.post_config_tunnel_decap(construct_url, params)
     pytest_assert(r.status_code == 204)
-    
+
     # Create VNET
     params = '{"vnid": 703}'
     logger.info("Creating VNET vnet-guid-3 with vnid: 703")
@@ -67,7 +67,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members):
         r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-default', params)
         pytest_assert(r.status_code == 200)
         logger.info(r.json())
-        expected = [{"nexthop": "100.78.60.37,100.78.61.37", "ip_prefix": "10.1.0.1/32"}, 
+        expected = [{"nexthop": "100.78.60.37,100.78.61.37", "ip_prefix": "10.1.0.1/32"},
                     {"nexthop": "100.78.60.41,100.78.61.41", "ip_prefix": "10.1.0.5/32"}]
         for route in expected:
             pytest_assert(route in r.json())
@@ -87,7 +87,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members):
             r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-default', params)
             pytest_assert(r.status_code == 200)
             logger.info(r.json())
-            expected = [{"nexthop": "100.78.60.37,100.78.61.37", "ip_prefix": "10.1.0.1/32"}, 
+            expected = [{"nexthop": "100.78.60.37,100.78.61.37", "ip_prefix": "10.1.0.1/32"},
                         {"nexthop": "100.78.60.38,100.78.61.38", "ip_prefix": "10.1.0.2/32"},
                         {"nexthop": "100.78.60.39,100.78.61.39", "ip_prefix": "10.1.0.3/32"},
                         {"nexthop": "100.78.60.40,100.78.61.40", "ip_prefix": "10.1.0.4/32"},
@@ -109,7 +109,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members):
     r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-default', params)
     pytest_assert(r.status_code == 200)
     logger.info(r.json())
-    expected = [{"nexthop": "100.78.60.37,100.78.61.37", "ip_prefix": "10.1.0.1/32"}, 
+    expected = [{"nexthop": "100.78.60.37,100.78.61.37", "ip_prefix": "10.1.0.1/32"},
                 {"nexthop": "100.78.60.41,100.78.61.41", "ip_prefix": "10.1.0.5/32"}]
 
     for route in expected:
@@ -130,4 +130,3 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members):
     logger.info(r.json())
     pytest_assert(len(r.json()) == 0)
     logger.info("Routes with vnid: 703 from VNET vnet-default have been deleted successfully")
-    

@@ -2,6 +2,7 @@ import time
 
 RESTAPI_SERVER_START_WAIT_TIME = 15
 
+
 def apply_cert_config(duthost):
     # Set client certificate subject name in config DB
     dut_command = "redis-cli -n 4 hset \
