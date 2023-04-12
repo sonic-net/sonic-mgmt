@@ -752,6 +752,15 @@ platform_tests/mellanox/test_reboot_cause.py:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
 
 #######################################
+####  test_memory_exhaustion.py   #####
+#######################################
+platform_tests/test_memory_exhaustion.py:
+  skip:
+    reason: "Unsupported release or platforms"
+    conditions:
+      - "(is_multi_asic==True and release in ['201911']) or (hwsku in ['Celestica-E1031-T48S4'])"
+
+#######################################
 #####    test_platform_info.py    #####
 #######################################
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
@@ -867,12 +876,3 @@ platform_tests/test_reload_config.py:
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
-
-#######################################
-####  test_memory_exhaustion.py   #####
-#######################################
-platform_tests/test_memory_exhaustion.py:
-  skip:
-    reason: "Unsupported release 20191130"
-    conditions:
-      - "is_multi_asic==True and release in ['201911']"
