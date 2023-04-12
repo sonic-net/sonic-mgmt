@@ -227,6 +227,25 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
     return False
 
 
+def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num_egr_mem):
+    # Attempts to queue 1 packet while compensating for a varying packet leakout and egress queue.
+    # Returns whether 1 packet was successfully enqueued in ingress asic.
+    if asic_type in ['cisco-8000']:
+        pg_cntrs_base=sai_thrift_read_pg_counters(
+            test_case.client, src_port_id)
+        send_packet(test_case, src_port_id, pkt, pkts_num_egr_mem)
+        max_packets = 500
+        for packet_i in range(max_packets):
+            send_packet(test_case, src_port_id, pkt, 1)
+            pg_cntrs=sai_thrift_read_pg_counters(
+                test_case.client, src_port_id)
+            if pg_cntrs[queue] > pg_cntrs_base[queue]:
+                print("fill_egress_plus_one: Success, sent %d packets, pg counter bytes rose from %d to %d" % (
+                    pkts_num_egr_mem + packet_i + 1, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                return True
+    return False
+
+
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
@@ -1706,8 +1725,12 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                      pkts_num_dismiss_pfc - hysteresis) // cell_occupancy
                 )
             elif 'cisco-8000' in asic_type:
-                assert(fill_leakout_plus_one(self, src_port_id, dst_port_id,
-                       pkt, int(self.test_params['pg']), asic_type))
+                if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
+                    assert(fill_leakout_plus_one(self, src_port_id, dst_port_id,
+                        pkt, int(self.test_params['pg']), asic_type))
+                else:
+                    assert(fill_egress_plus_one(self, src_port_id,
+                        pkt, int(self.test_params['pg']), asic_type, pkts_num_egr_mem))
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_leak_out + pkts_num_trig_pfc -
@@ -1737,13 +1760,21 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                      hysteresis) // cell_occupancy + margin - 1
                 )
             elif 'cisco-8000' in asic_type:
-                assert(fill_leakout_plus_one(self, src_port_id, dst_port_2_id,
-                       pkt2, int(self.test_params['pg']), asic_type))
-                send_packet(
-                    self, src_port_id, pkt2,
-                    (pkts_num_leak_out + pkts_num_dismiss_pfc +
-                     hysteresis) // cell_occupancy + margin - 2
-                )
+                if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
+                    assert(fill_leakout_plus_one(self, src_port_id, dst_port_2_id,
+                        pkt2, int(self.test_params['pg']), asic_type))
+                    send_packet(
+                        self, src_port_id, pkt2,
+                        (pkts_num_leak_out + pkts_num_dismiss_pfc +
+                        hysteresis) // cell_occupancy + margin - 2
+                    )
+                else:
+                    assert(fill_egress_plus_one(self, src_port_id,
+                        pkt2, int(self.test_params['pg']), asic_type, pkts_num_egr_mem))
+                    send_packet(
+                        self, src_port_id, pkt2,
+                        (pkts_num_leak_out + pkts_num_dismiss_pfc +
+                        hysteresis) // cell_occupancy - 3
             else:
                 send_packet(
                     self, src_port_id, pkt2,
@@ -1764,9 +1795,14 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt3,
                             pkts_num_egr_mem + pkts_num_leak_out + 1)
             elif 'cisco-8000' in asic_type:
-                assert(fill_leakout_plus_one(self, src_port_id, dst_port_3_id,
-                       pkt3, int(self.test_params['pg']), asic_type))
-                send_packet(self, src_port_id, pkt3, pkts_num_leak_out)
+                if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
+                    assert(fill_leakout_plus_one(self, src_port_id, dst_port_3_id,
+                        pkt3, int(self.test_params['pg']), asic_type))
+                    send_packet(self, src_port_id, pkt3, pkts_num_leak_out)
+                else:
+                    assert(fill_egress_plus_one(self, src_port_id,
+                        pkt3, int(self.test_params['pg']), asic_type, pkts_num_egr_mem))
+                    send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
             else:
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
                 sys.stderr.write('send_packet(src_port_id, pkt3, ({} + 1)\n'.format(pkts_num_leak_out))
