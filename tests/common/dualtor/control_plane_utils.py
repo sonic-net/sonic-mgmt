@@ -198,6 +198,7 @@ class DBChecker:
         """Get output of show muxcable tunnel-route. """
         tunnel_route = json.loads(self.duthost.shell("show muxcable tunnel-route --json")['stdout'])
         
+        logger.debug(json.dumps(tunnel_route, indent=4))
         return tunnel_route
 
     def get_tunnel_route_mismatched_ports(self, stand_alone):
@@ -218,6 +219,7 @@ class DBChecker:
             else:
                 for dest_name in expected.keys():
                     if not self._get_nbr_data(intf, dest_name):
+                        logger.debug("Skipping tunnel_route check for {} {} due to non-existing neighbor entry. ".format(intf, dest_name))
                         continue
 
                     if dest_name in routes: 
