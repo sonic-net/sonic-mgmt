@@ -24,8 +24,8 @@ from . import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # lgtm[py/unused-import]
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
 from tests.common.utilities import is_ipv4_address
 from tests.common import constants
 from tests.common import config_reload
@@ -43,6 +43,7 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 
 MOCK_DEST_IP = "2.2.2.2"
 LINK_LOCAL_IP = "169.254.0.1"
+
 
 # For dualtor
 @pytest.fixture(scope='module')
@@ -64,10 +65,14 @@ def vlan_mac(duthost):
 def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, loganalyzer):
     if loganalyzer:
         ignore_regex_list = [
-            ".*ERR swss[0-9]*#orchagent.*meta_sai_validate_fdb_entry.*object key SAI_OBJECT_TYPE_FDB_ENTRY.*doesn't exist.*",
-            ".*ERR swss[0-9]*#orchagent.*removeFdbEntry: FdbOrch RemoveFDBEntry: Failed to remove FDB entry. mac=.*, bv_id=.*",
-            ".*ERR swss[0-9]*#orchagent.*handleSaiRemoveStatus: Encountered failure in remove operation, exiting orchagent, SAI API: SAI_API_FDB, status: SAI_STATUS_INVALID_PARAMETER.*",
-            ".*ERR syncd[0-9]*#syncd.*SAI_API_DEBUG_COUNTER:_brcm_sai_debug_counter_value_get.*No debug_counter at index.*found.*",
+            ".*ERR swss[0-9]*#orchagent.*meta_sai_validate_fdb_entry."
+            "*object key SAI_OBJECT_TYPE_FDB_ENTRY.*doesn't exist.*",
+            ".*ERR swss[0-9]*#orchagent.*removeFdbEntry: FdbOrch RemoveFDBEntry: "
+            "Failed to remove FDB entry. mac=.*, bv_id=.*",
+            ".*ERR swss[0-9]*#orchagent.*handleSaiRemoveStatus: Encountered failure in remove operation, "
+            "exiting orchagent, SAI API: SAI_API_FDB, status: SAI_STATUS_INVALID_PARAMETER.*",
+            ".*ERR syncd[0-9]*#syncd.*SAI_API_DEBUG_COUNTER:_brcm_sai_debug_counter_value_get."
+            "*No debug_counter at index.*found.*",
             ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*"
         ]
         duthost = duthosts[rand_one_dut_hostname]
@@ -92,9 +97,9 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     entry_key_template = "FDB_TABLE:{vid}:{mac}"
 
     fdb_entry_json = {entry_key_template.format(vid=vlan_id, mac=mac_address):
-        {"port": iface, "type": type},
-        "OP": op
-    }
+                      {"port": iface, "type": type},
+                      "OP": op
+                      }
     fdb_config_json.append(fdb_entry_json)
 
     with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config", mode="w") as fp:
@@ -118,6 +123,7 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     duthost.command(cmd)
     time.sleep(5)
 
+
 def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
     """
     Check if the ARP and FDB entry is present
@@ -128,7 +134,7 @@ def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
                   "ARP entry for {} missing in ASIC".format(dst_ip))
     result = duthost.shell("ip neigh show {}".format(dst_ip))
     pytest_assert(result['stdout_lines'], "{} not in arp table".format(dst_ip))
-    match = re.match("{}.*lladdr\s+(.*)\s+[A-Z]+".format(dst_ip),
+    match = re.match(r"{}.*lladdr\s+(.*)\s+[A-Z]+".format(dst_ip),
                      result['stdout_lines'][0])
     pytest_assert(match,
                   "Regex failed while retrieving arp entry for {}".format(dst_ip))
@@ -138,8 +144,10 @@ def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
     fdb_count = int(duthost.shell("show mac | grep {} | grep {} | wc -l".format(match.group(1), dst_intf))["stdout"])
     pytest_assert(fdb_count == 1, "FDB entry doesn't exist for {}, fdb_count is {}".format(dst_mac, fdb_count))
 
+
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
-def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m, mock_server,
+def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
+                            toggle_all_simulator_ports_to_rand_selected_tor_m, mock_server,         # noqa F811
                             send_dropped_traffic, drop_reason, generate_dropped_packet, tbinfo):
     """
     Verifies counters that check for a neighbor link being down.
@@ -165,11 +173,12 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
     try:
         # Add a static fdb entry
         apply_fdb_config(duthost, testbed_params['vlan_interface']['attachto'],
-                            mock_server['server_dst_intf'], mock_server['server_dst_mac'],
-                            "SET", "static")
+                         mock_server['server_dst_intf'], mock_server['server_dst_mac'],
+                         "SET", "static")
         mock_server["fanout_neighbor"].shutdown(mock_server["fanout_intf"])
         time.sleep(3)
-        verifyFdbArp(duthost, mock_server['server_dst_addr'], mock_server['server_dst_mac'], mock_server['server_dst_intf'])
+        verifyFdbArp(duthost, mock_server['server_dst_addr'],
+                     mock_server['server_dst_mac'], mock_server['server_dst_intf'])
         send_dropped_traffic(counter_type, pkt, rx_port)
     finally:
         mock_server["fanout_neighbor"].no_shutdown(mock_server["fanout_intf"])
@@ -177,8 +186,8 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
         duthost.command("sonic-clear arp")
         # Delete the static fdb entry
         apply_fdb_config(duthost, testbed_params['vlan_interface']['attachto'],
-                            mock_server['server_dst_intf'], mock_server['server_dst_mac'],
-                            "DEL", "static")
+                         mock_server['server_dst_intf'], mock_server['server_dst_mac'],
+                         "DEL", "static")
         # FIXME: Add config reload on t0-backend as a workaround to keep DUT healthy because the following
         # drop packet testcases will suffer from the brcm_sai_get_port_stats errors flooded in syslog
         if "backend" in tbinfo["topo"]["name"]:
@@ -370,6 +379,7 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
 
     """
     duthost = duthosts[rand_one_dut_hostname]
+
     def _runner(counter_type, pkt, rx_port):
         duthost.command("sonic-clear dropcounters")
 
@@ -403,7 +413,8 @@ def arp_responder(ptfhost, testbed_params, tbinfo):
     logging.info("Generating ARP responder topology")
     if is_storage_backend:
         vlan_id = testbed_params["vlan_interface"]["attachto"].lstrip("Vlan")
-        arp_responder_conf = {"eth%s%s%s" % (k, constants.VLAN_SUB_INTERFACE_SEPARATOR, vlan_id): v for k, v in list(vlan_host_map.items())}
+        arp_responder_conf = {"eth%s%s%s" % (k, constants.VLAN_SUB_INTERFACE_SEPARATOR, vlan_id):
+                              v for k, v in list(vlan_host_map.items())}
     else:
         arp_responder_conf = {"eth%s" % k: v for k, v in list(vlan_host_map.items())}
 
@@ -488,7 +499,7 @@ def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params, vla
         pkt = testutils.simple_ip_packet(**packet_params)
 
         logging.info("Generated simple IP packet (SMAC=%s, DMAC=%s, SIP=%s, DIP=%s)",
-                    src_mac, dst_mac, src_ip, dst_ip)
+                     src_mac, dst_mac, src_ip, dst_ip)
 
         return pkt
 
