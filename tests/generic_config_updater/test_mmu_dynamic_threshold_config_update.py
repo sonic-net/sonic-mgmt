@@ -51,26 +51,26 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles):
 
         for pg_lossless_profile in pg_lossless_profiles:
             # Retrieve dynamic_th from APPL_DB
-            dynamic_th_in_appl_db = duthost.shell("sonic-db-cli APPL_DB hget BUFFER_PROFILE_TABLE:{} dynamic_th"
-                                                 .format(pg_lossless_profile))["stdout"]
+            dynamic_th_in_appl_db = duthost.shell("sonic-db-cli APPL_DB hget BUFFER_PROFILE_"
+                                                  "TABLE:{} dynamic_th".format(pg_lossless_profile))["stdout"]
             if dynamic_th_in_appl_db != value:
                 return False
 
         # Retrieve dynamic_th from ASIC_DB
-        ingress_lossless_pool_oid = duthost.shell("sonic-db-cli COUNTERS_DB hget COUNTERS_BUFFER_POOL_NAME_MAP " \
+        ingress_lossless_pool_oid = duthost.shell("sonic-db-cli COUNTERS_DB hget COUNTERS_BUFFER_POOL_NAME_MAP "
                                                   "ingress_lossless_pool")["stdout"]
-        buffer_pool_keys = duthost.shell("redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:oid*")
-                           ["stdout_lines"]
+        buffer_pool_keys = duthost.shell("redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:"
+                                         "oid*")["stdout_lines"]
 
         for buffer_pool in buffer_pool_keys:
-            pool_oid = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_BUFFER_PROFILE_ATTR_POOL_ID"
-                                    .format(buffer_pool))["stdout"]
+            pool_oid = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_BUFFER_PROFILE_ATTR_"
+                                     "POOL_ID".format(buffer_pool))["stdout"]
 
             if pool_oid == ingress_lossless_pool_oid:
-                xoff_val = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_BUFFER_PROFILE_ATTR_XOFF_TH"
-                                        .format(buffer_pool))["stdout"]
-                dynamic_th_in_asic_db = duthost.shell("sonic-db-cli ASIC_DB hget " \
-                                        "{} SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH".format(buffer_pool))["stdout"]
+                xoff_val = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_BUFFER_PROFILE_ATTR_"
+                                         "XOFF_TH".format(buffer_pool))["stdout"]
+                dynamic_th_in_asic_db = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_BUFFER_PROFILE_"
+                                                      "ATTR_SHARED_DYNAMIC_TH".format(buffer_pool))["stdout"]
                 # Dynamic threshold values are a mismatch for pg_lossless profiles
                 if dynamic_th_in_asic_db != value and len(xoff_val) > 0:
                     return False
@@ -81,6 +81,7 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles):
         wait_until(READ_APPL_DB_TIMEOUT, READ_APPL_DB_INTERVAL, 0, _confirm_value_in_appl_db_and_asic_db),
         "ASIC_DB or APPL_DB does not properly reflect new dynamic threshold expected value: {}".format(value)
     )
+
 
 def get_pg_lossless_profiles(duthost):
     """
@@ -102,6 +103,7 @@ def get_pg_lossless_profiles(duthost):
         pg_lossless_profiles_lst.append(pg_lossless_profile)
 
     return pg_lossless_profiles_lst if len(pg_lossless_profiles_lst) > 0 else None
+
 
 @pytest.mark.parametrize("operation", ["replace"])
 def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation):
