@@ -29,7 +29,8 @@ __all__ = [
     "set_drop_active_active",
     "TrafficDirection",
     "ForwardingState",
-    "toggle_active_active_simulator_ports"
+    "toggle_active_active_simulator_ports",
+    "stop_nic_grpc_server"
 ]
 
 logger = logging.getLogger(__name__)
@@ -353,3 +354,34 @@ def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulat
                 raise ValueError("failed to toggle port %s, portid %s, state %s" % (mux_port, portid, state))
 
     return _toggle_active_active_simulator_ports
+
+
+@pytest.fixture(scope="function")
+def stop_nic_grpc_server(mux_config, nic_simulator_client, restart_nic_simulator):      # noqa F811
+    """Return a helper function to simulate grpc failure for active-active ports."""
+
+    def _call_set_nic_server_admin_state_nic_simulator(nic_addresses, admin_state):
+        request = nic_simulator_grpc_mgmt_service_pb2.ListOfNiCServerAdminStateRequest(
+            nic_addresses=list(nic_addresses),
+            admin_states=[admin_state for _ in nic_addresses]
+        )
+        client_stub = nic_simulator_client()
+        response = call_grpc(client_stub.SetNicServerAdminState, args=(request,))
+        logging.debug("stop nic grpc server response:\n%s", response)
+        for nic_address, success in zip(response.nic_addresses, response.successes):
+            if not success:
+                raise ValueError("failed to stop grpc server %s" % nic_address)
+
+    def _stop_nic_grpc_server(interface_names):
+        """Stop the grpc servers."""
+        nic_addresses = []
+        for interface_name in interface_names:
+            nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
+            logger.debug("Stop grpc server on port %s, address %s", interface_name, nic_address)
+            nic_addresses.append(nic_address)
+
+        _call_set_nic_server_admin_state_nic_simulator(nic_addresses, False)
+
+    yield _stop_nic_grpc_server
+
+    restart_nic_simulator()
