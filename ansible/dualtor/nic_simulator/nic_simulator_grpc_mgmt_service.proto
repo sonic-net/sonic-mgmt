@@ -10,6 +10,8 @@ service DualTorMgmtService {
   rpc QueryOperationPortState(ListOfOperationRequest) returns (ListOfOperationReply) {}
 
   rpc SetDrop(ListOfDropRequest) returns (ListOfDropReply) {}
+
+  rpc SetNicServerAdminState(ListOfNiCServerAdminStateRequest) returns (ListOfNiCServerAdminStateReply) {}
 }
 
 message ListOfAdminRequest {
@@ -40,4 +42,15 @@ message ListOfDropRequest {
 message ListOfDropReply {
   repeated string nic_addresses = 1;
   repeated DropReply drop_replies = 2;
+}
+
+message ListOfNiCServerAdminStateRequest {
+  repeated string nic_addresses = 1;
+  repeated bool admin_states = 2;
+}
+
+message ListOfNiCServerAdminStateReply {
+  repeated string nic_addresses = 1;
+  repeated bool admin_states = 2;
+  repeated bool successes = 3;
 }
