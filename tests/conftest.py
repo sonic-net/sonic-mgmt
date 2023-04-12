@@ -147,6 +147,12 @@ def pytest_addoption(parser):
     add_normal_reboot_args(parser)
 
     ############################
+    #   QoS options         #
+    ############################
+    parser.addoption("--public_docker_registry", action="store_true", default=False,
+                     help="To use public docker registry for syncd swap, by default is disabled (False)")
+
+    ############################
     #   loop_times options     #
     ############################
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
@@ -1290,7 +1296,7 @@ def pytest_generate_tests(metafunc):
 
     if 'topo_scenario' in metafunc.fixturenames:
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
-            metafunc.parametrize('topo_scenario', ['m0_t0_scenario', 'm0_t1_scenario'], scope='module')
+            metafunc.parametrize('topo_scenario', ['m0_vlan_scenario', 'm0_l3_scenario'], scope='module')
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 

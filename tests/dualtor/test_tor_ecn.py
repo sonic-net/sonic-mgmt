@@ -28,7 +28,8 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder
 from tests.common.fixtures.ptfhost_utils import run_garp_service
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses
 from tests.common.utilities import dump_scapy_packet_show_output
-from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp
+from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp, derive_out_dscp_from_inner_dscp
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -75,8 +76,8 @@ def setup_dualtor_tor_standby(
 
 def build_encapsulated_ip_packet(
     inner_dscp,
-    rand_selected_interface, 
-    ptfadapter, 
+    rand_selected_interface,
+    ptfadapter,
     rand_selected_dut
 ):
     """
@@ -95,9 +96,14 @@ def build_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    inner_ttl = random.choice(range(3, 65))
-    inner_ecn = random.choice(range(0,3))
+    inner_ttl = random.choice(list(range(3, 65)))
+    inner_ecn = random.choice(list(range(0, 3)))
+    if is_tunnel_qos_remap_enabled(tor):
+        outer_dscp = derive_out_dscp_from_inner_dscp(tor, inner_dscp)
+    outer_ecn = inner_ecn
+
     logging.info("Inner DSCP: {0:06b}, Inner ECN: {1:02b}".format(inner_dscp, inner_ecn))
+    logging.info("Outer DSCP: {0:06b}, Outer ECN: {1:02b}".format(outer_dscp, outer_ecn))
 
     inner_packet = testutils.simple_ip_packet(
         ip_src="1.1.1.1",
@@ -111,9 +117,9 @@ def build_encapsulated_ip_packet(
         eth_src=ptfadapter.dataplane.get_mac(0, 0),
         ip_src=peer_ipv4_address,
         ip_dst=tor_ipv4_address,
-        ip_dscp=inner_dscp,
+        ip_dscp=outer_dscp,
         ip_ttl=255,
-        ip_ecn=inner_ecn,
+        ip_ecn=outer_ecn,
         inner_frame=inner_packet
     )
     logging.info("the encapsulated packet to send:\n%s", dump_scapy_packet_show_output(packet))
@@ -123,8 +129,8 @@ def build_encapsulated_ip_packet(
 
 def build_non_encapsulated_ip_packet(
     dscp,
-    rand_selected_interface, 
-    ptfadapter, 
+    rand_selected_interface,
+    ptfadapter,
     rand_selected_dut
 ):
     """
@@ -161,8 +167,8 @@ def build_non_encapsulated_ip_packet(
     return packet
 
 def get_ptf_server_intf_index(
-    tor, 
-    tbinfo, 
+    tor,
+    tbinfo,
     iface
 ):
     """
@@ -191,8 +197,8 @@ def build_expected_packet_to_server(
     return exp_pkt
 
 def check_received_packet_on_expected_queue(
-    duthosts, 
-    rand_one_dut_hostname, 
+    duthosts,
+    rand_one_dut_hostname,
     rand_selected_interface,
     expected_queue
 ):
@@ -203,7 +209,7 @@ def check_received_packet_on_expected_queue(
     queue_counter = duthost.shell('show queue counters {} | grep "UC"'.format(rand_selected_interface[0]))['stdout']
     logging.info('queue_counter:\n{}'.format(queue_counter))
 
-    """ 
+    """
     regex search will look for following pattern in queue_counter o/p for interface
     ----------------------------------------------------------------------------_---
     Port           TxQ    Counter/pkts     Counter/bytes     Drop/pkts    Drop/bytes
@@ -226,9 +232,9 @@ def check_received_packet_on_expected_queue(
     return False
 
 def verify_ecn_on_received_packet(
-    ptfadapter, 
-    exp_pkt, 
-    exp_ptf_port_index, 
+    ptfadapter,
+    exp_pkt,
+    exp_ptf_port_index,
     exp_ecn
 ):
     """
@@ -250,7 +256,7 @@ def verify_ecn_on_received_packet(
 def test_dscp_to_queue_during_decap_on_active(
     inner_dscp, ptfhost, setup_dualtor_tor_active,
     request, rand_selected_interface, ptfadapter,
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor, 
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor,
     duthosts, rand_one_dut_hostname
 ):
     """
@@ -307,10 +313,10 @@ def test_dscp_to_queue_during_encap_on_standby(
     dscp,
     setup_dualtor_tor_standby,
     rand_selected_interface, ptfadapter,
-    tbinfo, 
-    rand_selected_dut, 
-    tunnel_traffic_monitor, 
-    duthosts, 
+    tbinfo,
+    rand_selected_dut,
+    tunnel_traffic_monitor,
+    duthosts,
     rand_one_dut_hostname,
     write_standby
 ):
