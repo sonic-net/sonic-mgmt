@@ -8,6 +8,7 @@ import ipaddr
 import binascii
 import pytest
 import yaml
+import six
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -842,11 +843,17 @@ class BaseEverflowTest(object):
 
         # Add vendor specific padding to the packet
         if duthost.facts["asic_type"] in ["mellanox"]:
-            payload = binascii.unhexlify("0" * 44) + str(payload)
+            if six.PY2:
+                payload = binascii.unhexlify("0" * 44) + str(payload)
+            else:
+                payload = binascii.unhexlify("0" * 44) + str(payload).encode('utf-8')
 
         if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"] or duthost.facts.get(
                 "platform_asic") in ["broadcom-dnx"]:
-            payload = binascii.unhexlify("0" * 24) + str(payload)
+            if six.PY2:
+                payload = binascii.unhexlify("0" * 24) + str(payload)
+            else:
+                payload = binascii.unhexlify("0" * 24) + str(payload).encode('utf-8')
 
         expected_packet = testutils.simple_gre_packet(
             eth_src=setup[direction]["egress_router_mac"],
