@@ -757,10 +757,8 @@ platform_tests/mellanox/test_reboot_cause.py:
 platform_tests/test_memory_exhaustion.py:
   skip:
     reason: "Unsupported release or platforms"
-    conditions_logical_operator: 'OR'
     conditions:
-      - "is_multi_asic==True and release in ['201911']"
-      - "hwsku in ['Celestica-E1031-T48S4']"
+      - "(is_multi_asic==True and release in ['201911']) or (hwsku in ['Celestica-E1031-T48S4'])"
 
 #######################################
 #####    test_platform_info.py    #####
