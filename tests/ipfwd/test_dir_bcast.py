@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 
-def get_ptf_src_ports(topo_type, tbinfo, duthost):
+def get_ptf_src_ports(tbinfo, duthost):
     # Source ports are upstream ports
-    upstream_neightbor_name = UPSTREAM_NEIGHBOR_MAP[topo_type]
+    upstream_neightbor_name = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]]
     ptf_src_ports = get_neighbor_ptf_port_list(duthost, upstream_neightbor_name, tbinfo)
     return ptf_src_ports
 
@@ -54,7 +54,7 @@ def get_ptf_dst_ports(duthost, mg_facts, testbed_type):
 
 def ptf_test_port_map(duthost, ptfhost, mg_facts, testbed_type, tbinfo):
     ptf_test_port_map = {}
-    ptf_src_ports = get_ptf_src_ports(testbed_type, tbinfo, duthost)
+    ptf_src_ports = get_ptf_src_ports(tbinfo, duthost)
     vlan_ip_port_pair = get_ptf_dst_ports(duthost, mg_facts, testbed_type)
 
     ptf_test_port_map = {
