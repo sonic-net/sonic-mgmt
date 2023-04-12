@@ -699,10 +699,10 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_
     print(resp.decode("ascii"))
 
     if os.getenv("MODE"):
-        sanity_mode = os.getenv("MODE")
+        sanity_mode = os.getenv("MODE").replace("_", "")
     else:
-        sanity_mode = os.getenv("SANITY_MODE")
-    sanity_index = os.getenv("SANITY_INDEX").replace("_", "")
+        sanity_mode = os.getenv("SANITY_MODE").replace("_", "")
+    sanity_index = os.getenv("SANITY_INDEX")
     job_base_name = os.getenv("JOB_BASE_NAME").replace("_", "")
     timestamp = re.sub(r'[^a-zA-Z0-9]', '', os.getenv("TIMESTAMP"))
     build_id = os.getenv("BUILD_ID")
