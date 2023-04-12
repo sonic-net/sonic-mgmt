@@ -147,6 +147,12 @@ def pytest_addoption(parser):
     add_normal_reboot_args(parser)
 
     ############################
+    #   QoS options         #
+    ############################
+    parser.addoption("--public_docker_registry", action="store_true", default=False,
+                     help="To use public docker registry for syncd swap, by default is disabled (False)")
+
+    ############################
     #   loop_times options     #
     ############################
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
