@@ -2,7 +2,7 @@
 
 from ansible.module_utils.basic import AnsibleModule
 from functools import cmp_to_key
-from datetime import datetime
+import datetime
 import traceback
 import logging.handlers
 import logging
