@@ -74,6 +74,14 @@ def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture
+def has_suppress_feature(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Return True if current SONiC version runs with suppress enabled in FRR."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    suppress_enabled = ('bgp suppress-fib-pending' in duthost.shell('show runningconfiguration bgp')['stdout'])
+    return suppress_enabled
+
+
+@pytest.fixture
 def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
 
@@ -174,7 +182,7 @@ def common_setup_teardown(
 
 
 @pytest.fixture
-def constants(is_quagga, setup_interfaces):
+def constants(is_quagga, setup_interfaces, has_suppress_feature):
     class _C(object):
         """Dummy class to save test constants."""
 
@@ -186,7 +194,10 @@ def constants(is_quagga, setup_interfaces):
         _constants.update_interval_threshold = 20
     else:
         _constants.sleep_interval = 5
-        _constants.update_interval_threshold = 1
+        if not has_suppress_feature:
+            _constants.update_interval_threshold = 1
+        else:
+            _constants.update_interval_threshold = 2
 
     conn0 = setup_interfaces[0]
     _constants.routes = []
