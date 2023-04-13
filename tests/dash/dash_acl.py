@@ -362,10 +362,10 @@ def acl_test_conf(duthost, dash_config_info):
     testcases.append(DefaultAclRule(duthost, dash_config_info))
     testcases.append(AclPriorityTest(duthost, dash_config_info))
     testcases.append(AclActionTest(duthost, dash_config_info))
-    # Unsupported testcases
-    # testcases.append(AclProtocolTest(duthost, dash_config_info))
-    # testcases.append(AclAddressTest(duthost, dash_config_info))
-    # testcases.append(AclPortTest(duthost, dash_config_info))
+    # Cannot passed testcases
+    testcases.append(AclProtocolTest(duthost, dash_config_info))
+    testcases.append(AclAddressTest(duthost, dash_config_info))
+    testcases.append(AclPortTest(duthost, dash_config_info))
 
     for t in testcases:
         t.config()
