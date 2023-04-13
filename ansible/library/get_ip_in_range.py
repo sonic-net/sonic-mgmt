@@ -1,6 +1,5 @@
 #!/usr/bin/python
-from netaddr import *
-import sys
+from ansible.module_utils.basic import AnsibleModule
 import ipaddress
 
 DOCUMENTATION = '''
@@ -35,9 +34,9 @@ class IpRangeModule(object):
     def __init__(self):
         self.module = AnsibleModule(
             argument_spec=dict(
-              num=dict(required=True, type='int'),
-              prefix=dict(required=True),
-              exclude_ips=dict(required=False, default=[], type='list'),
+                num=dict(required=True, type='int'),
+                prefix=dict(required=True),
+                exclude_ips=dict(required=False, default=[], type='list'),
             ),
             supports_check_mode=True)
 
@@ -49,36 +48,36 @@ class IpRangeModule(object):
     def run(self):
         """
             Main method of the class
-        
+
         """
         m_args = self.module.params
         exclude_ips = []
         ip_list = m_args['exclude_ips']
         for ip in ip_list:
-            exclude_ips.append(IPAddress(ip))
+            exclude_ips.append(ipaddress.ip_address(ip.encode().decode()))
 
         self.generate_ips(m_args['num'], m_args['prefix'], exclude_ips)
         self.module.exit_json(ansible_facts=self.facts)
-
 
     def generate_ips(self, num, prefix, exclude_ips):
         """
            Generate ips
         """
-        prefix = IPNetwork(prefix)
+        prefix = ipaddress.ip_network(prefix.encode().decode())
         exclude_ips.append(prefix.broadcast)
         exclude_ips.append(prefix.network)
         available_ips = list(prefix)
 
-        if len(available_ips) - len(exclude_ips)< num: 
-           self.module.fail_json(msg="Don't have enough available ips in prefix, num=%d, prefix=%s, exclude_ips=%s." % 
-                                (num, prefix, exclude_ips))   
+        if len(available_ips) - len(exclude_ips) < num:
+            self.module.fail_json(msg="Don't have enough available ips in prefix, num=%d, prefix=%s, exclude_ips=%s." %
+                                  (num, prefix, exclude_ips))
         generated_ips = []
         for available_ip in available_ips:
             if available_ip not in exclude_ips:
-                generated_ips.append(str(available_ip) + '/' + str(prefix.prefixlen))
+                generated_ips.append(str(available_ip) +
+                                     '/' + str(prefix.prefixlen))
             if len(generated_ips) == num:
-                break            
+                break
         self.facts['generated_ips'] = generated_ips
         return
 
@@ -90,6 +89,5 @@ def main():
     return
 
 
-from ansible.module_utils.basic import *
 if __name__ == "__main__":
     main()

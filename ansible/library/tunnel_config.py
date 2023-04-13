@@ -1,3 +1,7 @@
+from ansible.module_utils.basic import AnsibleModule
+import traceback
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -17,7 +21,7 @@ def main():
 
             tunnels = m_args['vm_topo_config']['DUT']['tunnel_configs'][tunnel_config]
             for tunnel, tunnel_param in tunnels.items():
-                tunnel_configs.update({tunnel : {}})
+                tunnel_configs.update({tunnel: {}})
                 tunnel_configs[tunnel]['type'] = tunnel_param['type']
                 tunnel_configs[tunnel]['attach_to'] = tunnel_param['attach_to']
                 tunnel_configs[tunnel]['dscp'] = tunnel_param['dscp']
@@ -25,12 +29,11 @@ def main():
                 tunnel_configs[tunnel]['ecn_decap'] = tunnel_param['ecn_decap']
                 tunnel_configs[tunnel]['ttl_mode'] = tunnel_param['ttl_mode']
 
-    except Exception as e:
-        module.fail_json(msg = traceback.format_exc())
+    except Exception:
+        module.fail_json(msg=traceback.format_exc())
     else:
-        module.exit_json(ansible_facts={'tunnel_configs' : tunnel_configs})
+        module.exit_json(ansible_facts={'tunnel_configs': tunnel_configs})
 
-from ansible.module_utils.basic import *
+
 if __name__ == "__main__":
     main()
-    
