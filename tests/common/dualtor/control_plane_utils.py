@@ -182,7 +182,7 @@ class DBChecker:
         nbr_data = self.duthost.shell(cmd)['stdout']
 
         logger.debug("Fetched neighbor entry data for {} {}: {}".format(intf_name, dest_name, nbr_data))
-        return len(nbr_data) > 0
+        return nbr_data and nbr_data.startswith(ipaddress.split("/")[0])
 
     def _get_ipaddr(self, intf_name, dest_name):
         """Get IP address from mux cable table in config db"""
