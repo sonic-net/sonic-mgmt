@@ -14,6 +14,7 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+
 def test_flush_unused_database(duthosts, rand_one_dut_hostname):
     """
     @summary: Test 'flush_unused_database' scripts can run correctly inside database container.
