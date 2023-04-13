@@ -198,7 +198,7 @@ vm_host_62:
 vm_host_63:
   hosts:
     STR3-ACS-SERV-63:
-      ansible_host: 10.3.146.196
+      ansible_host: 10.64.247.41
 vm_host_18:
   hosts:
     STR2-ACS-SERV-18:

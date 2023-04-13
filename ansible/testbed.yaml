@@ -2018,7 +2018,7 @@
   topo: t0
   ptf_image_name: docker-ptf
   ptf: vms63-1
-  ptf_ip: 10.3.146.197/23
+  ptf_ip: 10.64.247.42/23
   ptf_ipv6:
   server: server_63
   vm_base: VM63000
@@ -2033,7 +2033,7 @@
   topo: t0
   ptf_image_name: docker-ptf
   ptf: vms63-2
-  ptf_ip: 10.3.146.198/23
+  ptf_ip: 10.64.247.43/23
   ptf_ipv6:
   server: server_63
   vm_base: VM63004
@@ -2048,7 +2048,7 @@
   topo: t1-lag
   ptf_image_name: docker-ptf
   ptf: vms63-3
-  ptf_ip: 10.3.146.199/23
+  ptf_ip: 10.64.247.44/23
   ptf_ipv6:
   server: server_63
   vm_base: VM63008

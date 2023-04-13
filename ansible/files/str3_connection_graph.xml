@@ -1491,7 +1491,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.6/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-acs-serv-63">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.196/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.41/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8101-02">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.191/23"/>
