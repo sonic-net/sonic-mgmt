@@ -1,13 +1,13 @@
 import logging
 import time
-
 import pytest
 
 from ipaddress import ip_interface
-from constants import *  # noqa: F403
+from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
+    LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
+    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, ACL_GROUP, ACL_STAGE
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from dash_acl import acl_test_conf  # noqa: F401
-
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +90,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
 
     neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
     for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
-        # Pick the first two BGP neighbor IPs since these should already be
-        # learned on the DUT
+        # Pick the first two BGP neighbor IPs since these should already be learned on the DUT
         if ip_interface(neigh_ip).version == 4:
             if LOCAL_PA_IP not in dash_info:
                 dash_info[LOCAL_PA_IP] = neigh_ip

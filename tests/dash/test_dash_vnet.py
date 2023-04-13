@@ -3,7 +3,7 @@ import logging
 import pytest
 import ptf.testutils as testutils
 
-from constants import *  # noqa: F403
+from constants import LOCAL_PTF_INTF, REMOTE_PTF_INTF
 import packets
 
 logger = logging.getLogger(__name__)

@@ -36,13 +36,15 @@ def parse_show(output_lines):
             break
 
     if not sep_line_found:
-        logging.info('Failed to find separation line in the show command output')
+        logging.info(
+            'Failed to find separation line in the show command output')
         return result
 
     try:
         positions = _parse_column_positions(sep_line)
     except Exception as e:
-        logging.info('Possibly bad command output, exception: {}'.format(repr(e)))
+        logging.info(
+            'Possibly bad command output, exception: {}'.format(repr(e)))
         return result
 
     headers = []
