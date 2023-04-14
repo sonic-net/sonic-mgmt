@@ -1,6 +1,6 @@
 # Fanout Credentials
 
-To deploy fanout, use the ansible playbook [fanout playbook](ansible/fanout.yml), during the execution, credentials will be read as group variables and used. 
+To deploy fanout, use the ansible playbook [fanout playbook](ansible/fanout.yml), during the execution, credentials will be read as group variables and used.
 
 To define its passwords, there are several ways. When tacacs is enabled and all fanout devices use the same credential, set fanout_tacacs_user/password (it will override everything). When tacacs is enabled but different type of devices use different credentials, do not set fanout_tacacs_user/password but fanout_tacacs_{OS}_user/password. When instead tacacs is not enabled and fanout uses local authentication, do not set tacacs password for that type of device and set its local user name and passwords.
 
