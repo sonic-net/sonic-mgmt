@@ -211,22 +211,28 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     
     for route_prefix in iproute_info:
         if "/{}".format(route_prefix_len) in route_prefix:
-            has_ext_route = has_external_route(asichost, route_prefix)
-            if not has_ext_route:
-                continue
             # multi-asics can have more than 1 routes in iproute_info[route_prefix], even single-asics have only 1
             for route_per_prefix in iproute_info[route_prefix]:
                 # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
                 multipath = route_per_prefix.get('multipath', False)
                 if multipath:
+                    has_ext_route = has_external_route(asichost, route_prefix)
+                    if not has_ext_route:
+                        continue
                     out = route_per_prefix.get('path').split(' ')
                     aspath = out[1:]
                     entry = routes(route_prefix, ' '.join(aspath))
                     dst_prefix_set.add(entry)
     pytest_assert(dst_prefix_set, "dst_prefix_set is empty")
-    route_to_ping = list(dst_prefix_set)[0].route
-    dev = json.loads(duthost.shell('vtysh -c "show ip route {} json"'.format(route_to_ping))['stdout'])
-    dev_port = dev[route_to_ping][0]['nexthops'][0]['interfaceName']
+
+    dev_port = None
+    for dst_prefix in dst_prefix_set:
+        if dev_port:
+            break
+        route_to_ping = dst_prefix.route
+        cmd = '-c "show ip route {} json"'.format(route_to_ping)
+        dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
+        dev_port = dev[route_to_ping][0]['nexthops'][0]['interfaceName']
 
     pytest_assert(dev_port, "dev_port not exist")
     route_nums = len(dst_prefix_set)
