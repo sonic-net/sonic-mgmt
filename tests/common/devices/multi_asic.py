@@ -636,6 +636,17 @@ class MultiAsicSonicHost(object):
             for dutasic in self.asics:
                 dutasic.run_vtysh(vty_cmd_args)
 
+    def get_internal_bgp_peers_for_chassis(self):
+        """
+        This will work for single-asic/multi-asic linecards
+        """
+        bgp_internal_neighbors = {}
+        for asic in self.asics:
+            bgp_internal_neighbors.update(
+                asic.get_internal_bgp_peers_for_chassis_per_asic()
+            )
+        return bgp_internal_neighbors
+
     def get_internal_bgp_peers(self):
         """
         Get Internal BGP peers. API iterates through frontend ASIC
@@ -647,7 +658,7 @@ class MultiAsicSonicHost(object):
         if not self.sonichost.is_multi_asic:
             return {}
         bgp_internal_neighbors = {}
-        for asic in self.asics:
+        for asic in self.frontend_asics:
             config_facts = self.config_facts(
                 host=self.hostname, source="running",
                 namespace=asic.namespace
