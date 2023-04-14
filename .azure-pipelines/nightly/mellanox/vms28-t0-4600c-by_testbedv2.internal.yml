@@ -34,12 +34,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202012)
+    default: $(IMAGE_MLNX_INTERNAL)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MLNX_202012)
+    default: $(SAITHRIFT_MLNX_INTERNAL)
     displayName: "py_saithrift URL"
 
   # Custom run scripts, if both SCIPTS and FEATURES are empty, all the test will be executed
@@ -130,3 +130,4 @@ stages:
         DUMP_KVM_IF_FAIL: ${{ parameters.DUMP_KVM_IF_FAIL }}
         REQUESTER: ${{ parameters.REQUESTER }}
         MAX_EXECUTE_SECONDS: ${{ parameters.MAX_EXECUTE_SECONDS }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
