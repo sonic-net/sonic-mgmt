@@ -41,7 +41,8 @@ class TestMemoryExhaustion:
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
 
-    def test_memory_exhaustion(self, duthost, localhost):
+    def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         dut_datetime = duthost.get_now_time()
