@@ -390,7 +390,7 @@ def test_active_link_admin_down_config_reload_upstream(
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_downstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
     cable_type, active_active_ports
 ):
     if cable_type == CableType.active_active:
