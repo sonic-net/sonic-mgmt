@@ -96,7 +96,6 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                 subscribe_mode,
                 submode, intervalms,
                 update_count, create_connections)
-        cmd = "cat /root/gnxi/gnmi_cli_py/py_gnmicli.py"
     return cmd
 
 
