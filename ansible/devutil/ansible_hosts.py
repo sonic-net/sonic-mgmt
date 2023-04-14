@@ -27,6 +27,9 @@ import copy
 import inspect
 import json
 import logging
+import os
+
+import six
 
 from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible.inventory.manager import InventoryManager
@@ -38,6 +41,9 @@ from ansible.plugins.callback import CallbackBase
 from ansible.plugins.loader import module_loader
 from ansible import context
 from ansible.module_utils.common.collections import ImmutableDict
+
+if six.PY2:
+    FileNotFoundError = IOError
 
 logger = logging.getLogger("ansible_hosts")
 
@@ -193,6 +199,15 @@ class AnsibleHostsBase(object):
             hostvars (dict, optional): Additional ansible variables for ansible hosts. Similar as using `-e` argument
                 of ansible-playbook command line to specify additional host variables. Defaults to {}.
         """
+        # Check existence of inventories
+        if isinstance(inventories, list):
+            for inventory in inventories:
+                if not os.path.exists(inventory):
+                    raise FileNotFoundError("Inventory file {} not found.".format(inventory))
+        else:
+            if not os.path.exists(inventories):
+                raise FileNotFoundError("Inventory file {} not found.".format(inventories))
+
         self.inventories = inventories
         self.host_pattern = host_pattern
         if loader:
@@ -233,7 +248,7 @@ class AnsibleHostsBase(object):
         self.ans_inv_hosts = self.im.get_hosts(self.host_pattern)
         if len(self.ans_inv_hosts) == 0:
             raise NoAnsibleHostError(
-                "No host '{}' in inventory files '{}'".format(self.hostname, self.inventories)
+                "No host '{}' in inventory files '{}'".format(self.host_pattern, self.inventories)
             )
         self.hostnames = [host.name for host in self.ans_inv_hosts]
         self.hosts_count = len(self.hostnames)
