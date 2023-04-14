@@ -3,7 +3,6 @@ all:
     docker_registry:
       hosts:
         acs-devrepo.corp.microsoft.com:
-        acs-repo.corp.microsoft.com:
 
     str:
       children:

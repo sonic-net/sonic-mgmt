@@ -1,4 +1,0 @@
-## TODO: store ssl cert into Azure Key Vault and rewrite playbook
-ssl_certificate: ""
-ssl_private_key: ""
-htpasswd: "{{ secret_host_vars['acs-repo.corp.microsoft.com']['htpasswd'] }}"

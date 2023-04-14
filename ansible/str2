@@ -3,7 +3,6 @@ all:
     docker_registry:
       hosts:
         acs-devrepo.corp.microsoft.com:
-        acs-repo.corp.microsoft.com:
     str2:
       children:
         sonic:
@@ -1141,7 +1140,7 @@ sonic_cisco_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
       ansible_host: 10.3.147.178
       serial: FOC2601NALA
-      base_mac: CC:ED:4D:82:39:F0 
+      base_mac: CC:ED:4D:82:39:F0
       model: '8800-LC-48H'
       syseeprom_info:
         "0x21": "8800-LC-48H"
@@ -1177,7 +1176,7 @@ sonic_cisco_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
       ansible_host: 10.3.147.179
       serial: FOC2602N0GP
-      base_mac: CC:ED:4D:82:38:60 
+      base_mac: CC:ED:4D:82:38:60
       model: '8800-LC-48H'
       syseeprom_info:
         "0x21": "8800-LC-48H"
@@ -1213,7 +1212,7 @@ sonic_cisco_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.3.147.180
       serial: FOC2601NARV
-      base_mac: CC:ED:4D:86:C1:50 
+      base_mac: CC:ED:4D:86:C1:50
       model: '8800-LC-48H'
       syseeprom_info:
         "0x21": "8800-LC-48H"
@@ -1285,7 +1284,7 @@ sonic_cisco_lc_400G:
     str2-8800-lc2-2:
       hwsku: 88-LC0-36FH-MO
       sonic_hwsku: 88-LC0-36FH-MO
-      sonic_hw_platform: x86_64-88_lc0_36fh_m-r0 
+      sonic_hw_platform: x86_64-88_lc0_36fh_m-r0
       slot_num: slot5
       loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
@@ -1495,7 +1494,7 @@ sonic_cisco_sup:
       num_asics: 16
       asic_name: Q200
       serial: FOC2516N6GB
-      base_mac: F8:7A:41:E4:1D:F8 
+      base_mac: F8:7A:41:E4:1D:F8
       syseeprom_info:
         "0x21": "8800-RP"
         "0x22": "1A4841"
@@ -1563,7 +1562,7 @@ sonic_cisco_sup:
       num_asics: 16
       asic_name: Q200
       serial: FOC2516N6GB
-      base_mac: F8:7A:41:E4:1D:F8 
+      base_mac: F8:7A:41:E4:1D:F8
       syseeprom_info:
         "0x21": "8800-RP"
         "0x22": "1A4841"

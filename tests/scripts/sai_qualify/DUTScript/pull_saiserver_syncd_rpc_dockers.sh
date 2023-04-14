@@ -7,7 +7,7 @@ DIR=$(dirname $(readlink -f "$0")) # absolute path
 get_asic
 get_os_version
 
-SONIC_REG=acs-repo.corp.microsoft.com:5001
+SONIC_REG=soniccr1.azurecr.io
 
 pull_saiserver(){
     docker pull ${SONIC_REG}/docker-saiserver${SAI_VERSION}-${ASIC}:${OS_VERSION}

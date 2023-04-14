@@ -3,7 +3,6 @@ all:
     docker_registry:
       hosts:
         acs-devrepo.corp.microsoft.com:
-        acs-repo.corp.microsoft.com:
     str3:
       children:
         sonic:
@@ -493,7 +492,7 @@ sonic_cisco_sup:
             - psu5.2
           'thermals':
             - TEMPERATURE_INFO_8
-      asics_present: [0,1,4,5,8,9,10,12,13] 
+      asics_present: [0,1,4,5,8,9,10,12,13]
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -558,7 +557,7 @@ sonic_cisco_sup:
             - psu5.2
           'thermals':
             - TEMPERATURE_INFO_2
-      asics_present: [0,1,4,5,8,9,10,12,13] 
+      asics_present: [0,1,4,5,8,9,10,12,13]
       plt_reboot_dict:
         cold:
           timeout: 300

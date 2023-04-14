@@ -7,7 +7,7 @@ After the pull, it will tag the image as a local image, for example for broadcom
 docker-saiserver-brcm
 docker-syncd-brcm-rpc
 the origin one can be in format like
-acs-repo.corp.microsoft.com:5001/docker-saiserver-brcm:master.39085-dirty-20210923.145659
+soniccr1.azurecr.io/docker-saiserver-brcm:master.39085-dirty-20210923.145659
 
 For how to get the OS version and asic name you can run the command
 ```

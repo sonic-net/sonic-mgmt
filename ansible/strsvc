@@ -3,7 +3,6 @@ all:
     docker_registry:
       hosts:
         acs-devrepo.corp.microsoft.com:
-        acs-repo.corp.microsoft.com:
     strsvc:
       children:
         sonic:
@@ -182,7 +181,7 @@ sonic_nokia_lc_100G:
       loopback4096_ip: [192.0.0.6/32,192.0.0.8/32]
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
       serial: NS222464263
-      base_mac: 18:5b:00:50:6c:08 
+      base_mac: 18:5b:00:50:6c:08
       ansible_host: 10.206.144.146
     svcstr-7250-lc3-1:
       hwsku: Nokia-IXR7250E-36x100G

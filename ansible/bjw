@@ -3,7 +3,6 @@ all:
     docker_registry:
       hosts:
         acs-devrepo.corp.microsoft.com:
-        acs-repo.corp.microsoft.com:
     bjw:
       children:
         sonic:
@@ -47,9 +46,9 @@ all:
           ansible_host: 10.150.23.63
         bjw7-4:
           ansible_host: 10.150.23.64
-        bjw7-5: 
+        bjw7-5:
           ansible_host: 10.150.23.65
-        bjw7-6: 
+        bjw7-6:
           ansible_host: 10.150.23.66
 
     pdu:
@@ -209,7 +208,7 @@ sonic_arista_720dt:
     hwsku: Arista-720DT-G48S4
     iface_speed: 1000
   hosts:
-    bjw-can-720dt-1:   
+    bjw-can-720dt-1:
       ansible_host: 10.150.22.112
       model: CCS-720DT-48S
       serial: WTW22180040
