@@ -375,6 +375,11 @@ ecmp/inner_hashing/test_fgnhg_inner_hashing_internal.py:
     conditions:
       - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6558
+  skip:
+    reason: "The test case only runs on Mellanox T0"
+    conditions:
+      - "topo_type not in ['t0'] or asic_type not in ['mellanox']"
+
 
 ecmp/test_fgnhg.py:
   xfail:
