@@ -24,10 +24,11 @@ class TestMemoryExhaustion:
     """
 
     @pytest.fixture(autouse=True)
-    def tearDown(self, duthost, localhost, pdu_controller):
+    def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, pdu_controller):
         yield
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         if not self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED):
