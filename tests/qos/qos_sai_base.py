@@ -964,13 +964,22 @@ class QosSaiBase(QosBase):
             if 'proxy_arp' in value:
                 logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
-    def dutBufferConfig(self, duthost):
+    def dutBufferConfig(self, duthost, dut_asic):
         bufferConfig = {}
         try:
-            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_POOL"')['stdout'])
-            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PROFILE"')['stdout'])
-            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_QUEUE"')['stdout'])
-            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PG"')['stdout'])
+            ns_spec = ""
+            ns = dut_asic.get_asic_namespace()
+            if ns is not None:
+                # multi-asic support
+                ns_spec = " -n " + ns
+            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
+            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
+            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
+            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
         except Exception as err:
             logger.info(err)
         return bufferConfig
@@ -1043,12 +1052,17 @@ class QosSaiBase(QosBase):
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
-                bufferConfig = self.dutBufferConfig(duthost)
-                pytest_assert(len(bufferConfig) == 4, "buffer config is incompleted")
-                pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL is not exist in bufferConfig')
-                pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
-                pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
-                pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
+                bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+                pytest_assert(len(bufferConfig) == 4,
+                              "buffer config is incompleted")
+                pytest_assert('BUFFER_POOL' in bufferConfig,
+                              'BUFFER_POOL is not exist in bufferConfig')
+                pytest_assert('BUFFER_PROFILE' in bufferConfig,
+                              'BUFFER_PROFILE is not exist in bufferConfig')
+                pytest_assert('BUFFER_QUEUE' in bufferConfig,
+                              'BUFFER_QUEUE is not exist in bufferConfig')
+                pytest_assert('BUFFER_PG' in bufferConfig,
+                              'BUFFER_PG is not exist in bufferConfig')
 
                 current_file_dir = os.path.dirname(os.path.realpath(__file__))
                 sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
@@ -1071,11 +1085,15 @@ class QosSaiBase(QosBase):
                                                            tbinfo["topo"]["name"])
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
-            bufferConfig = self.dutBufferConfig(duthost)
-            pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL does not exist in bufferConfig')
-            pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE does not exist in bufferConfig')
-            pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE does not exist in bufferConfig')
-            pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG does not exist in bufferConfig')
+            bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+            pytest_assert('BUFFER_POOL' in bufferConfig,
+                          'BUFFER_POOL does not exist in bufferConfig')
+            pytest_assert('BUFFER_PROFILE' in bufferConfig,
+                          'BUFFER_PROFILE does not exist in bufferConfig')
+            pytest_assert('BUFFER_QUEUE' in bufferConfig,
+                          'BUFFER_QUEUE does not exist in bufferConfig')
+            pytest_assert('BUFFER_PG' in bufferConfig,
+                          'BUFFER_PG does not exist in bufferConfig')
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
             sub_folder_dir = os.path.join(current_file_dir, "files/cisco/")
             if sub_folder_dir not in sys.path:
