@@ -1019,7 +1019,7 @@
     "FEATURE": {
         "mgmt-framework": {
             "state": "enabled",
-            "has_timer": "True",
+            "delayed": "True",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
@@ -1027,7 +1027,7 @@
         },
         "database": {
             "state": "always_enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "True",
             "auto_restart": "always_enabled",
@@ -1035,7 +1035,7 @@
         },
         "sflow": {
             "state": "disabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
@@ -1043,7 +1043,7 @@
         },
         "teamd": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "False",
             "has_per_asic_scope": "True",
             "auto_restart": "enabled",
@@ -1051,7 +1051,7 @@
         },
         "pmon": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
@@ -1059,7 +1059,7 @@
         },
         "nat": {
             "state": "disabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
@@ -1067,7 +1067,7 @@
         },
         "bgp": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "False",
             "has_per_asic_scope": "True",
             "auto_restart": "enabled",
@@ -1075,7 +1075,7 @@
         },
         "telemetry": {
             "state": "enabled",
-            "has_timer": "True",
+            "delayed": "True",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
@@ -1084,7 +1084,7 @@
         },
         "dhcp_relay": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
@@ -1092,7 +1092,7 @@
         },
         "radv": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
@@ -1100,7 +1100,7 @@
         },
         "swss": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "False",
             "has_per_asic_scope": "True",
             "auto_restart": "enabled",
@@ -1108,7 +1108,7 @@
         },
         "snmp": {
             "state": "enabled",
-            "has_timer": "True",
+            "delayed": "True",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
@@ -1116,7 +1116,7 @@
         },
         "syncd": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "False",
             "has_per_asic_scope": "True",
             "auto_restart": "enabled",
@@ -1124,7 +1124,7 @@
         },
         "lldp": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "True",
             "auto_restart": "enabled",
@@ -1132,7 +1132,7 @@
         },
         "gbsyncd": {
             "state": "enabled",
-            "has_timer": "False",
+            "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "auto_restart": "enabled",
