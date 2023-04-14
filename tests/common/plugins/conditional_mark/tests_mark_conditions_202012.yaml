@@ -8,35 +8,35 @@ dualtor/test_ipinip.py::test_decap_standby_tor:
     reason: "dual tor mock test only support on 7050cx3"
     conditions:
       - "release in ['202012']"
-      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower())"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 dualtor/test_orchagent_active_tor_downstream.py:
   skip:
     reason: "dual tor mock test only support on 7050cx3"
     conditions:
       - "release in ['202012']"
-      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower())"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 dualtor/test_orchagent_mac_move.py:
   skip:
     reason: "dual tor mock test only support on 7050cx3"
     conditions:
       - "release in ['202012']"
-      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower())"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 dualtor/test_orch_stress.py::test_flap_neighbor_entry_standby:
   skip:
     reason: "dual tor mock test only support on 7050cx3"
     conditions:
       - "release in ['202012']"
-      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower())"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 dualtor/test_standby_tor_upstream_mux_toggle.py:
   skip:
     reason: "dual tor mock test only support on 7050cx3"
     conditions:
       - "release in ['202012']"
-      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower())"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 
 dualtor_io/test_normal_op.py:
