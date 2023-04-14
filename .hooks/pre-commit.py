@@ -1,6 +1,7 @@
 import re
 import sys
 
+
 def main():
     stage_files = sys.argv[1:]
     for stage_file in stage_files:
@@ -17,6 +18,7 @@ def main():
             if conditions != sorted_conditions:
                 sys.exit(-1)
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
