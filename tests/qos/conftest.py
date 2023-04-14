@@ -41,4 +41,3 @@ def singleMemberPort(duthost, mg_facts):
     assert dst_port != None, "Failed to find an invidivual port for testing"
     yield dst_port
 
-

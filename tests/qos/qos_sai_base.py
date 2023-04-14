@@ -768,6 +768,28 @@ class QosSaiBase(QosBase):
     def startServices(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
             swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
             tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports): # noqa F811
+        """
+            Start services (lldp-syncs, lldpd, bgpd) on DUT host after tests are completed.
+
+            Args:
+                duthosts (AnsibleHosts): Devices Under Test (DUT)
+                swapSyncd (Fixture): swapSyncd fixture is required to run prior
+                    to stopping services
+                enum_frontend_asic_index: Asic index of the current ASIC.
+                enable_container_autorestart: Fixture to enable the autorestart
+                    in all containers.
+                disable_container_autorestart: Fixture to diasble the
+                    autorestart in all containers.
+                tbinfo: Testbed Info.
+                get_mux_status: Only for Dualtor: get the mux simulator status.
+                upper_tor_host: Only for Dualtor: The AnsibleHost id of upper tor.
+                lower_tor_host: Only for Dualtor: The AnsibleHost id of lower tor.
+                toggle_all_simulator_ports: Only for Dualtor: Toggle all ports
+                    in the DUTs to same state.
+
+            Returns:
+                None
+        """
 
         if 'dualtor' in tbinfo['topo']['name']:
             duthost = lower_tor_host
@@ -799,35 +821,6 @@ class QosSaiBase(QosBase):
         enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         if 'dualtor' in tbinfo['topo']['name']:
             enable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
-
-    def updateDockerService(self, dut_asic, action=""):
-        """
-                 Helper function to update docker services
- 
-                Args:
-                    dut_asic (AnsibleHost): Ansible host that is running docker
-                    docker (str): docker container name
-                    action (str): action to apply to service running within docker
-
-                Returns:
-                    None
-        """
-        services = [
-            {"docker": dut_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
-            {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
-            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpd"},
-            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpmon"},
-        ]
-
-        for entry in services:
-            dut_asic.command(
-                "docker exec {docker} supervisorctl {action} {service}".format(
-                    docker=entry['docker'],
-                    action=action,
-                    service=entry['service']
-                )
-            )
-            logger.info("{}ed {}".format(action, entry['service']))
 
     def stopServices(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
             swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
@@ -877,6 +870,35 @@ class QosSaiBase(QosBase):
         disable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
         self.updateDockerService(dut_asic, action="stop")
+
+    def updateDockerService(self, dut_asic, action=""):
+        """
+                 Helper function to update docker services
+ 
+                Args:
+                    dut_asic (AnsibleHost): Ansible host that is running docker
+                    docker (str): docker container name
+                    action (str): action to apply to service running within docker
+
+                Returns:
+                    None
+        """
+        services = [
+            {"docker": dut_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
+            {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
+            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpd"},
+            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpmon"},
+        ]
+
+        for entry in services:
+            dut_asic.command(
+                "docker exec {docker} supervisorctl {action} {service}".format(
+                    docker=entry['docker'],
+                    action=action,
+                    service=entry['service']
+                )
+            )
+            logger.info("{}ed {}".format(action, entry['service']))
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
