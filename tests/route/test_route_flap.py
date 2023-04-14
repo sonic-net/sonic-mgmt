@@ -163,8 +163,8 @@ def is_dualtor(tbinfo):
     """Check if the testbed is dualtor."""
     return "dualtor" in tbinfo["topo"]["name"]
 
-def has_external_route(duthost, asichost, route_prefix):
-    internal_peers = duthost.get_internal_bgp_peers_for_chassis()
+def has_external_route(asichost, route_prefix):
+    internal_peers = asichost.get_internal_bgp_peers_for_chassis_per_asic()
     cmd = ' -c "show ip route {} json"'.format(route_prefix)
     dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
     nexthops = dev[route_prefix][0]['nexthops']  
