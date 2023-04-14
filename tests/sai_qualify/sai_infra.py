@@ -16,28 +16,29 @@ import logging
 import time
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from conftest import DUT_WORKING_DIR
-from conftest import USR_BIN_DIR
-from conftest import PORT_MAP_FILE_PATH
-from conftest import PTF_TEST_ROOT_DIR
-from conftest import SAI_TEST_REPORT_DIR_ON_PTF
-from conftest import prepare_sai_test_container
-from conftest import reload_dut_config
-from conftest import revert_sai_test_container
-from conftest import stop_and_rm_sai_test_container
-from conftest import stop_dockers
-from conftest import SAI_TEST_CONMUN_CASE_DIR_ON_PTF
-from conftest import SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF
-from conftest import SAI_TEST_REPORT_TMP_DIR_ON_PTF
-from conftest import SAI_TEST_T0_CASE_DIR_ON_PTF
-from conftest import SAI_TEST_RESOURCE_ON_PTF_DIR
-from conftest import WARM_TEST_ARGS
-from conftest import PTF_TEST_CASE_TIMEOUT_IN_SEC
-from conftest import start_sai_test_conatiner_with_retry
-from conftest import get_sai_running_vendor_id
-from conftest import get_sai_test_container_name
-from conftest import saiserver_warmboot_config
-from conftest import *  # noqa: F403 F401
+from .conftest import DUT_WORKING_DIR
+from .conftest import USR_BIN_DIR
+from .conftest import PORT_MAP_FILE_PATH
+from .conftest import PTF_TEST_ROOT_DIR
+from .conftest import SAI_TEST_REPORT_DIR_ON_PTF
+from .conftest import prepare_sai_test_container
+from .conftest import reload_dut_config
+from .conftest import revert_sai_test_container
+from .conftest import stop_and_rm_sai_test_container
+from .conftest import stop_dockers
+from .conftest import SAI_TEST_CONMUN_CASE_DIR_ON_PTF
+from .conftest import SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF
+from .conftest import SAI_TEST_REPORT_TMP_DIR_ON_PTF
+from .conftest import SAI_TEST_T0_CASE_DIR_ON_PTF
+from .conftest import SAI_TEST_RESOURCE_ON_PTF_DIR
+from .conftest import SAI_TEST_INVOCATION_LOG_DIR
+from .conftest import WARM_TEST_ARGS
+from .conftest import PTF_TEST_CASE_TIMEOUT_IN_SEC
+from .conftest import start_sai_test_conatiner_with_retry
+from .conftest import get_sai_running_vendor_id
+from .conftest import get_sai_test_container_name
+from .conftest import saiserver_warmboot_config
+from .conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)
 
@@ -281,12 +282,19 @@ def compose_sai_ptfv2_running_param(dut_ip, request):
         config_db_file = request.config.option.sai_config_db_file
 
     test_param = "--test-dir {}".format(test_set)
-    test_param += " \"--test-params=thrift_server='{}';\
-        port_config_ini='{}';config_db_json='{}';{}\"".format(
-        dut_ip,
-        port_config_file,
-        config_db_file,
-        warm_param)
+    if request.config.option.sai_port_config_file:
+        test_param += " \"--test-params=thrift_server='{}';\
+            port_config_ini='{}';config_db_json='{}';{}\"".format(
+            dut_ip,
+            port_config_file,
+            config_db_file,
+            warm_param)
+    else:
+        test_param += " \"--test-params=thrift_server='{}';\
+            config_db_json='{}';{}\"".format(
+            dut_ip,
+            config_db_file,
+            warm_param)
     return test_param
 
 
@@ -499,6 +507,7 @@ def collect_test_result(duthost, ptfhost, request):
     # TODO : collect DUT test report
     collect_sonic_os_and_platform_info(duthost, request)
     collect_sai_test_report_xml(ptfhost, request)
+    collect_sai_test_invocation_report(ptfhost, request)
 
 
 def collect_sonic_os_and_platform_info(duthost, request):
@@ -564,6 +573,7 @@ def store_test_result(ptfhost):
             SAI_TEST_REPORT_TMP_DIR_ON_PTF,
             SAI_TEST_REPORT_DIR_ON_PTF))
     try:
+        logger.info("Copy test reports")
         ptfhost.shell("mkdir -p {}".format(
             SAI_TEST_REPORT_TMP_DIR_ON_PTF))
         ptfhost.shell("mkdir -p {}".format(
@@ -571,13 +581,10 @@ def store_test_result(ptfhost):
         ptfhost.shell("cp {0}/*.* {1}/".format(
             SAI_TEST_REPORT_TMP_DIR_ON_PTF,
             SAI_TEST_REPORT_DIR_ON_PTF))
+
     except BaseException as e:  # lgtm [py/catch-base-exception]
         logger.info(
-            "Error when Copying file from folder\
-                : {0} to folder: {1}. Failes as {2}".format(
-                SAI_TEST_REPORT_TMP_DIR_ON_PTF,
-                SAI_TEST_REPORT_DIR_ON_PTF,
-                e))
+            "Error when restoring test result: {}.".format(e))
 
 
 def collect_sai_test_report_xml(ptfhost, request):
@@ -595,6 +602,51 @@ def collect_sai_test_report_xml(ptfhost, request):
                 SAI_TEST_REPORT_DIR_ON_PTF))
         ptfhost.fetch(
             src="{0}/result.tar.gz".format(SAI_TEST_REPORT_DIR_ON_PTF),
+            dest=request.config.option.sai_test_report_dir + "/",
+            flat=True)
+    except BaseException as e:  # lgtm [py/catch-base-exception]
+        logger.info("Error when Collecting xunit SAI tests log from ptf.\
+             Failes as {0}".format(e))
+
+
+def collect_sai_test_invocation_report(ptfhost, request):
+    """
+    Collect SAI test invocation report.
+
+    Args:
+        ptfhost (AnsibleHost): The PTF server.
+        request: Pytest request.
+    """
+    logger.info("Collecting invocation log from ptf")
+    try:
+
+        logger.info("Copy test invocation logs")
+        ptfhost.shell("mkdir -p {}".format(
+            SAI_TEST_INVOCATION_LOG_DIR))
+        if request.config.option.enable_sai_test \
+                or request.config.option.enable_t0_warmboot_test:
+            logger.info("Copy test T0 invocation logs")
+            ptfhost.shell("mkdir -p {}/{}".format(
+                SAI_TEST_INVOCATION_LOG_DIR, "T0"))
+            ptfhost.shell("cp {}/logs/*.* {}/{}/".format(
+                SAI_TEST_T0_CASE_DIR_ON_PTF,
+                SAI_TEST_INVOCATION_LOG_DIR,
+                "T0"))
+        elif request.config.option.enable_ptf_sai_test \
+                or request.config.option.enable_ptf_warmboot_test:
+            logger.info("Copy test PTF invocation logs")
+            ptfhost.shell("mkdir -p {}/{}".format(
+                SAI_TEST_INVOCATION_LOG_DIR, "PTF"))
+            ptfhost.shell("cp {}/logs/*.* {}/{}/".format(
+                SAI_TEST_PTF_SAI_CASE_DIR_ON_PTF,
+                SAI_TEST_INVOCATION_LOG_DIR,
+                "PTF"))
+
+        ptfhost.shell(
+            "cd {0} && tar -czvf invocation.tar.gz *".format(
+                SAI_TEST_INVOCATION_LOG_DIR))
+        ptfhost.fetch(
+            src="{0}/invocation.tar.gz".format(SAI_TEST_INVOCATION_LOG_DIR),
             dest=request.config.option.sai_test_report_dir + "/",
             flat=True)
     except BaseException as e:  # lgtm [py/catch-base-exception]

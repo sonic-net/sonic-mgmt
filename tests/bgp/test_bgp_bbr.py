@@ -113,7 +113,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
+    tor_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith('T0')])
     tor1 = tor_neighbors[0]
 
     neigh_peer_map = defaultdict(dict)
@@ -126,14 +126,14 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
             neigh_peer_map[name].update({'peer_addr_v6': peer_addr})
 
     tor1_namespace = DEFAULT_NAMESPACE
-    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+    for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
         if tor1 == neigh['name']:
             tor1_namespace = neigh['namespace']
             break
 
     # Modifying other_vms for multi-asic, check bgps on asic of tor1_namespace
     other_vms = []
-    for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
+    for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
         if neigh['name'] == tor1:
             continue
         if neigh['namespace'] == tor1_namespace:
@@ -226,7 +226,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         # Check route on tor1
         logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
         tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
-        if route.prefix not in tor1_route['vrfs']['default']['bgpRouteEntries'].keys():
+        if route.prefix not in list(tor1_route['vrfs']['default']['bgpRouteEntries'].keys()):
             logging.warn('No route for {} found on {}'.format(route.prefix, tor1))
             return False
         tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
@@ -259,7 +259,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
             advertised_to = set()
             for _ in dut_route['advertisedTo']:
                 # For multi-asic dut, dut_route included duthost which is not a BGP neighbor
-                if _ in bgp_neighbors.keys():
+                if _ in list(bgp_neighbors.keys()):
                     advertised_to.add(bgp_neighbors[_]['name'])
             for vm in other_vms:
                 if vm not in advertised_to:
@@ -284,7 +284,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         vm_route['failed'] = False
         vm_route['message'] = 'Checking route {} on {} passed'.format(str(route), node)
         if accepted:
-            if route.prefix not in vm_route['vrfs']['default']['bgpRouteEntries'].keys():
+            if route.prefix not in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
                 vm_route['failed'] = True
                 vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
             else:
@@ -297,7 +297,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                     vm_route['message'] = 'On {} expected aspath: {}, actual aspath: {}'\
                         .format(node, tor_route_aspath_expected, tor_route_aspath)
         else:
-            if route.prefix in vm_route['vrfs']['default']['bgpRouteEntries'].keys():
+            if route.prefix in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
                 vm_route['failed'] = True
                 vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
         results[node] = vm_route
@@ -312,10 +312,11 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
     pytest_assert(wait_until(5, 1, 0, check_dut, duthost, other_vms, bgp_neighbors,
                   setup, route, accepted=accepted), 'DUT check failed')
 
-    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted}, other_vms, timeout=120)
+    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted},
+                           other_vms, timeout=120, concurrent_tasks=6)
 
     failed_results = {}
-    for node, result in results.items():
+    for node, result in list(results.items()):
         if result['failed']:
             failed_results[node] = result
 

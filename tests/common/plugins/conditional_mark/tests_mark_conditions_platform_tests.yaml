@@ -646,8 +646,10 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
 platform_tests/api/test_watchdog.py:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
+      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
 
 #######################################
 #####           broadcom          #####
@@ -666,6 +668,7 @@ platform_tests/broadcom/test_ser.py:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type not in ['broadcom']"
       - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
+      - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -722,6 +725,13 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
+platform_tests/fwutil/test_fwutil.py:
+  skip:
+    reason: "Non-Mellanox platforms doesn't support fwutil for now"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7811
+
 platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
@@ -731,15 +741,24 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
 #######################################
 platform_tests/mellanox:
   skip:
-    reason: "Marvell devices does not support platform_tests/mellanox"
+    reason: "Mellanox platform tests only supported on Mellanox devices"
     conditions:
-      - "'marvell' in asic_type"
+      - "asic_type not in ['mellanox']"
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
     reason: "Does not support platform_tests/mellanox/test_reboot_cause.py"
     conditions:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
+
+#######################################
+####  test_memory_exhaustion.py   #####
+#######################################
+platform_tests/test_memory_exhaustion.py:
+  skip:
+    reason: "Unsupported release or platforms"
+    conditions:
+      - "(is_multi_asic==True and release in ['201911']) or (hwsku in ['Celestica-E1031-T48S4'])"
 
 #######################################
 #####    test_platform_info.py    #####
@@ -801,7 +820,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip test_fast_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx', 't1', 't2']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -818,7 +837,7 @@ platform_tests/test_reboot.py::test_soft_reboot:
   skip:
     reason: "Skip test_soft_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -829,7 +848,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
   skip:
     reason: "Skip test_warm_reboot for m0/mx"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx', 't1', 't2']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -857,12 +876,3 @@ platform_tests/test_reload_config.py:
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
-
-#######################################
-####  test_memory_exhaustion.py   #####
-#######################################
-platform_tests/test_memory_exhaustion.py:
-  skip:
-    reason: "Unsupported release 20191130"
-    conditions:
-      - "is_multi_asic==True and release in ['201911']"

@@ -95,6 +95,7 @@ EXAMPLES = '''
     privkey=def6789
 '''
 
+import six
 from ansible.module_utils.basic import *
 from collections import defaultdict
 
@@ -278,17 +279,30 @@ def lookup_operstatus(int_operstatus):
         return ""
 
 def decode_type(module, current_oid, val):
-    tagMap = {
-         rfc1902.Counter32.tagSet: long,
-         rfc1902.Gauge32.tagSet: long,
-         rfc1902.Integer32.tagSet: long,
-         rfc1902.IpAddress.tagSet: str,
-         univ.Null.tagSet: str,
-         univ.ObjectIdentifier.tagSet: str,
-         rfc1902.OctetString.tagSet: str,
-         rfc1902.TimeTicks.tagSet: long,
-         rfc1902.Counter64.tagSet: long
-         }
+    if six.PY3:
+        tagMap = {
+            rfc1902.Counter32.tagSet: int,
+            rfc1902.Gauge32.tagSet: int,
+            rfc1902.Integer32.tagSet: int,
+            rfc1902.IpAddress.tagSet: str,
+            univ.Null.tagSet: str,
+            univ.ObjectIdentifier.tagSet: str,
+            rfc1902.OctetString.tagSet: str,
+            rfc1902.TimeTicks.tagSet: int,
+            rfc1902.Counter64.tagSet: int
+            }
+    else:
+        tagMap = {
+            rfc1902.Counter32.tagSet: long,
+            rfc1902.Gauge32.tagSet: long,
+            rfc1902.Integer32.tagSet: long,
+            rfc1902.IpAddress.tagSet: str,
+            univ.Null.tagSet: str,
+            univ.ObjectIdentifier.tagSet: str,
+            rfc1902.OctetString.tagSet: str,
+            rfc1902.TimeTicks.tagSet: long,
+            rfc1902.Counter64.tagSet: long
+            }
 
     if val is None or not val:
         module.fail_json(msg="Unable to convert ASN1 type to python type. No value was returned for OID %s" % current_oid)
@@ -378,6 +392,7 @@ def main():
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.MibVariable(p.sysDescr,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -554,6 +569,7 @@ def main():
         cmdgen.MibVariable(p.entPhysMfgName,),
         cmdgen.MibVariable(p.entPhysModelName,),
         cmdgen.MibVariable(p.entPhysIsFRU, ),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -609,6 +625,7 @@ def main():
         cmdgen.MibVariable(p.entPhySensorPrecision,),
         cmdgen.MibVariable(p.entPhySensorValue,),
         cmdgen.MibVariable(p.entPhySensorOperStatus,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -676,6 +693,7 @@ def main():
         cmdgen.MibVariable(p.lldpLocChassisId,),
         cmdgen.MibVariable(p.lldpLocSysName,),
         cmdgen.MibVariable(p.lldpLocSysDesc,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -699,6 +717,7 @@ def main():
         cmdgen.MibVariable(p.lldpLocPortIdSubtype,),
         cmdgen.MibVariable(p.lldpLocPortId,),
         cmdgen.MibVariable(p.lldpLocPortDesc,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -725,6 +744,7 @@ def main():
         cmdgen.MibVariable(p.lldpLocManAddrIfSubtype,),
         cmdgen.MibVariable(p.lldpLocManAddrIfId,),
         cmdgen.MibVariable(p.lldpLocManAddrOID,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -759,6 +779,7 @@ def main():
         cmdgen.MibVariable(p.lldpRemSysDesc,),
         cmdgen.MibVariable(p.lldpRemSysCapSupported,),
         cmdgen.MibVariable(p.lldpRemSysCapEnabled,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -802,6 +823,7 @@ def main():
         cmdgen.MibVariable(p.lldpRemManAddrIfSubtype,),
         cmdgen.MibVariable(p.lldpRemManAddrIfId,),
         cmdgen.MibVariable(p.lldpRemManAddrOID,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -831,6 +853,7 @@ def main():
         cmdgen.MibVariable(p.cpfcIfIndications,),
         cmdgen.MibVariable(p.requestsPerPriority,),
         cmdgen.MibVariable(p.indicationsPerPriority,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -859,6 +882,7 @@ def main():
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.csqIfQosGroupStats,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -879,6 +903,7 @@ def main():
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.cefcFRUPowerOperStatus,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -897,6 +922,7 @@ def main():
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.ipCidrRouteEntry,),
         cmdgen.MibVariable(p.ipCidrRouteStatus,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -965,6 +991,7 @@ def main():
             snmp_auth,
             cmdgen.UdpTransportTarget((m_args['host'], 161)),
             cmdgen.MibVariable(p.dot1qTpFdbEntry,),
+            lookupMib=False,
         )
 
         if errorIndication:

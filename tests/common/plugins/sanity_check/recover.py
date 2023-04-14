@@ -9,6 +9,8 @@ from tests.common.config_reload import config_force_option_supported
 from tests.common.reboot import reboot
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_COLD
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from tests.common import config_reload
+from tests.common.devices.sonic import SonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +81,7 @@ def _neighbor_vm_recover_bgpd(node=None, results=None):
     result = {}
 
     # restore interfaces and portchannels
-    intf_list = node['conf']['interfaces'].keys()
+    intf_list = list(node['conf']['interfaces'].keys())
     result['restore_intfs'] = []
     for intf in intf_list:
         result['restore_intfs'].append(nbr_host.no_shutdown(intf))
@@ -93,7 +95,7 @@ def _neighbor_vm_recover_bgpd(node=None, results=None):
     # no shut bgp neighbors
     peers = node['conf'].get('bgp', {}).get('peers', {})
     neighbors = []
-    for key, value in peers.items():
+    for key, value in list(peers.items()):
         if key == 'asn':
             continue
         if isinstance(value, list):
@@ -103,13 +105,28 @@ def _neighbor_vm_recover_bgpd(node=None, results=None):
     results[nbr_host.hostname] = result
 
 
-def neighbor_vm_restore(duthost, nbrhosts, tbinfo):
+def _neighbor_vm_recover_config(node=None, results=None):
+    if isinstance(node["host"], SonicHost):
+        config_reload(node["host"])
+    return results
+
+
+def neighbor_vm_restore(duthost, nbrhosts, tbinfo, result=None):
     logger.info("Restoring neighbor VMs for {}".format(duthost))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
     if vm_neighbors:
-        results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
-        logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
+        if result and "check_item" in result:
+            if result["check_item"] == "neighbor_macsec_empty":
+                unhealthy_nbrs = []
+                for name, host in list(nbrhosts.items()):
+                    if name in result["unhealthy_nbrs"]:
+                        unhealthy_nbrs.append(host)
+                parallel_run(_neighbor_vm_recover_config, (), {}, unhealthy_nbrs, timeout=300)
+                logger.debug('Results of restoring neighbor VMs: {}'.format(unhealthy_nbrs))
+        else:
+            results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, list(nbrhosts.values()), timeout=300)
+            logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
     return 'config_reload'  # May still need to do a config reload
 
 
@@ -126,8 +143,8 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
                 action = _recover_interfaces(dut, fanouthosts, result, wait_time)
             elif result['check_item'] == 'services':
                 action = _recover_services(dut, result)
-            elif result['check_item'] == 'bgp':
-                action = neighbor_vm_restore(dut, nbrhosts, tbinfo)
+            elif result['check_item'] == 'bgp' or result['check_item'] == "neighbor_macsec_empty":
+                action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
             elif result['check_item'] in ['processes', 'mux_simulator']:
                 action = 'config_reload'
             else:

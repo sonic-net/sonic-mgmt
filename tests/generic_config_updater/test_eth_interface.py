@@ -9,6 +9,10 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
+pytestmark = [
+    pytest.mark.topology('any'),
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,11 +69,11 @@ def get_ethernet_port_not_in_portchannel(duthost):
     """
     config_facts = duthost.get_running_config_facts()
     port_name = ""
-    ports = config_facts['PORT'].keys()
+    ports = list(config_facts['PORT'].keys())
     port_channel_members = []
     port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
-    for port_channel in port_channel_member_facts.keys():
-        for member in port_channel_member_facts[port_channel].keys():
+    for port_channel in list(port_channel_member_facts.keys()):
+        for member in list(port_channel_member_facts[port_channel].keys()):
             port_channel_members.append(member)
     for port in ports:
         if port not in port_channel_members:

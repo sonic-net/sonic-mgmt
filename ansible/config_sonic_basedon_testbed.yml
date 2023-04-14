@@ -257,6 +257,7 @@
   - name: find all interface asic names
     set_fact:
       vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
@@ -560,6 +561,18 @@
         become: true
         shell: config bgp startup all
 
+      - name: Configure TACACS
+        become: true
+        shell: "{{ tacacs_config_cmd }}"
+        loop:
+          - config tacacs passkey {{ tacacs_passkey }}
+          - config tacacs authtype pap
+          - config aaa authentication login tacacs+
+        loop_control:
+          loop_var: tacacs_config_cmd
+        ignore_errors: true
+        when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
+
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
         shell: bash "/etc/sonic/apply_clet.sh"
@@ -579,7 +592,7 @@
          - name: restart bgp container
            become: true
            shell: docker restart bgp
-        when: topo == "wan-ecmp"
+        when: topo == "wan-ecmp" or topo == "wan-pub-isis"
 
       - block:
         - name: set the default grpc credential file path

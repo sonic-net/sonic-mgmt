@@ -5,39 +5,39 @@ import re
 
 import pytest
 
-from nat_helpers import DIRECTION_PARAMS
-from nat_helpers import STATIC_NAT_TABLE_NAME
-from nat_helpers import STATIC_NAPT_TABLE_NAME
-from nat_helpers import REBOOT_MAP
-from nat_helpers import apply_static_nat_config
-from nat_helpers import check_peers_by_ping
-from nat_helpers import nat_zones_config
-from nat_helpers import nat_statistics
-from nat_helpers import nat_translations
-from nat_helpers import crud_operations_basic
-from nat_helpers import crud_operations_napt
-from nat_helpers import exec_command
-from nat_helpers import perform_handshake
-from nat_helpers import get_network_data
-from nat_helpers import generate_and_verify_traffic
-from nat_helpers import get_l4_default_ports
-from nat_helpers import generate_and_verify_traffic_dropped
-from nat_helpers import generate_and_verify_icmp_traffic
-from nat_helpers import generate_and_verify_not_translated_traffic
-from nat_helpers import generate_and_verify_not_translated_icmp_traffic
-from nat_helpers import POOL_RANGE_START_PORT
-from nat_helpers import POOL_RANGE_END_PORT
-from nat_helpers import GLOBAL_NAT_TIMEOUT
-from nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
-from nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
-from nat_helpers import PORT_CHANNEL_TEMP
-from nat_helpers import get_redis_val
-from nat_helpers import get_db_rules
-from nat_helpers import configure_nat_over_cli
-from nat_helpers import configure_dynamic_nat_rule
-from nat_helpers import dut_nat_iptables_status
-from nat_helpers import dut_interface_control
-from nat_helpers import get_public_ip
+from .nat_helpers import DIRECTION_PARAMS
+from .nat_helpers import STATIC_NAT_TABLE_NAME
+from .nat_helpers import STATIC_NAPT_TABLE_NAME
+from .nat_helpers import REBOOT_MAP
+from .nat_helpers import apply_static_nat_config
+from .nat_helpers import check_peers_by_ping
+from .nat_helpers import nat_zones_config
+from .nat_helpers import nat_statistics
+from .nat_helpers import nat_translations
+from .nat_helpers import crud_operations_basic
+from .nat_helpers import crud_operations_napt
+from .nat_helpers import exec_command
+from .nat_helpers import perform_handshake
+from .nat_helpers import get_network_data
+from .nat_helpers import generate_and_verify_traffic
+from .nat_helpers import get_l4_default_ports
+from .nat_helpers import generate_and_verify_traffic_dropped
+from .nat_helpers import generate_and_verify_icmp_traffic
+from .nat_helpers import generate_and_verify_not_translated_traffic
+from .nat_helpers import generate_and_verify_not_translated_icmp_traffic
+from .nat_helpers import POOL_RANGE_START_PORT
+from .nat_helpers import POOL_RANGE_END_PORT
+from .nat_helpers import GLOBAL_NAT_TIMEOUT
+from .nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
+from .nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
+from .nat_helpers import PORT_CHANNEL_TEMP
+from .nat_helpers import get_redis_val
+from .nat_helpers import get_db_rules
+from .nat_helpers import configure_nat_over_cli
+from .nat_helpers import configure_dynamic_nat_rule
+from .nat_helpers import dut_nat_iptables_status
+from .nat_helpers import dut_interface_control
+from .nat_helpers import get_public_ip
 import tests.common.reboot as common_reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.nat.conftest import nat_global_config
@@ -689,7 +689,7 @@ class TestStaticNat(object):
         entries_table = {}
         # Check that NAT entries are NOT present in iptables before adding
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                           }
         pytest_assert(iptables_rules == iptables_output,
@@ -712,7 +712,7 @@ class TestStaticNat(object):
         iptables_rules = {
             "prerouting": [
                 "DNAT all -- 0.0.0.0/0 {} mark match 0x2 to:{}".format(network_data.public_ip, network_data.private_ip),
-                "DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone"],
+                "DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1"],
             "postrouting": [
                 "SNAT all -- {} 0.0.0.0/0 mark match 0x2 to:{}".format(network_data.private_ip, network_data.public_ip)]
             }
@@ -728,7 +728,7 @@ class TestStaticNat(object):
                                                    protocol_type, nat_type=nat_type)
         # Check that NAT entries are not present in iptables after removal
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                           }
         pytest_assert(iptables_rules == iptables_output,
@@ -745,7 +745,7 @@ class TestStaticNat(object):
         entries_table = {}
         # Check that NAT entries are NOT present in iptables before adding
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                           }
         pytest_assert(iptables_rules == iptables_output,
@@ -782,7 +782,7 @@ class TestStaticNat(object):
         nat_type = 'static_nat'
         # Check that NAT entries are NOT present in iptables before adding
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                           }
         pytest_assert(iptables_rules == iptables_output,
@@ -821,7 +821,7 @@ class TestStaticNat(object):
                     "DNAT all -- 0.0.0.0/0 {} mark match {} to:{}".format(network_data.public_ip,
                                                                           tested_zones[zone]["exp_zone"],
                                                                           network_data.private_ip),
-                    "DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone"],
+                    "DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1"],
                 "postrouting": [
                     "SNAT all -- {} 0.0.0.0/0 mark match {} to:{}".format(network_data.private_ip,
                                                                           tested_zones[zone]["exp_zone"],
@@ -839,7 +839,7 @@ class TestStaticNat(object):
                                   setup_data["config_portchannels"][ifname_to_disable]['members'][0], interface_ip)
             # Check that NAT entries are not present in iptables after removing interface IP
             iptables_output = dut_nat_iptables_status(duthost)
-            iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+            iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                               "postrouting": []
                               }
             pytest_assert(iptables_rules == iptables_output,
@@ -856,7 +856,7 @@ class TestStaticNat(object):
                     "DNAT all -- 0.0.0.0/0 {} mark match {} to:{}".format(network_data.public_ip,
                                                                           tested_zones[zone]["exp_zone"],
                                                                           network_data.private_ip),
-                    "DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone"],
+                    "DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1"],
                 "postrouting": [
                     "SNAT all -- {} 0.0.0.0/0 mark match {} to:{}".format(network_data.private_ip,
                                                                           tested_zones[zone]["exp_zone"],
@@ -883,7 +883,7 @@ class TestStaticNat(object):
         nat_type = 'static_nat'
         # Check that NAT entries are NOT present in iptables before adding
         iptables_output = dut_nat_iptables_status(duthost)
-        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone'],
+        iptables_rules = {"prerouting": ['DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1'],
                           "postrouting": []
                           }
         pytest_assert(iptables_rules == iptables_output,
@@ -922,7 +922,7 @@ class TestStaticNat(object):
                     "DNAT all -- 0.0.0.0/0 {} mark match {} to:{}".format(network_data.public_ip,
                                                                           tested_zones[zone]["exp_zone"],
                                                                           network_data.private_ip),
-                    "DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1 fullcone"],
+                    "DNAT all -- 0.0.0.0/0 0.0.0.0/0 to:1.1.1.1"],
                 "postrouting": [
                     "SNAT all -- {} 0.0.0.0/0 mark match {} to:{}".format(network_data.private_ip,
                                                                           tested_zones[zone]["exp_zone"],

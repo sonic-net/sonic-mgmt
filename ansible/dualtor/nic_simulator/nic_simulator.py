@@ -12,7 +12,6 @@ import abc
 import argparse
 import contextlib
 import fcntl
-import functools
 import grpc
 import json
 import logging
@@ -602,18 +601,6 @@ class OVSBridge(object):
             return result
 
 
-def validate_request_certificate(response):
-    """Decorator to validate client certificate."""
-    def _validate_request_certificate(rpc_func):
-        @functools.wraps(rpc_func)
-        def _decorated(nic_simulator, request, context):
-            logging.debug("Validate client certificate")
-            # TODO: Add client authentication
-            return rpc_func(nic_simulator, request, context)
-        return _decorated
-    return _validate_request_certificate
-
-
 class InterruptableThread(threading.Thread):
     """Thread class that can be interrupted by Exception raised."""
 
@@ -650,19 +637,20 @@ class InterruptableThread(threading.Thread):
             if suppress_exception:
                 return self._e
             else:
-                raise(self._e) from None
+                raise (self._e) from None
 
 
 class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """gRPC for a NiC."""
 
-    def __init__(self, nic_addr, ovs_bridge):
+    def __init__(self, nic_addr, ovs_bridge, binding_port):
         self.nic_addr = nic_addr
         self.ovs_bridge = ovs_bridge
+        self.binding_port = binding_port
         self.server = None
         self.thread = None
+        self.started = False
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
     def QueryAdminForwardingPortState(self, request, context):
         logging.debug("QueryAdminForwardingPortState: request to server %s from client %s\n",
                       self.nic_addr, context.peer())
@@ -675,7 +663,6 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                       context.peer(), self.nic_addr, response)
         return response
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.AdminReply())
     def SetAdminForwardingPortState(self, request, context):
         logging.debug("SetAdminForwardingPortState: request to server %s from client %s\n",
                       self.nic_addr, context.peer())
@@ -688,22 +675,18 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                       context.peer(), self.nic_addr, response)
         return response
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.OperationReply())
     def QueryOperationPortState(self, request, context):
         # TODO: Add QueryOperationPortState implementation
         return nic_simulator_grpc_service_pb2.OperationReply()
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.LinkStateReply())
     def QueryLinkState(self, request, context):
         # TODO: add QueryLinkState implementation
         return nic_simulator_grpc_service_pb2.LinkStateReply()
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.ServerVersionReply())
     def QueryServerVersion(self, request, context):
         # TODO: add QueryServerVersion implementation
         return nic_simulator_grpc_service_pb2.ServerVersionReply()
 
-    @validate_request_certificate(nic_simulator_grpc_service_pb2.DropReply())
     def SetDrop(self, request, context):
         logging.debug("SetDrop: request to server %s from client %s\n", self.nic_addr, context.peer())
         portids, directions, recover = request.portid, request.direction, request.recover
@@ -728,14 +711,16 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
         self.server.start()
         self.server.wait_for_termination()
 
-    def start(self, binding_port):
+    def start(self):
         """Start the gRPC server thread."""
-        self.thread = InterruptableThread(target=self._run_server, args=(binding_port,))
+        self.thread = InterruptableThread(target=self._run_server, args=(self.binding_port,))
         self.thread.start()
+        self.started = True
 
     def stop(self):
         """Stop the gRPC server thread."""
-        self.server._state.termination_event.set()
+        self.server.stop(grace=None)
+        self.started = False
 
     def join(self, timeout=None, suppress_exception=False):
         """Wait the gRPC server thread termination."""
@@ -745,9 +730,10 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
 class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServicer):
     """Management gRPC server to interact with sonic-mgmt."""
 
-    def __init__(self, binding_address, binding_port):
+    def __init__(self, binding_address, binding_port, nic_servers):
         self.binding_address = binding_address
         self.binding_port = binding_port
+        self.nic_servers = nic_servers
         self.client_stubs = {}
         self.server = None
 
@@ -841,6 +827,43 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
         logging.debug("SetDrop[mgmt]: response of set drop: %s\n", response)
         return response
 
+    def SetNicServerAdminState(self, request, context):
+        nic_addresses = request.nic_addresses
+        admin_states = request.admin_states
+        logging.debug("SetNicServerAdminState[mgmt]: request set nic server admin state:%s\n", request)
+
+        successes = []
+        for nic_address, admin_state in zip(nic_addresses, admin_states):
+            nic_server = self.nic_servers[nic_address]
+            success = True
+            if admin_state:
+                if not nic_server.started:
+                    try:
+                        nic_server.start()
+                    except Exception:
+                        logging.error("Failed to start nic server %s", nic_address, exc_info=True)
+                        success = False
+                logging.debug("Started nic server %s", nic_address)
+            else:
+                if nic_server.started:
+                    try:
+                        nic_server.stop()
+                        nic_server.join()
+                    except Exception:
+                        logging.error("Failed to stop nic server %s", nic_address, exc_info=True)
+                        success = False
+                logging.debug("Stopped nic server %s", nic_address)
+
+            successes.append(success)
+
+        response = nic_simulator_grpc_mgmt_service_pb2.ListOfNiCServerAdminStateReply(
+            nic_addresses=nic_addresses,
+            admin_states=admin_states,
+            successes=successes
+        )
+        logging.debug("SetNicServerAdminState[mgmt]: response of set nic server admin state:%s\n", response)
+        return response
+
     def start(self):
         self.server = grpc.server(
             futures.ThreadPoolExecutor(max_workers=THREAD_CONCURRENCY_PER_SERVER),
@@ -875,8 +898,9 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                      json.dumps(list(self.ovs_bridges.keys()), indent=4))
 
         self.servers = {}
-        self.servers = {nic_addr: NiCServer(nic_addr, ovs_bridge) for nic_addr, ovs_bridge in self.ovs_bridges.items()}
-        self.mgmt_server = MgmtServer(self.mgmt_port_address, binding_port)
+        self.servers = {nic_addr: NiCServer(nic_addr, ovs_bridge, binding_port)
+                        for nic_addr, ovs_bridge in self.ovs_bridges.items()}
+        self.mgmt_server = MgmtServer(self.mgmt_port_address, binding_port, self.servers)
 
     def _find_all_server_nics(self):
         return [_ for _ in os.listdir('/sys/class/net') if re.search(NETNS_IFACE_PATTERN, _)]
@@ -890,7 +914,7 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     def start_nic_servers(self):
         for nic_addr, server in self.servers.items():
             logging.debug("Starting gRPC server on NiC %s", nic_addr)
-            server.start(self.binding_port)
+            server.start()
 
     def stop_nic_servers(self):
         for nic_addr, server in self.servers.items():

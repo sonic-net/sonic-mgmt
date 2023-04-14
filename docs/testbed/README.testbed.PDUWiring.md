@@ -1,7 +1,7 @@
 # Define your PDU wiring.
 
 1. Navigate to ansible/files.
-2. Define PDU devices in sonic_<Inventory>_devices.csv, which is sonic_lab_devices.csv in our example. For PDU devices, type should be Pdu and currently Protocol only supports snmp. HwSku was discovered through snmp and the field HwSku is never actually used in previous versions before this README, and it will be used starting from this PR. There could be mistakes with HwSku and things might work fine. HwSku currently supports value Apc, Sentry, Sentry4, Vertiv and Emerson.
+2. Define PDU devices in sonic_<Inventory>_devices.csv, which is sonic_lab_devices.csv in our example. For PDU devices, type should be Pdu and currently Protocol only supports snmp. HwSku was discovered through snmp and the field HwSku is never actually used in previous versions before this README, and it will be used starting from this PR. There could be mistakes with HwSku and things might work fine. HwSku currently supports value Apc, ApcRPDU, Sentry, Sentry4, Vertiv and Emerson.
 3. Define PDU to DUT link in sonic_<Inventory>_pdu_links.csv file, which is sonic_lab_pdu_links.csv in our example. It defines which PDU outlet is connected to which DUT port.
 4. Generate new connection graph by running the command below.
 ```
@@ -23,6 +23,3 @@ If getting from connection graph failed, script attempts to retrieve from the in
 After collecting PDU info, devutils proceed with pdu_manager_factory from tests/common/plugins/pdu_controller/pdu_manager.py. Exact PDU management information is acquired from the PDU name and added to the controller. When carrying out an operation, the matching controller, which is always snmp controller for now, uses the correct OID for every particular HwSku, which is provided to pdu_manager_factory.
 
 ![](./img/devutils.jpg)
-
-
-

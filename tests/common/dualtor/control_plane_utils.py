@@ -38,10 +38,37 @@ DB_CHECK_FIELD_MAP = {
     STATE_DB: STATE_DB_MUX_STATE_FIELDS
 }
 
+EXPECTED_TUNNEL_ROUTE_MAP = {
+    CableType.active_standby: {
+        "active": {},
+        "standby": {
+            "server_ipv4": {"asic": 1, "kernel":1},
+            "server_ipv6": {"asic": 1, "kernel":1}
+        },
+        "stand_alone": {
+            "server_ipv4": {"asic": 1, "kernel":0},
+            "server_ipv6": {"asic": 1, "kernel":0}
+        }
+    },
+    CableType.active_active: {
+        "active": {},
+        "standby": {
+            "server_ipv4": {"asic": 1, "kernel":1},
+            "server_ipv6": {"asic": 1, "kernel":1},
+            "soc_ipv4": {"asic": 1, "kernel":0}
+        },
+        "stand_alone": {
+            "server_ipv4": {"asic": 1, "kernel":0},
+            "server_ipv6": {"asic": 1, "kernel":0},
+            "soc_ipv4": {"asic": 1, "kernel":0}
+        }
+    }
+}
 
 class DBChecker:
 
-    def __init__(self, duthost, state, health, intf_names='all', cable_type=CableType.default_type):
+    def __init__(self, duthost, state, health, intf_names='all',
+                 cable_type=CableType.default_type, verify_db_timeout=30):
         """
         Create a DBChecker object
         Args:
@@ -62,6 +89,7 @@ class DBChecker:
         self.cable_type = cable_type
         self._parse_intf_names()
         self.mismatch_ports = {}
+        self.VERIFY_DB_TIMEOUT = verify_db_timeout
 
     def _dump_db(self, db, key_pattern):
         """Dump redis database matching specificied key pattern"""
@@ -74,7 +102,7 @@ class DBChecker:
 
     def verify_db(self, db):
         pytest_assert(
-            wait_until(30, 10, 0, self.get_mismatched_ports, db),
+            wait_until(self.VERIFY_DB_TIMEOUT, 10, 0, self.get_mismatched_ports, db),
             "Database states don't match expected state {state},"
             "incorrect {db_name} values {db_states}"
             .format(state=self.state, db_name=DB_NAME_MAP[db],
@@ -115,7 +143,7 @@ class DBChecker:
         separator = DB_SEPARATOR_MAP[db]
 
         db_check_fields = DB_CHECK_FIELD_MAP[db]
-        for table, field in db_check_fields.items():
+        for table, field in list(db_check_fields.items()):
             key_pattern = table + separator + "*"
             db_dump = self._dump_db(db, key_pattern)
 
@@ -130,47 +158,92 @@ class DBChecker:
             for intf_name in self.intf_names:
                 table_key = '{}{}{}'.format(table, separator, intf_name)
 
-                if db_dump[table_key]['value'][field] != target_value:
+                if table_key not in db_dump:
+                    mismatch_ports[table_key] = {}
+                elif db_dump[table_key]['value'][field] != target_value:
                     mismatch_ports[table_key] = db_dump[table_key]['value']
 
         self.mismatch_ports = mismatch_ports
 
         return not bool(mismatch_ports)
+    
+    def _get_mux_tunnel_route(self):
+        """Get output of show muxcable tunnel-route. """
+        tunnel_route = json.loads(self.duthost.shell("show muxcable tunnel-route --json")['stdout'])
+        
+        return tunnel_route
+
+    def get_tunnel_route_mismatched_ports(self, stand_alone):
+        """Check if tunnel routes are added/removed respectively for standby/active interfaces"""
+        logger.info("Verifying tunnel-route status on {}: expected state = {}".format(
+                        self.duthost, self.state))
+        
+        mismatch_ports = {}
+        tunnel_route = self._get_mux_tunnel_route()
+        expected = EXPECTED_TUNNEL_ROUTE_MAP[self.cable_type]["stand_alone" if stand_alone else self.state]
+
+        for intf in self.intf_names:
+            routes = tunnel_route["TUNNEL_ROUTE"].get(intf, {})
+            
+            if expected == {}: 
+                if routes != {}:
+                    mismatch_ports[intf] = routes
+            else:
+                for dest_name in expected.keys():
+                    if dest_name in routes: 
+                        if not (int(routes[dest_name]["asic"]) == expected[dest_name]["asic"] 
+                                    and int(routes[dest_name]["kernel"]) == expected[dest_name]["kernel"]):
+                            mismatch_ports[intf] = routes
+                    else:
+                        mismatch_ports[intf] = routes
+        
+        self.tunnel_route_mismatched_ports = mismatch_ports
+        
+        return not bool(mismatch_ports)
+
+    def verify_tunnel_route(self, stand_alone=False):
+        pytest_assert(
+            wait_until(self.VERIFY_DB_TIMEOUT, 10, 0, self.get_tunnel_route_mismatched_ports, stand_alone),
+            "Tunnel route status doesn't match expected,"
+            "incorrect interfaces: {}"
+            .format(json.dumps(self.tunnel_route_mismatched_ports,
+                                         indent=4,
+                                         sort_keys=True)))
 
 
 def verify_tor_states(
     expected_active_host, expected_standby_host,
     expected_standby_health='healthy', intf_names='all',
-    cable_type=CableType.default_type, skip_state_db=False
+    cable_type=CableType.default_type, skip_state_db=False,
+    skip_tunnel_route=True, standalone_tunnel_route=False,
+    verify_db_timeout=30
 ):
     """
     Verifies that the expected states for active and standby ToRs are
     reflected in APP_DB and STATE_DB on each device
     """
-    if isinstance(expected_active_host, collections.Iterable):
-        for duthost in expected_active_host:
-            db_checker = DBChecker(duthost, 'active', 'healthy', intf_names=intf_names, cable_type=cable_type)
-            db_checker.verify_db(APP_DB)
-            if not skip_state_db:
-                db_checker.verify_db(STATE_DB)
-    elif expected_active_host is not None:
-        duthost = expected_active_host
-        db_checker = DBChecker(duthost, 'active', 'healthy', intf_names=intf_names, cable_type=cable_type)
+    if not isinstance(expected_active_host, collections.Iterable):
+        expected_active_host = [] if expected_active_host is None else [expected_active_host]
+    for duthost in expected_active_host:
+        db_checker = DBChecker(duthost, 'active', 'healthy',
+                                intf_names=intf_names, cable_type=cable_type,
+                                verify_db_timeout=verify_db_timeout)
         db_checker.verify_db(APP_DB)
         if not skip_state_db:
             db_checker.verify_db(STATE_DB)
 
-    if isinstance(expected_standby_host, collections.Iterable):
-        for duthost in expected_standby_host:
-            db_checker = DBChecker(duthost, 'standby', expected_standby_health,
-                                   intf_names=intf_names, cable_type=cable_type)
-            db_checker.verify_db(APP_DB)
-            if not skip_state_db:
-                db_checker.verify_db(STATE_DB)
-    elif expected_standby_host is not None:
-        duthost = expected_standby_host
+        if not skip_tunnel_route:
+            db_checker.verify_tunnel_route(standalone_tunnel_route)
+
+    if not isinstance(expected_standby_host, collections.Iterable):
+        expected_standby_host = [] if expected_standby_host is None else [expected_standby_host]
+    for duthost in expected_standby_host:
         db_checker = DBChecker(duthost, 'standby', expected_standby_health,
-                               intf_names=intf_names, cable_type=cable_type)
+                                intf_names=intf_names, cable_type=cable_type,
+                                verify_db_timeout=verify_db_timeout)
         db_checker.verify_db(APP_DB)
         if not skip_state_db:
             db_checker.verify_db(STATE_DB)
+        
+        if not skip_tunnel_route:
+            db_checker.verify_tunnel_route(standalone_tunnel_route)

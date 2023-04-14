@@ -88,7 +88,7 @@ def load_conditions(session):
             with open(conditions_file) as f:
                 logger.debug('Loaded test mark conditions file: {}'.format(conditions_file))
                 conditions = yaml.safe_load(f)
-                for key, value in conditions.items():
+                for key, value in list(conditions.items()):
                     conditions_list.append({key: value})
     except Exception as e:
         logger.error('Failed to load {}, exception: {}'.format(conditions_files, repr(e)), exc_info=True)
@@ -113,11 +113,11 @@ def read_asic_name(hwsku):
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
 
-        for key, value in asic_name.copy().items():
+        for key, value in list(asic_name.copy().items()):
             if ('td' not in key) and ('th' not in key) and ('spc' not in key):
                 asic_name.pop(key)
 
-        for name, hw in asic_name.items():
+        for name, hw in list(asic_name.items()):
             if hwsku in hw:
                 return name.split('_')[1]
 
@@ -327,37 +327,39 @@ def load_basic_facts(session):
     dut_name = tbinfo['duts'][0]
     if session.config.option.customize_inventory_file:
         inv_name = session.config.option.customize_inventory_file
-    elif 'inv_name' in tbinfo.keys():
+    elif 'inv_name' in list(tbinfo.keys()):
         inv_name = tbinfo['inv_name']
     else:
         inv_name = 'lab'
+    # Since internal repo add vendor test support, add check to see if it's sonic-os, other wise skip load facts.
+    vendor = session.config.getoption("--dut_vendor", "sonic")
+    if vendor == "sonic":
+        # Load DUT basic facts
+        _facts = load_dut_basic_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load DUT basic facts
-    _facts = load_dut_basic_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load minigraph basic facts
+        _facts = load_minigraph_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load minigraph basic facts
-    _facts = load_minigraph_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load config basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load config basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load switch capabilities basic facts
+        _facts = load_switch_capabilities_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load switch capabilities basic facts
-    _facts = load_switch_capabilities_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load console basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load console basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
-
-    # Load possible other facts here
+        # Load possible other facts here
 
     return results
 
@@ -548,7 +550,7 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in longest_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
-                for mark_name, mark_details in list(match.values())[0].items():
+                for mark_name, mark_details in list(list(match.values())[0].items()):
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
                     if not mark_details:

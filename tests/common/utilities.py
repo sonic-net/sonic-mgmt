@@ -14,7 +14,7 @@ import sys
 import threading
 import time
 import traceback
-from io import BytesIO
+from io import StringIO
 from ast import literal_eval
 
 import pytest
@@ -25,7 +25,8 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -319,8 +320,10 @@ def get_host_visible_vars(inv_files, hostname):
     The variable could be defined in host_vars or in group_vars that the host belongs to.
 
     Args:
-        inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
+        inv_files (list or string): List of inventory file paths, or string of a single inventory file path. In tests,
             it can be get from request.config.getoption("ansible_inventory").
+            MUST use the inventory file under the ansible folder, otherwise host_vars and group_vars would not be
+            visible.
         hostname (string): Hostname
 
     Returns:
@@ -466,7 +469,7 @@ def compare_crm_facts(left, right):
     """
     unmatched = []
 
-    for k, v in left['resources'].items():
+    for k, v in list(left['resources'].items()):
         lv = v
         rv = right['resources'][k]
         if lv['available'] != rv['available'] or lv['used'] != rv['used']:
@@ -488,7 +491,7 @@ def compare_crm_facts(left, right):
             'used': ag['used count']
         }
 
-    for k, v in left_acl_group.items():
+    for k, v in list(left_acl_group.items()):
         lv = v
         rv = right_acl_group[k]
         if lv['available'] != rv['available'] or lv['used'] != rv['used']:
@@ -499,7 +502,7 @@ def compare_crm_facts(left, right):
 
 def dump_scapy_packet_show_output(packet):
     """Dump packet show output to string."""
-    _stdout, sys.stdout = sys.stdout, BytesIO()
+    _stdout, sys.stdout = sys.stdout, StringIO()
     try:
         packet.show()
         return sys.stdout.getvalue()
@@ -701,15 +704,18 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     """
 
     reboot_dict = dict()
-    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
     if 'plt_reboot_dict' in dut_vars:
-        for key in dut_vars['plt_reboot_dict'].keys():
+        for key in list(dut_vars['plt_reboot_dict'].keys()):
             if key in tc_name:
-                for mod_id in dut_vars['plt_reboot_dict'][key].keys():
+                for mod_id in list(dut_vars['plt_reboot_dict'][key].keys()):
                     reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][key][mod_id]
         if not reboot_dict:
-            if reboot_type in dut_vars['plt_reboot_dict'].keys():
-                for mod_id in dut_vars['plt_reboot_dict'][reboot_type].keys():
+            if reboot_type in list(dut_vars['plt_reboot_dict'].keys()):
+                for mod_id in list(dut_vars['plt_reboot_dict'][reboot_type].keys()):
                     reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][reboot_type][mod_id]
 
     return reboot_dict
@@ -731,7 +737,7 @@ def get_image_type(duthost):
 
 def find_duthost_on_role(duthosts, role, tbinfo):
     role_set = False
-
+    role_host = None
     for duthost in duthosts:
         if role_set:
             break
@@ -739,10 +745,11 @@ def find_duthost_on_role(duthosts, role, tbinfo):
             continue
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
             if role in neighbor["name"]:
                 role_host = duthost
                 role_set = True
+    pytest_assert(role_host, "Could not find {} duthost".format(role))
     return role_host
 
 
@@ -756,7 +763,7 @@ def get_neighbor_port_list(duthost, neighbor_name):
     """
     config_facts = duthost.get_running_config_facts()
     neighbor_port_list = []
-    for port_name, value in config_facts["DEVICE_NEIGHBOR"].items():
+    for port_name, value in list(config_facts["DEVICE_NEIGHBOR"].items()):
         if neighbor_name.upper() in value["name"].upper():
             neighbor_port_list.append(port_name)
 
@@ -791,5 +798,19 @@ def get_upstream_neigh_type(topo_type, is_upper=True):
     """
     if topo_type in UPSTREAM_NEIGHBOR_MAP:
         return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
+
+
+def get_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
+        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None

@@ -125,6 +125,7 @@ class VXLAN(BaseTest):
         Testcase for VxLAN. Currently implements encap testcase.
         decap is TBD.
     '''
+
     def __init__(self):
         BaseTest.__init__(self)
 
@@ -208,7 +209,7 @@ class VXLAN(BaseTest):
             vni = self.config_data['vnet_vni_map'][vnet]
             for addr in neighbors:
                 for destination, nexthops in \
-                        self.config_data['dest_to_nh_map'][vnet].iteritems():
+                        self.config_data['dest_to_nh_map'][vnet].items():
                     self.test_encap(
                         ptf_port,
                         vni,
