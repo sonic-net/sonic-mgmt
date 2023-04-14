@@ -398,11 +398,7 @@ def test_active_link_admin_down_config_reload_downstream(
             config_interface_admin_status(upper_tor_host, active_active_ports, "down")
 
             upper_tor_host.shell("config save -y")
-
-            send_t1_to_server_with_action(
-                upper_tor_host, verify=True, allowed_disruption=0,
-                action=lambda: config_reload(upper_tor_host, wait=0)
-            )
+            config_reload(upper_tor_host, wait=60)
 
             verify_tor_states(
                 expected_active_host=lower_tor_host,
@@ -410,6 +406,11 @@ def test_active_link_admin_down_config_reload_downstream(
                 expected_standby_health='unhealthy',
                 cable_type=cable_type,
                 skip_state_db=True
+            )
+
+            send_t1_to_server_with_action(
+                upper_tor_host, verify=True,
+                allowed_disruption=0,
             )
             
         finally:
