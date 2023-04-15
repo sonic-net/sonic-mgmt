@@ -228,8 +228,9 @@ icmp_responder_session_started = False
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
-    if "mixed" not in tbinfo["topo"]["name"]:
-        logger.info("Skip running icmp_responder at session level, it is only for dualtor-mixed testbed.")
+    if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
+        logger.info("Skip running icmp_responder at session level, "
+                    "it is only for dualtor testbed with active-active mux ports.")
         yield
         return
 
