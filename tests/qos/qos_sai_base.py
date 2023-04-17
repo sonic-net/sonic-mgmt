@@ -1578,7 +1578,8 @@ class QosSaiBase(QosBase):
         dut_asic.command("counterpoll queue disable")
 
     @pytest.fixture(scope='function', autouse=False)
-    def set_static_route(self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
+    def set_static_route(
+            self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
         # Get portchannels.
         # find the one that is backplane based.
         # set a static route through that portchannel.
@@ -1592,28 +1593,54 @@ class QosSaiBase(QosBase):
             yield
             return
         dst_ip = dutConfig["testPorts"]["dst_port_ip"]
-        bp_portchannels = dst_asic.command("show interface portchannel -n asic{}".format(dst_asic.asic_index))['stdout']
+        portchannels = dst_asic.command(
+            "show interface portchannel -n asic{} -d all".format(
+                dst_asic.asic_index))['stdout']
         regx = re.compile("(PortChannel[0-9]+)")
-        portchannel = None
-        for l in bp_portchannels.split("\n"):
+        bp_portchannels= []
+        for l in portchannels.split("\n"):
             if "-BP" in l:
                 match = regx.search(l)
                 if match:
-                    portchannel = match.group(1)
-                    break
-        if not portchannel:
-            raise RuntimeError("Couldn't find the backplane porchannel from {}".format(bp_portchannels))
+                    bp_portchannels.append(match.group(1))
+        if not bp_portchannels:
+            raise RuntimeError(
+                "Couldn't find the backplane porchannels from {}".format(
+                    bp_portchannels))
 
-        ip_address_out = dst_asic.command("show ip interface -n asic{}".format(dst_asic.asic_index))['stdout']
-        address = None
-        for line in ip_address_out.split("\n"):
-            if portchannel in line:
-                prefix = next(s for s in line.split(" ")[1:] if s)
-                address = prefix.split("/")[0]
-                break
-        if not address:
-            raise RuntimeError("Couldn't find the gw address out of show int output, needed:{}".format(portchannel))
+        ip_address_mapping = self.get_interface_ip(dst_asic)
+        dst_keys = []
+        for k in dutConfig["testPorts"].keys():
+            if re.search("dst_port.*ip", k):
+                dst_keys.append(k)
 
-        src_asic.shell("ip netns exec asic{} route add {} gw {}".format(src_asic.asic_index, dst_ip, address))
+        for dst_index in range(len(dst_keys)):
+            src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
+                src_asic.asic_index,
+                ip_address_mapping[bp_portchannels[dst_index]]))
+            src_asic.shell("ip netns exec asic{} route add {} gw {}".format(
+                src_asic.asic_index,
+                dutConfig["testPorts"][dst_keys[dst_index]],
+                ip_address_mapping[bp_portchannels[dst_index]]))
         yield
-        src_asic.shell("ip netns exec asic{} route del {} gw {}".format(src_asic.asic_index, dst_ip, address))
+        for dst_index in range(len(dst_keys)):
+            src_asic.shell("ip netns exec asic{} route del {} gw {}".format(
+                src_asic.asic_index,
+                dutConfig["testPorts"][dst_keys[dst_index]],
+                ip_address_mapping[bp_portchannels[dst_index]]))
+
+    def get_interface_ip(self, dut_asic):
+        """
+            Parse the output of "show ip int -n asic0 -d all" into a dict:
+            interface => ip address.
+        """
+        mapping = {}
+        ip_address_out = dut_asic.command("show ip interface -n asic{}".format(
+            dut_asic.asic_index))['stdout']
+        re_pattern = re.compile("^([^ ]*) [ ]*([0-9\.]*)\/")
+        for line in ip_address_out.split("\n"):
+            match = re_pattern.search(line)
+            if match:
+                mapping[match.group(1)] = match.group(2)
+
+        return mapping
