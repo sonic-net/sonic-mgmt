@@ -1,5 +1,3 @@
-import time
-
 import pytest
 
 from tests.common.utilities import wait_until
