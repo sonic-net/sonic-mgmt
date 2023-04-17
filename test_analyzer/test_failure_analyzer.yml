@@ -30,6 +30,7 @@ stages:
           - group: GIT_SECRETS
           - group: SECRETS_JSON
           - group: TBSHARE_SECRETS
+          - group: NIGHTLY_HAWK
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -47,7 +48,7 @@ stages:
                 cd test_analyzer
                 pip3 install -r requirements.txt
 
-                python3 test_failure_analyzer.py -n ${{ parameters.NEW_ICM_NUMBER_LIMIT }}
+                python3 test_failure_analyzer.py -n ${{ parameters.NEW_ICM_NUMBER_LIMIT }} -extb $(EXCLUDED_TESTBED_KEYWORDS) -exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR)
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
               TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)

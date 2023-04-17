@@ -1,5 +1,4 @@
 from __future__ import print_function, division
-from bdb import Breakpoint
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
@@ -18,7 +17,6 @@ import prettytable
 
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.kusto.data.helpers import dataframe_from_result_table
-import pandas as pd
 try:
     from azure.kusto.ingest import KustoIngestClient
 except ImportError:
@@ -126,8 +124,8 @@ class KustoConnector(object):
             self._ingestion_client = KustoIngestClient(kcsb_ingest)
 
         """
-            Kusto performance depends on the work load of cluster, to improve the high availability of test result data service 
-            by hosting a backup cluster, which is optional. 
+            Kusto performance depends on the work load of cluster, to improve the high availability of test result
+            data service by hosting a backup cluster, which is optional.
         """
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
         tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
@@ -215,7 +213,7 @@ class KustoConnector(object):
             | summarize arg_max(CreatedDate,*) by WorkItemId
             | extend URL =strcat("https://msazure.visualstudio.com/One/_workitems/edit/", WorkItemId)
             | extend Owner=AssignedToDisplayName
-            | project WorkItemId,Title, Tags, Owner, CreatedDate, ChangedDate, State,URL 
+            | project WorkItemId,Title, Tags, Owner, CreatedDate, ChangedDate, State,URL
             | sort by CreatedDate desc
             '''
         logger.info("Query ado:{}".format(query_str))
@@ -308,7 +306,7 @@ class KustoConnector(object):
         FlatTestSummaryView
         | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
         | where TotalCasesRun > totalcase_threshod
-        | join kind=innerunique FlatTestReportViewV4 on ReportId 
+        | join kind=innerunique FlatTestReportViewV4 on ReportId
         | where OSVersion has_any(ProdQualOSList)
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
@@ -358,7 +356,7 @@ class KustoConnector(object):
         FlatTestSummaryView
         | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
         | where TotalCasesRun > totalcase_threshod
-        | join kind=innerunique FlatTestReportViewV4 on ReportId 
+        | join kind=innerunique FlatTestReportViewV4 on ReportId
         | where OSVersion has_any(ProdQualOSList)
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
@@ -405,7 +403,7 @@ class KustoConnector(object):
         FlatTestSummaryView
         | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
         | where TotalCasesRun > totalcase_threshod
-        | join kind=innerunique FlatTestReportViewV4 on ReportId 
+        | join kind=innerunique FlatTestReportViewV4 on ReportId
         | where OSVersion has_any(ProdQualOSList)
         | where Result in (ResultFilterList)
         | where not(TestbedName has_any(ExcludeTestbedList))
@@ -489,7 +487,7 @@ class KustoConnector(object):
                 FlatTestSummaryView
                 | where UploadTimestamp > datetime({}) and Timestamp <= datetime({})
                 | where TotalCasesRun > totalcase_threshod
-                | join kind=innerunique FlatTestReportViewV4 on ReportId 
+                | join kind=innerunique FlatTestReportViewV4 on ReportId
                 | where OSVersion has_any(ProdQualOSList)
                 | where Result !in ("skipped")
                 | where not(TestbedName has_any(ExcludeTestbedList))
@@ -576,7 +574,7 @@ class BasicAnalyzer(object):
             ado_response.primary_results[0])
         self.child_standby_list = active_icm_df.to_dict(orient='records')
         logger.info("Existing ADO number: {}\n All ADO list={}".format(
-            len(self.child_standby_list, self.child_standby_list)))
+            len(self.child_standby_list), self.child_standby_list))
 
     def init_parent_relations2list(self, parent_id_list):
         """
@@ -705,7 +703,7 @@ class GeneralAnalyzer(BasicAnalyzer):
     def multiple_process(self, waiting_list):
         """Multiple process to analyze test cases"""
         new_icm_count = 0
-        break_flag = False
+        # break_flag = False
         new_icm_table = []
         duplicated_icm_table = []
 
@@ -725,7 +723,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                     kusto_data = task.result()
                 except Exception as exc:
                     logger.error("Task {} generated an exception: {}".format(
-                        (task, exc)))
+                        task, exc))
                     logger.error(traceback.format_exc())
                 new_icm_list = []
                 duplicated_icm_list = []
@@ -1958,9 +1956,12 @@ def parse_config_file():
     return configuration
 
 
-def main(icm_limit):
+def main(icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_error):
     start_time = datetime.utcnow()
     configuration = parse_config_file()
+    configuration["testbeds"] = {}
+    configuration["testbeds"]["excluded_testbed_keywords"] = excluded_testbed_keywords
+    configuration["testbeds"]["excluded_testbed_keywords_setup_error"] = excluded_testbed_keywords_setup_error
     kusto_connector = KustoConnector(configuration)
     exclude_case_list = []
 
@@ -2075,7 +2076,25 @@ if __name__ == '__main__':
         help="The maximum number of new IcM for this run.",
     )
 
+    parser.add_argument(
+        "--exclude_testbed", "-extb",
+        type=str,
+        required=False,
+        help="The list of testbeds to be excluded.",
+    )
+
+    parser.add_argument(
+        "--exclude_testbed_setup_error", "-exerr",
+        type=str,
+        required=False,
+        help="The list of testbed setup error to be excluded.",
+    )
+
     args = parser.parse_args()
     new_icm_limit = args.new_icm_limit
-    logger.info("new_icm_limit={}".format(new_icm_limit))
-    main(new_icm_limit)
+    excluded_testbed_keywords = args.exclude_testbed.split(",")
+    excluded_testbed_keywords_setup_error = args.exclude_testbed_setup_error.split(",")
+    logger.info("new_icm_limit={}, excluded_testbed_keywords={}, excluded_testbed_keywords_setup_error={}"
+        .format(new_icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_error))
+
+    main(new_icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_error)
