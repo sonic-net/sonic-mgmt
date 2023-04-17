@@ -2,25 +2,26 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts                          # noqa F401
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config
-from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list
+    snappi_api, snappi_testbed_config           # noqa F401
+from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
 
 from files.helper import run_ecn_test, is_ecn_marked
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
+
 
 def test_dequeue_ecn(request,
-                     snappi_api,
-                     snappi_testbed_config,
-                     conn_graph_facts,
-                     fanout_graph_facts,
+                     snappi_api,                        # noqa F811
+                     snappi_testbed_config,             # noqa F811
+                     conn_graph_facts,                  # noqa F811
+                     fanout_graph_facts,                # noqa F811
                      duthosts,
                      rand_one_dut_hostname,
                      rand_one_dut_portname_oper_up,
                      rand_one_dut_lossless_prio,
-                     prio_dscp_map):
+                     prio_dscp_map):                    # noqa F811
     """
     Test if the device under test (DUT) performs ECN marking at the egress
 
@@ -73,7 +74,6 @@ def test_dequeue_ecn(request,
                            lossless_prio=lossless_prio,
                            prio_dscp_map=prio_dscp_map,
                            iters=1)[0]
-
 
     """ Check if we capture all the packets """
     pytest_assert(len(ip_pkts) == pkt_cnt,

@@ -41,7 +41,7 @@ remove_service(){
 
 restore_service(){
     echo "restore service: [$serv]."
-    cp ~/svcbak/$serv.service $service_dir/$serv.service 
+    cp ~/svcbak/$serv.service $service_dir/$serv.service
 }
 
 
@@ -67,17 +67,17 @@ helpFunction()
    echo  ${services[*]}
    echo -e "\t-o [start|stop|restart|remove|restore] : start or stop or restart or remove or restore"
    echo -e "\t-s [service name] : the service names in the services list. It can be like [swss;syncd]"
-   
+
    exit 1 # Exit script after printing help
 }
 
 while getopts ":o:s:" args; do
     case $args in
         o|operation)
-            op=${OPTARG} 
+            op=${OPTARG}
             ;;
         s|skip)
-            skip=${OPTARG} 
+            skip=${OPTARG}
             ;;
         *)
             helpFunction

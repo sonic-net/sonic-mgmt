@@ -2,7 +2,7 @@
 
 class TextTable():
 
-    def __init__(self, field_names = None):
+    def __init__(self, field_names=None):
         self.widths = []
         self.table = []
         self._field_names = None
@@ -41,16 +41,19 @@ class TextTable():
         if not self._field_names:
             return ''
 
-        line = '+' + '+'.join(['-' * (width + 2) for width in self.widths]) + '+'
+        line = '+' + '+'.join(['-' * (width + 2)
+                              for width in self.widths]) + '+'
 
         # field names
         buf = line
-        buf += '\n| ' + ' | '.join([str(name).center(self.widths[index]) for index, name in enumerate(self._field_names)]) + ' |'
+        buf += '\n| ' + ' | '.join([str(name).center(self.widths[index])
+                                   for index, name in enumerate(self._field_names)]) + ' |'
         buf += '\n' + line
 
         # table
         for row in self.table:
-            buf += '\n| ' + ' | '.join([str(item).center(self.widths[index]) for index, item in enumerate(row)]) + ' |'
+            buf += '\n| ' + ' | '.join([str(item).center(self.widths[index])
+                                       for index, item in enumerate(row)]) + ' |'
 
         # last line
         if self.table:
@@ -60,14 +63,15 @@ class TextTable():
 
 
 if __name__ == '__main__':
-    table1 = TextTable(['f1', 'f22', 'f333', 'f4444', 'f55555', 'f666666', 'f7777777', 'f88888888', 'f999999999'])
+    table1 = TextTable(['f1', 'f22', 'f333', 'f4444', 'f55555',
+                       'f666666', 'f7777777', 'f88888888', 'f999999999'])
     print('table1 only fields')
     print(table1)
 
-    table1.add_row(['v999999999', 'v88888888', 'v7777777', 'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
+    table1.add_row(['v999999999', 'v88888888', 'v7777777',
+                   'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
     print('table1 add row')
     print(table1)
-
 
     table2 = TextTable()
     print('table2 empty')
@@ -81,15 +85,17 @@ if __name__ == '__main__':
     print('table2 add row')
     print(table2)
 
-
-    table3 = TextTable(['field'] + ['f1', 'f22', 'f333', 'f4444', 'f55555', 'f666666', 'f7777777', 'f88888888', 'f999999999'])
+    table3 = TextTable(['field'] + ['f1', 'f22', 'f333', 'f4444',
+                       'f55555', 'f666666', 'f7777777', 'f88888888', 'f999999999'])
     print('table3 only fields')
     print(table3)
 
-    table3.add_row([''] + ['v999999999', 'v88888888', 'v7777777', 'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
+    table3.add_row([''] + ['v999999999', 'v88888888', 'v7777777',
+                   'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
     print('table3 add row')
     print(table3)
 
-    table3.add_row(['row2'] + ['v999999999', 'v88888888', 'v7777777', 'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
+    table3.add_row(['row2'] + ['v999999999', 'v88888888', 'v7777777',
+                   'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
     print('table3 more rows')
     print(table3)

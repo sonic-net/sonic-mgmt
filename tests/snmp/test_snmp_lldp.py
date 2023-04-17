@@ -39,12 +39,16 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
         pytest.skip("LLDP not supported on supervisor node")
-    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
 
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(
+        localhost, host=hostip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     mg_facts = {}
     for asic_id in duthost.get_asic_ids():
-        mg_facts_ns   = duthost.asic_instance(asic_id).get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']
+        mg_facts_ns = duthost.asic_instance(
+            asic_id).get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']
         if mg_facts_ns is not None:
             mg_facts.update(mg_facts_ns)
 
@@ -61,10 +65,10 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
                 assert "No Such Object currently exists" not in v[oid]
 
     # Check if lldpLocManAddrTable is present
-    for k in ['lldpLocManAddrLen', \
-               'lldpLocManAddrIfSubtype', \
-               'lldpLocManAddrIfId', \
-               'lldpLocManAddrOID']:
+    for k in ['lldpLocManAddrLen',
+              'lldpLocManAddrIfSubtype',
+              'lldpLocManAddrIfId',
+              'lldpLocManAddrOID']:
         assert snmp_facts['snmp_lldp'][k]
         assert "No Such Object currently exists" not in snmp_facts['snmp_lldp'][k]
 
@@ -92,15 +96,17 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
     assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8
 
     # skip neighbors that do not send chassis information via lldp
-    lldp_facts= {}
+    lldp_facts = {}
     for asic_id in duthost.get_asic_ids():
-       lldp_facts_ns = duthost.lldpctl_facts(asic_instance_id=asic_id)['ansible_facts']['lldpctl']
-       if lldp_facts_ns is not None:
-           lldp_facts.update(lldp_facts_ns)
+        lldp_facts_ns = duthost.lldpctl_facts(asic_instance_id=asic_id)[
+            'ansible_facts']['lldpctl']
+        if lldp_facts_ns is not None:
+            lldp_facts.update(lldp_facts_ns)
     pattern = re.compile(r'^eth0|^Ethernet-IB')
-    nei = [k for k, v in list(lldp_facts.items()) if not re.match(pattern, k) and 'mgmt-ip' in v['chassis'] ]
-    logger.info("neighbors {} send chassis management IP information".format(nei))
-
+    nei = [k for k, v in list(lldp_facts.items()) if not re.match(
+        pattern, k) and 'mgmt-ip' in v['chassis']]
+    logger.info(
+        "neighbors {} send chassis management IP information".format(nei))
 
     # Check if lldpRemManAddrTable is present
     active_intf = []

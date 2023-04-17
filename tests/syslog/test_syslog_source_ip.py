@@ -1,20 +1,19 @@
 import logging
 import pytest
 import threading
-import time
 import random
 import allure
 import re
 
 from scapy.all import rdpcap
-from .syslog_utils import *
+from .syslog_utils import create_vrf, remove_vrf, add_syslog_server, del_syslog_server, capture_syslog_packets,\
+    replace_ip_neigh, is_mgmt_vrf_enabled, bind_interface_to_vrf, TCPDUMP_CAPTURE_TIME, DUT_PCAP_FILEPATH
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
 from tests.common.config_reload import config_reload
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -183,8 +182,9 @@ class TestSSIP:
         return mgmt_interface
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_ssip_test_env(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                            mgmt_interface, routed_interfaces, backup_and_restore_config_db_on_duts, localhost):
+    def setup_ssip_test_env(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                            enum_frontend_asic_index, mgmt_interface, routed_interfaces,
+                            backup_and_restore_config_db_on_duts, localhost):       # noqa F811
         """
         Setup env for ssip(syslog soruce ip) test
         """
@@ -409,9 +409,10 @@ class TestSSIP:
             tcpdump_interface = routed_interfaces[0]
         else:
             tcpdump_interface = vrf
-        tcpdump_cmd = "sudo timeout {tcpdump_capture_time} tcpdump -i {interface} port {port} -w {dut_pcap_file}".format(
-            tcpdump_capture_time=TCPDUMP_CAPTURE_TIME, interface=tcpdump_interface, port=port if port else SYSLOG_DEFAULT_PORT,
-            dut_pcap_file=DUT_PCAP_FILEPATH.format(vrf=vrf))
+        tcpdump_cmd = "sudo timeout {tcpdump_capture_time} tcpdump -i {interface} port {port} -w {dut_pcap_file}"\
+            .format(tcpdump_capture_time=TCPDUMP_CAPTURE_TIME, interface=tcpdump_interface,
+                    port=port if port else SYSLOG_DEFAULT_PORT,
+                    dut_pcap_file=DUT_PCAP_FILEPATH.format(vrf=vrf))
         tcpdump_file = capture_syslog_packets(self.duthost, tcpdump_cmd)
         return tcpdump_file
 
@@ -439,7 +440,8 @@ class TestSSIP:
             self.add_syslog_config(port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
 
         with allure.step("Check syslog config is configured successfully"):
-            self.check_syslog_config_exist(port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
+            self.check_syslog_config_exist(
+                port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
 
         with allure.step("Check interface of {} send syslog msg ".format(routed_interfaces[0])):
             self.check_syslog_msg_is_sent(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
@@ -476,13 +478,13 @@ class TestSSIP:
             vrf = VRF_LIST[1]
 
         with allure.step("Add non-existing source ip {} into syslog config".format(non_existing_ip)):
-            expected_msg = r'.*Error: Invalid value for \"-s\" \/ "--source": {} IP doesn\'t exist in Linux {} VRF'.format(
-                non_existing_ip, vrf)
-            err_msg = add_syslog_server(self.duthost,
-                                        syslog_server_ip=
-                                        DEFAULT_VRF_IP_ADDRESSES["ipv4"]["syslog_server_ip"].split('/')[0],
-                                        source=non_existing_ip,
-                                        vrf=vrf)["stderr"]
+            expected_msg = r'.*Error: Invalid value for \"-s\" \/ "--source": {} IP doesn\'t exist in Linux {} VRF'\
+                .format(non_existing_ip, vrf)
+            err_msg = add_syslog_server(
+                self.duthost,
+                syslog_server_ip=DEFAULT_VRF_IP_ADDRESSES["ipv4"]["syslog_server_ip"].split('/')[0],
+                source=non_existing_ip,
+                vrf=vrf)["stderr"]
             pytest_assert(re.search(expected_msg, err_msg),
                           "Error msg is not correct: Expectd msg:{}, actual msg:{}".format(expected_msg, err_msg))
 
@@ -514,7 +516,8 @@ class TestSSIP:
         2. Check syslog config is configured successfully
         3. Check the related interface sends corresponding syslog msg
         4. Config save -y
-        5. Do reboot according to the specified parameter of ssip_reboot_type (reboot/warm-reboot/fast-reboot/soft-reboot)
+        5. Do reboot according to the specified parameter of ssip_reboot_type
+           (reboot/warm-reboot/fast-reboot/soft-reboot)
         6. Check syslog configuration still exist
         7. Check Syslog msg can be sent on the relevant interface
         """

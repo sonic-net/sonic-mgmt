@@ -615,8 +615,8 @@ def create_lag_port(duthost, config_port_indices):
         Dictonary of lag ports on the DUT
     """
     lag_port_map = {}
-    portchannels = list(duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts'] \
-        .get('PORTCHANNEL', {}).keys())
+    portchannels = list(duthost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts'].get('PORTCHANNEL', {}).keys())
     port_list_idx = 0
     port_list = list(config_port_indices.values())
     cmds = []

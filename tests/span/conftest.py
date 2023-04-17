@@ -4,11 +4,12 @@ Conftest file for span tests
 
 import pytest
 
-from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.utilities import skip_release
 
+
 @pytest.fixture(scope="module")
-def cfg_facts(duthosts, rand_one_dut_hostname, skip_test_module_over_backend_topologies):
+def cfg_facts(duthosts, rand_one_dut_hostname, skip_test_module_over_backend_topologies):   # noqa F811
     '''
     Used to get config facts for selected DUT
 
@@ -18,6 +19,7 @@ def cfg_facts(duthosts, rand_one_dut_hostname, skip_test_module_over_backend_top
     '''
     duthost = duthosts[rand_one_dut_hostname]
     return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+
 
 @pytest.fixture(scope="module")
 def ports_for_test(cfg_facts):
@@ -47,7 +49,7 @@ def ports_for_test(cfg_facts):
         port_info.append({'name': port,
                           'tagging_mode': ports[port]['tagging_mode'],
                           'index': cfg_facts['port_index_map'][port]}
-                        )
+                         )
 
     return {
         'source1': port_info[0],
@@ -56,11 +58,13 @@ def ports_for_test(cfg_facts):
         'vlan': vlan
     }
 
+
 @pytest.fixture(scope='session', autouse=True)
 def skip_unsupported_release(duthost):
     """ Span mirror is not supported on release < 202012
     """
     skip_release(duthost, ["201811", "201911"])
+
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_monitor_port(duthosts, rand_one_dut_hostname, ports_for_test):
@@ -85,6 +89,7 @@ def setup_monitor_port(duthosts, rand_one_dut_hostname, ports_for_test):
 
     # Add monitor port to vlan members
     duthost.command('config vlan member add {} {} --{}'.format(vlan, port, tagging_mode))
+
 
 @pytest.fixture
 def session_info(request, ports_for_test):
@@ -114,7 +119,7 @@ def session_info(request, ports_for_test):
         src = '{},{}'.format(src1['name'], src2['name'])
 
     return {
-        'session_name':'session_1',
+        'session_name': 'session_1',
         'session_destination_port': dst['name'],
         'destination_index': dst['index'],
         'session_source_ports': src,
@@ -122,6 +127,7 @@ def session_info(request, ports_for_test):
         'source2_index': src2['index'],
         'session_direction': direction,
     }
+
 
 @pytest.fixture
 def setup_session(duthosts, rand_one_dut_hostname, session_info):
@@ -143,8 +149,7 @@ def setup_session(duthosts, rand_one_dut_hostname, session_info):
         session_info["session_destination_port"],
         session_info["session_source_ports"],
         session_info["session_direction"]
-        )
-                   )
+        ))
     yield {
         'source1_index': session_info['source1_index'],
         'source2_index': session_info['source2_index'],
