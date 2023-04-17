@@ -320,14 +320,14 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp21" StartDevice="str3-8101-01" StartPort="Ethernet84"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp22" StartDevice="str3-8101-01" StartPort="Ethernet88"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp23" StartDevice="str3-8101-01" StartPort="Ethernet92"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp24" StartDevice="str3-8101-01" StartPort="Ethernet96"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp25" StartDevice="str3-8101-01" StartPort="Ethernet104"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp26" StartDevice="str3-8101-01" StartPort="Ethernet112"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp27" StartDevice="str3-8101-01" StartPort="Ethernet120"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp28" StartDevice="str3-8101-01" StartPort="Ethernet128"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp29" StartDevice="str3-8101-01" StartPort="Ethernet136"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp30" StartDevice="str3-8101-01" StartPort="Ethernet144"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp31" StartDevice="str3-8101-01" StartPort="Ethernet152"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-02" EndPort="etp24" StartDevice="str3-8101-01" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-02" EndPort="etp25" StartDevice="str3-8101-01" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-02" EndPort="etp26" StartDevice="str3-8101-01" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-02" EndPort="etp27" StartDevice="str3-8101-01" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-02" EndPort="etp28" StartDevice="str3-8101-01" StartPort="Ethernet128"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-02" EndPort="etp29" StartDevice="str3-8101-01" StartPort="Ethernet136"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-02" EndPort="etp30" StartDevice="str3-8101-01" StartPort="Ethernet144"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-02" EndPort="etp31" StartDevice="str3-8101-01" StartPort="Ethernet152"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp32" StartDevice="str3-8101-01" StartPort="Ethernet160"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp33" StartDevice="str3-8101-01" StartPort="Ethernet164"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp34" StartDevice="str3-8101-01" StartPort="Ethernet168"/>
