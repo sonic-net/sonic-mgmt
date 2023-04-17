@@ -195,7 +195,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
     client_thread.start()
 
     for i in range(MEMORY_CHECKER_CYCLES):
-        ret = duthost.shell("python3 /usr/bin/memory_checker telemetry 419430400", module_ignore_error=True)
+        ret = duthost.shell("python3 /usr/bin/memory_checker telemetry 419430400", module_ignore_errors=True)
         assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
         time.sleep(MEMORY_CHECKER_WAIT)
 
