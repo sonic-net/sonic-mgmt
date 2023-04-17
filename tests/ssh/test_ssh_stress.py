@@ -31,18 +31,21 @@ done = False
 max_cpu = 0
 max_mem = 0
 
+
 @pytest.fixture
 def setup_teardown(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Copies over ACL configs for the ACL commands
-    duthost.copy(src="acl/templates/acltb_test_rules.j2", dest="/tmp/acl.json", mode="0755")
+    duthost.copy(src="acl/templates/acltb_test_rules.j2",
+                 dest="/tmp/acl.json", mode="0755")
 
     yield
 
     duthost.file(path="/tmp/acl.json", state="absent")
 
-    duthost.shell_cmds(cmds=[START_BGP_NBRS, STARTUP_INTERFACE, REMOVE_ACL, REMOVE_ROUTE, REMOVE_PORTCHANNEL], module_ignore_errors=True)
+    duthost.shell_cmds(cmds=[START_BGP_NBRS, STARTUP_INTERFACE, REMOVE_ACL,
+                       REMOVE_ROUTE, REMOVE_PORTCHANNEL], module_ignore_errors=True)
 
 
 def get_system_stats(duthost):
@@ -50,7 +53,7 @@ def get_system_stats(duthost):
     stdout_lines = duthost.command("vmstat")["stdout_lines"]
     data = list(map(float, stdout_lines[2].split()))
 
-    total_memory  = sum(data[2:6])
+    total_memory = sum(data[2:6])
     used_memory = sum(data[4:6])
 
     total_cpu = sum(data[12:15])
@@ -58,13 +61,16 @@ def get_system_stats(duthost):
 
     return used_memory/total_memory, used_cpu/total_cpu
 
+
 def start_SSH_connection(dut_mgmt_ip):
     """Starts SSH connection to provided IP"""
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(dut_mgmt_ip, username="admin", password="password", allow_agent=False, look_for_keys=False)
+    ssh.connect(dut_mgmt_ip, username="admin", password="password",
+                allow_agent=False, look_for_keys=False)
 
     return ssh
+
 
 def monitor_system(duthost):
     """Monitors system memory and CPU for duration of test"""
@@ -72,11 +78,13 @@ def monitor_system(duthost):
 
     while not done:
         dut_stats = get_system_stats(duthost)
-        logging.info("Memory Usage: {}% | CPU Usage: {}%".format(dut_stats[0]*100, dut_stats[1]*100))
+        logging.info("Memory Usage: {}% | CPU Usage: {}%".format(
+            dut_stats[0]*100, dut_stats[1]*100))
 
         max_mem = max(max_mem, dut_stats[0])
         max_cpu = max(max_cpu, dut_stats[1])
         time.sleep(1)
+
 
 def work(dut_mgmt_ip, commands, baselines):
     """Runs commands over ssh on the DUT"""
@@ -92,9 +100,11 @@ def work(dut_mgmt_ip, commands, baselines):
         stdin, stdout, stderr = ssh.exec_command(commands[command_ind])
         duration = time.time() - start_time
 
-        logging.debug("output for command {} :\n{}".format(commands[command_ind], stdout))
+        logging.debug("output for command {} :\n{}".format(
+            commands[command_ind], stdout))
 
-        pytest_assert(duration < 3*baselines[command_ind], "Command {} took more than 3 times as long as baseline".format(commands[command_ind]))
+        pytest_assert(duration < 3*baselines[command_ind],
+                      "Command {} took more than 3 times as long as baseline".format(commands[command_ind]))
 
         # The commands are executed asyncronously. Reading from stdout will ensure that a command
         # is not sent again on the same ssh connection before this one is done.
@@ -105,20 +115,28 @@ def work(dut_mgmt_ip, commands, baselines):
     ssh.exec_command(REMOVE_ACL)
     ssh.close()
 
+
 def run_post_test_system_check(init_mem, init_cpu, duthost):
     time.sleep(10)
 
     post_mem, post_cpu = get_system_stats(duthost)
 
     if post_mem-init_mem >= 0.2:
-        pytest_assert(max_mem-post_mem > 0.1, "Memory increased by more than 20 points during test and did not reduce from raised value\n\
-                                              Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
-        logging.warning("Memory usage did not reduce to original value after test. Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
+        pytest_assert(max_mem-post_mem > 0.1,
+                      "Memory increased by more than 20 points during test and did not reduce from raised value\n\
+                      Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
+        logging.warning(
+            "Memory usage did not reduce to original value after test. "
+            "Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
 
     if post_cpu-init_cpu >= 0.2:
-        pytest_assert(max_cpu-post_cpu > 0.1, "CPU usage increased by more than 20 points during test and did not reduce from raised value\n\
-                                              Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
-        logging.warning("CPU usage did not reduce to original value after test. Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
+        pytest_assert(max_cpu-post_cpu > 0.1,
+                      "CPU usage increased by more than 20 points during test and did not reduce from raised value\n\
+                      Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
+        logging.warning(
+            "CPU usage did not reduce to original value after test. "
+            "Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
+
 
 def get_baseline_time(ssh, command):
     """Calculates average time to run a command. Used to ensure that, under stress, commands don't take too long"""
@@ -128,7 +146,8 @@ def get_baseline_time(ssh, command):
         stdin, stdout, stdinfo = ssh.exec_command(command)
         stdout.readlines()
         tot_time += time.time() - start_time
-    logging.info("Baseline time for command {} : {} seconds".format(command, tot_time/5))
+    logging.info("Baseline time for command {} : {} seconds".format(
+        command, tot_time/5))
     return tot_time/5
 
 
@@ -156,7 +175,8 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
 
     logging.info("Collecting baseline times for commands")
     ssh = start_SSH_connection(dut_mgmt_ip)
-    baseline_times = [tuple((get_baseline_time(ssh, com) for com in pair)) for pair in command_pairs]
+    baseline_times = [tuple((get_baseline_time(ssh, com)
+                            for com in pair)) for pair in command_pairs]
 
     logging.info("Starting system monitoring thread.")
     # Starts thread that will be monitoring cpu and memory usage
@@ -167,7 +187,8 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     logging.info("Starting SSH Connections and running commands")
     # Initiates threads
     for ind in range(len(command_pairs)):
-        new_thread = threading.Thread(target=work, args=(dut_mgmt_ip, command_pairs[ind], baseline_times[ind],))
+        new_thread = threading.Thread(target=work, args=(
+            dut_mgmt_ip, command_pairs[ind], baseline_times[ind],))
         new_thread.start()
         threads.append(new_thread)
 
@@ -184,7 +205,8 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     # Get post-test cpu and memory stats (after waiting for stats to stabalize)
     run_post_test_system_check(init_mem, init_cpu, duthost)
 
-    logging.info("Multi-tool ssh conections succeeded without exceeding memory or cpu capacity")
+    logging.info(
+        "Multi-tool ssh conections succeeded without exceeding memory or cpu capacity")
 
     # Reset vars for next test
     init_mem, init_cpu = get_system_stats(duthost)
@@ -206,7 +228,8 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
             stdin, stdout, stderr = ssh.exec_command("show mac", timeout=10)
             stdout.readlines()
         except socket.timeout:
-            logging.debug("stdin: {}\n\nstdout: {}\n\nstderr:{}".format(stdin, stdout, stderr))
+            logging.debug("stdin: {}\n\nstdout: {}\n\nstderr:{}".format(
+                stdin, stdout, stderr))
             break
 
     logging.info("Max SSH sessions reached: {}".format(ind))

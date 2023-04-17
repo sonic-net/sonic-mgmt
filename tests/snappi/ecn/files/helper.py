@@ -4,9 +4,9 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts          # noqa F401
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api
+    snappi_api                  # noqa F401
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector, config_wred,\
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging
@@ -126,7 +126,9 @@ def run_ecn_test(api,
     return result
 
 
-sec_to_nanosec = lambda x : x * 1e9
+def sec_to_nanosec(secs):
+    """ Convert seconds to nanoseconds """
+    return secs * 1e9
 
 
 def __gen_traffic(testbed_config,

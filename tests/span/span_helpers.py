@@ -4,6 +4,7 @@ Helper functions for span tests
 
 import ptf.testutils as testutils
 
+
 def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor):
     '''
     Send packet from ptf and verify it on monitor port
