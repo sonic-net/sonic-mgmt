@@ -171,12 +171,12 @@ def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_pe
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
-    # Run as RO and use the commands allowed by the sudoers file
+    # Run as RO and use the commands not allowed by the sudoers file
     commands = {
         "cat": [
-            "sudo cat /etc/shadow",
-            "sudo cat /var/log/syslog /etc/shadow",
-            "sudo cat /var/log/syslog.1 /etc/shadow"
+            "sudo cat /etc/hosts",
+            "sudo cat /var/log/syslog /etc/hosts",
+            "sudo cat /var/log/syslog.1 /etc/hosts"
         ]
     }
 
