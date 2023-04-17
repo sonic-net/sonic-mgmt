@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import time
+import six
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
@@ -88,12 +89,12 @@ class PfcCmd(object):
             counter value(string)
         """
         asic = dut.get_queue_oid_asic_instance(queue_oid)
-        return asic.run_redis_cmd(
+        return six.text_type(asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", "2", "HGET",
                 "COUNTERS:{}".format(queue_oid), attr
             ]
-        )[0].encode("utf-8")
+        )[0])
 
     @staticmethod
     def set_storm_status(dut, queue_oid, storm_status):
@@ -162,22 +163,22 @@ class PfcCmd(object):
             db = "4"
             pg_pattern = "BUFFER_PG|{}|3-4"
 
-        pg_profile = asic.run_redis_cmd(
+        pg_profile = six.text_type(asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", db, "HGET",
                 pg_pattern.format(port), "profile"
             ]
-        )[0].encode("utf-8")
+        )[0])
 
         if BF_PROFILE[:-2] in pg_profile or BF_PROFILE_TABLE[:-2] in pg_profile:
             pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        alpha = asic.run_redis_cmd(
+        alpha = six.text_type(asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "dynamic_th"
             ]
-        )[0].encode("utf-8")
+        )[0])
 
         return pg_profile, alpha
 
