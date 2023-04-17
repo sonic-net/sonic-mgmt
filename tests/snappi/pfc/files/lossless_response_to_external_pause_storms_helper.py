@@ -14,7 +14,7 @@ from tests.common.snappi.common_helpers import pfc_class_enable_vector, stop_pfc
 from tests.common.snappi.port import select_ports                                                        # noqa: F401
 from tests.common.snappi.snappi_helpers import wait_for_arp
 logger = logging.getLogger(__name__)
-PAUSE_FLOW_NAME = 'Pause Storm'
+
 TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = 30
 BG_FLOW_NAME = 'Background Flow'
@@ -379,7 +379,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
     Returns:
         per-flow statistics (list)
     """
-    test_traffic, bg_traffic = [], []
+    test_traffic, bg_traffic, pfc_traffic = [], [], []
     api.set_config(config)
 
     logger.info('Wait for Arp to Resolve ...')
@@ -389,14 +389,20 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
     for flow in all_flow_names:
         if 'Test Flow' in flow:
             test_traffic.append(flow)
-        else:
+        elif 'Background Flow' in flow:
             bg_traffic.append(flow)
+        else:
+            pfc_traffic.append(flow)
     logger.info('Start Traffic..')
     start_traffic(api, bg_traffic)
-    time.sleep(5)
     start_traffic(api, test_traffic)
+    time.sleep(5)
+    start_traffic(api, pfc_traffic)
 
-    logger.info('Stop Traffic..')
+    logger.info('Stop Throttling PFC Traffic..')
+    stop_traffic(api, pfc_traffic)
+    time.sleep(5)
+    logger.info('Stop Background and Test Traffic..')
     stop_traffic(api, all_flow_names)
     var = duthost.shell("show interface counters")['stdout']
     """ Dump per-flow statistics """
@@ -419,7 +425,7 @@ def __verify_results(rows,
         rows (list): per-flow statistics
         test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
-        rx_port : rx port of the dut 
+        rx_port : rx port of the dut
 
     Returns:
         N/A
