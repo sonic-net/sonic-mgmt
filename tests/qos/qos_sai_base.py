@@ -250,14 +250,11 @@ class QosSaiBase(QosBase):
             bufkeystr = "BUFFER_PROFILE|"
 
         if check_qos_db_fv_reference_with_table(dut_asic):
+            out = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
             if six.PY2:
-                bufferProfileName = dut_asic.run_redis_cmd(
-                    argv=["redis-cli", "-n", db, "HGET", keystr, "profile"]
-                )[0].encode("utf-8").translate(None, "[]")
+                bufferProfileName = out.encode("utf-8").translate(None, "[]")
             else:
-                bufferProfileName = dut_asic.run_redis_cmd(
-                    argv=["redis-cli", "-n", db, "HGET", keystr, "profile"]
-                )[0].translate({ord(i): None for i in '[]'})
+                bufferProfileName = out.translate({ord(i): None for i in '[]'})
         else:
             bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
                 argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
@@ -325,22 +322,17 @@ class QosSaiBase(QosBase):
                 wredProfile (dict): Map of ECN/WRED attributes
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
+            out = dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                        "wred_profile"
+                    ]
+                )[0]
             if six.PY2:
-                wredProfileName = dut_asic.run_redis_cmd(
-                    argv=[
-                        "redis-cli", "-n", "4", "HGET",
-                        "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                        "wred_profile"
-                    ]
-                )[0].encode("utf-8").translate(None, "[]")
+                wredProfileName = out.encode("utf-8").translate(None, "[]")
             else:
-                wredProfileName = dut_asic.run_redis_cmd(
-                    argv=[
-                        "redis-cli", "-n", "4", "HGET",
-                        "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                        "wred_profile"
-                    ]
-                )[0].translate({ord(i): None for i in '[]'})
+                wredProfileName = out.translate({ord(i): None for i in '[]'})
         else:
             wredProfileName = "WRED_PROFILE|" + six.text_type(dut_asic.run_redis_cmd(
                 argv=[
@@ -390,20 +382,16 @@ class QosSaiBase(QosBase):
                 SchedulerParam (dict): Map of scheduler parameters
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
+            out = dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                    ]
+                )[0]
             if six.PY2:
-                schedProfile = dut_asic.run_redis_cmd(
-                    argv=[
-                        "redis-cli", "-n", "4", "HGET",
-                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                    ]
-                )[0].encode("utf-8").translate(None, "[]")
+                schedProfile = out.encode("utf-8").translate(None, "[]")
             else:
-                schedProfile = dut_asic.run_redis_cmd(
-                    argv=[
-                        "redis-cli", "-n", "4", "HGET",
-                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                    ]
-                )[0].translate({ord(i): None for i in '[]'})
+                schedProfile = out.translate({ord(i): None for i in '[]'})
         else:
             schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
                 argv=[
