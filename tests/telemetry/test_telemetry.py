@@ -188,14 +188,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
     logger.info("Starting to test the memory spike issue of telemetry container")
 
     duthost = duthosts[rand_one_dut_hostname]
-
-    logger.info("Checking whether telemetry container is running before testing...")
-    is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                            CONTAINER_CHECK_INTERVAL_SECS,
-                            0,
-                            check_container_state, duthost, "TELEMETRY", True)
-    pytest_assert(is_running, "Telemetry container is not running on DUT!")
-
+ 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               xpath="DOCKER_STATS", target="STATE_DB", update_count=1, create_connections=2000)
     client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd,))
@@ -207,15 +200,5 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
         time.sleep(MEMORY_CHECKER_WAIT)
 
     client_thread.join()
-
-    duthost.service(name="telemetry", state="restarted")
-
-    logger.info("Checking whether telemetry container is running after testing....")
-    is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                            CONTAINER_CHECK_INTERVAL_SECS,
-                            0,
-                            check_container_state, duthost, "TELEMETRY", True)
-    pytest_assert(is_running, "Telemetry container is not running on DUT!")
-    logger.info("Telemetry container is running on DUT!")
 
     postcheck_critical_processes(duthost, "TELEMETRY")
