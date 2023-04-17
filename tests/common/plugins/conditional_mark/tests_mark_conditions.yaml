@@ -792,6 +792,12 @@ show_techsupport/test_techsupport.py::test_techsupport:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.33'"
 
+show_techsupport/test_techsupport.py::test_techsupport_commands:
+  xfail:
+    reason: "saidump removed from generate_dump sonic-utilities PR #2637, causes test failure. Remove this Xfail once saidump readded to generate_dump"
+    conditions:
+      - "'t2' in topo_name"
+
 #######################################
 #####            snmp             #####
 #######################################
