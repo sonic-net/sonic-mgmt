@@ -1,13 +1,13 @@
 #!/usr/bin/python
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 import re
 
 DOCUMENTATION = '''
 module: show_ip_interface.py
 Short_description: Retrieve show ip interface
 Description:
-    - Retrieve IPv4 address of interface and IPv4 address of its neighbor 
+    - Retrieve IPv4 address of interface and IPv4 address of its neighbor
 
 options:
     - namespace::
@@ -17,8 +17,8 @@ options:
 '''
 
 EXAMPLES = '''
-  # Get show ip interface 
-  - show_ip_interface: 
+  # Get show ip interface
+  - show_ip_interface:
 
   # Get show ip interface in namespace asic0
   - show_ip_interface: namespace='asic0'
@@ -41,32 +41,32 @@ class ShowIpInterfaceModule(object):
         ns = self.m_args["namespace"]
         if ns is not None:
             self.ns = " -n {} -d all  ".format(ns)
-        
+
     def run(self):
         """
             Main method of the class
         """
         regex_int = re.compile(
-            "\s*(\S+)\s+"                                    # interface name
-            "(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s*" # IPv4
-            "(up|down)\/(up|down)\s*"                        # oper/admin state
-            "(\S+)\s*"                                       # neighbor name
-            "(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|N\/A)\s*"   # peer IPv4
+            r"\s*(\S+)\s+"                                    # interface name
+            r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s*"  # IPv4
+            r"(up|down)\/(up|down)\s*"                        # oper/admin state
+            r"(\S+)\s*"                                       # neighbor name
+            r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|N\/A)\s*"   # peer IPv4
         )
 
         regex_old = re.compile(
-            "\s*(\S+)\s+"                                    # interface name
-            "(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s*" # IPv4
-            "(up|down)\/(up|down)\s*"                        # oper/admin state
+            r"\s*(\S+)\s+"                                    # interface name
+            r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})\s*"  # IPv4
+            r"(up|down)\/(up|down)\s*"                        # oper/admin state
         )
 
         self.ip_int = {}
         try:
             rc, self.out, err = self.module.run_command(
-                    "show ip interfaces{}".format(self.ns),
-                    executable='/bin/bash',
-                    use_unsafe_shell=True
-                )
+                "show ip interfaces{}".format(self.ns),
+                executable='/bin/bash',
+                use_unsafe_shell=True
+            )
             for line in self.out.split("\n"):
                 line = line.strip()
                 m = re.match(regex_int, line)
@@ -89,14 +89,17 @@ class ShowIpInterfaceModule(object):
         except Exception as e:
             self.module.fail_json(msg=str(e))
         if rc != 0:
-            self.module.fail_json(msg="Command failed rc = %d, out = %s, err = %s" % (rc, self.out, err))
+            self.module.fail_json(
+                msg="Command failed rc = %d, out = %s, err = %s" % (rc, self.out, err))
 
         self.module.exit_json(ansible_facts=self.facts)
+
 
 def main():
     ShowIpInt = ShowIpInterfaceModule()
     ShowIpInt.run()
     return
+
 
 if __name__ == "__main__":
     main()

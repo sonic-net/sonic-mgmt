@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
-from ansible.module_utils.basic import *
-import time
+from ansible.module_utils.basic import AnsibleModule
 import re
 
 DOCUMENTATION = '''
@@ -78,7 +77,8 @@ class ShowInterfaceModule(object):
                 namespace=dict(required=False, type='str', default=None),
                 interfaces=dict(required=False, type='list', default=None),
                 up_ports=dict(type='raw', default={}),
-                include_internal_intfs=dict(required=False, type=bool, default=False),
+                include_internal_intfs=dict(
+                    required=False, type=bool, default=False),
             ),
             supports_check_mode=False)
         self.m_args = self.module.params
@@ -102,25 +102,32 @@ class ShowInterfaceModule(object):
         """
             Fetch the type from the line
             There can be spaces in type field so we can not match it via using regular expression
-            The logic is to split the line into a list by spaces and the remove all the leading and tail elements, and then piece the rest together
-            Eg. for output "Ethernet48  192,193,194,195     100G   9100    N/A    etp49  routed      up       up  QSFP28 or later         N/A"
-            the list is ['Ethernet48', '192,193,194,195', '100G', '9100', 'N/A', 'etp49', 'routed', 'up', 'up'  'QSFP28', 'or', 'later', 'N/A']
-            There is no space in the rest elements, so we can remove the first 9 and the last 1 elements, and piece 'QSFP28', 'or', 'later' together.
+            The logic is to split the line into a list by spaces and the remove all the leading and tail elements,
+            and then piece the rest together
+            Eg. for output "Ethernet48  192,193,194,195  100G  9100  N/A  etp49  routed  up  up  QSFP28 or later  N/A"
+            the list is ['Ethernet48', '192,193,194,195', '100G', '9100', 'N/A', 'etp49',
+                         'routed', 'up', 'up'  'QSFP28', 'or', 'later', 'N/A']
+            There is no space in the rest elements, so we can remove the first 9 and the last 1 elements,
+            and piece 'QSFP28', 'or', 'later' together.
             This function should be called on if regex_int_fec is matched.
         """
         return ' '.join(line.split()[9:-1])
 
     def collect_interface_status(self, namespace=None, include_internal_intfs=False):
-        regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
-        regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
-        regex_int_internal = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\-]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int_fec = re.compile(
+            r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int = re.compile(
+            r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int_internal = re.compile(
+            r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\-]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         self.int_status = {}
         if self.m_args['interfaces'] is not None:
             for interface in self.m_args['interfaces']:
                 self.int_status[interface] = {}
                 command = 'sudo show interface status ' + interface
                 try:
-                    rc, self.out, err = self.module.run_command(command, executable='/bin/bash', use_unsafe_shell=True)
+                    rc, self.out, err = self.module.run_command(
+                        command, executable='/bin/bash', use_unsafe_shell=True)
                     for line in self.out.split("\n"):
                         line = line.strip()
                         fec = regex_int_fec.match(line)
@@ -131,30 +138,38 @@ class ShowInterfaceModule(object):
                             self.int_status[interface]['fec'] = fec.group(4)
                             self.int_status[interface]['alias'] = fec.group(5)
                             self.int_status[interface]['vlan'] = fec.group(6)
-                            self.int_status[interface]['oper_state'] = fec.group(7)
-                            self.int_status[interface]['admin_state'] = fec.group(8)
-                            self.int_status[interface]['type'] = self._fetch_interface_type(line)
+                            self.int_status[interface]['oper_state'] = fec.group(
+                                7)
+                            self.int_status[interface]['admin_state'] = fec.group(
+                                8)
+                            self.int_status[interface]['type'] = self._fetch_interface_type(
+                                line)
                         elif old and interface == old.group(1):
                             self.int_status[interface]['name'] = old.group(1)
                             self.int_status[interface]['speed'] = old.group(2)
                             self.int_status[interface]['fec'] = 'Unknown'
                             self.int_status[interface]['alias'] = old.group(4)
                             self.int_status[interface]['vlan'] = old.group(5)
-                            self.int_status[interface]['oper_state'] = old.group(6)
-                            self.int_status[interface]['admin_state'] = old.group(7)
+                            self.int_status[interface]['oper_state'] = old.group(
+                                6)
+                            self.int_status[interface]['admin_state'] = old.group(
+                                7)
                             self.int_status[interface]['type'] = 'N/A'
                         self.facts['int_status'] = self.int_status
                 except Exception as e:
                     self.module.fail_json(msg=str(e))
                 if rc != 0:
-                    self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" % (rc, self.out, err))
+                    self.module.fail_json(
+                        msg="Command failed rc=%d, out=%s, err=%s" % (rc, self.out, err))
         else:
             try:
-                cli_options = " -n {}".format(namespace) if namespace is not None else ""
+                cli_options = " -n {}".format(
+                    namespace) if namespace is not None else ""
                 if include_internal_intfs and namespace is not None:
                     cli_options += " -d all"
                 intf_status_cmd = "show interface status{}".format(cli_options)
-                rc, self.out, err = self.module.run_command(intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
+                rc, self.out, err = self.module.run_command(
+                    intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
                 for line in self.out.split("\n"):
                     line = line.strip()
                     fec = regex_int_fec.match(line)
@@ -169,8 +184,10 @@ class ShowInterfaceModule(object):
                         self.int_status[interface]['alias'] = fec.group(5)
                         self.int_status[interface]['vlan'] = fec.group(6)
                         self.int_status[interface]['oper_state'] = fec.group(7)
-                        self.int_status[interface]['admin_state'] = fec.group(8)
-                        self.int_status[interface]['type'] = self._fetch_interface_type(line)
+                        self.int_status[interface]['admin_state'] = fec.group(
+                            8)
+                        self.int_status[interface]['type'] = self._fetch_interface_type(
+                            line)
                     elif old:
                         interface = old.group(1)
                         self.int_status[interface] = {}
@@ -180,7 +197,8 @@ class ShowInterfaceModule(object):
                         self.int_status[interface]['alias'] = old.group(4)
                         self.int_status[interface]['vlan'] = old.group(5)
                         self.int_status[interface]['oper_state'] = old.group(6)
-                        self.int_status[interface]['admin_state'] = old.group(7)
+                        self.int_status[interface]['admin_state'] = old.group(
+                            7)
                         self.int_status[interface]['type'] = 'N/A'
                     elif internal and include_internal_intfs:
                         interface = internal.group(1)
@@ -190,14 +208,17 @@ class ShowInterfaceModule(object):
                         self.int_status[interface]['fec'] = internal.group(4)
                         self.int_status[interface]['alias'] = internal.group(5)
                         self.int_status[interface]['vlan'] = internal.group(6)
-                        self.int_status[interface]['oper_state'] = internal.group(7)
-                        self.int_status[interface]['admin_state'] = internal.group(8)
+                        self.int_status[interface]['oper_state'] = internal.group(
+                            7)
+                        self.int_status[interface]['admin_state'] = internal.group(
+                            8)
                         self.int_status[interface]['type'] = 'N/A'
                     self.facts['int_status'] = self.int_status
             except Exception as e:
                 self.module.fail_json(msg=str(e))
             if rc != 0:
-                self.module.fail_json(msg="Command failed rc = %d, out = %s, err = %s" % (rc, self.out, err))
+                self.module.fail_json(
+                    msg="Command failed rc = %d, out = %s, err = %s" % (rc, self.out, err))
 
         if 'up_ports' in self.m_args:
             down_ports = []
@@ -206,44 +227,62 @@ class ShowInterfaceModule(object):
                 try:
                     if self.int_status[name]['oper_state'] != 'up':
                         down_ports += [name]
-                except:
+                except Exception:
                     down_ports += [name]
             self.facts['ansible_interface_link_down_ports'] = down_ports
 
         return
 
     def collect_interface_counter(self, namespace=None, include_internal_intfs=False):
-        regex_int = re.compile(r'\s*(\S+)\s+(\w)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)')
+        regex_int = re.compile(
+            r'\s*(\S+)\s+(\w)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)\s+'
+            r'([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)')
         self.int_counter = {}
-        cli_options = " -n {}".format(namespace) if namespace is not None else ""
+        cli_options = " -n {}".format(
+            namespace) if namespace is not None else ""
         if include_internal_intfs and namespace is not None:
             cli_options += " -d all"
         intf_status_cmd = "show interface counter{}".format(cli_options)
         try:
-            rc, self.out, err = self.module.run_command(intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
+            rc, self.out, err = self.module.run_command(
+                intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)
             for line in self.out.split("\n"):
                 line = line.strip()
                 if regex_int.match(line):
                     interface = regex_int.match(line).group(1)
                     self.int_counter[interface] = {}
                     self.int_counter[interface]['IFACE'] = interface
-                    self.int_counter[interface]['STATE'] = regex_int.match(line).group(2)
-                    self.int_counter[interface]['RX_OK'] = regex_int.match(line).group(3)
-                    self.int_counter[interface]['RX_BPS'] = regex_int.match(line).group(4)
-                    self.int_counter[interface]['RX_UTIL'] = regex_int.match(line).group(5)
-                    self.int_counter[interface]['RX_ERR'] = regex_int.match(line).group(6)
-                    self.int_counter[interface]['RX_DRP'] = regex_int.match(line).group(7)
-                    self.int_counter[interface]['RX_OVR'] = regex_int.match(line).group(8)
-                    self.int_counter[interface]['TX_OK'] = regex_int.match(line).group(9)
-                    self.int_counter[interface]['TX_BPS'] = regex_int.match(line).group(10)
-                    self.int_counter[interface]['TX_UTIL'] = regex_int.match(line).group(11)
-                    self.int_counter[interface]['TX_ERR'] = regex_int.match(line).group(12)
-                    self.int_counter[interface]['TX_DRP'] = regex_int.match(line).group(13)
-                    self.int_counter[interface]['TX_OVR'] = regex_int.match(line).group(14)
+                    self.int_counter[interface]['STATE'] = regex_int.match(
+                        line).group(2)
+                    self.int_counter[interface]['RX_OK'] = regex_int.match(
+                        line).group(3)
+                    self.int_counter[interface]['RX_BPS'] = regex_int.match(
+                        line).group(4)
+                    self.int_counter[interface]['RX_UTIL'] = regex_int.match(
+                        line).group(5)
+                    self.int_counter[interface]['RX_ERR'] = regex_int.match(
+                        line).group(6)
+                    self.int_counter[interface]['RX_DRP'] = regex_int.match(
+                        line).group(7)
+                    self.int_counter[interface]['RX_OVR'] = regex_int.match(
+                        line).group(8)
+                    self.int_counter[interface]['TX_OK'] = regex_int.match(
+                        line).group(9)
+                    self.int_counter[interface]['TX_BPS'] = regex_int.match(
+                        line).group(10)
+                    self.int_counter[interface]['TX_UTIL'] = regex_int.match(
+                        line).group(11)
+                    self.int_counter[interface]['TX_ERR'] = regex_int.match(
+                        line).group(12)
+                    self.int_counter[interface]['TX_DRP'] = regex_int.match(
+                        line).group(13)
+                    self.int_counter[interface]['TX_OVR'] = regex_int.match(
+                        line).group(14)
         except Exception as e:
             self.module.fail_json(msg=str(e))
         if rc != 0:
-            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" % (rc, self.out, err))
+            self.module.fail_json(
+                msg="Command failed rc=%d, out=%s, err=%s" % (rc, self.out, err))
         self.facts['int_counter'] = self.int_counter
         return
 
@@ -253,6 +292,6 @@ def main():
     ShowInt.run()
     return
 
+
 if __name__ == "__main__":
     main()
-
