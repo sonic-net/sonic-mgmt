@@ -23,13 +23,16 @@ class MultiAsicSonicHost(object):
 
     _DEFAULT_SERVICES = ["pmon", "snmp", "lldp", "database"]
 
-    def __init__(self, ansible_adhoc, hostname):
+    def __init__(self, ansible_adhoc, hostname, duthosts, topo_type):
         """ Initializing a MultiAsicSonicHost.
 
         Args:
             ansible_adhoc : The pytest-ansible fixture
             hostname: Name of the host in the ansible inventory
         """
+        self.duthosts = duthosts
+        self.topo_type = topo_type
+        self.loganalyzer = None
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts[ASICS_PRESENT]]
 
@@ -44,6 +47,7 @@ class MultiAsicSonicHost(object):
                     self.backend_asics.append(asic)
 
         self.critical_services_tracking_list()
+
 
     def __str__(self):
         return '<MultiAsicSonicHost {}>'.format(self.hostname)

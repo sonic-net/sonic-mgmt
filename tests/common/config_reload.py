@@ -7,6 +7,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.configlet.util.common import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,9 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         ))
 
     logger.info('reloading {}'.format(config_source))
+
+    # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+    ignore_t2_syslog_msgs(duthost)
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and duthost.facts['asic_type'] == 'mellanox':
