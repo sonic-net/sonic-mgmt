@@ -54,7 +54,7 @@ The tests will use Single DUT Topology defined under Keysight Testbed section in
 ![SONiC DUT as Leaf ](Img/BGP_EVPN_Topology.png)
 
 ## Setup configuration
-IPv4 EBGP/IBGP neighborship will be established for underlay and BGP EVPN will be used as the control plane protocol for overlay network. 
+IPv4 EBGP/IBGP neighborship will be established for underlay and BGP EVPN will be used as the control plane protocol for overlay network.
 
 ## Bgp Evpn VxLan HLD
 
@@ -62,10 +62,10 @@ IPv4 EBGP/IBGP neighborship will be established for underlay and BGP EVPN will b
 
 ## Scalability Requirements
 * Total Remote VTEPs (VXLAN destination tunnels) - 512.
-* Total L2 VNI per switch - 4K. 
+* Total L2 VNI per switch - 4K.
 * Total VNI per tunnel - 4K.
-* Total EVPN participating VRF per switch - 512. 
-  
+* Total EVPN participating VRF per switch - 512.
+
 ## Test cases
 ### Test case # 1 - Validate the functionality of remote VTEPs (VXLAN destination tunnels) and the maximum VTEPs supported on switch - 512
 #### Test objective
@@ -82,11 +82,11 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 * Configure EBGP as overlay protocol for remote mac learning.
 * Start all protocols.
 * Verify that switch is able to learn all remote VTEPs and measure the CPU utilization and memory usage.
-* Measure how long it is taking to learn remote VTEP's while doing scale testing. 
+* Measure how long it is taking to learn remote VTEP's while doing scale testing.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
 * Also send traffic from remote host to remote host and verify the statistics.
-* Match the tunnel counters with traffic statistics. 
+* Match the tunnel counters with traffic statistics.
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
 * Do warm, fast, soft and cold reboots while traffic is running.
@@ -113,7 +113,7 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
 * Also send traffic from remote host to remote host and verify the statistics.
-* Match the tunnel counters with traffic statistics. 
+* Match the tunnel counters with traffic statistics.
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
 * Do warm, fast, soft and cold reboots while traffic is running.
@@ -139,7 +139,7 @@ The main objective of this test is to verify that switch can learn remote VTEPs 
 * Measure the time it takes to learn configured L2VNI's while doing scale testing.
 * Verify that different route types are learned and shown in database.
 * Send traffic from local host to remote hosts configured behind these VTEPs.
-* Match the tunnel counters with traffic statistics. 
+* Match the tunnel counters with traffic statistics.
 * Enable egress tracking on vlan and see packets mapped between VNI and Vlan's.
 * Traffic should flow without any loss at line rate.
 * Do warm, fast, soft and cold reboots while traffic is running.
@@ -209,7 +209,7 @@ Verify that swich supports host mobility and learns the informtion through new V
 
 
 #### Test steps
-* Configure one VTEP behind each spine. 
+* Configure one VTEP behind each spine.
 * onfigure EBGP/IBGP as underlay protocol.
 * Configure EBGP as overlay protocol for remote mac learning.
 * Start all protocols.
