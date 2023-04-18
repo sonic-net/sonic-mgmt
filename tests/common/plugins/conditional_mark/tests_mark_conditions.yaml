@@ -932,7 +932,7 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
     reason: "Test supported only on Nvidia(Mellanox) devices"
     conditions:
       - "asic_type not in ['mellanox']"
-      
+
 show_techsupport/test_techsupport.py::test_techsupport_commands:
   xfail:
     reason: "saidump removed from generate_dump sonic-utilities PR #2637, causes test failure. Remove this Xfail once saidump readded to generate_dump"
