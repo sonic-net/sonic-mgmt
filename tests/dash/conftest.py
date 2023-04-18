@@ -124,7 +124,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts, use_underlay_route)
                 dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
                 dash_info[REMOTE_PA_PREFIX] = str(intf_ip.network)
                 break
-    
+
     if use_underlay_route:
         dash_info[REMOTE_PA_IP] = u"30.30.30.30"
         dash_info[REMOTE_PA_PREFIX] = "30.30.30.30/32"
@@ -139,7 +139,7 @@ def apply_config(duthost, skip_config, skip_cleanup, use_underlay_route):
         duthost.shell("config bgp shutdown all")
 
     configs = []
-    op="SET"
+    op = "SET"
 
     def _apply_config(config_info):
         if skip_config:
@@ -155,7 +155,7 @@ def apply_config(duthost, skip_config, skip_cleanup, use_underlay_route):
 
     yield _apply_config
 
-    op="DEL"
+    op = "DEL"
     if not skip_cleanup:
         for config_info in reversed(configs):
             _apply_config(config_info)
