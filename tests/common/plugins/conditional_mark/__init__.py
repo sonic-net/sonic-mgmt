@@ -295,9 +295,9 @@ def evaluate_conditions(conditions, basic_facts, session, conditions_logical_ope
     if isinstance(conditions, list):
         # Apply 'AND' or 'OR' operation to list of conditions based on conditions_logical_operator(by default 'AND')
         if conditions_logical_operator == 'OR':
-            return any([evaluate_condition(c, basic_facts) for c in conditions])
+            return any([evaluate_condition(c, basic_facts, session) for c in conditions])
         else:
-            return all([evaluate_condition(c, basic_facts) for c in conditions])
+            return all([evaluate_condition(c, basic_facts, session) for c in conditions])
     else:
         if conditions is None or conditions.strip() == '':
             return True
