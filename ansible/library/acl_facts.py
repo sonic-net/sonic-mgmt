@@ -115,7 +115,7 @@
 #     }
 # }
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 from collections import defaultdict
 from sonic_py_common import multi_asic
 
@@ -148,12 +148,14 @@ def get_all_config(module):
     """
     rc, stdout, stderr = module.run_command('sonic-cfggen -d --print-data')
     if rc != 0:
-        module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
+        module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (
+            rc, stdout, stderr))
 
     try:
         return module.from_json(stdout)
     except Exception as e:
-        module.fail_json(msg='Failed to parse config from output of "sonic-cfggen -d --print-data", err=' + str(e))
+        module.fail_json(
+            msg='Failed to parse config from output of "sonic-cfggen -d --print-data", err=' + str(e))
 
     return None
 
@@ -172,9 +174,11 @@ def get_acl_rule_counters(module):
         cmd = 'sudo ip netns exec {} '.format(ns) if ns else ''
         rc, stdout, stderr = module.run_command(cmd + 'aclshow -a')
         if rc != 0:
-            module.fail_json(msg='Failed to get acl counter data, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
-        
-        output_lines = stdout.splitlines()[2:]  # Skip the header lines in output
+            module.fail_json(msg='Failed to get acl counter data, rc=%s, stdout=%s, stderr=%s' % (
+                rc, stdout, stderr))
+
+        # Skip the header lines in output
+        output_lines = stdout.splitlines()[2:]
         for line in output_lines:
             line_expanded = line.split()
             if len(line_expanded) == 5:
@@ -187,21 +191,23 @@ def get_acl_rule_counters(module):
                 except ValueError:
                     bytes_count = 0
 
-                key = (line_expanded[0],line_expanded[1],line_expanded[2])
+                key = (line_expanded[0], line_expanded[1], line_expanded[2])
                 if key in counter_aggrgeate_map:
-                     counter_aggrgeate_map[key][0] = packets_count + counter_aggrgeate_map[key][0]
-                     counter_aggrgeate_map[key][1] = bytes_count + counter_aggrgeate_map[key][1]
+                    counter_aggrgeate_map[key][0] = packets_count + \
+                        counter_aggrgeate_map[key][0]
+                    counter_aggrgeate_map[key][1] = bytes_count + \
+                        counter_aggrgeate_map[key][1]
                 else:
-                     counter_aggrgeate_map[key].append(packets_count)
-                     counter_aggrgeate_map[key].append(bytes_count)
+                    counter_aggrgeate_map[key].append(packets_count)
+                    counter_aggrgeate_map[key].append(bytes_count)
 
     for k, v in counter_aggrgeate_map.items():
-         counter = dict(rule_name=k[0],
+        counter = dict(rule_name=k[0],
                        table_name=k[1],
                        priority=k[2],
                        packets_count=v[0],
                        bytes_count=v[1])
-         counters.append(counter)
+        counters.append(counter)
 
     return counters
 

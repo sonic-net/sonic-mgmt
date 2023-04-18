@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 import re
 
 DOCUMENTATION = '''
@@ -67,7 +67,7 @@ fc00::52 dev Ethernet80 lladdr 52:54:00:1d:5e:ba router REACHABLE
 
 
 def parse_arptable(output):
-    v4host = re.compile('[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+    v4host = re.compile(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
     v6host = re.compile('[0-9a-fA-F:]+::[0-9a-fA-F:]+')
     v4tbl = dict()
     v6tbl = dict()
@@ -76,15 +76,19 @@ def parse_arptable(output):
         if len(fields) != 0:
             if v4host.match(fields[0]):
                 if len(fields) == 4:
-                    v4tbl[fields[0]] = {'interface': fields[2], 'state':fields[3], 'macaddress': 'None'}
+                    v4tbl[fields[0]] = {'interface': fields[2],
+                                        'state': fields[3], 'macaddress': 'None'}
                 else:
-                    v4tbl[fields[0]] = {'interface': fields[2], 'state':fields[-1], 'macaddress': fields[4]}
+                    v4tbl[fields[0]] = {'interface': fields[2],
+                                        'state': fields[-1], 'macaddress': fields[4]}
             if v6host.match(fields[0]):
                 if len(fields) == 4:
-                    v6tbl[fields[0]] = {'interface': fields[2], 'state':fields[3], 'macaddress': 'None'}
+                    v6tbl[fields[0]] = {'interface': fields[2],
+                                        'state': fields[3], 'macaddress': 'None'}
                 else:
-                    v6tbl[fields[0]] = {'interface': fields[2], 'state':fields[-1], 'macaddress': fields[4]}
-    arps = {'v4':v4tbl, 'v6':v6tbl}
+                    v6tbl[fields[0]] = {'interface': fields[2],
+                                        'state': fields[-1], 'macaddress': fields[4]}
+    arps = {'v4': v4tbl, 'v6': v6tbl}
     return arps
 
 
@@ -104,13 +108,15 @@ def main():
             cmd = "ip neigh"
         rt, out, err = module.run_command(cmd)
         if rt != 0:
-            module.fail_json(msg="Command 'ip neigh' failed rc=%d, out=%s, err=%s" %(rt, out, err))
+            module.fail_json(
+                msg="Command 'ip neigh' failed rc=%d, out=%s, err=%s" % (rt, out, err))
             return
         arp_tbl = parse_arptable(out)
-        module.exit_json(changed=False, ansible_facts={'arptable':arp_tbl})
+        module.exit_json(changed=False, ansible_facts={'arptable': arp_tbl})
     except Exception as e:
         err_msg = "Parse ip neigh table failed! " + str(e)
         module.fail_json(msg=err_msg)
+
 
 if __name__ == "__main__":
     main()

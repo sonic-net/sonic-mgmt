@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import sys
+from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
 module:         combine_list_to_dict
@@ -25,12 +25,13 @@ EXAMPLES = '''
   combine_list_to_dict: keys={{keys}} values={{values}}
 '''
 
+
 class CombineListModule(object):
     def __init__(self):
         self.module = AnsibleModule(
             argument_spec=dict(
-              keys=dict(required=True, type='list'),
-              values=dict(required=True, type='list'),
+                keys=dict(required=True, type='list'),
+                values=dict(required=True, type='list'),
             ),
             supports_check_mode=True)
 
@@ -42,7 +43,7 @@ class CombineListModule(object):
     def run(self):
         """
             Main method of the class
-        
+
         """
         m_args = self.module.params
         keys = m_args['keys']
@@ -56,12 +57,13 @@ class CombineListModule(object):
         self.facts['combined_dict'] = combined_dict
         self.module.exit_json(ansible_facts=self.facts)
 
+
 def main():
     combine_list = CombineListModule()
     combine_list.run()
 
     return
 
-from ansible.module_utils.basic import *
+
 if __name__ == "__main__":
     main()

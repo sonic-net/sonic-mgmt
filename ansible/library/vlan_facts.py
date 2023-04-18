@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # This ansible module is for gathering VLAN related facts from SONiC device.
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 from collections import defaultdict
 
 
@@ -41,7 +41,7 @@ EXAMPLES = '''
                 },
                 {
                 "prefixlen": 64,
-                "addr": "fc02:1000::1",  
+                "addr": "fc02:1000::1",
                 }
             ]
       }
@@ -56,10 +56,12 @@ def get_all_vlan(module, config):
     @param config: The retrieved vlan config
     @return: None
     """
-    rc, stdout, stderr = module.run_command('sonic-cfggen -d --var-json \"VLAN\"')
+    rc, stdout, stderr = module.run_command(
+        'sonic-cfggen -d --var-json \"VLAN\"')
     if rc != 0:
-        module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
-    
+        module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (
+            rc, stdout, stderr))
+
     try:
         vlan_config = module.from_json(stdout)
         for k, v in vlan_config.items():
@@ -68,7 +70,9 @@ def get_all_vlan(module, config):
                 'vlanid': v['vlanid']
             }
     except Exception as e:
-        module.fail_json(msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN", err=' + str(e))
+        module.fail_json(
+            msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN", err=' + str(e))
+
 
 def get_vlan_interfaces(module, config):
     """
@@ -77,10 +81,12 @@ def get_vlan_interfaces(module, config):
     @param config: The retrieved vlan config
     @return: None
     """
-    rc, stdout, stderr = module.run_command('sonic-cfggen -d --var-json \"VLAN_INTERFACE\"')
+    rc, stdout, stderr = module.run_command(
+        'sonic-cfggen -d --var-json \"VLAN_INTERFACE\"')
     if rc != 0:
-        module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
-    
+        module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (
+            rc, stdout, stderr))
+
     try:
         vlan_config = module.from_json(stdout)
         for k, v in vlan_config.items():
@@ -93,13 +99,15 @@ def get_vlan_interfaces(module, config):
             ip_prefix = vlan_ip[1].split('/')
             config[vlan]['interfaces'].append(
                 {
-                "addr": ip_prefix[0],
-                "prefixlen": 32 if len(ip_prefix) < 2 else int(ip_prefix[1])
+                    "addr": ip_prefix[0],
+                    "prefixlen": 32 if len(ip_prefix) < 2 else int(ip_prefix[1])
                 }
             )
 
     except Exception as e:
-        module.fail_json(msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN_INTERFACE", err=' + str(e))
+        module.fail_json(
+            msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN_INTERFACE", err=' + str(e))
+
 
 def get_vlan_members(module, config):
     """
@@ -108,10 +116,12 @@ def get_vlan_members(module, config):
     @param config: The retrieved vlan config
     @return: None
     """
-    rc, stdout, stderr = module.run_command('sonic-cfggen -d --var-json \"VLAN_MEMBER\"')
+    rc, stdout, stderr = module.run_command(
+        'sonic-cfggen -d --var-json \"VLAN_MEMBER\"')
     if rc != 0:
-        module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
-    
+        module.fail_json(msg='Failed to get DUT running config, rc=%s, stdout=%s, stderr=%s' % (
+            rc, stdout, stderr))
+
     try:
         vlan_config = module.from_json(stdout)
         for k, v in vlan_config.items():
@@ -122,10 +132,11 @@ def get_vlan_members(module, config):
                 config[vlan_intf[0]]['members'] = {}
             config[vlan_intf[0]]['members'].update(
                 {vlan_intf[1]: {"tagging_mode": v['tagging_mode']}}
-                )
-    
+            )
+
     except Exception as e:
-        module.fail_json(msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN_MEMBER", err=' + str(e))
+        module.fail_json(
+            msg='Failed to parse config from output of "sonic-cfggen -d --var-json VLAN_MEMBER", err=' + str(e))
 
 
 def main():
@@ -133,11 +144,11 @@ def main():
     module = AnsibleModule(argument_spec=dict())
 
     vlan_config = defaultdict(dict)
-    
+
     get_all_vlan(module, vlan_config)
     get_vlan_interfaces(module, vlan_config)
     get_vlan_members(module, vlan_config)
-    
+
     module.exit_json(ansible_facts={'ansible_vlan_facts': vlan_config})
 
 
