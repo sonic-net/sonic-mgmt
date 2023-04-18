@@ -18,18 +18,9 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def common_setup_teardown(rand_selected_dut, request, tbinfo, vmhost):
-    # Skip dualtor test cases on unsupported platform
-    supported_platforms = ['broadcom_td3_hwskus', 'broadcom_th2_hwskus', 'cisco_hwskus']
-    hostvars = get_host_visible_vars(rand_selected_dut.host.options['inventory'], rand_selected_dut.hostname)
-    hwsku = rand_selected_dut.facts['hwsku']
-    skip = True
-    for platform in supported_platforms:
-        supported_skus = hostvars.get(platform, [])
-        if hwsku in supported_skus:
-            skip = False
-            break
-    py_require(not skip, "Skip on unsupported platform")
+def common_setup_teardown(request, tbinfo):
+    # Skip dualtor-mgmt tests on non-dualtor testbed
+    py_require("dualtor" in tbinfo['topo']['name'], "Skip on non-dualtor testbed")
 
     if 'dualtor' in tbinfo['topo']['name']:
         request.getfixturevalue('run_garp_service')
