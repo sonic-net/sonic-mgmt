@@ -17,6 +17,7 @@ from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 
 logger = logging.getLogger(__name__)
@@ -176,24 +177,27 @@ def test_active_tor_reboot_downstream(
         cable_type=cable_type
     )
 
-    # reboot the upper ToR and verify the upper ToR forwarding state is changed to standby
-    toggle_upper_tor_pdu()
-    pytest_assert(
-        wait_until(60, 5, 5, check_forwarding_state, ForwardingState.STANDBY, ForwardingState.ACTIVE),
-        "Forwarding state check failed after reboot."
-    )
+    # use loganalyzer to collect logs from the lower tor during reboot
+    with LogAnalyzer(ansible_host=lower_tor_host, marker_prefix="test_active_tor_reboot_downstream"):
+        # reboot the upper ToR and verify the upper ToR forwarding state is changed to standby
+        toggle_upper_tor_pdu()
+        pytest_assert(
+            wait_until(60, 5, 5, check_forwarding_state, ForwardingState.STANDBY, ForwardingState.ACTIVE),
+            "Forwarding state check failed after reboot."
+        )
+        lower_tor_host.shell("show mux grpc mux", module_ignore_errors=True)
 
-    # verify the upper ToR changes back to active after the upper comes back from reboot
-    wait_for_device_reachable(upper_tor_host)
-    pytest_assert(
-        wait_until(180, 5, 60, check_forwarding_state, ForwardingState.ACTIVE, ForwardingState.ACTIVE),
-        "Forwarding state check failed after the upper ToR comes back from reboot."
-    )
-    verify_tor_states(
-        expected_active_host=[upper_tor_host, lower_tor_host],
-        expected_standby_host=None,
-        cable_type=cable_type
-    )
+        # verify the upper ToR changes back to active after the upper comes back from reboot
+        wait_for_device_reachable(upper_tor_host)
+        pytest_assert(
+            wait_until(180, 5, 60, check_forwarding_state, ForwardingState.ACTIVE, ForwardingState.ACTIVE),
+            "Forwarding state check failed after the upper ToR comes back from reboot."
+        )
+        verify_tor_states(
+            expected_active_host=[upper_tor_host, lower_tor_host],
+            expected_standby_host=None,
+            cable_type=cable_type
+        )
 
     # verify the server receives packets with no disrupts, no tunnel traffic
     with tunnel_traffic_monitor(upper_tor_host, existing=False):
