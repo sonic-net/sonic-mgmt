@@ -36,7 +36,7 @@ def arp_setup(ptfhost):
     ptfhost.shell("supervisorctl reread && supervisorctl update")
 
 
-def validate_traffic_results(tor_IO, allowed_disruption, delay):
+def validate_traffic_results(tor_IO, allowed_disruption, delay, allow_disruption_before_traffic=False):
     """
     Generates a report (dictionary) of I/O metrics that were calculated as part
     of the dataplane test. This report is to be used by testcases to verify the
@@ -55,7 +55,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
         total_received_packets = result['received_packets']
         received_packet_diff = result['received_packets'] - result['sent_packets']
         total_disruptions = len(result['disruptions'])
-        
+
         longest_disruption = 0
         for disruption in result['disruptions']:
             disruption_length = disruption['end_time'] - disruption['start_time']
@@ -88,9 +88,9 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
 
         # Assert test results separately so all server results are logged
         if total_received_packets <= 0:
-            failures.append("Test failed to capture any meaningful received " 
+            failures.append("Test failed to capture any meaningful received "
                             "packets for server {}".format(server_ip))
-        
+
         if total_disruptions > allowed_disruption:
             failures.append("Traffic to server {} was "
                             "disrupted {} times. Allowed number of disruptions: {}"\
@@ -102,7 +102,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
                             .format(server_ip, longest_disruption, delay))
 
         if total_duplications > allowed_disruption:
-            failures.append("Traffic to server {} was duplicated {} times. " 
+            failures.append("Traffic to server {} was duplicated {} times. "
                             "Allowed number of duplications: {}"
                             .format(server_ip, total_duplications, allowed_disruption))
 
@@ -111,7 +111,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
                             "Maximum allowed duplication: {}s"
                             .format(server_ip, longest_duplication, delay))
 
-        if bool(disruption_before_traffic):
+        if not allow_disruption_before_traffic and bool(disruption_before_traffic):
             failures.append("Traffic on server {} was disrupted prior to test start, "
                             "missing {} packets from the start of the packet flow"
                             .format(server_ip, disruption_before_traffic))
@@ -123,11 +123,12 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
 
     pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
 
-def verify_and_report(tor_IO, verify, delay, allowed_disruption):
+
+def verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic=False):
     # Wait for the IO to complete before doing checks
     if verify:
-        validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption,
-            delay=delay)
+        validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption, delay=delay,
+                                 allow_disruption_before_traffic=allow_disruption_before_traffic)
     return tor_IO.get_test_results()
 
 
@@ -143,7 +144,7 @@ def run_test(
         activehost, peerhost, ptfhost, ptfadapter, tbinfo,
         io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type
     )
-    
+
     send_and_sniff = InterruptableThread(
         target=tor_IO.start_io_test,
         kwargs={'traffic_direction': traffic_direction}
@@ -210,10 +211,10 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
         function: A helper function to run and monitor the IO test
     """
     arp_setup(ptfhost)
-    
+
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
-                            delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                            stop_after=None):
+                             delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
+                             stop_after=None, allow_disruption_before_traffic=False):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -240,7 +241,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
 
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
                         action, tbinfo, tor_vlan_port, send_interval,
-                        traffic_direction="t1_to_server", stop_after=stop_after, 
+                        traffic_direction="t1_to_server", stop_after=stop_after,
                         cable_type=cable_type)
 
         # If a delay is allowed but no numebr of allowed disruptions
@@ -248,7 +249,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic)
 
     yield t1_to_server_io_test
 
