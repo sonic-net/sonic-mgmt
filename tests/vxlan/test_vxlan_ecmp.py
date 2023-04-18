@@ -481,6 +481,7 @@ class Test_VxLAN_route_tests(Test_VxLAN):
     '''
         Common class for the basic route test cases.
     '''
+
     def test_vxlan_single_endpoint(self, setUp, encap_type):
         '''
             tc1:Create a tunnel route to a single endpoint a.
@@ -500,7 +501,8 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Choose a destination, which is already present.")
-        tc2_dest = list(self.setup[encap_type]['dest_to_nh_map'][vnet].keys())[0]
+        tc2_dest = list(self.setup[encap_type]
+                        ['dest_to_nh_map'][vnet].keys())[0]
 
         Logger.info("Create a new endpoint, or endpoint-list.")
         tc2_new_end_point_list = []
@@ -572,6 +574,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         Class for all the ECMP (multiple nexthops per destination)
         create testcases.
     '''
+
     def test_vxlan_configure_route1_ecmp_group_a(self, setUp, encap_type):
         '''
             tc4:create tunnel route 1 with two endpoints a = {a1, a2...}. send
@@ -985,6 +988,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
     '''
        Class for all the next-hop group modification testcases.
     '''
+
     def setup_route2_single_endpoint(self, encap_type):
         '''
             Function to handle dependency of tc9 on tc8.
@@ -997,7 +1001,8 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
 
         Logger.info(
             "Choose a route 2 destination and a new single endpoint for it.")
-        tc8_new_dest = list(self.setup[encap_type]['dest_to_nh_map'][vnet].keys())[0]
+        tc8_new_dest = list(
+            self.setup[encap_type]['dest_to_nh_map'][vnet].keys())[0]
         tc8_new_nh = ecmp_utils.get_ip_address(
             af=ecmp_utils.get_outer_layer_version(encap_type),
             netid=NEXTHOP_PREFIX)
@@ -1180,7 +1185,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         Logger.info("Map the new destinations to the same endpoint list.")
         for i in range(2):
             dest_nh_map[vnet][tc7_destinations[i]] = \
-                    tc7_end_point_list
+                tc7_end_point_list
 
         Logger.info("Apply the setup configs to the DUT.")
         payload_af = ecmp_utils.get_payload_version(encap_type)
@@ -1328,6 +1333,7 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
     '''
         Class for testing different tcp ports for payload.
     '''
+
     def test_vxlan_random_hash(self, setUp, encap_type):
         '''
             tc11: set tunnel route 3 to endpoint group c = {c1, c2, c3}.
@@ -1849,6 +1855,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
         Class for all test cases that modify the payload traffic
         properties - tcp source port, destination port and source IP address.
     '''
+
     def verify_entropy(
             self,
             encap_type,

@@ -146,7 +146,8 @@ class Ecmp_Utils(object):
                     number_of_required_interfaces+1, available_number))
         for index in range(number_of_required_interfaces):
             neigh_ip_address = list_of_bgp_ips[index]
-            current_interface_name = list(bgp_interfaces[neigh_ip_address].keys())[0]
+            current_interface_name = list(
+                bgp_interfaces[neigh_ip_address].keys())[0]
             ret_interface_list.append(current_interface_name)
 
         if ret_interface_list:

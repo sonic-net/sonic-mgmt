@@ -149,7 +149,8 @@ class Test_VxLAN_Crm(Test_VxLAN):
 
         for vnet in list(self.setup[encap_type]['dest_to_nh_map'].keys()):
             number_of_routes_configured += \
-                len(list(self.setup[encap_type]['dest_to_nh_map'][vnet].keys()))
+                len(list(self.setup[encap_type]
+                    ['dest_to_nh_map'][vnet].keys()))
 
             dest_to_nh_map = self.setup[encap_type]['dest_to_nh_map'][vnet]
             for _, nexthops in list(dest_to_nh_map.items()):
