@@ -1,3 +1,4 @@
+import re
 from tests.common.helpers.dut_ports import encode_dut_port_name
 
 """
