@@ -6424,14 +6424,14 @@
       <PowerControlLinkInfo EndDevice="str2-pikez-acs-1" EndPort="PSU2" StartDevice="pdu-82" StartPort="7"/>
       <PowerControlLinkInfo EndDevice="str2-7215-acs-5" EndPort="PSU1" StartDevice="pdu-82" StartPort="3"/>
       <PowerControlLinkInfo EndDevice="str2-7215-acs-5" EndPort="PSU2" StartDevice="pdu-83" StartPort="3"/>
-      <PowerControlLinkInfo EndDevice="str2-bluefield-host-01" EndPort="PSU1" StartDevice="pdu-118" StartPort="46"/>
-      <PowerControlLinkInfo EndDevice="str2-bluefield-host-01" EndPort="PSU2" StartDevice="pdu-119" StartPort="18"/>
-      <PowerControlLinkInfo EndDevice="str2-bluefield-host-02" EndPort="PSU1" StartDevice="pdu-119" StartPort="5"/>
-      <PowerControlLinkInfo EndDevice="str2-bluefield-host-02" EndPort="PSU2" StartDevice="pdu-119" StartPort="17"/>
-      <PowerControlLinkInfo EndDevice="str2-bluefield-01" EndPort="PSU1" StartDevice="pdu-118" StartPort="46"/>
-      <PowerControlLinkInfo EndDevice="str2-bluefield-01" EndPort="PSU2" StartDevice="pdu-119" StartPort="18"/>
-      <PowerControlLinkInfo EndDevice="str2-bluefield-02" EndPort="PSU1" StartDevice="pdu-119" StartPort="5"/>
-      <PowerControlLinkInfo EndDevice="str2-bluefield-02" EndPort="PSU2" StartDevice="pdu-119" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str2-bluefield-host-02" EndPort="PSU1" StartDevice="pdu-118" StartPort="46"/>
+      <PowerControlLinkInfo EndDevice="str2-bluefield-host-02" EndPort="PSU2" StartDevice="pdu-119" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str2-bluefield-02" EndPort="PSU1" StartDevice="pdu-118" StartPort="46"/>
+      <PowerControlLinkInfo EndDevice="str2-bluefield-02" EndPort="PSU2" StartDevice="pdu-119" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str2-bluefield-host-01" EndPort="PSU1" StartDevice="pdu-119" StartPort="5"/>
+      <PowerControlLinkInfo EndDevice="str2-bluefield-host-01" EndPort="PSU2" StartDevice="pdu-119" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str2-bluefield-01" EndPort="PSU1" StartDevice="pdu-119" StartPort="5"/>
+      <PowerControlLinkInfo EndDevice="str2-bluefield-01" EndPort="PSU2" StartDevice="pdu-119" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU1" StartDevice="pdu-108" StartPort="45"/>
       <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU2" StartDevice="pdu-108" StartPort="46"/>
       <PowerControlLinkInfo EndDevice="str2-8800-sup-3" EndPort="PSU3" StartDevice="pdu-109" StartPort="24"/>
