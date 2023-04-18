@@ -4,39 +4,39 @@
 ##############################################################
 
 dualtor/test_ipinip.py::test_decap_standby_tor:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
+  skip:
+    reason: "dual tor mock test only support on 7050cx3 and 7260"
     conditions:
       - "release in ['202012']"
-      - "'dualtor' not in topo_name"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 dualtor/test_orchagent_active_tor_downstream.py:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
+  skip:
+    reason: "dual tor mock test only support on 7050cx3 and 7260"
     conditions:
       - "release in ['202012']"
-      - "'7260' in platform"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 dualtor/test_orchagent_mac_move.py:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
+  skip:
+    reason: "dual tor mock test only support on 7050cx3 and 7260"
     conditions:
       - "release in ['202012']"
-      - "'dualtor' not in topo_name"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 dualtor/test_orch_stress.py::test_flap_neighbor_entry_standby:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
+  skip:
+    reason: "dual tor mock test only support on 7050cx3 and 7260"
     conditions:
       - "release in ['202012']"
-      - "'dualtor' not in topo_name"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 dualtor/test_standby_tor_upstream_mux_toggle.py:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
+  skip:
+    reason: "dual tor mock test only support on 7050cx3 and 7260"
     conditions:
       - "release in ['202012']"
-      - "'dualtor' not in topo_name"
+      - "('dualtor' in topo_name) or ('7050cx3' not in platform.lower() and '7260' not in platform.lower())"
 
 
 dualtor_io/test_normal_op.py:
