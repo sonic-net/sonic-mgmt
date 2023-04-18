@@ -5,7 +5,7 @@ import pytest
 
 from collections import defaultdict
 from jinja2 import Template
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 
 
 TESTBED_TEMPLATE = "templates/spytest_testbed.yaml.j2"
@@ -28,7 +28,7 @@ def hostvars(duthosts):
             for duthost in duthosts}
 
 
-def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,
+def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,        # noqa F811
                          pytestconfig):
     """Generate spytest testbed file."""
 
