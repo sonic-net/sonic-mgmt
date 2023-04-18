@@ -206,18 +206,21 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
         if porttype == 'hostif':
             # find the hostif entry to get the physical port the router interface is on.
             hostifkey = asicdb.find_hostif_by_portid(portid)
-            hostif = asicdb.get_hostif_table(refresh=False)[hostifkey]['value']['SAI_HOSTIF_ATTR_NAME'].decode('unicode-escape')
+            hostif = asicdb.get_hostif_table(refresh=False)[hostifkey][
+                'value']['SAI_HOSTIF_ATTR_NAME'].decode('unicode-escape')
             logger.info("RIF: %s is on local port: %s", rif, hostif)
             rif_ports_in_asicdb.append(hostif)
             if hostif not in dev_intfs and hostif not in voq_intfs:
                 pytest.fail("Port: %s has a router interface, but it isn't in configdb." % portid)
 
             # check MTU and ethernet address
-            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][hostif]['mtu'],
-                          "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][hostif]['mtu']))
+            pytest_assert(asicdb_rif_table[rif]['value'][
+                "SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][hostif]['mtu'],
+                "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][hostif]['mtu']))
             intf_mac = get_sonic_mac(per_host, asic.asic_index, hostif)
-            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
-                          "MAC for rif %s is not %s" % (rif, intf_mac))
+            pytest_assert(asicdb_rif_table[rif]['value'][
+                "SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
+                "MAC for rif %s is not %s" % (rif, intf_mac))
 
             sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
                             'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
@@ -226,7 +229,8 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
 
         elif porttype == 'sysport':
             try:
-                port_output = sys_port_table["ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT:" + portid]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
+                port_output = sys_port_table[
+                    "ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT:" + portid]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
             except KeyError:
                 # not a hostif or system port, log error and continue
                 logger.error("Did not find OID %s in local or system tables" % portid)
@@ -248,11 +252,13 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
             logger.info("RIF: %s is on local port: %s", rif, inband['port'])
 
             # check MTU and ethernet address
-            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][inband['port']]['mtu'],
-                          "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][inband['port']]['mtu']))
+            pytest_assert(asicdb_rif_table[rif]['value'][
+                "SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][inband['port']]['mtu'],
+                "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][inband['port']]['mtu']))
             intf_mac = get_sonic_mac(per_host, asic.asic_index, inband['port'])
-            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
-                          "MAC for rif %s is not %s" % (rif, intf_mac))
+            pytest_assert(asicdb_rif_table[rif]['value'][
+                "SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
+                "MAC for rif %s is not %s" % (rif, intf_mac))
 
             sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
                             'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
@@ -261,10 +267,11 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
 
         # TODO: Could be on a LAG
         elif porttype == 'lag':
-            #lagid = asicdb.hget_key_value("%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid), 'SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID')
-            lagid = asicdb_lag_table["%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid)]['value']['SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID']
+            # lagid = asicdb.hget_key_value("%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid),
+            #                               'SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID')
+            lagid = asicdb_lag_table["%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid)][
+                'value']['SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID']
             logger.info("RIF: %s is on system LAG: %s", rif, lagid)
-
 
             for lag, sysid in list(systemlagtable['SYSTEM_LAG_ID_TABLE']['value'].items()):
                 if sysid == lagid:
@@ -276,7 +283,8 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
             if lag.startswith("%s|%s" % (myslot, myasic)):
                 logger.info("Lag: %s is a local portchannel with a router interface.", lag)
                 (s, a, lagname) = lag.split("|")
-                pytest_assert(lagname in cfg_facts['PORTCHANNEL_INTERFACE'], "RIF Interface %s is in configdb.json but not in asicdb" % rif)
+                pytest_assert(lagname in cfg_facts['PORTCHANNEL_INTERFACE'],
+                              "RIF Interface %s is in configdb.json but not in asicdb" % rif)
 
                 check_rif_on_sup(systemintftable, myslot, myasic, lagname)
 
