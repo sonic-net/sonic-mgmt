@@ -16,6 +16,7 @@ except ImportError:
 DEFAULT_DEVICECSV = 'sonic_lab_devices.csv'
 DEFAULT_LINKCSV = 'sonic_lab_links.csv'
 DEFAULT_CONSOLECSV = 'sonic_lab_console_links.csv'
+DEFAULT_BMCCSV = 'sonic_lab_bmc_links.csv'
 DEFAULT_PDUCSV = 'sonic_lab_pdu_links.csv'
 
 LAB_CONNECTION_GRAPH_ROOT_NAME = 'LabConnectionGraph'
@@ -30,34 +31,74 @@ class LabGraph(object):
     infrastucture for Sonic development and testing environment.
     """
 
-    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
+    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None,
+                 bmc_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
         self.devices = {}
         self.links = []
         self.consoles = []
+        self.bmcs = []
         self.pdus = []
         self.devcsv = dev_csvfile
         self.linkcsv = link_csvfile
         self.conscsv = cons_csvfile
+        self.bmccsv = bmc_csvfile
         self.pducsv = pdu_csvfile
         self.png_xmlfile = 'str_sonic_png.xml'
         self.dpg_xmlfile = 'str_sonic_dpg.xml'
         self.one_xmlfile = graph_xmlfile
+        self._cache_port_name_to_alias = {}
+        self._cache_port_alias_to_name = {}
         self.pngroot = etree.Element('PhysicalNetworkGraphDeclaration')
         self.dpgroot = etree.Element('DataPlaneGraph')
         self.csgroot = etree.Element('ConsoleGraphDeclaration')
+        self.bmcgroot = etree.Element('BmcGraphDeclaration')
         self.pcgroot = etree.Element('PowerControlGraphDeclaration')
 
-    def translate_port_alias(self, device_hostname, device_port):
+    def _get_port_alias_to_name_map(self, hwsku):
         """
-        If device_port is port alias, return the corresponding port name.
-        Otherwise, return as is.
+        Retrive port alias to name map for specific hwsku.
         """
-        devtype = self.devices[device_hostname]['Type'].lower()
-        if devtype == 'devsonic' or 'fanout' in devtype:
-            hwsku = self.devices[device_hostname]['HwSku']
-            port_alias_to_name, _, _ = get_port_alias_to_name_map(hwsku)
-            return port_alias_to_name.get(device_port, device_port)
-        return device_port
+        if hwsku in self._cache_port_alias_to_name:
+            return self._cache_port_alias_to_name[hwsku]
+        port_alias_to_name_map, _, _ = get_port_alias_to_name_map(hwsku)
+        self._cache_port_alias_to_name[hwsku] = port_alias_to_name_map
+        return port_alias_to_name_map
+
+    def _get_port_name_to_alias_map(self, hwsku):
+        """
+        Retrive port name to alias map for specific hwsku.
+        """
+        if hwsku in self._cache_port_name_to_alias:
+            return self._cache_port_name_to_alias[hwsku]
+        port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
+        port_name_to_alias_map = dict([(name, alias) for alias, name in port_alias_to_name_map.items()])
+        self._cache_port_name_to_alias[hwsku] = port_name_to_alias_map
+        return port_name_to_alias_map
+
+    def _get_port_name_set(self, device_hostname):
+        """
+        Retrive port name set of a specific hwsku.
+        """
+        hwsku = self.devices[device_hostname]['HwSku']
+        return set(self._get_port_name_to_alias_map(hwsku).keys())
+
+    def _get_port_alias_set(self, device_hostname):
+        """
+        Retrive port alias set of a specific hwsku.
+        """
+        hwsku = self.devices[device_hostname]['HwSku']
+        return set(self._get_port_alias_to_name_map(hwsku).keys())
+
+    def _convert_port_alias_to_name(self, device_hostname, port_alias):
+        """
+        Given the device hostname and port alias, return the corresponding port name.
+        """
+        os = self.devices[device_hostname].get('Os', '').lower()
+        if os != 'sonic':
+            raise Exception("Cannot convert port alias to name for non-SONiC device {}".format(device_hostname))
+        hwsku = self.devices[device_hostname]['HwSku']
+        port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
+        return port_alias_to_name_map[port_alias]
 
     def read_devices(self):
         with open(self.devcsv) as csv_dev:
@@ -65,6 +106,7 @@ class LabGraph(object):
             devices_root = etree.SubElement(self.pngroot, 'Devices')
             pdus_root = etree.SubElement(self.pcgroot, 'DevicesPowerControlInfo')
             cons_root = etree.SubElement(self.csgroot, 'DevicesConsoleInfo')
+            bmc_root = etree.SubElement(self.bmcgroot, 'DevicesBmcInfo')
             for row in csv_devices:
                 attrs = {}
                 self.devices[row['Hostname']] = row
@@ -77,6 +119,11 @@ class LabGraph(object):
                     for key in row:
                         attrs[key] = row[key].decode('utf-8')
                     etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
+                elif 'mgmttstorrouter' in devtype:
+                    for key in row:
+                        attrs[key] = row[key].decode('utf-8')
+                    etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
+                    etree.SubElement(bmc_root, 'DeviceBmcInfo', attrs)
                 else:
                     for key in row:
                         if key.lower() != 'managementip' and key.lower() != 'protocol':
@@ -84,18 +131,55 @@ class LabGraph(object):
                     etree.SubElement(devices_root, 'Device', attrs)
 
     def read_links(self):
+        # Read and parse link.csv file
         with open(self.linkcsv) as csv_file:
             csv_links = csv.DictReader(filter(lambda row: row[0] != '#' and len(row.strip()) != 0, csv_file))
-            links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
+            links_group_by_devices = {}
             for link in csv_links:
-                link['StartPort'] = self.translate_port_alias(link['StartDevice'], link['StartPort'])
-                link['EndPort'] = self.translate_port_alias(link['EndDevice'], link['EndPort'])
-                attrs = {}
-                for key in link:
-                    if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
-                        attrs[key] = link[key].decode('utf-8')
-                etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
                 self.links.append(link)
+                if link['StartDevice'] not in links_group_by_devices:
+                    links_group_by_devices[link['StartDevice']] = []
+                links_group_by_devices[link['StartDevice']].append(link)
+                if link['EndDevice'] not in links_group_by_devices:
+                    links_group_by_devices[link['EndDevice']] = []
+                links_group_by_devices[link['EndDevice']].append(link)
+
+        # For SONiC devices (DUT/Fanout), convert port alias to port name. Updates in `links_group_by_devices` will
+        # also be reflected in `self.links`, because they are holding reference to the same underlying `link` variable.
+        for device, links in links_group_by_devices.items():
+            os = self.devices[device].get('Os', '').lower()
+            if os != 'sonic':
+                continue
+            ports = []
+            for link in links:
+                if device == link['StartDevice']:
+                    ports.append(link['StartPort'])
+                elif device == link['EndDevice']:
+                    ports.append(link['EndPort'])
+            if any([port not in self._get_port_alias_set(device).union(self._get_port_name_set(device))
+                    for port in ports]):
+                # If any port of a device is neither port name nor port alias, skip conversion for this device.
+                continue
+            if all([port in self._get_port_alias_set(device) for port in ports]):
+                # If all ports of a device are port alias, convert them to port name.
+                for link in links:
+                    if device == link['StartDevice']:
+                        link['StartPort'] = self._convert_port_alias_to_name(device, link['StartPort'])
+                    elif device == link['EndDevice']:
+                        link['EndPort'] = self._convert_port_alias_to_name(device, link['EndPort'])
+            elif not all([port in self._get_port_name_set(device) for port in ports]):
+                # If some ports use port name and others use port alias, raise an Exception.
+                raise Exception("[Failed] For device {}, please check {} and ensure all ports use port name, "
+                                "or ensure all ports use port alias.".format(device, self.linkcsv))
+
+        # Generate DeviceInterfaceLink XML nodes for connection graph
+        links_root = etree.SubElement(self.pngroot, 'DeviceInterfaceLinks')
+        for link in self.links:
+            attrs = {}
+            for key in link:
+                if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
+                    attrs[key] = link[key].decode('utf-8')
+            etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
 
     def read_consolelinks(self):
         if not os.path.exists(self.conscsv):
@@ -109,6 +193,19 @@ class LabGraph(object):
                     attrs[key] = cons[key].decode('utf-8')
                 etree.SubElement(conslinks_root, 'ConsoleLinkInfo', attrs)
                 self.consoles.append(cons)
+
+    def read_bmclinks(self):
+        if not os.path.exists(self.bmccsv):
+            return
+        with open(self.bmccsv) as csv_file:
+            csv_bmc = csv.DictReader(csv_file)
+            bmclinks_root = etree.SubElement(self.bmcgroot, 'BmcLinksInfo')
+            for bmc in csv_bmc:
+                attrs = {}
+                for key in bmc:
+                    attrs[key] = bmc[key].decode('utf-8')
+                etree.SubElement(bmclinks_root, 'BmcLinkInfo', attrs)
+                self.bmcs.append(bmc)
 
     def read_pdulinks(self):
         if not os.path.exists(self.pducsv):
@@ -134,7 +231,8 @@ class LabGraph(object):
                 l3inforoot = etree.SubElement(self.dpgroot, 'DevicesL3Info', {'Hostname': hostname})
                 etree.SubElement(l3inforoot, 'ManagementIPInterface', {'Name': 'ManagementIp', 'Prefix': managementip})
             elif 'fanout' in devtype or 'ixiachassis' in devtype:
-                # Build Management interface IP here, if we create each device indivial minigraph file, we may comment this out
+                # Build Management interface IP here,
+                # if we create each device indivial minigraph file, we may comment this out
                 l3inforoot = etree.SubElement(self.dpgroot, 'DevicesL3Info', {'Hostname': hostname})
                 etree.SubElement(l3inforoot, 'ManagementIPInterface', {'Name': 'ManagementIp', 'Prefix': managementip})
                 # Build L2 information Here
@@ -169,6 +267,7 @@ class LabGraph(object):
         root.append(self.pngroot)
         root.append(self.dpgroot)
         root.append(self.csgroot)
+        root.append(self.bmcgroot)
         root.append(self.pcgroot)
         result = etree.tostring(root, pretty_print=True)
         onexml.write(result)
@@ -176,33 +275,43 @@ class LabGraph(object):
 
 def get_file_names(args):
     if not args.inventory:
-        device, links, console, pdu = args.device, args.links, args.console, args.pdu
+        device, links, console, bmc, pdu = args.device, args.links, args.console, args.bmc, args.pdu
     else:
         device = 'sonic_{}_devices.csv'.format(args.inventory)
         links = 'sonic_{}_links.csv'.format(args.inventory)
         console = 'sonic_{}_console_links.csv'.format(args.inventory)
+        bmc = 'sonic_{}_bmc_links.csv'.format(args.inventory)
         pdu = 'sonic_{}_pdu_links.csv'.format(args.inventory)
 
-    return device, links, console, pdu
+    return device, links, console, bmc, pdu
 
 
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--device", help="device file [deprecate warning: use -i instead]", default=DEFAULT_DEVICECSV)
-    parser.add_argument("-l", "--links", help="link file [deprecate warning: use -i instead]", default=DEFAULT_LINKCSV)
-    parser.add_argument("-c", "--console", help="console connection file [deprecate warning: use -i instead]", default=DEFAULT_CONSOLECSV)
-    parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]", default=DEFAULT_PDUCSV)
-    parser.add_argument("-i", "--inventory", help="specify inventory namei to generate device/link/console/pdu file names, default none", default=None)
+    parser.add_argument("-d", "--device", help="device file [deprecate warning: use -i instead]",
+                        default=DEFAULT_DEVICECSV)
+    parser.add_argument("-l", "--links", help="link file [deprecate warning: use -i instead]",
+                        default=DEFAULT_LINKCSV)
+    parser.add_argument("-c", "--console", help="console connection file [deprecate warning: use -i instead]",
+                        default=DEFAULT_CONSOLECSV)
+    parser.add_argument("-b", "--bmc", help="bmc connection file [deprecate warning: use -i instead]",
+                        default=DEFAULT_BMCCSV)
+    parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]",
+                        default=DEFAULT_PDUCSV)
+    parser.add_argument("-i", "--inventory",
+                        help="specify inventory namei to generate device/link/console/pdu file names, default none",
+                        default=None)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
     args = parser.parse_args()
 
-    device, links, console, pdu = get_file_names(args)
-    mygraph = LabGraph(device, links, console, pdu, args.output)
+    device, links, console, bmc, pdu = get_file_names(args)
+    mygraph = LabGraph(device, links, console, bmc, pdu, args.output)
 
     mygraph.read_devices()
     mygraph.read_links()
     mygraph.read_consolelinks()
+    mygraph.read_bmclinks()
     mygraph.read_pdulinks()
     mygraph.generate_dpg()
     mygraph.create_xml()

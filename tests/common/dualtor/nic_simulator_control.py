@@ -29,7 +29,8 @@ __all__ = [
     "set_drop_active_active",
     "TrafficDirection",
     "ForwardingState",
-    "toggle_active_active_simulator_ports"
+    "toggle_active_active_simulator_ports",
+    "stop_nic_grpc_server"
 ]
 
 logger = logging.getLogger(__name__)
@@ -41,25 +42,39 @@ class ForwardingState(object):
     STANDBY = False
 
 
+GRPC_CLIENT_TIMEOUT_MAX = 60
+
+
 def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=False):
+
+    def inc_timeout():
+        kwargs["timeout"] += 5
+        if kwargs["timeout"] > GRPC_CLIENT_TIMEOUT_MAX:
+            kwargs["timeout"] = GRPC_CLIENT_TIMEOUT_MAX
+
     if args is None:
         args = []
     if kwargs is None:
         kwargs = {}
+
+    if timeout > GRPC_CLIENT_TIMEOUT_MAX:
+        timeout = GRPC_CLIENT_TIMEOUT_MAX
+
     kwargs["timeout"] = timeout
     for i in range(retries - 1):
         try:
             response = func(*args, **kwargs)
         except grpc.RpcError as e:
             # first retries - 1 tries errors are all ignored
-            logging.debug("Calling %s %dth time results error(%r)" % (func, i + 1, e))
+            logger.debug("Calling %s %dth time results error(%r)" % (func, i + 1, e))
         else:
             return response
+        inc_timeout()
 
     try:
         response = func(*args, **kwargs)
     except grpc.RpcError as e:
-        logging.debug("Calling %s %dth time results error(%r)" % (func, retries, e))
+        logger.debug("Calling %s %dth time results error(%r)" % (func, retries, e))
         if not ignore_errors:
             raise
 
@@ -69,7 +84,7 @@ def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=
 @pytest.fixture(scope="session")
 def nic_simulator_info(request, tbinfo):
     """Fixture to gather nic_simulator related infomation."""
-    if "dualtor-mixed" not in tbinfo["topo"]["name"]:
+    if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
         return None, None, None
 
     server = tbinfo["server"]
@@ -158,7 +173,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_p
 
     def _get_mux_status(ports=None):
         if ports is None:
-            ports = active_active_ports_config.keys()
+            ports = list(active_active_ports_config.keys())
         elif isinstance(ports, list) or isinstance(ports, tuple):
             ports = list(ports)
         else:
@@ -177,7 +192,7 @@ def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_p
 
         mux_status = {}
         for port, port_status in zip(ports, reply.admin_replies):
-            mux_status[ptf_index_map[port]] = dict(zip(port_status.portid, port_status.state))
+            mux_status[ptf_index_map[port]] = dict(list(zip(port_status.portid, port_status.state)))
 
         return mux_status
 
@@ -264,7 +279,7 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
             drop_requests=drop_requests
         )
         client_stub = nic_simulator_client()
-        call_grpc(client_stub.SetDrop, [request])
+        call_grpc(client_stub.SetDrop, [request], timeout=10)
 
     def _set_drop_active_active(interface_names, portids, directions):
         """
@@ -277,7 +292,7 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
         nic_addresses = []
         for interface_name, portid, direction in zip(interface_names, portids, directions):
             nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
-            logging.debug(
+            logger.debug(
                 "Set drop on port %s, mux server %s, portid %s, direction %s",
                 interface_name, nic_address, portid, direction
             )
@@ -293,10 +308,11 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
     yield _set_drop_active_active
 
     for (interface_name, nic_address, portid, _) in zip(_interface_names, _nic_addresses, _portids, _directions):
-        logging.debug(
+        logger.debug(
             "Set drop recover on port %s, mux server %s, portid %s",
             interface_name, nic_address, portid,
         )
+    if _nic_addresses:
         _call_set_drop_nic_simulator(_nic_addresses, _portids, _directions, recover=True)
 
 
@@ -305,7 +321,7 @@ def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulat
     """Toggle nic_simulator forwarding state."""
 
     def _toggle_active_active_simulator_ports(mux_ports, portid, state):
-        logging.info("Toggle simulator ports %s to %s", mux_ports, state)
+        logger.info("Toggle simulator ports %s to %s", mux_ports, state)
         if not mux_ports:
             return
 
@@ -333,8 +349,39 @@ def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulat
         reply = call_grpc(client_stub.SetAdminForwardingPortState, [request])
 
         for mux_port, port_status in zip(mux_ports, reply.admin_replies):
-            status = dict(zip(port_status.portid, port_status.state))
+            status = dict(list(zip(port_status.portid, port_status.state)))
             if status[portid] != state:
                 raise ValueError("failed to toggle port %s, portid %s, state %s" % (mux_port, portid, state))
 
     return _toggle_active_active_simulator_ports
+
+
+@pytest.fixture(scope="function")
+def stop_nic_grpc_server(mux_config, nic_simulator_client, restart_nic_simulator):      # noqa F811
+    """Return a helper function to simulate grpc failure for active-active ports."""
+
+    def _call_set_nic_server_admin_state_nic_simulator(nic_addresses, admin_state):
+        request = nic_simulator_grpc_mgmt_service_pb2.ListOfNiCServerAdminStateRequest(
+            nic_addresses=list(nic_addresses),
+            admin_states=[admin_state for _ in nic_addresses]
+        )
+        client_stub = nic_simulator_client()
+        response = call_grpc(client_stub.SetNicServerAdminState, args=(request,))
+        logging.debug("stop nic grpc server response:\n%s", response)
+        for nic_address, success in zip(response.nic_addresses, response.successes):
+            if not success:
+                raise ValueError("failed to stop grpc server %s" % nic_address)
+
+    def _stop_nic_grpc_server(interface_names):
+        """Stop the grpc servers."""
+        nic_addresses = []
+        for interface_name in interface_names:
+            nic_address = mux_config[interface_name]["SERVER"]["soc_ipv4"].split("/")[0]
+            logger.debug("Stop grpc server on port %s, address %s", interface_name, nic_address)
+            nic_addresses.append(nic_address)
+
+        _call_set_nic_server_admin_state_nic_simulator(nic_addresses, False)
+
+    yield _stop_nic_grpc_server
+
+    restart_nic_simulator()

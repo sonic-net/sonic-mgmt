@@ -1,10 +1,19 @@
 - debug: msg="{{ device_info[inventory_hostname] }}"
 
+- name: set login to tacacs if tacacs is defined
+  set_fact: ansible_ssh_user={{ fanout_tacacs_sonic_user }} ansible_ssh_pass={{ fanout_tacacs_sonic_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_sonic_user is defined and fanout_tacacs_sonic_password is defined
+
 - name: prepare fanout switch admin login info
-  set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_password={{ fanout_sonic_password }}
+  set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_pass={{ fanout_sonic_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_sonic_user is not defined and fanout_tacacs_sonic_password is not defined
 
 - name: retrieve SONiC version
-  shell: cat /etc/sonic/sonic_version.yml
+  shell: cat /etc/sonic/sonic_version.yml | grep ":"
   register: sonic_version_content
 
 - name: format SONiC version content

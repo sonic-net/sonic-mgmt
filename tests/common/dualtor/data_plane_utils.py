@@ -34,7 +34,7 @@ def arp_setup(ptfhost):
     ptfhost.shell("supervisorctl reread && supervisorctl update")
 
 
-def validate_traffic_results(tor_IO, allowed_disruption, delay):
+def validate_traffic_results(tor_IO, allowed_disruption, delay, allow_disruption_before_traffic=False):
     """
     Generates a report (dictionary) of I/O metrics that were calculated as part
     of the dataplane test. This report is to be used by testcases to verify the
@@ -49,7 +49,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
 
     failures = list()
     # Calculate and log test summaries
-    for server_ip, result in natsorted(results.items()):
+    for server_ip, result in natsorted(list(results.items())):
         total_received_packets = result['received_packets']
         received_packet_diff = result['received_packets'] - result['sent_packets']
         total_disruptions = len(result['disruptions'])
@@ -109,7 +109,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
                             "Maximum allowed duplication: {}s"
                             .format(server_ip, longest_duplication, delay))
 
-        if bool(disruption_before_traffic):
+        if not allow_disruption_before_traffic and bool(disruption_before_traffic):
             failures.append("Traffic on server {} was disrupted prior to test start, "
                             "missing {} packets from the start of the packet flow"
                             .format(server_ip, disruption_before_traffic))
@@ -122,10 +122,11 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
     pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
 
 
-def verify_and_report(tor_IO, verify, delay, allowed_disruption):
+def verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic=False):
     # Wait for the IO to complete before doing checks
     if verify:
-        validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption, delay=delay)
+        validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption, delay=delay,
+                                 allow_disruption_before_traffic=allow_disruption_before_traffic)
     return tor_IO.get_test_results()
 
 
@@ -142,14 +143,9 @@ def run_test(
         io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type
     )
 
-    if traffic_direction == "server_to_t1":
-        traffic_generator = tor_IO.generate_from_server_to_t1
-    elif traffic_direction == "t1_to_server":
-        traffic_generator = tor_IO.generate_from_t1_to_server
-
     send_and_sniff = InterruptableThread(
         target=tor_IO.start_io_test,
-        kwargs={'traffic_generator': traffic_generator}
+        kwargs={'traffic_direction': traffic_direction}
     )
     send_and_sniff.set_error_handler(lambda *args, **kargs: io_ready.set())
 
@@ -192,7 +188,7 @@ def cleanup(ptfadapter, duthosts_list):
 
 
 @pytest.fixture
-def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):   # noqa F811
+def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):       # noqa F811
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -214,7 +210,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
 
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
                              delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                             stop_after=None):
+                             stop_after=None, allow_disruption_before_traffic=False):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -249,7 +245,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
         if delay and not allowed_disruption:
             allowed_disruption = 1
 
-        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic)
 
     yield t1_to_server_io_test
 
@@ -317,5 +313,55 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
         return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield server_to_t1_io_test
+
+    cleanup(ptfadapter, duthosts)
+
+
+@pytest.fixture
+def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):      # noqa F811
+
+    arp_setup(ptfhost)
+
+    def soc_to_t1_io_test(activehost, tor_vlan_port=None,
+                          delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
+                          stop_after=None):
+
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+                          action, tbinfo, tor_vlan_port, send_interval,
+                          traffic_direction="soc_to_t1", stop_after=stop_after,
+                          cable_type=cable_type)
+
+        if delay and not allowed_disruption:
+            allowed_disruption = 1
+
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
+
+    yield soc_to_t1_io_test
+
+    cleanup(ptfadapter, duthosts)
+
+
+@pytest.fixture
+def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):      # noqa F811
+
+    arp_setup(ptfhost)
+
+    def t1_to_soc_io_test(activehost, tor_vlan_port=None,
+                          delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
+                          stop_after=None):
+
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+                          action, tbinfo, tor_vlan_port, send_interval,
+                          traffic_direction="t1_to_soc", stop_after=stop_after,
+                          cable_type=cable_type)
+
+        # If a delay is allowed but no numebr of allowed disruptions
+        # is specified, default to 1 allowed disruption
+        if delay and not allowed_disruption:
+            allowed_disruption = 1
+
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
+
+    yield t1_to_soc_io_test
 
     cleanup(ptfadapter, duthosts)

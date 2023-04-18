@@ -133,7 +133,6 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
     post_check = False
-    enable_macsec = False
 
     customized_sanity_check = None
     for m in request.node.iter_markers():
@@ -175,10 +174,8 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     if request.config.option.post_check:
         post_check = True
 
-    if request.config.option.enable_macsec:
-        enable_macsec = True
-        startup_macsec = request.getfixturevalue("startup_macsec")
-        start_macsec_service = request.getfixturevalue("start_macsec_service")
+    if not request.config.option.enable_macsec:
+        pre_check_items.remove("check_neighbor_macsec_empty")
 
     cli_check_items = request.config.getoption("--check_items")
     cli_post_check_items = request.config.getoption("--post_check_items")
@@ -253,16 +250,13 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                             if 'action' in failed_result and failed_result['action'] is not None \
                                     and callable(failed_result['action']):
                                 infra_recovery_actions.append(failed_result['action'])
-                    for dut_name, dut_results in dut_failed_results.items():
+                    for dut_name, dut_results in list(dut_failed_results.items()):
                         # Attempt to restore DUT state
                         recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
                                 recover_method)
                     for action in infra_recovery_actions:
                         action()
 
-                    if enable_macsec:
-                        start_macsec_service()
-                        startup_macsec()
                 except Exception as e:
                     request.config.cache.set("pre_sanity_check_failed", True)
                     logger.error("Recovery of sanity check failed with exception: ")

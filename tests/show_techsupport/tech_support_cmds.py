@@ -80,10 +80,10 @@ bgp_cmds = [
     "vtysh{} -c 'show bgp ipv6 summary'",
     "vtysh{} -c 'show bgp ipv6 neighbors'",
     "vtysh{} -c 'show bgp ipv6'",
-    re.compile('vtysh{}\s+-c "show ip bgp neighbors .* advertised-routes"'),
-    re.compile('vtysh{}\s+-c "show ip bgp neighbors .* routes"'),
-    re.compile('vtysh{}\s+-c "show bgp ipv6 neighbors .* advertised-routes"'),
-    re.compile('vtysh{}\s+-c "show bgp ipv6 neighbors .* routes"'),
+    re.compile(r'vtysh{}\s+-c "show ip bgp neighbors .* advertised-routes"'),
+    re.compile(r'vtysh{}\s+-c "show ip bgp neighbors .* routes"'),
+    re.compile(r'vtysh{}\s+-c "show bgp ipv6 neighbors .* advertised-routes"'),
+    re.compile(r'vtysh{}\s+-c "show bgp ipv6 neighbors .* routes"'),
 ]
 
 nat_cmds = [
@@ -123,11 +123,11 @@ docker_cmds = [
 ]
 
 docker_cmds_201911 = [
-    "docker exec -it syncd{} saidump",
+    "docker exec -t syncd{} saidump",
     "docker stats --no-stream",
     "docker ps -a",
     "docker top pmon",
-    "docker exec -it lldp{} lldpcli show statistics",
+    "docker exec -t lldp{} lldpcli show statistics",
     "docker logs bgp{}",
     "docker logs swss{}",
 ]

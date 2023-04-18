@@ -3,14 +3,15 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts                  # noqa F401
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config
+    snappi_api, snappi_testbed_config   # noqa F401
 from tests.common.snappi.snappi_helpers import wait_for_arp
 from tests.common.snappi.port import select_ports
-from tests.common.snappi.qos_fixtures import prio_dscp_map
+from tests.common.snappi.qos_fixtures import prio_dscp_map  # noqa F401
 
 SNAPPI_POLL_DELAY_SEC = 2
+
 
 @pytest.mark.topology("snappi")
 @pytest.mark.disable_loganalyzer
@@ -20,8 +21,7 @@ def __gen_all_to_all_traffic(testbed_config,
                              conn_data,
                              fanout_data,
                              priority,
-                             prio_dscp_map):
-
+                             prio_dscp_map):        # noqa F811
 
     rate_percent = 100 / (len(port_config_list) - 1)
     duration_sec = 2
@@ -79,12 +79,12 @@ def __gen_all_to_all_traffic(testbed_config,
     return testbed_config
 
 
-def test_snappi(snappi_api,
-                snappi_testbed_config,
-                conn_graph_facts,
-                fanout_graph_facts,
+def test_snappi(snappi_api,                     # noqa F811
+                snappi_testbed_config,          # noqa F811
+                conn_graph_facts,               # noqa F811
+                fanout_graph_facts,             # noqa F811
                 rand_one_dut_lossless_prio,
-                prio_dscp_map):
+                prio_dscp_map):                 # noqa F811
     """
     Test if we can use Snappi API generate traffic in a testbed
 
@@ -127,7 +127,7 @@ def test_snappi(snappi_api,
     snappi_api.set_config(config)
 
     # """Wait for Arp"""
-    wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=2)
+    wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
 
     # """ Start traffic """
     ts = snappi_api.transmit_state()
@@ -175,7 +175,7 @@ def test_snappi(snappi_api,
         tx_frames = row.frames_tx
 
         pytest_assert(rx_frames == tx_frames,
-                      'packet losses for {} (Tx: {}, Rx: {})'.\
+                      'packet losses for {} (Tx: {}, Rx: {})'.
                       format(flow_name, tx_frames, rx_frames))
 
         tput_bps = port_speed_gbps * 1e9 * rate_percent / 100.0
@@ -186,6 +186,5 @@ def test_snappi(snappi_api,
         deviation = abs(ratio - 1)
 
         pytest_assert(deviation <= deviation_thresh,
-                      'Expected / Actual # of pkts for flow {}: {} / {}'.\
+                      'Expected / Actual # of pkts for flow {}: {} / {}'.
                       format(flow_name, exp_rx_frames, rx_frames))
-

@@ -11,12 +11,18 @@ UPSTREAM_NEIGHBOR_MAP = {
     "t0": "t1",
     "t1": "t2",
     "m0": "m1",
-    "t2": "t3"
+    "mx": "m0",
+    "t2": "t3",
+    "m0_vlan": "m1",
+    "m0_l3": "m1"
 }
 # Describe downstream neighbor of dut in different topos
 DOWNSTREAM_NEIGHBOR_MAP = {
     "t0": "server",
     "t1": "t0",
     "m0": "mx",
-    "t2": "t1"
+    "mx": "server",
+    "t2": "t1",
+    "m0_vlan": "server",
+    "m0_l3": "mx"
 }

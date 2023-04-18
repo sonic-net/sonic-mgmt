@@ -2,7 +2,7 @@ from natsort import natsorted
 
 
 def get_common_supported_speeds(duthost, dut_port_name, fanout, fanout_port_name):
-    """Get supported speeds list for a given port. The supported speeds list is 
+    """Get supported speeds list for a given port. The supported speeds list is
        a intersection of DUT port supported speeds, fanout port supported speeds,
        and cable supported speeds.
 
@@ -35,14 +35,14 @@ def get_common_supported_speeds(duthost, dut_port_name, fanout, fanout_port_name
         # Since the port link is up before the test, we should not hit this branch
         # However, in case we hit here, we use current actual speed as supported speed
         supported_speeds = [dut_current_port_speed]
-    
+
     supported_speeds = natsorted(supported_speeds)
     return supported_speeds
 
 
 def get_cable_supported_speeds(duthost, dut_port_name):
     """Get cable supported speeds. As there is no SONiC CLI to get supported speeds for
-       a given cable, this function depends on vendor implementation. 
+       a given cable, this function depends on vendor implementation.
        A sample: MlnxCableSupportedSpeedsHelper.
 
     Args:
@@ -54,6 +54,7 @@ def get_cable_supported_speeds(duthost, dut_port_name):
     """
     helper = get_cable_supported_speeds_helper(duthost)
     return helper.get_cable_supported_speeds(duthost, dut_port_name) if helper else None
+
 
 def get_cable_supported_speeds_helper(duthost):
     """Get a cable supported speeds helper
@@ -72,6 +73,7 @@ def get_cable_supported_speeds_helper(duthost):
         return BfnCableSupportedSpeedsHelper
     else:
         return None
+
 
 class MlnxCableSupportedSpeedsHelper(object):
     # To avoid getting ports list again and again, use a class level variable to save
@@ -100,7 +102,7 @@ class MlnxCableSupportedSpeedsHelper(object):
 
         if duthost not in cls.sorted_ports:
             int_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
-            ports = natsorted([port_name for port_name in int_status.keys()])
+            ports = natsorted([port_name for port_name in list(int_status.keys())])
             cls.sorted_ports[duthost] = ports
 
         if not cls.device_path:
@@ -119,12 +121,14 @@ class MlnxCableSupportedSpeedsHelper(object):
         cls.supported_speeds[(duthost, dut_port_name)] = speeds
         return speeds
 
+
 class BfnCableSupportedSpeedsHelper(object):
 
     @classmethod
     def get_cable_supported_speeds(cls, duthost, dut_port_name):
-        
+
         return duthost.get_supported_speeds(dut_port_name)
+
 
 def is_sfp_speed_supported(duthost, if_name, port_speed):
     pam4_supporting_sfps = [
@@ -133,11 +137,11 @@ def is_sfp_speed_supported(duthost, if_name, port_speed):
         'SFP-DD',
         'OSFP',
     ]
-    
+
     sfp_type = duthost.get_sfp_type(if_name)
     if not sfp_type:
         return True
-    
+
     n_lanes = duthost.count_portlanes(if_name)
     per_lane_speed = int(port_speed) // n_lanes
     return per_lane_speed <= 25000 or sfp_type in pam4_supporting_sfps

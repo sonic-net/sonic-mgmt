@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os
+from ansible.module_utils.basic import AnsibleModule
 import sys
 import traceback
 import ipaddr as ipaddress
@@ -47,7 +47,7 @@ EXAMPLES = '''
         testcases:
             acl:
                 filename: acl.yml
-                topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+                topologies: [t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
                 execvar:
                   ptf_host:
                   testbed_type:
@@ -58,7 +58,7 @@ EXAMPLES = '''
                   ptf_host:
             bgp_fact:
                 filename: bgp_fact.yml
-                topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag, t1-64-lag-clet]
+                topologies: [t0, t0-64, t0-64-32, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag]
             ...
 
     To use it:
@@ -95,10 +95,11 @@ RETURN = '''
                 t1-lag:    [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
                 t1-64-lag: [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
                 t1-64-lag-clet: [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
+                t1-56-lag: [acl, bgp_fact, bgp_multipath_relax, decap, everflow_testbed, fib, lldp, lag_2, pfc_wd]
             }
 '''
 
-### Default testbed file name
+# Default testbed file name
 TESTBED_FILE = 'testbed.csv'
 TESTCASE_FILE = 'roles/test/vars/testcases.yml'
 
@@ -106,8 +107,11 @@ TESTCASE_FILE = 'roles/test/vars/testcases.yml'
 class ParseTestbedTopoinfo():
     """Parse the testbed file used to describe whole testbed info"""
 
-    TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
-    TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
+    TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name',
+                                 'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
+    TESTBED_FIELDS_RECOMMENDED = (
+        'conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
+        'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
 
     def __init__(self, testbed_file):
         self.testbed_filename = testbed_file
@@ -122,17 +126,20 @@ class ParseTestbedTopoinfo():
         def _read_testbed_topo_from_csv():
             """Read csv testbed info file."""
             with open(self.testbed_filename) as f:
-                header = [field.strip(' #') for field in f.readline().strip().split(',')]
+                header = [field.strip(' #')
+                          for field in f.readline().strip().split(',')]
                 if len(header) == len(self.TESTBED_FIELDS_DEPRECATED):
                     testbed_fields = self.TESTBED_FIELDS_DEPRECATED
                 elif len(header) == len(self.TESTBED_FIELDS_RECOMMENDED):
                     testbed_fields = self.TESTBED_FIELDS_RECOMMENDED
                 else:
-                    raise ValueError('Unsupported testbed fields %s' % str(header))
+                    raise ValueError(
+                        'Unsupported testbed fields %s' % str(header))
                 for header_field, expect_field in zip(header, testbed_fields):
                     assert header_field == expect_field
 
-                topo = csv.DictReader(f, fieldnames=testbed_fields, delimiter=',')
+                topo = csv.DictReader(
+                    f, fieldnames=testbed_fields, delimiter=',')
 
                 for line in topo:
                     if line['conf-name'].lstrip().startswith('#'):
@@ -146,10 +153,13 @@ class ParseTestbedTopoinfo():
                             _cidr_to_ip_mask(line["ptf_ipv6"])
 
                     if sys.version_info < (3, 0):
-                        line['duts'] = line['dut'].translate(string.maketrans("", ""), "[] ").split(';')
+                        line['duts'] = line['dut'].translate(
+                            string.maketrans("", ""), "[] ").split(';')
                     else:
-                        line['duts'] = line['dut'].translate(str.maketrans("", "", "[] ")).split(';')
-                    line['duts_map'] = {dut: line['duts'].index(dut) for dut in line['duts']}
+                        line['duts'] = line['dut'].translate(
+                            str.maketrans("", "", "[] ")).split(';')
+                    line['duts_map'] = {dut: line['duts'].index(
+                        dut) for dut in line['duts']}
                     del line['dut']
 
                     self.testbed_topo[line['conf-name']] = line
@@ -187,6 +197,7 @@ class TestcasesTopology():
     Read testcases definition yaml file under ansible/roles/test/vars/testcases.yml
     and return a list of available testcases for each pre-defined testbed topology
     '''
+
     def __init__(self, testcase_file):
         self.testcase_filename = testcase_file
         self.topo_testcase = {}
@@ -196,7 +207,7 @@ class TestcasesTopology():
             testcases = yaml.safe_load(f)
             if 'testcases' not in testcases:
                 raise Exception("not correct testcases file format??")
-            for tc,prop in testcases['testcases'].items():
+            for tc, prop in testcases['testcases'].items():
                 for topo in prop['topologies']:
                     if topo not in self.topo_testcase:
                         self.topo_testcase[topo] = []
@@ -227,13 +238,14 @@ def main():
         testcaseinfo = TestcasesTopology(testcase_file)
         testcaseinfo.read_testcases()
         testcase_topo = testcaseinfo.get_topo_testcase()
-        module.exit_json(ansible_facts={'testbed_facts': testbed_topo, 'topo_testcases': testcase_topo})
+        module.exit_json(
+            ansible_facts={'testbed_facts': testbed_topo, 'topo_testcases': testcase_topo})
     except (IOError, OSError):
-        module.fail_json(msg="Can not find lab testbed file  "+testbed_file+" or testcase file "+testcase_file+"??")
-    except Exception as e:
+        module.fail_json(msg="Can not find lab testbed file  " +
+                         testbed_file+" or testcase file "+testcase_file+"??")
+    except Exception:
         module.fail_json(msg=traceback.format_exc())
 
 
-from ansible.module_utils.basic import *
-if __name__== "__main__":
+if __name__ == "__main__":
     main()
