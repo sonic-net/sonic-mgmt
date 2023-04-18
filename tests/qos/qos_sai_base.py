@@ -817,18 +817,36 @@ class QosSaiBase(QosBase):
         for ipVersion in ipVersions:
             dut_asic.bgp_drop_rule(state="absent", **ipVersion)
 
-    @pytest.fixture(scope='class')
-    def stopServices(
+    @pytest.fixture(scope='class', name="stopServices")
+    def fixture_stopServices(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             enum_frontend_asic_index, swapSyncd, enable_container_autorestart,
-            disable_container_autorestart, get_mux_status, tbinfo, upper_tor_host,      # noqa F811
-            lower_tor_host, toggle_all_simulator_ports):                                # noqa F811
+            disable_container_autorestart, get_mux_status, tbinfo,
+            upper_tor_host, lower_tor_host, toggle_all_simulator_ports):
         """
-            Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
+        self.stopServices(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+            enum_frontend_asic_index, swapSyncd, enable_container_autorestart,
+            disable_container_autorestart, get_mux_status, tbinfo,
+            upper_tor_host, lower_tor_host, toggle_all_simulator_ports)
+        yield
+        self.startServices(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+            enum_frontend_asic_index, swapSyncd, enable_container_autorestart,
+            disable_container_autorestart, get_mux_status, tbinfo,
+            upper_tor_host, lower_tor_host, toggle_all_simulator_ports)
+
+    def stopServices(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+        enum_frontend_asic_index, swapSyncd, enable_container_autorestart,
+        disable_container_autorestart, get_mux_status, tbinfo, upper_tor_host,
+        lower_tor_host, toggle_all_simulator_ports): # noqa F811
+        """
+
+            Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test
+            start
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
-                swapSyncd (Fxiture): swapSyncd fixture is required to run prior to stopping services
+                swapSyncd (Fxiture): swapSyncd fixture is required to run prior
+                                     to stopping services
 
             Returns:
                 None
@@ -840,29 +858,6 @@ class QosSaiBase(QosBase):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-
-        def updateDockerService(host, docker="", action="", service=""):  # noqa: F811
-            """
-                Helper function to update docker services
-
-                Args:
-                    host (AnsibleHost): Ansible host that is running docker
-                    docker (str): docker container name
-                    action (str): action to apply to service running within docker
-                    service (str): service name running within docker
-
-                Returns:
-                    None
-            """
-            host.command(
-                "docker exec {docker} supervisorctl {action} {service}".format(
-                    docker=docker,
-                    action=action,
-                    service=service
-                ),
-                module_ignore_errors=True
-            )
-            logger.info("{}ed {}".format(action, service))
 
         """ Stop mux container for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
@@ -884,32 +879,40 @@ class QosSaiBase(QosBase):
             duthost_upper.shell('sudo config feature state mux disabled')
             duthost.shell('sudo config feature state mux disabled')
 
-        services = [
-            {"docker": dut_asic.get_docker_name(
-                "lldp"), "service": "lldp-syncd"},
-            {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
-            {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpd"},
-            {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpmon"},
-            {"docker": dut_asic.get_docker_name("radv"), "service": "radvd"},
-            {"docker": dut_asic.get_docker_name(
-                "swss"), "service": "arp_update"}
-        ]
-
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
         if 'dualtor' in tbinfo['topo']['name']:
             disable_container_autorestart(
-                duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
+                duthost_upper,
+                testcase="test_qos_sai",
+                feature_list=feature_list)
+        else:
+            disable_container_autorestart(
+                duthost, testcase="test_qos_sai", feature_list=feature_list)
+        self.updateDockerService(duthost, action="stop")
 
-        disable_container_autorestart(
-            duthost, testcase="test_qos_sai", feature_list=feature_list)
-        for service in services:
-            updateDockerService(duthost, action="stop", **service)
+    def startServices(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+        enum_frontend_asic_index, swapSyncd, enable_container_autorestart,
+        disable_container_autorestart, get_mux_status, tbinfo, upper_tor_host,
+        lower_tor_host, toggle_all_simulator_ports): # noqa F811
+        """
 
-        yield
+            Start services (lldp-syncs, lldpd, bgpd) on DUT host after the test
+            end.
 
-        for service in services:
-            updateDockerService(duthost, action="start", **service)
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                swapSyncd (Fxiture): swapSyncd fixture is required to run prior
+                                     to stopping services
 
+            Returns:
+                None
+        """
+
+        self.updateDockerService(duthost, action="start")
+
+        duthost.shell('sudo config feature state mux enabled')
+        duthost_upper.shell('sudo config feature state mux enabled')
+        logger.info("Start mux container for dual ToR testbed")
         """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
             try:
@@ -924,11 +927,44 @@ class QosSaiBase(QosBase):
             duthost_upper.shell('sudo config feature state mux enabled')
             logger.info("Start mux container for dual ToR testbed")
 
-        enable_container_autorestart(
-            duthost, testcase="test_qos_sai", feature_list=feature_list)
         if 'dualtor' in tbinfo['topo']['name']:
             enable_container_autorestart(
-                duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
+                duthost_upper,
+                testcase="test_qos_sai",
+                feature_list=feature_list)
+        else:
+            enable_container_autorestart(
+                duthost, testcase="test_qos_sai", feature_list=feature_list)
+
+    def updateDockerService(self, dut_asic, action=""):
+        """
+                 Helper function to update docker services
+
+                Args:
+                    dut_asic (AnsibleHost): Ansible host that is running docker
+                    docker (str): docker container name
+                    action (str): action to apply to service running within docker
+
+                Returns:
+                    None
+        """
+        services = [
+            {"docker": "lldp", "service": "lldp-syncd"},
+            {"docker": "lldp", "service": "lldpd"},
+            {"docker": "bgp", "service": "bgpd"},
+            {"docker": "bgp", "service": "bgpmon"},
+            {"docker": "radv", "service": "radvd"},
+            {"docker": "swss", "service": "arp_update"}
+        ]
+        for entry in services:
+            dut_asic.command(
+                "docker exec {docker} supervisorctl {action} {service}".format(
+                    docker=dut_asic.get_docker_name(entry['docker']),
+                    action=action,
+                    service=entry['service']
+                )
+            )
+            logger.info("{}ed {}".format(action, entry['service']))
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -1654,3 +1690,27 @@ class QosSaiBase(QosBase):
         dut_asic.command("sleep 70")
         dut_asic.command("counterpoll watermark disable")
         dut_asic.command("counterpoll queue disable")
+
+    @pytest.fixture(scope='class', autouse=False)
+    def static_route_for_splitvoq(self, dutConfig):
+        """
+            Add a static route for split-voq testing.
+        """
+        duthost = dutConfig['dutInstance']
+        asic =  duthost.asic_instance().asic_index
+        try:
+            duthost.shell("ip netns exec asic{} config route add prefix 40.0.0.0/24 nexthop {}".format(
+                asic, dutConfig['testPortIps'][dutConfig["testPorts"]["dst_port_id"]]['peer_addr']))
+        except RunAnsibleModuleFail:
+            duthost.shell("config route add prefix 40.0.0.0/24 nexthop {}".format(
+                dutConfig['testPortIps'][dutConfig["testPorts"]["dst_port_id"]]['peer_addr']))
+
+        yield "40.0.0.4"
+
+        try:
+            duthost.shell("ip netns exec asic{} config route del prefix 40.0.0.0/24 nexthop {}".format(
+                asic, dutConfig['testPortIps'][dutConfig["testPorts"]["dst_port_id"]]['peer_addr']))
+        except RunAnsibleModuleFail:
+            duthost.shell("config route del prefix 40.0.0.0/24 nexthop {}".format(
+                dutConfig['testPortIps'][dutConfig["testPorts"]["dst_port_id"]]['peer_addr']))
+        return
