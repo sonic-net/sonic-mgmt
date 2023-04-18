@@ -108,7 +108,7 @@ class TestModuleApi(PlatformApiTestBase):
         for i in range(self.num_modules):
             if self.skip_absent_module(i,platform_api_conn):
                 continue
-            name = module.get_name(platform_api_conn, i)	    
+            name = module.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve module {} name".format(i)):
                 self.expect(isinstance(name, STRING_TYPE), "Module {} name appears incorrect".format(i))
         self.assert_expectations()
@@ -458,7 +458,6 @@ class TestModuleApi(PlatformApiTestBase):
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(duthosts[enum_rand_one_per_hwsku_hostname])
 
-        support_reboot_other_modules = self.get_module_facts(duthosts[enum_rand_one_per_hwsku_hostname], True, "reboot_other_modules")
         for mod_idx in range(self.num_modules):
             mod_name = module.get_name(platform_api_conn, mod_idx)
             if self.skip_module_other_than_myself(mod_idx,platform_api_conn):
