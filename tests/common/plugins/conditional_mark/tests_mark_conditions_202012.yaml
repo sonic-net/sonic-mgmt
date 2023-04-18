@@ -47,6 +47,15 @@ dualtor_io/test_normal_op.py:
       - "'dualtor' in topo_name"
       - "'7260' in platform"
 
+#######################################
+#####         everflow            #####
+#######################################
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6]:
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox']"
+
 platform_tests/test_advanced_reboot.py:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
