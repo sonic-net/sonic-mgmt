@@ -18,13 +18,19 @@ def pytest_addoption(parser):
     parser.addoption(
         "--skip_config",
         action="store_true",
-        help="Apply new configurations on DUT"
+        help="Don't apply configurations on DUT"
     )
 
     parser.addoption(
         "--config_only",
         action="store_true",
-        help="Apply new configurations on DUT"
+        help="Apply new configurations on DUT without running tests"
+    )
+
+    parser.addoption(
+        "--skip_cleanup",
+        action="store_true",
+        help="Skip config cleanup after test"
     )
 
 
@@ -37,6 +43,10 @@ def config_only(request):
 def skip_config(request):
     return request.config.getoption("--skip_config")
 
+
+@pytest.fixture(scope="module")
+def skip_cleanup(request):
+    return request.config.getoption("--skip_cleanup")
 
 @pytest.fixture(scope="module")
 def config_facts(duthost):
@@ -67,13 +77,25 @@ def get_intf_from_ip(local_ip, config_facts):
                 return intf, intf_ip
 
 
-@pytest.fixture(scope="module")
-def dash_config_info(duthost, config_facts, minigraph_facts):
+@pytest.fixture(params=["no-underlay-route", "with-underlay-route"])
+def use_underlay_route(request):
+    return request.param == "with-underlay-route"
+
+
+@pytest.fixture(params=["use-overlay-ip", "use-pkt-ca-ip"])
+def use_overlay_ip(request):
+    return request.param == "use-overlay-ip"
+
+
+@pytest.fixture(scope="function")
+def dash_config_info(duthost, config_facts, minigraph_facts, use_underlay_route):
     dash_info = {
         ENI: "F4939FEFC47E",
         VM_VNI: 4321,
         VNET1_VNI: 1000,
+        VNET1_NAME: "Vnet1",
         VNET2_VNI: 2000,
+        VNET2_NAME: "Vnet2",
         REMOTE_CA_IP: "20.2.2.2",
         LOCAL_CA_IP: "11.1.1.1",
         REMOTE_ENI_MAC: "F9:22:83:99:22:A2",
@@ -100,21 +122,63 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
                 dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
                 dash_info[REMOTE_PA_PREFIX] = str(intf_ip.network)
                 break
+    
+    if use_underlay_route:
+        dash_info[REMOTE_PA_IP] = u"30.30.30.30"
+        dash_info[REMOTE_PA_PREFIX] = "30.30.30.30/32"
 
     logger.info("Testing with config {}".format(dash_info))
     return dash_info
 
 
-@pytest.fixture(scope="module")
-def apply_vnet_configs(skip_config, duthost, dash_config_info):
-    # TODO: Combine dash_acl_allow_all and dash_bind_acl into a single template
-    # once empty group binding issue is fixed/clarified
-    config_list = ["dash_basic_config", "dash_acl_allow_all", "dash_bind_acl"]
-    if skip_config:
-        return
+@pytest.fixture(scope="function")
+def apply_config(duthost, skip_config, skip_cleanup, use_underlay_route):
+    if not use_underlay_route:
+        duthost.shell("config bgp shutdown all")
 
-    for config in config_list:
+    configs = []
+    op="SET"
+
+    def _apply_config(config_info):
+        if skip_config:
+            return
+        if config_info not in configs:
+            configs.append(config_info)
+
+        config = "dash_basic_config"
         template_name = "{}.j2".format(config)
         dest_path = "/tmp/{}.json".format(config)
-        render_template_to_host(template_name, duthost, dest_path, dash_config_info, op="SET")
+        render_template_to_host(template_name, duthost, dest_path, config_info, op=op)
         apply_swssconfig_file(duthost, dest_path)
+
+    yield _apply_config
+
+    op="DEL"
+    if not skip_cleanup:
+        for config_info in reversed(configs):
+            _apply_config(config_info)
+
+    if not use_underlay_route:
+        duthost.shell("config bgp startup all")
+
+
+@pytest.fixture(scope="function")
+def apply_vnet_configs(dash_config_info, apply_config):
+    dash_config_info[ROUTING_ACTION] = "vnet"
+    apply_config(dash_config_info)
+
+
+@pytest.fixture(scope="function")
+def apply_vnet_direct_configs(dash_config_info, apply_config, use_overlay_ip):
+    dash_config_info[ROUTING_ACTION] = "vnet_direct"
+    dash_config_info[ROUTING_ACTION_TYPE] = "maprouting"
+    if use_overlay_ip:
+        dash_config_info[LOOKUP_OVERLAY_IP] = "1.1.1.1"
+    apply_config(dash_config_info)
+
+
+@pytest.fixture(scope="function")
+def apply_direct_configs(dash_config_info, apply_config):
+    dash_config_info[ROUTING_ACTION] = "direct"
+    del dash_config_info[VNET2_NAME]
+    apply_config(dash_config_info)

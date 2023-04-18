@@ -109,7 +109,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|appliance)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -941,6 +941,25 @@ def fib_t0_mclag(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port, routes_v4)
         change_routes(action, ptf_ip, port6, routes_v6)
 
+def fib_appliance(topo, ptf_ip, action="announce"):
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+
+    routes_v4 = []
+    routes_v6 = []
+    routes_v4.append(("0.0.0.0/0", nhipv4, None))
+    routes_v6.append(("::/0", nhipv6, None))
+    vms = topo['topology']['VMs']
+    all_vms = sorted(vms.keys())
+
+    for vm in all_vms:
+        vm_offset = vms[vm]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        change_routes(action, ptf_ip, port, routes_v4)
+        change_routes(action, ptf_ip, port6, routes_v6)
 
 def main():
     module = AnsibleModule(
@@ -986,6 +1005,9 @@ def main():
         elif topo_type == "mx":
             fib_mx(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
+        elif topo_type == "appliance":
+            fib_appliance(topo, ptf_ip, action=action)
+            module.exit_json(change=True)
         else:
             module.exit_json(
                 msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))

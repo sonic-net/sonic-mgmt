@@ -80,4 +80,4 @@ def apply_swssconfig_file(duthost, file_path):
 
     duthost.shell("docker cp {}  swss:/{}".format(file_path, file_name))
     duthost.shell("docker exec swss sh -c \"swssconfig /{}\"".format(file_name))
-    sleep(3)
+    sleep(5)
