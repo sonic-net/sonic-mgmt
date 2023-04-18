@@ -4,7 +4,8 @@ import pytest
 from ipaddress import ip_interface
 from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
-    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX
+    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
+    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP
 from dash_utils import render_template_to_host, apply_swssconfig_file
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ def skip_config(request):
 @pytest.fixture(scope="module")
 def skip_cleanup(request):
     return request.config.getoption("--skip_cleanup")
+
 
 @pytest.fixture(scope="module")
 def config_facts(duthost):
