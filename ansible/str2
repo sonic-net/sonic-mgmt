@@ -1893,7 +1893,7 @@ sonic_appliance:
   hosts:
     str2-bluefield-01:
       ansible_host: 10.64.247.32
-      hwsku: Nvidia-MBF2H536C
+      hwsku: Nvidia-9009d3b600CVAA
     str2-bluefield-bmc-01:
       ansible_host: 10.64.247.33
     str2-bluefield-host-01:
