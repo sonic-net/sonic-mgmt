@@ -7,7 +7,7 @@ import sys
 import traceback
 import json
 import time
-import ipaddress
+import ipaddr as ipaddress
 from collections import defaultdict
 from natsort import natsorted
 from ansible.module_utils.port_utils import get_port_alias_to_name_map, get_port_indices_for_asic
@@ -276,8 +276,8 @@ def parse_loopback_intf(child):
     for lointf in lointfs.findall(str(QName(ns1, "LoopbackIPInterface"))):
         intfname = lointf.find(str(QName(ns, "AttachTo"))).text
         ipprefix = lointf.find(str(QName(ns1, "PrefixStr"))).text
-        ipn = ipaddress.ip_network(ipprefix.encode().decode())
-        ipaddr = ipn._ip
+        ipn = ipaddress.IPNetwork(ipprefix)
+        ipaddr = ipn.ip
         prefix_len = ipn.prefixlen
         ipmask = ipn.netmask
         lo_intf = {'name': intfname, 'addr': ipaddr, 'prefixlen': prefix_len}
@@ -301,9 +301,9 @@ def parse_host_loopback(dpg, hname):
 def parse_dpg(dpg, hname):
 
     def _parse_intf(intfname, ipprefix):
-        ipn = ipaddress.ip_network(ipprefix.encode().decode())
-        ipaddr, prefix_len, addr_bits = ipn._ip, ipn.prefixlen, ipn.max_prefixlen
-        subnet = ipaddress.ip_network((str(ipn.network) + '/' + str(prefix_len)).encode().decode())
+        ipn = ipaddress.IPNetwork(ipprefix)
+        ipaddr, prefix_len, addr_bits = ipn.ip, ipn.prefixlen, ipn.max_prefixlen
+        subnet = ipaddress.IPNetwork(str(ipn.network) + '/' + str(prefix_len))
         ipmask = ipn.netmask
 
         intf = {'addr': ipaddr, 'subnet': subnet,
@@ -314,7 +314,7 @@ def parse_dpg(dpg, hname):
             intf['mask'] = str(prefix_len)
 
         # TODO: remove peer_addr after dependency removed
-        ipaddr_val = int(ipn._ip)
+        ipaddr_val = int(ipn.ip)
         peer_addr_val = None
         if int(prefix_len) == addr_bits - 2:
             if ipaddr_val & 0x3 == 1:
@@ -330,7 +330,7 @@ def parse_dpg(dpg, hname):
             peer_addr_val = ipaddr_val + 1
 
         if peer_addr_val is not None:
-            intf['peer_addr'] = ipaddress.ip_address(peer_addr_val)
+            intf['peer_addr'] = ipaddress.IPAddress(peer_addr_val)
         return intf
 
     for child in dpg:
@@ -369,14 +369,14 @@ def parse_dpg(dpg, hname):
         for mgmtintf in mgmtintfs.findall(str(QName(ns1, "ManagementIPInterface"))):
             intfname = mgmtintf.find(str(QName(ns, "AttachTo"))).text
             ipprefix = mgmtintf.find(str(QName(ns1, "PrefixStr"))).text
-            mgmtipn = ipaddress.ip_network(ipprefix.encode().decode())
+            mgmtipn = ipaddress.IPNetwork(ipprefix)
             # Ignore IPv6 management address
             if mgmtipn.version == 6:
                 continue
-            ipaddr = mgmtipn._ip
+            ipaddr = mgmtipn.ip
             prefix_len = str(mgmtipn.prefixlen)
             ipmask = mgmtipn.netmask
-            gwaddr = ipaddress.ip_address(int(mgmtipn.network) + 1)
+            gwaddr = ipaddress.IPAddress(int(mgmtipn.network) + 1)
             mgmt_intf = {'addr': ipaddr, 'alias': intfname,
                          'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
 

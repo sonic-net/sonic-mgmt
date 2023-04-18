@@ -1,6 +1,6 @@
 #!/usr/bin/python
+from netaddr import IPAddress, IPNetwork
 from ansible.module_utils.basic import AnsibleModule
-import ipaddress
 
 DOCUMENTATION = '''
 module:         get_ip_in_range
@@ -54,7 +54,7 @@ class IpRangeModule(object):
         exclude_ips = []
         ip_list = m_args['exclude_ips']
         for ip in ip_list:
-            exclude_ips.append(ipaddress.ip_address(ip.encode().decode()))
+            exclude_ips.append(IPAddress(ip))
 
         self.generate_ips(m_args['num'], m_args['prefix'], exclude_ips)
         self.module.exit_json(ansible_facts=self.facts)
@@ -63,7 +63,7 @@ class IpRangeModule(object):
         """
            Generate ips
         """
-        prefix = ipaddress.ip_network(prefix.encode().decode())
+        prefix = IPNetwork(prefix)
         exclude_ips.append(prefix.broadcast)
         exclude_ips.append(prefix.network)
         available_ips = list(prefix)
