@@ -1,5 +1,14 @@
 #!/usr/bin/env python
 
+import json
+from collections import defaultdict
+from ansible.module_utils.basic import AnsibleModule
+try:
+    from pysnmp.entity.rfc3413.oneliner import cmdgen
+    has_pysnmp = True
+except Exception:
+    has_pysnmp = False
+
 DOCUMENTATION = '''
 ---
 module: lldp_facts
@@ -72,33 +81,26 @@ EXAMPLES = '''
   delegate_to: localhost
 '''
 
-from ansible.module_utils.basic import *
-from collections import defaultdict
-
-try:
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
-    has_pysnmp = True
-except:
-    has_pysnmp = False
 
 class DefineOid(object):
 
-    def __init__(self,dotprefix=False):
+    def __init__(self, dotprefix=False):
         if dotprefix:
             dp = ".1"
         else:
             dp = ""
 
         # From IF-MIB
-        #ifdescr is common support, replace the lldpportid
-        self.if_descr       = dp + ".3.6.1.2.1.2.2.1.2"
+        # ifdescr is common support, replace the lldpportid
+        self.if_descr = dp + ".3.6.1.2.1.2.2.1.2"
 
         # From LLDP-MIB
-        self.lldp_rem_port_id      = dp + ".0.8802.1.1.2.1.4.1.1.7"
-        self.lldp_rem_port_desc    = dp + ".0.8802.1.1.2.1.4.1.1.8"
-        self.lldp_rem_sys_desc     = dp + ".0.8802.1.1.2.1.4.1.1.10"
-        self.lldp_rem_sys_name     = dp + ".0.8802.1.1.2.1.4.1.1.9"
-        self.lldp_rem_chassis_id   = dp + ".0.8802.1.1.2.1.4.1.1.5"
+        self.lldp_rem_port_id = dp + ".0.8802.1.1.2.1.4.1.1.7"
+        self.lldp_rem_port_desc = dp + ".0.8802.1.1.2.1.4.1.1.8"
+        self.lldp_rem_sys_desc = dp + ".0.8802.1.1.2.1.4.1.1.10"
+        self.lldp_rem_sys_name = dp + ".0.8802.1.1.2.1.4.1.1.9"
+        self.lldp_rem_chassis_id = dp + ".0.8802.1.1.2.1.4.1.1.5"
+
 
 def get_iftable(snmp_data):
     """ Gets the interface table (if_index and interface) for a given device
@@ -121,7 +123,8 @@ def get_iftable(snmp_data):
     # Populate the if_table dict with parsed output
     for if_tuple in snmp_data:
         if_table[str(if_tuple[0][1])] = str(if_tuple[0][0]).split(".")[-1]
-        inverse_if_table[str(if_tuple[0][0]).split(".")[-1]] = str(if_tuple[0][1])
+        inverse_if_table[str(if_tuple[0][0]).split(".")
+                         [-1]] = str(if_tuple[0][1])
 
     return (if_table, inverse_if_table)
 
@@ -139,7 +142,8 @@ def main():
             authkey=dict(required=False),
             privkey=dict(required=False),
             removeplaceholder=dict(required=False)),
-            required_together = ( ['username','level','integrity','authkey'],['privacy','privkey'],),
+        required_together=(['username', 'level', 'integrity', 'authkey'], [
+                           'privacy', 'privkey'],),
         supports_check_mode=False)
 
     m_args = module.params
@@ -158,8 +162,9 @@ def main():
         if m_args['username'] is None:
             module.fail_json(msg='Username not set when using snmp version 3')
 
-        if m_args['level'] == "authPriv" and m_args['privacy'] == None:
-            module.fail_json(msg='Privacy algorithm not set when using authPriv')
+        if m_args['level'] == "authPriv" and m_args['privacy'] is None:
+            module.fail_json(
+                msg='Privacy algorithm not set when using authPriv')
 
         if m_args['integrity'] == "sha":
             integrity_proto = cmdgen.usmHMACSHAAuthProtocol
@@ -177,18 +182,21 @@ def main():
 
     # Use SNMP Version 3 with authNoPriv
     elif m_args['level'] == "authNoPriv":
-        snmp_auth = cmdgen.UsmUserData(m_args['username'], authKey=m_args['authkey'], authProtocol=integrity_proto)
+        snmp_auth = cmdgen.UsmUserData(
+            m_args['username'], authKey=m_args['authkey'], authProtocol=integrity_proto)
 
     # Use SNMP Version 3 with authPriv
     else:
-        snmp_auth = cmdgen.UsmUserData(m_args['username'], authKey=m_args['authkey'], privKey=m_args['privkey'], authProtocol=integrity_proto, privProtocol=privacy_proto)
+        snmp_auth = cmdgen.UsmUserData(m_args['username'], authKey=m_args['authkey'],
+                                       privKey=m_args['privkey'], authProtocol=integrity_proto,
+                                       privProtocol=privacy_proto)
 
     # Use p to prefix OIDs with a dot for polling
     p = DefineOid(dotprefix=True)
     # Use v without a prefix to use with return values
     v = DefineOid(dotprefix=False)
 
-    Tree = lambda: defaultdict(Tree)
+    def Tree(): return defaultdict(Tree)
 
     results = Tree()
 
@@ -235,7 +243,7 @@ def main():
 
             try:
                 if_name = inverse_if_table[str(current_oid.split(".")[-2])]
-            except Exception as e:
+            except Exception:
                 print(json.dumps({
                     "unbound_interface_index": str(current_oid.split(".")[-2])
                 }))
@@ -261,14 +269,13 @@ def main():
 
     for intf in lldp_rem_sys:
         lldp_data[intf] = {'neighbor_sys_name': lldp_rem_sys[intf],
-                                'neighbor_port_desc': lldp_rem_port_desc[intf],
-                                'neighbor_port_id': lldp_rem_port_id[intf],
-                                'neighbor_sys_desc': lldp_rem_sys_desc[intf],
-                                'neighbor_chassis_id': lldp_rem_chassis_id[intf]}
-
+                           'neighbor_port_desc': lldp_rem_port_desc[intf],
+                           'neighbor_port_id': lldp_rem_port_id[intf],
+                           'neighbor_sys_desc': lldp_rem_sys_desc[intf],
+                           'neighbor_chassis_id': lldp_rem_chassis_id[intf]}
 
     results['ansible_lldp_facts'] = lldp_data
     module.exit_json(ansible_facts=results)
 
-main()
 
+main()

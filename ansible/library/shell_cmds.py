@@ -78,6 +78,7 @@ EXAMPLES = r'''
     continue_on_fail: False
 '''
 
+
 def run_cmd(module, cmd):
 
     rc, out, err = module.run_command(cmd, use_unsafe_shell=True)
@@ -90,6 +91,7 @@ def run_cmd(module, cmd):
         stderr_lines=err.splitlines()
     )
     return result
+
 
 def main():
 
@@ -121,11 +123,12 @@ def main():
         start=str(startd),
         end=str(endd),
         delta=str(delta),
-        failed=any(result['rc']!=0 for result in results)
+        failed=any(result['rc'] != 0 for result in results)
     )
 
     if output['failed']:
-        module.fail_json(msg='At least running one of the commands failed', **output)
+        module.fail_json(
+            msg='At least running one of the commands failed', **output)
     module.exit_json(**output)
 
 

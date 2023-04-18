@@ -28,22 +28,25 @@
 # }
 
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 SUCCESS_CODE = 0
 
 
 def get_feature_facts(module):
-    rc, stdout, stderr = module.run_command('sonic-db-cli CONFIG_DB keys FEATURE\*')
+    rc, stdout, stderr = module.run_command(r'sonic-db-cli CONFIG_DB keys FEATURE\*')
     if rc != SUCCESS_CODE:
-        module.fail_json(msg='Failed to get feature names, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
+        module.fail_json(msg='Failed to get feature names, rc=%s, stdout=%s, stderr=%s' % (
+            rc, stdout, stderr))
 
     features = {}
     output_lines = stdout.splitlines()
     for line in output_lines:
         feature_name = line.split('|')[1]
-        rc, stdout, stderr = module.run_command('sonic-db-cli CONFIG_DB HGET "FEATURE|{}" state'.format(feature_name))
+        rc, stdout, stderr = module.run_command(
+            'sonic-db-cli CONFIG_DB HGET "FEATURE|{}" state'.format(feature_name))
         if rc != SUCCESS_CODE:
-            module.fail_json(msg='Failed to get feature status, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
+            module.fail_json(msg='Failed to get feature status, rc=%s, stdout=%s, stderr=%s' % (
+                rc, stdout, stderr))
         features[feature_name] = stdout.rstrip('\n')
 
     return features
