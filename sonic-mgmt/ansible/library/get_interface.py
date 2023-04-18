@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from ansible.module_utils.basic import AnsibleModule
 DOCUMENTATION = '''
 module:         get_interface
 version_added:  "1.0"
@@ -16,10 +17,6 @@ EXAMPLES = '''
   get_interface:
 '''
 
-from ansible.module_utils.basic import *
-from collections import defaultdict
-import json
-import re
 
 class GetInterfaceModule(object):
     def __init__(self):
@@ -39,7 +36,7 @@ class GetInterfaceModule(object):
         """
 
         self.facts = self.get_iface()
-        self.module.exit_json(ansible_facts={'iface':self.facts})
+        self.module.exit_json(ansible_facts={'iface': self.facts})
 
         return
 
@@ -58,19 +55,21 @@ class GetInterfaceModule(object):
                                                         use_unsafe_shell=True)
 
         except Exception as e:
-            err_msg = "Exception occured while trying to get the interface! " + str(e)
+            err_msg = "Exception occured while trying to get the interface! " + \
+                str(e)
             self.module.fail_json(msg=err_msg)
 
         else:
             if rc != 0:
                 self.module.fail_json(msg="Command 'show interface counter' \
                                            failed with non-zero return code! \
-                                           out=%s, err=%s" %(self.out, self.err))
+                                           out=%s, err=%s" % (self.out, self.err))
 
         lines = self.out.splitlines()
 
         # Filter only the lines having Ethernet*
-        eth_lines = [line for line in lines if line.strip().startswith('Ethernet')]
+        eth_lines = [
+            line for line in lines if line.strip().startswith('Ethernet')]
 
         # Find the column number (index) of RX_OK
         rx_index = lines[1].strip().split().index('RX_OK')
@@ -86,12 +85,14 @@ class GetInterfaceModule(object):
 
         return iface
 
+
 def main():
 
     get_interface = GetInterfaceModule()
     get_interface.run()
 
     return
+
 
 if __name__ == "__main__":
     main()

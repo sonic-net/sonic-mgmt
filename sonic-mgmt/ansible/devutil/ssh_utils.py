@@ -6,11 +6,13 @@ import select
 import sys
 import socket
 
+
 class SSHClient(paramiko.client.SSHClient):
     """
     A subclass of paramiko's SSHClient.
     The 'connect' interface is overwrite to support multi passowrds.
     """
+
     def connect(self, hostname, username=None, passwords=None, port=22):
         """
         @summary: Overwrite 'connect' of SSHClient in paramiko to support multi passwords
@@ -22,7 +24,8 @@ class SSHClient(paramiko.client.SSHClient):
         for i in range(0, len(passwords)):
             password = passwords[i]
             try:
-                super(SSHClient, self).connect(hostname=hostname, port=port, username=username, password=password)
+                super(SSHClient, self).connect(hostname=hostname,
+                                               port=port, username=username, password=password)
             except paramiko.ssh_exception.AuthenticationException as e:
                 if i == len(passwords) - 1:
                     raise e
@@ -75,4 +78,3 @@ class SSHClient(paramiko.client.SSHClient):
 
         finally:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
-

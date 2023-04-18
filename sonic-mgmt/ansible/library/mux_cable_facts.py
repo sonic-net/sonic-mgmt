@@ -4,7 +4,7 @@ import sys
 import traceback
 import yaml
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 try:
     from ansible.module_utils.dualtor_utils import generate_mux_cable_facts

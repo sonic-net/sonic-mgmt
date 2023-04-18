@@ -2,21 +2,19 @@
 SONiC Dataplane ECMP tests
 """
 import random
-import time
 import logging
 import ptf.packet as scapy
-import socket
-import ptf.dataplane as dataplane
-import sai_base_test
-from ptf.testutils import *
+import ptf.testutils as testutils
 from ptf.mask import Mask
-from switch import *
+import sai_base_test
+from switch import switch_init, port_list
 
 # Constants
 IP_LAST_WORD_RANGE = 254
 IP_2ND_LAST_WORD_RANGE = 16
 NUMBER_OF_SRC_PORTS = 16
 NUMBER_OF_DST_PORTS = 16
+
 
 class ECMPtest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
@@ -44,17 +42,19 @@ class ECMPtest(sai_base_test.ThriftInterfaceDataPlane):
         """
         switch_init(self.client)
         random.seed(1)
-        #init vars
+        # init vars
         sport = 0x1234
         dport = 0x50
         router_mac = self.test_params['router_mac']
-        destanation_ports = list(range(NUMBER_OF_SRC_PORTS,NUMBER_OF_DST_PORTS+NUMBER_OF_SRC_PORTS))
+        destanation_ports = list(
+            range(NUMBER_OF_SRC_PORTS, NUMBER_OF_DST_PORTS+NUMBER_OF_SRC_PORTS))
         pkt_counter = [0]*32
         logging.debug("the router mac is ")
-        logging.debug( router_mac)
+        logging.debug(router_mac)
         logging.debug("the rif macs are")
-        for i in range(16): logging.debug( self.dataplane.get_mac(0, i+16))
-        #send packets
+        for i in range(16):
+            logging.debug(self.dataplane.get_mac(0, i+16))
+        # send packets
         for port in range(NUMBER_OF_SRC_PORTS):
             for i in range(IP_LAST_WORD_RANGE):
                 for j in range(IP_2ND_LAST_WORD_RANGE):
@@ -62,41 +62,43 @@ class ECMPtest(sai_base_test.ThriftInterfaceDataPlane):
                     src_mac = self.dataplane.get_mac(0, 0)
                     ip_dst = '172.16.' + str(j) + '.' + str(i + 1)
 
-                    pkt = simple_tcp_packet(
-                                        eth_dst=router_mac,
-                                        eth_src=src_mac,
-                                        ip_src=ip_src,
-                                        ip_dst=ip_dst,
-                                        ip_id=i,
-                                        tcp_sport=sport,
-                                        tcp_dport=dport,
-                                        ip_ttl=64)
-                    exp_pkt = simple_tcp_packet(
-                                        eth_dst=self.dataplane.get_mac(0, 16),
-                                        eth_src=router_mac,
-                                        ip_src=ip_src,
-                                        ip_dst=ip_dst,
-                                        ip_id=i,
-                                        tcp_sport=sport,
-                                        tcp_dport=dport,
-                                        ip_ttl=63)
+                    pkt = testutils.simple_tcp_packet(
+                        eth_dst=router_mac,
+                        eth_src=src_mac,
+                        ip_src=ip_src,
+                        ip_dst=ip_dst,
+                        ip_id=i,
+                        tcp_sport=sport,
+                        tcp_dport=dport,
+                        ip_ttl=64)
+                    exp_pkt = testutils.simple_tcp_packet(
+                        eth_dst=self.dataplane.get_mac(0, 16),
+                        eth_src=router_mac,
+                        ip_src=ip_src,
+                        ip_dst=ip_dst,
+                        ip_id=i,
+                        tcp_sport=sport,
+                        tcp_dport=dport,
+                        ip_ttl=63)
                     masked_exp_pkt = Mask(exp_pkt)
-                    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+                    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
 
-                    send_packet(self, port, pkt)
-                    (match_index,rcv_pkt) = verify_packet_any_port(self,masked_exp_pkt,destanation_ports)
-                    logging.debug("found expected packet from port %d" % destanation_ports[match_index])
+                    testutils.send_packet(self, port, pkt)
+                    (match_index, rcv_pkt) = testutils.verify_packet_any_port(
+                        self, masked_exp_pkt, destanation_ports)
+                    logging.debug("found expected packet from port %d" %
+                                  destanation_ports[match_index])
                     pkt_counter[match_index] += 1
-                    sport = random.randint(0,0xffff)
-                    dport = random.randint(0,0xffff)
+                    sport = random.randint(0, 0xffff)
+                    dport = random.randint(0, 0xffff)
 
-        #final uniform distribution check
+        # final uniform distribution check
         for stat_port in range(NUMBER_OF_DST_PORTS):
-            logging.debug( "PORT #"+str(hex(port_list[stat_port+NUMBER_OF_SRC_PORTS]))+":")
+            logging.debug(
+                "PORT #"+str(hex(port_list[stat_port+NUMBER_OF_SRC_PORTS]))+":")
             logging.debug(str(pkt_counter[stat_port]))
-            self.assertTrue((pkt_counter[stat_port ] >= ((IP_LAST_WORD_RANGE * IP_2ND_LAST_WORD_RANGE) * 0.9)),
-                    "Not all paths are equally balanced, %s" % pkt_counter[stat_port+NUMBER_OF_SRC_PORTS])
-            self.assertTrue((pkt_counter[stat_port ] <= ((IP_LAST_WORD_RANGE * IP_2ND_LAST_WORD_RANGE) * 1.1)),
-                    "Not all paths are equally balanced, %s" % pkt_counter[stat_port+NUMBER_OF_SRC_PORTS])
+            self.assertTrue((pkt_counter[stat_port] >= ((IP_LAST_WORD_RANGE * IP_2ND_LAST_WORD_RANGE) * 0.9)),
+                            "Not all paths are equally balanced, %s" % pkt_counter[stat_port+NUMBER_OF_SRC_PORTS])
+            self.assertTrue((pkt_counter[stat_port] <= ((IP_LAST_WORD_RANGE * IP_2ND_LAST_WORD_RANGE) * 1.1)),
+                            "Not all paths are equally balanced, %s" % pkt_counter[stat_port+NUMBER_OF_SRC_PORTS])
         print("END OF TEST")
-

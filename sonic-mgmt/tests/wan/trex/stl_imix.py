@@ -1,8 +1,9 @@
 import stl_path
-from trex_stl_lib.api import *
+from trex_stl_lib.api import STLClient, STLProfile, STLErro
 
 import argparse
 import sys
+import os
 
 # IMIX test
 # it maps the ports to sides

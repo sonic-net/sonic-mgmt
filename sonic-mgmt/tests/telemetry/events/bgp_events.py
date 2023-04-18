@@ -40,4 +40,3 @@ def shutdownBGPNeighbors(duthost):
 
     ret = duthost.shell("config bgp startup all")
     assert ret["rc"] == 0, "Failing to startup"
-

@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+from ansible.module_utils.basic import AnsibleModule
+import jinja2
+import traceback
+import re
+import os
+import time
 DOCUMENTATION = '''
 module:  ptf_portchannel
 
@@ -11,7 +17,7 @@ Options:
       description: An action string as [start|stop]
       required: True
     - option-name: portchannel_config
-      description: A dict to indicate the portchannel configuration. E.G. {"PortChannel101": { "intfs": [0, 4] } }
+      description: A dict to indicate the portchannel configuration. E.G. {"PortChannel101": {"intfs": [0, 4]}}
       required: True
 '''
 
@@ -22,14 +28,6 @@ EXAMPLES = '''
     cmd: "start"
     portchannel_config: "{{ portchannel_config }}"
 '''
-
-
-import os
-import re
-import traceback
-
-import jinja2
-from ansible.module_utils.basic import *
 
 
 portchannel_conf_path = "/etc/portchannel"
@@ -57,7 +55,7 @@ portchannel_supervisord_path = "/etc/supervisor/conf.d"
 
 portchannel_supervisord_conf_tmpl = '''\
 [program:portchannel-{{ name }}]
-command=/usr/bin/teamd -r -t {{ name }} -f '''+ portchannel_conf_path + '''/{{ name }}.conf
+command=/usr/bin/teamd -r -t {{ name }} -f ''' + portchannel_conf_path + '''/{{ name }}.conf
 stdout_logfile=/tmp/portchannel-{{ name }}.out.log
 stderr_logfile=/tmp/portchannel-{{ name }}.err.log
 redirect_stderr=false
@@ -77,8 +75,9 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
 
 
 def get_portchannel_status(module, name):
-    output = exec_command(module, cmd="supervisorctl status portchannel-%s" % name)
-    m = re.search('^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
+    output = exec_command(
+        module, cmd="supervisorctl status portchannel-%s" % name)
+    m = re.search(r'^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
     return m.group(2)
 
 
@@ -109,7 +108,8 @@ def create_teamd_conf(module, teamd_config):
 def remove_teamd_conf(module, teamd_config):
     for conf in teamd_config:
         try:
-            os.remove(os.path.join(portchannel_conf_path, "{}.conf".format(conf["name"])))
+            os.remove(os.path.join(portchannel_conf_path,
+                      "{}.conf".format(conf["name"])))
         except Exception:
             pass
 
@@ -125,7 +125,8 @@ def create_supervisor_conf(module, teamd_config):
 def remove_supervisor_conf(module, teamd_config):
     for conf in teamd_config:
         try:
-            os.remove(os.path.join(portchannel_supervisord_path, "portchannel-{}.conf".format(conf["name"])))
+            os.remove(os.path.join(portchannel_supervisord_path,
+                      "portchannel-{}.conf".format(conf["name"])))
         except Exception:
             pass
     refresh_supervisord(module)
@@ -135,7 +136,8 @@ def enable_portchannel(module, teamd_config):
     for conf in teamd_config:
         for intf in conf["intfs"]:
             exec_command(module, "ip link set dev {} down".format(intf))
-        exec_command(module, "supervisorctl start portchannel-{}".format(conf["name"]))
+        exec_command(
+            module, "supervisorctl start portchannel-{}".format(conf["name"]))
         for count in range(0, 60):
             time.sleep(1)
             status = get_portchannel_status(module, conf["name"])
@@ -145,10 +147,10 @@ def enable_portchannel(module, teamd_config):
         exec_command(module, "ip link set dev {} up".format(conf["name"]))
 
 
-
 def disable_portchannel(module, teamd_config):
     for conf in teamd_config:
-        exec_command(module, cmd="supervisorctl stop portchannel-{}".format(conf["name"]), ignore_error=True)
+        exec_command(
+            module, cmd="supervisorctl stop portchannel-{}".format(conf["name"]), ignore_error=True)
 
 
 def setup_portchannel_conf():
@@ -180,7 +182,7 @@ def main():
             disable_portchannel(module, teamd_config)
             remove_supervisor_conf(module, teamd_config)
             remove_teamd_conf(module, teamd_config)
-    except Exception as e:
+    except Exception:
         module.fail_json(msg=traceback.format_exc())
 
     module.exit_json()

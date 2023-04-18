@@ -38,7 +38,8 @@ def parse_vm_vlan_port(vlan):
 
 def port_indice_to_name(dut_host, tbinfo, port_indice):
     mg_facts = dut_host.get_extended_minigraph_facts(tbinfo)
-    indice_port_map = dict(list(zip(list(mg_facts['minigraph_port_indices'].values()), list(mg_facts['minigraph_port_indices'].keys()))))
+    indice_port_map = dict(list(zip(list(mg_facts['minigraph_port_indices'].values()),
+                                    list(mg_facts['minigraph_port_indices'].keys()))))
     return indice_port_map[port_indice]
 
 

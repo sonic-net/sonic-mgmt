@@ -1,4 +1,3 @@
-from pprint import pprint
 import pickle
 from six.moves import socketserver
 import datetime
@@ -30,6 +29,7 @@ class TCPHandler(socketserver.StreamRequestHandler):
 class FIFOClient(object):
     FIFOr = '/tmp/fifor'
     FIFOw = '/tmp/fifow'
+
     def __init__(self):
         self.fifow = open(self.FIFOw)
         self.fifor = open(self.FIFOr, 'w')
@@ -51,9 +51,9 @@ def main():
         server = socketserver.TCPServer(("0.0.0.0", 9876), TCPHandler)
         server.fifo_client = fifo
         server.serve_forever()
-    except:
+    except Exception:
         pass
+
 
 if __name__ == '__main__':
     main()
-

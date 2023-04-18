@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from ansible.module_utils.basic import AnsibleModule
 DOCUMENTATION = '''
 module:         console_facts
 version_added:  "2.0"
@@ -10,6 +11,7 @@ description:
     - Retrieve console status from show line command
     - Retrieved facts will be inserted into the 'console_facts' key
 '''
+
 
 class ConsoleModule(object):
     LINE_INDEX = 0
@@ -23,16 +25,16 @@ class ConsoleModule(object):
     STATUS_INDICATOR = "*"
     FLCT_ENABLED_TEXT = "Enabled"
 
-    def __init__(self, include_remote_device_mapping = True):
+    def __init__(self, include_remote_device_mapping=True):
         self.include_remote_device_mapping = include_remote_device_mapping
-        self.module = AnsibleModule(argument_spec = dict())
+        self.module = AnsibleModule(argument_spec=dict())
 
     def run(self):
         """
         Main method of the class
         """
-        self.module.exit_json(ansible_facts = {
-            'console_facts' : self.get_console_facts()
+        self.module.exit_json(ansible_facts={
+            'console_facts': self.get_console_facts()
         })
 
     def get_console_facts(self):
@@ -40,22 +42,25 @@ class ConsoleModule(object):
         Retrieve console facts
         """
         facts = {
-            "enabled" : self.get_console_feature_status()
+            "enabled": self.get_console_feature_status()
         }
 
         if facts["enabled"]:
             facts["lines"] = self.get_console_lines_status()
             if self.include_remote_device_mapping:
-                facts["remote_device_mapping"] = self.build_remote_device_mapping(facts["lines"])
+                facts["remote_device_mapping"] = self.build_remote_device_mapping(
+                    facts["lines"])
         return facts
 
     def get_console_feature_status(self):
         """
         Retrieve console feature information
         """
-        rt, out, err = self.module.run_command('sonic-db-cli CONFIG_DB HGET CONSOLE_SWITCH|console_mgmt enabled')
+        rt, out, err = self.module.run_command(
+            'sonic-db-cli CONFIG_DB HGET CONSOLE_SWITCH|console_mgmt enabled')
         if rt != 0:
-            self.module.fail_json("Failed to get console feature status, rt={}, out={}, err={}".format(rt, out, err))
+            self.module.fail_json(
+                "Failed to get console feature status, rt={}, out={}, err={}".format(rt, out, err))
         return True if "yes" in out else False
 
     def get_console_lines_status(self):
@@ -70,12 +75,14 @@ class ConsoleModule(object):
         cmd = "show line -b"
         rt, out, err = self.module.run_command(cmd)
         if rt != 0:
-            self.module.fail_json(msg = "Failed to get line information! {}".format(err))
+            self.module.fail_json(
+                msg="Failed to get line information! {}".format(err))
 
         # Parse show line outputs
         lines = out.splitlines()
         if len(lines) == 0:
-            self.module.fail_json(msg = "Failed to parse header from show line outputs")
+            self.module.fail_json(
+                msg="Failed to parse header from show line outputs")
             return None
 
         try:
@@ -100,15 +107,18 @@ class ConsoleModule(object):
 
                 # 3. Construct line status
                 line_status = {}
-                line_status['state'] = self.STATUS_BUSY if self.STATUS_INDICATOR in fields[self.LINE_INDEX] else self.STATUS_IDLE
+                line_status['state'] = self.STATUS_BUSY if self.STATUS_INDICATOR in fields[self.LINE_INDEX]\
+                    else self.STATUS_IDLE
                 line_status['baud_rate'] = int(fields[self.BAUD_INDEX])
                 line_status['flow_control'] = True if fields[self.FLCT_INDEX] == self.FLCT_ENABLED_TEXT else False
                 if len(fields) > self.RDEV_INDEX:
                     line_status['remote_device'] = fields[self.RDEV_INDEX]
-                result[fields[self.LINE_INDEX].lstrip(self.STATUS_INDICATOR)] = line_status
+                result[fields[self.LINE_INDEX].lstrip(
+                    self.STATUS_INDICATOR)] = line_status
             return result
         except Exception as e:
-            self.module.fail_json(msg = "Failed to parse header from [{}] outputs: {}".format(cmd, str(e)))
+            self.module.fail_json(
+                msg="Failed to parse header from [{}] outputs: {}".format(cmd, str(e)))
 
     def build_remote_device_mapping(self, lines):
         """
@@ -119,10 +129,11 @@ class ConsoleModule(object):
             if "remote_device" in line_status and line_status["remote_device"]:
                 mapping[line_status["remote_device"]] = line_num
 
+
 def main():
     console_module = ConsoleModule()
     console_module.run()
 
-from ansible.module_utils.basic import *
+
 if __name__ == "__main__":
     main()

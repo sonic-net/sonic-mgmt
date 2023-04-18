@@ -161,7 +161,7 @@ def _parse_drop_counts(counter_type, counts_output):
         # Skip over the status columns so the counter names and drop counts line up
         drop_counts = tokens[status_columns:]
 
-        for i in range(len(drop_counts)): # pylint: disable=consider-using-enumerate
+        for i in range(len(drop_counts)):   # pylint: disable=consider-using-enumerate
             counts_dict[interface][counter_names[i]] = drop_counts[i]
 
     return counts_dict

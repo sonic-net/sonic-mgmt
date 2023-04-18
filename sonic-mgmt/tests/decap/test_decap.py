@@ -168,9 +168,9 @@ def simulate_vxlan_teardown(duthosts, ptfhost, tbinfo):
         setup_ferret(duthost, ptfhost, tbinfo)
         reboot_script_path = duthost.shell('which {}'.format("neighbor_advertiser"))['stdout']
         ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
-        duthost.shell("{} -s {} -m set".format(reboot_script_path, ptf_ip), module_ignore_errors = True)
+        duthost.shell("{} -s {} -m set".format(reboot_script_path, ptf_ip), module_ignore_errors=True)
         time.sleep(10)
-        duthost.shell("{} -s {} -m reset".format(reboot_script_path, ptf_ip), module_ignore_errors = True)
+        duthost.shell("{} -s {} -m reset".format(reboot_script_path, ptf_ip), module_ignore_errors=True)
         ptfhost.shell('supervisorctl stop ferret')
 
 
