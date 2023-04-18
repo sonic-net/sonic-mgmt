@@ -1,9 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 class TaskRunner(object):
     """
     A helper class for running tasks parallelly
     """
+
     def __init__(self, max_worker=1):
         self._all_tasks = {}
         self._threadpool = ThreadPoolExecutor(max_workers=max_worker)
@@ -12,7 +14,8 @@ class TaskRunner(object):
         """
         @summary: Submit a task and params to task pool
         """
-        self._all_tasks.update({self._threadpool.submit(target, *args, **kwargs):name})
+        self._all_tasks.update(
+            {self._threadpool.submit(target, *args, **kwargs): name})
 
     def task_results(self, timeout=None):
         """
@@ -24,7 +27,7 @@ class TaskRunner(object):
         for future in as_completed(self._all_tasks.keys(), timeout=timeout):
             name = self._all_tasks[future]
             try:
-                result = {'result':future.result()}
+                result = {'result': future.result()}
             except Exception as e:
                 result = {'result': repr(e)}
 
@@ -36,4 +39,3 @@ class TaskRunner(object):
         @summary: Shutdown the threadpool immediately. All unrunning tasks will be cancelled
         """
         self._threadpool.shutdown(wait=False)
-

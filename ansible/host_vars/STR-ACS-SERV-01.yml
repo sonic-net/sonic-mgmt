@@ -4,4 +4,3 @@ mgmt_gw: 10.255.0.1
 mgmt_gw_v6: fec0::1
 vm_mgmt_gw: 10.254.0.1
 external_port: p4p1
-
