@@ -173,6 +173,10 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
         'teamd': swss_syncd_teamd_regex,
     }
 
+    # During syncd restart, the pmon container is also restarted,
+    # and we noticed some errors in the pmon container
+    ignore_regex_dict['syncd'].extend(ignore_regex_dict['pmon'])
+
     feature = enum_dut_feature
 
     impacted_duts = []
