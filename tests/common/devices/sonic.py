@@ -2304,7 +2304,10 @@ Totals               6450                 6449
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
-        return out["stdout_lines"][0]
+        if out["stdout_lines"]:
+            return out["stdout_lines"][0]
+        else:
+            return None
 
     def set_port_fec(self, portname, state):
         if not state:
