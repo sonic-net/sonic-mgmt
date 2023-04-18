@@ -27,6 +27,7 @@ t0:
   - generic_config_updater/test_portchannel_interface.py
   - generic_config_updater/test_syslog.py
   - generic_config_updater/test_vlan_interface.py
+  - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - iface_namingmode/test_iface_namingmode.py
   - lldp/test_lldp.py
   - monit/test_monit_status.py
@@ -89,6 +90,7 @@ t1-lag:
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
   - container_checker/test_container_checker.py
+  - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - http/test_http_copy.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py

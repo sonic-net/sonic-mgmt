@@ -115,7 +115,6 @@ class QosParamBroadcom(object):
         logger.info('ASIC buffer config {}'.format(asicConfig))
         return asicConfig
 
-
     def run(self):
         self.prepare_default_parameters()
         self.calculate_parameters()
@@ -284,11 +283,11 @@ class QosParamBroadcom(object):
                 #     Memory can be allocated from shared buffer for pgi  for port p if
                 #         Alpha * free buffer > Bp,i
                 #     Bp,i: Buffer allocated for pgi of ingress port p
-                # 
+                #
                 # Considering one port one pg scenario, above formula is simplized as:
                 #     alpha * (shared buffer - x) > x
                 #     x indicate used share buffer
-                # 
+                #
                 # +------------+----------+-------+
                 # | dynamic_th | register | alpha |
                 # +------------+----------+-------+
