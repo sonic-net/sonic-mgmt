@@ -1,11 +1,11 @@
 import logging
-
 import pytest
 
-from ipaddress import ip_interface 
-from constants import *
+from ipaddress import ip_interface
+from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
+    LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
+    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX
 from dash_utils import render_template_to_host, apply_swssconfig_file
-
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +27,21 @@ def pytest_addoption(parser):
         help="Apply new configurations on DUT"
     )
 
+
 @pytest.fixture(scope="module")
 def config_only(request):
     return request.config.getoption("--config_only")
+
 
 @pytest.fixture(scope="module")
 def skip_config(request):
     return request.config.getoption("--skip_config")
 
+
 @pytest.fixture(scope="module")
 def config_facts(duthost):
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
 
 @pytest.fixture(scope="module")
 def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
@@ -54,8 +58,9 @@ def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
 
     return duthost.get_extended_minigraph_facts(tbinfo)
 
+
 def get_intf_from_ip(local_ip, config_facts):
-    for intf, config in config_facts["INTERFACE"].items():
+    for intf, config in list(config_facts["INTERFACE"].items()):
         for ip in config:
             intf_ip = ip_interface(ip)
             if str(intf_ip.ip) == local_ip:
@@ -80,9 +85,8 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
     dash_info[DUT_MAC] = config_facts["DEVICE_METADATA"]["localhost"]["mac"]
 
     neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
-    for neigh_ip, config in config_facts["BGP_NEIGHBOR"].items():
-        # Pick the first two BGP neighbor IPs since these should already be
-        # learned on the DUT
+    for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
+        # Pick the first two BGP neighbor IPs since these should already be learned on the DUT
         if ip_interface(neigh_ip).version == 4:
             if LOCAL_PA_IP not in dash_info:
                 dash_info[LOCAL_PA_IP] = neigh_ip
@@ -103,7 +107,8 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
 
 @pytest.fixture(scope="module")
 def apply_vnet_configs(skip_config, duthost, dash_config_info):
-    # TODO: Combine dash_acl_allow_all and dash_bind_acl into a single template once empty group binding issue is fixed/clarified
+    # TODO: Combine dash_acl_allow_all and dash_bind_acl into a single template
+    # once empty group binding issue is fixed/clarified
     config_list = ["dash_basic_config", "dash_acl_allow_all", "dash_bind_acl"]
     if skip_config:
         return

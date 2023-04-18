@@ -6,6 +6,7 @@ from threading import Thread
 import json
 import ipaddr
 import time
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ def duthost_bgp_config(duthost, tgen_ports):
                                "nhopself": "0", "holdtime": "90",
                                "asn": TGEN_AS_NUM, "keepalive": "30"}}
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-    for neighbor, neighbor_info in bgp_neighbors.items():
+    for neighbor, neighbor_info in list(bgp_neighbors.items()):
         cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
 
     with open("/tmp/sconfig_db.json", 'w') as fp:
@@ -547,8 +548,7 @@ def get_convergence_for_reboot_test(duthost,
             logger.info("No Loss Observed in Traffic Item {}".format(i))
             dp.append(metrics.data_plane_convergence_us / 1000)
             logger.info('DP/DP Convergence Time (ms) of {} : {}'.
-                        format(i,
-                               metrics.data_plane_convergence_us / 1000))
+                        format(i, metrics.data_plane_convergence_us / 1000))
 
     flow_names_table_rows = ["Server IPv4_1 - Server IPv4_2",
                              "Server IPv6_2 - Server IPv6_1",
@@ -558,9 +558,8 @@ def get_convergence_for_reboot_test(duthost,
         table.append([reboot_type, i, dp[j], float(0.0)])
     table.append([reboot_type, 'BGP Control Plane Up Time', float(0.0),
                   float(bgp_up_time) * 1000])
-    table.append([reboot_type, ''.
-                 join('Loopback Up Time'.format(p1.dst_ip)),
-                  float(0.0), float(loopback_up_time) * 1000])
+    table.append([reboot_type, 'Loopback Up Time', float(0.0),
+                  float(loopback_up_time) * 1000])
     columns = ['Reboot Type', 'Traffic Item Name',
                'Data Plane Convergence Time (ms)', 'Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))

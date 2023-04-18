@@ -18,7 +18,7 @@
  Route Pfx - A.B.C.D/32; starts 100.1.1.1/32
              (A,B derived from 100+vnet_id; C,D derived from number of routes per vnet)
  Route endpoint - A.B.C.D; starts from 200.1.1.1 (C,D derived from number of endpoints)
- 
+
 #}
 {% set vnet_v6_base = 4 %}
 {% set vlan_id_base = 3001 %}
@@ -29,7 +29,7 @@
 num_vnet_batch: {{ num_vnet_batch }}
 
 {# A single vnet batch has total 18 routes and 8 endpoints including peers if ipv6_vxlan_test == true.
-   There will be only 9 routes and 4 endpoints if ipv6_vxlan_test == false #} 
+   There will be only 9 routes and 4 endpoints if ipv6_vxlan_test == false #}
 {% if ipv6_vxlan_test == true %}
   {% set num_routes_batch = 18 %}
   {% set num_endpoints_batch = 8 %}
@@ -66,7 +66,7 @@ num_vnet_batch: {{ num_vnet_batch }}
   {% set num_routes_iterations = ((num_routes/num_routes_batch)/(num_vnet/num_vnet_batch))|round|int %}
   {% if num_routes_iterations == 0 %} {% set num_routes_iterations = 1 %} {% endif %}
 {% endif %}
-{% set topo_vlan = minigraph_vlans.keys()[0] %}
+{% set topo_vlan = minigraph_vlans.keys()|list|first %}
 
 {# Max RIFs support currently is 128 #}
 {% if num_vnet > 128 %}
@@ -81,7 +81,7 @@ num_vnet_batch: {{ num_vnet_batch }}
     {% set num_addl_intf = (num_intf_per_vnet|int) - 1 %}
 {% endif %}
 
-{# Vlan Configurations 
+{# Vlan Configurations
  Vlan IP - A.B.10.1/24; starts 30.1.10.1/24 (A,B derived from vlan id)
 #}
 vlan_intf_list:
@@ -224,7 +224,7 @@ vnet_route_list:
   {% if ( (endpoints_batch_idx+(num_routes_iterations*num_endpoints_batch)) > num_endpoints ) %}
     {% set temp_routes_iterations = ((num_endpoints-endpoints_batch_idx)//num_endpoints_batch)|int %}
   {% endif %}
- 
+
   - Vnet{{ vnet_batch[0] }}_route_list:
     {% for idx in range (0, num_routes_iterations*2, 2) %}
       {% set idx_a, idx_b = ((idx//100)|int)+1, ((idx%100)|int)+1  %}

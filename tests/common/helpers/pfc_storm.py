@@ -62,7 +62,7 @@ class PFCStorm(object):
         Validate if all the needed keys are present
         """
         expected_args = params.get('expected_args')
-        peer_info_keys = self.peer_info.keys()
+        peer_info_keys = list(self.peer_info.keys())
         if not all(elem in peer_info_keys for elem in expected_args):
             raise MissingInputError("Peer_info does not contain all the keys,"
                                     "Expected args: {}".format(expected_args))
