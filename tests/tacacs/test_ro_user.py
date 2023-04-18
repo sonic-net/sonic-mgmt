@@ -13,14 +13,14 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-SLEEP_TIME      = 10
-TIMEOUT_LIMIT   = 120
+SLEEP_TIME = 10
+TIMEOUT_LIMIT = 120
+
 
 def ssh_remote_run(localhost, remote_ip, username, password, cmd):
-    res = localhost.shell("sshpass -p {} ssh "\
-                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\
-                          "{}@{} {}".format(
-            password, username, remote_ip, cmd), module_ignore_errors=True)
+    res = localhost.shell("sshpass -p {} ssh "
+                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+                          "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)
     return res
 
 
@@ -39,6 +39,7 @@ def does_command_exist(localhost, remote_ip, username, password, command):
 
     return len(usr_result["stdout_lines"]) > 0 or len(bin_result["stdout_lines"]) > 0
 
+
 def ssh_remote_allow_run(localhost, remote_ip, username, password, cmd):
     res = ssh_remote_run(localhost, remote_ip, username, password, cmd)
     # Verify that the command is allowed
@@ -55,6 +56,7 @@ def ssh_remote_ban_run(localhost, remote_ip, username, password, cmd):
     logger.info("check command \"{}\" rc={}".format(cmd, res['rc']))
     return res['rc'] != 0 and "Make sure your account has RW permission to current device" in res['stderr']
 
+
 def wait_for_tacacs(localhost, remote_ip, username, password):
     current_attempt = 0
     cmd = 'systemctl status hostcfgd.service'
@@ -62,10 +64,10 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
         # Wait for tacacs to finish configuration from hostcfgd
         logger.info("Check if hostcfgd started and configured tacac attempt = {}".format(current_attempt))
         time.sleep(SLEEP_TIME)
-        output = localhost.shell("sshpass -p {} ssh "\
-                        "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\
-                        "{}@{} {}".format(
-        password, username, remote_ip, cmd), module_ignore_errors=True)['stdout_lines']
+        output = localhost.shell(
+            "sshpass -p {} ssh "
+            "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+            "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)['stdout_lines']
         if "active (running)" in str(output):
             return
         else:
@@ -73,6 +75,7 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 pytest_assert(False, "hostcfgd did not start after {} seconds".format(TIMEOUT_LIMIT))
             else:
                 current_attempt += 1
+
 
 def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -82,6 +85,7 @@ def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
 
     check_output(res, 'test', 'remote_user')
 
+
 def test_ro_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
@@ -89,6 +93,7 @@ def test_ro_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tac
                          tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
 
     check_output(res, 'test', 'remote_user')
+
 
 def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -105,7 +110,8 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
             "sudo docker ps -a",
         ],
         "lldpctl": ["sudo lldpctl"],
-        "vtysh": ['sudo vtysh -c "show version"', 'sudo vtysh -c "show bgp ipv4 summary json"', 'sudo vtysh -c "show bgp ipv6 summary json"'],
+        "vtysh": ['sudo vtysh -c "show version"', 'sudo vtysh -c "show bgp ipv4 summary json"',
+                  'sudo vtysh -c "show bgp ipv6 summary json"'],
         "rvtysh": ['sudo rvtysh -c "show ip bgp su"', 'sudo rvtysh -n 0 -c "show ip bgp su"'],
         "decode-syseeprom": ["sudo decode-syseeprom"],
         "generate_dump": ['sudo generate_dump -s "5 secs ago"'],
