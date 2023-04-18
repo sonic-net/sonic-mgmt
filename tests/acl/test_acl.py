@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("any"),
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
