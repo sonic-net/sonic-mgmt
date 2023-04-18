@@ -426,10 +426,14 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     }
 
     if duthost.facts["asic_type"] == "broadcom":
+        if duthost.facts.get("platform_asic") == "broadcom-dnx":
+            asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx
+        else:
+            asic_cmds = cmds.broadcom_cmd_bcmcmd_xgs
         cmds_to_check.update(
             {
                 "broadcom_cmd_bcmcmd":
-                    add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
+                    add_asic_arg(" -n {}", asic_cmds, num),
                 "broadcom_cmd_misc":
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
