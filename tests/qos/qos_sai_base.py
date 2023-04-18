@@ -446,6 +446,7 @@ class QosSaiBase(QosBase):
         """
         swapSyncd = request.config.getoption("--qos_swap_syncd")
         public_docker_reg = request.config.getoption("--public_docker_registry")
+        swapSyncd = 0
         try:
             if swapSyncd:
                 if public_docker_reg:
@@ -1367,7 +1368,7 @@ class QosSaiBase(QosBase):
             duthost.file(path=file["path"], state="absent")
 
     @pytest.fixture(scope='class', autouse=True)
-    def handleFdbAging(self, tbinfo, duthosts, lower_tor_host, get_src_dst_asic_duts):
+    def handleFdbAging(self, tbinfo, duthosts, lower_tor_host, get_src_dst_asic_and_duts):
         """
             Disable FDB aging and reenable at the end of tests
 
@@ -1426,7 +1427,8 @@ class QosSaiBase(QosBase):
                 RunAnsibleModuleFail if ptf test fails
         """
 
-        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        dut_asic = get_src_dst_asic_and_duts['src_asic']
+        duthost = get_src_dst_asic_and_duts['src_dut']
 
         dut_asic.command('sonic-clear fdb all')
         dut_asic.command('sonic-clear arp')
