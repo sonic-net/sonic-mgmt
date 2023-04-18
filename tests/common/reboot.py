@@ -7,6 +7,7 @@ import os
 from multiprocessing.pool import ThreadPool
 from collections import deque
 from .utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +181,9 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
     dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
+
+    # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+    ignore_t2_syslog_msgs(duthost)
 
     if reboot_type != REBOOT_TYPE_POWEROFF:
         reboot_res = pool.apply_async(execute_reboot_command)
