@@ -109,7 +109,7 @@
 {%- set pc_intfs = [] -%}
 {# Assumption - Backed ASIC always have port-channel connectivity #}
 {%- for intf in asic_config['neigh_asic'][neigh_asic]['asic_intfs'][0] %}
-{{- pc_intfs.append(intf) }} 
+{{- pc_intfs.append(intf) }}
 {%- endfor -%}
 {%- set port_channel_intf=pc_intfs|join(';') -%}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
@@ -219,7 +219,7 @@
          <Address>
 {{- nexthop_v6_intfs|join(',') -}}
          </Address>
-      </IPNextHop> 
+      </IPNextHop>
 {% endif %}
 {% endfor %}
 {% endfor %}

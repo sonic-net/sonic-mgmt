@@ -4,7 +4,7 @@ import subprocess
 import logging
 import traceback
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
 module: vlan_port
@@ -112,15 +112,17 @@ class VlanPort(object):
 
     @staticmethod
     def log_show_vlan_intf(port, vlan_id):
-        cmdline = "cat /proc/net/vlan/config | grep -E '\|[[:space:]]*%s[[:space:]]*\|'" % vlan_id
+        cmdline = r"cat /proc/net/vlan/config | grep -E '\|[[:space:]]*%s[[:space:]]*\|'" % vlan_id
         out = VlanPort.cmd(cmdline, ignore_error=True)
         lines = out.splitlines()
         if len(lines) == 0:
-            logging.debug("Port %s doesn't has vlan interface with vlan id %s" % (port, vlan_id))
+            logging.debug(
+                "Port %s doesn't has vlan interface with vlan id %s" % (port, vlan_id))
         elif len(lines) == 1:
             try:
                 vlan_intf, vlan_id, port = lines[0].strip().split("|")
-                logging.debug("Port %s has vlan interface %s with vlan id %s" % (port, vlan_intf, vlan_id))
+                logging.debug("Port %s has vlan interface %s with vlan id %s" % (
+                    port, vlan_intf, vlan_id))
             except Exception:
                 logging.warn("Unexpected output:\n%s", out)
         else:
@@ -136,12 +138,14 @@ class VlanPort(object):
     @staticmethod
     def cmd(cmdline, ignore_error=False):
         logging.debug("CMD: %s", cmdline)
-        process = subprocess.Popen(cmdline, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        process = subprocess.Popen(cmdline, stdout=subprocess.PIPE,
+                                   stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         stdout, stderr = process.communicate()
         ret_code = process.returncode
 
         if ret_code != 0 and not ignore_error:
-            raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
+            raise Exception("ret_code=%d, error message=%s. cmd=%s" %
+                            (ret_code, stderr, cmdline))
 
         if ret_code == 0:
             logging.info("OUTPUT: %s", stdout)
@@ -160,7 +164,8 @@ def main():
     ))
 
     # log separator
-    logging.info("--------------------------------------------------------------------")
+    logging.info(
+        "--------------------------------------------------------------------")
 
     cmd = module.params['cmd']
     external_port = module.params['external_port']
@@ -180,9 +185,12 @@ def main():
         for a_port_index, vid in vlan_ids.items():
             fp_ports[a_port_index] = fp_port_templ % vid
 
-        module.exit_json(changed=False, ansible_facts={'dut_fp_ports': fp_ports})
+        module.exit_json(changed=False, ansible_facts={
+                         'dut_fp_ports': fp_ports})
     except Exception as detail:
-        module.fail_json(msg="ERROR: %s, TRACEBACK: %s" % (repr(detail), traceback.format_exc()))
+        module.fail_json(msg="ERROR: %s, TRACEBACK: %s" %
+                         (repr(detail), traceback.format_exc()))
+
 
 if __name__ == "__main__":
     main()

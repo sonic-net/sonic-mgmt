@@ -1,10 +1,10 @@
 ---
 # This Playbook deploys all VMs defined in an inventory file under vms_x
-# 
+#
 # We need to run this playbook first, before we run any testbed_add script
 #
 # Every VM has 10 interfaces:
-#  - mgmt interface which is connected to the routable physical network. This address is defined as ansible_host in veos playbook   
+#  - mgmt interface which is connected to the routable physical network. This address is defined as ansible_host in veos playbook
 #  - Eth1/1 - Eth1/8 is connected to an ovs-bridge and later it could bound by testbed_add_vm_topology.yml
 #  - Eth1/9 is connected to other vm_set VMs Eth1/9
 #
