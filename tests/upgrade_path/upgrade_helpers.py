@@ -3,8 +3,8 @@ import logging
 import time
 import tempfile
 import random
-import ipaddress
 from six.moves.urllib.parse import urlparse
+import ipaddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
@@ -45,12 +45,6 @@ def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists
 
 def get_reboot_command(duthost, upgrade_type):
     reboot_command = reboot_ctrl_dict.get(upgrade_type).get("command")
-    if upgrade_type == REBOOT_TYPE_WARM:
-        next_os_version = duthost.shell('sonic_installer list | grep Next | cut -f2 -d " "')['stdout']
-        current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
-        # warm-reboot has to be forced for an upgrade from 201811 to 201811+ to bypass ASIC config changed error
-        if 'SONiC-OS-201811' in current_os_version and 'SONiC-OS-201811' not in next_os_version:
-            reboot_command = "warm-reboot -f"
     return reboot_command
 
 
@@ -65,7 +59,7 @@ def install_sonic(duthost, image_url, tbinfo):
     if urlparse(image_url).scheme in ('http', 'https',):
         mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
         mg_gwaddr = ipaddress.IPv4Address(mg_gwaddr)
-        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
+        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
         for nexthop in rtinfo_v4['nexthops']:
             if mg_gwaddr == nexthop[0]:
                 break

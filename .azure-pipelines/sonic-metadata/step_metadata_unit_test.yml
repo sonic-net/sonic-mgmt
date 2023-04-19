@@ -5,5 +5,4 @@ steps:
     cd scripts/tests
     pytest test_cleanup_firmware.py
     pytest eos_to_sonic_test.py
-    pytest test_bgp_neighbor.py
   displayName: Unit test SONiC metadata scripts

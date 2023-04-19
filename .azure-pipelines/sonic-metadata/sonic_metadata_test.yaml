@@ -31,9 +31,22 @@ parameters:
   default: true
   type: boolean
 
-- name: SKIP_SAD_CASES
-  default: true
-  type: boolean
+- name: SKIP_REBOOT_CASES
+  default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
+  type: string
+  displayName: "Cases to skip running"
+  values:
+  - test_upgrade_path
+  - test_warm_upgrade_sad_path
+  - test_cancelled_upgrade_path
+  - test_cancelled_upgrade_path test_upgrade_path
+  - test_cancelled_upgrade_path test_warm_upgrade_sad_path test_upgrade_path
+  - test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path
+  - " "
+
+- name: SELECT_SAD_CASES
+  default: "sad,multi_sad,sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+  type: string
 
 - name: TEST_TCAM_HOLE
   default: false
@@ -49,6 +62,7 @@ parameters:
   - $(IMAGE_BRCM_201811)
   - $(IMAGE_BRCM_201911)
   - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_202205)
   - $(IMAGE_BRCM_PUBLIC)
   - $(IMAGE_BRCM_202012_SLIM)
   - $(IMAGE_BRCM_ABOOT_201811)
@@ -56,11 +70,18 @@ parameters:
   - $(IMAGE_BRCM_ABOOT_202012)
   - $(IMAGE_BRCM_ABOOT_202012_SLIM)
   - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_202205)
+  - $(IMAGE_BRCM_ABOOT_202205_SLIM)
   - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(IMAGE_CISCO_202012)
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
   - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_202205)
   - $(IMAGE_MLNX_PUBLIC)
+  - $(IMAGE_MARVELL_202012)
+  - $(IMAGE_MARVELL_202205)
+  - $(IMAGE_MARVELL_PUBLIC)
 
 - name: TO_IMAGE_LIST
   type: string
@@ -72,6 +93,7 @@ parameters:
   - $(IMAGE_BRCM_201811)
   - $(IMAGE_BRCM_201911)
   - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_202205)
   - $(IMAGE_BRCM_PUBLIC)
   - $(IMAGE_BRCM_202012_SLIM)
   - $(IMAGE_BRCM_ABOOT_201811)
@@ -79,12 +101,32 @@ parameters:
   - $(IMAGE_BRCM_ABOOT_202012)
   - $(IMAGE_BRCM_ABOOT_202012_SLIM)
   - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_202205)
+  - $(IMAGE_BRCM_ABOOT_202205_SLIM)
   - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(IMAGE_CISCO_202012)
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
   - $(IMAGE_MLNX_202012)
   - $(IMAGE_MLNX_202205)
   - $(IMAGE_MLNX_PUBLIC)
+  - $(IMAGE_MARVELL_202012)
+  - $(IMAGE_MARVELL_202205)
+  - $(IMAGE_MARVELL_PUBLIC)
+
+- name: ITERATIONS
+  type: string
+  default: "1"
+  values:
+  - "1"
+  - "10"
+  - "100"
+  - "500"
+
+- name: SKIP_TEST_RESULTS_UPLOADING
+  displayName: "Upload timing data report to Kusto"
+  type: boolean
+  default: false
 
 stages:
 - stage: SONiCMetadataPreTest
@@ -115,4 +157,7 @@ stages:
     FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
     TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
     TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
-    SKIP_SAD_CASES: ${{ parameters.SKIP_SAD_CASES }}
+    SKIP_REBOOT_CASES: ${{ parameters.SKIP_REBOOT_CASES }}
+    SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
+    ITERATIONS : ${{ parameters.ITERATIONS }}
+    SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}

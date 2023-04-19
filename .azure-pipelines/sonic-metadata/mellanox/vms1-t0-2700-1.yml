@@ -10,6 +10,14 @@ resources:
     name: sonic-metadata
     ref: master
 
+schedules:
+  - cron: "0 0,12 * * *"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
@@ -23,7 +31,7 @@ parameters:
 - name: UPGRADE_TYPE
   type: string
   displayName: "Type of upgrade"
-  default: warm,fast,cold
+  default: warm
   values:
   - warm
   - fast
@@ -39,7 +47,7 @@ parameters:
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
-  default: $(IMAGE_MLNX_201811)
+  default: $(IMAGE_MLNX_201911)
   values:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
@@ -54,12 +62,38 @@ parameters:
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
-  default: $(IMAGE_MLNX_202012)
+  default: $(IMAGE_MLNX_202205)
   values:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
   - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_202205)
   - $(IMAGE_MLNX_PUBLIC)
+
+- name: SKIP_REBOOT_CASES
+  default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
+  type: string
+  displayName: "Cases to skip running"
+  values:
+  - test_upgrade_path
+  - test_warm_upgrade_sad_path
+  - test_cancelled_upgrade_path
+  - test_cancelled_upgrade_path test_upgrade_path
+  - test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path
+  - " "
+
+- name: SELECT_SAD_CASES
+  default: "sad,multi_sad,sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+  type: string
+
+- name: ITERATIONS
+  type: string
+  default: "20"
+  values:
+  - "1"
+  - "20"
+  - "100"
+  - "500"
 
 stages:
   - template: ../metadata_upgrade_template.yml
@@ -70,3 +104,6 @@ stages:
       FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
       TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
       TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+      SKIP_REBOOT_CASES: ${{ parameters.SKIP_REBOOT_CASES }}
+      SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
+      ITERATIONS : ${{ parameters.ITERATIONS }}

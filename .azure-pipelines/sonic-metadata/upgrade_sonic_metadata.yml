@@ -15,121 +15,204 @@ parameters:
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
-- name: SKIP_SAD_CASES
-  default: true
-  type: boolean
+- name: SKIP_REBOOT_CASES
+  default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
+  type: string
+- name: SELECT_SAD_CASES
+  default: "sad,multi_sad,sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+  type: string
 - name: TEST_TCAM_HOLE
   default: false
   type: boolean
+- name: ITERATIONS
+  type: object
+  default: [1]
+- name: SKIP_TEST_RESULTS_UPLOADING
+  displayName: "Upload timing data report to Kusto"
+  type: boolean
+  default: true
 
 steps:
-- script: |
-    set -x
-    cd sonic-mgmt-int
-    BASE_PATH=`pwd`
+- ${{ each iter in parameters.ITERATIONS }}:
+  - script: |
+      set -x
+      cd sonic-mgmt-int
+      BASE_PATH=`pwd`
+      echo " Continue running test: $(CONTINUE)" # outputs secondValue
+      rm -rf $(Build.ArtifactStagingDirectory)/*
+      if $(CONTINUE); then
+        iteration=${{ iter }}
+        echo "================ iteration ${iteration} started==================="
+        username=$(id -un)
+        function get_image_type()
+        {
+          IMAGE_URL=$1
+          arrURL=(${IMAGE_URL//./ })
+          IMAGE_TYPE=${arrURL[-1]}
+          echo "$IMAGE_TYPE"
+        }
+        function get_image_url()
+        {
+          IMAGE_URL=$1
+          IMAGE_TYPE=$2
+          arrURL=(${IMAGE_URL//.$IMAGE_TYPE/ })
+          IMAGE_URL_PREFIX=${arrURL[0]}
 
-    function get_image_type()
-    {
-      IMAGE_URL=$1
-      arrURL=(${IMAGE_URL//./ })
-      IMAGE_TYPE=${arrURL[-1]}
-      echo "$IMAGE_TYPE"
-    }
-    function get_image_url()
-    {
-      IMAGE_URL=$1
-      IMAGE_TYPE=$2
-      arrURL=(${IMAGE_URL//.$IMAGE_TYPE/ })
-      IMAGE_URL_PREFIX=${arrURL[0]}
+          if [[ $IMAGE_URL == *"201811"* ]]; then
+              IMAGE_SUFFIX=20181130
+          elif [[ $IMAGE_URL == *"201911"* ]]; then
+              IMAGE_SUFFIX=20191130
+          elif [[ $IMAGE_URL == *"202012"* ]]; then
+              IMAGE_SUFFIX=20201231
+          elif [[ $IMAGE_URL == *"202205"* ]]; then
+              IMAGE_SUFFIX=20220531
+          fi
+          echo "$IMAGE_URL_PREFIX-$IMAGE_SUFFIX"
+        }
+        IMAGE_TYPE=`get_image_type ${{ parameters.FROM_IMAGE_URL }}`
+        FROM_IMAGE_URL=`get_image_url ${{ parameters.FROM_IMAGE_URL }} $IMAGE_TYPE`
+        TO_IMAGE_URL=`get_image_url ${{ parameters.TO_IMAGE_URL }} $IMAGE_TYPE`
+        cd tests
 
-      if [[ $IMAGE_URL == *"201811"* ]]; then
-          IMAGE_SUFFIX=20181130
-      elif [[ $IMAGE_URL == *"201911"* ]]; then
-          IMAGE_SUFFIX=20191130
-      elif [[ $IMAGE_URL == *"202012"* ]]; then
-          IMAGE_SUFFIX=20201231
-      elif [[ $IMAGE_URL == *"202205"* ]]; then
-          IMAGE_SUFFIX=20220531
+        if [[ ${{ parameters.METADATA_UPGRADE_PATH }} == True ]]; then
+            metadata_process_option=--metadata_process
+        fi
+
+        for skip_case in ${{ parameters.SKIP_REBOOT_CASES }}; do final_skip_list="$final_skip_list metadata-scripts/test_metadata_upgrade_path.py::$skip_case"; done
+        select_sad_cases="${{ parameters.SELECT_SAD_CASES }}"
+
+        if [[ ${{ parameters.TEST_TCAM_HOLE }} == True ]]; then
+            tcam_hole_option=--tcam_hole
+        fi
+
+        FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
+        TO_IMAGE_LIST="${{ parameters.TO_IMAGE_LIST }}"
+        UPGRADE_TYPE="${{ parameters.UPGRADE_TYPE }}"
+        TEST_PASS="PASS"
+        for from_image in $FROM_IMAGE_LIST; do
+          echo =================== Upgrading from $from_image =====================
+          for to_image in $TO_IMAGE_LIST; do
+            echo ======== Upgrading to $to_image ========
+            from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
+            to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
+            if [[ $from_image == *"latest"* ]]; then
+              from_url=${{ parameters.FROM_IMAGE_URL }}
+            fi
+            if [[ $from_image == *"prev"* ]]; then
+              from_url=${{ parameters.FROM_IMAGE_URL }}.PREV.1 
+            fi
+            if [[ $to_image == *"latest"* ]]; then
+              to_url=${{ parameters.TO_IMAGE_URL }}
+            fi
+            echo From URL is $from_url
+            echo To URL is $to_url
+
+            EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $metadata_process_option $tcam_hole_option"
+
+            ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+              -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
+              -m individual \
+              -l INFO \
+              -e "$EXTRA_PARAMS" \
+              -u \
+              -s "$final_skip_list" \
+              -c "metadata-scripts/test_metadata_upgrade_path.py"
+
+            if [ $? -ne 0 ]; then
+                TEST_PASS="FAIL"
+                # fail and stop all the remaining batches if pytest fails
+                echo "##vso[task.setvariable variable=CONTINUE]false"
+                echo "##vso[task.setvariable variable=SKIP_COLLECT_SHOW_TECHSUPPORT]false"
+            fi
+          done
+        done
+        mkdir -p logs/continuous_warm_reboot/ || true
+        cp -r logs $(Build.ArtifactStagingDirectory)/
+        rm -rf logs
+        sudo chown -R $username.$username $(Build.ArtifactStagingDirectory)
+        echo "================ iteration ${iteration} completed==================="
+      else
+        echo "Test execution failure caused skipping of remaining tests"
+        echo "##vso[task.setvariable variable=COLLECT_ARTIFACT]false"
+        exit 2
       fi
-      echo "$IMAGE_URL_PREFIX-$IMAGE_SUFFIX"
-    }
-    IMAGE_TYPE=`get_image_type ${{ parameters.FROM_IMAGE_URL }}`
-    FROM_IMAGE_URL=`get_image_url ${{ parameters.FROM_IMAGE_URL }} $IMAGE_TYPE`
-    TO_IMAGE_URL=`get_image_url ${{ parameters.TO_IMAGE_URL }} $IMAGE_TYPE`
-    cd tests
+      if [ "$TEST_PASS" = FAIL ]; then
+          exit 1
+      fi
+    env:
+      INVENTORY_NAME: $(INVENTORY_NAME)
+      CONTINUE: $(CONTINUE)
+      COLLECT_ARTIFACT: $(COLLECT_ARTIFACT)
+      SKIP_COLLECT_SHOW_TECHSUPPORT: $(SKIP_COLLECT_SHOW_TECHSUPPORT)
 
-    if [[ ${{ parameters.METADATA_UPGRADE_PATH }} == True ]]; then
-        metadata_process_option=--metadata_process
-    fi
-    if [[ ${{ parameters.SKIP_SAD_CASES }} == True ]]; then
-        skip_sad_cases="metadata-scripts/test_metadata_upgrade_path.py::test_warm_upgrade_sad_path"
-    else
-        skip_sad_cases=" "
-    fi
-    if [[ ${{ parameters.TEST_TCAM_HOLE }} == True ]]; then
-        tcam_hole_option=--tcam_hole
-    fi
+    displayName: UpgradeSonic
+    continueOnError: true
+  
+  - task: Bash@3
+    displayName: Collect show techsupport results
+    inputs:
+      targetType: 'inline'
+      script: |
+        set -x
 
-    FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
-    TO_IMAGE_LIST="${{ parameters.TO_IMAGE_LIST }}"
-    UPGRADE_TYPE="${{ parameters.UPGRADE_TYPE }}"
-    TEST_PASS="PASS"
-    for from_image in $FROM_IMAGE_LIST; do
-      echo =================== Upgrading from $from_image =====================
-      for to_image in $TO_IMAGE_LIST; do
-        echo ======== Upgrading to $to_image ========
-        from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
-        to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
-        if [[ $from_image == *"latest"* ]]; then
-          from_url=${{ parameters.FROM_IMAGE_URL }}
-        fi
-        if [[ $to_image == *"latest"* ]]; then
-          to_url=${{ parameters.TO_IMAGE_URL }}
-        fi
-        echo From URL is $from_url
-        echo To URL is $to_url
+        cd sonic-mgmt-int/ansible
+        mkdir show_tech_results
+        ./testbed-cli.sh -t testbed.yaml collect-show-tech ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt -e "output_path=show_tech_results" || exit 0
 
-        EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url $metadata_process_option $tcam_hole_option"
+        cp -r show_tech_results $(Build.ArtifactStagingDirectory)/logs
 
-        ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-          -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
-          -m individual \
-          -l INFO \
-          -e "$EXTRA_PARAMS" \
-          -u \
-          -s "$skip_sad_cases" \
-          -c "metadata-scripts/test_metadata_upgrade_path.py"
+    condition: eq(variables['SKIP_COLLECT_SHOW_TECHSUPPORT'], 'false')
 
-        ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-          -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
-          -m individual \
-          -l INFO \
-          -e "$EXTRA_PARAMS" \
-          -u \
-          -s "$skip_sad_cases" \
-          -c "metadata-scripts/test_metadata_scripts.py"
+  - task: Bash@3
+    displayName: Cleanup show techsupport Results
+    inputs:
+      targetType: 'inline'
+      script: |
+        set -x
+        rm -fr ./sonic-mgmt-int/ansible/show_tech_results
+        echo "##vso[task.setvariable variable=SKIP_COLLECT_SHOW_TECHSUPPORT]true"
+    condition: eq(variables['SKIP_COLLECT_SHOW_TECHSUPPORT'], 'false')
 
-        ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
-          -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
-          -m individual \
-          -l INFO \
-          -e "$EXTRA_PARAMS" \
-          -u \
-          -s "$skip_sad_cases" \
-          -c "metadata-scripts/test_metadata_bgp.py"
+  - publish: $(Build.ArtifactStagingDirectory)/logs
+    artifact: ${{ parameters.TESTBED_NAME}}.continuous-upgrade.log@${{ iter }}
+    displayName: "Archive upgrade per-iteration logs"
+    continueOnError: false
+    condition: eq(variables['COLLECT_ARTIFACT'], 'true')
+  - task: Bash@3
+    displayName: Upload Upgrade path reboot timing data
+    inputs:
+      targetType: 'inline'
+      script: |
+        set -x
 
-        if [ $? -ne 0 ]; then
-            TEST_PASS="FAIL"
-        fi
-        sleep 60
-      done
-    done
-    if [ "$TEST_PASS" = FAIL ]; then
-        exit 1
-    fi
-  env:
-    INVENTORY_NAME: $(INVENTORY_NAME)
-  displayName: UpgradeSonic
-- script: |
-    sleep 180
-  displayName: "Sleep"
+        echo "Activate python3 virtual environment"
+        source /var/AzDevOps/env-python3/bin/activate
+
+        cd ./sonic-mgmt-int/test_reporting
+        pip3 install -r requirements.txt
+
+        python3 junit_xml_parser.py -d ../../results -o tr.json
+
+        # temporary workaround to allow reboot timing data upload
+        # After recent test change, the file names get DUT name in them
+        # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
+        reboot_path=$(Build.ArtifactStagingDirectory)/logs/platform_tests
+        reboot_results=`find $reboot_path -type f -regex '.*test.*_\(reboot\|upgrade_path\).*_\(summary\|report\).json'`
+
+        for reboot_result in $reboot_results; do
+            result_target=`echo $reboot_result | sed "s/\[.*\]//g"`
+            mv $reboot_result $result_target || true
+        done
+
+        report_upload_files="$(find $reboot_path -type f -regex '.*test.*_\(reboot\|sad.*\|upgrade_path\)_\(summary\|report\).json')"
+        python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files SonicTestData
+    condition: and(eq(variables['COLLECT_ARTIFACT'], 'true'), ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }})
+    env:
+      TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+      TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+      TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+      TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+      TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+      TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+      TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+      TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
