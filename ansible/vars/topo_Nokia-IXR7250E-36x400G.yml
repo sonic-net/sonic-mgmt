@@ -4,7 +4,7 @@ slot0:
         NEIGH_ASIC:
       configuration_properties:
         common:
-          asic_type: FrontEnd 
+          asic_type: FrontEnd
       configuration:
 
     ASIC1:

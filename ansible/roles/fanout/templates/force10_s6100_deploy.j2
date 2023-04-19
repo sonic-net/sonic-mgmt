@@ -29,9 +29,9 @@ interface {{ intf }}
  interface Vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
  vlan-stack compatible
  member {{ intf }}
-{% elif intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %} 
+{% elif intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %}
  description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
- vlan-stack trunk 
+ vlan-stack trunk
  no shutdown
 {% for vlanid in  device_port_vlans[inventory_hostname][intf]['vlanlist']  %}
  interface Vlan {{ vlanid }}
@@ -47,12 +47,12 @@ interface {{ intf }}
 {% endfor %}
 !
 interface ManagementEthernet 1/1
- ip address {{ device_info[inventory_hostname]["ManagementIp"] }} 
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }}
  no shutdown
 !
 interface Vlan 1
 !
-management route 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }} 
+management route 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
 !
 ip ssh server enable
 !
@@ -76,4 +76,3 @@ reload-type
 !
 end
 write mem
-

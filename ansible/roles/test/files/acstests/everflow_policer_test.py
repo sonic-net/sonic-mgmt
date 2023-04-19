@@ -141,7 +141,7 @@ class EverflowPolicerTest(BaseTest):
         self.send_time = int(self.test_params['send_time'])
         self.tolerance = int(self.test_params['tolerance'])
         self.check_ttl = self.test_params['check_ttl']
-        
+
         assert_str = "meter_type({0}) not in {1}".format(self.meter_type, str(self.METER_TYPES))
         assert self.meter_type in self.METER_TYPES, assert_str
         assert_str = "cir({}) > 0".format(self.cir)

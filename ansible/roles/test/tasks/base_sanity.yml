@@ -4,7 +4,7 @@
      ignore_errors: yes
 
    - debug: var=ps_out.stdout_lines
-   
+
    - name: Get orchagent process information
      shell: pgrep orchagent -a
      register: orch_out

@@ -29,4 +29,3 @@
 
 - name: Remove {{ vm_type }} disk image for {{ vm_name }}
   file: path={{ disk_image }} state=absent
-

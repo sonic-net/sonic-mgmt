@@ -30,11 +30,14 @@ root.addHandler(handler)
 
 server_host_map = {}
 
+
 def get_testbeds_dict():
     """Return a dictionary containing mapping from dut hostname to testbed name."""
-    testbed = imp.load_source('testbed', os.path.join(SONIC_MGMT_DIR, 'tests/common/testbed.py'))
+    testbed = imp.load_source('testbed', os.path.join(
+        SONIC_MGMT_DIR, 'tests/common/testbed.py'))
     testbeds_dict = testbed.TestbedInfo(TESTBED_FILE).testbed_topo
     return testbeds_dict
+
 
 def get_server_host(inventory_files, server):
     if not has_ansible:
@@ -50,6 +53,7 @@ def get_server_host(inventory_files, server):
             return host.name.lower()
     logging.error("Can't find host for server {}".format(server))
     return
+
 
 def parse_ping_result(ping_dict, testbeds_dict, skip_testbeds):
     """
@@ -106,6 +110,7 @@ def parse_ping_result(ping_dict, testbeds_dict, skip_testbeds):
             final_results.append(device_result)
     return final_results
 
+
 def run_devutils(skip_testbeds):
     """Run devutils to check icmp reachability for testbeds"""
 
@@ -114,8 +119,9 @@ def run_devutils(skip_testbeds):
     testbeds_dict = get_testbeds_dict()
 
     for group in GROUPS:
-        input_file_name ='ping_{}.json'.format(group)
-        command_dut = './devutils -i {} -a ping -j > {}'.format(group, input_file_name)
+        input_file_name = 'ping_{}.json'.format(group)
+        command_dut = './devutils -i {} -a ping -j > {}'.format(
+            group, input_file_name)
         logging.info('Start running command %s', command_dut)
 
         returncode = os.system(command_dut)
@@ -138,15 +144,18 @@ def run_devutils(skip_testbeds):
 
     with open(SONIC_TESTBED_HEALTH_FILE, 'w') as fp:
         json.dump(health_results, fp, indent=4)
-        logging.info("Save results into file {}".format(SONIC_TESTBED_HEALTH_FILE))
+        logging.info("Save results into file {}".format(
+            SONIC_TESTBED_HEALTH_FILE))
     return
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Get testbed health status.')
     # skip-testbeds is seperated by ","
-    parser.add_argument('--skip-testbeds', default='', type=str, required=False, help='testbeds to skip')
-    parser.add_argument('--log-level', choices=['debug', 'info', 'warn', 'error', 'critical'], default='info', help='logging output level')
+    parser.add_argument('--skip-testbeds', default='',
+                        type=str, required=False, help='testbeds to skip')
+    parser.add_argument('--log-level', choices=['debug', 'info', 'warn',
+                        'error', 'critical'], default='info', help='logging output level')
     args = parser.parse_args()
 
     skip_testbeds = args.skip_testbeds

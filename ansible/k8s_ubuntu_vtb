@@ -10,7 +10,7 @@ all:
     k8s_servers:
       children:
         k8s_server_21:
-    
+
 k8s_server_21:
   vars:
     host_var_file: host_vars/STR-ACS-VSERV-21.yml
@@ -40,7 +40,7 @@ k8s_vms1_21:
       master: true
     kvm21-1ha:
       ansible_host: 10.250.0.109
-      haproxy: true 
+      haproxy: true
 
 k8s_vms2_21:
   hosts:
@@ -58,9 +58,4 @@ k8s_vms2_21:
       master: true
     kvm21-2ha:
       ansible_host: 10.250.0.113
-      haproxy: true 
-
-
-
-
-
+      haproxy: true

@@ -51,11 +51,11 @@
 - set_fact:
     test_ports: "{{ test_ports | combine( {p:{'test_neighbor_addr':pfc_wd_test_neighbor_addr, 'rx_port':pfc_wd_rx_port, 'rx_neighbor_addr': pfc_wd_rx_neighbor_addr, 'peer_device':neighbors[p]['peerdevice'], 'test_port_id': minigraph_port_indices[p], 'rx_port_id': pfc_wd_rx_port_id.split(' ') | list, 'test_portchannel_members': pfc_wd_test_port_id.split(' ') | list, 'test_port_type':'portchannel' }})  }}"
   when: rx_pc_port is defined and test_pc_port is defined and testbed_type in ['t0-64', 't0-116', 't1-lag']
- 
+
 - set_fact:
     p: "{{pfc_wd_rx_port[0]}}"
   when: first_pair
- 
+
 - set_fact:
     test_ports: "{{ test_ports | combine( {p:{'test_neighbor_addr':pfc_wd_rx_neighbor_addr, 'rx_port':pfc_wd_test_port, 'rx_neighbor_addr': pfc_wd_test_neighbor_addr, 'peer_device':neighbors[p]['peerdevice'], 'test_port_id': minigraph_port_indices[p], 'rx_port_id': pfc_wd_test_port_id.split(' ') | list , 'test_portchannel_members': pfc_wd_rx_port_id.split(' ') | list, 'test_port_type':'portchannel' }})  }}"
   when: first_pair
@@ -63,7 +63,7 @@
 - set_fact:
     p: "{{pfc_wd_rx_port[1]}}"
   when: first_pair and testbed_type in ['t0-64', 't0-116']
- 
+
 - set_fact:
     test_ports: "{{ test_ports | combine( {p:{'test_neighbor_addr':pfc_wd_rx_neighbor_addr, 'rx_port':pfc_wd_test_port, 'rx_neighbor_addr': pfc_wd_test_neighbor_addr, 'peer_device':neighbors[p]['peerdevice'], 'test_port_id': minigraph_port_indices[p], 'rx_port_id': pfc_wd_test_port_id.split(' ') | list , 'test_portchannel_members': pfc_wd_rx_port_id.split(' ') | list, 'test_port_type':'portchannel' }})  }}"
   when: first_pair and testbed_type in ['t0-64', 't0-116']

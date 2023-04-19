@@ -17,4 +17,3 @@ iface {{ interface['name'] }} {{ 'inet' if interface['addr'] | ipv4 else 'inet6'
 {% endfor %}
 {% endblock lag_interface %}
 #
-

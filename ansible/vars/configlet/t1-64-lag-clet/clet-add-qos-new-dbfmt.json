@@ -14,7 +14,7 @@
                 "admin_status": "up",
                 "min_links": "1",
                 "mtu": "9100"
-            } 
+            }
         }
     },
     {
@@ -97,18 +97,18 @@
             "Ethernet63": {
                 "name": "ARISTA20T0",
                 "port": "Ethernet1"
-            }   
-        }   
+            }
+        }
     },
     {
         "DEVICE_NEIGHBOR_METADATA": {
             "ARISTA20T0": {
                 "lo_addr": "None",
                 "mgmt_addr": "10.64.247.223",
-                "hwsku": "Arista-VM", 
+                "hwsku": "Arista-VM",
                 "type": "ToRRouter",
                 "deployment_id": "2"
-            }   
+            }
         }
     },
     {
@@ -156,13 +156,13 @@
         "BUFFER_QUEUE": {
             "Ethernet63|0-2": {
                 "profile": "egress_lossy_profile"
-            },  
+            },
             "Ethernet63|3-4": {
                 "profile": "egress_lossless_profile"
-            },  
+            },
             "Ethernet63|5-6": {
                 "profile": "egress_lossy_profile"
-            }  
+            }
 
         }
     },
@@ -218,4 +218,3 @@
         }
     }
 ]
-

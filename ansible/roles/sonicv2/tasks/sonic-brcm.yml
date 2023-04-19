@@ -48,7 +48,7 @@
   become: true
   file: path=/usr/sbin/bcmcmd
         state=absent
-                                   
+
 - name: Copy bcmcmd helper script
   become: true
   copy: src=bin/bcmcmd.v2

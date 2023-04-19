@@ -55,8 +55,8 @@ k8s_vms1_19:
       master: true
     kvm19-1ha:
       ansible_host: 10.251.0.106
-      haproxy: true 
- 
+      haproxy: true
+
 k8s_vms2_19:
   hosts:
     kvm19-2m1:
@@ -73,8 +73,8 @@ k8s_vms2_19:
       master: true
     kvm19-2ha:
       ansible_host: 10.251.0.110
-      haproxy: true 
- 
+      haproxy: true
+
 k8s_vms1_20:
   hosts:
     kvm20-1m1:
@@ -91,7 +91,7 @@ k8s_vms1_20:
       master: true
     kvm20-1ha:
       ansible_host: 10.251.0.114
-      haproxy: true 
+      haproxy: true
 
 k8s_vms2_20:
   hosts:
@@ -109,6 +109,4 @@ k8s_vms2_20:
       master: true
     kvm20-2ha:
       ansible_host: 10.251.0.118
-      haproxy: true 
-
-
+      haproxy: true
