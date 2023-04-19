@@ -4290,14 +4290,23 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
                                             ecn=ecn,
                                             packet_size=packet_size)
 
-            # Send packets short of triggering pfc
-            send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
-            time.sleep(8)
-            # Read TX_OK again to calculate leaked packet number
-            tx_counters, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[dst_port_id])
-            leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - tx_counters_base[TRANSMITTED_PKTS]
-            # Send packets to compensate the leaked packets
-            send_packet(self, src_port_id, pkt, leaked_packet_number)
+            # Send packets short of triggering pfc while compensating for leakout
+            if 'cisco-8000' in asic_type:
+                assert(fill_leakout_plus_one(self, src_port_id,
+                       dst_port_id, pkt, int(self.test_params['pg']), asic_type))
+                num_pkts = pkts_num_trig_pfc - pkts_num_margin - 1
+                send_packet(self, src_port_id, pkt, num_pkts)
+                print("Sending {} packets to port {}".format(num_pkts, src_port_id), file=sys.stderr)
+            else:
+                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc - pkts_num_margin)
+                time.sleep(8)
+                # Read TX_OK again to calculate leaked packet number
+                tx_counters, _ = sai_thrift_read_port_counters(
+                    self.client, asic_type, port_list[dst_port_id])
+                leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - \
+                    tx_counters_base[TRANSMITTED_PKTS]
+                # Send packets to compensate the leaked packets
+                send_packet(self, src_port_id, pkt, leaked_packet_number)
             time.sleep(8)
             # Read rx counter again. No PFC pause frame should be triggered
             rx_counters, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])
@@ -4306,6 +4315,8 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             rx_counters_base = rx_counters
             # Send some packets to trigger PFC
             send_packet(self, src_port_id, pkt, 1 + 2 * pkts_num_margin)
+            print("Sending {} packets to port {} to trigger PFC".format(1 + 2 * pkts_num_margin, src_port_id),
+                  file=sys.stderr)
             time.sleep(8)
             rx_counters, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])
             # Verify PFC pause frame is generated on expected PG
