@@ -150,10 +150,13 @@ class PortConfigGenerator(object):
         port_config = {}
         with open(filepath) as fd:
             lines = fd.readlines()
-            header = lines[0].strip("#\n ")
+            header_index = 0
+            while "alias" not in lines[header_index]:
+                header_index = header_index + 1
+            header = lines[header_index].strip("#\n ")
             keys = header.split()
             alias_index = keys.index("alias")
-            for line in lines[1:]:
+            for line in lines[header_index+1:]:
                 if not line:
                     continue
                 values = line.split()
