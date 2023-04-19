@@ -20,7 +20,8 @@ def generate_mux_cable_facts(topology):
     host_interfaces_active_active = set(get_intf_index(_) for _ in topology.get("host_interfaces_active_active", []))
     enabled_interfaces = sorted(list(host_interfaces - disabled_host_interfaces))
 
-    vlan_config = list(topology["DUT"]["vlan_configs"][topology["DUT"]["vlan_configs"]["default_vlan_config"]].values())[0]
+    vlan_config = list(
+        topology["DUT"]["vlan_configs"][topology["DUT"]["vlan_configs"]["default_vlan_config"]].values())[0]
     # NOTE: vlan prefix will be 192.168.0.1/21 and fc02:1000::1/64
     vlan_prefix_v4 = vlan_config["prefix"]
     vlan_prefix_v6 = vlan_config["prefix_v6"]

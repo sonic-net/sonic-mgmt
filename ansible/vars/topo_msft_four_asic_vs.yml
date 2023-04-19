@@ -13,7 +13,7 @@ slot0:
       configuration_properties:
         common:
           dut_asn: 65100
-          asic_type: FrontEnd 
+          asic_type: FrontEnd
       configuration:
         ASIC2:
           bgp:

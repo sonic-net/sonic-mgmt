@@ -15,4 +15,3 @@ data = megabyte * count
 
 while True:
     time.sleep(1)
-
