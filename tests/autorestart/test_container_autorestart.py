@@ -29,13 +29,9 @@ POST_CHECK_THRESHOLD_SECS = 360
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
-    # # Enable autorestart for all features before the test begins
-    # for hostname in selected_rand_one_per_hwsku_hostname:
-    #     duthost = duthosts[hostname]
-    #     feature_list, _ = duthost.get_feature_status()
-    #     for feature, status in list(feature_list.items()):
-    #         if status == 'enabled':
-    #             duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+    # Enable autorestart for all features before the test begins
+    enable_autorestart(duthosts, selected_rand_one_per_hwsku_hostname)
+
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
@@ -44,7 +40,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
 
 
 def enable_autorestart(duthosts, selected_rand_one_per_hwsku_hostname):
-    # Enable autorestart for all features before the test begins
+    # Enable autorestart for all features
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         feature_list, _ = duthost.get_feature_status()
