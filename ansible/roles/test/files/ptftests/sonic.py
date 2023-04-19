@@ -293,11 +293,12 @@ class Sonic(host_device.HostDevice):
 
         po_carrier_data = [k for k in data["teamd#teamd_PortChannel1"] if "carrier changed to" in k[1]]
 
-        # first state is down, last state is up
-        first_state = po_carrier_data[0][1].replace("carrier changed to ", "")
-        last_state = po_carrier_data[-1][1].replace("carrier changed to ", "")
-        assert first_state == 'DOWN', 'First PO state should be down, it was {}'.format(first_state)
-        assert last_state == 'UP', 'Last PO state should be up, it was {}'.format(last_state)
+        if len(po_carrier_data) > 0:
+            # first state is down, last state is up
+            first_state = po_carrier_data[0][1].replace("carrier changed to ", "")
+            last_state = po_carrier_data[-1][1].replace("carrier changed to ", "")
+            assert first_state == 'DOWN', 'First PO state should be down, it was {}'.format(first_state)
+            assert last_state == 'UP', 'Last PO state should be up, it was {}'.format(last_state)
 
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was down (seconds)" if ':' in neig_ip else "BGP IPv4 was down (seconds)"
@@ -307,16 +308,16 @@ class Sonic(host_device.HostDevice):
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
             result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
 
-        result['PortChannel was down (seconds)'] = po_carrier_data[-1][0] - po_carrier_data[0][0]
+        result['PortChannel was down (seconds)'] = po_carrier_data[-1][0] - po_carrier_data[0][0] if len(po_carrier_data) > 0 else 0
         #for if_name in sorted(result_if.keys()):
         #    result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
 
         bgp_po_offset = initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if
-        result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + po_carrier_data[0][0]
+        result['BGP went down after portchannel went down (seconds)'] = bgp_po_offset
 
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was gotten up after Po was up (seconds)" if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
-            result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset - po_carrier_data[-1][0]
+            result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset
 
         return result
 
