@@ -410,7 +410,9 @@ def test_active_link_admin_down_config_reload_downstream(
 
             send_t1_to_server_with_action(
                 upper_tor_host, verify=True,
+                stop_after=180,
                 allowed_disruption=0,
+                allow_disruption_before_traffic=True
             )
             
         finally:
