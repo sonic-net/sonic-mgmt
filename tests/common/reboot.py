@@ -382,7 +382,7 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     if reboot_cause_history_got:
         if not set(REBOOT_CAUSE_HISTORY_TITLE) == set(reboot_cause_history_got[0].keys()):
             logger.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".
-                          format(REBOOT_CAUSE_HISTORY_TITLE, list(reboot_cause_history_got[0].keys())))
+                         format(REBOOT_CAUSE_HISTORY_TITLE, list(reboot_cause_history_got[0].keys())))
             return False
 
     logger.info("Verify reboot-cause output are sorted in reverse chronological order")
@@ -391,11 +391,11 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
         for index, reboot_type in enumerate(reboot_type_history_queue):
             if reboot_type not in reboot_ctrl_dict:
                 logger.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
-                             format(reboot_type))
+                            format(reboot_type))
                 continue
             logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
-                         (index, reboot_ctrl_dict[reboot_type]["cause"],
-                          reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
+                        (index, reboot_ctrl_dict[reboot_type]["cause"],
+                         reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
             if not re.search(reboot_ctrl_dict[reboot_type]["cause"],
                              reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
                 logger.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(

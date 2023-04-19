@@ -13,10 +13,9 @@ from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa F811
-from tests.common.dualtor.mux_simulator_control import (
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-)  # noqa F811
+from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa F401
+from tests.common.dualtor.mux_simulator_control import \
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m   # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
@@ -282,8 +281,8 @@ def test_bgp_update_timer_single_route(
     constants,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-):  # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
+):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
@@ -380,8 +379,8 @@ def test_bgp_update_timer_session_down(
     constants,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-):  # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
+):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown

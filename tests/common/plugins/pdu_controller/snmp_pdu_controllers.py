@@ -286,7 +286,8 @@ class snmpPduController(PduControllerBase):
                 logger.error("Outlet ID {} doesn't belong to PDU {}".format(outlet, self.controller))
         elif hostname:
             hn = hostname.lower()
-            ports = [self.port_label_dict[label]['port_oid'] for label in list(self.port_label_dict.keys()) if hn in label]
+            ports = [self.port_label_dict[label]['port_oid']
+                     for label in list(self.port_label_dict.keys()) if hn in label]
             if not ports:
                 logger.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
 
