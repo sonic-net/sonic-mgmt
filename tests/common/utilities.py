@@ -504,7 +504,10 @@ def dump_scapy_packet_show_output(packet):
     """Dump packet show output to string."""
     _stdout, sys.stdout = sys.stdout, StringIO()
     try:
-        packet.show()
+        if six.PY2:
+            packet.show()
+        else:
+            packet.show2()
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout

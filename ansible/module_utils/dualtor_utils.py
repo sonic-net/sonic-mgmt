@@ -1,6 +1,7 @@
 """Common dualtor related utilities."""
 import ipaddress
 import re
+import six
 
 
 def get_intf_index(intf):
@@ -27,8 +28,8 @@ def generate_mux_cable_facts(topology):
     vlan_prefix_v6 = vlan_config["prefix_v6"]
     vlan_address_v4, netmask_v4 = vlan_prefix_v4.split("/")
     vlan_address_v6, netmask_v6 = vlan_prefix_v6.split("/")
-    vlan_address_v4 = ipaddress.ip_address(vlan_address_v4.decode())
-    vlan_address_v6 = ipaddress.ip_address(vlan_address_v6.decode())
+    vlan_address_v4 = ipaddress.ip_address(six.text_type(vlan_address_v4))
+    vlan_address_v6 = ipaddress.ip_address(six.text_type(vlan_address_v6))
     for index, intf in enumerate(enabled_interfaces):
         if host_interfaces_active_active:
             is_active_active = intf in host_interfaces_active_active

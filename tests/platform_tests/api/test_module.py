@@ -12,10 +12,10 @@ from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = str
+    STRING_TYPE = basestring
 # END Remove this after we transition to Python 3
 ###################################################
 

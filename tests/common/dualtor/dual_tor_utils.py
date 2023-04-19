@@ -11,6 +11,7 @@ import ptf
 import re
 import string
 import sys
+import six
 
 from collections import defaultdict
 from datetime import datetime
@@ -929,7 +930,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     if len(generate_hashed_packet_to_server.packets_cache[call_signature]) < count:
         pkt_num = count - len(generate_hashed_packet_to_server.packets_cache[call_signature])
         for _ in range(pkt_num):
-            if ipaddress.ip_address(target_server_ip.decode()).version == 4:
+            if ipaddress.ip_address(six.text_type(target_server_ip)).version == 4:
                 pkt_t = _generate_hashed_ipv4_packet(src_mac, dst_mac, target_server_ip, hash_key)
             else:
                 pkt_t = _generate_hashed_ipv6_packet(src_mac, dst_mac, target_server_ip, hash_key)
@@ -1327,7 +1328,7 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     logging.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
     bgp_neighbors = list(standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys())
 
-    route_dst = ipaddress.ip_address(route_dst.decode())
+    route_dst = ipaddress.ip_address(six.text_type(route_dst))
     ip_neighbors = []
     for neighbor in bgp_neighbors:
         if ipaddress.ip_address(neighbor).version == route_dst.version:
@@ -1353,7 +1354,7 @@ def remove_static_routes(duthost, route_dst):
     """
     Remove static routes for duthost
     """
-    route_dst = ipaddress.ip_address(route_dst.decode())
+    route_dst = ipaddress.ip_address(six.text_type(route_dst))
     subnet_mask_len = 32 if route_dst.version == 4 else 128
 
     logger.info("Removing dual ToR peer switch static route:  {}/{}".format(str(route_dst), subnet_mask_len))
