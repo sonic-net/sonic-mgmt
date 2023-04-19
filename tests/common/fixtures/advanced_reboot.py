@@ -178,7 +178,8 @@ class AdvancedReboot:
             self.peer_mgFacts = self.peer_duthost.get_extended_minigraph_facts(tbinfo)
 
         self.rebootData['arista_vms'] = [
-            attr['mgmt_addr'] for dev, attr in list(self.mgFacts['minigraph_devices'].items()) if attr['hwsku'] == 'Arista-VM'
+            attr['mgmt_addr'] for dev, attr in list(self.mgFacts['minigraph_devices'].items())
+            if attr['hwsku'] == 'Arista-VM'
         ]
 
         self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
@@ -590,7 +591,8 @@ class AdvancedReboot:
                 self.__revertRebootOper(rebootOper)
             if 1 < len(self.rebootData['sadList']) != count:
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
-            failed_list = [(testcase, failures) for testcase, failures in list(test_results.items()) if len(failures) != 0]
+            failed_list = [(testcase, failures) for testcase, failures in list(test_results.items())
+                           if len(failures) != 0]
         pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed test: {}, "
                                              "failure summary:\n{}".format(self.request.node.name, failed_list))
         return result
@@ -713,8 +715,8 @@ class AdvancedReboot:
 
         if self.dual_tor_mode:
             params.update({
-            "peer_ports_file": self.rebootData['peer_ports_file'],
-            "dut_mux_status": self.rebootData['dut_mux_status_file'],
+                "peer_ports_file": self.rebootData['peer_ports_file'],
+                "dut_mux_status": self.rebootData['dut_mux_status_file'],
             })
 
         if not isinstance(rebootOper, SadOperation):
@@ -832,6 +834,7 @@ class AdvancedReboot:
 
         if self.stayInTargetImage:
             logger.info('Stay in new image')
+
 
 @pytest.fixture
 def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo,

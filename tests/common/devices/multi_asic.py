@@ -48,7 +48,6 @@ class MultiAsicSonicHost(object):
 
         self.critical_services_tracking_list()
 
-
     def __str__(self):
         return '<MultiAsicSonicHost {}>'.format(self.hostname)
 

@@ -125,7 +125,8 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         test_interface = ifnames_common[0]
     else:
         # if default route is not present, randomly select a neighbor to test
-        test_interface = random.sample([k for k, v in list(dev_nbrs.items()) if not v['name'].startswith("Server")], 1)[0]
+        test_interface = random.sample([k for k, v in list(dev_nbrs.items())
+                                        if not v['name'].startswith("Server")], 1)[0]
 
     # get neighbor device connected ports
     nbr_ports = []
