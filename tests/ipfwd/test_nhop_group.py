@@ -114,7 +114,7 @@ class Arp:
 
         # create a list of IP-MAC bindings
         for i in range(11, count + 11):
-            moff1 = "{0:x}".format(i / 255)
+            moff1 = "{0:x}".format(i // 255)
             moff2 = "{0:x}".format(i % 255)
 
             self.ip_mac_list.append(IP_MAC(
