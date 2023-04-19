@@ -22,3 +22,4 @@ svcstr-7250-lc4-1,10.206.144.148,Nokia-IXR7250E-36x100G,DevSonic,
 svcstr-server-1,10.206.144.7/24,TestServ,Server,
 svcstr-server-2,10.206.144.18/24,TestServ,Server,
 svcstr-server-3,10.206.144.149/24,TestServ,Server,
+console-5,10.206.144.5,Cisco,ConsoleServer,ssh
