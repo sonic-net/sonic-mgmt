@@ -75,7 +75,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: internal
+    default: internal-202205
 
   - name: STOP_ON_FAILURE
     type: string
