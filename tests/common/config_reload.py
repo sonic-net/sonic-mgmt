@@ -7,6 +7,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.configlet.util.common import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
 
@@ -43,16 +44,6 @@ def config_system_checks_passed(duthost):
         if int(out['stdout'].strip()) < 120:
             return False
 
-    logging.info("Checking if delayed services are up")
-    out = duthost.shell("systemctl list-dependencies sonic-delayed.target --plain |sed '1d'")
-    status = duthost.shell("systemctl is-enabled {}".format(out['stdout'].replace("\n", " ")))
-    services = [line.strip() for line in out['stdout'].splitlines()]
-    state = [line.strip() for line in status['stdout'].splitlines()]
-    for service in services:
-        if state[services.index(service)] == "enabled":
-            out1 = duthost.shell("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(service))
-            if out1['stdout'].strip() == "0":
-                return False
     logging.info("All checks passed")
     return True
 
@@ -90,6 +81,9 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         ))
 
     logger.info('reloading {}'.format(config_source))
+
+    # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+    ignore_t2_syslog_msgs(duthost)
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and duthost.facts['asic_type'] == 'mellanox':

@@ -2,4 +2,3 @@
   include_tasks: roles/test/tasks/pytest_runner.yml
   vars:
     test_node: vlan/test_vlan.py
-

@@ -3,12 +3,14 @@ Test utils used by the link flap tests.
 """
 import time
 import logging
+import random
 
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
+
 
 def __get_dut_if_status(dut, ifname=None):
     """
@@ -93,7 +95,7 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
     """
     candidates = []
 
-    if port not in [ 'unknown', 'all_ports' ]:
+    if port not in ['unknown', 'all_ports']:
         status = __get_dut_if_status(dut, port)
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, port)
         __build_candidate_list(candidates, fanout, fanout_port, port, status)
@@ -147,7 +149,8 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_statu
     sleep_time = 90
     logger.info("Testing link flap on %s", dut_port)
     if check_status:
-        pytest_assert(__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(dut_port))
+        pytest_assert(__check_if_status(dut, dut_port, 'up', verbose=True),
+                      "Fail: dut port {}: link operational down".format(dut_port))
 
     logger.info("Shutting down fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
 
@@ -155,7 +158,8 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_statu
     try:
         fanout.shutdown(fanout_port)
         if check_status:
-            pytest_assert(wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
+            pytest_assert(wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'down', True),
+                          "dut port {} didn't go down as expected".format(dut_port))
 
         if watch:
             time.sleep(1)
@@ -166,7 +170,8 @@ def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_statu
         need_recovery = False
 
         if check_status:
-            pytest_assert(wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
+            pytest_assert(wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'up', True),
+                          "dut port {} didn't go up as expected".format(dut_port))
     finally:
         if need_recovery:
             fanout.no_shutdown(fanout_port)
@@ -205,9 +210,8 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
     orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
     for line in orch_cpu:
         if int(float(line)) > orch_cpu_threshold:
-           return False
+            return False
     return True
-
 
 
 def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
