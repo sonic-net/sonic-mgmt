@@ -84,7 +84,7 @@ def get_detection_restoration_times(duthost):
     Args:
         duthost: DUT host object
     """
- 
+
     duthost.shell('config pfcwd start --action drop all 400 --restoration-time 400', module_ignore_errors=True)
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
