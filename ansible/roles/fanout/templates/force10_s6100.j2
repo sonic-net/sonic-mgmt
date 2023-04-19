@@ -51,7 +51,7 @@ interface Vlan {{ 100 + (i - 1) * 16 + j }}
 {% endfor %}
 {% endfor %}
 !
-management route 0.0.0.0/0 10.250.0.1 
+management route 0.0.0.0/0 10.250.0.1
 !
 ip ssh server enable
 !
@@ -75,4 +75,3 @@ reload-type
 !
 end
 write mem
-
