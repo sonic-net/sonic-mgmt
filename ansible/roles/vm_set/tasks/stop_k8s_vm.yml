@@ -15,4 +15,3 @@
 - name: Remove VM disk images and config files for {{ vm_name }}
   file: path={{ vm_folder }} state=absent
   become: yes
-

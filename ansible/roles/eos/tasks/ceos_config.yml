@@ -7,7 +7,7 @@
 
 - debug: msg="{{ ctninfo.container.State.Pid }}"
 
-- name: Get front panel port in netbase container 
+- name: Get front panel port in netbase container
   shell: nsenter -t {{ ctninfo.container.State.Pid }} -n ip link show | grep -E eth[0-9]+ | wc -l
   register: fp_num
   delegate_to: "{{ VM_host[0] }}"

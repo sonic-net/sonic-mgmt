@@ -12,7 +12,7 @@
 - debug: msg="total_VMs {{ vm_hosts.split(",")|length }}"
 
 - set_fact:
-    ipv6: "{{ ipv6 | default(False) }}" 
+    ipv6: "{{ ipv6 | default(False) }}"
 
 - debug: msg="ipv6 {{ ipv6 }}"
 

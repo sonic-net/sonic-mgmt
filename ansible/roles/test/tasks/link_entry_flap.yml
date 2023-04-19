@@ -8,7 +8,7 @@
   become: yes
 
 - name: Assert the particular entry is in nexthop table
-  assert: 
+  assert:
     that:
       - peer_addr in nexthop
 

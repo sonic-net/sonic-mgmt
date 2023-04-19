@@ -4,4 +4,3 @@
   apt: pkg=cavm-platform-modules
        state=present
        force=yes
-

@@ -63,7 +63,7 @@
   file: >
     path=/etc/cni/net.d
     recurse=yes
-    state=directory 
+    state=directory
 
 - name: Add dummy CNI configuration
   copy:
@@ -87,14 +87,14 @@
   environment: "{{ proxy_env | default({}) }}"
 
 - name: Install Kubernetes binaries
-  apt: 
+  apt:
     name: "{{ packages }}"
     state: present
     update_cache: yes
   vars:
     packages:
-      - kubelet={{ KUBERNETES_VERSION }} 
-      - kubeadm={{ KUBERNETES_VERSION }} 
+      - kubelet={{ KUBERNETES_VERSION }}
+      - kubeadm={{ KUBERNETES_VERSION }}
       - kubectl={{ KUBERNETES_VERSION }}
   environment: "{{ proxy_env | default({}) }}"
 

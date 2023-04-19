@@ -21,5 +21,3 @@
         host: "{{device_host}}"
         login: "{{switch_login[hwsku_map[device_hwsku]]}}"
       connection: switch
-
-

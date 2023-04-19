@@ -705,145 +705,145 @@
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel0</Name>
           <AttachTo>fortyGigE1/1/1;fortyGigE1/1/2</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel4</Name>
           <AttachTo>fortyGigE1/1/5;fortyGigE1/1/6</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel8</Name>
           <AttachTo>fortyGigE1/2/1;fortyGigE1/2/2</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel12</Name>
           <AttachTo>fortyGigE1/2/5;fortyGigE1/2/6</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel34</Name>
           <AttachTo>fortyGigE1/3/3</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel36</Name>
           <AttachTo>fortyGigE1/3/5</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel37</Name>
           <AttachTo>fortyGigE1/3/6</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel38</Name>
           <AttachTo>fortyGigE1/3/7</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel39</Name>
           <AttachTo>fortyGigE1/3/8</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel42</Name>
           <AttachTo>fortyGigE1/3/11</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel44</Name>
           <AttachTo>fortyGigE1/3/13</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel45</Name>
           <AttachTo>fortyGigE1/3/14</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel46</Name>
           <AttachTo>fortyGigE1/3/15</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel47</Name>
           <AttachTo>fortyGigE1/3/16</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel50</Name>
           <AttachTo>fortyGigE1/4/3</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel52</Name>
           <AttachTo>fortyGigE1/4/5</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel53</Name>
           <AttachTo>fortyGigE1/4/6</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel54</Name>
           <AttachTo>fortyGigE1/4/7</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel55</Name>
           <AttachTo>fortyGigE1/4/8</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel58</Name>
           <AttachTo>fortyGigE1/4/11</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel60</Name>
           <AttachTo>fortyGigE1/4/13</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel61</Name>
           <AttachTo>fortyGigE1/4/14</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel62</Name>
           <AttachTo>fortyGigE1/4/15</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
         <PortChannel>
           <ElementType>PortChannelInterface</ElementType>
           <Name>PortChannel63</Name>
           <AttachTo>fortyGigE1/4/16</AttachTo>
-           <SubInterface/> 
+           <SubInterface/>
          </PortChannel>
       </PortChannelInterfaces>
       <VlanInterfaces/>
@@ -2340,9 +2340,9 @@
       </EthernetInterfaces>
       <FlowControl>true</FlowControl>
       <Height>0</Height>
-      <HwSku>Force10-S6100</HwSku> 
+      <HwSku>Force10-S6100</HwSku>
       <ManagementInterfaces/>
-    </DeviceInfo> 
+    </DeviceInfo>
   </DeviceInfos>
   <Hostname>switch-t1-64-lag-clet</Hostname>
   <HwSku>Force10-S6100</HwSku>
