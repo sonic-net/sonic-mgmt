@@ -533,6 +533,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     logger.info("End of testing the container '{}'".format(container_name))
 
 
+@pytest.mark.disable_loganalyzer
 def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                 enum_dut_feature, tbinfo):
     """
