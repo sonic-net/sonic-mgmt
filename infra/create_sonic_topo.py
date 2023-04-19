@@ -714,6 +714,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_
     else:
         build_project_name = "sonic-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, timestamp)
 
+    build_project_name = build_project_name.lower()
 
     print("calling run_scripts.py, the allure report build name is ", build_project_name)
 
