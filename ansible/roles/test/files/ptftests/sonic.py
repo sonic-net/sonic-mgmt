@@ -181,7 +181,7 @@ class Sonic(host_device.HostDevice):
         log_lines = self.do_cmd("sudo cat /var/log/syslog /var/log/syslog.1 /var/log/teamd.log /var/log/teamd.log.1 /var/log/frr/bgpd.log /var/log/frr/zebra.log").split('\n')
         syslog_regex_r = r'^(\S+\s+\d+\s+\d+:\d+:\d+)\.\d+ \S+ [A-Z]+ ([a-z\-]+#[/a-zA-Z0-9_]+)(?:\s+\d+-\d+-\d+\s+\d+:\d+:\d+,\d+\s+[A-Z]+\s+\w+)?(?:\[\d+\])?: (.+)$'
         parsed_logs = self.extract_from_logs(syslog_regex_r, log_lines, min_timestamp=start_time)
-        self.log('Log output "{}"'.format('\n'.join(["{} {}".format(j, k[1]) for j in parsed_logs for k in parsed_logs[j]])))
+        self.log('Log output "{}"'.format('\n'.join(["{} {} {}".format(k[0], j, k[1]) for j in parsed_logs for k in parsed_logs[j]])))
         log_data = self.parse_logs(parsed_logs)
         if (self.reboot_type == 'fast-reboot' and \
             'bgp#bgpd' in parsed_logs and 'PortChannel' in parsed_logs) \
