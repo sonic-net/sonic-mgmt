@@ -294,7 +294,8 @@ def ignore_t2_syslog_msgs(duthost):
         When we reboot / config_reload on T2 chassis cards, we see 2 error messages in the linecards
 
         1) During config_reload/reboot of linecard, LAGS are deleted, but ports are up,
-        and we get mac learning events from SAI to orchagent which is in middle of cleanup and doesn't have the right data.
+        and we get mac learning events from SAI to orchagent
+        which is in middle of cleanup and doesn't have the right data.
         This causes error message like Failed to get port by bridge port ID
 
         2) reboot/config_reload on supoervisor  will cause all the fabric links in the linecard to

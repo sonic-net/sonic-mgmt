@@ -508,7 +508,8 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     # Cisco platforms need an upward of 64 routes for crm_stats_ipv4_route_available to decrement
     # Similar change is needed for broadcom DNX family based devices where by the higher routes helps
     # to get the correct used and available resource count.
-    if is_cisco_device(duthost) and ip_ver == '4' or 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
+    if is_cisco_device(duthost) and ip_ver == '4' or 'platform_asic' in duthost.facts \
+            and duthost.facts['platform_asic'] == 'broadcom-dnx':
         total_routes = 64
     else:
         total_routes = 1
