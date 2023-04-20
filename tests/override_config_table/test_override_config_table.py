@@ -15,6 +15,7 @@ NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.topology('t0', 't1', 'any'),
     pytest.mark.disable_loganalyzer,
 ]
 

@@ -90,7 +90,7 @@ def load_swss_config(dut, config_file):
     """
     logger.info('Loading swss config {} ...'.format(config_file))
     dut.shell('docker exec swss sh -c "swssconfig {}"'.format(config_file))
-    wait(2, 'for CRMs to be updated')
+    wait(10, 'for CRMs to be updated and corresponding codeflow finished')
     logger.info('Loading swss config {} done'.format(config_file))
 
 
@@ -153,6 +153,8 @@ def test_change_mux_state(
         request):
 
     dut = rand_selected_dut
+
+    wait(20, 'extra wait for presetup flow')
 
     # Apply mux active state
     load_swss_config(dut, _swss_path(SWSS_MUX_STATE_ACTIVE_CONFIG_FILE))
