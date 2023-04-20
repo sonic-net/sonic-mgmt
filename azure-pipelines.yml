@@ -37,7 +37,7 @@ stages:
     pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
-
+    
   - job: t0_part1
     pool: sonictest
     displayName: "kvmtest-t0-part1"
