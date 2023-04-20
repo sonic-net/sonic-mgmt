@@ -360,8 +360,8 @@ def config_interface_admin_status(duthost, ports, admin_status="up"):
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    cable_type, active_active_ports
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,       # noqa F811
+    cable_type, active_active_ports                                      # noqa F811
 ):
     if cable_type == CableType.active_active:
         try:
@@ -379,7 +379,7 @@ def test_active_link_admin_down_config_reload_upstream(
                 expected_standby_host=upper_tor_host,
                 expected_standby_health='unhealthy',
                 cable_type=cable_type,
-                skip_state_db=True  #state db will be 'unknown'
+                skip_state_db=True  # state db will be 'unknown'
             )
 
         finally:
@@ -390,8 +390,8 @@ def test_active_link_admin_down_config_reload_upstream(
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_downstream(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    cable_type, active_active_ports
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,       # noqa F811
+    cable_type, active_active_ports                                      # noqa F811
 ):
     if cable_type == CableType.active_active:
         try:
