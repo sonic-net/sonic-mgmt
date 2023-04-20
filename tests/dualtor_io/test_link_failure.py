@@ -414,7 +414,7 @@ def test_active_link_admin_down_config_reload_downstream(
                 allowed_disruption=0,
                 allow_disruption_before_traffic=True
             )
-            
+
         finally:
             config_interface_admin_status(upper_tor_host, active_active_ports, "up")
             upper_tor_host.shell("config save -y")
