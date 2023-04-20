@@ -20,6 +20,9 @@ name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd
 
 stages:
 - stage: Pre-test
+  variables:
+  - group: Testbed-Tools
+  - group: GIT_SECRETS
   jobs:
   - job: pre_commit
     displayName: "pre-commit-check"
@@ -28,7 +31,7 @@ stages:
     pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
-
+    
 - stage: Test
   dependsOn: Pre-test
   condition: and(succeeded())
