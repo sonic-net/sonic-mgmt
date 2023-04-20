@@ -55,7 +55,7 @@ stages:
         tbtype: t0
         vmtype: ceos
         section: part-1
-          
+
   - job: t0_part2
     pool: sonictest
     displayName: "kvmtest-t0-part2"
