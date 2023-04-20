@@ -19,16 +19,7 @@ trigger: none
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
-- stage: Test
-
-  variables:
-  - group: Testbed-Tools
-  - name: inventory
-    value: veos_vtb
-  - name: testbed_file
-    value: vtestbed.yaml
-  - group: GIT_SECRETS
-
+- stage: Pre-test
   jobs:
   - job: pre_commit
     displayName: "pre-commit-check"
@@ -38,11 +29,31 @@ stages:
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
+- stage: Test
+  dependsOn: Pre-test
+  condition: and(succeeded())
+  variables:
+  - group: Testbed-Tools
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  - group: GIT_SECRETS
+
+  jobs:
+  # - job: pre_commit
+  #   displayName: "pre-commit-check"
+  #   timeoutInMinutes: 10
+  #   continueOnError: false
+  #   pool: ubuntu-20.04
+  #   steps:
+  #   - template: .azure-pipelines/pre-commit-check.yml
+
   - job: t0_part1
     pool: sonictest
     displayName: "kvmtest-t0-part1"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: false
@@ -59,8 +70,8 @@ stages:
   - job: t0_part2
     pool: sonictest
     displayName: "kvmtest-t0-part2"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: false
@@ -76,8 +87,8 @@ stages:
 
   - job: t0_testbedv2
     displayName: "kvmtest-t0 by TestbedV2"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
@@ -91,8 +102,8 @@ stages:
 
   - job: t0_2vlans_testbedv2
     displayName: "kvmtest-t0-2vlans by TestbedV2"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
@@ -109,8 +120,8 @@ stages:
   - job: t1_lag_classic
     pool: sonictest-t1-lag
     displayName: "kvmtest-t1-lag classic"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: false
@@ -125,8 +136,8 @@ stages:
 
   - job: t1_lag_testbedv2
     displayName: "kvmtest-t1-lag by TestbedV2"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
@@ -141,8 +152,8 @@ stages:
   - job:
     pool: sonictest-sonic-t0
     displayName: "kvmtest-t0-sonic"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: true
@@ -157,8 +168,8 @@ stages:
 
   - job: sonic_t0_testbedv2
     displayName: "kvmtest-t0-sonic by TestbedV2"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
@@ -178,8 +189,8 @@ stages:
   - job:
     pool: sonictest-dualtor
     displayName: "kvmtest-dualtor"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: false
@@ -194,8 +205,8 @@ stages:
 
   - job: dualtor_testbedv2
     displayName: "kvmtest-dualtor-t0 by TestbedV2"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
@@ -211,8 +222,8 @@ stages:
   - job:
     pool: sonictest-ma
     displayName: "kvmtest-multi-asic-t1-lag"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 400
     condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
     continueOnError: false
@@ -228,8 +239,8 @@ stages:
 
   - job: multi_asic_testbedv2
     displayName: "kvmtest-multi-asic-t1-lag by TestbedV2"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
@@ -245,8 +256,8 @@ stages:
 
   - job: wan_testbedv2
     displayName: "kvmtest-wan by TestbedV2"
-    dependsOn:
-    - pre_commit
+    # dependsOn:
+    # - pre_commit
     timeoutInMinutes: 240
     condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
