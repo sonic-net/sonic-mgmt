@@ -279,23 +279,37 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
                 print("fill_leakout_plus_one: Success, sent %d packets, queue occupancy bytes rose from %d to %d" % (
                     packet_i + 1, queue_counters_base[queue], queue_counters[queue]), file=sys.stderr)
                 return True
-    print("fill_leakout_plus_one: Fail, sent %d packets, queue occupancy bytes remained %d" % (500, queue_counters_base[queue]), file=sys.stderr)
+        else:
+            raise RuntimeError("Couldnot fill leakout:src_id:{}, dst_id:{},"
+                " pkt:{}, queue:{}, asic_type:{}".format(
+                    src_port_id, dst_port_id, "{}".format(pkt.__repr__()[0:200]),
+                    queue, asic_type))
+
     return False
 
 
-def get_multiple_flows_udp(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pkt_len, src_details, packets_per_port=1):
+def get_multiple_flows_udp(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn,
+        ttl, pkt_len, src_details, packets_per_port=1):
     '''
         Returns a dict of format:
         src_id : [list of (pkt, exp_pkt) pairs that go to the given dst_id]
     '''
 
     def get_rx_port_udp(dp, src_port_id, pkt, exp_pkt):
-        send_packet(dp, src_port_id, pkt, 1)
+        # 3 attempts to account for arp/neighbor entry.
+        result = None
+        for i in range(3):
+            send_packet(dp, src_port_id, pkt, 1)
 
-        result = dp.dataplane.poll(
-            device_number=0, exp_pkt=exp_pkt, timeout=3)
+            result = dp.dataplane.poll(
+                device_number=0, exp_pkt=exp_pkt, timeout=3)
+            if isinstance(result, dp.dataplane.PollFailure):
+                # Try again.
+                continue
+
         if isinstance(result, dp.dataplane.PollFailure):
-            dp.fail("Expected packet was not received. Received on port:{} {}".format(
+            dp.fail("Expected packet was not received."
+                "Received on port:{} {}".format(
                 result.port, result.format()))
 
         return result.port
@@ -304,14 +318,25 @@ def get_multiple_flows_udp(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl
     all_pkts = {}
     for src_tuple in src_details:
         num_of_pkts = 0
-        print("Trying {} => {}, dstip:{}".format(src_tuple[0], dst_id, dst_ip), file=sys.stderr)
+        print("Trying {} => {}, dstip:{}".format(src_tuple[0], dst_id, dst_ip),
+              file=sys.stderr)
         while (num_of_pkts < packets_per_port):
             pkt_args = {
                 'ip_ecn':ecn,
                 'ip_ttl':ttl}
-            pkt_args = [pkt_len, dst_mac, src_tuple[2], src_tuple[1], dst_ip, dscp, src_vlan, 1234, next(udp_port_gen)]
+            pkt_args = [
+                pkt_len,
+                dst_mac,
+		src_tuple[2],
+		src_tuple[1],
+		dst_ip,
+		dscp,
+		src_vlan,
+		1234,
+		next(udp_port_gen)]
             pkt = construct_udp_pkt(*pkt_args, ip_ecn=ecn, ip_ttl=ttl)
-            exp_pkt = construct_udp_pkt(*pkt_args, ip_ecn=ecn, ip_ttl=ttl-1, exp_pkt=True)
+            exp_pkt = construct_udp_pkt(*pkt_args, ip_ecn=ecn, ip_ttl=ttl-1,
+	                                exp_pkt=True)
 
             if get_rx_port_udp(dp, src_tuple[0], pkt, exp_pkt) == dst_id:
                 try:
