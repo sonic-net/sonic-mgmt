@@ -586,9 +586,9 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     stop_critical_processes(duthost, containers_in_namespaces)
 
-    # Wait for 70 seconds such that Supervisord/Monit has a chance to write alerting message into syslog.
-    logger.info("Sleep 70 seconds to wait for the alerting messages in syslog...")
-    time.sleep(70)
+    # Wait for 90 seconds such that Supervisord/Monit has a chance to write alerting message into syslog.
+    logger.info("Sleep 90 seconds to wait for the alerting messages in syslog...")
+    time.sleep(90)
 
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)
