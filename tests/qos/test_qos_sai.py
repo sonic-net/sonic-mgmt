@@ -97,7 +97,9 @@ class TestQosSai(QosSaiBase):
                 portIds: [0, 2, 16, 4, 18, 6, 20, 8, 22]
         '''
         if len(portIds) > len(availablePortIds):
-            logger.info('no enough ports for test')
+            logger.info(
+                'no enough ports for test: portIds:"{}" <'
+                ' availablePortIds:"{}"'.format(portIds, availablePortIds))
             return False
 
         # cache available as free port pool
@@ -531,7 +533,7 @@ class TestQosSai(QosSaiBase):
                              "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
             self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig,
-            dutQosConfig, singleMemberPortStaticRoute, nearbySourcePorts
+            dutQosConfig, static_route_for_splitvoq
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -547,8 +549,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("Lossless Voq test is not supported")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
@@ -556,8 +556,12 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         self.updateTestPortIdIp(dutConfig, qosConfig[LosslessVoqProfile])
 
-        dst_port_id, dst_port_ip = singleMemberPortStaticRoute
-        src_port_1_id, src_port_2_id = nearbySourcePorts
+        available_port_ids = dutConfig['testPortIps'].keys()
+        available_port_ids.remove(dutConfig["testPorts"]["dst_port_id"])
+
+        available_port_ids.remove(dutConfig["testPorts"]["src_port_id"])
+        if len(available_port_ids) < 2:
+            raise RuntimeError("This test needs atleast 3 SRC port ids, and we are left with only ids:{}".format(available_port_ids))
 
         testPortIps = dutConfig["testPortIps"]
         testParams = dict()
@@ -566,12 +570,12 @@ class TestQosSai(QosSaiBase):
             "dscp": qosConfig[LosslessVoqProfile]["dscp"],
             "ecn": qosConfig[LosslessVoqProfile]["ecn"],
             "pg": qosConfig[LosslessVoqProfile]["pg"],
-            "dst_port_id": dst_port_id,
-            "dst_port_ip": dst_port_ip,
-            "src_port_1_id": src_port_1_id,
-            "src_port_1_ip": testPortIps[src_port_1_id]['peer_addr'],
-            "src_port_2_id": src_port_2_id,
-            "src_port_2_ip": testPortIps[src_port_2_id]['peer_addr'],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": static_route_for_splitvoq,
+            "src_port_1_id": available_port_ids[0],
+            "src_port_1_ip": testPortIps[available_port_ids[0]]['peer_addr'],
+            "src_port_2_id":  available_port_ids[1],
+            "src_port_2_ip": testPortIps[available_port_ids[1]]['peer_addr'],
             "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
@@ -839,7 +843,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("bufPool", ["wm_buf_pool_lossless", "wm_buf_pool_lossy"])
     def testQosSaiBufferPoolWatermark(
         self, request, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLossyProfile, resetWatermark,
+        ingressLosslessProfile, egressLossyProfile, resetWatermark
     ):
         """
             Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
@@ -982,10 +986,38 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
-    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
+    @pytest.fixture(scope="function", autouse=False)
+    def fixture_reboot_dut(self, LossyVoq, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+            swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status, dutQosConfig,
+            dutConfig, tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, localhost):  # noqa F811
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        flow_config = qosConfig[LossyVoq]["flow_config"]
+
+        if flow_config == "shared":
+            duthost = dutConfig['dutInstance']
+            # Need to save the new static route as well.
+            duthost.shell("config save -y")
+            original_voq_markings = get_markings_dut(duthost)
+            setup_markings_dut(duthost, localhost, voq_allocation_mode="default")
+            time.sleep(60)
+            self.stopServices(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
+                tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports) # noqa F811
+
+        yield
+        if flow_config == "shared":
+            setup_markings_dut(duthost, localhost, **original_voq_markings)
+            time.sleep(60)
+            self.stopServices(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
+                tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports) # noqa F811
+
+    @pytest.mark.parametrize('LossyVoq', ['lossy_queue_voq_1', 'lossy_queue_voq_2'])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute
+            ingressLossyProfile, localhost, static_route_for_splitvoq,
+            fixture_reboot_dut
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -997,29 +1029,22 @@ class TestQosSai(QosSaiBase):
                     and test ports
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
                 ingressLossyProfile (Fxiture): Map of ingress lossy buffer profile attributes
-                duthost : DUT host params
                 localhost : local host params
             Returns:
                 None
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("Lossy Queue Voq test is not supported")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
+        duthost = dutConfig['dutInstance']
         assert flow_config in [
             "shared", "separate"], "Invalid flow config '{}'".format(flow_config)
-        if flow_config == "shared":
-            original_voq_markings = get_markings_dut(duthost)
-            setup_markings_dut(duthost, localhost,
-                               voq_allocation_mode="default")
-
         self.updateTestPortIdIp(dutConfig, qosConfig[LossyVoq])
 
         try:
-            dst_port_id, dst_port_ip = singleMemberPortStaticRoute
+            dst_port_ip = static_route_for_splitvoq
             testParams = dict()
             testParams.update(dutTestParams["basicParams"])
             testParams.update({
@@ -1028,7 +1053,7 @@ class TestQosSai(QosSaiBase):
                 "pg": qosConfig[LossyVoq]["pg"],
                 "src_port_id": dutConfig["testPorts"]["src_port_id"],
                 "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-                "dst_port_id": dst_port_id,
+                "dst_port_id": dutConfig["testPorts"]['dst_port_id'],
                 "dst_port_ip": dst_port_ip,
                 "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
                 "flow_config": flow_config,
@@ -1052,9 +1077,8 @@ class TestQosSai(QosSaiBase):
                 testParams=testParams
             )
 
-        finally:
-            if flow_config == "shared":
-                setup_markings_dut(duthost, localhost, **original_voq_markings)
+        except:
+            raise
 
     def testQosSaiDscpQueueMapping(
         self, duthost, ptfhost, dutTestParams, dutConfig, dut_qos_maps      # noqa F811
