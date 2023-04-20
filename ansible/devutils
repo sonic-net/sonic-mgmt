@@ -16,8 +16,8 @@ warnings.filterwarnings("ignore")
 
 sys.path.append("..")
 
-from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory
-from tests.common.connections.console_host import ConsoleHost
+from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa E402
+from tests.common.connections.console_host import ConsoleHost   # noqa E402
 
 g_inv_mgr = None
 g_task_runner = None
