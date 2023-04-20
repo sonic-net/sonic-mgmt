@@ -31,10 +31,9 @@ stages:
     pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
-    
+
 - stage: Test
   dependsOn: Pre-test
-  condition: and(succeeded())
   variables:
   - group: Testbed-Tools
   - name: inventory
