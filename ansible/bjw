@@ -50,6 +50,12 @@ all:
           ansible_host: 10.150.23.65
         bjw7-6:
           ansible_host: 10.150.23.66
+        bjw7-7:
+          ansible_host: 10.150.23.67
+        bjw7-8:
+          ansible_host: 10.150.23.68
+        bjw7-9:
+          ansible_host: 10.150.23.69
 
     pdu:
       hosts:
@@ -132,6 +138,15 @@ fanout:
     bjw-can-7215-13:
       ansible_host: 10.150.22.132
       os: sonic
+    bjw-can-3800-2:
+      ansible_host: 10.150.22.136
+      os: sonic
+    bjw-can-4600c-2:
+      ansible_host: 10.150.22.138
+      os: sonic
+    bjw-can-2700-4:
+      ansible_host: 10.150.22.140
+      os: sonic
 
 sonic:
   vars:
@@ -146,6 +161,8 @@ sonic:
     sonic_nokia_7215:
     sonic_e1031:
     sonic_cisco_8102:
+    sonic_mlnx_sn3800:
+    sonic_mlnx_sn4600c:
 
 sonic_arista_7050qx_32s_q32:
   vars:
@@ -419,6 +436,23 @@ sonic_mlnx_sn2700:
         "0x2a": "128"
         "0x2b": "Mellanox"
         "0xfe": "0x05D17C32"
+    bjw-can-2700-3:
+      ansible_host: 10.150.22.139
+      model: MSN2700-CS2ROS
+      serial: MT2302J00192
+      base_mac: 9C:05:91:58:F2:00
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2ROS"
+        "0x23": "MT2302J00192"
+        "0x24": "9C:05:91:58:F2:00"
+        "0x25": "01/08/2023 02:58:25"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn2700-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2a": "128"
+        "0x2b": "Mellanox"
+        "0xfe": "0x55EBE5E5"
 
 sonic_nokia_7215:
   vars:
@@ -529,6 +563,50 @@ sonic_cisco_8102:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0xCA54AD10"
+
+sonic_mlnx_sn3800:
+  vars:
+    hwsku: ACS-MSN3800
+    iface_speed: 100000
+  hosts:
+    bjw-can-3800-1:
+      ansible_host: 10.150.22.135
+      model: MSN3800-CS2ROS
+      serial: MT2228X04010
+      base_mac: 90:0A:84:94:9C:00
+      syseeprom_info:
+        "0x21": "MSN3800"
+        "0x22": "MSN3800-CS2ROS"
+        "0x23": "MT2228X04010"
+        "0x24": "90:0A:84:94:9C:00"
+        "0x25": "07/18/2022 11:49:32"
+        "0x26": "2"
+        "0x28": "x86_64-mlnx_msn3800-r0"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0xC12E2792"
+
+sonic_mlnx_sn4600c:
+  vars:
+    hwsku: ACS-MSN4600C
+    iface_speed: 100000
+  hosts:
+    bjw-can-4600c-1:
+      ansible_host: 10.150.22.137
+      model: MSN4600-CS2ROS
+      serial: MT2242T00NZ7
+      base_mac: 9C:05:91:12:D0:00
+      syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2242T00NZ7"
+        "0x24": "9C:05:91:12:D0:00"
+        "0x25": "11/18/2022 12:56:37"
+        "0x26": "2"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x4D23FBB2"
 
 server:
   hosts:
