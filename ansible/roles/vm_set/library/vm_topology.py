@@ -13,7 +13,6 @@ import logging
 import docker
 import ipaddress
 
-from ansible.module_utils.debug_utils import config_module_logging
 from ansible.module_utils.basic import AnsibleModule
 
 try:
@@ -23,6 +22,7 @@ except ImportError:
     sys.path.append('..')
     from ansible.module_utils.dualtor_utils import generate_mux_cable_facts
 
+from ansible.module_utils.debug_utils import config_module_logging
 
 DOCUMENTATION = '''
 ---
