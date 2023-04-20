@@ -291,7 +291,7 @@ EOF
 function start_local_container() {
     log_info "creating a container: ${CONTAINER_NAME} ..."
 
-    eval "docker run -d -t ${PUBLISH_PORTS} \
+    eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
     -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
     --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
     exit_failure "failed to start a container: ${CONTAINER_NAME}"
