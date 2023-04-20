@@ -1,6 +1,7 @@
 simulation:
   no_image_copy: true
   slurm_flags:
+    pending_timeout: 60
     hours: 15
           
 devices:
