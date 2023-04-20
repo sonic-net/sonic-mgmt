@@ -30,8 +30,12 @@ POST_CHECK_THRESHOLD_SECS = 360
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     # Enable autorestart for all features before the test begins
-    enable_autorestart(duthosts, selected_rand_one_per_hwsku_hostname)
-
+    for hostname in selected_rand_one_per_hwsku_hostname:
+        duthost = duthosts[hostname]
+        feature_list, _ = duthost.get_feature_status()
+        for feature, status in list(feature_list.items()):
+            if status == 'enabled':
+                duthost.shell("sudo config feature autorestart {} enabled".format(feature))
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
@@ -39,14 +43,12 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         config_reload(duthost, config_source='running_golden_config', safe_reload=True)
 
 
-def enable_autorestart(duthosts, selected_rand_one_per_hwsku_hostname):
+def enable_autorestart(duthost):
     # Enable autorestart for all features
-    for hostname in selected_rand_one_per_hwsku_hostname:
-        duthost = duthosts[hostname]
-        feature_list, _ = duthost.get_feature_status()
-        for feature, status in list(feature_list.items()):
-            if status == 'enabled':
-                duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+    feature_list, _ = duthost.get_feature_status()
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
 
 
 @pytest.fixture(autouse=True)
@@ -447,8 +449,7 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     return critical_proceses, bgp_check
 
 
-def run_test_on_single_container(duthosts, selected_rand_one_per_hwsku_hostname, duthost, container_name, service_name,
-                                 tbinfo):
+def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
@@ -516,7 +517,7 @@ def run_test_on_single_container(duthosts, selected_rand_one_per_hwsku_hostname,
         config_reload(duthost, safe_reload=True)
         # after config reload, the feature autorestart config is reset,
         # so, before next test, enable again
-        enable_autorestart(duthosts, selected_rand_one_per_hwsku_hostname)
+        enable_autorestart(duthost)
 
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
@@ -546,7 +547,7 @@ def run_test_on_single_container(duthosts, selected_rand_one_per_hwsku_hostname,
 
 @pytest.mark.disable_loganalyzer
 def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
-                                enum_dut_feature, tbinfo, selected_rand_one_per_hwsku_hostname):
+                                enum_dut_feature, tbinfo):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
@@ -556,5 +557,4 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    run_test_on_single_container(duthosts, selected_rand_one_per_hwsku_hostname, duthost, container_name, service_name,
-                                 tbinfo)
+    run_test_on_single_container(duthost, container_name, service_name, tbinfo)
