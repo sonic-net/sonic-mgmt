@@ -447,7 +447,8 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     return critical_proceses, bgp_check
 
 
-def run_test_on_single_container(duthosts, selected_rand_one_per_hwsku_hostname, duthost, container_name, service_name, tbinfo):
+def run_test_on_single_container(duthosts, selected_rand_one_per_hwsku_hostname, duthost, container_name, service_name,
+                                 tbinfo):
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
@@ -555,4 +556,5 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    run_test_on_single_container(duthosts, selected_rand_one_per_hwsku_hostname, duthost, container_name, service_name, tbinfo)
+    run_test_on_single_container(duthosts, selected_rand_one_per_hwsku_hostname, duthost, container_name, service_name,
+                                 tbinfo)
