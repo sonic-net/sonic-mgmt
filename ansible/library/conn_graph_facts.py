@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 from ansible.module_utils.basic import AnsibleModule
 import lxml.etree as ET
 import yaml
