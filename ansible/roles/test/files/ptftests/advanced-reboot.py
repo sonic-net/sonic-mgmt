@@ -1119,7 +1119,7 @@ class ReloadTest(BaseTest):
         while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
             time.sleep(1)
 
-        self.log("IO sender and sniffer threads have started, wait unitl completion")
+        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
