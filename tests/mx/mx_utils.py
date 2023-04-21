@@ -62,10 +62,11 @@ def refresh_dut_mac_table(ptfhost, vlan_config, ptf_index_port):
     for _, config in vlan_config.items():
         vlan_member = config["members"]
         vlan_ip = config["prefix"].split("/")[0]
+        ping_commands = []
         for member in vlan_member:
             ptf_port_index = ptf_index_port[member]
-            ptfhost.shell("timeout 1 ping -c 1 -w 1 -I eth{} {}".format(ptf_port_index, vlan_ip),
-                          module_ignore_errors=True)
+            ping_commands.append("timeout 1 ping -c 1 -w 1 -I eth{} {}".format(ptf_port_index, vlan_ip))
+        ptfhost.shell(" & ".join(ping_commands), module_ignore_errors=True)
 
 
 def remove_all_vlans(duthost):

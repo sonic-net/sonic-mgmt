@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "08 4 * * 0,1,2,3,4,6"
+  - cron: "0 12 * * 4"
     displayName: Nightly Scheduler
     branches:
       include:
-      - internal-202205
+        - internal-202205
     always: true
 
 variables:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vmsvc1-dual-t0-7050-1
+    default: vms2-t1-7260-7
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -27,26 +27,22 @@ parameters:
     default: $(IMAGE_BRCM_ABOOT_202205)
     displayName: "Image URL"
 
-  # Deploy parameters
-  - name: ENABLE_DATAACL
-    type: boolean
-    default: false
-
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "dualtor_io dualtor_mgmt bgp decap fdb fib pc vlan"'
+    default: '-I "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'
     displayName: Testbed specific
 
-  - name: AGENT_POOL
-    type: string
-    default: nightly-svc
-    displayName: "Agent pool"
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -54,7 +50,5 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
-      NIGHTLY_TEST_TIMEOUT: 1440  # 24 hours
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
