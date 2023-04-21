@@ -39,16 +39,16 @@ def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
 
 
 def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conpleteness_level,
-                                 withdraw_and_announce_existing_routes):
+                                 withdraw_and_announce_existing_routes, loganalyzer):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
-
-    ignoreRegex = [
-        ".*ERR route_check.py:.*",
-        ".*ERR.* \'routeCheck\' status failed.*"
-    ]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="stress_routes_helper")
-    loganalyzer.ignore_regex.extend(ignoreRegex)
+    
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR route_check.py:.*",
+            ".*ERR.* \'routeCheck\' status failed.*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
