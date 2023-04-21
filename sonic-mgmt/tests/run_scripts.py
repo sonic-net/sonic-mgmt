@@ -7,6 +7,7 @@ import os
 import subprocess
 import time
 import datetime
+import sys
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
@@ -130,10 +131,16 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     if not int(passed):
+        current_result_file.write("{}, {} total, {} Pass, {} Fail, {} Skip, {} Error \n".format(tc_name,total_tests,passed,failed,skipped,errored))
+        current_result_file.flush()
+        report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
+        report_file.flush()    
         current_result_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
         current_result_file.flush()
         report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
         report_file.flush()
+        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e --allure_server_addr='10.22.183.173' -e --allure_server_project_id={} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,build_id,log_dir,tc,tc_name)
+        os.system("bash -c '{}'".format(cmd))
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
     current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file)) 
