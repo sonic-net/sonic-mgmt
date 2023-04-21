@@ -528,7 +528,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
         return False, err_msg, {}
 
     port_cable_types = {}
-
+                                                    
     for row in upper_tor_mux_config:
         port_name = row["port"]
         port_idx = str(duts_minigraph_facts[dut_upper_tor.hostname][0][1]['minigraph_port_indices'][port_name])
