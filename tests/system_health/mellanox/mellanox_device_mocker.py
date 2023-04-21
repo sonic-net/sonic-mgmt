@@ -127,7 +127,7 @@ class MellanoxDeviceMocker(DeviceMocker):
         always_present = not platform_data['psus']['hot_swappable']
         if always_present:
             return False, None
-        
+
         threshold = self.psu_data.get_psu_temperature_threshold()
         if good:
             value = threshold - 1000
