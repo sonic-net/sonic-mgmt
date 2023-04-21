@@ -6,7 +6,6 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from utils import get_crm_resources, check_queue_status, sleep_to_wait, LOOP_TIMES_LEVEL_MAP
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 ALLOW_ROUTES_CHANGE_NUMS = 5
 CRM_POLLING_INTERVAL = 1
