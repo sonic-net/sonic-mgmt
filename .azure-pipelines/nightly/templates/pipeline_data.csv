@@ -1,84 +1,83 @@
-Vendor	pipeline_name	TESTBED_NAME	Sun-0	Mon-1	Tue-2	Wed-3	Thu-4	Fri-5	Sat-6	TESTBED_SPECIFIC	Coverage	cron	NIGHTLY_TEST_TIMEOUT	SKIP_SCRIPTS	AGENT_POOL	CROSS_BRANCH_BASE_URL	TEST_IN_BRANCH_UPGRADE	ALWAYS_POWER_CYCLE_DUTS	ENABLE_DATAACL	SKIP_TEST_RESULTS_UPLOADING	PREV_IMAGE_URL		
-Mellanox	vms1-8-t1-2700	vms1-8	202205		202205		202205	202205		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 2											
-Mellanox	vms1-8-t1-2700	vms1-8		201911		201911					full	0 2											
-Mellanox	vms1-t1-2700-platform_tests	vms1-t1-2700	202205	internal	202205	202205	202205	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	10 4											
-Mellanox	vms7-t0-4600c-2	vms7-t0-4600c-2	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 14	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"									
-Mellanox	vms12-t0-3800-platform_tests	vms12-t0-3800	202205	internal	202205	202205	201911	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 4	1800										
-Mellanox	vms18-t1-msn4600c-acs-1	vms18-t1-msn4600c-acs-1	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4		"platform_tests/test_auto_negotiation.py"									
-Mellanox	vms20-t0-sn3800-2	vms20-t0-sn3800-2	202205		202205		201911	202205		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4	1800										
+Vendor	pipeline_name	TESTBED_NAME	Sun-0	Mon-1	Tue-2	Wed-3	Thu-4	Fri-5	Sat-6	TESTBED_SPECIFIC	Coverage	cron	NIGHTLY_TEST_TIMEOUT	SKIP_SCRIPTS	AGENT_POOL	CROSS_BRANCH_BASE_URL	TEST_IN_BRANCH_UPGRADE	ALWAYS_POWER_CYCLE_DUTS	ENABLE_DATAACL	SKIP_TEST_RESULTS_UPLOADING	PREV_IMAGE_URL
+Mellanox	vms1-8-t1-2700	vms1-8	202205		202205		202205	202205		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 2
+Mellanox	vms1-8-t1-2700	vms1-8		201911		201911					full	0 2
+Mellanox	vms1-t1-2700-platform_tests	vms1-t1-2700	202205	internal	202205	202205	202205	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	10 4
+Mellanox	vms7-t0-4600c-2	vms7-t0-4600c-2	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 14	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"
+Mellanox	vms12-t0-3800-platform_tests	vms12-t0-3800	202205	internal	202205	202205	201911	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 4	1800
+Mellanox	vms18-t1-msn4600c-acs-1	vms18-t1-msn4600c-acs-1	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4		"platform_tests/test_auto_negotiation.py"
+Mellanox	vms20-t0-sn3800-2	vms20-t0-sn3800-2	202205		202205		201911	202205		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4	1800
 Mellanox	vms20-t0-sn3800-2-metadata_tests	vms20-t0-sn3800-2		201911		201911				-I "metadata-scripts platform_tests/test_advanced_reboot.py"'	Advanced reboot	0 4	1380	"""platform_tests/test_reboot.py::test_fast_reboot, \
               platform_tests/test_advanced_reboot.py::test_fast_reboot, \
-              platform_tests/test_advanced_reboot.py::test_cancelled_fast_reboot"""			TRUE						
-Mellanox	vms21-t0-2700-non-platform_tests	vms21-t0-2700	202205	internal	202205	202205	201911	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4	1800										
-Mellanox	vms21-t1-2700-2-non-platform_tests	vms21-t1-2700-2	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4											
-Mellanox	vms28-t0-4600c-03-platform_tests	vms28-t0-4600c-03	202205	internal	202205	202205	202205	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 14	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"									
-Mellanox	vms28-t0-4600c-04-non-platform_tests	vms28-t0-4600c-04	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 0	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"									
-Mellanox	vms11-2-t0-2700-2-platform_metadata_tests	vms11-2-t0	202205							-I "platform_tests metadata-scripts"'	Platform	0 4				IMAGE_MLNX_201911	TRUE						
-Mellanox	vms11-2-t0-2700-2-platform_tests	vms11-2-t0		internal	202205	202205	201911	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 4	1800										
-Mellanox	testbed-bjw-can-2700-1	testbed-bjw-can-2700-1	202205	internal	202205	master	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4			nightly-bjw								
-Arista	vms6-t0-7060.1	vms6-t0-7060	202012-SLIM		202012-SLIM					-S "platform_tests metadata-scripts"'	Non-platform	0 12											
-Arista	vms6-t0-7060.2	vms6-t0-7060		202012-SLIM		202012-SLIM	202012-SLIM	202012-SLIM		-I "platform_tests metadata-scripts"'	Platform	0 12				IMAGE_BRCM_ABOOT_201811	TRUE						
-Arista	vms63-t0-7060-1-non-platform	vms63-t0-7060-1	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM		-S "platform_tests metadata-scripts"'	Non-platform	0 12	1800								IMAGE_BRCM_ABOOT_201811		
-Arista	vms63-t0-7060-2-platform	vms63-t0-7060-2	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM		-I "platform_tests metadata-scripts"'	Platform	0 12	1800								IMAGE_BRCM_ABOOT_201811		
-Arista	vms6-t1-7060-platform	vms6-t1-7060	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 12	1800								IMAGE_BRCM_ABOOT_201811		
-Arista	vms63-t1-7060-3-non-platform	vms63-t1-7060-3	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 12	1800								IMAGE_BRCM_ABOOT_201811		
-Arista	vms20-t0-7050cx3-1	vms20-t0-7050cx3-1	202012	internal	master	internal	202012	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Platform	0 10											
-Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2	202012				202012			-I "platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 3					TRUE						
-Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2		internal	master	internal		master		-I "platform_tests generic_config_updater"'	Non-platform	0 3											
-Arista	vms20-t1-7050cx3-3-platform	vms20-t1-7050cx3-3			master	internal	202205			-I "platform_tests generic_config_updater"'	Non-platform	0 11											
-Arista	vms20-t1-7050cx3-3-non-platform	vms20-t1-7050cx3-3	202205	internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 11											
-Arista	vms7-t0-7260-2	vms7-t0-7260-2	202012	internal	202012	internal	202012	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 10											
-Arista	vms24-t0-7260-2	vms24-t0-7260-2	202012		202012		202012			-I "platform_tests generic_config_updater"'	Platform	0 4				IMAGE_BRCM_ABOOT_201811	TRUE						
-Arista	vms24-t0-7260-2	vms24-t0-7260-2		internal		internal		master		-I "platform_tests generic_config_updater"'	Platform	0 4											
-Arista	vms2-t1-7260-7-platform	vms2-t1-7260-7					202205			-I "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Platform	0 12								FALSE			
-Arista	vms2-t1-7260-7-non-platform	vms2-t1-7260-7	202205		202205	202205				-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 12								FALSE			
-Arista	vms2-t1-7260-7	vms2-t1-7260-7		internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 12								FALSE			
+              platform_tests/test_advanced_reboot.py::test_cancelled_fast_reboot"""			TRUE
+Mellanox	vms21-t0-2700-non-platform_tests	vms21-t0-2700	202205	internal	202205	202205	201911	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 4	1800
+Mellanox	vms21-t1-2700-2-non-platform_tests	vms21-t1-2700-2	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4
+Mellanox	vms28-t0-4600c-03-platform_tests	vms28-t0-4600c-03	202205	internal	202205	202205	202205	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 14	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"
+Mellanox	vms28-t0-4600c-04-non-platform_tests	vms28-t0-4600c-04	202205	internal	202205	202205	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 0	1920	"vrf/test_vrf.py vrf/test_vrf_attr.py"
+Mellanox	vms11-2-t0-2700-2-platform_metadata_tests	vms11-2-t0	202205							-I "platform_tests metadata-scripts"'	Platform	0 4				IMAGE_MLNX_201911	TRUE
+Mellanox	vms11-2-t0-2700-2-platform_tests	vms11-2-t0		internal	202205	202205	201911	master		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 4	1800
+Mellanox	testbed-bjw-can-2700-1	testbed-bjw-can-2700-1	202205	internal	202205	master	202205	master		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	0 4			nightly-bjw
+Arista	vms6-t0-7060.1	vms6-t0-7060	202012-SLIM		202012-SLIM					-S "platform_tests metadata-scripts"'	Non-platform	0 12
+Arista	vms6-t0-7060.2	vms6-t0-7060		202012-SLIM		202012-SLIM	202012-SLIM	202012-SLIM		-I "platform_tests metadata-scripts"'	Platform	0 12				IMAGE_BRCM_ABOOT_201811	TRUE
+Arista	vms63-t0-7060-1-non-platform	vms63-t0-7060-1	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM		-S "platform_tests metadata-scripts"'	Non-platform	0 12	1800								IMAGE_BRCM_ABOOT_201811
+Arista	vms63-t0-7060-2-platform	vms63-t0-7060-2	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM	202012-SLIM		-I "platform_tests metadata-scripts"'	Platform	0 12	1800								IMAGE_BRCM_ABOOT_201811
+Arista	vms6-t1-7060-platform	vms6-t1-7060	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	0 12	1800								IMAGE_BRCM_ABOOT_201811
+Arista	vms63-t1-7060-3-non-platform	vms63-t1-7060-3	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM	202012-SLIM	202205-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"	Non-platform	0 12	1800								IMAGE_BRCM_ABOOT_201811
+Arista	vms20-t0-7050cx3-1	vms20-t0-7050cx3-1	202012	internal	master	internal	202012	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Platform	0 10
+Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2	202012				202012			-I "platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 3					TRUE
+Arista	vms20-t0-7050cx3-2	vms20-t0-7050cx3-2		internal	master	internal		master		-I "platform_tests generic_config_updater"'	Non-platform	0 3
+Arista	vms20-t1-7050cx3-3-platform	vms20-t1-7050cx3-3			master	internal	202205			-I "platform_tests generic_config_updater"'	Non-platform	0 11
+Arista	vms20-t1-7050cx3-3-non-platform	vms20-t1-7050cx3-3	202205	internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 11
+Arista	vms7-t0-7260-2	vms7-t0-7260-2	202012	internal	202012	internal	202012	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 10
+Arista	vms24-t0-7260-2	vms24-t0-7260-2	202012		202012		202012			-I "platform_tests generic_config_updater"'	Platform	0 4				IMAGE_BRCM_ABOOT_201811	TRUE
+Arista	vms24-t0-7260-2	vms24-t0-7260-2		internal		internal		master		-I "platform_tests generic_config_updater"'	Platform	0 4
+Arista	vms2-t1-7260-7	vms2-t1-7260-7	202205	internal	202205	202205	201911	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 12								FALSE
 Arista	vms18-t0-7050qx-acs-02	vms18-t0-7050qx-acs-02	202012-SLIM	202012-SLIM		202012-SLIM		202012-SLIM		-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym span vrf vxlan radv"'	Platform	0 2		"""pfcwd/test_pfcwd_warm_reboot.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
               platform_tests/test_reboot.py::test_fast_reboot \
-              arp/test_wr_arp.py"""									
+              arp/test_wr_arp.py"""
 Arista	vms18-t1-7050qx-acs-03	vms18-t1-7050qx-acs-03		202012-SLIM		202012-SLIM		202012-SLIM		-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym"'	Platform	30 7		"""pfcwd/test_pfcwd_warm_reboot.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811		
+              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811
 Arista	vms24-t1-7050qx-acs-01.1	vms24-t1-7050qx-acs-01	202205-SLIM		202205-SLIM		202205-SLIM			-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10		"""pfcwd/test_pfcwd_warm_reboot.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811		
+              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811
 Arista	vms24-t1-7050qx-acs-01.2	vms24-t1-7050qx-acs-01		202205-SLIM		202205-SLIM		202205-SLIM		-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10		"""pfcwd/test_pfcwd_warm_reboot.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
               platform_tests/test_reboot.py::test_warm_reboot \
-              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811		
-Arista	testbed-bjw-can-7050qx-2.1	testbed-bjw-can-7050qx-2	202012-SLIM		202012-SLIM		202012-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10		vlan/test_vlan.py	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811		
+              platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811
+Arista	testbed-bjw-can-7050qx-2.1	testbed-bjw-can-7050qx-2	202012-SLIM		202012-SLIM		202012-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10		vlan/test_vlan.py	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811
 Arista	testbed-bjw-can-7050qx-2.2	testbed-bjw-can-7050qx-2		202012-SLIM		202012-SLIM		202012-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 10		"""vlan/test_vlan.py \
 scp/test_scp_copy.py \
 show_techsupport/tech_support_cmds.py \
 show_techsupport/templates \
 show_techsupport/test_auto_techsupport.py \
 show_techsupport/test_techsupport.py \
-show_techsupport/test_techsupport_no_secret.py"""	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811		
-Arista	testbed-bjw-can-7050qx-1.1	testbed-bjw-can-7050qx-1	202205-SLIM		202205-SLIM		202205-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 2			nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811		
-Arista	testbed-bjw-can-7050qx-1.2	testbed-bjw-can-7050qx-1		202205-SLIM		202205-SLIM		202205-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 2			nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811		
-Arista	vms24-dual-t0-7050-1	vms24-dual-t0-7050-1	202012	internal	202012	202205	202012	master		-I "dualtor qos pc generic_config_updater acl drop_packets snmp"'	Non-platform	0 10		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE			
-Arista	vms21-dual-t0-7260	vms21-dual-t0-7260	202205	internal	202205	internal	202205	202012		-S "span sub_port_interfaces dualtor_io platform_tests"'	Non-platform	0 15		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE			
-Arista	vms28-dual-t0-7260	vms28-dual-t0-7260	202205	internal	202205	internal	202205	202012		-I "dualtor_io platform_tests"'	Platform	0 4		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE			
-Celestica	vms3-t1-dx010-1	vms3-t1-dx010-1	202205	internal	202205	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 4						TRUE	FALSE				
-Celestica	vms7-t0-dx010-4	vms7-t0-dx010-4	202012	internal	202012	internal	202012	master		-I "platform_tests generic_config_updater"'	Platform	0 2						TRUE	FALSE				
-Celestica	vms7-t0-dx010-5	vms7-t0-dx010-5	202012	internal	202012	internal	202012	master		-S "platform_tests generic_config_updater"'	Non-platform	0 11						TRUE	FALSE				
-Celestica	vms20-t1-dx010-6	vms20-t1-dx010-6	202205	internal	202205	internal	202205	master		-I "platform_tests generic_config_updater"'	Platform	0 15						TRUE	FALSE				
-Dell	vms7-t0-s6100	vms7-t0-s6100	202012	202012	202012		202012			-S "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"		IMAGE_BRCM_201811	TRUE						
-Dell	vms7-t0-s6100	vms7-t0-s6100				internal		master		-S "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"									
-Dell	vms7-t0-s6100-4	vms7-t0-s6100-4	202012		202012		202012			-I "platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 12				IMAGE_BRCM_201811	TRUE						
-Dell	vms7-t0-s6100-4	vms7-t0-s6100-4		internal		internal		master		-I "platform_tests generic_config_updater"'	Non-platform	0 12											
-Dell	vms7-t1-s6100-platform	vms7-t1-s6100		202205			202205			-I "platform_tests generic_config_updater"'	Non-platform	0 4											
-Dell	vms7-t1-s6100-non-platform	vms7-t1-s6100	202205		202205	internal		master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 4											
-Dell	vms11-t0-on-4-s6000	vms11-t0-on-4	202012		202012		202012			-S "sub_port_interfaces platform_tests metadata-scripts"'	Non-platform	0 4							FALSE	FALSE			
-Dell	vms11-t0-on-4-s6000	vms11-t0-on-4		internal		internal		internal		-S "sub_port_interfaces platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 4								FALSE			
-Dell	vms13-4-t0-s6000	vms13-4-t0	202012	internal	202012	internal	202012	internal		-I "platform_tests generic_config_updater"'	Platform	0 20								FALSE			
-Dell	vms13-5-t1-s6000	vms13-5-t1-lag	202012		202012		202012			-I "platform_tests generic_config_updater"'	Platform	0 20								FALSE			
-Dell	vms13-5-t1-s6000	vms13-5-t1-lag		internal		internal		internal		-S "sub_port_interfaces platform_tests generic_config_updater metadata-scripts"'	Platform	0 20								FALSE			
+show_techsupport/test_techsupport_no_secret.py"""	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811
+Arista	testbed-bjw-can-7050qx-1.1	testbed-bjw-can-7050qx-1	202205-SLIM		202205-SLIM		202205-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 2			nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811
+Arista	testbed-bjw-can-7050qx-1.2	testbed-bjw-can-7050qx-1		202205-SLIM		202205-SLIM		202205-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 2			nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811
+Arista	vms24-dual-t0-7050-1	vms24-dual-t0-7050-1	202012	internal	202012	202205	202012	master		-I "dualtor qos pc generic_config_updater acl drop_packets snmp"'	Non-platform	0 10		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE
+Arista	vms21-dual-t0-7260	vms21-dual-t0-7260	202205	internal	202205	internal	202205	202012		-S "span sub_port_interfaces dualtor_io platform_tests"'	Non-platform	0 15		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE
+Arista	vms28-dual-t0-7260	vms28-dual-t0-7260	202205	internal	202205	internal	202205	202012		-I "dualtor_io platform_tests"'	Platform	0 4		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE
+Celestica	vms3-t1-dx010-1	vms3-t1-dx010-1	202205	internal	202205	internal	202205	master		-S "platform_tests generic_config_updater"'	Non-platform	0 4						TRUE	FALSE
+Celestica	vms7-t0-dx010-4	vms7-t0-dx010-4	202012	internal	202012	internal	202012	master		-I "platform_tests generic_config_updater"'	Platform	0 2						TRUE	FALSE
+Celestica	vms7-t0-dx010-5	vms7-t0-dx010-5	202012	internal	202012	internal	202012	master		-S "platform_tests generic_config_updater"'	Non-platform	0 11						TRUE	FALSE
+Celestica	vms20-t1-dx010-6-platform	vms20-t1-dx010-6		202012		202012		202012		-S "platform_tests"'	Non-platform	0 15						TRUE	FALSE
+Celestica	vms20-t1-dx010-6-non-platform	vms20-t1-dx010-6	202012		202012		202012			-I "platform_tests"'	Platform	0 15						TRUE	FALSE
+Dell	vms7-t0-s6100	vms7-t0-s6100	202012	202012	202012		202012			-S "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"		IMAGE_BRCM_201811	TRUE
+Dell	vms7-t0-s6100	vms7-t0-s6100				internal		master		-S "platform_tests generic_config_updater"'	Platform	0 4		"platform_tests/test_reboot.py::test_watchdog_reboot"
+Dell	vms7-t0-s6100-4	vms7-t0-s6100-4	202012		202012		202012			-I "platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 12				IMAGE_BRCM_201811	TRUE
+Dell	vms7-t0-s6100-4	vms7-t0-s6100-4		internal		internal		master		-I "platform_tests generic_config_updater"'	Non-platform	0 12
+Dell	vms7-t1-s6100-platform	vms7-t1-s6100		202205			202205			-I "platform_tests generic_config_updater"'	Non-platform	0 4
+Dell	vms7-t1-s6100-non-platform	vms7-t1-s6100	202205		202205	internal		master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 4
+Dell	vms11-t0-on-4-s6000	vms11-t0-on-4	202012		202012		202012			-S "sub_port_interfaces platform_tests metadata-scripts"'	Non-platform	0 4							FALSE	FALSE
+Dell	vms11-t0-on-4-s6000	vms11-t0-on-4		internal		internal		internal		-S "sub_port_interfaces platform_tests generic_config_updater metadata-scripts"'	Non-platform	0 4								FALSE
+Dell	vms13-4-t0-s6000	vms13-4-t0	202012	internal	202012	internal	202012	internal		-I "platform_tests generic_config_updater"'	Platform	0 20								FALSE
+Dell	vms13-5-t1-s6000	vms13-5-t1-lag	202012		202012		202012			-I "platform_tests generic_config_updater"'	Platform	0 20								FALSE
+Dell	vms13-5-t1-s6000	vms13-5-t1-lag		internal		internal		internal		-S "sub_port_interfaces platform_tests generic_config_updater metadata-scripts"'	Platform	0 20								FALSE
