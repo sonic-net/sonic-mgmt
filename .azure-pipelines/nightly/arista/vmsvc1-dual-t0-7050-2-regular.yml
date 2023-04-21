@@ -45,7 +45,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "pfc_asym span sub_port_interfaces platform_tests dualtor_io generic_config_updater crm autorestart"'
+    default: '-S "pfc_asym span sub_port_interfaces platform_tests dualtor_io generic_config_updater crm autorestart fdb process_monitoring show_techsupport"'
     displayName: Testbed specific
 
   - name: AGENT_POOL

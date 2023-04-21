@@ -48,7 +48,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "dualtor_io platform_tests generic_config_updater crm autorestart"'
+    default: '-I "dualtor_io platform_tests generic_config_updater crm autorestart fdb process_monitoring show_techsupport"'
     displayName: Testbed specific
 
   - name: AGENT_POOL
