@@ -30,7 +30,9 @@ Arista	vms20-t1-7050cx3-3-non-platform	vms20-t1-7050cx3-3	202205	internal				mas
 Arista	vms7-t0-7260-2	vms7-t0-7260-2	202012	internal	202012	internal	202012	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 10											
 Arista	vms24-t0-7260-2	vms24-t0-7260-2	202012		202012		202012			-I "platform_tests generic_config_updater"'	Platform	0 4				IMAGE_BRCM_ABOOT_201811	TRUE						
 Arista	vms24-t0-7260-2	vms24-t0-7260-2		internal		internal		master		-I "platform_tests generic_config_updater"'	Platform	0 4											
-Arista	vms2-t1-7260-7	vms2-t1-7260-7	202205	internal	202205	202205	201911	master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 12								FALSE			
+Arista	vms2-t1-7260-7-platform	vms2-t1-7260-7					202205			-I "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Platform	0 12								FALSE			
+Arista	vms2-t1-7260-7-non-platform	vms2-t1-7260-7	202205		202205	202205				-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 12								FALSE			
+Arista	vms2-t1-7260-7	vms2-t1-7260-7		internal				master		-S "pfc_asym span sub_port_interfaces platform_tests generic_config_updater"'	Non-platform	0 12								FALSE			
 Arista	vms18-t0-7050qx-acs-02	vms18-t0-7050qx-acs-02	202012-SLIM	202012-SLIM		202012-SLIM		202012-SLIM		-S "acl everflow dhcp_relay dualtor mvrf nat pfc_asym span vrf vxlan radv"'	Platform	0 2		"""pfcwd/test_pfcwd_warm_reboot.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py \
