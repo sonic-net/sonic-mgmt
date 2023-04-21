@@ -330,7 +330,7 @@ def get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper):
     report = {"controlplane": {"arp_ping": "", "downtime": ""},
               "dataplane": {"lost_packets": "", "downtime": ""}}
     # escaping, as glob utility does not work well with "[","]"
-    reboot_report_path = re.sub(r'([\[\]])', r'[\\1]', log_dir)
+    reboot_report_path = re.sub('([\[\]])','[\\1]',log_dir)
     if reboot_oper:
         reboot_report_file_name = "{}-reboot-{}-report.json".format(
             reboot_type, reboot_oper)
