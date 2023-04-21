@@ -58,10 +58,7 @@ steps:
     id:
     comment: |
       The [pre-commit](http://pre-commit.com/) check detected issues in the files touched by this pull request.
-      The detected issues may be old or new. For new issues, please try to fix them.
-
-      For old issues, it is not mandatory to fix them because they were not caused by this change. It is unfair to blame
-      author of this pull request. But if you can take extra effort to fix the old issues as well, that would be great!
+      The pre-commit check is a mandatory check, please fix detected issues.
 
       Detailed pre-commit check results:
       <samp>$(results)</samp>
