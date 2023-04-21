@@ -1680,7 +1680,7 @@
 
 - conf-name: vmsvc1-dual-t0-7050-1
   group-name: svc1-3
-  topo: dualtor-mixed
+  topo: dualtor-aa
   ptf_image_name: docker-ptf
   ptf: svc1-3
   ptf_ip: 10.206.144.140/24
