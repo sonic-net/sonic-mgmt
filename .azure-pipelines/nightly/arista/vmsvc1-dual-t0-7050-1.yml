@@ -40,7 +40,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "dualtor_io"'
+    default: '-I "dualtor_io dualtor_mgmt bgp decap fdb fib pc vlan"'
     displayName: Testbed specific
 
   - name: AGENT_POOL
