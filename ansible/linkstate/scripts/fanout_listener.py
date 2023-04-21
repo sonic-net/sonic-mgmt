@@ -4,8 +4,6 @@ import socket
 import pickle
 import argparse
 import datetime
-from pprint import pprint
-
 
 g_ptf_host = None
 g_log_fp = None
@@ -23,6 +21,7 @@ def log(message, output_on_console=False):
 
 class IntfMonitor(Tac.Notifiee):
     notifierTypeName = "Interface::EthPhyIntfStatus"
+
     def __init__(self, intfStatus):
         self.state = {}
         Tac.Notifiee.__init__(self, intfStatus)
@@ -88,12 +87,12 @@ def main():
     global g_log_fp
     g_log_fp = open("/tmp/fanout_listener.log", "w")
 
-    sw = setup_sw()
+    sw = setup_sw()     # noqa F841
     try:
         Tac.runActivities()
-    except:
+    except Exception:
         pass
+
 
 if __name__ == '__main__':
     main()
-

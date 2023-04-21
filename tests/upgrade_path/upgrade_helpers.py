@@ -71,8 +71,7 @@ def install_sonic(duthost, image_url, tbinfo):
             new_route_added = True
         res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
     else:
-        out = duthost.command("df -BM --output=avail /host",
-                        module_ignore_errors=True)["stdout"]
+        out = duthost.command("df -BM --output=avail /host", module_ignore_errors=True)["stdout"]
         avail = int(out.split('\n')[1][:-1])
         if avail >= 2000:
             # There is enough space to install directly
@@ -101,15 +100,17 @@ def check_services(duthost):
     """
     logging.info("Wait until DUT uptime reaches {}s".format(300))
     while duthost.get_uptime().total_seconds() < 300:
-            time.sleep(1)
+        time.sleep(1)
     logging.info("Wait until all critical services are fully started")
     logging.info("Check critical service status")
     pytest_assert(duthost.critical_services_fully_started(), "dut.critical_services_fully_started is False")
 
     for service in duthost.critical_services:
         status = duthost.get_service_props(service)
-        pytest_assert(status["ActiveState"] == "active", "ActiveState of {} is {}, expected: active".format(service, status["ActiveState"]))
-        pytest_assert(status["SubState"] == "running", "SubState of {} is {}, expected: running".format(service, status["SubState"]))
+        pytest_assert(status["ActiveState"] == "active", "ActiveState of {} is {}, expected: active"
+                      .format(service, status["ActiveState"]))
+        pytest_assert(status["SubState"] == "running", "SubState of {} is {}, expected: running"
+                      .format(service, status["SubState"]))
 
 
 def check_reboot_cause(duthost, expected_cause):

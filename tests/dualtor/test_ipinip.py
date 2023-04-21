@@ -11,6 +11,7 @@ import random
 import time
 import contextlib
 import scapy
+import six
 
 from ptf import mask
 from ptf import testutils
@@ -141,8 +142,12 @@ def test_decap_standby_tor(
         """Verify packet is passed downstream to server."""
         packets = ptfadapter.dataplane.packet_queues[(0, port)]
         for packet in packets:
-            if exp_pkt.pkt_match(packet):
-                return True
+            if six.PY2:
+                if exp_pkt.pkt_match(packet):
+                    return True
+            else:
+                if exp_pkt.pkt_match(packet[0]):
+                    return True
         return False
 
     if is_t0_mocked_dualtor(tbinfo):        # noqa F405

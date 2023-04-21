@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
 
