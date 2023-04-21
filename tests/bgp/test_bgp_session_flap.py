@@ -1,7 +1,10 @@
-'''This script is to test BGP session flapping on SONiC and monitor
+'''
+
+This script is to test BGP session flapping on SONiC and monitor
 the CPU.
 
 '''
+
 import logging
 
 import pytest
@@ -55,10 +58,10 @@ def get_cpu_stats(dut):
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_hostname]
-    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
+    asic_index = enum_rand_one_frontend_asic_index
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
 
     tor_neighbors = dict()
-    # tor1 = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])[0]
     tor1 = natsorted(nbrhosts.keys())[0]
 
     skip_hosts = duthost.get_asic_namespace_list()
@@ -111,8 +114,17 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
             )
     flap_threads = []
 
+    for neigh in tor_neighbors:
+        tor_neighbors[neigh].start_bgpd()
+    time.sleep(30)
 
-def flap_neighbor_session(neigh, asn):
+    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    for k, v in bgp_facts['bgp_neighbors'].items():
+        if v['description'].lower() not in skip_hosts:
+            assert v['state'] == 'established'
+
+
+def flap_neighbor_session(neigh):
     while(True):
         neigh.kill_bgpd()
         neigh.start_bgpd()
@@ -133,7 +145,7 @@ def test_bgp_single_session_flaps(setup):
     # start threads to flap neighbor sessions
     thread = InterruptableThread(
         target=flap_neighbor_session,
-        args=(setup['neighhost'], setup['neigh_asn']))
+        args=(setup['neighhost']))
     thread.daemon = True
     thread.start()
     flap_threads.append(thread)
@@ -180,7 +192,7 @@ def test_bgp_multiple_session_flaps(setup):
     for neigh in setup['neighbors']:
         thread = InterruptableThread(
             target=flap_neighbor_session,
-            args=(neigh, setup['asn_dict'][str(neigh)]))
+            args=(neigh))
         thread.daemon = True
         thread.start()
         flap_threads.append(thread)
