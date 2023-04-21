@@ -33,7 +33,7 @@ stages:
     - template: .azure-pipelines/pre-commit-check.yml
 
 - stage: Test
-  dependsOn: Pre-test
+  dependsOn: Pre_test
   condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
   - group: Testbed-Tools
