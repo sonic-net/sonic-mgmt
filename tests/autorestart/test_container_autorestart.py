@@ -43,6 +43,14 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         config_reload(duthost, config_source='running_golden_config', safe_reload=True)
 
 
+def enable_autorestart(duthost):
+    # Enable autorestart for all features
+    feature_list, _ = duthost.get_feature_status()
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                           enum_dut_feature, loganalyzer):
@@ -507,6 +515,10 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     )
     if not (critical_proceses and bgp_check):
         config_reload(duthost, safe_reload=True)
+        # after config reload, the feature autorestart config is reset,
+        # so, before next test, enable again
+        enable_autorestart(duthost)
+
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
         processes_status = duthost.all_critical_process_status()
