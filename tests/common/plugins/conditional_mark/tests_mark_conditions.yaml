@@ -88,13 +88,6 @@ bgp/test_bgp_multipath_relax.py:
     conditions:
       - "'backend' in topo_name"
 
-bgp/test_bgp_session_flap.py:
-  skip:
-    reason: "Skip t1 for now, there is some issue for this case."
-    conditions:
-      - "'t1' in topo_type"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7963
-
 bgp/test_bgp_slb.py:
   skip:
     reason: "Skip over topologies which doesn't support slb."
