@@ -67,7 +67,8 @@ class TestAutoTechSupport:
 
     def set_test_dockers_list(self):
         self.dockers_list = []
-        auto_tech_support_features_list = list(self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys())
+        auto_tech_support_features_list = list(
+            self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys())
         system_features_status = self.duthost.get_feature_status()
         for feature in auto_tech_support_features_list:
             if is_docker_enabled(system_features_status, feature):

@@ -136,6 +136,7 @@ class IsisModule(object):
     '''
         parsing ISIS facts information
     '''
+
     def __init__(self, module, vty_cmd):
         self.facts = defaultdict(dict)
         self.module = module
@@ -147,7 +148,8 @@ class IsisModule(object):
         """
         docker_cmd = '{} "show isis {}" '.format(self.vty_cmd, command_str)
         try:
-            rc, self.out, err = self.module.run_command(docker_cmd, executable='/bin/bash', use_unsafe_shell=True)
+            rc, self.out, err = self.module.run_command(
+                docker_cmd, executable='/bin/bash', use_unsafe_shell=True)
         except Exception as e:
             self.module.fail_json(msg=str(e))
 
@@ -174,7 +176,8 @@ class IsisModule(object):
 
     def _parse_neighbors_per_area(self, nbrs_items):
         regex_nbr = re.compile(r'\s{1}(\S+)')
-        regex_nbr_state = re.compile(r'\s{4}Interface: (\w+), Level: ([12]), State: ([a-zA-Z]+), Expires in (\d+)s')
+        regex_nbr_state = re.compile(
+            r'\s{4}Interface: (\w+), Level: ([12]), State: ([a-zA-Z]+), Expires in (\d+)s')
         neighbors = {}
         nbr = ''
         for line in nbrs_items:
@@ -182,15 +185,18 @@ class IsisModule(object):
                 nbr = regex_nbr.match(line).group(1).strip()
                 neighbors[nbr] = {}
             elif regex_nbr_state.match(line) and nbr:
-                neighbors[nbr]['interface'] = regex_nbr_state.match(line).group(1)
+                neighbors[nbr]['interface'] = regex_nbr_state.match(
+                    line).group(1)
                 neighbors[nbr]['level'] = regex_nbr_state.match(line).group(2)
                 neighbors[nbr]['state'] = regex_nbr_state.match(line).group(3)
-                neighbors[nbr]['expires'] = int(regex_nbr_state.match(line).group(4))
+                neighbors[nbr]['expires'] = int(
+                    regex_nbr_state.match(line).group(4))
         return neighbors
 
     def _parse_db_per_area(self, db_items):
         regex_lsp = \
-            re.compile(r'(\S{1,14}.\d{2}-\d{2}\b)(\s+\*?\s+)(\d+\s+)(0x.{8}\s+)(0x.{4}\s+)(\d+)\s+\d+/\d+/(\d+)')
+            re.compile(
+                r'(\S{1,14}.\d{2}-\d{2}\b)(\s+\*?\s+)(\d+\s+)(0x.{8}\s+)(0x.{4}\s+)(\d+)\s+\d+/\d+/(\d+)')
         datebase = {}
         for line in db_items:
             match = regex_lsp.match(line)
@@ -202,7 +208,7 @@ class IsisModule(object):
                     'holdtime': match.group(6),
                     'overload': match.group(7),
                     'local': True if match.group(2).strip().rstrip() == '*' else False,
-                    }
+                }
         return datebase
 
     def _parse_db_detail_per_area(self, db_items):
@@ -214,39 +220,51 @@ class IsisModule(object):
                            'ipv6_reachability': []}
             regex_protos = re.compile(r'Protocols Supported: (\S+, \S*)')
             regex_area = re.compile(r'Area Address: (\d+\.\d+)')
-            regex_te_routeid = re.compile(r'TE Router ID: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+            regex_te_routeid = re.compile(
+                r'TE Router ID: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
             regex_extend_reachability = \
-                re.compile(r'Extended Reachability: (\d{4}.\d{4}.\d{4}\.\d{2}) \(Metric: (\d+)\)')
+                re.compile(
+                    r'Extended Reachability: (\d{4}.\d{4}.\d{4}\.\d{2}) \(Metric: (\d+)\)')
             regex_ipv4_address = \
-                re.compile(r'IPv4 Interface Address: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+                re.compile(
+                    r'IPv4 Interface Address: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
             regex_extend_ip_reachability = \
-                re.compile(r'Extended IP Reachability:\s+(\S+)\s+\(Metric:\s+(\d+)\)')
+                re.compile(
+                    r'Extended IP Reachability:\s+(\S+)\s+\(Metric:\s+(\d+)\)')
             regex_ipv6_reachability = \
                 re.compile(r'IPv6 Reachability: (\S+)\s+\(Metric:\s+(\d+)\)')
 
             for item in lsp_items:
                 if regex_protos.match(item):
-                    lsp_details['protocols'] = regex_protos.match(item).group(1)
+                    lsp_details['protocols'] = regex_protos.match(
+                        item).group(1)
                 elif regex_area.match(item):
-                    lsp_details['area_address'] = regex_area.match(item).group(1)
+                    lsp_details['area_address'] = regex_area.match(
+                        item).group(1)
                 elif regex_te_routeid.match(item):
-                    lsp_details['te_routeid'] = regex_te_routeid.match(item).group(1)
+                    lsp_details['te_routeid'] = regex_te_routeid.match(
+                        item).group(1)
                 elif regex_extend_reachability.match(item):
                     m = regex_extend_reachability.match(item)
-                    lsp_details['extend_reachability'].append({m.group(1): m.group(2)})
+                    lsp_details['extend_reachability'].append(
+                        {m.group(1): m.group(2)})
                 elif regex_ipv4_address.match(item):
-                    lsp_details['ipv4_address'].append(regex_ipv4_address.match(item).group(1))
+                    lsp_details['ipv4_address'].append(
+                        regex_ipv4_address.match(item).group(1))
                 elif regex_extend_ip_reachability.match(item):
                     m = regex_extend_ip_reachability.match(item)
-                    lsp_details['extend_ip_reachability'].append({m.group(1): m.group(2)})
+                    lsp_details['extend_ip_reachability'].append(
+                        {m.group(1): m.group(2)})
                 elif regex_ipv6_reachability.match(item):
                     m = regex_ipv6_reachability.match(item)
-                    lsp_details['ipv6_reachability'].append({m.group(1): m.group(2)})
+                    lsp_details['ipv6_reachability'].append(
+                        {m.group(1): m.group(2)})
 
             return lsp_details
 
         regex_lsp = \
-            re.compile(r'(\S{1,14}.\d{2}-\d{2}\b)(\s+\*?\s+)(\d+\s+)(0x.{8}\s+)(0x.{4}\s+)(\d+)\s+\d+/\d+/(\d+)')
+            re.compile(
+                r'(\S{1,14}.\d{2}-\d{2}\b)(\s+\*?\s+)(\d+\s+)(0x.{8}\s+)(0x.{4}\s+)(\d+)\s+\d+/\d+/(\d+)')
 
         database = {}
         while len(db_items) > 0:
@@ -262,24 +280,26 @@ class IsisModule(object):
 
     def _parse_route_per_area(self, route_items):
         routes = {'ipv4': {}, 'ipv6': {}}
-        regex_v4route = re.compile(r'\s*(\d+\.\d+\.\d+\.\d+\/\d+)\s+(\d+)\s+(\S*)\s+(\d+\.\d+\.\d+\.\d+|-).*')
-        regex_v6route = re.compile(r'(\s*[0-9a-fA-F:]+\/\d+)(\s+\d+\s+)(\S+\s+)([0-9a-fA-F:\-]+)')
+        regex_v4route = re.compile(
+            r'\s*(\d+\.\d+\.\d+\.\d+\/\d+)\s+(\d+)\s+(\S*)\s+(\d+\.\d+\.\d+\.\d+|-).*')
+        regex_v6route = re.compile(
+            r'(\s*[0-9a-fA-F:]+\/\d+)(\s+\d+\s+)(\S+\s+)([0-9a-fA-F:\-]+)')
         for line in [item.strip() for item in route_items if item.strip()]:
             match = regex_v4route.match(line)
             if match:
                 routes['ipv4'][match.group(1).strip()] = {
-                        'metric': int(match.group(2).strip().rstrip()),
-                        'interface': match.group(3).strip(),
-                        'nexthop': match.group(4)
-                    }
+                    'metric': int(match.group(2).strip().rstrip()),
+                    'interface': match.group(3).strip(),
+                    'nexthop': match.group(4)
+                }
                 continue
             match = regex_v6route.match(line)
             if match:
                 routes['ipv6'][match.group(1).strip()] = {
-                        'metric': int(match.group(2).strip().rstrip()),
-                        'interface': match.group(3).strip(),
-                        'nexthop': match.group(4)
-                    }
+                    'metric': int(match.group(2).strip().rstrip()),
+                    'interface': match.group(3).strip(),
+                    'nexthop': match.group(4)
+                }
                 continue
         return routes
 
@@ -293,39 +313,47 @@ class IsisModule(object):
             regex_l2_psnp = re.compile(r'\s*L2 PSNP: (\d+)')
             for item in counter_items:
                 if regex_p2p_iih.match(item):
-                    counters['p2p_iih'] = int(regex_p2p_iih.match(item).group(1))
+                    counters['p2p_iih'] = int(
+                        regex_p2p_iih.match(item).group(1))
                 elif regex_l2_lsp.match(item):
                     counters['l2_lsp'] = int(regex_l2_lsp.match(item).group(1))
                 elif regex_l2_csnp.match(item):
-                    counters['l2_csnp'] = int(regex_l2_csnp.match(item).group(1))
+                    counters['l2_csnp'] = int(
+                        regex_l2_csnp.match(item).group(1))
                 elif regex_l2_psnp.match(item):
-                    counters['l2_psnp'] = int(regex_l2_psnp.match(item).group(1))
+                    counters['l2_psnp'] = int(
+                        regex_l2_psnp.match(item).group(1))
             return counters
 
         def _parse_summary_level(level_items):
             summary_level = {'IPv4': {}, 'IPv6': {}, 'spf_pending': False}
             regex_ip_version = re.compile(r'(IPv[46]) route computation:')
             regex_minimum_interval = re.compile(r'minimum interval  : (\d+)')
-            regex_last_run_elapsed = re.compile(r'last run elapsed  : (\S+) ago')
+            regex_last_run_elapsed = re.compile(
+                r'last run elapsed  : (\S+) ago')
             regex_run_count = re.compile(r'run count\s+: (\d+)')
             while len(level_items) > 0:
                 line = level_items.pop(0).strip()
                 if "SPF: (pending)" in line:
                     summary_level['spf_pending'] = True
                 elif regex_minimum_interval.match(line):
-                    summary_level['spf_interval'] = regex_minimum_interval.match(line).group(1)
+                    summary_level['spf_interval'] = regex_minimum_interval.match(
+                        line).group(1)
                 elif regex_ip_version.match(line) and len(level_items) > 2:
                     ip_route_computation = {}
                     if regex_last_run_elapsed.match(level_items[0]):
                         ip_route_computation['last_run_elapsed'] = \
-                            regex_last_run_elapsed.match(level_items[0]).group(1)
+                            regex_last_run_elapsed.match(
+                                level_items[0]).group(1)
                     if regex_run_count.match(level_items[2]):
                         ip_route_computation['run_count'] = \
                             regex_run_count.match(level_items[2]).group(1)
-                    summary_level[regex_ip_version.match(line).group(1)] = ip_route_computation
+                    summary_level[regex_ip_version.match(
+                        line).group(1)] = ip_route_computation
             return summary_level
 
-        summary_items = [item.strip() for item in summary_items if item.strip()]
+        summary_items = [item.strip()
+                         for item in summary_items if item.strip()]
         summary = {'tx_cnt': {}, 'rx_cnt': {}, 'level_2': {}}
 
         while len(summary_items) > 0:
@@ -350,21 +378,25 @@ class IsisModule(object):
 
         def _parse_level(level_items):
             level = {}
-            regex_spf_delay_status = re.compile(r'\s*SPF delay status: (\S+.+)')
+            regex_spf_delay_status = re.compile(
+                r'\s*SPF delay status: (\S+.+)')
             regex_spf_delay_proto = re.compile(r'\s*Using (\S+.+)')
             regex_state = re.compile(r'\s*Current state:\s+(\S+)')
             regex_init_timer = re.compile(r'\s*Init timer:\s+(\d+) msec')
             regex_short_timer = re.compile(r'\s*Short timer:\s+(\d+) msec')
             regex_long_timer = re.compile(r'\s*Long timer:\s+(\d+) msec')
-            regex_holddown_timer = re.compile(r'\s*Holddown timer:\s+(\d+) msec')
-            regex_timetolearn_timer = re.compile(r'\s*TimeToLearn timer:\s+(\d+) msec')
+            regex_holddown_timer = re.compile(
+                r'\s*Holddown timer:\s+(\d+) msec')
+            regex_timetolearn_timer = re.compile(
+                r'\s*TimeToLearn timer:\s+(\d+) msec')
             regex_first_event = re.compile(r'\s*First event:\s+(\S+.+)')
             regex_last_event = re.compile(r'\s*Last event:\s+(\S+.+)')
 
             while len(level_items) > 0:
                 line = level_items.pop(0).strip()
                 if regex_spf_delay_status.match(line):
-                    level['spf_delay_status'] = regex_spf_delay_status.match(line).group(1)
+                    level['spf_delay_status'] = regex_spf_delay_status.match(
+                        line).group(1)
                 elif regex_spf_delay_proto.match(line):
                     level['proto'] = regex_spf_delay_proto.match(line).group(1)
                 elif regex_state.match(line):
@@ -372,19 +404,23 @@ class IsisModule(object):
                 elif regex_init_timer.match(line):
                     level['init_timer'] = regex_init_timer.match(line).group(1)
                 elif regex_short_timer.match(line):
-                    level['short_timer'] = regex_short_timer.match(line).group(1)
+                    level['short_timer'] = regex_short_timer.match(
+                        line).group(1)
                 elif regex_long_timer.match(line):
                     level['long_timer'] = regex_long_timer.match(line).group(1)
                 elif regex_holddown_timer.match(line):
-                    level['holddown_timer'] = regex_holddown_timer.match(line).group(1)
+                    level['holddown_timer'] = regex_holddown_timer.match(
+                        line).group(1)
                     if len(level_items) > 0:
                         level['holddown_state'] = level_items.pop(0).strip()
                 elif regex_timetolearn_timer.match(line):
-                    level['timetolearn_timer'] = regex_timetolearn_timer.match(line).group(1)
+                    level['timetolearn_timer'] = regex_timetolearn_timer.match(
+                        line).group(1)
                     if len(level_items) > 0:
                         level['timetolearn_state'] = level_items.pop(0).strip()
                 elif regex_first_event.match(line):
-                    level['first_event'] = regex_first_event.match(line).group(1)
+                    level['first_event'] = regex_first_event.match(
+                        line).group(1)
                 elif regex_last_event.match(line):
                     level['last_event'] = regex_last_event.match(line).group(1)
             return level
@@ -398,29 +434,37 @@ class IsisModule(object):
                 level_items = []
                 while len(spf_items) > 0 and not regex_level.match(spf_items[0]):
                     level_items.append(spf_items.pop(0).strip().rstrip())
-                spf_delay[regex_level.match(line).group(1)] = _parse_level(level_items)
+                spf_delay[regex_level.match(line).group(
+                    1)] = _parse_level(level_items)
         return spf_delay
 
     def parse_neighbors(self):
-        self.facts['neighbors'] = self._parse_areas(self.out.split('\n'), self._parse_neighbors_per_area)
+        self.facts['neighbors'] = self._parse_areas(
+            self.out.split('\n'), self._parse_neighbors_per_area)
 
     def parse_database(self):
-        self.facts['database'] = self._parse_areas(self.out.split('\n'), self._parse_db_per_area)
+        self.facts['database'] = self._parse_areas(
+            self.out.split('\n'), self._parse_db_per_area)
 
     def parse_database_detail(self):
-        self.facts['database_detail'] = self._parse_areas(self.out.split('\n'), self._parse_db_detail_per_area)
+        self.facts['database_detail'] = self._parse_areas(
+            self.out.split('\n'), self._parse_db_detail_per_area)
 
     def parse_route(self):
-        self.facts['route'] = self._parse_areas(self.out.split('\n'), self._parse_route_per_area)
+        self.facts['route'] = self._parse_areas(
+            self.out.split('\n'), self._parse_route_per_area)
 
     def parse_summary(self):
-        self.facts['summary'] = self._parse_areas(self.out.split('\n'), self._parse_summary_per_area)
+        self.facts['summary'] = self._parse_areas(
+            self.out.split('\n'), self._parse_summary_per_area)
 
     def parse_spf_delay_ietf(self):
-        self.facts['spf_delay_ietf'] = self._parse_areas(self.out.split('\n'), self._parse_spf_delay_ietf_per_area)
+        self.facts['spf_delay_ietf'] = self._parse_areas(
+            self.out.split('\n'), self._parse_spf_delay_ietf_per_area)
 
     def parse_hostname(self):
-        regex_hostname = re.compile(r'(\s*[2\*]\s+)(\d{4}.\d{4}.\d{4}\s+)(\S+)')
+        regex_hostname = re.compile(
+            r'(\s*[2\*]\s+)(\d{4}.\d{4}.\d{4}\s+)(\S+)')
         split_output = self.out.split('\n')
         hostnames = {}
         for line in split_output:
@@ -432,7 +476,8 @@ class IsisModule(object):
     def collect_isis_config(self, command_str):
         docker_cmd = '{} "show {} isisd" '.format(self.vty_cmd, command_str)
         try:
-            rc, self.out, err = self.module.run_command(docker_cmd, executable='/bin/bash', use_unsafe_shell=True)
+            rc, self.out, err = self.module.run_command(
+                docker_cmd, executable='/bin/bash', use_unsafe_shell=True)
         except Exception as e:
             self.module.fail_json(msg=str(e))
 
@@ -478,7 +523,8 @@ def main():
         command = "{} 'show version'".format(vtysh_cmd)
         rc, out, err = module.run_command(command)
         if rc != 0:
-            err_message = "command %s failed rc=%d, out=%s, err=%s" % (command, rc, out, err)
+            err_message = "command %s failed rc=%d, out=%s, err=%s" % (
+                command, rc, out, err)
             module.fail_json(msg=err_message)
             return
         if "FRRouting" not in out:

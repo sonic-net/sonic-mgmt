@@ -1,8 +1,8 @@
-from tests.common.snappi.snappi_fixtures import cvg_api
-from tests.common.snappi.snappi_fixtures import (
+from tests.common.snappi.snappi_fixtures import cvg_api     # noqa F401
+from tests.common.snappi.snappi_fixtures import (           # noqa F401
     snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
 from tests.snappi.reboot.files.reboot_helper import run_reboot_test
-from tests.common.fixtures.conn_graph_facts import (
+from tests.common.fixtures.conn_graph_facts import (        # noqa F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
@@ -12,12 +12,12 @@ pytestmark = [pytest.mark.topology('snappi')]
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['soft'])
-def test_reboot(cvg_api,
+def test_reboot(cvg_api,                # noqa F811
                 duthost,
                 localhost,
-                tgen_ports,
-                conn_graph_facts,
-                fanout_graph_facts,
+                tgen_ports,             # noqa F811
+                conn_graph_facts,       # noqa F811
+                fanout_graph_facts,     # noqa F811
                 reboot_type,):
 
     """
