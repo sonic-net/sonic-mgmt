@@ -1,7 +1,8 @@
 PYTHON := python3.8
 BIN := pyats/bin
 TESTFILE ?= sanity_scripts.txt
-GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_sim.tar.gz
+GOLDENBRANCH ?= 202012
+GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_$(GOLDENBRANCH).tar.gz
 TEMP_TESTFILE := $(shell mktemp)
 REPORT_REPO ?= /home/report_server_pv/
 
@@ -14,8 +15,7 @@ endif
 	cd infra && \
 	$(PYTHON) -m venv pyats && \
 	$(BIN)/pip install --upgrade pip && \
-	$(BIN)/pip install -r requirements.txt && \
-	$(BIN)/pre-commit install
+	$(BIN)/pip install -r requirements.txt
 
 t0_run:
 	echo "run T0 testing..."
