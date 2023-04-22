@@ -40,7 +40,7 @@ collect:
 ut_t0:
 	# create_sonic_topo only accepts a file for list of tests. Create temp file
 	echo $(TEST_LIST) | sed 's/,/\n/g' >> $(TEMP_TESTFILE)
-	echo $(TESTFILE) >> $(TEMP_TESTFILE)
+	cat $(TESTFILE) >> $(TEMP_TESTFILE)
 	echo "Running UT on T0 with ${TEMP_TESTFILE}"
 	$(MAKE) TESTFILE=$(TEMP_TESTFILE) t0_run
 	rm $(TEMP_TESTFILE)
