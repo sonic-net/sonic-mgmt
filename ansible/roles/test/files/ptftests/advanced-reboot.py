@@ -64,6 +64,8 @@ import multiprocessing
 import itertools
 import ast
 import socket
+import thread
+import Queue
 
 import ptf
 import ptf.testutils as testutils
@@ -77,8 +79,6 @@ from ptf.base_tests import BaseTest
 from ptf.testutils import simple_tcp_packet, simple_icmp_packet, simple_arp_packet
 from ptf.mask import Mask
 
-from six.moves import _thread as thread
-from six.moves import queue as Queue
 from multiprocessing.pool import ThreadPool, TimeoutError
 from fcntl import ioctl
 from collections import defaultdict
@@ -420,7 +420,7 @@ class ReloadTest(BaseTest):
             _, mask = prefix.split('/')
             n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
 
-            for counter, i in enumerate(range(2, n_hosts + 2)):
+            for counter, i in enumerate(xrange(2, n_hosts + 2)):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
                 port = self.ports_per_vlan[vlan][i %
                                                  len(self.ports_per_vlan[vlan])]
@@ -429,7 +429,7 @@ class ReloadTest(BaseTest):
                 vlan_host_map[port][addr] = mac
 
             for counter, i in enumerate(
-                    range(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
+                    xrange(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
                 port = self.ports_per_vlan[vlan][i %
                                                  len(self.ports_per_vlan[vlan])]
@@ -907,7 +907,7 @@ class ReloadTest(BaseTest):
         from_t1_iter = itertools.cycle(self.from_t1)
         sent_count_vlan_to_t1 = 0
         sent_count_t1_to_vlan = 0
-        for i in range(self.packets_to_send):
+        for i in xrange(self.packets_to_send):
             payload = '0' * 60 + str(i)
             if (i % 5) == 0:   # From vlan to T1.
                 packet = scapyall.Ether(self.from_vlan_packet)
@@ -927,7 +927,7 @@ class ReloadTest(BaseTest):
     def put_nowait(self, queue, data):
         try:
             queue.put_nowait(data)
-        except queue.Full:
+        except Queue.Full:
             pass
 
     def pre_reboot_test_setup(self):
@@ -2263,7 +2263,7 @@ class ReloadTest(BaseTest):
         self.watcher_is_running.clear()     # Watcher has stopped.
 
     def pingFromServers(self):
-        for i in range(self.nr_pc_pkts):
+        for i in xrange(self.nr_pc_pkts):
             testutils.send_packet(
                 self, self.from_server_src_port, self.from_vlan_packet)
 
@@ -2289,11 +2289,11 @@ class ReloadTest(BaseTest):
 
     def pingDut(self):
         if "allow_mac_jumping" in self.test_params and self.test_params['allow_mac_jumping']:
-            for i in range(self.ping_dut_pkts):
+            for i in xrange(self.ping_dut_pkts):
                 testutils.send_packet(self, self.random_port(
                     self.vlan_ports), self.ping_dut_macjump_packet)
         else:
-            for i in range(self.ping_dut_pkts):
+            for i in xrange(self.ping_dut_pkts):
                 src_port, packet = random.choice(self.ping_dut_packets)
                 testutils.send_packet(self, src_port, packet)
 
@@ -2311,7 +2311,7 @@ class ReloadTest(BaseTest):
         return total_rcv_pkt_cnt
 
     def arpPing(self):
-        for i in range(self.arp_ping_pkts):
+        for i in xrange(self.arp_ping_pkts):
             testutils.send_packet(self, self.arp_src_port, self.arp_ping)
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
             self, self.arp_resp, [self.arp_src_port], timeout=self.PKT_TOUT)
