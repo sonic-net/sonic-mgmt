@@ -280,6 +280,12 @@ class TestSfpApi(PlatformApiTestBase):
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         return xcvr_type not in not_resettable_xcvr_type
 
+    def post_lpmode_assert_delay(self, xcvr_info_dict):
+        xcvr_type = xcvr_info_dict["type_abbrv_name"]
+        if "QSFP" in xcvr_type and xcvr_type != "QSFP-DD":
+            return 0.3
+        return 0
+
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
@@ -738,6 +744,7 @@ class TestSfpApi(PlatformApiTestBase):
             lpmode_states_to_be_tested = [not lpmode_state_pretest, lpmode_state_pretest]
 
             # Enable and disable low-power mode on each transceiver
+            delay = self.post_lpmode_assert_delay(info_dict)
             for state in lpmode_states_to_be_tested:
                 ret = sfp.set_lpmode(platform_api_conn, i, state)
                 if ret is None:
@@ -745,7 +752,7 @@ class TestSfpApi(PlatformApiTestBase):
                     break
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}"
                             .format("enable" if state is True else "disable", i))
-                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                self.expect(wait_until(5, 1, delay, self._check_lpmode_status, sfp, platform_api_conn, i, state),
                             "Transceiver {} expected low-power state {} is not aligned with the real state"
                             .format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
