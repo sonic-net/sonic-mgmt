@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import time
+import six
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
@@ -244,7 +245,7 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
+        server_ip_mac_map[server_ipv4_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ip_mac_map
 
@@ -268,7 +269,7 @@ def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = ptf_mac
+        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ipv6_mac_map
 
