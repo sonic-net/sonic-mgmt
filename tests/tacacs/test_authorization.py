@@ -79,6 +79,7 @@ def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds)
     ) as ssh_client:
         yield ssh_client
 
+
 @pytest.fixture
 def remote_rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -89,6 +90,7 @@ def remote_rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_cre
         tacacs_creds['tacacs_rw_user_passwd']
     ) as ssh_client:
         yield ssh_client
+
 
 @pytest.fixture
 def local_user_client():
