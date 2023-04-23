@@ -63,10 +63,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
             break
 
     py_assert(vm_name is not None, "Can't get neighbor vm")
-    if six.PY2:
-        vm_ip_with_prefix = (vm_info['conf']['interfaces']['Port-Channel1']['ipv4']).decode('utf-8')
-    else:
-        vm_ip_with_prefix = vm_info['conf']['interfaces']['Port-Channel1']['ipv4']
+    vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel1']['ipv4'])
     output = vm_info['host'].command("ip addr show dev po1")
     vm_host_info["mac"] = output['stdout_lines'][1].split()[1]
     vm_ip_intf = ipaddress.IPv4Interface(vm_ip_with_prefix).ip
