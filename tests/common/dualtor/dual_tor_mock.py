@@ -269,7 +269,7 @@ def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = ptf_mac
+        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ipv6_mac_map
 
