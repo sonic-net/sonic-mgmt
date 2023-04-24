@@ -77,10 +77,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
         on that. As of now cleanup is being done here.
         """
         duthost = duthosts[rand_one_dut_hostname]
-
+        
         duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"",setup_info[request.param]["namespace"]))
         yield request.param
-
+        
 
         for index in range(0, min(3, len(setup_info[request.param]["dest_port"]))):
             tx_port = setup_info[request.param]["dest_port"][index]
@@ -101,7 +101,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         default_traffic_port_type = DOWN_STREAM if dest_port_type == UP_STREAM else UP_STREAM
         rx_port = setup_info[default_traffic_port_type]["dest_port"][0]
         nexthop_ip = everflow_utils.get_neighbor_info(duthost, rx_port, tbinfo)
-
+        
         ns = setup_info[default_traffic_port_type]["namespace"]
         dst_mask = "30.0.0.0/28"
 
@@ -254,7 +254,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             [tx_port_ptf_id],
             dest_port_type
         )
-
+    
     def test_everflow_remove_unused_ecmp_next_hop(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, dest_port_type, ptfadapter, tbinfo):
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
         duthost = duthosts[rand_one_dut_hostname]
@@ -429,7 +429,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tx_port_ptf_ids,
             dest_port_type
         )
-
+    
     def test_everflow_dscp_with_policer(
             self,
             duthost,
@@ -451,24 +451,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # and mirror packets can go to same interface, which causes tail drop of
         # police packets and impacts test case cir/cbs calculation.
 
-        everflow_dut = setup_info[dest_port_type]['everflow_dut']
-        remote_dut = setup_info[dest_port_type]['remote_dut']
-
-        vendor = everflow_dut.facts["asic_type"]
-        hostvars = everflow_dut.host.options['variable_manager']._hostvars[everflow_dut.hostname]
-
-        everflow_tolerance = 10
-        if vendor == 'innovium':
-            everflow_tolerance = 11
-
-        rate_limit = 100
-        if vendor == "marvell":
-            rate_limit = rate_limit * 1.25
-
-        send_time = "10"
-        if vendor == "mellanox":
-            send_time = "75"
-
+        vendor = duthost.facts["asic_type"]
+        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
         for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
             if vendorAsic in hostvars.keys() and duthost.facts['hwsku'] in hostvars[vendorAsic]:
@@ -511,7 +495,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             self.apply_acl_table_config(duthost, table_name, table_type, config_method, [bind_interface])
             bind_interface_namespace = self._get_port_namespace(setup_info, int(rx_port_ptf_id))
             if bind_interface_namespace:
-                self.apply_acl_table_config(duthost, table_name, table_type, config_method, [bind_interface], bind_interface_namespace)
+                self.apply_acl_table_config(duthost, table_name, table_type, config_method, [bind_interface], bind_interface_namespace) 
             # Add rule to match on DSCP
             self.apply_acl_rule_config(duthost,
                                        table_name,
@@ -530,10 +514,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                dst_mirror_ports=mirror_port_id,
                                dst_ports=tx_port_ptf_id,
                                meter_type="packets",
-                               cir=rate_limit,
-                               cbs=rate_limit,
-                               send_time=send_time,
-                               tolerance=everflow_tolerance)
+                               cir="100",
+                               cbs="100",
+                               send_time="10",
+                               tolerance="10")
         finally:
             # Clean up ACL rules and routes
             BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method)
