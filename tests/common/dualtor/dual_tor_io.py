@@ -9,14 +9,13 @@ import jinja2
 import json
 import os
 import six
-
 import scapy.all as scapyall
 import ptf.testutils as testutils
 from operator import itemgetter
 from itertools import groupby
 
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, convert_scapy_packet_to_bytes
 from natsort import natsorted
 from collections import defaultdict
 
@@ -294,10 +293,7 @@ class DualTorIO:
             ip_ttl=ip_ttl,
             tcp_dport=TCP_DST_PORT
         )
-        if six.PY2:
-            tcp_tx_packet_orig = scapyall.Ether(str(tcp_tx_packet_orig))
-        else:
-            tcp_tx_packet_orig = scapyall.Ether(bytes(tcp_tx_packet_orig))
+        tcp_tx_packet_orig = scapyall.Ether(convert_scapy_packet_to_bytes(tcp_tx_packet_orig))
         payload_suffix = "X" * 60
         for i in range(self.packets_per_server):
             for server_ip in server_ip_list:
@@ -317,10 +313,7 @@ class DualTorIO:
                 packet.load = payload
                 packet[scapyall.TCP].chksum = None
                 packet[scapyall.IP].chksum = None
-                if six.PY2:
-                    self.packets_list.append((ptf_t1_src_intf, str(packet)))
-                else:
-                    self.packets_list.append((ptf_t1_src_intf, bytes(packet)))
+                self.packets_list.append((ptf_t1_src_intf, convert_scapy_packet_to_bytes(packet)))
 
         self.sent_pkt_dst_mac = self.dut_mac
         self.received_pkt_src_mac = [self.vlan_mac]
@@ -378,10 +371,7 @@ class DualTorIO:
             eth_dst=self.vlan_mac,
             tcp_dport=TCP_DST_PORT
         )
-        if six.PY2:
-            tcp_tx_packet_orig = scapyall.Ether(str(tcp_tx_packet_orig))
-        else:
-            tcp_tx_packet_orig = scapyall.Ether(bytes(tcp_tx_packet_orig))
+        tcp_tx_packet_orig = scapyall.Ether(convert_scapy_packet_to_bytes(tcp_tx_packet_orig))
         payload_suffix = "X" * 60
 
         # use the same dst ip to ensure that packets from one server are always forwarded
@@ -401,10 +391,7 @@ class DualTorIO:
                 packet.load = payload
                 packet[scapyall.TCP].chksum = None
                 packet[scapyall.IP].chksum = None
-                if six.PY2:
-                    self.packets_list.append((ptf_src_intf, str(packet)))
-                else:
-                    self.packets_list.append((ptf_src_intf, bytes(packet)))
+                self.packets_list.append((ptf_src_intf, convert_scapy_packet_to_bytes(packet)))
         self.sent_pkt_dst_mac = self.vlan_mac
         self.received_pkt_src_mac = [self.active_mac, self.standby_mac]
 
@@ -525,10 +512,7 @@ class DualTorIO:
         sent_packets_count = 0
         for entry in self.packets_list:
             _, packet = entry
-            if six.PY2:
-                server_addr = self.get_server_address(scapyall.Ether(str(packet)))
-            else:
-                server_addr = self.get_server_address(scapyall.Ether(bytes(packet)))
+            server_addr = self.get_server_address(scapyall.Ether(convert_scapy_packet_to_bytes(packet)))
             time.sleep(self.send_interval)
             # the stop_early flag can be set to True by data_plane_utils to stop prematurely
             if self.stop_early:
@@ -602,17 +586,19 @@ class DualTorIO:
             server_addr = self.get_server_address(packet)
             server_to_packet_map[server_addr].append(packet)
 
+        # E731 Use a def instead of a lambda
+        def get_packet_sort_key(packet):
+            if six.PY2:
+                payload_bytes = str(packet[scapyall.TCP].payload)
+            else:
+                payload_bytes = bytes(packet[scapyall.TCP].payload).decode()
+            payload_int = int(payload_bytes.replace('X', ''))
+            return (payload_int, packet.time)
+        
         # For each server's packet list, sort by payload then timestamp
         # (in case of duplicates)
         for server in list(server_to_packet_map.keys()):
-            if six.PY2:
-                arg_key = lambda packet: (int(str(packet[scapyall.TCP].payload).replace('X', '')), packet.time)
-            else:
-                arg_key = lambda packet: (int(bytes(packet[scapyall.TCP].payload).decode().replace('X', '')), packet.time)
-
-            server_to_packet_map[server].sort(
-                key=arg_key
-            )
+            server_to_packet_map[server].sort(key=get_packet_sort_key)
 
         logger.info("Measuring traffic disruptions...")
         for server_ip, packet_list in list(server_to_packet_map.items()):
