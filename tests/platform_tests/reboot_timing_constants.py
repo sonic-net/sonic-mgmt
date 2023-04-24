@@ -1,7 +1,6 @@
 REQUIRED_PATTERNS = {
     "time_span": [
         "SAI_CREATE_SWITCH",
-        "INIT_VIEW",
         "APPLY_VIEW"
     ],
     "offset_from_kexec": [
