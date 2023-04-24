@@ -41,7 +41,6 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
                                  withdraw_and_announce_existing_routes, loganalyzer):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
-    
     if loganalyzer:
         ignoreRegex = [
             ".*ERR route_check.py:.*",
