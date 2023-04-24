@@ -128,6 +128,10 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
         'teamd' : swss_syncd_teamd_regex,
     }
 
+    # During syncd restart, the pmon container is also restarted,
+    # and we noticed some errors in the pmon container
+    ignore_regex_dict['syncd'].extend(ignore_regex_dict['pmon'])
+
     feature = enum_dut_feature
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -474,6 +478,8 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
 
     logger.info("End of testing the container '{}'".format(container_name))
 
+
+@pytest.mark.disable_loganalyzer
 def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                 enum_dut_feature, tbinfo):
     """
