@@ -1433,7 +1433,7 @@ class ReloadTest(BaseTest):
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
-        except Exception as e:
+        except Exception:
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
