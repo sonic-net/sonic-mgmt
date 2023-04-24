@@ -335,6 +335,11 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         print("dst_port_id: %d, src_port_id: %d" %
               (dst_port_id, src_port_id), file=sys.stderr)
 
+        self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
+                             self.test_params['dut_password'],
+                             'ping {} -c 3'.format(dst_port_ip))
+        time.sleep(8)
+
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
