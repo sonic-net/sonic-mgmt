@@ -594,7 +594,7 @@ class DualTorIO:
                 payload_bytes = bytes(packet[scapyall.TCP].payload).decode()
             payload_int = int(payload_bytes.replace('X', ''))
             return (payload_int, packet.time)
-        
+
         # For each server's packet list, sort by payload then timestamp
         # (in case of duplicates)
         for server in list(server_to_packet_map.keys()):
