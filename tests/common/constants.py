@@ -23,3 +23,4 @@ RESOLV_CONF_NAMESERVERS = {
     "public": [],
     "microsoft": ["10.64.5.5"]
 }
+KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
