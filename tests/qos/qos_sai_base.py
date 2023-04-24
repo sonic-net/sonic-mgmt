@@ -823,7 +823,6 @@ class QosSaiBase(QosBase):
             enum_frontend_asic_index, swapSyncd, enable_container_autorestart,
             disable_container_autorestart, get_mux_status, tbinfo,
             upper_tor_host, lower_tor_host, toggle_all_simulator_ports):
-        """
         self.stopServices(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             enum_frontend_asic_index, swapSyncd, enable_container_autorestart,
             disable_container_autorestart, get_mux_status, tbinfo,
