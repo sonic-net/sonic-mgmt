@@ -1,6 +1,6 @@
 PYTHON := python3.8
 BIN := pyats/bin
-TESTFILE ?= sanity_scripts.txt
+TESTFILE ?= sanity-scripts/sanity_scripts.txt
 GOLDENBRANCH ?= 202012
 GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_$(GOLDENBRANCH).tar.gz
 TEMP_TESTFILE := $(shell mktemp)
@@ -40,7 +40,7 @@ collect:
 ut_t0:
 	# create_sonic_topo only accepts a file for list of tests. Create temp file
 	echo $(TEST_LIST) | sed 's/,/\n/g' > $(TEMP_TESTFILE)
-	cat $(TESTFILE) >> $(TEMP_TESTFILE)
+	cat infra/$(TESTFILE) >> $(TEMP_TESTFILE)
 	echo "Running UT on T0 with ${TEMP_TESTFILE}"
 	$(MAKE) TESTFILE=$(TEMP_TESTFILE) t0_run
 	rm $(TEMP_TESTFILE)
