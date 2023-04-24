@@ -60,6 +60,8 @@ pdu-91,1,str3-z9332f-02,PSU1
 pdu-88,1,str3-z9332f-02,PSU2
 pdu-89,17,str3-acs-serv-62,PSU1
 pdu-88,17,str3-acs-serv-62,PSU2
+pdu-100,5,str3-8101-fanout-05,PSU1
+pdu-100,6,str3-8101-fanout-06,PSU1
 pdu-115,38,str3-acs-serv-63,PSU1
 pdu-115,39,str3-acs-serv-63,PSU2
 pdu-120,32,str3-7060-acs-1,PSU1

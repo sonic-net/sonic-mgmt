@@ -124,6 +124,12 @@ fanout:
     str3-8101-fanout-03:
       ansible_host: 10.3.146.192
       os: sonic
+    str3-8101-fanout-05:
+      ansible_host: 10.3.146.177
+      os: sonic
+    str3-8101-fanout-06:
+      ansible_host: 10.3.146.178
+      os: sonic
     str3-7060-acs-fan-01:
       ansible_host: 10.3.146.241
     str3-dx010-acs-1:
@@ -138,6 +144,7 @@ sonic:
     sonic_cisco_8101:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
+    sonic_cisco_8111:
     sonic_cisco_lc_100G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
@@ -276,6 +283,45 @@ sonic_cisco_8101_O8C48:
         cold:
           timeout: 300
           wait: 90
+sonic_cisco_8111:
+  vars:
+    hwsku: Cisco-8111-C32
+    iface_speed: 800000
+  hosts:
+    str3-8111-01:
+      ansible_host: 10.3.146.237
+      model: 8111-32EH-O
+      serial: FLM27030BXM
+      base_mac: 24:2A:04:FA:38:00
+      syseeprom_info:
+        "0x21": "8111-32EH-O"
+        "0x22": "477950"
+        "0x23": "FLM27030BXM"
+        "0x24": "24:2A:04:FA:38:00"
+        "0x26": "1"
+        "0x28": "x86_64-8111_32eh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xB5781521"
+    str3-8111-02:
+      ansible_host: 10.3.146.238
+      model: 8111-32EH-O
+      serial: FLM270208XX
+      base_mac: 24:2A:04:FA:42:00
+      syseeprom_info:
+        "0x21": "8111-32EH-O"
+        "0x22": "477950"
+        "0x23": "FLM270208XX"
+        "0x24": "24:2A:04:FA:42:00"
+        "0x26": "1"
+        "0x28": "x86_64-8111_32eh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xB97A1525"
 sonic_cisco_lc_100G:
   vars:
     switch_type: chassis-packet
