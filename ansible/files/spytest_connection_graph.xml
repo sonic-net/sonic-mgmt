@@ -6294,7 +6294,7 @@
       <PowerControlLinkInfo EndDevice="str2-msn4600c-acs-01" EndPort="PSU2" StartDevice="pdu-119" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="str2-msn4600c-acs-03" EndPort="PSU1" StartDevice="pdu-114" StartPort="44"/>
       <PowerControlLinkInfo EndDevice="str2-msn4600c-acs-03" EndPort="PSU2" StartDevice="pdu-114" StartPort="45"/>
-      <PowerControlLinkInfo EndDevice="str2-msn4600c-acs-04" EndPort="PSU1" StartDevice="pdu-114" StartPort="40"/>
+      <PowerControlLinkInfo EndDevice="str2-msn4600c-acs-04" EndPort="PSU1" StartDevice="pdu-114" StartPort="38"/>
       <PowerControlLinkInfo EndDevice="str2-msn4600c-acs-04" EndPort="PSU2" StartDevice="pdu-114" StartPort="41"/>
       <PowerControlLinkInfo EndDevice="str2-n3164-acs-1" EndPort="PSU1" StartDevice="pdu-104" StartPort="6"/>
       <PowerControlLinkInfo EndDevice="str2-n3164-acs-1" EndPort="PSU2" StartDevice="pdu-105" StartPort="6"/>

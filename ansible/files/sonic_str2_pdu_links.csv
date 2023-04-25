@@ -64,7 +64,7 @@ pdu-120,11,str2-msn4600c-acs-01,PSU1
 pdu-119,11,str2-msn4600c-acs-01,PSU2
 pdu-114,44,str2-msn4600c-acs-03,PSU1
 pdu-114,45,str2-msn4600c-acs-03,PSU2
-pdu-114,40,str2-msn4600c-acs-04,PSU1
+pdu-114,38,str2-msn4600c-acs-04,PSU1
 pdu-114,41,str2-msn4600c-acs-04,PSU2
 pdu-104,6,str2-n3164-acs-1,PSU1
 pdu-105,6,str2-n3164-acs-1,PSU2
