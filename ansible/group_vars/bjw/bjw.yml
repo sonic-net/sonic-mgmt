@@ -27,9 +27,6 @@ radius_passkey: testing123
 #'TacacsGroup' in minigraph
 tacacs_group: 'BeijingLab'
 
-# TACACS server used by lab only, not used in tests or minigraph
-lab_tacacs_servers: []
-
 #'TacacsServer' in minigraph
 tacacs_servers: []
 
