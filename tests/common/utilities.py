@@ -844,7 +844,7 @@ def run_until(delay, retry, condition, function, *args, **kwargs):
                 return True
         # Check if function returns string, list, set or tuple
         elif isinstance(result, str) or isinstance(result, list) or isinstance(result, set) or \ 
-                                     isinstance(result, tuple):
+                isinstance(result, tuple):
             if condition in result:
                 return True
         else:
