@@ -685,6 +685,10 @@ class TestSfpApi(PlatformApiTestBase):
                 # Test all channels for a eight-channel transceiver
                 all_channel_mask = 0xFF
                 expected_mask = 0x80
+            elif info_dict["type_abbrv_name"] == "SFP":
+                # Test all channels for a single-channel transceiver
+                all_channel_mask = 0x1
+                expected_mask = 0x1
             else:
                 # Test all channels for a four-channel transceiver
                 all_channel_mask = 0XF
