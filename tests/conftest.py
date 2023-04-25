@@ -57,6 +57,7 @@ from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_a
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
+from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -2148,3 +2149,7 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
 # HACK: testutils.verify_packets_any to workaround code bug
 # TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
 testutils.verify_packets_any = verify_packets_any_fixed
+
+# HACK: We are using set_do_not_care_scapy but it will be deprecated.
+if not hasattr(Mask, "set_do_not_care_scapy"):
+    Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet
