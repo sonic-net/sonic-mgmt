@@ -12,7 +12,8 @@ from jinja2 import Template
 from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
-from collections import OrderedDict
+from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
+    EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
 from tests.common.utilities import wait_until
@@ -24,35 +25,9 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-CRM_POLLING_INTERVAL = 1
-CRM_UPDATE_TIME = 10
 SONIC_RES_UPDATE_TIME = 50
 CISCO_8000_ADD_NEIGHBORS = 3000
 ACL_TABLE_NAME = "DATAACL"
-
-THR_VERIFY_CMDS = OrderedDict([
-    ("exceeded_used", "bash -c \"crm config thresholds {{crm_cli_res}}  type used; \
-         crm config thresholds {{crm_cli_res}} low {{crm_used|int - 1}}; \
-         crm config thresholds {{crm_cli_res}} high {{crm_used|int}}\""),
-    ("clear_used", "bash -c \"crm config thresholds {{crm_cli_res}} type used && \
-         crm config thresholds {{crm_cli_res}} low {{crm_used|int}} && \
-         crm config thresholds {{crm_cli_res}} high {{crm_used|int + 1}}\""),
-    ("exceeded_free", "bash -c \"crm config thresholds {{crm_cli_res}} type free && \
-         crm config thresholds {{crm_cli_res}} low {{crm_avail|int - 1}} && \
-         crm config thresholds {{crm_cli_res}} high {{crm_avail|int}}\""),
-    ("clear_free", "bash -c \"crm config thresholds {{crm_cli_res}} type free && \
-         crm config thresholds {{crm_cli_res}} low {{crm_avail|int}} && \
-         crm config thresholds {{crm_cli_res}} high {{crm_avail|int + 1}}\""),
-    ("exceeded_percentage", "bash -c \"crm config thresholds {{crm_cli_res}} type percentage && \
-         crm config thresholds {{crm_cli_res}} low {{th_lo|int}} && \
-         crm config thresholds {{crm_cli_res}} high {{th_hi|int}}\""),
-    ("clear_percentage", "bash -c \"crm config thresholds {{crm_cli_res}} type percentage && \
-         crm config thresholds {{crm_cli_res}} low {{th_lo|int}} && \
-         crm config thresholds {{crm_cli_res}} high {{th_hi|int}}\"")
-])
-
-EXPECT_EXCEEDED = ".* THRESHOLD_EXCEEDED .*"
-EXPECT_CLEAR = ".* THRESHOLD_CLEAR .*"
 
 RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_nexthop": [],
@@ -239,11 +214,6 @@ def get_acl_tbl_key(asichost):
     acl_tbl_key = "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
     return acl_tbl_key
-
-
-def get_used_percent(crm_used, crm_available):
-    """ Returns percentage of used entries """
-    return crm_used * 100 / (crm_used + crm_available)
 
 
 def verify_thresholds(duthost, asichost, **kwargs):
@@ -890,28 +860,30 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             elif i == 1:
                 ports = ",".join(tmp_ports[24:26])
             elif i == 2:
-                ports = ",".join([tmp_ports[20],tmp_ports[25]])
+                ports = ",".join([tmp_ports[20], tmp_ports[25]])
             recreate_acl_table(duthost, ports)
-            verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector)
+            verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                                 enum_frontend_asic_index, asic_collector)
             # Rebind DATA ACL at end to recover original config
             recreate_acl_table(duthost, ports)
             apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
             duthost.command("acl-loader delete")
     else:
-        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector)
+        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_frontend_asic_index, asic_collector)
 
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_acl_entry_used\" counter was not decremented or "
                   "\"crm_stats_acl_entry_available\" counter was not incremented")
 
-def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector):
+
+def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                         asic_collector):
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
-                            crm_stats_acl_entry_used \
-                            crm_stats_acl_entry_available"\
-                            .format(db_cli=asichost.sonic_db_cli,
-                            acl_tbl_key=acl_tbl_key)
+                           crm_stats_acl_entry_used \
+                           crm_stats_acl_entry_available".format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
     RESTORE_CMDS["crm_threshold_name"] = "acl_entry"
     crm_stats_acl_entry_used = 0
     crm_stats_acl_entry_available = 0
@@ -920,7 +892,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
     # Verify "crm_stats_acl_entry_used" counter was incremented
     pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 2,
-                    "\"crm_stats_acl_entry_used\" counter was not incremented")
+                  "\"crm_stats_acl_entry_used\" counter was not incremented")
 
     crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used
 
@@ -941,14 +913,13 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     duthost.command("acl-loader delete")
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
-                            crm_stats_acl_entry_used \
-                            crm_stats_acl_entry_available"\
-                            .format(db_cli=asichost.sonic_db_cli,
-                            acl_tbl_key=acl_tbl_key)
+                           crm_stats_acl_entry_used \
+                           crm_stats_acl_entry_available".format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
     global crm_stats_checker
     crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
-                                    crm_stats_acl_entry_used,
-                                    crm_stats_acl_entry_available,"==", ">=")
+                                   crm_stats_acl_entry_used,
+                                   crm_stats_acl_entry_available, "==", ">=")
+
 
 def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
