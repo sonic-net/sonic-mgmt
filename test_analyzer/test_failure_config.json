@@ -8,17 +8,19 @@
         "excluded_asic": ["barefoot"]
     },
     "branch": {
-        "excluded_branch": ["internal-202106"],
-        "excluded_branch_setup_error": ["internal-202106"],
+        "excluded_branch": ["internal-202106", "C"],
+        "excluded_branch_setup_error": ["internal-202106", "C"],
         "included_branch": ["20201231", "master", "internal", "20220531"]
     },
     "topo": {
         "excluded_topo": ["t2"]
     },
+    "summary_while_list": ["AssertionError", "Exception", "test teardown failure", "test setup failure"],
     "threshold": {
         "duration_days": 7,
         "repro_count_limit": 2,
         "repro_count_limit_setup_error": 2,
+        "repro_count_limit_summary": 8,
         "totalcase": 100,
         "history_days": 30,
         "previous_days": 7,
