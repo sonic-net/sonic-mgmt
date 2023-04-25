@@ -860,16 +860,16 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         exp_pkt = pkt.copy()
 
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_packet(packet.Ether, "dst")
-        exp_pkt.set_do_not_care_packet(packet.Ether, "src")
+        exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
 
         if ip_version == "ipv4":
-            exp_pkt.set_do_not_care_packet(packet.IP, "chksum")
+            exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
+            exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
         else:
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_packet(packet.IPv6, 'hlim')
+            exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
 
         return exp_pkt
 
