@@ -818,6 +818,7 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
 
     return None
 
+
 def run_until(delay, retry, condition, function, *args, **kwargs):
     """
     @summary: Execute function until condition or retry number met.
@@ -842,7 +843,8 @@ def run_until(delay, retry, condition, function, *args, **kwargs):
             if condition in result.items():
                 return True
         # Check if function returns string, list, set or tuple
-        elif isinstance(result, str) or isinstance(result, list) or isinstance(result, set) or isinstance(result, tuple):
+        elif isinstance(result, str) or isinstance(result, list) or isinstance(result, set) or \ 
+            isinstance(result, tuple):
             if condition in result:
                 return True
         else:
