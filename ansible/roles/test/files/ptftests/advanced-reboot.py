@@ -242,7 +242,6 @@ class ReloadTest(BaseTest):
         self.packets_to_send = min(
             int(self.time_to_listen / (self.send_interval + 0.0015)), 70000)
 
-
         # Thread pool for background watching operations
         self.pool = ThreadPool(processes=3)
 
