@@ -329,7 +329,7 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
 def get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper):
     report = {"controlplane": {"arp_ping": "", "downtime": ""},
               "dataplane": {"lost_packets": "", "downtime": ""}}
-    files = glob.glob1(log_dir,'*reboot*-report.json')
+    files = glob.glob1(log_dir, '*reboot*-report.json')
     if files:
         filepath = "{}/{}".format(log_dir, files[0])
         with open(filepath) as json_file:
