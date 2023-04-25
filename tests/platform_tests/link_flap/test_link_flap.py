@@ -37,7 +37,7 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
 
     # Record Redis Memory at start
     start_time_redis_memory = duthost.shell(
-        r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
+        r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'")["stdout"]
     logger.info("Redis Memory: %s M", start_time_redis_memory)
 
     # Make Sure Orch CPU < orch_cpu_threshold before starting test.
@@ -76,7 +76,7 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
 
     # Record Redis Memory at end
     end_time_redis_memory = duthost.shell(
-        r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
+        r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'")["stdout"]
     logger.info("Redis Memory at start: %s M", start_time_redis_memory)
     logger.info("Redis Memory at end: %s M", end_time_redis_memory)
 
