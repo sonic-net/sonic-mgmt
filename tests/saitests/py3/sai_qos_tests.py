@@ -93,6 +93,13 @@ RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53  # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52  # Fits the ptf hex_dump_buffer() parse function
 
+def get_udp_port():
+    val = 1234
+    while True:
+        if val == 65535:
+            raise RuntimeError("We ran out of udp ports!")
+        val = max(1234, (val+10)%65535)
+        yield val
 
 def check_leackout_compensation_support(asic, hwsku):
     if 'broadcom' in asic.lower():
@@ -160,6 +167,52 @@ def construct_ip_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, 
         return pkt
 
 
+def construct_udp_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, udp_sport, udp_dport, **kwargs):
+    ecn = kwargs.get('ecn', 1)
+    ip_id = kwargs.get('ip_id', None)
+    ttl = kwargs.get('ttl', None)
+    exp_pkt = kwargs.get('exp_pkt', False)
+
+    tos = (dscp << 2) | ecn
+    pkt_args = {
+        'pktlen': pkt_len,
+        'eth_dst': dst_mac,
+        'eth_src': src_mac,
+        'ip_src': src_ip,
+        'ip_dst': dst_ip,
+        'ip_tos': tos,
+        'udp_sport':udp_sport,
+        'udp_dport':udp_dport
+    }
+    if ip_id is not None:
+        pkt_args['ip_id'] = ip_id
+
+    if ttl is not None:
+        pkt_args['ip_ttl'] = ttl
+
+    if src_vlan is not None:
+        pkt_args['dl_vlan_enable'] = True
+        pkt_args['vlan_vid'] = int(src_vlan)
+        pkt_args['vlan_pcp'] = dscp
+
+    pkt = simple_udp_packet(**pkt_args)
+
+    if exp_pkt:
+        masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+        if src_vlan is not None:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
+        return masked_exp_pkt
+    else:
+        return pkt
+
+
+
 def construct_arp_pkt(eth_dst, eth_src, arp_op, src_ip, dst_ip, hw_dst, src_vlan):
     pkt_args = {
         'eth_dst': eth_dst,
@@ -224,7 +277,74 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
                 print("fill_leakout_plus_one: Success, sent %d packets, queue occupancy bytes rose from %d to %d" % (
                     packet_i + 1, queue_counters_base[queue], queue_counters[queue]), file=sys.stderr)
                 return True
+        else:
+            raise RuntimeError("Couldnot fill leakout:src_id:{}, dst_id:{},"
+                " pkt:{}, queue:{}, asic_type:{}".format(
+                    src_port_id, dst_port_id, "{}".format(pkt.__repr__()[0:200]),
+                    queue, asic_type))
+
     return False
+
+
+def get_multiple_flows_udp(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn,
+        ttl, pkt_len, src_details, packets_per_port=1):
+    '''
+        Returns a dict of format:
+        src_id : [list of (pkt, exp_pkt) pairs that go to the given dst_id]
+    '''
+
+    def get_rx_port_udp(dp, src_port_id, pkt, exp_pkt):
+        # 3 attempts to account for arp/neighbor entry.
+        result = None
+        for i in range(3):
+            send_packet(dp, src_port_id, pkt, 1)
+
+            result = dp.dataplane.poll(
+                device_number=0, exp_pkt=exp_pkt, timeout=3)
+            if isinstance(result, dp.dataplane.PollFailure):
+                # Try again.
+                continue
+
+        if isinstance(result, dp.dataplane.PollFailure):
+            dp.fail("Expected packet was not received."
+                "Received on port:{} {}".format(
+                result.port, result.format()))
+
+        return result.port
+
+    udp_port_gen = get_udp_port()
+    all_pkts = {}
+    for src_tuple in src_details:
+        num_of_pkts = 0
+        print("Trying {} => {}, dstip:{}".format(src_tuple[0], dst_id, dst_ip),
+              file=sys.stderr)
+        while (num_of_pkts < packets_per_port):
+            pkt_args = {
+                'ip_ecn':ecn,
+                'ip_ttl':ttl}
+            pkt_args = [
+                pkt_len,
+                dst_mac,
+		src_tuple[2],
+		src_tuple[1],
+		dst_ip,
+		dscp,
+		src_vlan,
+		1234,
+		next(udp_port_gen)]
+            pkt = construct_udp_pkt(*pkt_args, ip_ecn=ecn, ip_ttl=ttl)
+            exp_pkt = construct_udp_pkt(*pkt_args, ip_ecn=ecn, ip_ttl=ttl-1,
+	                                exp_pkt=True)
+
+            if get_rx_port_udp(dp, src_tuple[0], pkt, exp_pkt) == dst_id:
+                try:
+                    all_pkts[src_tuple[0]].append((pkt, exp_pkt))
+                    num_of_pkts+=1
+                except KeyError:
+                    all_pkts[src_tuple[0]] = []
+                    all_pkts[src_tuple[0]].append((pkt, exp_pkt))
+                    num_of_pkts+=1
+    return all_pkts
 
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
@@ -855,7 +975,7 @@ class Dot1pToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         try:
             for pg, dot1ps in list(pg_dot1p_map.items()):
                 pg_cntrs_base = sai_thrift_read_pg_counters(
-                    self.client, port_list[src_port_id])
+                    self.client, src_port_id)
 
                 # send pkts with dot1ps that map to the same pg
                 for dot1p in dot1ps:
@@ -990,15 +1110,18 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         if is_dualtor and def_vlan_mac != None:
             pkt_dst_mac = def_vlan_mac
 
-        pkt = construct_ip_pkt(packet_length,
-                               pkt_dst_mac,
-                               src_port_mac,
-                               src_port_ip,
-                               dst_port_ip,
-                               dscp,
-                               src_port_vlan,
-                               ecn=ecn,
-                               ttl=ttl)
+        pkt = get_multiple_flows_udp(
+                self,
+                router_mac,
+                dst_port_id,
+                dst_port_ip,
+                src_port_vlan,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                [(src_port_id, src_port_ip, self.dataplane.get_mac(0, src_port_id))],
+                packets_per_port=1)[src_port_id][0][0]
 
         print("test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
             dst_port_id, src_port_id, src_port_vlan
@@ -1177,12 +1300,13 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
-        src_port_1_id = int(self.test_params['src_port_1_id'])
-        src_port_1_ip = self.test_params['src_port_1_ip']
-        src_port_1_mac = self.dataplane.get_mac(0, src_port_1_id)
-        src_port_2_id = int(self.test_params['src_port_2_id'])
-        src_port_2_ip = self.test_params['src_port_2_ip']
-        src_port_2_mac = self.dataplane.get_mac(0, src_port_2_id)
+        src_details = []
+        src_details.append((int(self.test_params['src_port_1_id']),
+            self.test_params['src_port_1_ip'],
+            self.dataplane.get_mac(0, int(self.test_params['src_port_1_id']))))
+        src_details.append((int(self.test_params['src_port_2_id']),
+            self.test_params['src_port_2_ip'],
+            self.dataplane.get_mac(0, int(self.test_params['src_port_2_id']))))
         num_of_flows = self.test_params['num_of_flows']
         asic_type = self.test_params['sonic_asic_type']
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
@@ -2480,6 +2604,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         attr = sai_thrift_attribute_t(
             id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
         self.client.sai_thrift_set_port_attribute(port_list[dst_port_id], attr)
+        self.asic_type = self.test_params['asic_type']
 
         # Clear Counters
         sai_thrift_clear_all_counters(self.client)
@@ -3196,15 +3321,18 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = construct_ip_pkt(packet_length,
-                               pkt_dst_mac,
-                               src_port_mac,
-                               src_port_ip,
-                               dst_port_ip,
-                               dscp,
-                               src_port_vlan,
-                               ecn=ecn,
-                               ttl=ttl)
+        pkt = get_multiple_flows_udp(
+                self,
+                pkt_dst_mac,
+                dst_port_id,
+                dst_port_ip,
+                src_port_vlan,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                [(src_port_id, src_port_ip, self.dataplane.get_mac(0, src_port_id))],
+                packets_per_port=1)[src_port_id][0][0]
 
         print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
               (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)

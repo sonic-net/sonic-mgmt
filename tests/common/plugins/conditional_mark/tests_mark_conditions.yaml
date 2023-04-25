@@ -815,6 +815,18 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
+  skip:
+    reason: "Lossless Voq test is supported only in Cisco-8000."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
+  skip:
+    reason: "Lossy Voq test is supported only in Cisco-8000."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####         restapi             #####
 #######################################
