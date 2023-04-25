@@ -588,11 +588,11 @@ class DualTorIO:
 
         # E731 Use a def instead of a lambda
         def get_packet_sort_key(packet):
+            payload_bytes = convert_scapy_packet_to_bytes(packet[scapyall.TCP].payload)
             if six.PY2:
-                payload_bytes = str(packet[scapyall.TCP].payload)
+                payload_int = int(payload_bytes.replace('X', ''))
             else:
-                payload_bytes = bytes(packet[scapyall.TCP].payload).decode()
-            payload_int = int(payload_bytes.replace('X', ''))
+                payload_int = int(payload_bytes.decode().replace('X', ''))
             return (payload_int, packet.time)
 
         # For each server's packet list, sort by payload then timestamp
@@ -633,10 +633,11 @@ class DualTorIO:
                 # scapy 2.4.5 will use Decimal to calulcate time, but json.dumps
                 # can't recognize Decimal, transform to float here
                 curr_time = float(packet.time)
+                curr_payload_bytes = convert_scapy_packet_to_bytes(packet[scapyall.TCP].payload)
                 if six.PY2:
-                    curr_payload = int(str(packet[scapyall.TCP].payload).replace('X', ''))
+                    curr_payload = int(curr_payload_bytes.replace('X', ''))
                 else:
-                    curr_payload = int(bytes(packet[scapyall.TCP].payload).decode().replace('X', ''))
+                    curr_payload = int(curr_payload_bytes.decode().replace('X', ''))
 
                 # Look back at the previous received packet to check for gaps/duplicates
                 # Only if we've already received some packets
@@ -713,11 +714,12 @@ class DualTorIO:
             sequential TCP Payload
         """
         try:
+            payload_bytes = convert_scapy_packet_to_bytes(packet[scapyall.TCP].payload)
             if six.PY2:
-                int(str(packet[scapyall.TCP].payload).replace('X', '')) in range(
+                int(payload_bytes.replace('X', '')) in range(
                     self.packets_to_send)
             else:
-                int(bytes(packet[scapyall.TCP].payload).decode().replace('X', '')) in range(
+                int(payload_bytes.decode().replace('X', '')) in range(
                     self.packets_to_send)
             return True
         except Exception:
