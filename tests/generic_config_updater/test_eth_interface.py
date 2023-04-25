@@ -220,7 +220,7 @@ def test_replace_fec(duthost, ensure_dut_readiness, fec):
 
 
 @pytest.mark.parametrize("index, is_valid", [
-    ("33", True),
+    ("29", True),
     ("abc1", False)
 ])
 def test_update_valid_invalid_index(duthost, ensure_dut_readiness, index, is_valid):
