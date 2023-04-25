@@ -1,7 +1,7 @@
 - name: Move json config to console server
   template:
     src: incremental_mcx_config.j2
-    dst: /tmp/incremental_mcx_config.json
+    dest: /tmp/incremental_mcx_config.json
 
 - name: Import config
   shell: sonic-cfggen -j /tmp/incremental_mcx_config.json --write-to-db
