@@ -12,7 +12,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters,\
     ensure_no_l3_drops, ensure_no_l2_drops
 from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_UPDATE_INTERVAL,\
-    MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params
+    MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params, setup, fanouthost, pkt_fields, ports_info, tx_dut_ports, rif_port_down  # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -91,8 +91,8 @@ def parse_combined_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
                     break
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports=None,
-                      skip_counter_check=False, drop_information=None):
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,
+                      tx_dut_ports=None, skip_counter_check=False, drop_information=None):  # noqa F811
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -263,7 +263,7 @@ def do_test(duthosts):
 
 
 def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                            setup, fanouthost, pkt_fields, ports_info):
+                            setup, fanouthost, pkt_fields, ports_info):  # noqa F811
     """
     @summary: Verify that packet with reserved DMAC is dropped and L2 drop counter incremented
     @used_mac_address:
@@ -300,7 +300,7 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
 
 
-def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):
+def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):  # noqa F811
     """
     @summary: Verify that packets on ingress port are not dropped
               when egress RIF link is down and check that drop counters not incremented
