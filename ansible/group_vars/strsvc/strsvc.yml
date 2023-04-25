@@ -26,9 +26,6 @@ radius_servers: []
 
 radius_passkey: testing123
 
-# TACACS server used by lab only, not used in tests or minigraph
-lab_tacacs_servers: []
-
 #'TacacsServer' in minigraph
 tacacs_servers: ['100.127.20.21']
 
