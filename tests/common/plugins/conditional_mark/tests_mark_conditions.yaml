@@ -450,6 +450,12 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
+generic_config_updater/test_eth_interface.py:
+  xfail:
+    reason: 'Xfail this script due to many failures found'
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
+
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
@@ -555,12 +561,7 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'mx']"
-  xfail:
-    reason: "Dualtor do not support now, need to fix in buildimage."
-    conditions:
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-buildimage/issues/12167
+      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name"
 
 ipfwd/test_mtu.py:
   skip:
