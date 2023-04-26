@@ -436,7 +436,6 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 3/4  1                 1               1                                                1                                         1                         # noqa E501
             # queue 5    1                 1               1                                                1                                         1                         # noqa E501
             # queue 7    0                 1               1                                                1                                         1                         # noqa E501
-            # LAG ports can have LACP packets on queue 7, hence using >= comparison
             assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
             assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert (queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
@@ -456,11 +455,13 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                 else:
                     assert (queue_results[QUEUE_1] ==
                             57 + queue_results_base[QUEUE_1])
+                # LAG ports can have LACP packets on queue 7, hence using >= comparison
                 assert (queue_results[QUEUE_7] >= 1 +
                         queue_results_base[QUEUE_7])
             else:
                 assert (queue_results[QUEUE_1] == 58 +
                         queue_results_base[QUEUE_1])
+                # LAG ports can have LACP packets on queue 7, hence using >= comparison
                 assert (queue_results[QUEUE_7] >= queue_results_base[QUEUE_7])
 
         finally:
