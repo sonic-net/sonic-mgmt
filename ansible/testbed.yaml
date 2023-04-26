@@ -1678,6 +1678,25 @@
   auto_recover: 'True'
   comment: sumeenak
 
+- conf-name: vmsvc5-t2-8800-1
+  group-name: svc5-1
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: svc5-1
+  ptf_ip: 10.206.144.253/24
+  ptf_ipv6:
+  server: server_svc_5
+  vm_base: VM50000
+  dut:
+    - svcstr2-8800-lc1-1
+    - svcstr2-8800-lc2-1
+    - svcstr2-8800-lc3-1
+    - svcstr2-8800-sup-1
+
+  inv_name: strsvc2
+  auto_recover: 'True'
+  comment: v-nikithaa
+
 - conf-name: vmsvc1-t1-n3164-acs-1
   group-name: svc1-1
   topo: t1-64-lag
