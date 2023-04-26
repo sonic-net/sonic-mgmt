@@ -36,7 +36,7 @@ def gnmi_port(duthost):
             GNMI_CONFIG_KEY = 'TELEMETRY|gnmi'
         else:
             GNMI_CONFIG_KEY = 'GNMI|gnmi'
-        port = duthost.shell("redis-cli -n 4 hget '%s' 'port'" % GNMI_CONFIG_KEY)['stdout']
+        port = duthost.shell("sonic-db-cli CONFIG_DB hget '%s' 'port'" % GNMI_CONFIG_KEY)['stdout']
         GNMI_PORT = int(port)
     return GNMI_PORT
 
