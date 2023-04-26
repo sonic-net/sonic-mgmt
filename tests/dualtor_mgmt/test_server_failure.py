@@ -35,18 +35,22 @@ def test_server_down(duthosts, tbinfo, active_standby_ports, simulator_flap_coun
 
     if loganalyzer:
         for analyzer in list(loganalyzer.values()):
-            analyzer.ignore_regex.append(r".*ERR swss#orchagent: :- setState: State transition from active to active is not-handled")
+            analyzer.ignore_regex.append(
+                r".*ERR swss#orchagent: :- setState: State transition from active to active is not-handled"
+            )
 
     upper_tor = duthosts[tbinfo['duts'][0]]
     lower_tor = duthosts[tbinfo['duts'][1]]
 
     def upper_tor_mux_state_verification(state, health):
         mux_state_upper_tor = show_muxcable_status(upper_tor)
-        return mux_state_upper_tor[test_iface]['status'] == state and mux_state_upper_tor[test_iface]['health'] == health
+        return (mux_state_upper_tor[test_iface]['status'] == state and
+                mux_state_upper_tor[test_iface]['health'] == health)
 
     def lower_tor_mux_state_verfication(state, health):
         mux_state_lower_tor = show_muxcable_status(lower_tor)
-        return mux_state_lower_tor[test_iface]['status'] == state and mux_state_lower_tor[test_iface]['health'] == health
+        return (mux_state_lower_tor[test_iface]['status'] == state and
+                mux_state_lower_tor[test_iface]['health'] == health)
 
     # Set upper_tor as active
     toggle_simulator_port_to_upper_tor(test_iface)
