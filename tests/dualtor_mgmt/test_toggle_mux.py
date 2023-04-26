@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_topo(active_standby_ports, tbinfo):
+def check_topo(active_standby_ports, tbinfo):                                                           # noqa: F811
     if 'dualtor' not in tbinfo['topo']['name']:
         pytest.skip('Skip on non-dualtor testbed')
 
