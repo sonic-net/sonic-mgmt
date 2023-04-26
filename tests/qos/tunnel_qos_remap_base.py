@@ -101,32 +101,40 @@ def counter_poll_config(duthost, type, interval_ms):
         time.sleep(10)
 
 
-def load_tunnel_qos_map():
+@pytest.fixture(scope='module')
+def tunnel_qos_maps(rand_selected_dut, dut_qos_maps):
     """
-    Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from file
-    return a dict
+    Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from config DB.
+    return a dict 
     """
-    TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map.json"
     TUNNEL_MAP_NAME = "AZURE_TUNNEL"
     MAP_NAME = "AZURE"
+    asic_type = rand_selected_dut.facts["asic_type"]
+    if 'cisco-8000' in asic_type:
+        # Cisco-8000 does not use the tunneled tc to pg map
+        tc_to_pg_map_name = MAP_NAME
+    else:
+        tc_to_pg_map_name = TUNNEL_MAP_NAME
     ret = {}
-    with open(TUNNEL_QOS_MAP_FILENAME, "r") as f:
-        maps = json.load(f)
-    # inner_dscp_to_pg map, a map for mapping dscp to priority group at decap side
     ret['inner_dscp_to_pg_map'] = {}
-    for k, v in list(maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items()):
+    for k, v in dut_qos_maps['dscp_to_tc_map'][TUNNEL_MAP_NAME].items():
         ret['inner_dscp_to_pg_map'][int(k)] = int(
-            maps['TC_TO_PRIORITY_GROUP_MAP'][TUNNEL_MAP_NAME][v])
+            dut_qos_maps['tc_to_priority_group_map'][tc_to_pg_map_name][v])
     # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
     ret['inner_dscp_to_outer_dscp_map'] = {}
-    for k, v in list(maps['DSCP_TO_TC_MAP'][MAP_NAME].items()):
-        ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(
-            maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
+    if 'cisco-8000' in asic_type:
+        # Cisco-8000 directly uses the tc to dscp map as the inner to outer dscp encap map
+        for k, v in dut_qos_maps['tc_to_dscp_map'][TUNNEL_MAP_NAME].items():
+            ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(v)
+    else:
+        for k, v in dut_qos_maps['dscp_to_tc_map'][MAP_NAME].items():
+            ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(
+                dut_qos_maps['tc_to_dscp_map'][TUNNEL_MAP_NAME][v])
     # inner_dscp_to_queue_map, a map for mapping the tunnel traffic to egress queue at decap side
     ret['inner_dscp_to_queue_map'] = {}
-    for k, v in list(maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items()):
+    for k, v in dut_qos_maps['dscp_to_tc_map'][TUNNEL_MAP_NAME].items():
         ret['inner_dscp_to_queue_map'][int(k)] = int(
-            maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
+            dut_qos_maps['tc_to_queue_map'][MAP_NAME][v])
 
     return ret
 
