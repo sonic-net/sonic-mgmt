@@ -2,14 +2,11 @@ import pytest
 
 import time
 import logging
-import ipaddress
-import sys
-from collections import Counter
+import tempfile
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.ptf_runner import ptf_runner
-from tests.common.config_reload import config_reload
-from scapy.all import *
+from tests.common.helpers.assertions import pytest_assert
+from scapy.all import Packet, ByteField, ShortField, MACField, XStrFixedLenField, ConditionalField
+from scapy.all import split_layers, bind_layers, rdpcap
 import scapy.contrib.lacp
 
 logger = logging.getLogger(__name__)
@@ -17,6 +14,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("t0", "t1")
 ]
+
 
 class LACPRetryCount(Packet):
     name = "LACPRetryCount"
@@ -58,8 +56,10 @@ class LACPRetryCount(Packet):
         ConditionalField(XStrFixedLenField("reserved", "", 50), lambda pkt:pkt.version != 0xf1),
     ]
 
+
 split_layers(scapy.contrib.lacp.SlowProtocol, scapy.contrib.lacp.LACP, subtype=1)
 bind_layers(scapy.contrib.lacp.SlowProtocol, LACPRetryCount, subtype=1)
+
 
 @pytest.fixture(scope="module")
 def configure_higher_retry_count_on_neighbors(request, nbrhosts):
@@ -79,6 +79,7 @@ def configure_higher_retry_count_on_neighbors(request, nbrhosts):
 
     # Wait for retry count info to be updated
     time.sleep(60)
+
 
 @pytest.fixture(scope="module")
 def configure_higher_retry_count(request, duthost):
@@ -100,6 +101,7 @@ def configure_higher_retry_count(request, duthost):
     # Wait for retry count info to be updated
     time.sleep(60)
 
+
 def test_peer_lag_member_retry_count(duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
     """
     Test that DUT sees new retry count when peers update retry count.
@@ -119,6 +121,7 @@ def test_peer_lag_member_retry_count(duthost, nbrhosts, configure_higher_retry_c
             pytest_assert(status["runner"]["selected"], "status of lag member error")
             pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
 
+
 def test_retry_count(duthost, nbrhosts, configure_higher_retry_count):
     """
     Test that peers see new retry count when DUT updates retry count.
@@ -135,6 +138,7 @@ def test_retry_count(duthost, nbrhosts, configure_higher_retry_count):
             pytest_assert(status["runner"]["selected"], "status of lag member error")
             pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
 
+
 def log_lacpdu_packets(duthost, iface, save_path):
     """Capture LACPDU packets to file."""
     start_pcap = "tcpdump -i %s -w %s ether proto 0x8809" % (iface, save_path)
@@ -145,6 +149,7 @@ def log_lacpdu_packets(duthost, iface, save_path):
     time.sleep(30)
 
     duthost.shell(stop_pcap, module_ignore_errors=True)
+
 
 def test_peer_lag_member_retry_count_packet_version(duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
     """
@@ -171,7 +176,9 @@ def test_peer_lag_member_retry_count_packet_version(duthost, nbrhosts, configure
                     elif pkt["LACPRetryCount"].actor_system == status["runner"]["partner_lacpdu_info"]["system"]:
                         receiveVersionVerified = True
             pytest_assert(sendVersionVerified, "unable to verify that LACPDU packets sent were the right version")
-            pytest_assert(receiveVersionVerified, "unable to verify that LACPDU packets received were the right version")
+            pytest_assert(receiveVersionVerified,
+                          "unable to verify that LACPDU packets received were the right version")
+
 
 def test_retry_count_packet_version(duthost, nbrhosts, configure_higher_retry_count):
     """
@@ -197,4 +204,5 @@ def test_retry_count_packet_version(duthost, nbrhosts, configure_higher_retry_co
                     elif pkt["LACPRetryCount"].actor_system == status["runner"]["partner_lacpdu_info"]["system"]:
                         receiveVersionVerified = True
             pytest_assert(sendVersionVerified, "unable to verify that LACPDU packets sent were the right version")
-            pytest_assert(receiveVersionVerified, "unable to verify that LACPDU packets received were the right version")
+            pytest_assert(receiveVersionVerified,
+                          "unable to verify that LACPDU packets received were the right version")
