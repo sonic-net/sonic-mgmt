@@ -1,15 +1,7 @@
-import ptf
-from ptf.base_tests import BaseTest
-from ptf import config
-import ptf.testutils as testutils
 from ptf.testutils import *
-from ptf.dataplane import match_exp_pkt
 import datetime
 import _strptime  # workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 import time
-from ptf.mask import Mask
-import ptf.packet as scapy
-from six.moves import _thread as thread
 import threading
 import os
 import sys
@@ -47,8 +39,7 @@ class Sonic(host_device.HostDevice):
         self.port_channel_intf_idx = test_params['port_channel_intf_idx']
         self.port_channel_last_lacp_pdu_time = None
         self.port_channel_last_lacp_pdu_time_lock = threading.Lock()
-        self.lacp_pdu_time_on_down = list()
-        self.lacp_pdu_time_on_up = list()
+        self.lacp_pdu_timings = list()
 
     def log(self, msg):
         if self.log_cb is not None:
@@ -88,8 +79,8 @@ class Sonic(host_device.HostDevice):
         with self.port_channel_last_lacp_pdu_time_lock:
             self.port_channel_last_lacp_pdu_time = time.time()
 
-    def monitor_lacp_packets(self):
-        scapyall.sniff(prn=self.lacp_packet_callback, iface="eth{}".format(self.port_channel_intf_idx), filter="ether proto 0x8809", store=0)
+    def monitor_lacp_packets(self, intf_idx):
+        scapyall.sniff(prn=self.lacp_packet_callback, iface="eth{}".format(intf_idx), filter="ether proto 0x8809", store=0)
 
     def run(self):
         data = {}
@@ -106,9 +97,10 @@ class Sonic(host_device.HostDevice):
         start_time = time.time()
         self.collect_lacppdu_time = True
 
-        lacp_thread = threading.Thread(target=self.monitor_lacp_packets)
-        lacp_thread.setDaemon(True)
-        lacp_thread.start()
+        for intf_idx in self.port_channel_intf_idx:
+            lacp_thread = threading.Thread(target=self.monitor_lacp_packets, args=[intf_idx,])
+            lacp_thread.setDaemon(True)
+            lacp_thread.start()
 
         while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = None
@@ -119,21 +111,12 @@ class Sonic(host_device.HostDevice):
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
-                elif cmd == 'cpu_down':
+                elif cmd == 'cpu_down' or cmd == 'cpu_going_up' or cmd == 'cpu_up':
                     last_lacppdu_time_before_reboot = None
                     with self.port_channel_last_lacp_pdu_time_lock:
                         last_lacppdu_time_before_reboot = self.port_channel_last_lacp_pdu_time
                     if last_lacppdu_time_before_reboot is not None:
-                        self.lacp_pdu_time_on_down.append(last_lacppdu_time_before_reboot)
-                elif (cmd == 'cpu_going_up' or cmd == 'cpu_up') and self.collect_lacppdu_time:
-                    # control plane is back up, start polling for new lacp-pdu
-                    last_lacppdu_time_after_reboot = None
-                    with self.port_channel_last_lacp_pdu_time_lock:
-                        last_lacppdu_time_after_reboot = self.port_channel_last_lacp_pdu_time
-                    if last_lacppdu_time_before_reboot is not None and last_lacppdu_time_after_reboot is not None and \
-                            int(last_lacppdu_time_after_reboot) > int(last_lacppdu_time_before_reboot):
-                        self.lacp_pdu_time_on_up.append(last_lacppdu_time_after_reboot)
-                        self.collect_lacppdu_time = False # post-reboot lacp-pdu is received, stop the polling
+                        self.lacp_pdu_timings.append(last_lacppdu_time_before_reboot)
 
             cur_time = time.time()
             info = {}
@@ -225,7 +208,9 @@ class Sonic(host_device.HostDevice):
                 self.fails.add(msg)
 
         self.log('Finishing run()')
-        return self.fails, self.info, cli_data, log_data, {"lacp_down": self.lacp_pdu_time_on_down, "lacp_up": self.lacp_pdu_time_on_up}
+        return self.fails, self.info, cli_data, log_data, {
+            "lacp_all": list(set(self.lacp_pdu_timings))
+            }
 
     def extract_from_logs(self, regexp, data, min_timestamp=None):
         raw_data = []
