@@ -67,7 +67,7 @@ parameters:
   # Test timeout
   - name: NIGHTLY_TEST_TIMEOUT
     type: number
-    default: 1920
+    default: 2880
 
   - name: REPO_NAME
     type: string
@@ -104,13 +104,13 @@ stages:
     - group: Testbed-Tools
 
   jobs:
-  - job: nightly_test_by_TestbedV2
-    displayName: NightlyTest_by_TestbedV2
+  - job: vms28_t0_4600c_nightly_test_by_TestbedV2
+    displayName: vms28_t0_4600c_NightlyTest_by_TestbedV2
     timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: ../../run-test-scheduler-template.yml
+    - template: ../../run-test-tbv2-nightly-template.yml
       parameters:
         TOPOLOGY: t0-64
         MIN_WORKER: 2
