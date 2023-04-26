@@ -18,9 +18,10 @@ TIMEOUT_LIMIT = 120
 
 
 def ssh_remote_run(localhost, remote_ip, username, password, cmd):
-    res = localhost.shell("sshpass -p {} ssh "
-                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-                          "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)
+    res = localhost.shell("sshpass -p {} ssh "\
+                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\
+                          "{}@{} '{}'".format(
+            password, username, remote_ip, cmd), module_ignore_errors=True)
     return res
 
 
@@ -114,9 +115,58 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
             "sudo docker ps -a",
         ],
         "lldpctl": ["sudo lldpctl"],
-        "vtysh": ['sudo vtysh -c "show version"', 'sudo vtysh -c "show bgp ipv4 summary json"',
-                  'sudo vtysh -c "show bgp ipv6 summary json"'],
-        "rvtysh": ['sudo rvtysh -c "show ip bgp su"', 'sudo rvtysh -n 0 -c "show ip bgp su"'],
+        "vtysh": ['sudo vtysh -c "show version"', 'sudo vtysh -c "show bgp ipv4 summary json"', 'sudo vtysh -c "show bgp ipv6 summary json"'],
+        "rvtysh": [
+            'sudo rvtysh -c "show ip bgp su"', 
+            'sudo rvtysh -c "show history"',
+            'sudo rvtysh -c "show ip bgp neighbors"',
+            'sudo rvtysh -c "show ip bgp 0.0.0.0/0 longer-prefixes"',
+            'sudo rvtysh -c "show bgp fc00:1::/64 longer-prefixes"',
+            'sudo rvtysh -c "show bgp neighbors 10.0.0.57 advertised-routes"',
+            'sudo rvtysh -c "show ip bgp neighbors 10.0.0.57 received-routes"',
+            'sudo rvtysh -c "show ip bgp ipv6 json"',
+            'sudo rvtysh -c "show ip bgp ipv4 json"',
+            'sudo rvtysh -c "show ip bgp json"',
+            'sudo rvtysh -c "show ip bgp 0.0.0.0/0"',
+            'sudo rvtysh -c "show ip fib"',
+            'sudo rvtysh -c "show ip prefix-list"',
+            'sudo rvtysh -c "show ip protocol"',
+            'sudo rvtysh -c "show ip route"',
+            'sudo rvtysh -c "show ipv6 fib"',
+            'sudo rvtysh -c "show ipv6 protocol"',
+            'sudo rvtysh -c "show ipv6 route"',
+            'sudo rvtysh -c "show ipv6 prefix-list"',
+            'sudo rvtysh -c "show logging"',
+            'sudo rvtysh -c "show route-map"',
+            'sudo rvtysh -c "show running-config bgp"',
+            'sudo rvtysh -c "show version"',
+            'sudo rvtysh -c "show vrf"',
+
+            'sudo rvtysh -n 0 -c "show ip bgp su"',
+            'sudo rvtysh -n 0 -c "show history"',
+            'sudo rvtysh -n 0 -c "show ip bgp neighbors"',
+            'sudo rvtysh -n 0 -c "show ip bgp 0.0.0.0/0 longer-prefixes"',
+            'sudo rvtysh -n 0 -c "show bgp fc00:1::/64 longer-prefixes"',
+            'sudo rvtysh -n 0 -c "show bgp neighbors 10.0.0.57 advertised-routes"',
+            'sudo rvtysh -n 0 -c "show ip bgp neighbors 10.0.0.57 received-routes"',
+            'sudo rvtysh -n 0 -c "show ip bgp ipv6 json"',
+            'sudo rvtysh -n 0 -c "show ip bgp ipv4 json"',
+            'sudo rvtysh -n 0 -c "show ip bgp json"',
+            'sudo rvtysh -n 0 -c "show ip bgp 0.0.0.0/0"',
+            'sudo rvtysh -n 0 -c "show ip fib"',
+            'sudo rvtysh -n 0 -c "show ip prefix-list"',
+            'sudo rvtysh -n 0 -c "show ip protocol"',
+            'sudo rvtysh -n 0 -c "show ip route"',
+            'sudo rvtysh -n 0 -c "show ipv6 fib"',
+            'sudo rvtysh -n 0 -c "show ipv6 protocol"',
+            'sudo rvtysh -n 0 -c "show ipv6 route"',
+            'sudo rvtysh -n 0 -c "show ipv6 prefix-list"',
+            'sudo rvtysh -n 0 -c "show logging"',
+            'sudo rvtysh -n 0 -c "show route-map"',
+            'sudo rvtysh -n 0 -c "show running-config bgp"',
+            'sudo rvtysh -n 0 -c "show version"',
+            'sudo rvtysh -n 0 -c "show vrf"',
+        ],
         "decode-syseeprom": ["sudo decode-syseeprom"],
         "generate_dump": ['sudo generate_dump -s "5 secs ago"'],
         "lldpshow": ["sudo lldpshow"],
@@ -216,3 +266,4 @@ def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hos
         banned = ssh_remote_ban_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
                                     tacacs_creds['tacacs_ro_user_passwd'], command)
         pytest_assert(banned, "command '{}' authorized".format(command))
+
