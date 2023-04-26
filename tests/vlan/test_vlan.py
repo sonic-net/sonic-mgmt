@@ -319,11 +319,11 @@ def verify_icmp_packets(ptfadapter, send_pkt, work_vlan_ports_list, vlan_port, v
                                     portchannel_ports=tagged_dst_pc_ports)
 
 
-def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports):
+def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports, timeout=None):
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, send_pkt)
     try:
-        testutils.verify_packets_any(ptfadapter, exp_pkt, ports=dst_ports)
+        testutils.verify_packets_any(ptfadapter, exp_pkt, ports=dst_ports, timeout=timeout)
     except AssertionError as detail:
         if "Did not receive expected packet on any of ports" in str(detail):
             logger.error("Expected packet was not received")
@@ -460,7 +460,8 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_di
             tagged_test_vlan, src_port, dst_port))
 
         verify_unicast_packets(
-            ptfadapter, transmit_tagged_pkt, transmit_tagged_pkt, src_port[0], dst_port)
+            ptfadapter, transmit_tagged_pkt, transmit_tagged_pkt, src_port[0],
+            dst_port, timeout=5)
 
         logger.info("One Way Tagged Packet Transmission Works")
         logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(
@@ -470,7 +471,7 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_di
             tagged_test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_tagged_pkt,
-                               return_transmit_tagged_pkt, dst_port[0], src_port)
+            return_transmit_tagged_pkt, dst_port[0], src_port, timeout=5)
 
         logger.info("Two Way Tagged Packet Transmission Works")
         logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(
@@ -511,7 +512,8 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
             untagged_test_vlan, src_port, dst_port))
 
         verify_unicast_packets(
-            ptfadapter, transmit_untagged_pkt, transmit_untagged_pkt, src_port[0], dst_port)
+            ptfadapter, transmit_untagged_pkt, transmit_untagged_pkt, src_port[0],
+            dst_port, timeout=5)
 
         logger.info("One Way Untagged Packet Transmission Works")
         logger.info("Untagged({}) packet successfully sent from port {} to port {}".format(
@@ -521,7 +523,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
             untagged_test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_untagged_pkt,
-                               return_transmit_untagged_pkt, dst_port[0], src_port)
+            return_transmit_untagged_pkt, dst_port[0], src_port, timeout=5)
 
         logger.info("Two Way Untagged Packet Transmission Works")
         logger.info("Untagged({}) packet successfully sent from port {} to port {}".format(
