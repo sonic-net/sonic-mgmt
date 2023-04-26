@@ -15,6 +15,7 @@ import argparse
 import time
 import prettytable
 import pytz
+import math
 
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.kusto.data.helpers import dataframe_from_result_table
@@ -967,6 +968,51 @@ class GeneralAnalyzer(BasicAnalyzer):
 
         return error_final_icm_list, final_icm_list, duplicated_icm_list
 
+    def rearrange_icm_list(self, icm_list):
+        """
+        Rearrange the icm list based on branch and shorten the upload time
+        Return: rearranged_icm_list[][]
+        """
+        rearranged_icm_list = []
+        icm_202012 = []
+        icm_202205 = []
+        icm_internal = []
+        icm_master = []
+
+        # Split the icm list into four temp list based on branch
+        for icm in icm_list:
+            if icm['branch'] == '202012':
+                icm_202012.append(icm)
+            elif icm['branch'] == '202205':
+                icm_202205.append(icm)
+            elif icm['branch'] == 'master':
+                icm_master.append(icm)
+            else:
+                icm_internal.append(icm)
+        logger.info("There are {} IcMs in 202012 branch".format(len(icm_202012)))
+        logger.info("There are {} IcMs in 202205 branch".format(len(icm_202205)))
+        logger.info("There are {} IcMs in master branch".format(len(icm_master)))
+        logger.info("There are {} IcMs in internal branch".format(len(icm_internal)))
+
+        # Get upload times
+        upload_times = math.ceil(max(len(icm_202012), len(icm_202205), len(icm_master), len(icm_internal)) / ICM_NUMBER_THRESHOLD)
+
+        # Every branch can upload up to ICM_NUMBER_THRESHOLD IcMs
+        for i in range(upload_times):
+            temp_icm_list = []
+            for j in range(ICM_NUMBER_THRESHOLD):
+                if len(icm_202012) > 0:
+                    temp_icm_list.append(icm_202012.pop(0))
+                if len(icm_202205) > 0:
+                    temp_icm_list.append(icm_202205.pop(0))
+                if len(icm_master) > 0:
+                    temp_icm_list.append(icm_master.pop(0))
+                if len(icm_internal) > 0:
+                    temp_icm_list.append(icm_internal.pop(0))
+            rearranged_icm_list.append(temp_icm_list)
+
+        return rearranged_icm_list
+
     def upload_to_kusto(self, new_icm_table, duplicated_icm_table, autoblame_table):
         """
         Upload data to kusto
@@ -1001,27 +1047,18 @@ class GeneralAnalyzer(BasicAnalyzer):
             row['upload_timestamp'] = ingested_time
         self.kusto_connector.upload_autoblame_data(autoblame_table)
 
-        icm_count = 0
-        upload_icm_table = []
-        for idx, new_icm in enumerate(new_icm_table):
-            upload_icm_table.append(new_icm)
-            if icm_count < ICM_NUMBER_THRESHOLD - 1 and idx != len(new_icm_table) - 1:
-                icm_count += 1
-            else:
-                logger.info("Upload {} new IcMs table to kusto.".format(
-                    len(upload_icm_table)))
-                # Set same upload timestamp for uploaded items
-                ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
-                for item in upload_icm_table:
-                    item['upload_timestamp'] = ingested_time
-                self.kusto_connector.upload_analyzed_data(upload_icm_table)
-                upload_icm_table = []
-                icm_count = 0
-                # Don't need to sleep for the last upload
-                if idx != len(new_icm_table) - 1:
-                    logger.info(
-                        "Sleep for 30 mins to cover kusto ingestion delay and avoid IcM throttling...")
-                    time.sleep(30 * 60)
+        final_upload_icm_table = self.rearrange_icm_list(new_icm_table)
+        for idx, each_upload_list in enumerate(final_upload_icm_table):
+            ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
+            for each_icm in each_upload_list:
+                each_icm['upload_timestamp'] = ingested_time
+
+            logger.info("Upload {} IcMs to kusto.".format(len(each_upload_list)))
+            self.kusto_connector.upload_analyzed_data(each_upload_list)
+            if idx != len(final_upload_icm_table) - 1:
+                logger.info(
+                    "Sleep for 30 mins to cover kusto ingestion delay and avoid IcM throttling...")
+                time.sleep(30 * 60)
 
         ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
         for row in duplicated_icm_table:
