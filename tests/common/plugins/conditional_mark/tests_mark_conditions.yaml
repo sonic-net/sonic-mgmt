@@ -561,12 +561,7 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'mx']"
-  xfail:
-    reason: "Dualtor do not support now, need to fix in buildimage."
-    conditions:
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-buildimage/issues/12167
+      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name"
 
 ipfwd/test_mtu.py:
   skip:
