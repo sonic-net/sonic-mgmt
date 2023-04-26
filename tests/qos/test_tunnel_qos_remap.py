@@ -15,7 +15,7 @@ from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_upli
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled
-from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config # lgtm[py/unused-import]
+from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, tunnel_qos_maps, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config # lgtm[py/unused-import]
 from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm, get_queue_counter
 from ptf import testutils
 from ptf.testutils import simple_tcp_packet
@@ -155,7 +155,7 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
                          "The queue counter for DSCP {} Queue {} is not as expected".format(dscp, queue))
 
 
-def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter):
+def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, tunnel_qos_maps):
     """
     The test case is to verify the decapped packet on active ToR are egressed to server from expected queue.
     Test steps:
@@ -171,7 +171,6 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
     active_tor_mac = rand_selected_dut.facts['router_mac']
     # Set queue counter polling interval to 1 second to speed up the test
     counter_poll_config(rand_selected_dut, 'queue', 1000)
-    tunnel_qos_map = load_tunnel_qos_map()
     PKT_NUM = 100
     try:
         # Walk through all DSCP values
@@ -195,8 +194,8 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
             # Wait 2 seconds for queue counter to be refreshed
             time.sleep(2)
             # Verify counter at expected queue at the server facing port
-            pytest_assert(check_queue_counter(rand_selected_dut, [dualtor_meta['selected_port']], tunnel_qos_map['inner_dscp_to_queue_map'][inner_dscp], PKT_NUM),
-                         "The queue counter for DSCP {} Queue {} is not as expected".format(inner_dscp, tunnel_qos_map['inner_dscp_to_queue_map'][inner_dscp])) 
+            pytest_assert(check_queue_counter(rand_selected_dut, [dualtor_meta['selected_port']], tunnel_qos_maps['inner_dscp_to_queue_map'][inner_dscp], PKT_NUM),
+                         "The queue counter for DSCP {} Queue {} is not as expected".format(inner_dscp, tunnel_qos_maps['inner_dscp_to_queue_map'][inner_dscp]))
 
     finally:
         counter_poll_config(rand_selected_dut, 'queue', 10000)
@@ -415,7 +414,7 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
 
 
 @pytest.mark.disable_loganalyzer
-def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module):
+def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module, tunnel_qos_maps):
     """
     Test steps:
     1. Toggle all ports to active on randomly selected ToR
@@ -427,12 +426,15 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
     toggle_mux_to_host(rand_selected_dut)
     asic = rand_selected_dut.get_asic_name()
     # TODO: Get the cell size for other ASIC
+    packet_size = 64
     if asic == 'th2':
         cell_size = 208
+    elif dut_config["asic_type"] == "cisco-8000":
+        cell_size = 384
+        packet_size = 1350
     else: 
         cell_size = 256
 
-    tunnel_qos_map = load_tunnel_qos_map()
     test_params = dict()
     test_params.update({
             "src_port_id": dut_config["lag_port_ptf_id"],
@@ -443,13 +445,15 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
             "standby_tor_mac": dut_config["unselected_tor_mac"],
             "standby_tor_ip": dut_config["unselected_tor_loopback"],
             "server": dut_config["selected_tor_mgmt"],
-            "inner_dscp_to_pg_map": tunnel_qos_map["inner_dscp_to_pg_map"],
+            "inner_dscp_to_pg_map": tunnel_qos_maps["inner_dscp_to_pg_map"],
+            "inner_dscp_to_queue_map": tunnel_qos_maps["inner_dscp_to_queue_map"],
             "port_map_file": dut_config["port_map_file"],
             "sonic_asic_type": dut_config["asic_type"],
             "platform_asic": dut_config["platform_asic"],
+            "packet_size": packet_size,
             "cell_size": cell_size
         })
-    
+
     run_ptf_test(
         ptfhost,
         test_case="sai_qos_tests.TunnelDscpToPgMapping",

@@ -714,14 +714,15 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 # Tunnel DSCP to PG mapping test
 class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
-    def _build_testing_pkt(self, active_tor_mac, standby_tor_mac, active_tor_ip, standby_tor_ip, inner_dscp, outer_dscp, dst_ip, ecn=1):
+    def _build_testing_pkt(self, active_tor_mac, standby_tor_mac, active_tor_ip, standby_tor_ip, inner_dscp, outer_dscp, dst_ip, packet_size, ecn=1):
         pkt = simple_tcp_packet(
                 eth_dst=standby_tor_mac,
                 ip_src='1.1.1.1',
                 ip_dst=dst_ip,
                 ip_dscp=inner_dscp,
                 ip_ecn=ecn,
-                ip_ttl=64
+                ip_ttl=64,
+                pktlen=packet_size
                 )
 
         ipinip_packet = simple_ipv4ip_packet(
@@ -731,7 +732,8 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                             ip_dst=active_tor_ip,
                             ip_dscp=outer_dscp,
                             ip_ecn=ecn,
-                            inner_frame=pkt[scapy.IP]
+                            inner_frame=pkt[scapy.IP],
+                            pktlen=packet_size
                             )
         return ipinip_packet
 
@@ -752,8 +754,11 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_ip = self.test_params['dst_port_ip']
 
         dscp_to_pg_map = self.test_params['inner_dscp_to_pg_map']
+        dscp_to_queue_map = self.test_params['inner_dscp_to_queue_map']
         asic_type = self.test_params['sonic_asic_type']
+        packet_size = self.test_params['packet_size']
         cell_size = self.test_params['cell_size']
+        cell_occupancy = (packet_size + cell_size - 1) // cell_size
         PKT_NUM = 100
         # There is background traffic during test, so we need to add error tolerance to ignore such pakcets
         ERROR_TOLERANCE = {
@@ -773,6 +778,9 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
             # There are packet leak even port tx is disabled (18 packets leak on TD3 found)
             # Hence we send some packet to fill the leak before testing
+            leakout_failed = False
+            if 'cisco-8000' in asic_type:
+                queue_leakouts_filled = [False] * 8
             for dscp, _ in dscp_to_pg_map.items():
                 pkt = self._build_testing_pkt(
                                             active_tor_mac=active_tor_mac,
@@ -781,11 +789,28 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                                             standby_tor_ip=standby_tor_ip,
                                             inner_dscp=dscp,
                                             outer_dscp=0,
-                                            dst_ip=dst_port_ip
+                                            dst_ip=dst_port_ip,
+                                            packet_size=packet_size
                                         )
-                send_packet(self, src_port_id, pkt, 20)
+                if 'cisco-8000' in asic_type:
+                    queue = dscp_to_queue_map[dscp]
+                    if not queue_leakouts_filled[queue]:
+                        status = fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+                        if status:
+                            queue_leakouts_filled[queue] = True
+                            print("Filled leakout for dscp {} to queue {}".format(dscp, queue))
+                        else:
+                            print("Failed to fill leakout for dscp {} to queue {}".format(dscp, queue))
+                            leakout_failed = True
+                else:
+                    send_packet(self, src_port_id, pkt, 20)
+            assert not leakout_failed, "Failed filling leakout"
             time.sleep(10)
-
+            if 'cisco-8000' in asic_type:
+                # Larger packets can exceed buffer depth
+                PKT_NUM = 50
+            else:
+                PKT_NUM = 100
             for dscp, pg in dscp_to_pg_map.items():
                 # Build and send packet to active tor.
                 # The inner DSCP is set to testing value, and the outer DSCP is set to 0 as it has no impact on remapping
@@ -796,16 +821,20 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                                             standby_tor_ip=standby_tor_ip,
                                             inner_dscp=dscp,
                                             outer_dscp=0,
-                                            dst_ip=dst_port_ip
+                                            dst_ip=dst_port_ip,
+                                            packet_size=packet_size
                                         )
                 pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_id])
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
                 time.sleep(8)
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.client, asic_type, port_list[src_port_id])
-
-                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] <= (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size)
-                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size)
+                pg_wm_inc = pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
+                lower_bounds = (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
+                upper_bounds = (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
+                print("DSCP {}, PG {}, expectation: {} <= {} <= {}".format(
+                    dscp, pg, lower_bounds, pg_wm_inc, upper_bounds), file=sys.stderr)
+                assert lower_bounds <= pg_wm_inc <= upper_bounds
         finally:
             # Enable tx on dest port
             self.sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
@@ -4292,8 +4321,10 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # Send packets short of triggering pfc while compensating for leakout
             if 'cisco-8000' in asic_type:
+                # Queue is always the inner_dscp due to the TC_TO_QUEUE_MAP redirection
+                queue = inner_dscp
                 assert(fill_leakout_plus_one(self, src_port_id,
-                       dst_port_id, pkt, int(self.test_params['pg']), asic_type))
+                       dst_port_id, pkt, queue, asic_type))
                 num_pkts = pkts_num_trig_pfc - pkts_num_margin - 1
                 send_packet(self, src_port_id, pkt, num_pkts)
                 print("Sending {} packets to port {}".format(num_pkts, src_port_id), file=sys.stderr)
