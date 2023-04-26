@@ -56,7 +56,7 @@ def _last_port_in_last_lag(lags):
     return lags[last_lag][-1]
 
 
-def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_lower_tor, tbinfo, ptfadapter):
+def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_lower_tor, tbinfo, ptfadapter, tunnel_qos_maps):
     """
     The test is to verify the dscp rewriting of encapped packets.
     Test steps
@@ -65,7 +65,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
     3. Send the generated packets via portchannels
     4. Verify the packets are encapped with expected DSCP value 
     """
-    DSCP_COMBINATIONS = [
+    REQUIRED_DSCP_COMBINATIONS = [
         # DSCP in generated packets, expected DSCP in encapped packets
         (8, 8),
         (0, 0),
@@ -75,6 +75,13 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
         (46, 46),
         (48, 48)
     ]
+    if "cisco-8000" in ptfhost.duthost.facts["asic_type"]:
+        DSCP_COMBINATIONS = list(tunnel_qos_maps['inner_dscp_to_outer_dscp_map'].items())
+        for dscp_combination in REQUIRED_DSCP_COMBINATIONS:
+            assert dscp_combination in DSCP_COMBINATIONS, \
+                "Required DSCP combination {} not in inner_dscp_to_outer_dscp_map".format(dscp_combinations)
+    else:
+        DSCP_COMBINATIONS = REQUIRED_DSCP_COMBINATIONS
     dualtor_meta = dualtor_info(ptfhost, upper_tor_host, lower_tor_host, tbinfo)
     active_tor_mac = lower_tor_host.facts['router_mac']
     
@@ -85,21 +92,29 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host, toggle_all_
     for ports in t1_ports.values():
         dst_ports.extend(ports)
 
+    success = True
     for dscp_combination in DSCP_COMBINATIONS:
         pkt, expected_pkt = build_testing_packet(src_ip=DUMMY_IP,
-                                                  dst_ip=SERVER_IP,
-                                                  active_tor_mac=active_tor_mac,
-                                                  standby_tor_mac=dualtor_meta['standby_tor_mac'],
-                                                  active_tor_ip=dualtor_meta['active_tor_ip'],
-                                                  standby_tor_ip=dualtor_meta['standby_tor_ip'],
-                                                  inner_dscp=dscp_combination[0],
-                                                  outer_dscp=dscp_combination[1],
-                                                  ecn=1)
+                                                 dst_ip=SERVER_IP,
+                                                 active_tor_mac=active_tor_mac,
+                                                 standby_tor_mac=dualtor_meta['standby_tor_mac'],
+                                                 active_tor_ip=dualtor_meta['active_tor_ip'],
+                                                 standby_tor_ip=dualtor_meta['standby_tor_ip'],
+                                                 inner_dscp=dscp_combination[0],
+                                                 outer_dscp=dscp_combination[1],
+                                                 ecn=1)
         ptfadapter.dataplane.flush()
         # Send original packet
         testutils.send(ptfadapter, src_port, pkt)
         # Verify encaped packet
-        testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports)
+        try:
+            testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports)
+            print("Verified DSCP combination {}".format(str(dscp_combination)))
+        except:
+            print("Failed to verify packet on DSCP combination {}".format(str(dscp_combination)))
+            success = False
+    assert success, "Failed inner->outer DSCP verification"
+    print("Verified {} DSCP inner->outer combinations".format(len(DSCP_COMBINATIONS)))
 
 
 def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_lower_tor, tbinfo, ptfadapter):
