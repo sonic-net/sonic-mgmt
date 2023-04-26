@@ -1,9 +1,6 @@
-from ptf.testutils import *
 import datetime
-import _strptime  # workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 import time
 import threading
-import os
 import sys
 import json
 import re
@@ -17,10 +14,12 @@ import socket
 
 import host_device
 
+
 class Sonic(host_device.HostDevice):
     DEBUG = False
     # unit: second
     SSH_CMD_TIMEOUT = 10
+
     def __init__(self, ip, queue, test_params, log_cb=None, login='admin', password='password'):
         self.ip = ip
         self.queue = queue
@@ -57,14 +56,16 @@ class Sonic(host_device.HostDevice):
         return self.conn
 
     def do_cmd(self, cmd):
-        while True:
+        attempts = 0
+        while attempts < 10:
+            attempts += 1
             try:
                 stdin, stdout, stderr = self.conn.exec_command(cmd, timeout=Sonic.SSH_CMD_TIMEOUT)
                 return stdout.read()
-            except socket.timeout as e:
+            except socket.timeout:
                 self.log("Timeout when running command: {}".format(cmd))
                 return ""
-            except paramiko.SSHException as e:
+            except paramiko.SSHException:
                 # Possibly caused by https://github.com/paramiko/paramiko/issues/822
                 # Disconnect and reconnect as a possible workaround?
                 self.disconnect()
@@ -90,7 +91,6 @@ class Sonic(host_device.HostDevice):
         quit_enabled = False
         v4_routing_ok = False
         v6_routing_ok = False
-        routing_works = True
         self.connect()
 
         cur_time = time.time()
@@ -98,7 +98,7 @@ class Sonic(host_device.HostDevice):
         self.collect_lacppdu_time = True
 
         for intf_idx in self.port_channel_intf_idx:
-            lacp_thread = threading.Thread(target=self.monitor_lacp_packets, args=[intf_idx,])
+            lacp_thread = threading.Thread(target=self.monitor_lacp_packets, args=[intf_idx, ])
             lacp_thread.setDaemon(True)
             lacp_thread.start()
 
@@ -120,7 +120,6 @@ class Sonic(host_device.HostDevice):
 
             cur_time = time.time()
             info = {}
-            debug_info = {}
             lacp_output = self.do_cmd(self.show_lacp_command)
             info['lacp'] = self.parse_lacp(lacp_output)
             bgp_neig_output = self.do_cmd('vtysh -c "show bgp neighbor json"')
@@ -148,15 +147,13 @@ class Sonic(host_device.HostDevice):
             data[cur_time] = info
             if self.DEBUG:
                 debug_data[cur_time] = {
-                    'show lacp neighbor' : lacp_output,
-                    'show ip bgp neighbors' : bgp_neig_output,
-                    'show ip route bgp' : bgp_route_v4_output,
-                    'show ipv6 route bgp' : bgp_route_v6_output,
+                    'show lacp neighbor': lacp_output,
+                    'show ip bgp neighbors': bgp_neig_output,
+                    'show ip route bgp': bgp_route_v4_output,
+                    'show ipv6 route bgp': bgp_route_v6_output,
                 }
             time.sleep(1)
 
-        attempts = 20
-        end_time = time.time()
         log_present = False
         log_data = {}
 
@@ -222,7 +219,7 @@ class Sonic(host_device.HostDevice):
                 continue
             log_time = datetime.datetime.strptime(str(datetime.datetime.now().year) + " " + m.group(1), "%Y %b %d %X")
             # Python 3 version (Python 2 doesn't have timestamp():
-            #raw_data.append((log_time.timestamp(), m.group(2), m.group(3)))
+            # raw_data.append((log_time.timestamp(), m.group(2), m.group(3)))
             raw_data.append((time.mktime(log_time.timetuple()), m.group(2), m.group(3)))
 
         if len(raw_data) > 0:
@@ -234,12 +231,12 @@ class Sonic(host_device.HostDevice):
 
     def parse_logs(self, data):
         result = {}
-        bgp_r = r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-ADJCHANGE: peer (\S+) .+ (\S+)$'
+        #bgp_r = r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-ADJCHANGE: peer (\S+) .+ (\S+)$'
         result_bgp, initial_time_bgp = {}, 0
-        if_r = r'^(\S+\s+\d+\s+\S+) \S+ Ebra: %LINEPROTO-5-UPDOWN: Line protocol on Interface (\S+), changed state to (\S+)$'
+        #if_r = r'^(\S+\s+\d+\s+\S+) \S+ Ebra: %LINEPROTO-5-UPDOWN: Line protocol on Interface (\S+), changed state to (\S+)$'
         result_if, initial_time_if = {}, 0
 
-        route_r = r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-BGP_GRACEFUL_RESTART_TIMEOUT: Deleting stale routes from peer (\S+) .+ (\S+)$'
+        #route_r = r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-BGP_GRACEFUL_RESTART_TIMEOUT: Deleting stale routes from peer (\S+) .+ (\S+)$'
         result_rt, initial_time_rt = {}, 0
 
         result['route_timeout'] = result_rt
@@ -251,19 +248,6 @@ class Sonic(host_device.HostDevice):
             return result
         elif self.reboot_type == 'service-warm-restart' and initial_time_bgp == -1:
             return result
-
-        for events in result_bgp.values():
-            if events[-1][1] != 'Established':
-                return result
-
-        # first state is Idle, last state is Established
-        for events in result_bgp.values():
-            if len(events) > 1:
-                first_state = events[0][1]
-                assert first_state != 'Established', 'First BGP state should not be Established, it was {}'.format(first_state)
-
-            last_state = events[-1][1]
-            assert last_state == 'Established', 'Last BGP state is not Established, it was {}'.format(last_state)
 
         # verify BGP establishment time between v4 and v6 peer is not more than self.bgp_v4_v6_time_diff
         if self.reboot_type == 'warm-reboot':
@@ -294,7 +278,7 @@ class Sonic(host_device.HostDevice):
             result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
 
         result['PortChannel was down (seconds)'] = po_carrier_data[-1][0] - po_carrier_data[0][0] if len(po_carrier_data) > 0 else 0
-        #for if_name in sorted(result_if.keys()):
+        # for if_name in sorted(result_if.keys()):
         #    result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
 
         bgp_po_offset = initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if
@@ -307,7 +291,6 @@ class Sonic(host_device.HostDevice):
         return result
 
     def check_lag_flaps(self, interface, log_lines, start_time):
-        result = {}
         lag_flap_r = r'^(\S+\s+\d+\s+\S+)\.\d+ \S+ \w+ teamd#teamd_(\S+)\[\d+\]: carrier changed to (\w+)$'
         result_lag_flaps = self.extract_from_logs(lag_flap_r, log_lines, min_timestamp=start_time)
         if interface not in result_lag_flaps:
@@ -439,7 +422,7 @@ class Sonic(host_device.HostDevice):
         if False:
             self.do_cmd('%s' % state[is_up])
         else:
-            if is_up == True:
+            if is_up:
                 self.do_cmd('%s' % state[is_up])
             else:
                 # shutdown BGP will pop confirm message, the message is
@@ -469,7 +452,7 @@ class Sonic(host_device.HostDevice):
                     if 'peers' in obj:
                         bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] in state)
                     else:
-                        self.fails.add('Verify BGP %S neighbor: Peer attribute missing in output' % ver)
+                        self.fails.add('Verify BGP %s neighbor: Peer attribute missing in output' % ver)
                 else:
                     self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
@@ -477,7 +460,7 @@ class Sonic(host_device.HostDevice):
     def change_neigh_lag_state(self, intf, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        is_match = re.match('(Port-Channel|Ethernet)\d+', intf)
+        is_match = re.match(r'(Port-Channel|Ethernet)\d+', intf)
         if is_match:
             output = self.do_cmd('interface %s' % intf)
             if 'Invalid' not in output:
@@ -493,7 +476,7 @@ class Sonic(host_device.HostDevice):
         states = state.split(',')
         lag_state = False
         msg_prefix = ['Postboot', 'Preboot']
-        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        is_match = re.match(r'(Port-Channel|Ethernet)\d+', lag)
         if is_match:
             output = self.do_cmd('show interfaces %s | json' % lag)
             if 'Invalid' not in output:

@@ -30,5 +30,6 @@ class HostDevice(object):
     def verify_bgp_neigh_state(self, dut=None, state="Active"):
         raise NotImplementedError
 
-import arista 
+
+import arista
 import sonic
