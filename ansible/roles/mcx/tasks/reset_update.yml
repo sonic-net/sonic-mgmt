@@ -1,3 +1,8 @@
+##############################################################################################
+### This playbook now supports Nokia-7215 and Celestica-E1031-T48S4 only
+### This playbook will configure management IP (default to Ethernet47 for Nokia-7215) and setup
+### console links based on connection graph.
+################################################################################################
 - name: Set HwSku
   set_fact:
     HwSku: "{{ device_info[inventory_hostname][\"HwSku\"] }}"

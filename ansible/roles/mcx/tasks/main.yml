@@ -1,9 +1,6 @@
 ##############################################################################################
 ### playbook to deploy the mcx switch
 ### Use this playbook to deploy the console configurations of mcx switch in SONiC testbed
-### This playbook now supports Nokia-7215 and Celestica-E1031-T48S4 only
-### This playbook will configure management IP (default to Ethernet47 for Nokia-7215) and setup
-### console links based on connection graph.
 ################################################################################################
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
@@ -17,18 +14,18 @@
 - name: Prepare mgmt device admin login info
   set_fact: ansible_ssh_user={{ mgmt_admin_user }} ansible_ssh_pass={{ mgmt_admin_password }}
 
-- name: If dry-run and reset, use dry_run_reset.yml
+- name: If dry_run and reset, use dry_run_reset.yml
   import_tasks: dry_run_reset.yml
-  when: dry-run is defined and reset is defined
+  when: dry_run is defined and reset is defined
 
-- name: If dry-run and not reset, use dry_run_incremental.yml
+- name: If dry_run and not reset, use dry_run_incremental.yml
   import_tasks: dry_run_incremental.yml
-  when: dry-run is defined and reset is not defined
+  when: dry_run is defined and reset is not defined
 
 - name: If reset setting, use reset_update.yml
   import_tasks: reset_update.yml
-  when: reset is defined and dry-run is not defined
+  when: reset is defined and dry_run is not defined
 
 - name: If reset is not set, use incremental_update.yml
   import_tasks: incremental_update.yml
-  when: reset is not defined and dry-run is not defined
+  when: reset is not defined and dry_run is not defined

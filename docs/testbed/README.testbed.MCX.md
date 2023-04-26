@@ -18,4 +18,4 @@ Incremental update currently uses sonic-cfggen to add additional config to confi
 
 # Dry Run
 
-Since modification to config_db.json might be difficult to reverse. We provided a dry-run option, with -e "dry-run". It doesn't modify config_db.json but prints the new config_db.json.
+Since modification to config_db.json might be difficult to reverse. We provided a dry-run option, with -e "dry_run=y". It doesn't modify config_db.json but prints the new config_db.json.
