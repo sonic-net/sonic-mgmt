@@ -91,7 +91,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
         DSCP_COMBINATIONS = list(tunnel_qos_maps['inner_dscp_to_outer_dscp_map'].items())
         for dscp_combination in REQUIRED_DSCP_COMBINATIONS:
             assert dscp_combination in DSCP_COMBINATIONS, \
-                "Required DSCP combination {} not in inner_dscp_to_outer_dscp_map".format(dscp_combinations)
+                "Required DSCP combination {} not in inner_dscp_to_outer_dscp_map".format(dscp_combination)
     else:
         DSCP_COMBINATIONS = REQUIRED_DSCP_COMBINATIONS
     dualtor_meta = dualtor_info(
@@ -123,7 +123,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
         try:
             testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports)
             print("Verified DSCP combination {}".format(str(dscp_combination)))
-        except:
+        except AssertionError:
             print("Failed to verify packet on DSCP combination {}".format(str(dscp_combination)))
             success = False
     assert success, "Failed inner->outer DSCP verification"
@@ -187,8 +187,8 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
 
 
 def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_unselected_dut,
-                                            toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
-                                            tbinfo, ptfadapter, tunnel_qos_maps):
+                                            toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                            tbinfo, ptfadapter, tunnel_qos_maps): # noqa F811
     """
     The test case is to verify the decapped packet on active ToR are egressed to server from expected queue.
     Test steps:
@@ -209,7 +209,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
     try:
         # Walk through all DSCP values
         for inner_dscp in range(0, 64):
-            outer_dscp = tunnel_qos_map['inner_dscp_to_outer_dscp_map'][inner_dscp]
+            outer_dscp = tunnel_qos_maps['inner_dscp_to_outer_dscp_map'][inner_dscp]
             _, exp_packet = build_testing_packet(src_ip=DUMMY_IP,
                                                  dst_ip=dualtor_meta['target_server_ip'],
                                                  active_tor_mac=active_tor_mac,
