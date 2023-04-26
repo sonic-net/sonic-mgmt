@@ -4,6 +4,7 @@ import logging
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.platform_tests.verify_dut_health import verify_dut_health      # lgtm[py/unused-import]
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
