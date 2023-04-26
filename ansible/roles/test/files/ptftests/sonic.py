@@ -57,7 +57,7 @@ class Sonic(host_device.HostDevice):
 
     def do_cmd(self, cmd):
         attempts = 0
-        while attempts < 10:
+        while attempts < 5:
             attempts += 1
             try:
                 stdin, stdout, stderr = self.conn.exec_command(cmd, timeout=Sonic.SSH_CMD_TIMEOUT)
