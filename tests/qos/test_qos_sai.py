@@ -1757,3 +1757,68 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
+
+    @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
+    def testQosSaiQWatermarkAllPorts(
+        self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        resetWatermark
+    ):
+        """
+            Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
+
+            Args:
+                queueProfile (pytest parameter): queue profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                resetWatermark (Fixture): reset queue watermarks
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("This test is only supported on cisco-8000")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        testPortIps = dutConfig["testPortIps"]
+
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "ecn": qosConfig[queueProfile]["ecn"],
+            "dst_port_ids": dutConfig["testPortIds"],
+            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in dutConfig["testPortIds"]],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkt_count": qosConfig[queueProfile]["pkt_count"],
+            "cell_size": qosConfig[queueProfile]["cell_size"],
+            "hwsku": dutTestParams['hwsku']
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "packet_size" in qosConfig[queueProfile].keys():
+            testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
+
+        if "pkts_num_margin" in qosConfig[queueProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[queueProfile]["pkts_num_margin"]
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.QWatermarkAllPortTest",
+            testParams=testParams
+        )
