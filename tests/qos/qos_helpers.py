@@ -35,7 +35,7 @@ def eos_to_linux_intf(eos_intf_name, hwsku=None):
     """
     if hwsku == "MLNX-OS":
         linux_intf_name = eos_intf_name.replace("ernet 1/", "sl1p").replace("/", "sp")
-    elif hwsku and "Nokia" in hwsku:
+    elif "Nokia" in hwsku:
         linux_intf_name = eos_intf_name
     else:
         linux_intf_name = eos_intf_name.replace('Ethernet', 'et').replace('/', '_')
