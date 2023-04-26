@@ -21,7 +21,7 @@ no spanning-tree vlan {{ device_vlan_range[inventory_hostname] | list | join(','
 service unsupported-transceiver microsoft 361ac33e
 !
 {% if tacacs_servers | length > 0 %}
-tacacs-server key 0 {{ tacacs_key }}
+tacacs-server key 0 {{ lab_tacacs_key }}
 {% for tacacs_server in tacacs_servers %}
 tacacs-server host {{ tacacs_server }}
 {% endfor %}
