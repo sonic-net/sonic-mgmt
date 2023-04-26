@@ -70,6 +70,7 @@ class Sonic(host_device.HostDevice):
                 # Disconnect and reconnect as a possible workaround?
                 self.disconnect()
                 self.connect()
+        return ""
 
     def disconnect(self):
         if self.conn is not None:
