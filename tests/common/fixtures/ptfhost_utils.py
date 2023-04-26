@@ -442,6 +442,7 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
+    logger.info('tbinfo={}'.format(tbinfo))
 
     asic_idx = 0
     ports_map = {}
@@ -502,7 +503,8 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             for port_index, port_status in list(active_active_ports_mux_status.items()):
                 active_dut_map[str(port_index)] = [active_dut_index for active_dut_index in (0, 1)
                                                    if port_status[active_dut_index]]
-
+                                                   
+    logger.info("active_active_ports_mux_status={}".format(active_active_ports_mux_status))
     disabled_ptf_ports = set()
     for ptf_map in list(tbinfo['topo']['ptf_map_disabled'].values()):
         # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
