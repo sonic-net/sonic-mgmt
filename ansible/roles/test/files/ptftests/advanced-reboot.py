@@ -60,6 +60,7 @@ import time
 import json
 import subprocess
 import threading
+import traceback
 import multiprocessing
 import itertools
 import ast
@@ -405,10 +406,11 @@ class ReloadTest(BaseTest):
         try:
             res = async_res.get(timeout=seconds)
         except Exception as err:
+            traceback_msg = traceback.format_exc()
             # TimeoutError and Exception's from func
             # captured here
             signal.set()
-            raise type(err)(message)
+            raise type(err)("{}: {}".format(message, traceback_msg))
         return res
 
     def generate_vlan_servers(self):
@@ -928,7 +930,7 @@ class ReloadTest(BaseTest):
     def put_nowait(self, queue, data):
         try:
             queue.put_nowait(data)
-        except queue.Full:
+        except Queue.Full:
             pass
 
     def pre_reboot_test_setup(self):
@@ -1432,8 +1434,9 @@ class ReloadTest(BaseTest):
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
-        except Exception as e:
-            self.fails['dut'].add(e)
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.fails['dut'].add(traceback_msg)
         finally:
             self.handle_post_reboot_test_reports()
 
