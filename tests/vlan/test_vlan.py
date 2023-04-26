@@ -471,7 +471,7 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_di
             tagged_test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_tagged_pkt,
-            return_transmit_tagged_pkt, dst_port[0], src_port, timeout=5)
+                               return_transmit_tagged_pkt, dst_port[0], src_port, timeout=5)
 
         logger.info("Two Way Tagged Packet Transmission Works")
         logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(
@@ -523,7 +523,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, work_vlan_ports_list, vlan_intfs_
             untagged_test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_untagged_pkt,
-            return_transmit_untagged_pkt, dst_port[0], src_port, timeout=5)
+                               return_transmit_untagged_pkt, dst_port[0], src_port, timeout=5)
 
         logger.info("Two Way Untagged Packet Transmission Works")
         logger.info("Untagged({}) packet successfully sent from port {} to port {}".format(

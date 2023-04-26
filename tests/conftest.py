@@ -2130,7 +2130,7 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None)
         if port in ports:
             logging.debug("Checking for pkt on device %d, port %d", device_number, port)
             result = testutils.dp_poll(test, device_number=device, port_number=port,
-                timeout=timeout, exp_pkt=pkt)
+                                       timeout=timeout, exp_pkt=pkt)
             if isinstance(result, test.dataplane.PollSuccess):
                 received = True
             else:
