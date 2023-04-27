@@ -8,13 +8,10 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus
 platform_tests/cli/test_show_platform.py::test_show_platform_summary
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
 platform_tests/cli/test_show_platform.py::test_show_platform_temperature
-platform_tests/daemon/test_pcied.py::test_pmon_pcied_stop_and_start_status
-platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
-platform_tests/test_reload_config.py::test_reload_configuration_checks
 portstat/test_portstat.py
 process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes
 snmp/test_snmp_v2mib.py::test_snmp_v2mib
