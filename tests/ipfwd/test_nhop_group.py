@@ -439,7 +439,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
 
 
 def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_facts,
-                                            enum_rand_one_frontend_asic_index):
+                                            enum_rand_one_frontend_asic_index, fanouthosts):
     """
     Test SONiC and SAI Vendor capability are same for ordered ecmp feature
     and SAI vendor is honoring the Ordered nature of nexthop group member
