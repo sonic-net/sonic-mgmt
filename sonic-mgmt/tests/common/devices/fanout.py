@@ -17,7 +17,8 @@ class FanoutHost(object):
     For running ansible module on the Fanout switch
     """
 
-    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd, eos_shell_user=None, eos_shell_passwd=None):
+    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd,
+                 eos_shell_user=None, eos_shell_passwd=None):
         self.hostname = hostname
         self.type = device_type
         self.host_to_fanout_port_map = {}

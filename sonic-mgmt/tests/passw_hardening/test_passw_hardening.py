@@ -9,6 +9,7 @@ import logging
 import re
 import pytest
 import datetime
+import six
 from tests.common.helpers.assertions import pytest_assert
 from . import passw_hardening_utils
 
@@ -52,7 +53,7 @@ def get_user_expire_time_global(duthost, age_type):
     regex_days = AGE_DICT[age_type]['REGEX_DAYS']
     command = '{} /etc/login.defs'.format(regex_days)
 
-    grep_max_days_out = duthost.command(command)["stdout_lines"][FIRST_LINE].encode()
+    grep_max_days_out = six.ensure_str(duthost.command(command)["stdout_lines"][FIRST_LINE])
 
     days_num = grep_max_days_out.split()[DAY_INDEX]
     logging.debug('command output lines = {}'.format(grep_max_days_out))
@@ -79,9 +80,9 @@ def get_passw_expire_time_existing_user(duthost, normal_account):
     chage_stdout = duthost.command(command)["stdout_lines"]
 
     for line in chage_stdout:
-        m1 = re.match(REGEX_MAX_PASSW_CHANGE, line.decode('utf-8'))
+        m1 = re.match(REGEX_MAX_PASSW_CHANGE, six.ensure_text(line))
         if m1:
-            last_passw_change = m1.group("max_passw_change").decode('utf-8')
+            last_passw_change = six.ensure_text(m1.group("max_passw_change"))
             break
 
     return last_passw_change

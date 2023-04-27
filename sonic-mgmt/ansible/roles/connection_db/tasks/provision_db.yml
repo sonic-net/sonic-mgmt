@@ -11,8 +11,8 @@
   debug:
     msg: >
       Run 'provision_connection_db'
-      {{ lookup('servercfgd_client', 
-      'provision_connection_db', 
-      servercfgd_host=connection_db_host_ip, 
-      conn_graph_file_content=conn_graph_file_data, 
+      {{ lookup('servercfgd_client',
+      'provision_connection_db',
+      servercfgd_host=connection_db_host_ip,
+      conn_graph_file_content=conn_graph_file_data,
       enforce_provision=enforce_provision_connection_db) }}

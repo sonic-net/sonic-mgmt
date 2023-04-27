@@ -2,7 +2,6 @@
 import time
 import pytest
 import ptf.testutils as testutils
-import time
 from . import everflow_test_utilities as everflow_utils
 from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
 

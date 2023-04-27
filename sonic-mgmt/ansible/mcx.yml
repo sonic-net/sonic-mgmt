@@ -5,6 +5,3 @@
   gather_facts: no
   roles:
     - mcx
-
-
-

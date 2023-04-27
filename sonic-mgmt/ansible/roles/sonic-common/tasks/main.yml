@@ -21,13 +21,13 @@
   tags: always
 
 - name: Set sonic_asic_type fact
-    set_fact:
+  set_fact:
     sonic_asic_type: barefoot
   when: sonic_hwsku in barefoot_hwskus
   tags: always
 
 - name: Set sonic_asic_type fact
-    set_fact:
+  set_fact:
     sonic_asic_type: marvell
   when: sonic_hwsku in marvell_hwskus
   tags: always
@@ -101,7 +101,7 @@
 
 # Update initramfs
 - name: Update initramfs to prevent fsck error 2 at bootup
-  become: yes
+  become: true
   shell: update-initramfs -u
   when: bootstrap is defined
 
@@ -180,7 +180,7 @@
 # Docker engine
 - include_tasks: docker.yml
   tags: docker
- 
+
 ## Redis database
 - include_tasks: database.yml
   tags:

@@ -4,12 +4,7 @@ Base classes for test cases
 Tests will usually inherit from one of these classes to have the controller
 and/or dataplane automatically set up.
 """
-
-from switch import (sai_thrift_port_tx_enable,
-                    sai_thrift_port_tx_disable)
 import os
-
-
 import ptf
 from ptf.base_tests import BaseTest
 from ptf import config
@@ -31,6 +26,9 @@ import paramiko
 from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
 
 interface_to_front_mapping = {}
+
+from switch import (sai_thrift_port_tx_enable,      # noqa E402
+                    sai_thrift_port_tx_disable)
 
 
 class ThriftInterface(BaseTest):

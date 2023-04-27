@@ -13,4 +13,3 @@
   shell: docker exec database redis-cli -n 1 --eval {{ tmp_dir }}/get_red_min.lua , {{ item }} | grep {{ item }}
   register: wred_objects
   failed_when: wred_objects.rc != 0
-

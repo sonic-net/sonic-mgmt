@@ -170,7 +170,7 @@ class SonicPortAliasMap():
                     else:
                         alias = name
                     add_port = False
-                    if role in {"Ext", "Inb", "Rec"} or (role == "Int" and include_internal):
+                    if role in {"Ext"} or (role in ["Int", "Inb", "Rec"] and include_internal):
                         add_port = True
                         aliases.append(
                             (alias, -1 if port_index == -1 or len(mapping) <= port_index else mapping[port_index]))

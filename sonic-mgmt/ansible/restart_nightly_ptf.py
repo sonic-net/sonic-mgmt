@@ -19,8 +19,10 @@ SONIC_MGMT_DIR = os.path.dirname(ANSIBLE_DIR)
 
 class TaskRestartPTF(recover_server.Task):
     """Task restart-ptf."""
+
     def __init__(self, tbname, passfile, log_save_dir, tbfile=None, vmfile=None, dry_run=False):
-        recover_server.Task.__init__(self, tbname + '_restart_ptf', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
+        recover_server.Task.__init__(
+            self, tbname + '_restart_ptf', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
         self.args.extend(('restart-ptf', tbname, passfile))
         self.tbname = tbname
 
@@ -43,7 +45,8 @@ class Job(object):
         log_save_dir = kwargs.get('log_save_dir')
         tbname = kwargs['tbname']
         self.tasks = [
-            TaskRestartPTF(tbname, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
+            TaskRestartPTF(tbname, passfile, log_save_dir,
+                           tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
         ]
 
     def __call__(self):
@@ -64,18 +67,21 @@ class Job(object):
 
 def parse_testbed(testbedfile, servers):
     """Return a dictionary containing mapping from server name to nightly testbeds that need restart-ptf."""
-    testbed = imp.load_source('testbed', os.path.join(SONIC_MGMT_DIR, 'tests/common/testbed.py'))
+    testbed = imp.load_source('testbed', os.path.join(
+        SONIC_MGMT_DIR, 'tests/common/testbed.py'))
     all_testbeds = testbed.TestbedInfo(testbedfile).testbed_topo
     nightly_dir = os.path.join(SONIC_MGMT_DIR, ".azure-pipelines", "nightly")
     nightly_testbeds = []
     for _, _, files in os.walk(nightly_dir):
-        nightly_testbeds.extend(_.split(".")[0] for _ in files if _.startswith("vms") and _.endswith("yml"))
+        nightly_testbeds.extend(
+            _.split(".")[0] for _ in files if _.startswith("vms") and _.endswith("yml"))
     nightly_testbeds = list(set(nightly_testbeds))
     nightly_testbeds.sort()
     should_restart = collections.defaultdict(list)
     for tbname in set(nightly_testbeds):
         if tbname not in all_testbeds:
-            logging.error("Failed to find testbed %s from testbed file %s", tbname, testbedfile)
+            logging.error(
+                "Failed to find testbed %s from testbed file %s", tbname, testbedfile)
             continue
         server = all_testbeds[tbname]["server"]
         if "ptf" in all_testbeds[tbname]["ptf_image_name"]:
@@ -83,7 +89,6 @@ def parse_testbed(testbedfile, servers):
     if servers:
         return {s: should_restart[s] for s in servers}
     return dict(should_restart)
-    
 
 
 def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, dry_run=False):
@@ -110,10 +115,12 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, dry_run=False):
                 break
             time.sleep(5)
 
-    utilities = imp.load_source('utilities', os.path.join(SONIC_MGMT_DIR, 'tests/common/utilities.py'))
+    utilities = imp.load_source('utilities', os.path.join(
+        SONIC_MGMT_DIR, 'tests/common/utilities.py'))
 
     curr_date = datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
-    log_save_dir = os.path.join(tempfile.gettempdir(), 'recover_server_' + curr_date)
+    log_save_dir = os.path.join(
+        tempfile.gettempdir(), 'recover_server_' + curr_date)
     logging.info('LOG PATH: %s', log_save_dir)
     threads = []
     for server, tbnames in testbeds.items():
@@ -131,7 +138,8 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, dry_run=False):
                 dry_run=dry_run
             ) for tbname in tbnames
         ]
-        thread = utilities.InterruptableThread(name=server, target=_do_jobs, args=(jobs,))
+        thread = utilities.InterruptableThread(
+            name=server, target=_do_jobs, args=(jobs,))
         thread.start()
         threads.append(thread)
 
@@ -140,12 +148,17 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, dry_run=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Recover testbed servers.')
-    parser.add_argument('--testbed-servers', default=[], action='append', type=str, required=True, help='testbed server to recover')
-    parser.add_argument('--testbed', default='testbed.yaml', help='testbed file(default: testbed.yaml)')
-    parser.add_argument('--vm-file', default='veos', help='vm inventory file(default: veos)')
-    parser.add_argument('--passfile', default='password.txt', help='Ansible vault password file(default: password.txt)')
+    parser.add_argument('--testbed-servers', default=[], action='append',
+                        type=str, required=True, help='testbed server to recover')
+    parser.add_argument('--testbed', default='testbed.yaml',
+                        help='testbed file(default: testbed.yaml)')
+    parser.add_argument('--vm-file', default='veos',
+                        help='vm inventory file(default: veos)')
+    parser.add_argument('--passfile', default='password.txt',
+                        help='Ansible vault password file(default: password.txt)')
     parser.add_argument('--dry-run', action='store_true', help='Dry run')
-    parser.add_argument('--log-level', choices=['debug', 'info', 'warn', 'error', 'critical'], default='info', help='logging output level')
+    parser.add_argument('--log-level', choices=['debug', 'info', 'warn',
+                        'error', 'critical'], default='info', help='logging output level')
     args = parser.parse_args()
 
     servers = args.testbed_servers

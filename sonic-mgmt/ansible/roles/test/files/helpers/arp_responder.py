@@ -1,3 +1,4 @@
+import scapy.all as scapy2
 import binascii
 import socket
 import struct
@@ -6,23 +7,22 @@ import json
 import argparse
 import os.path
 from fcntl import ioctl
-from pprint import pprint
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-import ptf.packet as scapy
-import scapy.all as scapy2
-scapy2.conf.use_pcap=True
-import scapy.arch.pcapdnet
+scapy2.conf.use_pcap = True
+
 
 def hexdump(data):
     print(" ".join("%02x" % ord(d) for d in data))
 
+
 def get_if(iff, cmd):
     s = socket.socket()
-    ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
+    ifreq = ioctl(s, cmd, struct.pack("16s16x", iff))
     s.close()
 
     return ifreq
+
 
 def get_mac(iff):
     SIOCGIFHWADDR = 0x8927          # Get hardware address
@@ -84,8 +84,10 @@ class Poller(object):
 class ARPResponder(object):
     ARP_PKT_LEN = 64
     ARP_OP_REQUEST = 1
+
     def __init__(self, ip_sets):
-        self.arp_chunk = binascii.unhexlify('08060001080006040002') # defines a part of the packet for ARP Reply
+        # defines a part of the packet for ARP Reply
+        self.arp_chunk = binascii.unhexlify('08060001080006040002')
         self.arp_pad = binascii.unhexlify('00' * 18)
 
         self.ip_sets = ip_sets
@@ -97,7 +99,8 @@ class ARPResponder(object):
         if len(data) > self.ARP_PKT_LEN:
             return
 
-        remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(data)
+        remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(
+            data)
 
         # Don't send ARP response if the ARP op code is not request
         if op_type != self.ARP_OP_REQUEST:
@@ -106,7 +109,8 @@ class ARPResponder(object):
         request_ip_str = socket.inet_ntoa(request_ip)
         if request_ip_str not in self.ip_sets[interface.name()]:
             return
-        arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
+        arp_reply = self.generate_arp_reply(self.ip_sets[interface.name(
+        )][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
         interface.send(arp_reply)
 
         return
@@ -131,7 +135,8 @@ class ARPResponder(object):
         req_ip_end = req_ip_start + 4
         op_type_end = op_type_start + 1
 
-        return data[6:12], data[rem_ip_start:rem_ip_end], data[req_ip_start:req_ip_end], (ord(data[op_type_start]) * 256 + ord(data[op_type_end])), vlan_id
+        return data[6:12], data[rem_ip_start:rem_ip_end], data[req_ip_start:req_ip_end], \
+            (ord(data[op_type_start]) * 256 + ord(data[op_type_end])), vlan_id
 
     def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
         eth_hdr = remote_mac + local_mac
@@ -141,13 +146,17 @@ class ARPResponder(object):
 
         return eth_hdr + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
-    parser.add_argument('--conf', '-c', type=str, dest='conf', default='/tmp/from_t1.json', help='path to json file with configuration')
-    parser.add_argument('--extended', '-e', action='store_true', dest='extended', default=False, help='enable extended mode')
+    parser.add_argument('--conf', '-c', type=str, dest='conf',
+                        default='/tmp/from_t1.json', help='path to json file with configuration')
+    parser.add_argument('--extended', '-e', action='store_true',
+                        dest='extended', default=False, help='enable extended mode')
     args = parser.parse_args()
 
     return args
+
 
 def main():
     args = parse_args()
@@ -192,6 +201,7 @@ def main():
     p.poll()
 
     return
+
 
 if __name__ == '__main__':
     main()

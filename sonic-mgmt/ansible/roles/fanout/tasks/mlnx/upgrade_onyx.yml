@@ -86,4 +86,3 @@
   fail:
     msg: "Running Onyx OS version did not change: old \"{{ old_onyx_verison }}\", running \"{{ onyx_version }}\""
   when: old_onyx_verison == onyx_version
-

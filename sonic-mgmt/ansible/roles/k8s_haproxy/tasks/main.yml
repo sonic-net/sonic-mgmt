@@ -1,10 +1,10 @@
 - name: update apt cache
   apt: update_cache=yes cache_valid_time=3600
-  environment: "{{ proxy_env | default({}) }}" 
+  environment: "{{ proxy_env | default({}) }}"
 
 - name: Install haproxy
   apt: name=haproxy state=present
-  environment: "{{ proxy_env | default({}) }}" 
+  environment: "{{ proxy_env | default({}) }}"
 
 - name: Enable init script
   replace: dest='/etc/default/haproxy'
@@ -26,7 +26,7 @@
   ufw:
     rule: allow
     port: '{{ item }}'
-  with_items: 
+  with_items:
     - '{{ http_port }}'
     - '{{ ssl_port }}'
     - '{{ ssh_port }}'
@@ -40,7 +40,7 @@
 
 - name: Install Apache
   apt: name=apache2 update_cache=yes state=latest
-  environment: "{{ proxy_env | default({}) }}" 
+  environment: "{{ proxy_env | default({}) }}"
 
 - name: Create document root
   file:
@@ -80,7 +80,7 @@
   shell: |
     sudo a2enmod ssl
     sudo a2ensite default-ssl.conf
-    
+
 - name: Reload Apache
   become: yes
   service:
