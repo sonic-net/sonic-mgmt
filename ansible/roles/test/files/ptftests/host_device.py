@@ -2,6 +2,8 @@ class HostDevice(object):
 
     @staticmethod
     def getHostDeviceInstance(neighbor_type, *args, **kwargs):
+        import arista
+        import sonic
         if neighbor_type == "eos":
             return arista.Arista(*args, **kwargs)
         elif neighbor_type == "sonic":
@@ -29,7 +31,3 @@ class HostDevice(object):
 
     def verify_bgp_neigh_state(self, dut=None, state="Active"):
         raise NotImplementedError
-
-
-import arista
-import sonic
