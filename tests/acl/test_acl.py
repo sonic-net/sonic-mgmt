@@ -22,7 +22,7 @@ from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
 
@@ -583,7 +583,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         """
         pass
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):   # noqa F811
         """Perform actions after rules have been applied.
 
         Args:
@@ -613,7 +613,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
     @pytest.fixture(scope="class", autouse=True)
     def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo,
-                  ip_version, conn_graph_facts):
+                  ip_version, conn_graph_facts):   # noqa F811
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -1176,7 +1176,7 @@ class TestAclWithReboot(TestBasicAcl):
     upon startup.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts): # noqa F811
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -1213,7 +1213,7 @@ class TestAclWithPortToggle(TestBasicAcl):
     Verify that ACLs still function as expected after links flap.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):  # noqa F811
         """Toggle ports after rules are applied.
 
         Args:
