@@ -84,7 +84,7 @@ def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=
 @pytest.fixture(scope="session")
 def nic_simulator_info(request, tbinfo):
     """Fixture to gather nic_simulator related infomation."""
-    if "dualtor-mixed" not in tbinfo["topo"]["name"]:
+    if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
         return None, None, None
 
     server = tbinfo["server"]

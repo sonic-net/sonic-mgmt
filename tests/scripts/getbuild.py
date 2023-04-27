@@ -123,7 +123,7 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                 print(("Download error", e))
                 if download_times < MAX_DOWNLOAD_TIMES:
                     print(('Download times: {}, sleep: {} seconds before retry.'.format(download_times,
-                                                                                       30 * download_times)))
+                                                                                        30 * download_times)))
                     time.sleep(30 * download_times)
                     continue
                 else:
@@ -134,7 +134,8 @@ def find_latest_build_id(branch, success_flag="succeeded"):
     """find latest successful build id for a branch"""
 
     builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}" \
-                 "&resultFilter={}&statusFilter=completed&api-version=6.0".format(branch, success_flag)
+                 "&resultFilter={}&statusFilter=completed&api-version=6.0".format(
+                     branch, success_flag)
 
     resp = urlopen(builds_url)
 
@@ -153,9 +154,12 @@ def find_latest_build_id(branch, success_flag="succeeded"):
 def main():
     global artifact_size
 
-    parser = argparse.ArgumentParser(description='Download artifacts from sonic azure devops.')
-    parser.add_argument('--buildid', metavar='buildid', type=int, help='build id')
-    parser.add_argument('--branch', metavar='branch', type=str, help='branch name')
+    parser = argparse.ArgumentParser(
+        description='Download artifacts from sonic azure devops.')
+    parser.add_argument('--buildid', metavar='buildid',
+                        type=int, help='build id')
+    parser.add_argument('--branch', metavar='branch',
+                        type=str, help='branch name')
     parser.add_argument('--platform', metavar='platform', type=str,
                         choices=['broadcom', 'mellanox', 'vs'],
                         help='platform to download')
@@ -165,17 +169,22 @@ def main():
     parser.add_argument('--num_asic', metavar='num_asic', type=int,
                         default=1,
                         help='Specifiy number of asics')
-    parser.add_argument('--url_prefix', metavar='url_prefix', type=str, default='mssonic/build', help='url prefix')
-    parser.add_argument('--access_token', metavar='access_token', type=str, default='', nargs='?', const='', required=False, help='access token')
+    parser.add_argument('--url_prefix', metavar='url_prefix',
+                        type=str, default='mssonic/build', help='url prefix')
+    parser.add_argument('--access_token', metavar='access_token', type=str,
+                        default='', nargs='?', const='', required=False, help='access token')
 
     args = parser.parse_args()
 
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded")
-        buildid_partial = find_latest_build_id(args.branch, "partiallySucceeded")
-        print(('Succeeded buildId:{}, PartiallySucceeded buildId {}'.format(buildid_succ, buildid_partial)))
+        buildid_partial = find_latest_build_id(
+            args.branch, "partiallySucceeded")
+        print(('Succeeded buildId:{}, PartiallySucceeded buildId {}'.format(
+            buildid_succ, buildid_partial)))
         if buildid_succ == NOT_FOUND_BUILD_ID and buildid_partial == NOT_FOUND_BUILD_ID:
-            raise Exception("Can't find 'Succeeded' or 'partiallySucceeded' build result.")
+            raise Exception(
+                "Can't find 'Succeeded' or 'partiallySucceeded' build result.")
         buildid = max(buildid_succ, buildid_partial)
     else:
         buildid = int(args.buildid)
@@ -186,7 +195,8 @@ def main():
                                                url_prefix=args.url_prefix,
                                                access_token=args.access_token)
 
-    download_artifacts(dl_url, args.content, args.platform, buildid, args.num_asic, access_token=args.access_token)
+    download_artifacts(dl_url, args.content, args.platform,
+                       buildid, args.num_asic, access_token=args.access_token)
 
 
 if __name__ == '__main__':

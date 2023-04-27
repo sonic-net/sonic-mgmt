@@ -74,7 +74,7 @@
 
     - name: Config tests - invalid DSCP (value < that min bound).
       vars:
-        config_file: config_dscp_invalid_2.json 
+        config_file: config_dscp_invalid_2.json
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true
@@ -130,7 +130,7 @@
 
     - name: Config tests - invalid queue (value > that max bound).
       vars:
-        config_file: config_queue_invalid_3.json 
+        config_file: config_queue_invalid_3.json
         test_expect_file: config_test_expect_file
         errors_expected: true
         run_cleanup: true

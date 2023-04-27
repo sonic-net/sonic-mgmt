@@ -5,7 +5,7 @@
 
 # TODO: May be better suited as an ansible module
 
-- debug: 
+- debug:
     msg="Get {{target_port_name}} port {{target_buffer_profile_type}} MAX buffer size"
 
 - name: gather sonic release if not available
@@ -52,7 +52,7 @@
   set_fact:
     buffer_profile_key="{{buffer_profile}}"
   when: sonic_qos_db_fv_reference_with_table|bool == true
-    
+
 - name: Get {{target_buffer_profile_type}} buffer headroom size for {{target_port_name}} port
   shell: redis-cli -n 4 HGET "{{buffer_profile_key}}" size
   register: buffer_headroom
@@ -108,7 +108,7 @@
     set_fact:
       buffer_pool_id_key="BUFFER_POOL|{{buffer_pool_id}}"
     when: sonic_qos_db_fv_reference_with_table|bool == false
- 
+
   - name: Set buffer pool key with old db format
     set_fact:
       buffer_pool_id_key="{{buffer_pool_id}}"
@@ -132,7 +132,7 @@
 - name: Get XON for {{target_port_name}} port
   shell: redis-cli -n 4 HGET "{{buffer_profile_key}}" xon
   register: buffer_xon
-  when: buffer_profile != "" and "pg_lossless" in buffer_profile 
+  when: buffer_profile != "" and "pg_lossless" in buffer_profile
 
 - fail:
     msg: "Unable to get XON for {{target_port_name}}"
@@ -157,7 +157,7 @@
       set_fact:
         buffer_pool_name="{{buffer_pool_id}}"
       when: sonic_qos_db_fv_reference_with_table|bool == false
-  
+
     - name: Set buffer_pool_name with old db format
       set_fact:
         buffer_pool_name="{{buffer_pool_id|replace('BUFFER_POOL|','')}}"
