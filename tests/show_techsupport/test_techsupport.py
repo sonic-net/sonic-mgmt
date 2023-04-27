@@ -5,7 +5,6 @@ import re
 import time
 import logging
 import tech_support_cmds as cmds
-import re
 from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -427,10 +426,14 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     }
 
     if duthost.facts["asic_type"] == "broadcom":
+        if duthost.facts.get("platform_asic") == "broadcom-dnx":
+            asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx
+        else:
+            asic_cmds = cmds.broadcom_cmd_bcmcmd_xgs
         cmds_to_check.update(
             {
                 "broadcom_cmd_bcmcmd":
-                    add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
+                    add_asic_arg(" -n {}", asic_cmds, num),
                 "broadcom_cmd_misc":
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
@@ -515,7 +518,7 @@ def test_techsupport_commands(
     cmd_not_found = defaultdict(list)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    stdout = duthost.shell('sudo generate_dump -n | grep -v "^mkdir\|^rm\|^tar\|^gzip"')
+    stdout = duthost.shell(r'sudo generate_dump -n | grep -v "^mkdir\|^rm\|^tar\|^gzip"')
 
     pytest_assert(stdout['rc'] == 0, 'generate_dump command failed')
 

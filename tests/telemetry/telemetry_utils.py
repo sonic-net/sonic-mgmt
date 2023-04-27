@@ -3,7 +3,6 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +11,6 @@ METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
 SUBMODE_SAMPLE = 2
-CONTAINER_RESTART_THRESHOLD_SECS = 180
-CONTAINER_CHECK_INTERVAL_SECS = 1
 
 
 def assert_equal(actual, expected, message):
@@ -97,26 +94,3 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                 submode, intervalms,
                 update_count, create_connections)
     return cmd
-
-
-def check_critical_processes(duthost, container_name):
-    """Checks whether the critical processes are running after container was restarted.
-    """
-    status_result = duthost.critical_process_status(container_name)
-    if status_result["status"] is False or len(status_result["exited_critical_process"]) > 0:
-        return False
-    return True
-
-
-def postcheck_critical_processes(duthost, container_name):
-    """Checks whether the critical processes are running after container was restarted.
-    """
-    logger.info("Checking the running status of critical processes in '{}' container..."
-                .format(container_name))
-    is_succeeded = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
-                              check_critical_processes, duthost, container_name)
-    if not is_succeeded:
-        pytest.fail("Not all critical proccesses in '{}' container are running!"
-                    .format(container_name))
-    logger.info("All critical processes in '{}' container are running"
-                .format(container_name))

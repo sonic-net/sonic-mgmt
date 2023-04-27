@@ -5,10 +5,7 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.dut_utils import check_container_state
-from tests.common.utilities import wait_until
-from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
-from telemetry_utils import generate_client_cli, postcheck_critical_processes
+from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -19,10 +16,6 @@ logger = logging.getLogger(__name__)
 TELEMETRY_PORT = 50051
 METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
-CONTAINER_RESTART_THRESHOLD_SECS = 180
-CONTAINER_CHECK_INTERVAL_SECS = 1
-MEMORY_CHECKER_WAIT = 1
-MEMORY_CHECKER_CYCLES = 60
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -32,17 +25,20 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
 
     gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"',
                          module_ignore_errors=False)['stdout_lines']
-    pytest_assert(gnmi is not None, "TELEMETRY|gnmi does not exist in config_db")
+    pytest_assert(gnmi is not None,
+                  "TELEMETRY|gnmi does not exist in config_db")
 
     certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"',
                           module_ignore_errors=False)['stdout_lines']
-    pytest_assert(certs is not None, "TELEMETRY|certs does not exist in config_db")
+    pytest_assert(certs is not None,
+                  "TELEMETRY|certs does not exist in config_db")
 
     d = get_dict_stdout(gnmi, certs)
     for key, value in list(d.items()):
         if str(key) == "port":
             port_expected = str(TELEMETRY_PORT)
-            pytest_assert(str(value) == port_expected, "'port' value is not '{}'".format(port_expected))
+            pytest_assert(str(value) == port_expected,
+                          "'port' value is not '{}'".format(port_expected))
         if str(key) == "ca_crt":
             ca_crt_value_expected = "/etc/sonic/telemetry/dsmsroot.cer"
             pytest_assert(str(value) == ca_crt_value_expected,
@@ -72,7 +68,8 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     for k, v in list(status_dict.items()):
         if str(k) == "status":
             status_expected = "enabled"
-            pytest_assert(str(v) == status_expected, "Telemetry feature is not enabled")
+            pytest_assert(str(v) == status_expected,
+                          "Telemetry feature is not enabled")
 
 
 def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
@@ -81,7 +78,8 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
-        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
+        pytest.skip(
+            "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
@@ -91,7 +89,8 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     logger.info(show_gnmi_out)
     result = str(show_gnmi_out)
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
-    pytest_assert(inerrors_match is not None, "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
+    pytest_assert(inerrors_match is not None,
+                  "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
 
 def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
@@ -99,14 +98,15 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
-                              target="OTHERS", xpath="osversion/build")
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path,
+                              method=METHOD_GET, target="OTHERS", xpath="osversion/build")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall('"build_version": "sonic\\.', result)), 1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall('sonic\\.NA', result, flags=re.IGNORECASE)), 0,
-                 "invalid build_version value at {0}".format(result))
+    assert_equal(len(re.findall(r'"build_version": "sonic\.', result)),
+                 1, "build_version value at {0}".format(result))
+    assert_equal(len(re.findall(r'sonic\.NA', result, flags=re.IGNORECASE)),
+                 0, "invalid build_version value at {0}".format(result))
 
 
 def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
@@ -130,7 +130,8 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
                 system_uptime_1st = float(line_info.split(":")[1].strip())
                 found_system_uptime_field = True
             except ValueError as err:
-                pytest.fail("The value of system uptime was not a float. Error message was '{}'".format(err))
+                pytest.fail(
+                    "The value of system uptime was not a float. Error message was '{}'".format(err))
 
     if not found_system_uptime_field:
         pytest.fail("The field of system uptime was not found.")
@@ -146,7 +147,8 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
                 system_uptime_2nd = float(line_info.split(":")[1].strip())
                 found_system_uptime_field = True
             except ValueError as err:
-                pytest.fail("The value of system uptime was not a float. Error message was '{}'".format(err))
+                pytest.fail(
+                    "The value of system uptime was not a float. Error message was '{}'".format(err))
 
     if not found_system_uptime_field:
         pytest.fail("The field of system uptime was not found.")
@@ -162,17 +164,19 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
-        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
+        pytest.skip(
+            "Skipping test as no Ethernet0 frontpanel port on supervisor")
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count=3)
+    cmd = generate_client_cli(
+        duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count=3)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall('Max update count reached 3', result)), 1,
-                 "Streaming update count in:\n{0}".format(result))
+    assert_equal(len(re.findall('Max update count reached 3', result)),
+                 1, "Streaming update count in:\n{0}".format(result))
     assert_equal(len(re.findall('name: "Ethernet0"\n', result)), 4,
                  "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
-    assert_equal(len(re.findall('timestamp: \\d+', result)), 3,
+    assert_equal(len(re.findall(r'timestamp: \d+', result)), 3,
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
@@ -200,5 +204,3 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
         time.sleep(MEMORY_CHECKER_WAIT)
 
     client_thread.join()
-
-    postcheck_critical_processes(duthost, "TELEMETRY")

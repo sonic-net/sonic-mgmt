@@ -12,10 +12,10 @@ from tests.common.utilities import skip_release_for_platform
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = str
+    STRING_TYPE = basestring    # noqa: F821
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -109,11 +109,11 @@ class TestPsuApi(PlatformApiTestBase):
             name = psu.get_name(platform_api_conn, i)
             if self.expect(presence is not None, "Unable to retrieve PSU {} presence".format(i)):
                 if self.expect(isinstance(presence, bool), "PSU {} presence appears incorrect".format(i)):
-                    if name in self.psu_skip_list:
-                        self.expect(presence is False,
-                                    "PSU {} in skip_modules inventory got presence True expected False".format(i))
-                    else:
+                    if name not in self.psu_skip_list:
                         self.expect(presence is True, "PSU {} is not present".format(i))
+                    # NOTE: It is possible for a PSU to be populated but not being
+                    #       connected to external power, we therefore cannot assert
+                    #       that the psu is not present when in the skip list
         self.assert_expectations()
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):

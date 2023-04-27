@@ -40,11 +40,11 @@ def parse_tabular_output(output_lines):
     For example, part of the output of command 'show interface status':
 
     admin@str-msn2700-02:~$ show interface status
-          Interface            Lanes    Speed    MTU    FEC    Alias             Vlan    Oper    Admin             Type    Asym PFC
-    ---------------  ---------------  -------  -----  -----  -------  ---------------  ------  -------  ---------------  ----------
-          Ethernet0          0,1,2,3      40G   9100    N/A     etp1  PortChannel0002      up       up   QSFP+ or later         off
-          Ethernet4          4,5,6,7      40G   9100    N/A     etp2  PortChannel0002      up       up   QSFP+ or later         off
-          Ethernet8        8,9,10,11      40G   9100    N/A     etp3  PortChannel0005      up       up   QSFP+ or later         off
+          Interface            Lanes    Speed    MTU    FEC    Alias             Vlan    Oper    Admin             Type    Asym PFC     # noqa E501
+    ---------------  ---------------  -------  -----  -----  -------  ---------------  ------  -------  ---------------  ----------     # noqa E501
+          Ethernet0          0,1,2,3      40G   9100    N/A     etp1  PortChannel0002      up       up   QSFP+ or later         off     # noqa E501
+          Ethernet4          4,5,6,7      40G   9100    N/A     etp2  PortChannel0002      up       up   QSFP+ or later         off     # noqa E501
+          Ethernet8        8,9,10,11      40G   9100    N/A     etp3  PortChannel0005      up       up   QSFP+ or later         off     # noqa E501
     ...
 
     The parsed example will be like:
@@ -96,7 +96,7 @@ def parse_tabular_output(output_lines):
     """
     result = []
 
-    sep_line_pattern = re.compile(r"^( *-+ *)+$")   #lgtm [py/redos]
+    sep_line_pattern = re.compile(r"^( *-+ *)+$")
     sep_line_found = False
     for idx, line in enumerate(output_lines):
         if sep_line_pattern.match(line):

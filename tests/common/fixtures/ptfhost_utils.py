@@ -228,8 +228,9 @@ icmp_responder_session_started = False
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
-    if "mixed" not in tbinfo["topo"]["name"]:
-        logger.info("Skip running icmp_responder at session level, it is only for dualtor-mixed testbed.")
+    if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
+        logger.info("Skip running icmp_responder at session level, "
+                    "it is only for dualtor testbed with active-active mux ports.")
         yield
         return
 
@@ -470,8 +471,9 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
                     if target_dut_port in list(mg_facts['minigraph_port_indices'].values()):
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]\
-                        ['DEVICE_METADATA']['localhost']['mac'].lower()
+                        router_mac = \
+                            duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1][
+                                'DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
                         break
             ports_map[ptf_port] = {
@@ -541,8 +543,9 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
                     if target_dut_port in list(mg_facts['minigraph_port_indices'].values()):
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]\
-                        ['DEVICE_METADATA']['localhost']['mac'].lower()
+                        router_mac = \
+                            duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1][
+                                'DEVICE_METADATA']['localhost']['mac'].lower()
                         asic_idx = idx
                         for a_dut_port, a_dut_port_index in list(mg_facts['minigraph_port_indices'].items()):
                             if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \

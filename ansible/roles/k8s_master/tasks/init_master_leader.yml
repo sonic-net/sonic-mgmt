@@ -1,9 +1,9 @@
 - name: Get IP Address for HAProxy Machine
-  set_fact: 
+  set_fact:
     haproxy_ip="{{ hostvars[item].ansible_ens2.ipv4.address }}"
     haproxy_node="{{ hostvars[item].inventory_hostname }}"
   when: hostvars[item].haproxy is defined
-  with_items: 
+  with_items:
   - "{{ groups['k8s_vms' + msetnumber + '_' + servernumber] }}"
 
 - name: Wait for HAProxy service to be ready
@@ -34,7 +34,7 @@
   register: certs
 
 - name: Store join command in register for use by other master nodes
-  add_host: 
+  add_host:
     name: "master_host"
     master_join_command: "{{ join_command.stdout_lines[-1] }} --certificate-key {{ certs.stdout_lines[-1] }}"
 
@@ -52,7 +52,7 @@
     dest: /home/ubuntu/.kube/config
     remote_src: yes
     owner: ubuntu
- 
+
 - name: Copy admin.conf onto server to help transfer file to HAProxy node
   become: yes
   fetch:
