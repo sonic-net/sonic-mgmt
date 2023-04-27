@@ -38,7 +38,6 @@ def test_features_state(duthosts, enum_dut_hostname, localhost):
     Returns:
       None.
     """
-    assert False
     duthost = duthosts[enum_dut_hostname]
     logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
     if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0, verify_features_state, duthost):
