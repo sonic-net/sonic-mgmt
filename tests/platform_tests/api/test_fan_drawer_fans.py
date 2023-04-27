@@ -1,12 +1,9 @@
 import logging
 import random
-import re
 import time
 
 import pytest
-import yaml
 
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, fan_drawer, fan_drawer_fan
 from tests.platform_tests.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 from platform_api_test_base import PlatformApiTestBase
@@ -14,10 +11,10 @@ from platform_api_test_base import PlatformApiTestBase
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = str
+    STRING_TYPE = basestring    # noqa: F821
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -52,9 +49,10 @@ class TestFanDrawerFans(PlatformApiTestBase):
         if self.num_fan_drawers is None:
             try:
                 self.num_fan_drawers = chassis.get_num_fan_drawers(platform_api_conn)
-            except:
+            except Exception:
                 if "201811" in duthost.os_version or "201911" in duthost.os_version:
-                    pytest.skip("Image version {} does not support API: num_fan_drawers, test will be skipped".format(duthost.os_version))
+                    pytest.skip("Image version {} does not support API: num_fan_drawers, test will be skipped"
+                                .format(duthost.os_version))
                 else:
                     pytest.fail("num_fans is not an integer")
             else:
@@ -77,9 +75,11 @@ class TestFanDrawerFans(PlatformApiTestBase):
                     expected_value = expected_fans[fan_idx].get(key)
 
         if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for fan {} within fan_drawer {}".format(key, fan_idx, fan_drawer_idx)):
+                       "Unable to get expected value for '{}' from platform.json file for fan {} within fan_drawer {}"
+                       .format(key, fan_idx, fan_drawer_idx)):
             self.expect(value == expected_value,
-                          "'{}' value is incorrect. Got '{}', expected '{}' for fan {} within fan_drawer {}".format(key, value, expected_value, fan_idx, fan_drawer_idx))
+                        "'{}' value is incorrect. Got '{}', expected '{}' for fan {} within fan_drawer {}"
+                        .format(key, value, expected_value, fan_idx, fan_drawer_idx))
 
     def get_fan_facts(self, duthost, fan_drawer_idx, fan_idx, def_value, *keys):
         if duthost.facts.get("chassis"):
@@ -106,10 +106,11 @@ class TestFanDrawerFans(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-                name = fan_drawer_fan.get_name(platform_api_conn, j ,i)
+                name = fan_drawer_fan.get_name(platform_api_conn, j, i)
 
                 if self.expect(name is not None, "Unable to retrieve fan drawer {} fan {} name".format(j, i)):
-                    self.expect(isinstance(name, STRING_TYPE), "fan drawer {} fan {} name appears incorrect".format(j, i))
+                    self.expect(isinstance(name, STRING_TYPE),
+                                "fan drawer {} fan {} name appears incorrect".format(j, i))
                     self.compare_value_with_platform_facts(duthost, 'name', name, j, i)
 
         self.assert_expectations()
@@ -120,13 +121,14 @@ class TestFanDrawerFans(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-                name = fan_drawer_fan.get_name(platform_api_conn, j ,i)
+                name = fan_drawer_fan.get_name(platform_api_conn, j, i)     # noqa F841
 
                 presence = fan_drawer_fan.get_presence(platform_api_conn, j, i)
 
                 if self.expect(presence is not None, "Unable to retrieve fan drawer {} fan {} presence".format(j, i)):
-                    if self.expect(isinstance(presence, bool), "Fan drawer {} fan {} presence appears incorrect".format(j, i)):
-                        self.expect(presence is True, "Fan {} is not present".format(j, i))
+                    if self.expect(isinstance(presence, bool),
+                                   "Fan drawer {} fan {} presence appears incorrect".format(j, i)):
+                        self.expect(presence is True, "Fan {} is not present".format(i))
 
         self.assert_expectations()
 
@@ -136,10 +138,11 @@ class TestFanDrawerFans(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-                model = fan_drawer_fan.get_model(platform_api_conn, j ,i)
+                model = fan_drawer_fan.get_model(platform_api_conn, j, i)
 
                 if self.expect(model is not None, "Unable to retrieve fan drawer {} fan {} model".format(j, i)):
-                    self.expect(isinstance(model, STRING_TYPE), "Fan drawer {} fan {} model appears incorrect".format(j, i))
+                    self.expect(isinstance(model, STRING_TYPE),
+                                "Fan drawer {} fan {} model appears incorrect".format(j, i))
 
         self.assert_expectations()
 
@@ -149,10 +152,12 @@ class TestFanDrawerFans(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-                serial = fan_drawer_fan.get_serial(platform_api_conn, j ,i)
+                serial = fan_drawer_fan.get_serial(platform_api_conn, j, i)
 
-                if self.expect(serial is not None, "Unable to retrieve fan drawer {} fan {} serial number".format(j, i)):
-                    self.expect(isinstance(serial, STRING_TYPE), "Fan drawer {} fan {}serial number appears incorrect".format(j, i))
+                if self.expect(serial is not None,
+                               "Unable to retrieve fan drawer {} fan {} serial number".format(j, i)):
+                    self.expect(isinstance(serial, STRING_TYPE),
+                                "Fan drawer {} fan {}serial number appears incorrect".format(j, i))
 
         self.assert_expectations()
 
@@ -174,8 +179,10 @@ class TestFanDrawerFans(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
             for i in range(num_fans):
                 position = fan_drawer_fan.get_position_in_parent(platform_api_conn, j, i)
-                if self.expect(position is not None, "Failed to perform get_position_in_parent for drawer {} fan {}".format(j, i)):
-                    self.expect(isinstance(position, int), "Position value must be an integer value for drawer {} fan {}".format(j, i))
+                if self.expect(position is not None,
+                               "Failed to perform get_position_in_parent for drawer {} fan {}".format(j, i)):
+                    self.expect(isinstance(position, int),
+                                "Position value must be an integer value for drawer {} fan {}".format(j, i))
         self.assert_expectations()
 
     def test_is_replaceable(self, platform_api_conn):
@@ -183,8 +190,10 @@ class TestFanDrawerFans(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
             for i in range(num_fans):
                 replaceable = fan_drawer_fan.is_replaceable(platform_api_conn, j, i)
-                if self.expect(replaceable is not None, "Failed to perform is_replaceable for drawer {} fan {}".format(j, i)):
-                    self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for drawer {} fan {}".format(j, i))
+                if self.expect(replaceable is not None,
+                               "Failed to perform is_replaceable for drawer {} fan {}".format(j, i)):
+                    self.expect(isinstance(replaceable, bool),
+                                "Replaceable value must be a bool value for drawer {} fan {}".format(j, i))
 
         self.assert_expectations()
 
@@ -198,12 +207,13 @@ class TestFanDrawerFans(PlatformApiTestBase):
             num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-            # Ensure the fan speed is sane
+                # Ensure the fan speed is sane
                 speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 if self.expect(speed is not None, "Unable to retrieve Fan drawer {} fan {} speed".format(j, i)):
-                    if self.expect(isinstance(speed, int), "Fan drawer {} fan {} speed appears incorrect".format(j, i)):
+                    if self.expect(isinstance(speed, int),
+                                   "Fan drawer {} fan {} speed appears incorrect".format(j, i)):
                         self.expect(speed > 0 and speed <= 100,
-                                    "Fan drawer {} fan {} speed {} reading is not within range".format(j , i, speed))
+                                    "Fan drawer {} fan {} speed {} reading is not within range".format(j, i, speed))
 
         self.assert_expectations()
 
@@ -220,8 +230,10 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
             for i in range(num_fans):
                 direction = fan_drawer_fan.get_direction(platform_api_conn, j, i)
-                if self.expect(direction is not None, "Unable to retrieve Fan drawer {} fan {} direction".format(j, i)):
-                    self.expect(direction in FAN_DIRECTION_LIST, "Fan drawer {} fan {} direction is not one of predefined directions".format(j, i))
+                if self.expect(direction is not None,
+                               "Unable to retrieve Fan drawer {} fan {} direction".format(j, i)):
+                    self.expect(direction in FAN_DIRECTION_LIST,
+                                "Fan drawer {} fan {} direction is not one of predefined directions".format(j, i))
 
         self.assert_expectations()
 
@@ -238,7 +250,8 @@ class TestFanDrawerFans(PlatformApiTestBase):
                 speed_target_val = 25
                 speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
                 if not speed_controllable:
-                    logger.info("test_get_fans_target_speed: Skipping fandrawer {} fan {} (speed not controllable)".format(j, i))
+                    logger.info("test_get_fans_target_speed: Skipping fandrawer {} fan {} (speed not controllable)"
+                                .format(j, i))
                     fans_skipped += 1
                     continue
 
@@ -247,12 +260,16 @@ class TestFanDrawerFans(PlatformApiTestBase):
                 if speed_minimum > speed_target_val or speed_maximum < speed_target_val:
                     speed_target_val = random.randint(speed_minimum, speed_maximum)
 
-                speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, speed_target_val)
+                speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, speed_target_val)     # noqa F841
                 target_speed = fan_drawer_fan.get_target_speed(platform_api_conn, j, i)
-                if self.expect(target_speed is not None, "Unable to retrieve Fan drawer {} fan {} target speed".format(j, i)):
-                    if self.expect(isinstance(target_speed, int), "Fan drawer {} fan {} target speed appears incorrect".format(j,i)):
-                        self.expect(target_speed == speed_target_val, "Fan drawer {} fan {} target speed setting is not correct, speed_target_val {} target_speed = {}".format(
-                            j, i, speed_target_val, target_speed))
+                if self.expect(target_speed is not None,
+                               "Unable to retrieve Fan drawer {} fan {} target speed".format(j, i)):
+                    if self.expect(isinstance(target_speed, int),
+                                   "Fan drawer {} fan {} target speed appears incorrect".format(j, i)):
+                        self.expect(target_speed == speed_target_val,
+                                    "Fan drawer {} fan {} target speed setting is not correct, "
+                                    "speed_target_val {} target_speed = {}"
+                                    .format(j, i, speed_target_val, target_speed))
 
             if fans_skipped == num_fans:
                 fan_drawers_skipped += 1
@@ -269,9 +286,13 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
             for i in range(num_fans):
                 speed_tolerance = fan_drawer_fan.get_speed_tolerance(platform_api_conn, j, i)
-                if self.expect(speed_tolerance is not None, "Unable to retrieve fan drawer {} fan {} speed tolerance".format(j, i)):
-                    if self.expect(isinstance(speed_tolerance, int), "Fan drawer {} fan {} speed tolerance appears incorrect".format(j, i)):
-                        self.expect(speed_tolerance > 0 and speed_tolerance <= 100, "Fan drawer {} fan {} speed tolerance {} reading does not make sense".format(j, i, speed_tolerance))
+                if self.expect(speed_tolerance is not None,
+                               "Unable to retrieve fan drawer {} fan {} speed tolerance".format(j, i)):
+                    if self.expect(isinstance(speed_tolerance, int),
+                                   "Fan drawer {} fan {} speed tolerance appears incorrect".format(j, i)):
+                        self.expect(speed_tolerance > 0 and speed_tolerance <= 100,
+                                    "Fan drawer {} fan {} speed tolerance {} reading does not make sense"
+                                    .format(j, i, speed_tolerance))
 
         self.assert_expectations()
 
@@ -288,7 +309,8 @@ class TestFanDrawerFans(PlatformApiTestBase):
             for i in range(num_fans):
                 speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
                 if not speed_controllable:
-                    logger.info("test_set_fans_speed: Skipping fandrawer {} fan {} (speed not controllable)".format(j, i))
+                    logger.info("test_set_fans_speed: Skipping fandrawer {} fan {} (speed not controllable)"
+                                .format(j, i))
                     fans_skipped += 1
                     continue
 
@@ -300,12 +322,13 @@ class TestFanDrawerFans(PlatformApiTestBase):
                 speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 speed_tol = fan_drawer_fan.get_speed_tolerance(platform_api_conn, j, i)
 
-                speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, target_speed)
+                speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, target_speed)     # noqa F841
                 time.sleep(5)
 
                 act_speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 self.expect(abs(act_speed - target_speed) <= speed_tol,
-                            "Fan drawer {} fan {} speed change from {} to {} is not within tolerance, actual speed {}".format(j, i, speed, target_speed, act_speed))
+                            "Fan drawer {} fan {} speed change from {} to {} is not within tolerance, actual speed {}"
+                            .format(j, i, speed, target_speed, act_speed))
 
             if fans_skipped == num_fans:
                 fan_drawers_skipped += 1
@@ -365,7 +388,8 @@ class TestFanDrawerFans(PlatformApiTestBase):
                         if led_supported_colors:
                             led_type = set(led_type) & set(led_supported_colors)
                             if not led_type:
-                                logger.warning("test_status_led: Skipping fandrawer {} fan {} set status_led to {} (No supported colors)".format(j, i, LED_COLOR_TYPES_DICT[index]))
+                                logger.warning("test_status_led: Skipping fandrawer {} fan {} set status_led to {} "
+                                               "(No supported colors)".format(j, i, LED_COLOR_TYPES_DICT[index]))
                                 led_type_skipped += 1
                                 continue
 
@@ -378,13 +402,17 @@ class TestFanDrawerFans(PlatformApiTestBase):
                                 continue
                             color_actual = fan_drawer_fan.get_status_led(platform_api_conn, j, i)
                             if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                                if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                                    self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
-                                        color, color_actual, i))
-                        self.expect(result is True, "Failed to set status_led for fan drawer {} fan {} to {}".format(j , i, LED_COLOR_TYPES_DICT[index]))
+                                if self.expect(isinstance(color_actual, STRING_TYPE),
+                                               "Status LED color appears incorrect"):
+                                    self.expect(color == color_actual,
+                                                "Status LED color incorrect (expected: {}, actual: {} for fan {})"
+                                                .format(color, color_actual, i))
+                        self.expect(result is True, "Failed to set status_led for fan drawer {} fan {} to {}"
+                                    .format(j, i, LED_COLOR_TYPES_DICT[index]))
 
                     if led_type_skipped == len(LED_COLOR_TYPES):
-                        logger.info("test_status_led: Skipping fandrawer {} fan {} (no supported colors for all types)".format(j, i))
+                        logger.info("test_status_led: Skipping fandrawer {} fan {} (no supported colors for all types)"
+                                    .format(j, i))
                         fans_skipped += 1
 
                 else:

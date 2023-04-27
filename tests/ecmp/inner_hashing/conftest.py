@@ -149,10 +149,10 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
     duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
     duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
-    po = config_facts.get('PORTCHANNEL', {})
+    po = config_facts.get('PORTCHANNEL_MEMBER', {})
     ports = config_facts.get('PORT', {})
 
-    tmp_fib_info = tempfile.NamedTemporaryFile()
+    tmp_fib_info = tempfile.NamedTemporaryFile(mode="w+")
     with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
         fib = json.load(fp)
         for k, v in list(fib.items()):
@@ -164,7 +164,7 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
             oports = []
             for ifname in ifnames:
                 if ifname in po:
-                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]['members']])
+                    oports.append([str(mg_facts['minigraph_ptf_indices'][x]) for x in po[ifname]])
                 else:
                     if ifname in ports:
                         oports.append([str(mg_facts['minigraph_ptf_indices'][ifname])])

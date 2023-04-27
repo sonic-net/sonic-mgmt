@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import time
+import six
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
@@ -244,7 +245,7 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
+        server_ip_mac_map[server_ipv4_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ip_mac_map
 
@@ -268,7 +269,7 @@ def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = ptf_mac
+        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ipv6_mac_map
 
@@ -338,7 +339,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     peer_switch_key = 'PEER_SWITCH|{}'.format(peer_switch_hostname)
     device_meta_key = 'DEVICE_METADATA|localhost'
     restart_swss = False
-    if dut.get_asic_name() in ['th2', 'td3']:
+    if dut.get_asic_name() in ['th2', 'td3', 'gb']:
         restart_swss = True
     cmd = 'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
     dut.shell(cmd=cmd)

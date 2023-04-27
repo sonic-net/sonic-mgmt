@@ -4,6 +4,7 @@ import time
 import logging
 import ipaddress
 import json
+import six
 from collections import defaultdict
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
@@ -18,10 +19,10 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa
 # Constants
 NUM_NHs = 8
 DEFAULT_VLAN_ID = 1000
-DEFAULT_VLAN_IPv4 = ipaddress.ip_network('200.200.200.0/28')
-DEFAULT_VLAN_IPv6 = ipaddress.ip_network('200:200:200:200::/124')
-PREFIX_IPV4_LIST = ['100.50.25.12/32', '100.50.25.13/32', '100.50.25.14/32']
-PREFIX_IPV6_LIST = ['fc:05::/128', 'fc:06::/128', 'fc:07::/128']
+DEFAULT_VLAN_IPv4 = ipaddress.ip_network(u'200.200.200.0/28')
+DEFAULT_VLAN_IPv6 = ipaddress.ip_network(u'200:200:200:200::/124')
+PREFIX_IPV4_LIST = [u'100.50.25.12/32', u'100.50.25.13/32', u'100.50.25.14/32']
+PREFIX_IPV6_LIST = [u'fc:05::/128', u'fc:06::/128', u'fc:07::/128']
 FG_ECMP_CFG = '/tmp/fg_ecmp.json'
 USE_INNER_HASHING = False
 NUM_FLOWS = 1000
@@ -116,7 +117,7 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
 
     for ip, port in list(ip_to_port.items()):
 
-        if isinstance(ipaddress.ip_address(ip.decode('utf8')), ipaddress.IPv4Address):
+        if isinstance(ipaddress.ip_address(six.text_type(ip)), ipaddress.IPv4Address):
             neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
                 "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
                 "family": "IPv4"

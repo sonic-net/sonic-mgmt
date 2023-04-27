@@ -26,7 +26,7 @@ def get_tasks_results(buildid):
         "cancelled_tasks": ""
     }
 
-    pipeline_url = "https://dev.azure.com/mssonic/internal/_apis/build/builds/"+ str(buildid)
+    pipeline_url = "https://dev.azure.com/mssonic/internal/_apis/build/builds/" + str(buildid)
     print("Collect pipeline startTime from here:{}".format(pipeline_url))
     api_result = requests.get(pipeline_url, auth=AUTH)
     starttime_str = api_result.json()["startTime"]
@@ -37,7 +37,8 @@ def get_tasks_results(buildid):
     starttime_str = starttime_str.replace("Z", "")
     task_results["start_time"] = starttime_str
 
-    timeline_url = "https://dev.azure.com/mssonic/internal/_apis/build/builds/" + str(buildid) + "/timeline?api-version=5.1"
+    timeline_url = \
+        "https://dev.azure.com/mssonic/internal/_apis/build/builds/" + str(buildid) + "/timeline?api-version=5.1"
     print("Collect task results from here:{}".format(timeline_url))
     api_result = requests.get(timeline_url, auth=AUTH)
     build_records = api_result.json()["records"]
@@ -55,6 +56,7 @@ def get_tasks_results(buildid):
     with open(TASK_RESULT_FILE, "w") as f:
         json.dump(task_results, f)
     return task_results
+
 
 def main():
     parser = argparse.ArgumentParser(

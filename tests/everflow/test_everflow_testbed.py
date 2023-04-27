@@ -525,6 +525,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
         if vendor == "marvell":
             rate_limit = rate_limit * 1.25
 
+        send_time = "10"
+        if vendor == "mellanox":
+            send_time = "75"
+
         for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
             if vendorAsic in list(hostvars.keys()) and everflow_dut.facts['hwsku'] in hostvars[vendorAsic]:
@@ -594,7 +598,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                meter_type="packets",
                                cir=rate_limit,
                                cbs=rate_limit,
-                               send_time="10",
+                               send_time=send_time,
                                tolerance=everflow_tolerance)
         finally:
             # Clean up ACL rules and routes
