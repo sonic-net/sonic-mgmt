@@ -156,6 +156,7 @@ def remove_dataacl_table(duthosts):
     for duthost in duthosts:
         config_reload(duthost, config_source="minigraph")
 
+
 def get_t2_info(duthosts, tbinfo):
     # Get the list of upstream/downstream ports
     downstream_ports, upstream_ports, acl_table_ports_per_dut = defaultdict(list), defaultdict(list), defaultdict(list)
@@ -234,6 +235,7 @@ def get_t2_info(duthosts, tbinfo):
     }
 
     return t2_information
+
 
 @pytest.fixture(scope="module")
 def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario):
@@ -451,6 +453,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
     duthost.command("sonic-clear fdb all")
     duthost.command("sonic-clear arp")
+
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
 def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
