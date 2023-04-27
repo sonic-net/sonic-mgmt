@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 TELEMETRY_PORT = 50051
 METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
-
+MEMORY_CHECKER_WAIT = 1
+MEMORY_CHECKER_CYCLES = 60
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
@@ -192,7 +193,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
     logger.info("Starting to test the memory spike issue of telemetry container")
 
     duthost = duthosts[rand_one_dut_hostname]
- 
+
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               xpath="DOCKER_STATS", target="STATE_DB", update_count=1, create_connections=2000)
     client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd,))
