@@ -1,10 +1,11 @@
 simulation:
   no_image_copy: true
   slurm_flags:
-    hours: 120
+    pending_timeout: 60
+    hours: 15
           
 devices:
-    docker_ptf:
+  docker_ptf:
     platform: linux
     image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
     linux_username: root
@@ -26,7 +27,7 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.27.147.152/IMAGES/4034/sonic-cisco-8000.bin
+    onie-install: http://172.27.147.152/IMAGES/4265/sonic-cisco-8000.bin
     linecard_types: [matilda32]
 
   sonic_mgmt :
@@ -38,7 +39,7 @@ devices:
     linux_prompt: 'vxr@vxr-vm:~\$'
     vcpu: 32
     memory: '64G'
-    
+
 device_groups:
   veos:
     devices:
