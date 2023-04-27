@@ -4,7 +4,7 @@ simulation:
     hours: 120
           
 devices:
-  docker_ptf:
+    docker_ptf:
     platform: linux
     image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
     linux_username: root
@@ -26,24 +26,19 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_16.0/sonic-cisco-8000.bin
+    onie-install: http://172.27.147.152/IMAGES/4034/sonic-cisco-8000.bin
     linecard_types: [matilda32]
-    vxr_sim_config:
-        shelf:
-            ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-ci-mp.cisco.com/corporate-code/leaba/sdk-debians/sdk-debians-1.0.0-master-buster-1.7.1-13798/npl
-            ConfigS1NpsuiteVer: 1.81.0
-
 
   sonic_mgmt :
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup3/sonic/ubuntu1804_spytest.qcow2
+    image : /globalnobackup3/sonic/ubuntu1804_mgt.qcow2
     linux_username: 'vxr'
     linux_password : 'cisco123'
-    linux_prompt: 'vxr@ubuntu:~\$'
-    vcpu: 4
-    memory: '4G'
-
+    linux_prompt: 'vxr@vxr-vm:~\$'
+    vcpu: 32
+    memory: '64G'
+    
 device_groups:
   veos:
     devices:

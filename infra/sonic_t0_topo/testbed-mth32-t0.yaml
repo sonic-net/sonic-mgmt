@@ -18,7 +18,7 @@ device_groups:
     host:
     - mathilda-01
     vars:
-      hwsku: 32x100Gb
+      hwsku: Cisco-8102-C32
       iface_speed: '100000'
 devices:
   mathilda-01:
