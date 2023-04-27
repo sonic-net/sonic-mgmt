@@ -393,9 +393,11 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
                "hash_test.IPinIPHashTest",
                platform_dir="ptftests",
                params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url,
-                                                              duts_running_config_facts, duts_minigraph_facts,
-                                                              mux_status_from_nic_simulator()),
+                       "ptf_test_port_map": ptf_test_port_map_active_active(
+                           ptfhost, tbinfo, duthosts, mux_server_url,
+                           duts_running_config_facts, duts_minigraph_facts,
+                           mux_status_from_nic_simulator()
+                        ),
                        "hash_keys": hash_keys,
                        "src_ip_range": ",".join(src_ip_range),
                        "dst_ip_range": ",".join(dst_ip_range),
