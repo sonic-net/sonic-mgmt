@@ -19,6 +19,7 @@ METHOD_GET = "get"
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
 
+
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
     """
