@@ -700,11 +700,21 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_
 
     if os.getenv("MODE"):
         sanity_mode = os.getenv("MODE").replace("_", "")
-    else:
+    elif os.getenv("SANITY_MODE"):
         sanity_mode = os.getenv("SANITY_MODE").replace("_", "")
+    else:
+        sanity_mode = ""
+
     sanity_index = os.getenv("SANITY_INDEX")
-    job_base_name = os.getenv("JOB_BASE_NAME").replace("_", "")
-    timestamp = re.sub(r'[^a-zA-Z0-9]', '', os.getenv("TIMESTAMP"))
+    if os.getenv("JOB_BASE_NAME"):
+        job_base_name = os.getenv("JOB_BASE_NAME").replace("_", "")
+    else:
+        job_base_name = ""
+    if os.getenv("TIMESTAMP"):
+        timestamp = re.sub(r'[^a-zA-Z0-9]', '', os.getenv("TIMESTAMP"))
+    else:
+        timestamp = ""
+    
     build_id = os.getenv("BUILD_ID")
     if build_id is None:
         build_id = 99999
