@@ -326,6 +326,9 @@ veos:
     ansible_sudo_pass: cisco123
     ansible_user: vxr
   vm_images_url: https://acsbe.blob.core.windows.net/vmimages
+  vm_host_1:
+    STR-ACS-SERV-01:
+      ansible_host: 192.168.122.150
   vms_1:
     VM0100:
       ansible_host: 192.168.122.94
