@@ -7,14 +7,15 @@ from tests.common.helpers.platform_api import chassis, module
 from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = str
+    STRING_TYPE = basestring    # noqa: F821
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -480,6 +481,10 @@ class TestModuleApi(PlatformApiTestBase):
     def test_reboot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         reboot_type = 'default'
         reboot_timeout = 300
+
+        # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+        ignore_t2_syslog_msgs(duthosts[enum_rand_one_per_hwsku_hostname])
+
         for mod_idx in range(self.num_modules):
             mod_name = module.get_name(platform_api_conn, mod_idx)
             if self.skip_module_other_than_myself(mod_idx, platform_api_conn):

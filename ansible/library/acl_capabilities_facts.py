@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import multi_asic
 DOCUMENTATION = '''
 module:         acl_capabilities_facts
@@ -54,7 +55,5 @@ def main():
     AclCapabilityModule().run()
 
 
-from ansible.module_utils.basic import *
 if __name__ == "__main__":
     main()
-

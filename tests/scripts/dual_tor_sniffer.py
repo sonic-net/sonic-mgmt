@@ -12,7 +12,8 @@ class Sniffer(object):
         self.socket = None
 
     def sniff(self):
-        logging.debug("scapy sniffer started: filter={}, timeout={}".format(self.filter, self.timeout))
+        logging.debug("scapy sniffer started: filter={}, timeout={}".format(
+            self.filter, self.timeout))
         scapyall.sniff(
             filter=self.filter,
             prn=self.process_pkt,
@@ -37,29 +38,29 @@ def main():
         '''
     )
     parser.add_argument('-f', '--filter',
-        type=str,
-        dest='filter',
-        default=None,
-        help='Capture filter.'
-    )
+                        type=str,
+                        dest='filter',
+                        default=None,
+                        help='Capture filter.'
+                        )
     parser.add_argument('-t', '--timeout',
-        type=float,
-        dest='timeout',
-        default=60.0,
-        help='Maximum number of seconds to sniff.'
-    )
+                        type=float,
+                        dest='timeout',
+                        default=60.0,
+                        help='Maximum number of seconds to sniff.'
+                        )
     parser.add_argument('-p', '--pcap',
-        type=str,
-        dest='pcap',
-        default='/tmp/capture.pcap',
-        help='Dump captured packets to the specified pcap file.'
-    )
+                        type=str,
+                        dest='pcap',
+                        default='/tmp/capture.pcap',
+                        help='Dump captured packets to the specified pcap file.'
+                        )
     parser.add_argument('-l', '--log',
-        type=str,
-        dest='log',
-        default='/tmp/capture.log',
-        help='Save log to the specified log file'
-    )
+                        type=str,
+                        dest='log',
+                        default='/tmp/capture.log',
+                        help='Save log to the specified log file'
+                        )
 
     args = parser.parse_args()
 
@@ -75,6 +76,7 @@ def main():
     if sniffer.socket:
         sniffer.socket.close()
     sniffer.save_pcap(args.pcap)
+
 
 if __name__ == '__main__':
     main()

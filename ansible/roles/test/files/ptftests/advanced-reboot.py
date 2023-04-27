@@ -60,6 +60,7 @@ import time
 import json
 import subprocess
 import threading
+import traceback
 import multiprocessing
 import itertools
 import ast
@@ -273,6 +274,9 @@ class ReloadTest(BaseTest):
             alt_password=self.test_params.get('alt_password')
         )
 
+        self.sender_thr = threading.Thread(target=self.send_in_background)
+        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
+
         # Check if platform type is kvm
         stdout, stderr, return_code = self.dut_connection.execCommand(
             "show platform summary | grep Platform | awk '{print $2}'")
@@ -401,15 +405,12 @@ class ReloadTest(BaseTest):
 
         try:
             res = async_res.get(timeout=seconds)
-        except TimeoutError as err:
-            # TimeoutError captured here
-            signal.set()
-            raise type(err)(message)
         except Exception as err:
-            # Propagate exceptions up
+            traceback_msg = traceback.format_exc()
+            # TimeoutError and Exception's from func
+            # captured here
             signal.set()
-            raise err
-        self.log("Timeout is returning {}.".format(res))
+            raise type(err)("{}: {}".format(message, traceback_msg))
         return res
 
     def generate_vlan_servers(self):
@@ -1117,6 +1118,11 @@ class ReloadTest(BaseTest):
             self.no_routing_stop = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
+        # wait until sniffer and sender threads have started
+        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+            time.sleep(1)
+
+        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
@@ -1428,8 +1434,9 @@ class ReloadTest(BaseTest):
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
-        except Exception as e:
-            self.fails['dut'].add(e)
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.fails['dut'].add(traceback_msg)
         finally:
             self.handle_post_reboot_test_reports()
 
@@ -1484,8 +1491,6 @@ class ReloadTest(BaseTest):
         if not self.kvm_test and\
                 (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
                  self.reboot_type or 'service-warm-restart' in self.reboot_type):
-            self.sender_thr = threading.Thread(target=self.send_in_background)
-            self.sniff_thr = threading.Thread(target=self.sniff_in_background)
             # Event for the sniff_in_background status.
             self.sniffer_started = threading.Event()
             self.sniff_thr.start()
@@ -1803,20 +1808,6 @@ class ReloadTest(BaseTest):
         self.log('Pcapng file converted into pcap file')
         # Remove tmp pcapng file
         subprocess.call(['rm', '-f', pcapng_full_capture])
-
-    def send_and_sniff(self):
-        """
-        This method starts two background threads in parallel:
-        one for sending, another for collecting the sent packets.
-        """
-        self.sender_thr = threading.Thread(target=self.send_in_background)
-        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
-        # Event for the sniff_in_background status.
-        self.sniffer_started = threading.Event()
-        self.sniff_thr.start()
-        self.sender_thr.start()
-        self.sniff_thr.join()
-        self.sender_thr.join()
 
     def check_tcp_payload(self, packet):
         """

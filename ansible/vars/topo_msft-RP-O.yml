@@ -54,4 +54,4 @@ slot0:
               - Eth0450-ASIC1
       configuration_properties:
         common:
-          asic_type: BackEnd 
+          asic_type: BackEnd
