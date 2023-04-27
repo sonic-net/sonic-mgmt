@@ -1,16 +1,44 @@
 import time
 import re
+from tests.common.utilities import get_image_type
 
-GNMI_CONTAINER_NAME = 'telemetry'
-GNMI_PROGRAM_NAME = 'telemetry'
-GNMI_CONFIG_KEY = 'TELEMETRY|gnmi'
+GNMI_CONTAINER_NAME = ''
+GNMI_PROGRAM_NAME = ''
+GNMI_PORT = 0
 # Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
 
 
+def gnmi_container(duthost):
+    global GNMI_CONTAINER_NAME
+    if len(GNMI_CONTAINER_NAME) == 0:
+        if get_image_type(duthost) == "public":
+            GNMI_CONTAINER_NAME = "telemetry"
+        else:
+            GNMI_CONTAINER_NAME = "gnmi"
+    return GNMI_CONTAINER_NAME
+
+
+def gnmi_program(duthost):
+    global GNMI_PROGRAM_NAME
+    if len(GNMI_PROGRAM_NAME) == 0:
+        if get_image_type(duthost) == "public":
+            GNMI_PROGRAM_NAME = "telemetry"
+        else:
+            GNMI_PROGRAM_NAME = "gnmi-native"
+    return GNMI_PROGRAM_NAME
+
+
 def gnmi_port(duthost):
-    port = duthost.shell("redis-cli -n 4 hget '%s' 'port'" % GNMI_CONFIG_KEY)['stdout']
-    return port
+    global GNMI_PORT
+    if GNMI_PORT == 0:
+        if get_image_type(duthost) == "public":
+            GNMI_CONFIG_KEY = 'TELEMETRY|gnmi'
+        else:
+            GNMI_CONFIG_KEY = 'GNMI|gnmi'
+        port = duthost.shell("sonic-db-cli CONFIG_DB hget '%s' 'port'" % GNMI_CONFIG_KEY)['stdout']
+        GNMI_PORT = int(port)
+    return GNMI_PORT
 
 
 def create_ext_conf(ip, filename):
@@ -29,11 +57,11 @@ IP      = %s
 def apply_cert_config(duthost):
     port = gnmi_port(duthost)
     assert int(port) > 0, "Invalid GNMI port"
-    dut_command = "docker exec %s supervisorctl stop %s" % (GNMI_CONTAINER_NAME, GNMI_PROGRAM_NAME)
+    dut_command = "docker exec %s supervisorctl stop %s" % (gnmi_container(duthost), gnmi_program(duthost))
     duthost.shell(dut_command)
-    dut_command = "docker exec %s pkill telemetry" % (GNMI_CONTAINER_NAME)
+    dut_command = "docker exec %s pkill telemetry" % (gnmi_container(duthost))
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s bash -c " % GNMI_CONTAINER_NAME
+    dut_command = "docker exec %s bash -c " % gnmi_container(duthost)
     dut_command += "\"/usr/bin/nohup /usr/sbin/telemetry -logtostderr --port %s " % port
     dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /etc/sonic/telemetry/gnmiserver.key "
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
@@ -42,13 +70,13 @@ def apply_cert_config(duthost):
 
 
 def recover_cert_config(duthost):
-    dut_command = "docker exec %s supervisorctl status %s" % (GNMI_CONTAINER_NAME, GNMI_PROGRAM_NAME)
+    dut_command = "docker exec %s supervisorctl status %s" % (gnmi_container(duthost), gnmi_program(duthost))
     output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
         return
-    dut_command = "docker exec %s pkill telemetry" % (GNMI_CONTAINER_NAME)
+    dut_command = "docker exec %s pkill telemetry" % (gnmi_container(duthost))
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl start %s" % (GNMI_CONTAINER_NAME, GNMI_PROGRAM_NAME)
+    dut_command = "docker exec %s supervisorctl start %s" % (gnmi_container(duthost), gnmi_program(duthost))
     duthost.shell(dut_command)
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
 
