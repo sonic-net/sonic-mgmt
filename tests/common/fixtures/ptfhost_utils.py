@@ -442,7 +442,6 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
-    logger.info('tbinfo={}'.format(tbinfo))
 
     asic_idx = 0
     ports_map = {}
