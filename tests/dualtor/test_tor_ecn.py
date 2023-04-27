@@ -29,7 +29,8 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder              
 from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
-from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp
+from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp, derive_out_dscp_from_inner_dscp
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -92,7 +93,7 @@ def build_encapsulated_ip_packet(
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
-        peer_ipv4_address = [dut_name["address_ipv4"] for dut_name in config_facts["PEER_SWITCH"].values()][0]
+        peer_ipv4_address = [dut_name["address_ipv4"] for dut_name in list(config_facts["PEER_SWITCH"].values())][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
 
@@ -100,9 +101,14 @@ def build_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    inner_ttl = random.choice(range(3, 65))
-    inner_ecn = random.choice(range(0, 3))
+    inner_ttl = random.choice(list(range(3, 65)))
+    inner_ecn = random.choice(list(range(0, 3)))
+    if is_tunnel_qos_remap_enabled(tor):
+        outer_dscp = derive_out_dscp_from_inner_dscp(tor, inner_dscp)
+    outer_ecn = inner_ecn
+
     logging.info("Inner DSCP: {0:06b}, Inner ECN: {1:02b}".format(inner_dscp, inner_ecn))
+    logging.info("Outer DSCP: {0:06b}, Outer ECN: {1:02b}".format(outer_dscp, outer_ecn))
 
     inner_packet = testutils.simple_ip_packet(
         ip_src="1.1.1.1",
@@ -116,9 +122,9 @@ def build_encapsulated_ip_packet(
         eth_src=ptfadapter.dataplane.get_mac(0, 0),
         ip_src=peer_ipv4_address,
         ip_dst=tor_ipv4_address,
-        ip_dscp=inner_dscp,
+        ip_dscp=outer_dscp,
         ip_ttl=255,
-        ip_ecn=inner_ecn,
+        ip_ecn=outer_ecn,
         inner_frame=inner_packet
     )
     logging.info("the encapsulated packet to send:\n%s", dump_scapy_packet_show_output(packet))
@@ -141,7 +147,7 @@ def build_non_encapsulated_ip_packet(
     config_facts = tor.get_running_config_facts()
     try:
         peer_ipv4_address = [dut_name["address_ipv4"]       # noqa F841
-                             for dut_name in config_facts["PEER_SWITCH"].values()][0]
+                             for dut_name in list(config_facts["PEER_SWITCH"].values())][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
 
@@ -149,8 +155,8 @@ def build_non_encapsulated_ip_packet(
                         if is_ipv4_address(addr.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    ttl = random.choice(range(3, 65))
-    ecn = random.choice(range(0, 3))
+    ttl = random.choice(list(range(3, 65)))
+    ecn = random.choice(list(range(0, 3)))
     logging.info("DSCP: {0:06b}, ECN: {1:02b}".format(dscp, ecn))
 
     packet = testutils.simple_ip_packet(

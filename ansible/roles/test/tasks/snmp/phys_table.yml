@@ -59,4 +59,3 @@
   with_nested:
       - "{{ trans_output.stdout_lines }}"
       - "{{ sensor_partial_oids.values() }}"
-

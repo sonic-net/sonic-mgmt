@@ -59,7 +59,7 @@ def get_defined_topo_names():
     # Find out supported topo names
     topo_names = []
     for topo_file in os.listdir(TOPO_FILE_PATH):
-        topo_names.extend(re.findall('^topo_(.*)\.y[a]?ml$', topo_file))
+        topo_names.extend(re.findall(r'^topo_(.*)\.y[a]?ml$', topo_file))
     return topo_names
 
 
@@ -89,7 +89,8 @@ def check_testbed_name(testbeds):
     dup_tbnames = _find_dup_in_list(tbnames)
     if len(dup_tbnames) > 0:
         result['valid'] = False
-        result['msg'] = 'There are duplicated testbed names: ' + str(dup_tbnames)
+        result['msg'] = 'There are duplicated testbed names: ' + \
+            str(dup_tbnames)
     return result
 
 
@@ -111,10 +112,10 @@ def check_server_group_name(testbeds):
         if dup_groups:
             dup_server_groups[server] = dup_groups
 
-
     if dup_server_groups:
         result['valid'] = False
-        result['msg'] = 'Group name belong to each test server must be unique, duplicated groups per server: {}'.format(dup_server_groups)
+        result['msg'] = 'Group name belong to each test server must be unique, duplicated groups per server: {}'.format(
+            dup_server_groups)
     return result
 
 
@@ -158,14 +159,17 @@ def check_vmfile_topologies(vm_inventory):
     vmfile_topologies = vm_inventory['im'].groups['servers'].vars['topologies']
 
     dup_topologies_in_vmfile = _find_dup_in_list(vmfile_topologies)
-    invalid_topo_in_vmfile = list(set(vmfile_topologies) - set(defined_topologies))
+    invalid_topo_in_vmfile = list(
+        set(vmfile_topologies) - set(defined_topologies))
 
     failures = []
     if dup_topologies_in_vmfile:
-        failures.append('Duplicated topologies in {}. '.format(vm_inventory['path']))
+        failures.append(
+            'Duplicated topologies in {}. '.format(vm_inventory['path']))
 
     if invalid_topo_in_vmfile:
-        failures.append('Topologies {} in {} are invalid.'.format(str(list(invalid_topo_in_vmfile)), vm_inventory['path']))
+        failures.append('Topologies {} in {} are invalid.'.format(
+            str(list(invalid_topo_in_vmfile)), vm_inventory['path']))
 
     if failures:
         result['valid'] = False
@@ -207,11 +211,9 @@ def check_ptf(testbeds, inventories):
         ptf_ip = tb['ptf_ip'].split('/')[0]
         ansible_host = ptf_host.vars.get('ansible_host', '')
         if ansible_host != ptf_ip:
-            failures.append('Inconsistent PTF IP in testbed file and inventory file, testbed={}, ptf_ip={}, inv_ptf_ip={}'.format(
-                tb['conf-name'],
-                ptf_ip,
-                ansible_host
-            ))
+            failures.append(
+                'Inconsistent PTF IP in testbed file and inventory file, testbed={}, ptf_ip={}, inv_ptf_ip={}'
+                .format(tb['conf-name'], ptf_ip, ansible_host))
 
     if failures:
         result['valid'] = False
@@ -235,7 +237,7 @@ def check_duplicated_ip(inventory):
     dup_ips = _find_dup_in_list(ips)
     if dup_ips:
         result['valid'] = False
-        result['msg'] ='Found duplicated IP in inventory {}: {}'.format(
+        result['msg'] = 'Found duplicated IP in inventory {}: {}'.format(
             inventory['path'],
             dup_ips
         )
@@ -260,7 +262,8 @@ def check(args):
 
     failed_checks = [result for result in results if not result['valid']]
     if len(failed_checks) > 0:
-        print('Check failed, detailed results: {}'.format(json.dumps(failed_checks, indent=4)))
+        print('Check failed, detailed results: {}'.format(
+            json.dumps(failed_checks, indent=4)))
         sys.exit(1)
     else:
         print('Check passed')
@@ -274,16 +277,16 @@ if __name__ == '__main__':
         description='Check testbed and related inventory files')
 
     parser.add_argument('-t', '--testbed-file',
-        type=str,
-        dest='tbfile',
-        required=True,
-        help='Testbed file. Only yaml format testbed file is supported.')
+                        type=str,
+                        dest='tbfile',
+                        required=True,
+                        help='Testbed file. Only yaml format testbed file is supported.')
 
     parser.add_argument('-m', '--vm-file',
-        type=str,
-        dest='vmfile',
-        required=True,
-        help='VM files, typically it is the `veos` file')
+                        type=str,
+                        dest='vmfile',
+                        required=True,
+                        help='VM files, typically it is the `veos` file')
 
     args = parser.parse_args()
     check(args)

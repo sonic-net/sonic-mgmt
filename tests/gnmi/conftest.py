@@ -3,7 +3,7 @@ import shutil
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import GNMI_CONTAINER_NAME, apply_cert_config, recover_cert_config, create_ext_conf
+from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf
 from tests.generic_config_updater.gu_utils import create_checkpoint, rollback
 
 SETUP_ENV_CP = "test_setup_checkpoint"
@@ -24,7 +24,7 @@ def skip_non_x86_platform(duthosts, rand_one_dut_hostname):
 def download_gnmi_client(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     for file in ["gnmi_cli", "gnmi_set", "gnmi_get", "gnoi_client"]:
-        duthost.shell("docker cp %s:/usr/sbin/%s /tmp" % (GNMI_CONTAINER_NAME, file))
+        duthost.shell("docker cp %s:/usr/sbin/%s /tmp" % (gnmi_container(duthost), file))
         ret = duthost.fetch(src="/tmp/%s" % file, dest=".")
         gnmi_bin = ret.get("dest", None)
         shutil.copyfile(gnmi_bin, "gnmi/%s" % file)
@@ -40,7 +40,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
 
     # Check if GNMI is enabled on the device
     pyrequire(
-        check_container_state(duthost, GNMI_CONTAINER_NAME, should_be_running=True),
+        check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
 
     # Create Root key

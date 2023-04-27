@@ -1,12 +1,11 @@
-import SocketServer
+from six.moves import socketserver
 import pickle
 import socket
 import argparse
 import yaml
 import xml.etree.ElementTree as ET
 import datetime
-import os.path
-from pprint import pprint
+import operator
 
 
 g_log_fp = None
@@ -15,14 +14,14 @@ g_log_fp = None
 def log(message, output_on_console=False):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if output_on_console:
-        print "%s : %s" % (current_time, message)
+        print("%s : %s" % (current_time, message))
     global g_log_fp
     if g_log_fp is not None:
         g_log_fp.write("%s : %s\n" % (current_time, message))
         g_log_fp.flush()
 
 
-class TCPHandler(SocketServer.StreamRequestHandler):
+class TCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
         data = pickle.load(self.rfile)
         log("Received request: %s" % str(data))
@@ -75,16 +74,16 @@ def parse_lab_connection_graph(lab_connection_file, dut):
         if link.attrib['StartDevice'] != dut:
             continue
 
-        target_device = link.attrib['StartDevice']
         fanout_device = link.attrib['EndDevice']
-        target_port   = link.attrib['StartPort']
-        fanout_port   = link.attrib['EndPort']
+        target_port = link.attrib['StartPort']
+        fanout_port = link.attrib['EndPort']
 
         devices.append(fanout_device)
         dut_ports.append(target_port)
         mapping[(fanout_device, fanout_port)] = target_port
 
-    dut_ports = sorted(dut_ports, cmp=lambda x,y: cmp(int(x.replace('Ethernet', '')), int(y.replace('Ethernet', ''))))
+    dut_ports = sorted(dut_ports, cmp=lambda x, y: operator.eq(
+        int(x.replace('Ethernet', '')), int(y.replace('Ethernet', ''))))
 
     for l3info in root.findall('./DataPlaneGraph/DevicesL3Info'):
         if l3info.attrib['Hostname'] not in devices:
@@ -92,7 +91,8 @@ def parse_lab_connection_graph(lab_connection_file, dut):
 
         mgmtinfo = l3info.findall('ManagementIPInterface')
         if not mgmtinfo:
-            raise Exception("No management information about fanout in lab_connection_graph.xml")
+            raise Exception(
+                "No management information about fanout in lab_connection_graph.xml")
 
         pfx = mgmtinfo[0].attrib['Prefix']
         ip_name, mask = pfx.split('/')
@@ -121,6 +121,7 @@ def parse_veos(vms):
 
     return mapping
 
+
 def generate_vm_mappings(vms, base_vm, dut_ports, vm_2_ip):
     base_vm_id = int(base_vm[2:])
     vm_name_fmt = 'VM%0{}d'.format(len(base_vm) - 2)
@@ -128,10 +129,12 @@ def generate_vm_mappings(vms, base_vm, dut_ports, vm_2_ip):
     for vm_offset, ports in vms.items():
         vm = vm_name_fmt % (base_vm_id + vm_offset)
         vm_ip = vm_2_ip[vm]
-        p = {dut_ports[port]: (vm_ip, 'Ethernet%d' % (offset + 1)) for offset, port in enumerate(ports)}
+        p = {dut_ports[port]: (vm_ip, 'Ethernet%d' % (offset + 1))
+             for offset, port in enumerate(ports)}
         required_ports.update(p)
 
     return required_ports
+
 
 def generate_vm_port_mapping(vm_base):
     with open('topo.yaml') as fp:
@@ -140,22 +143,28 @@ def generate_vm_port_mapping(vm_base):
     base = int(vm_base.replace("VM", ""))
     vm_name_fmt = 'VM%0{}d'.format(len(vm_base) - 2)
 
-    vm_ports = {v['vm_offset']:v['vlans'] for v in data['topology']['VMs'].values()}
-    vm_list  = [vm_name_fmt % (base + p) for p in sorted(vm_ports.keys())]
+    vm_ports = {v['vm_offset']: v['vlans']
+                for v in data['topology']['VMs'].values()}
+    vm_list = [vm_name_fmt % (base + p) for p in sorted(vm_ports.keys())]
 
     return vm_ports, vm_list
 
+
 def merge(fanout_mappings, fanout_name_2_ip, vm_mappings):
-    return {(fanout_name_2_ip[fanout_name], fanout_port) : vm_mappings[dut_port]  for (fanout_name, fanout_port), dut_port in fanout_mappings.iteritems() if dut_port in vm_mappings}
+    return {(fanout_name_2_ip[fanout_name], fanout_port): vm_mappings[dut_port] for (fanout_name, fanout_port),
+            dut_port in fanout_mappings.items() if dut_port in vm_mappings}
+
 
 def generate_x_table(base_vm, dut):
-    devices, dut_ports, mapping, fanout_name_2_ip = parse_lab_connection_graph('lab_connection_graph.xml', dut)
+    devices, dut_ports, mapping, fanout_name_2_ip = parse_lab_connection_graph(
+        'lab_connection_graph.xml', dut)
     vm_ports, vm_list = generate_vm_port_mapping(base_vm)
     vm_2_ip = parse_veos(vm_list)
     vm_mappings = generate_vm_mappings(vm_ports, base_vm, dut_ports, vm_2_ip)
     target = merge(mapping, fanout_name_2_ip, vm_mappings)
 
     return target
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -170,7 +179,7 @@ def main():
 
     x_table = generate_x_table(base_vm, dut)
 
-    server = SocketServer.TCPServer(("0.0.0.0", 9877), TCPHandler)
+    server = socketserver.TCPServer(("0.0.0.0", 9877), TCPHandler)
     server.request_queue_size = 64
     server.allow_reuse_address = True
     server.x_table = x_table
@@ -178,6 +187,6 @@ def main():
 
     return
 
+
 if __name__ == '__main__':
     main()
-

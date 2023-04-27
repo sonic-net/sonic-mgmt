@@ -1,6 +1,7 @@
 import logging
 import time
 from tests.common.devices.ptf import PTFHost
+import binascii
 
 
 import pytest
@@ -94,7 +95,7 @@ def check_local_log_exist(duthost, tacacs_creds, command):
     pytest_assert(len(logs) > 0)
 
     # exclude logs of the sed command produced by Ansible
-    logs = list(filter(lambda line: 'sudo sed' not in line, logs))
+    logs = list([line for line in logs if 'sudo sed' not in line])
     logger.info("Found logs: %s", logs)
 
     pytest_assert(logs, 'Failed to find an expected log message by pattern: ' + log_pattern)
@@ -120,6 +121,40 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
 
     logger.info("Found logs: %s", logs)
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
+
+
+def check_server_received(ptfhost, data):
+    """
+        Check if tacacs server received the data.
+    """
+    hex = binascii.hexlify(data.encode('ascii'))
+    hex_string = hex.decode()
+
+    """
+      Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string:
+            1. tac_plus server start with '-d 2058' parameter to log received data in following format in tac_plus.log:
+                    Thu Mar  9 06:26:16 2023 [75483]: data[140] = 0xf8, xor'ed with hash[12] = 0xab -> 0x53
+                    Thu Mar  9 06:26:16 2023 [75483]: data[141] = 0x8d, xor'ed with hash[13] = 0xc2 -> 0x4f
+                In above log, the 'data[140] = 0xf8' is received data.
+
+            2. Following sed command will extract the received data from tac_plus.log:
+                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa W605
+
+            3. Following set command will join all received data to hex string:
+                    sed ':a; N; $!ba; s/\\n//g'
+
+            4. Then the grep command will check if the received hex data containes expected hex string.
+                    grep '{0}'".format(hex_string)
+
+      Also suppress following Flake8 error/warning:
+            W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
+            E501 : Line too long. Following sed command difficult to split to multiple line.
+    """
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
+    res = ptfhost.shell(sed_command)
+    logger.info(sed_command)
+    logger.info(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) > 0)
 
 
 @pytest.fixture
@@ -301,3 +336,21 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
+
+
+def test_send_remote_address(
+                            ptfhost,
+                            duthosts,
+                            enum_rand_one_per_hwsku_hostname,
+                            tacacs_creds,
+                            check_tacacs,
+                            rw_user_client):
+    """
+        Verify TACACS+ send remote address to server.
+    """
+    exit_code, stdout, stderr = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
+    pytest_assert(exit_code == 0)
+
+    # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
+    remote_address = stdout[0].split(" ")[0]
+    check_server_received(ptfhost, remote_address)

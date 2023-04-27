@@ -38,7 +38,7 @@ def enable_arp(duthost, cfg_facts, enable):
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
     on_cmd = "echo 1 > /proc/sys/net/ipv4/conf/%s/arp_accept"
     off_cmd = "echo 0 > /proc/sys/net/ipv4/conf/%s/arp_accept"
-    for vlan in vlan_members.keys():
+    for vlan in list(vlan_members.keys()):
         if enable:
             logger.info("Enable ARP for %s" % vlan)
             duthost.shell(on_cmd % vlan)

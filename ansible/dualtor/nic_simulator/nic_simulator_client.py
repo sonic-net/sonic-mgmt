@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-from urllib import response     # noqa F401
+from six.moves.urllib import response     # noqa F401
 import grpc
 
 from collections import namedtuple
@@ -78,7 +78,8 @@ def main():
         # metadata_interceptor = MetadataInterceptor(("grpc_server", "192.168.0.101"))
         # with grpc.intercept_channel(insecure_channel, metadata_interceptor) as channel:
         if test_mgmt:
-            stub = nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceStub(channel)
+            stub = nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceStub(
+                channel)
             request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(
                 nic_addresses=["192.168.0.3", "192.168.0.5"],
                 admin_requests=[
@@ -127,7 +128,8 @@ def main():
             response = stub.QueryAdminPortState(request)
             print(response)
         else:
-            stub = nic_simulator_grpc_service_pb2_grpc.DualToRActiveStub(channel)
+            stub = nic_simulator_grpc_service_pb2_grpc.DualToRActiveStub(
+                channel)
             request = nic_simulator_grpc_service_pb2.AdminRequest(
                 portid=[0, 1],
                 state=[True, True]

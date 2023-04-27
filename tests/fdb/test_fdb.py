@@ -3,7 +3,7 @@ import pytest
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from ptf.mask import Mask
-
+from collections import defaultdict
 import time
 import itertools
 import logging
@@ -11,14 +11,13 @@ import pprint
 import re
 import random
 
-from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging           # noqa F401
 from tests.common.dualtor.mux_simulator_control import mux_server_url, \
                                                        toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
+from .utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
@@ -294,13 +293,13 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     router_mac = duthost.facts['router_mac']
 
-    port_index_to_name = {v: k for k, v in conf_facts['port_index_map'].items()}
+    port_index_to_name = {v: k for k, v in list(conf_facts['port_index_map'].items())}
 
     configured_dummay_mac_count = get_dummay_mac_count
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
     available_ports_idx = []
-    for idx, name in ptf_ports_available_in_topo.items():
+    for idx, name in list(ptf_ports_available_in_topo.items()):
         if idx in port_index_to_name and \
                 conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up':
             available_ports_idx.append(idx)
@@ -309,11 +308,11 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     interface_table = defaultdict(set)
     config_portchannels = conf_facts.get('PORTCHANNEL', {})
 
-    for name, vlan in conf_facts['VLAN'].items():
+    for name, vlan in list(conf_facts['VLAN'].items()):
         vlan_id = int(vlan['vlanid'])
         vlan_table[vlan_id] = []
 
-        for ifname in conf_facts['VLAN_MEMBER'][name].keys():
+        for ifname in list(conf_facts['VLAN_MEMBER'][name].keys()):
             if 'tagging_mode' not in conf_facts['VLAN_MEMBER'][name][ifname]:
                 continue
             tagging_mode = conf_facts['VLAN_MEMBER'][name][ifname]['tagging_mode']
@@ -330,7 +329,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             if port_index:
                 vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
 
-    vlan_member_count = sum([len(members) for members in vlan_table.values()])
+    vlan_member_count = sum([len(members) for members in list(vlan_table.values())])
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:
@@ -352,7 +351,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     dummy_mac_count = 0
     total_mac_count = 0
-    for k, vl in fdb_fact.items():
+    for k, vl in list(fdb_fact.items()):
         assert validate_mac(k) is True
         for v in vl:
             assert v['port'] in interface_table

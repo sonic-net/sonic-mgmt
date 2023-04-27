@@ -1,7 +1,7 @@
 import pytest
-import pexpect
 import string
 import random
+from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -72,7 +72,7 @@ def test_console_loopback_pingpong(duthost, creds, src_line, dst_line):
         sender = create_ssh_client(dutip, "{}:{}".format(dutuser, src_line), dutpass)
         receiver = create_ssh_client(dutip, "{}:{}".format(dutuser, dst_line), dutpass)
 
-        ensure_console_session_up(sender,   src_line)
+        ensure_console_session_up(sender, src_line)
         ensure_console_session_up(receiver, dst_line)
 
         sender.sendline('ping')
@@ -81,28 +81,6 @@ def test_console_loopback_pingpong(duthost, creds, src_line, dst_line):
         assert_expect_text(sender, 'pong', src_line)
     except Exception:
         pytest.fail("Not able to communicate DUT via reverse SSH")
-
-
-def create_ssh_client(ip, user, pwd):
-    # Set 'echo=False' is very important since pexpect will echo back all inputs to buffer by default
-    client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-                           .format(user, ip), echo=False)
-    client.expect('[Pp]assword:')
-    client.sendline(pwd)
-    return client
-
-
-def ensure_console_session_up(client, line):
-    client.expect_exact('Successful connection to line [{}]'.format(line))
-    client.expect_exact('Press ^A ^X to disconnect')
-
-
-def assert_expect_text(client, text, target_line, timeout_sec=0.1):
-    index = client.expect_exact([text, pexpect.EOF, pexpect.TIMEOUT], timeout=timeout_sec)
-    if index == 1:
-        pytest.fail("Encounter early EOF during testing line {}".format(target_line))
-    elif index == 2:
-        pytest.fail("Not able to get expected text in {}s".format(timeout_sec))
 
 
 def generate_random_string(length):

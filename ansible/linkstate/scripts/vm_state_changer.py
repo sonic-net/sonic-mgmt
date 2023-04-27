@@ -1,5 +1,4 @@
 import PyClient
-from pprint import pprint
 import pickle
 import os
 import datetime
@@ -12,7 +11,7 @@ g_log_fp = None
 def log(message, output_on_console=False):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if output_on_console:
-        print "%s : %s" % (current_time, message)
+        print("%s : %s" % (current_time, message))
     global g_log_fp
     if g_log_fp is not None:
         g_log_fp.write("%s : %s\n" % (current_time, message))
@@ -22,6 +21,7 @@ def log(message, output_on_console=False):
 class FIFOServer(object):
     FIFOr = '/tmp/fifor'
     FIFOw = '/tmp/fifow'
+
     def __init__(self, intf_manager):
         self.intf_manager = intf_manager
         try:
@@ -51,17 +51,17 @@ class FIFOServer(object):
 
 class IntfManager(object):
     def __init__(self):
-        pc              = PyClient.PyClient("ar", "Sysdb")
-        sysdb           = pc.agentRoot()
-        allIntfStatus   = sysdb["interface"]["status"]["all"]
-        self.intf_list  = [intf for intf in sysdb["interface"]["status"]["eth"]["phy"]['all'] if 'Ethernet' in intf]
-        self.intfStatus = {intf : allIntfStatus.intfStatus[intf] for intf in self.intf_list}
+        pc = PyClient.PyClient("ar", "Sysdb")
+        sysdb = pc.agentRoot()
+        allIntfStatus = sysdb["interface"]["status"]["all"]
+        self.intf_list = [intf for intf in sysdb["interface"]["status"]["eth"]["phy"]['all'] if 'Ethernet' in intf]
+        self.intfStatus = {intf: allIntfStatus.intfStatus[intf] for intf in self.intf_list}
 
     def linkChange(self, intf, state):
         if intf in self.intf_list:
             self.intfStatus[intf].linkStatus = state
         else:
-            raise Exception("Interface %s doesn't exist" % intf) # FIXME: better just log it
+            raise Exception("Interface %s doesn't exist" % intf)    # FIXME: better just log it
 
     def linkUp(self, intf):
         self.linkChange(intf, "linkUp")
@@ -81,9 +81,9 @@ def main():
         intf = IntfManager()
         server = FIFOServer(intf)
         server.serve_forever()
-    except:
+    except Exception:
         pass
+
 
 if __name__ == '__main__':
     main()
-

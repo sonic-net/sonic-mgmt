@@ -1,6 +1,7 @@
 import logging
 import time
-from arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, \
+import pytest
+from .arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, \
                       clear_dut_arp_cache, increment_ipv6_addr, get_fdb_dynamic_mac_count
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -14,6 +15,10 @@ ARP_SRC_MAC = "00:00:01:02:03:04"
 ENTRIES_NUMBERS = 12000
 
 logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
 
 LOOP_TIMES_LEVEL_MAP = {
     'debug': 1,
@@ -59,7 +64,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     """
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
-        normalized_level = "basic"
+        normalized_level = "debug"
 
     ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available") - \
         get_crm_resources(duthost, "ipv4_neighbor", "used")
@@ -136,8 +141,7 @@ def add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info,
 
         ptfadapter.dataplane.flush()
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
-        get_ipv6_entries_status(duthost, fake_src_addr)
-        wait_until(20, 1, 0, lambda: get_ipv6_entries_status is True)
+        wait_until(20, 1, 0, get_ipv6_entries_status, duthost, fake_src_addr)
         ptfhost.shell("ip -6 addr del {}/64 dev eth1".format(fake_src_addr))
 
 
@@ -150,7 +154,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
-        normalized_level = "basic"
+        normalized_level = "debug"
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
     ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - \

@@ -114,7 +114,7 @@ class Arp:
 
         # create a list of IP-MAC bindings
         for i in range(11, count + 11):
-            moff1 = "{0:x}".format(i / 255)
+            moff1 = "{0:x}".format(i // 255)
             moff2 = "{0:x}".format(i % 255)
 
             self.ip_mac_list.append(IP_MAC(
@@ -224,7 +224,7 @@ def combinations(iterable, r):
     indices = list(range(r))
     yield tuple(pool[i] for i in indices)
     while True:
-        for i in reversed(range(r)):
+        for i in reversed(list(range(r))):
             if indices[i] != i + n - r:
                 break
         else:
@@ -345,7 +345,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
     # find out MAX NHOP group count supported on the platform
     result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
     it = iter(result)
-    switch_capability = dict(zip(it, it))
+    switch_capability = dict(list(zip(it, it)))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
     max_nhop = nhop_group_limit if max_nhop is None else int(max_nhop)
     if is_cisco_device(duthost) or is_innovium_device(duthost):
@@ -356,7 +356,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
         nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
     # find out an active IP port
-    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     eth_if = ip_ifaces[0]
 
@@ -369,7 +369,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
     arplist.arps_add()
 
     # indices
-    indices = range(arp_count)
+    indices = list(range(arp_count))
     ip_indices = combinations(indices, default_max_nhop_paths)
 
     # initialize log analyzer
@@ -392,7 +392,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
     # create nexthop group
     nhop = IPRoutes(duthost, asic)
     try:
-        for i, indx_list in zip(range(nhop_group_count), ip_indices):
+        for i, indx_list in zip(list(range(nhop_group_count)), ip_indices):
             # get a list of unique group of next hop IPs
             ips = [arplist.ip_mac_list[x].ip for x in indx_list]
 
@@ -450,12 +450,12 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
     result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
     it = iter(result)
-    switch_capability = dict(zip(it, it))
+    switch_capability = dict(list(zip(it, it)))
 
     result = asic.run_redis_cmd(argv=["redis-cli", "-n", 0, "HGETALL", "SWITCH_TABLE:switch"])
 
     it = iter(result)
-    switch_table = dict(zip(it, it))
+    switch_table = dict(list(zip(it, it)))
 
     order_ecmp_capability = switch_capability.get("ORDERED_ECMP_CAPABLE")
     order_ecmp_configured = switch_table.get("ordered_ecmp")
@@ -466,7 +466,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
         pytest.skip("Order ECMP is not configured so skipping the test-case")
 
     # Check Gather facts IP Interface is active one
-    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     pytest_assert(gather_facts['src_router_intf_name'] in ip_ifaces, "Selected IP interfaces is not active")
 
@@ -523,7 +523,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             arplist.clean_up()
 
     # make sure we should have only one element in dict.
-    pytest_assert(len(recvd_pkt_result.keys()) == 1, "Error Same flow received on different nexthop")
+    pytest_assert(len(list(recvd_pkt_result.keys())) == 1, "Error Same flow received on different nexthop")
     neighbor_ip_selected = original_ip_mac_list[neighbor_mac.index(scapy.Ether(recv_pkt).dst.lower())][0]
 
     # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
@@ -537,9 +537,9 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
     dutAsic = None
-    for asic, nbr_ip in SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP.items():
+    for asic, nbr_ip in list(SUPPORTED_ASIC_TO_NEIGHBOR_SELECTED_MAP.items()):
         vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-        if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+        if vendorAsic in list(hostvars.keys()) and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
             dutAsic = asic
             break
 

@@ -3,6 +3,7 @@ util.py
 
 Utility functions for testing SONiC CLI
 """
+import six
 
 
 def parse_colon_speparated_lines(lines):
@@ -58,7 +59,10 @@ def get_fields(line, field_ranges):
     """
     fields = []
     for field_range in field_ranges:
-        field = line[field_range[0]:field_range[1]].encode('utf-8')
+        if six.PY2:
+            field = line[field_range[0]:field_range[1]].encode('utf-8')
+        else:
+            field = line[field_range[0]:field_range[1]]
         fields.append(field.strip())
 
     return fields
@@ -90,12 +94,44 @@ def get_skip_mod_list(duthost, mod_key=None):
     dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
     if 'skip_modules' in dut_vars:
         if mod_key is None:
-            for mod_type in dut_vars['skip_modules'].keys():
+            for mod_type in list(dut_vars['skip_modules'].keys()):
                 for mod_id in dut_vars['skip_modules'][mod_type]:
                     skip_mod_list.append(mod_id)
         else:
             for mod_type in mod_key:
-                if mod_type in dut_vars['skip_modules'].keys():
+                if mod_type in list(dut_vars['skip_modules'].keys()):
                     for mod_id in dut_vars['skip_modules'][mod_type]:
                         skip_mod_list.append(mod_id)
     return skip_mod_list
+
+
+def get_skip_logical_module_list(duthost, mod_key=None):
+    """
+    @summary: utility function returns list of modules / peripherals physicsally in chassis
+    But logically not part of the corresponding logical chassis
+    by default if no keyword passed it will return all from inventory file
+    provides a list under skip_logical_modules: in inventory file for each dut
+    returns a empty list if skip_logical_modules not defined under host in inventory
+    inventory example:
+    DUTHOST:
+    skip_logical_modules:
+        'line-cards':
+          - LINE-CARD0
+          - LINE-CARD2
+
+    @return a list of logical_modules/peripherals to be skipped in check for platform test
+    """
+
+    skip_logical_mod_list = []
+    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    if 'skip_logical_modules' in dut_vars:
+        if mod_key is None:
+            for mod_type in list(dut_vars['skip_logical_modules'].keys()):
+                for mod_id in dut_vars['skip_logical_modules'][mod_type]:
+                    skip_logical_mod_list.append(mod_id)
+        else:
+            for mod_type in mod_key:
+                if mod_type in list(dut_vars['skip_logical_modules'].keys()):
+                    for mod_id in dut_vars['skip_logical_modules'][mod_type]:
+                        skip_logical_mod_list.append(mod_id)
+    return skip_logical_mod_list
