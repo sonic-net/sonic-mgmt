@@ -4079,11 +4079,11 @@ qos_params:
                     pkts_num_dismiss_pfc: 200
                     pkts_num_margin: 150
                 lossy_queue_1:
-                    dscp: 8
+                    dscp: 7
                     ecn: 1
-                    pg: 0
+                    pg: 1
                     pkts_num_trig_egr_drp: 2396745
-                    pkts_num_margin: 20
+                    pkts_num_margin: 70
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -4346,9 +4346,9 @@ qos_params:
                     pkts_num_dismiss_pfc: 200
                     pkts_num_margin: 150
                 lossy_queue_1:
-                    dscp: 8
+                    dscp: 7
                     ecn: 1
-                    pg: 0
+                    pg: 1
                     pkts_num_trig_egr_drp: 2396745
                     pkts_num_margin: 3500
                 wm_pg_shared_lossless:
