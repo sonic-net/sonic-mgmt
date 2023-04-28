@@ -3,6 +3,7 @@ import pytest
 import ipaddress
 import logging
 import ptf.testutils as testutils
+import six
 from tests.common.helpers.assertions import pytest_assert as py_assert
 
 logger = logging.getLogger(__name__)
