@@ -579,15 +579,17 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                                     for item in range(1, routes_num + 1)])
         else:
             pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
-        # Store CLI command to delete all created neighbours if test case will fail
-        RESTORE_CMDS["test_crm_route"].append(del_routes_template.render(routes_list=routes_list,
-                                                                         interface=crm_interface[0],
-                                                                         namespace=asichost.namespace))
+        for routes in [routes_list[i:i + 5000] for i in range(0, len(routes_list), 5000)]:
+            # Store CLI command to delete all created neighbours if test case will fail
+            RESTORE_CMDS["test_crm_route"].append(
+                del_routes_template.render(routes_list=routes,
+                                           interface=crm_interface[0],
+                                           namespace=asichost.namespace))
 
-        # Add test routes entries to correctly calculate used CRM resources in percentage
-        duthost.shell(add_routes_template.render(routes_list=routes_list,
-                                                 interface=crm_interface[0],
-                                                 namespace=asichost.namespace))
+            # Add test routes entries to correctly calculate used CRM resources in percentage
+            duthost.shell(add_routes_template.render(routes_list=routes,
+                                                     interface=crm_interface[0],
+                                                     namespace=asichost.namespace))
 
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
