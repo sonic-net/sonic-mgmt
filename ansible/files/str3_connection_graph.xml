@@ -443,7 +443,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-05" EndPort="Ethernet224" StartDevice="str3-8111-01" StartPort="Ethernet224"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-05" EndPort="Ethernet232" StartDevice="str3-8111-01" StartPort="Ethernet232"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-05" EndPort="Ethernet240" StartDevice="str3-8111-01" StartPort="Ethernet240"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet32" StartDevice="str3-8111-01" StartPort="Ethernet248"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet64" StartDevice="str3-8111-01" StartPort="Ethernet248"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-06" EndPort="Ethernet0" StartDevice="str3-8111-02" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-06" EndPort="Ethernet8" StartDevice="str3-8111-02" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-06" EndPort="Ethernet16" StartDevice="str3-8111-02" StartPort="Ethernet16"/>
@@ -475,7 +475,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-06" EndPort="Ethernet224" StartDevice="str3-8111-02" StartPort="Ethernet224"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-06" EndPort="Ethernet232" StartDevice="str3-8111-02" StartPort="Ethernet232"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-06" EndPort="Ethernet240" StartDevice="str3-8111-02" StartPort="Ethernet240"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet36" StartDevice="str3-8111-02" StartPort="Ethernet248"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet72" StartDevice="str3-8111-02" StartPort="Ethernet248"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-23" EndPort="Ethernet1/1" StartDevice="str3-8800-lc1-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-23" EndPort="Ethernet2/1" StartDevice="str3-8800-lc1-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-23" EndPort="Ethernet3/1" StartDevice="str3-8800-lc1-1" StartPort="Ethernet8"/>
@@ -1663,8 +1663,8 @@
       <InterfaceVlan mode="Access" portname="Ethernet52" vlanids="814"/>
       <InterfaceVlan mode="Access" portname="Ethernet56" vlanids="815"/>
       <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="816"/>
-      <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="1732"/>
-      <InterfaceVlan mode="Access" portname="Ethernet36" vlanids="1796"/>
+      <InterfaceVlan mode="Access" portname="Ethernet64" vlanids="1732"/>
+      <InterfaceVlan mode="Access" portname="Ethernet72" vlanids="1796"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str3-8101-fanout-06">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.178/23"/>
