@@ -239,7 +239,7 @@ def test_update_invalid_index(duthost, ensure_dut_readiness):
 
 
 def test_update_valid_index(duthost, ensure_dut_readiness):
-    output = duthost.shell('sonic-db-cli CONFIG_DB keys "PORT|"\*')["stdout"]
+    output = duthost.shell('sonic-db-cli CONFIG_DB keys "PORT|"\\*')["stdout"]
     interfaces = {}  # to be filled with two interfaces mapped to their indeces
 
     for line in output.split('\n'):
