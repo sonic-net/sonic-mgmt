@@ -23,7 +23,9 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, 
 from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter,\
     dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host,\
     setup_module, update_docker_services, swap_syncd, counter_poll_config                               # noqa F401
-from .tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm, get_queue_counter
+from .tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm,\
+    get_queue_counter, get_queue_watermark
+
 from ptf import testutils
 from ptf.testutils import simple_tcp_packet
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
@@ -398,7 +400,12 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
     1. Toggle mux ports to rand_selected_dut, so all mux ports are standby on the unselected ToR
     2. Generate IPinIP packets with different DSCP combinations, ingress to active ToR.
     3. Generate PFC pause on fanout switch (Server facing ports)
-    4. Verify lossless traffic are paused
+    4. Verify lossless traffic is congested
+
+    NOTE: The PFCStorm utility is a CPU traffic generator, and thus may not reliably pause traffic.
+    This test verifies that congestion increases due to the pause storm by observing an increase
+    in the queue watermark. TX disable should not be used as that would block the entire egress port
+    instead of verifying the correct pause behavior in response to PFC frames.
     """
     TEST_DATA = {
         # Inner DSCP, Outer DSCP, Priority, Queue
@@ -435,6 +442,12 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                 dualtor_meta['target_server_port'])
         peer_info = leaf_fanout_peer_info(
             rand_selected_dut, conn_graph_facts, mg_facts, dualtor_meta['target_server_port'])
+        # Clear queue watermark
+        get_queue_watermark(rand_selected_dut, dualtor_meta['selected_port'], queue, True)
+        # Send initial uncongested traffic to increase the watermark
+        testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1000)
+        # Record watermark when under no congestion
+        base_queue_wmk = get_queue_watermark(rand_selected_dut, dualtor_meta['selected_port'], queue)
         storm_handler = PFCStorm(rand_selected_dut, fanout_graph_facts, fanouthosts,
                                  pfc_queue_idx=prio,
                                  pfc_frames_number=PFC_PKT_COUNT,
@@ -442,21 +455,17 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
         try:
             # Start PFC storm from leaf fanout switch
             start_pfc_storm(storm_handler, peer_info, prio)
-            # Read queue counter before sending packet
-            base_queue_count = get_queue_counter(
-                rand_selected_dut, dualtor_meta['selected_port'], queue, True)
-            # Send testing packet again
-            testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
-            # The packet should be paused
-            testutils.verify_no_packet(
-                ptfadapter, exp_pkt, dualtor_meta['target_server_port'])
-            # Check the queue counter didn't increase
-            queue_count = get_queue_counter(
-                rand_selected_dut, dualtor_meta['selected_port'], queue, False)
-            pytest_assert(base_queue_count == queue_count, "The queue {} for port {} counter increased unexpectedly"
-                          .format(queue, dualtor_meta['selected_port']))
+            # Send congested traffic
+            testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, 10000)
         finally:
             stop_pfc_storm(storm_handler)
+        # Clear out packets for futher verification
+        testutils.count_matched_packets(ptfadapter, exp_pkt, dualtor_meta['target_server_port'], timeout=0.5)
+        # Record new watermark after congestion and clear
+        queue_wmk = get_queue_watermark(rand_selected_dut, dualtor_meta['selected_port'], queue, True)
+        assert queue_wmk > base_queue_wmk, \
+            "Failed to detect congestion due to PFC pause, failed check {} > {}".format(
+                queue_wmk, base_queue_wmk)
 
 
 @pytest.mark.disable_loganalyzer
