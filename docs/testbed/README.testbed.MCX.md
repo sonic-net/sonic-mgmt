@@ -6,7 +6,13 @@ MCX is the combination of Mx and C0, a management devices that provides console 
 
 There is an ansible playbook mcx.yml under directory ansible that help you deploy your mcx.
 
-There are deveral step. First register the mcx devices and devices under its manegement to sonic_{inventory}_devices.csv. Second mark the console links between mcx and network devices in sonic_{inventory}_console_links.csv with their baud rate. Third, generate connection graph. Lastly run mcx.yml ansible playbook. A new config_db.json will be generated and loaded and the old config_db.json will be backed up.
+First register the mcx devices and devices under its manegement to sonic_{inventory}_devices.csv, e.g. "management-1,192.168.10.3/23,Sonic,MgmtTsToRRouter,,sonic".
+
+Second mark the console links between mcx and network devices in sonic_{inventory}_console_links.csv with their baud rate, e.g. "management-1,13,str-acs-serv-01,ssh,root,9600"
+
+Third, create a group in inventory called mgmt, any device that provides management functions can go in there, like console servers, bmc servers, mcx and more. Examples can be seen in ansible/lab.
+
+Lastly, generate connection graph with create_graph.py tool and run mcx.yml ansible playbook. A new config_db.json will be generated and loaded and the old config_db.json will be backed up.
 
 # mcx.yml
 
