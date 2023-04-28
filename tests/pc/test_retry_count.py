@@ -59,17 +59,13 @@ class LACPRetryCount(Packet):
     ]
 
 
-split_layers(scapy.contrib.lacp.SlowProtocol, scapy.contrib.lacp.LACP, subtype=1)
-bind_layers(scapy.contrib.lacp.SlowProtocol, LACPRetryCount, subtype=1)
-bind_layers(scapy.layers.l2.CookedLinux, scapy.contrib.lacp.SlowProtocol, proto=0x8809)
-
-
 @pytest.fixture(scope="class")
-def configure_higher_retry_count_on_neighbors(request, nbrhosts):
+def higher_retry_count_on_peers(request, nbrhosts):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Only supported with SONiC neighbor")
 
-    featureCheckResult = nbrhosts[nbrhosts.keys()[0]]['host'].shell("sudo config portchannel retry-count get PortChannel1", module_ignore_errors=True)
+    featureCheckResult = nbrhosts[nbrhosts.keys()[0]]['host'].shell(
+            "sudo config portchannel retry-count get PortChannel1", module_ignore_errors=True)
     if featureCheckResult["rc"] != 0:
         pytest.skip("SONiC neighbor isn't running supported version of SONiC")
 
@@ -89,13 +85,14 @@ def configure_higher_retry_count_on_neighbors(request, nbrhosts):
 
 
 @pytest.fixture(scope="class")
-def configure_higher_retry_count(request, duthost):
+def higher_retry_count_on_dut(request, duthost):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Only supported with SONiC neighbor")
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
 
-    featureCheckResult = duthost.shell("sudo config portchannel retry-count get {}".format(cfg_facts["PORTCHANNEL"].keys()[0]), module_ignore_errors=True)
+    featureCheckResult = duthost.shell("sudo config portchannel retry-count get {}".format(
+        cfg_facts["PORTCHANNEL"].keys()[0]), module_ignore_errors=True)
     if featureCheckResult["rc"] != 0:
         pytest.skip("SONiC DUT isn't running supported version of SONiC")
 
@@ -113,6 +110,7 @@ def configure_higher_retry_count(request, duthost):
     # Wait for retry count info to be updated
     time.sleep(60)
 
+
 @pytest.fixture(scope="function")
 def config_reload_on_cleanup(request, nbrhosts, duthost):
     yield
@@ -120,6 +118,7 @@ def config_reload_on_cleanup(request, nbrhosts, duthost):
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].shell("sudo config reload -y")
     config_reload(duthost, safe_reload=True)
+
 
 def log_lacpdu_packets(duthost, save_path):
     """Capture LACPDU packets to file."""
@@ -132,6 +131,20 @@ def log_lacpdu_packets(duthost, save_path):
     time.sleep(30)
 
     duthost.shell(stop_pcap, module_ignore_errors=True)
+
+
+@pytest.fixture(scope="function")
+def scapy_lacp_layer():
+    split_layers(scapy.contrib.lacp.SlowProtocol, scapy.contrib.lacp.LACP, subtype=1)
+    bind_layers(scapy.contrib.lacp.SlowProtocol, LACPRetryCount, subtype=1)
+    bind_layers(scapy.layers.l2.CookedLinux, scapy.contrib.lacp.SlowProtocol, proto=0x8809)
+
+    yield
+
+    bind_layers(scapy.contrib.lacp.SlowProtocol, scapy.contrib.lacp.LACP, subtype=1)
+    split_layers(scapy.contrib.lacp.SlowProtocol, LACPRetryCount, subtype=1)
+    split_layers(scapy.layers.l2.CookedLinux, scapy.contrib.lacp.SlowProtocol, proto=0x8809)
+
 
 def check_lacpdu_packet_version(duthost):
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
@@ -164,8 +177,9 @@ def check_lacpdu_packet_version(duthost):
             pytest_assert(receiveVersionVerified,
                           "unable to verify that LACPDU packets received were the right version")
 
+
 class TestNeighborRetryCount:
-    def test_peer_lag_member_retry_count(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
+    def test_peer_retry_count(self, duthost, nbrhosts, higher_retry_count_on_peers):
         """
         Test that DUT sees new retry count when peers update retry count.
         """
@@ -184,19 +198,13 @@ class TestNeighborRetryCount:
                 pytest_assert(status["runner"]["selected"], "status of lag member error")
                 pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
 
-    def test_peer_lag_member_retry_count_packet_version(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
+    def test_peer_retry_count_packet_version(self, duthost, nbrhosts, higher_retry_count_on_peers, scapy_lacp_layer):
         """
         Test that peers and DUT use new LACPDU version when peers use a non-standard retry count
         """
         check_lacpdu_packet_version(duthost)
 
-    def test_switch_to_old_version(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
-        """
-        Test that peers and DUT use new LACPDU version when peers use a non-standard retry count
-        """
-        check_lacpdu_packet_version(duthost)
-
-    def test_kill_teamd_lag_up(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors, config_reload_on_cleanup):
+    def test_kill_teamd_lag_up(self, duthost, nbrhosts, higher_retry_count_on_peers, config_reload_on_cleanup):
         """
         Test that the lag remains up for 150 seconds after killing teamd on the peer
         """
@@ -216,8 +224,9 @@ class TestNeighborRetryCount:
                 pytest_assert(status["runner"]["selected"], "status of lag member error")
                 pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
 
+
 class TestDutRetryCount:
-    def test_retry_count(self, duthost, nbrhosts, configure_higher_retry_count):
+    def test_retry_count(self, duthost, nbrhosts, higher_retry_count_on_dut):
         """
         Test that peers see new retry count when DUT updates retry count.
         """
@@ -233,13 +242,13 @@ class TestDutRetryCount:
                 pytest_assert(status["runner"]["selected"], "status of lag member error")
                 pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
 
-    def test_retry_count_packet_version(self, duthost, nbrhosts, configure_higher_retry_count):
+    def test_retry_count_packet_version(self, duthost, nbrhosts, higher_retry_count_on_dut, scapy_lacp_layer):
         """
         Test that peers and DUT use new LACPDU version when DUT uses a non-standard retry count
         """
         check_lacpdu_packet_version(duthost)
 
-    def test_kill_teamd_peer_lag_up(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors, config_reload_on_cleanup):
+    def test_kill_teamd_peer_lag_up(self, duthost, nbrhosts, higher_retry_count_on_peers, config_reload_on_cleanup):
         """
         Test that the lag remains up for 150 seconds after killing teamd on the DUT
         """
