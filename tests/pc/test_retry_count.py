@@ -5,9 +5,11 @@ import logging
 import tempfile
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.config_reload import config_reload
 from scapy.all import Packet, ByteField, ShortField, MACField, XStrFixedLenField, ConditionalField
 from scapy.all import split_layers, bind_layers, rdpcap
 import scapy.contrib.lacp
+import scapy.layers.l2
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +61,17 @@ class LACPRetryCount(Packet):
 
 split_layers(scapy.contrib.lacp.SlowProtocol, scapy.contrib.lacp.LACP, subtype=1)
 bind_layers(scapy.contrib.lacp.SlowProtocol, LACPRetryCount, subtype=1)
+bind_layers(scapy.layers.l2.CookedLinux, scapy.contrib.lacp.SlowProtocol, proto=0x8809)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def configure_higher_retry_count_on_neighbors(request, nbrhosts):
     if request.config.getoption("neighbor_type") != "sonic":
-        pytest.skip("Only supported with sonic neighbor")
+        pytest.skip("Only supported with SONiC neighbor")
+
+    featureCheckResult = nbrhosts[nbrhosts.keys()[0]]['host'].shell("sudo config portchannel retry-count get PortChannel1", module_ignore_errors=True)
+    if featureCheckResult["rc"] != 0:
+        pytest.skip("SONiC neighbor isn't running supported version of SONiC")
 
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count set PortChannel1 5")
@@ -81,12 +88,17 @@ def configure_higher_retry_count_on_neighbors(request, nbrhosts):
     time.sleep(60)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def configure_higher_retry_count(request, duthost):
     if request.config.getoption("neighbor_type") != "sonic":
-        pytest.skip("Only supported with sonic neighbor")
+        pytest.skip("Only supported with SONiC neighbor")
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+
+    featureCheckResult = duthost.shell("sudo config portchannel retry-count get {}".format(cfg_facts["PORTCHANNEL"].keys()[0]), module_ignore_errors=True)
+    if featureCheckResult["rc"] != 0:
+        pytest.skip("SONiC DUT isn't running supported version of SONiC")
+
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
         duthost.shell("sudo config portchannel retry-count set {} 5".format(port_channel))
 
@@ -101,47 +113,18 @@ def configure_higher_retry_count(request, duthost):
     # Wait for retry count info to be updated
     time.sleep(60)
 
-
-def test_peer_lag_member_retry_count(duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
-    """
-    Test that DUT sees new retry count when peers update retry count.
-    """
-    for nbr in list(nbrhosts.keys()):
-        port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
-        pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on neighbor is incorrect")
-
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    port_channels = cfg_facts["PORTCHANNEL"].keys()
-    for port_channel in port_channels:
-        port_channel_status = duthost.get_port_channel_status(port_channel)
-        number_of_lag_member = len(cfg_facts["PORTCHANNEL_MEMBER"][port_channel])
-        pytest_assert("ports" in port_channel_status and number_of_lag_member == len(port_channel_status["ports"]),
-                      "get port status error")
-        for _, status in list(port_channel_status["ports"].items()):
-            pytest_assert(status["runner"]["selected"], "status of lag member error")
-            pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
-
-
-def test_retry_count(duthost, nbrhosts, configure_higher_retry_count):
-    """
-    Test that peers see new retry count when DUT updates retry count.
-    """
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    port_channels = cfg_facts["PORTCHANNEL"].keys()
-    for port_channel in port_channels:
-        port_channel_status = duthost.get_port_channel_status(port_channel)
-        pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on DUT is incorrect")
+@pytest.fixture(scope="function")
+def config_reload_on_cleanup(request, nbrhosts, duthost):
+    yield
 
     for nbr in list(nbrhosts.keys()):
-        port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
-        for _, status in list(port_channel_status["ports"].items()):
-            pytest_assert(status["runner"]["selected"], "status of lag member error")
-            pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
+        nbrhosts[nbr]['host'].shell("sudo config reload -y")
+    config_reload(duthost, safe_reload=True)
 
-
-def log_lacpdu_packets(duthost, iface, save_path):
+def log_lacpdu_packets(duthost, save_path):
     """Capture LACPDU packets to file."""
-    start_pcap = "tcpdump -i %s -w %s ether proto 0x8809" % (iface, save_path)
+    # Support for LINUX_SLL2 was added in Scapy 2.5.0. We're using 2.4.5 currently.
+    start_pcap = "tcpdump -i any -y LINUX_SLL -w %s ether proto 0x8809" % (save_path)
     stop_pcap = "sudo pkill -f '{}'".format(start_pcap)
     start_pcap = "sudo nohup {} &".format(start_pcap)
     duthost.shell(start_pcap)
@@ -150,59 +133,125 @@ def log_lacpdu_packets(duthost, iface, save_path):
 
     duthost.shell(stop_pcap, module_ignore_errors=True)
 
-
-def test_peer_lag_member_retry_count_packet_version(duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
-    """
-    Test that peers and DUT use new LACPDU version when peers use a non-standard retry count
-    """
-
+def check_lacpdu_packet_version(duthost):
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     port_channels = cfg_facts["PORTCHANNEL"].keys()
+    log_lacpdu_packets(duthost, "lacpdu.pcap")
+    lacpduPackets = None
+    with tempfile.NamedTemporaryFile() as tmp_pcap:
+        duthost.fetch(src="lacpdu.pcap", dest=tmp_pcap.name, flat=True)
+        lacpduPackets = rdpcap(tmp_pcap.name)
     for port_channel in port_channels:
         port_channel_status = duthost.get_port_channel_status(port_channel)
         for port, status in list(port_channel_status["ports"].items()):
-            log_lacpdu_packets(duthost, port, "lacpdu.pcap")
-            lacpduPackets = None
-            with tempfile.NamedTemporaryFile() as tmp_pcap:
-                duthost.fetch(src="lacpdu.pcap", dest=tmp_pcap.name, flat=True)
-                duthost.file(path="lacpdu.pcap", state="absent")
-                lacpduPackets = rdpcap(tmp_pcap.name)
             sendVersionVerified = False
             receiveVersionVerified = False
+            actorInfo = status["runner"]["actor_lacpdu_info"]
+            partnerInfo = status["runner"]["partner_lacpdu_info"]
             for pkt in lacpduPackets:
                 if pkt["LACPRetryCount"].version == 0xf1:
-                    if pkt["LACPRetryCount"].actor_system == status["runner"]["actor_lacpdu_info"]["system"]:
+                    if pkt["LACPRetryCount"].actor_system == actorInfo["system"] \
+                            and pkt["LACPRetryCount"].actor_port_number == actorInfo["port"] \
+                            and pkt["LACPRetryCount"].partner_system == partnerInfo["system"] \
+                            and pkt["LACPRetryCount"].partner_port_number == partnerInfo["port"]:
                         sendVersionVerified = True
-                    elif pkt["LACPRetryCount"].actor_system == status["runner"]["partner_lacpdu_info"]["system"]:
+                    elif pkt["LACPRetryCount"].actor_system == partnerInfo["system"] \
+                            and pkt["LACPRetryCount"].actor_port_number == partnerInfo["port"] \
+                            and pkt["LACPRetryCount"].partner_system == actorInfo["system"] \
+                            and pkt["LACPRetryCount"].partner_port_number == actorInfo["port"]:
                         receiveVersionVerified = True
             pytest_assert(sendVersionVerified, "unable to verify that LACPDU packets sent were the right version")
             pytest_assert(receiveVersionVerified,
                           "unable to verify that LACPDU packets received were the right version")
 
+class TestNeighborRetryCount:
+    def test_peer_lag_member_retry_count(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
+        """
+        Test that DUT sees new retry count when peers update retry count.
+        """
+        for nbr in list(nbrhosts.keys()):
+            port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
+            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on neighbor is incorrect")
 
-def test_retry_count_packet_version(duthost, nbrhosts, configure_higher_retry_count):
-    """
-    Test that peers and DUT use new LACPDU version when DUT uses a non-standard retry count
-    """
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    port_channels = cfg_facts["PORTCHANNEL"].keys()
-    for port_channel in port_channels:
-        port_channel_status = duthost.get_port_channel_status(port_channel)
-        for port, status in list(port_channel_status["ports"].items()):
-            log_lacpdu_packets(duthost, port, "lacpdu.pcap")
-            lacpduPackets = None
-            with tempfile.NamedTemporaryFile() as tmp_pcap:
-                duthost.fetch(src="lacpdu.pcap", dest=tmp_pcap.name, flat=True)
-                duthost.file(path="lacpdu.pcap", state="absent")
-                lacpduPackets = rdpcap(tmp_pcap.name)
-            sendVersionVerified = False
-            receiveVersionVerified = False
-            for pkt in lacpduPackets:
-                if pkt["LACPRetryCount"].version == 0xf1:
-                    if pkt["LACPRetryCount"].actor_system == status["runner"]["actor_lacpdu_info"]["system"]:
-                        sendVersionVerified = True
-                    elif pkt["LACPRetryCount"].actor_system == status["runner"]["partner_lacpdu_info"]["system"]:
-                        receiveVersionVerified = True
-            pytest_assert(sendVersionVerified, "unable to verify that LACPDU packets sent were the right version")
-            pytest_assert(receiveVersionVerified,
-                          "unable to verify that LACPDU packets received were the right version")
+        cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+        port_channels = cfg_facts["PORTCHANNEL"].keys()
+        for port_channel in port_channels:
+            port_channel_status = duthost.get_port_channel_status(port_channel)
+            number_of_lag_member = len(cfg_facts["PORTCHANNEL_MEMBER"][port_channel])
+            pytest_assert("ports" in port_channel_status and number_of_lag_member == len(port_channel_status["ports"]),
+                          "get port status error")
+            for _, status in list(port_channel_status["ports"].items()):
+                pytest_assert(status["runner"]["selected"], "status of lag member error")
+                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
+
+    def test_peer_lag_member_retry_count_packet_version(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
+        """
+        Test that peers and DUT use new LACPDU version when peers use a non-standard retry count
+        """
+        check_lacpdu_packet_version(duthost)
+
+    def test_switch_to_old_version(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors):
+        """
+        Test that peers and DUT use new LACPDU version when peers use a non-standard retry count
+        """
+        check_lacpdu_packet_version(duthost)
+
+    def test_kill_teamd_lag_up(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors, config_reload_on_cleanup):
+        """
+        Test that the lag remains up for 150 seconds after killing teamd on the peer
+        """
+        for nbr in list(nbrhosts.keys()):
+            nbrhosts[nbr]['host'].shell("sudo pkill -x teamd")
+
+        # Give ourselves 30 seconds to check before the LAG goes down. This should also handle the
+        # worst case scenario where the last LACPDU was sent 29 seconds prior to teamd getting
+        # killed.
+        time.sleep(120)
+
+        cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+        port_channels = cfg_facts["PORTCHANNEL"].keys()
+        for port_channel in port_channels:
+            port_channel_status = duthost.get_port_channel_status(port_channel)
+            for _, status in list(port_channel_status["ports"].items()):
+                pytest_assert(status["runner"]["selected"], "status of lag member error")
+                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
+
+class TestDutRetryCount:
+    def test_retry_count(self, duthost, nbrhosts, configure_higher_retry_count):
+        """
+        Test that peers see new retry count when DUT updates retry count.
+        """
+        cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+        port_channels = cfg_facts["PORTCHANNEL"].keys()
+        for port_channel in port_channels:
+            port_channel_status = duthost.get_port_channel_status(port_channel)
+            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on DUT is incorrect")
+
+        for nbr in list(nbrhosts.keys()):
+            port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
+            for _, status in list(port_channel_status["ports"].items()):
+                pytest_assert(status["runner"]["selected"], "status of lag member error")
+                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
+
+    def test_retry_count_packet_version(self, duthost, nbrhosts, configure_higher_retry_count):
+        """
+        Test that peers and DUT use new LACPDU version when DUT uses a non-standard retry count
+        """
+        check_lacpdu_packet_version(duthost)
+
+    def test_kill_teamd_peer_lag_up(self, duthost, nbrhosts, configure_higher_retry_count_on_neighbors, config_reload_on_cleanup):
+        """
+        Test that the lag remains up for 150 seconds after killing teamd on the DUT
+        """
+        duthost.shell("sudo pkill -x teamd")
+
+        # Give ourselves 30 seconds to check before the LAG goes down. This should also handle the
+        # worst case scenario where the last LACPDU was sent 29 seconds prior to teamd getting
+        # killed.
+        time.sleep(120)
+
+        for nbr in list(nbrhosts.keys()):
+            port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
+            for _, status in list(port_channel_status["ports"].items()):
+                pytest_assert(status["runner"]["selected"], "status of lag member error")
+                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
