@@ -5444,6 +5444,102 @@ vms_bjw_7:
       ansible_host: 172.16.193.84
     VM57053:
       ansible_host: 172.16.193.85
+    VM57054:
+      ansible_host: 172.16.193.86
+    VM57055:
+      ansible_host: 172.16.193.87
+    VM57056:
+      ansible_host: 172.16.193.88
+    VM57057:
+      ansible_host: 172.16.193.89
+    VM57058:
+      ansible_host: 172.16.193.90
+    VM57059:
+      ansible_host: 172.16.193.91
+    VM57060:
+      ansible_host: 172.16.193.92
+    VM57061:
+      ansible_host: 172.16.193.93
+    VM57062:
+      ansible_host: 172.16.193.94
+    VM57063:
+      ansible_host: 172.16.193.95
+    VM57064:
+      ansible_host: 172.16.193.96
+    VM57065:
+      ansible_host: 172.16.193.97
+    VM57066:
+      ansible_host: 172.16.193.98
+    VM57067:
+      ansible_host: 172.16.193.99
+    VM57068:
+      ansible_host: 172.16.193.100
+    VM57069:
+      ansible_host: 172.16.193.101
+    VM57070:
+      ansible_host: 172.16.193.102
+    VM57071:
+      ansible_host: 172.16.193.103
+    VM57072:
+      ansible_host: 172.16.193.104
+    VM57073:
+      ansible_host: 172.16.193.105
+    VM57074:
+      ansible_host: 172.16.193.106
+    VM57075:
+      ansible_host: 172.16.193.107
+    VM57076:
+      ansible_host: 172.16.193.108
+    VM57077:
+      ansible_host: 172.16.193.109
+    VM57078:
+      ansible_host: 172.16.193.110
+    VM57079:
+      ansible_host: 172.16.193.111
+    VM57080:
+      ansible_host: 172.16.193.112
+    VM57081:
+      ansible_host: 172.16.193.113
+    VM57082:
+      ansible_host: 172.16.193.114
+    VM57083:
+      ansible_host: 172.16.193.115
+    VM57084:
+      ansible_host: 172.16.193.116
+    VM57085:
+      ansible_host: 172.16.193.117
+    VM57086:
+      ansible_host: 172.16.193.118
+    VM57087:
+      ansible_host: 172.16.193.119
+    VM57088:
+      ansible_host: 172.16.193.120
+    VM57089:
+      ansible_host: 172.16.193.121
+    VM57090:
+      ansible_host: 172.16.193.122
+    VM57091:
+      ansible_host: 172.16.193.123
+    VM57092:
+      ansible_host: 172.16.193.124
+    VM57093:
+      ansible_host: 172.16.193.125
+    VM57094:
+      ansible_host: 172.16.193.126
+    VM57095:
+      ansible_host: 172.16.193.127
+    VM57096:
+      ansible_host: 172.16.193.128
+    VM57097:
+      ansible_host: 172.16.193.129
+    VM57098:
+      ansible_host: 172.16.193.130
+    VM57099:
+      ansible_host: 172.16.193.131
+    VM57100:
+      ansible_host: 172.16.193.132
+    VM57101:
+      ansible_host: 172.16.193.133
 
 vms_bjw_12:
   hosts:

@@ -2109,7 +2109,7 @@
 
 - conf-name: testbed-bjw-can-3800-1
   group-name: bjw7-7
-  topo: t0
+  topo: t1
   ptf_image_name: docker-ptf
   ptf: bjw7-7
   ptf_ip: 10.150.23.67/23
@@ -2124,13 +2124,13 @@
 
 - conf-name: testbed-bjw-can-4600c-1
   group-name: bjw7-8
-  topo: t0-64
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: bjw7-8
   ptf_ip: 10.150.23.68/23
   ptf_ipv6:
   server: server_bjw_7
-  vm_base: VM57046
+  vm_base: VM57074
   dut:
     - bjw-can-4600c-1
   inv_name: bjw
@@ -2145,7 +2145,7 @@
   ptf_ip: 10.150.23.69/23
   ptf_ipv6:
   server: server_bjw_7
-  vm_base: VM57050
+  vm_base: VM57098
   dut:
     - bjw-can-2700-3
   inv_name: bjw
