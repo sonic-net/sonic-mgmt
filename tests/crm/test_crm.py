@@ -572,23 +572,28 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if used_percent < 1:
         routes_num = get_entries_num(new_crm_stats_route_used, new_crm_stats_route_available)
         if ip_ver == "4":
-            routes_list = " ".join([str(ipaddress.IPv4Address(u'2.0.0.1') + item) + "/32"
-                                    for item in range(1, routes_num + 1)])
+            routes_list_raw = [str(ipaddress.IPv4Address(u'2.0.0.1') + item) + "/32"
+                for item in range(1, routes_num + 1)]
         elif ip_ver == "6":
-            routes_list = " ".join([str(ipaddress.IPv6Address(u'2001::') + item) + "/128"
-                                    for item in range(1, routes_num + 1)])
+            routes_list_raw = [str(ipaddress.IPv6Address(u'2001::') + item) + "/128"
+                for item in range(1, routes_num + 1)]
         else:
-            pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
+             pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
+        # Group commands to avoid command line too long errors
+        num_cmds_to_run_at_once = 100
+        routes_list_list = [" ".join(routes_list_raw[i:i+num_cmds_to_run_at_once])
+              for i in range(0, len(routes_list_raw), num_cmds_to_run_at_once)]
         # Store CLI command to delete all created neighbours if test case will fail
-        RESTORE_CMDS["test_crm_route"].append(del_routes_template.render(routes_list=routes_list,
-                                                                         interface=crm_interface[0],
-                                                                         namespace=asichost.namespace))
+        for routes_list in routes_list_list:
+            RESTORE_CMDS["test_crm_route"].append(
+                del_routes_template.render(routes_list=routes_list,
+                  interface=crm_interface[0],  namespace = asichost.namespace))
 
         # Add test routes entries to correctly calculate used CRM resources in percentage
-        duthost.shell(add_routes_template.render(routes_list=routes_list,
-                                                 interface=crm_interface[0],
-                                                 namespace=asichost.namespace))
-
+        for routes_list in routes_list_list:
+            duthost.shell(add_routes_template.render(routes_list=routes_list,
+                                             interface=crm_interface[0],
+                                             namespace=asichost.namespace))
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
