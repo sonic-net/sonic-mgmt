@@ -491,12 +491,6 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
-qos/test_buffer_traditional.py:
-  skip:
-    reason: "buffer traditional test is not yet supported on multi-ASIC platform"
-    conditions:
-      - "is_multi_asic==True"
-
 qos/test_qos_sai.py:
   skip:
     reason: "qos_sai tests not supported on t1 topo"
@@ -681,6 +675,12 @@ vxlan/test_vxlan_ecmp.py:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
     conditions:
       - "(is_multi_asic==True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'] and asic_type not in ['barefoot'])"
+
+vxlan/test_vnet_vxlan.py:
+  skip:
+    reason: "enable tests only for: mellanox, barefoot"
+    conditions:
+      - "asic_type not in ['mellanox', 'barefoot']"
 
 #######################################
 #####           telemetry         #####

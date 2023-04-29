@@ -210,8 +210,8 @@ def _build_pdu_manager_from_graph(pduman, dut_hostname, conn_graph_facts, pdu_va
         logger.info('PDU informatin for {} is not found in graph'.format(dut_hostname))
         return False
 
-    for psu_name, psu_peer in pdu_info[dut_hostname].items():
-        pduman.add_controller(psu_name, psu_peer, pdu_vars)
+    for psu_name, psu_peer in list(pdu_info[dut_hostname].items()):
+        pduman.add_controller(psu_name, psu_peer, pdu_vars[psu_peer['Hostname']])
 
     return len(pduman.controllers) > 0
 
@@ -243,7 +243,7 @@ def _build_pdu_manager_from_inventory(pduman, dut_hostname, pdu_hosts, pdu_vars)
                         'Type': 'Pdu',
                         'peerport': 'probing',
         }
-        pduman.add_controller(ph, psu_peer, pdu_vars)
+        pduman.add_controller(ph, psu_peer, pdu_vars[psu_peer['Hostname']])
 
     return len(pduman.controllers) > 0
 
