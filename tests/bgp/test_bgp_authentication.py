@@ -237,8 +237,8 @@ def test_bgp_neighbor_password(setup, enum_asic_index):
 
     # remove password configs
     cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c \
-        "no neighbor {} password {}" -c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], 
-                                                      setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'], 
+        "no neighbor {} password {}" -c "end"'.format(setup['tor1_namespace'], setup['dut_asn'],
+                                                      setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'],
                                                       mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
