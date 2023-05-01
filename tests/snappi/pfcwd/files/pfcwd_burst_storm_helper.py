@@ -47,7 +47,8 @@ def run_pfcwd_burst_storm_test(api,
     Returns:
         N/A
     """
-    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(testbed_config is not None,
+                  'Fail to get L2/3 testbed config')
 
     start_pfcwd(duthost)
     enable_packet_aging(duthost)
@@ -62,8 +63,10 @@ def run_pfcwd_burst_storm_test(api,
                   'Fail to get ID for port {}'.format(dut_port))
 
     poll_interval_sec = get_pfcwd_poll_interval(duthost) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost, intf=dut_port) / 1000.0
-    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost, intf=dut_port) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(
+        host_ans=duthost, intf=dut_port) / 1000.0
+    restore_time_sec = get_pfcwd_restore_time(
+        host_ans=duthost, intf=dut_port) / 1000.0
 
     burst_cycle_sec = poll_interval_sec + detect_time_sec + restore_time_sec + 0.1
     data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS)
@@ -82,9 +85,12 @@ def run_pfcwd_burst_storm_test(api,
                   pause_flow_dur_sec=pause_flow_dur_sec,
                   pause_flow_count=BURST_EVENTS,
                   pause_flow_gap_sec=pause_flow_gap_sec,
-                  data_flow_prefix_list=[WARM_UP_TRAFFIC_NAME, DATA_FLOW_PREFIX],
-                  data_flow_delay_sec_list=[warm_up_traffic_delay_sec, WARM_UP_TRAFFIC_DUR],
-                  data_flow_dur_sec_list=[warm_up_traffic_dur_sec, data_flow_dur_sec],
+                  data_flow_prefix_list=[
+                      WARM_UP_TRAFFIC_NAME, DATA_FLOW_PREFIX],
+                  data_flow_delay_sec_list=[
+                      warm_up_traffic_delay_sec, WARM_UP_TRAFFIC_DUR],
+                  data_flow_dur_sec_list=[
+                      warm_up_traffic_dur_sec, data_flow_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map)
@@ -148,8 +154,10 @@ def __gen_traffic(testbed_config,
                                 rx_port_id=rx_port_id)
     pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
 
-    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
-    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+    tx_port_config = next(
+        (x for x in port_config_list if x.id == tx_port_id), None)
+    rx_port_config = next(
+        (x for x in port_config_list if x.id == rx_port_id), None)
 
     tx_mac = tx_port_config.mac
     if tx_port_config.gateway == rx_port_config.gateway and \
@@ -233,7 +241,8 @@ def __gen_traffic(testbed_config,
         pause_pkt.pause_class_6.value = pause_time[6]
         pause_pkt.pause_class_7.value = pause_time[7]
 
-        pause_flow_start_time = id * (pause_flow_dur_sec + pause_flow_gap_sec) + WARM_UP_TRAFFIC_DUR
+        pause_flow_start_time = id * \
+            (pause_flow_dur_sec + pause_flow_gap_sec) + WARM_UP_TRAFFIC_DUR
 
         pause_flow.rate.pps = pause_pps
         pause_flow.size.fixed = 64

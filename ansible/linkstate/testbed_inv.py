@@ -7,7 +7,6 @@ import itertools
 import os
 from six.moves import configparser
 
-from pprint import pprint
 
 def read_config():
     config = configparser.ConfigParser()
@@ -22,6 +21,7 @@ def read_config():
                     "lab": lab_inventory},
             "links": lab_links}
 
+
 def parse_testbed_configuration(filename, target):
     with open(filename) as fp:
         for line in fp:
@@ -34,6 +34,7 @@ def parse_testbed_configuration(filename, target):
                 dut = splitted_line[7]
     return ptf_name, topo_name, ptf_addr, vm_start, dut
 
+
 def parse_topology(topology_name, vm_start):
     with open("vars/topo_%s.yml" % topology_name) as fp:
         topo = yaml.load(fp)
@@ -42,16 +43,19 @@ def parse_topology(topology_name, vm_start):
     ports = list(itertools.chain(*(val['vlans'] for val in topo['topology']['VMs'].values())))
     return vms, ports
 
+
 def parse_links(links, dut, ports):
     with open(links) as fp:
         result = set(line.split(',')[2] for line in fp if line.startswith(dut + ','))
     return list(result)
 
+
 def extract_hostvars(filename, host):
     with open(filename) as fp:
         for line in fp:
             if line.startswith(host):
-                return {value.split('=')[0]:value.split('=')[1] for value in line.rstrip().split()[1:]}
+                return {value.split('=')[0]: value.split('=')[1] for value in line.rstrip().split()[1:]}
+
 
 def get_hosts(host):
     config = read_config()
@@ -88,6 +92,7 @@ def get_hosts(host):
 
     return returned
 
+
 def get_hostname():
     ppid = os.getppid()
     with open('/proc/%d/cmdline' % ppid) as fp:
@@ -97,6 +102,7 @@ def get_hostname():
             return pair.split('=')[1]
 
     return None
+
 
 if __name__ == '__main__':
     inventory = {}

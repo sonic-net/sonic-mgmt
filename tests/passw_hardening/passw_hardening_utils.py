@@ -1,6 +1,8 @@
 import logging
 import os
 import difflib
+import operator
+import six
 from tests.common.helpers.assertions import pytest_assert
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -9,7 +11,8 @@ CURR_DIR = os.path.dirname(os.path.abspath(__file__))
 PAM_PASSWORD_CONF_DEFAULT_EXPECTED = CURR_DIR + '/sample/passw_hardening_default/common-password'
 PAM_PASSWORD_CONF_EXPECTED = CURR_DIR + '/sample/passw_hardening_enable/common-password'
 PAM_PASSWORD_CONF_HISTORY_ONLY_EXPECTED = CURR_DIR + '/sample/passw_hardening_history/common-password'
-PAM_PASSWORD_CONF_REJECT_USER_PASSW_MATCH_EXPECTED = CURR_DIR + '/sample/passw_hardening_reject_user_passw_match/common-password'
+PAM_PASSWORD_CONF_REJECT_USER_PASSW_MATCH_EXPECTED = \
+    CURR_DIR + '/sample/passw_hardening_reject_user_passw_match/common-password'
 PAM_PASSWORD_CONF_DIGITS_ONLY_EXPECTED = CURR_DIR + '/sample/passw_hardening_digits/common-password'
 PAM_PASSWORD_CONF_LOWER_LETTER_ONLY_EXPECTED = CURR_DIR + '/sample/passw_hardening_lower_letter/common-password'
 PAM_PASSWORD_CONF_UPPER_LETTER_ONLY_EXPECTED = CURR_DIR + '/sample/passw_hardening_upper_letter/common-password'
@@ -75,7 +78,7 @@ def compare_passw_policies_in_linux(duthost, pam_file_expected=PAM_PASSWORD_CONF
     logging.debug('DUT command = {}'.format(read_command_password))
     read_command_password_cmd = duthost.command(read_command_password)
     command_password_stdout = read_command_password_cmd["stdout_lines"]
-    command_password_stdout = [line.encode('utf-8') for line in command_password_stdout]
+    command_password_stdout = [six.ensure_str(line) for line in command_password_stdout]
 
     common_password_expected = []
     with open(pam_file_expected, 'r') as expected_common_password_file:
@@ -104,8 +107,8 @@ def config_and_review_policies(duthost, passw_hardening_ob, pam_file_expected):
     exp_show_policies = dict((k.replace('-', ' '), v) for k, v in list(passw_hardening_ob.policies.items()))
 
     # ~~ test passw policies in show CLI ~~
-    cli_passw_policies_cmp = cmp(exp_show_policies, curr_show_policies)
-    pytest_assert(cli_passw_policies_cmp == 0, "Fail: exp_show_policies='{}',not equal to curr_show_policies='{}'"
+    cli_passw_policies_cmp = operator.eq(exp_show_policies, curr_show_policies)
+    pytest_assert(cli_passw_policies_cmp is True, "Fail: exp_show_policies='{}',not equal to curr_show_policies='{}'"
                   .format(exp_show_policies, curr_show_policies))
 
     # ~~ test passw policies in PAM files ~~

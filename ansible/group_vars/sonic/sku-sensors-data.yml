@@ -7207,3 +7207,381 @@ sensors_checks:
     psu_skips: {}
 
     sensor_skip_per_version: {}
+
+  x86_64-nvidia_sn5600-r0:
+    alarms:
+      fan:
+
+      - dps460-i2c-4-5a/PSU-2(R) Fan 1/fan1_alarm
+      - dps460-i2c-4-5a/PSU-2(R) Fan 1/fan1_fault
+
+      - mlxreg_fan-isa-0000/Chassis Fan Drawer-1 Tach 1/fan1_fault
+      - mlxreg_fan-isa-0000/Chassis Fan Drawer-1 Tach 2/fan2_fault
+      - mlxreg_fan-isa-0000/Chassis Fan Drawer-2 Tach 1/fan3_fault
+      - mlxreg_fan-isa-0000/Chassis Fan Drawer-2 Tach 2/fan4_fault
+      - mlxreg_fan-isa-0000/Chassis Fan Drawer-3 Tach 1/fan5_fault
+      - mlxreg_fan-isa-0000/Chassis Fan Drawer-3 Tach 2/fan6_fault
+      - mlxreg_fan-isa-0000/Chassis Fan Drawer-4 Tach 1/fan7_fault
+      - mlxreg_fan-isa-0000/Chassis Fan Drawer-4 Tach 2/fan8_fault
+
+      - dps460-i2c-4-59/PSU-1(L) Fan 1/fan1_alarm
+      - dps460-i2c-4-59/PSU-1(L) Fan 1/fan1_fault
+
+      power:
+
+      - mp2975-i2c-5-62/PMIC-1 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-62/PMIC-1 VDD_M ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-62/PMIC-1 VDD_M ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-62/PMIC-1 13V5 VDD_M (in)/power1_alarm
+      - mp2975-i2c-5-62/PMIC-1 13V5 VDD_M Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-62/PMIC-1 VDD_M Rail Curr (out1)/curr2_alarm
+
+      - mp2975-i2c-5-6a/PMIC-9 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-6a/PMIC-9 DVDD_T6 ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-6a/PMIC-9 DVDD_T6 ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-6a/PMIC-9 DVDD_T7 ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-6a/PMIC-9 DVDD_T7 ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-6a/PMIC-9 13V5 DVDD_T6 DVDD_T7 (in)/power1_alarm
+      - mp2975-i2c-5-6a/PMIC-9 13V5 DVDD_T6 DVDD_T7 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-6a/PMIC-9 DVDD_T6 Rail Curr (out1)/curr2_alarm
+
+      - pmbus-i2c-4-13/IBC-3 PWR CONV 54V Rail (in1)/in1_lcrit_alarm
+      - pmbus-i2c-4-13/IBC-3 PWR CONV 54V Rail (in1)/in1_crit_alarm
+      - pmbus-i2c-4-13/IBC-3 13V5 Rail Curr (out)/curr1_crit_alarm
+
+      - dps460-i2c-4-5a/PSU-2(R) 220V Rail (in)/in1_min_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 220V Rail (in)/in1_max_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 220V Rail (in)/in1_lcrit_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 220V Rail (in)/in1_crit_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 220V Rail Pwr (in)/power1_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 12V Rail Pwr (out)/power2_max_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 12V Rail Pwr (out)/power2_crit_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 220V Rail Curr (in)/curr1_max_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 12V Rail Curr (out)/curr2_max_alarm
+      - dps460-i2c-4-5a/PSU-2(R) 12V Rail Curr (out)/curr2_crit_alarm
+
+      - mp2975-i2c-5-68/PMIC-7 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-68/PMIC-7 DVDD_T2 ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-68/PMIC-7 DVDD_T2 ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-68/PMIC-7 DVDD_T3 ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-68/PMIC-7 DVDD_T3 ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-68/PMIC-7 13V5 DVDD_T2 DVDD_T3 (in)/power1_alarm
+      - mp2975-i2c-5-68/PMIC-7 13V5 DVDD_T2 DVDD_T3 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-68/PMIC-7 DVDD_T2 Rail Curr (out1)/curr2_alarm
+
+      - pmbus-i2c-4-10/IBC-1 PWR CONV 54V Rail (in1)/in1_lcrit_alarm
+      - pmbus-i2c-4-10/IBC-1 PWR CONV 54V Rail (in1)/in1_crit_alarm
+      - pmbus-i2c-4-10/IBC-1 13V5 Rail Curr (out)/curr2_crit_alarm
+
+      - mp2975-i2c-5-66/PMIC-5 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-66/PMIC-5 VDD_T6 ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-66/PMIC-5 VDD_T6 ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-66/PMIC-5 VDD_T7 ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-66/PMIC-5 VDD_T7 ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-66/PMIC-5 13V5 VDD_T6 VDD_T7 (in)/power1_alarm
+      - mp2975-i2c-5-66/PMIC-5 13V5 VDD_T6 VDD_T7 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-66/PMIC-5 VDD_T6 Rail Curr (out1)/curr2_alarm
+
+      - mp2975-i2c-5-65/PMIC-4 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-65/PMIC-4 VDD_T4 ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-65/PMIC-4 VDD_T4 ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-65/PMIC-4 VDD_T5 ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-65/PMIC-4 VDD_T5 ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-65/PMIC-4 13V5 VDD_T4 VDD_T5 (in)/power1_alarm
+      - mp2975-i2c-5-65/PMIC-4 13V5 VDD_T4 VDD_T5 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-65/PMIC-4 VDD_T4 Rail Curr (out1)/curr2_alarm
+
+      - mp2975-i2c-5-63/PMIC-2 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-63/PMIC-2 VDD_T0 ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-63/PMIC-2 VDD_T0 ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-63/PMIC-2 VDD_T1 ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-63/PMIC-2 VDD_T1 ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-63/PMIC-2 13V5 VDD_T0 VDD_T1 (in)/power1_alarm
+      - mp2975-i2c-5-63/PMIC-2 13V5 VDD_T0 VDD_T1 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-63/PMIC-2 VDD_T0 Rail Curr (out1)/curr2_alarm
+
+      - mp2975-i2c-5-6c/PMIC-10 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-6c/PMIC-10 HVDD_T03 1V2 Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-6c/PMIC-10 HVDD_T03 1V2 Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-6c/PMIC-10 HVDD_T47 1V2 Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-6c/PMIC-10 HVDD_T47 1V2 Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-6c/PMIC-10 13V5 HVDD_T03 HVDD_T47 (in)/power1_alarm
+      - mp2975-i2c-5-6c/PMIC-10 13V5 HVDD_T03 HVDD_T47 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-6c/PMIC-10 HVDD_T03 Rail Curr (out1)/curr2_alarm
+
+      - pmbus-i2c-4-15/IBC-4 PWR CONV 54V Rail (in1)/in1_lcrit_alarm
+      - pmbus-i2c-4-15/IBC-4 PWR CONV 54V Rail (in1)/in1_crit_alarm
+      - pmbus-i2c-4-15/IBC-4 13V5 Rail Curr (out)/curr1_crit_alarm
+
+      - mp2975-i2c-5-69/PMIC-8 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-69/PMIC-8 DVDD_T4 ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-69/PMIC-8 DVDD_T4 ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-69/PMIC-8 DVDD_T5 ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-69/PMIC-8 DVDD_T5 ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-69/PMIC-8 13V5 DVDD_T4 DVDD_T5 (in)/power1_alarm
+      - mp2975-i2c-5-69/PMIC-8 13V5 DVDD_T4 DVDD_T5 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-69/PMIC-8 DVDD_T4 Rail Curr (out1)/curr2_alarm
+
+      - pmbus-i2c-4-11/IBC-2 PWR CONV 54V Rail (in1)/in1_lcrit_alarm
+      - pmbus-i2c-4-11/IBC-2 PWR CONV 54V Rail (in1)/in1_crit_alarm
+      - pmbus-i2c-4-11/IBC-2 13V5 Rail Curr (out)/curr1_crit_alarm
+
+      - dps460-i2c-4-59/PSU-1(L) 220V Rail (in)/in1_min_alarm
+      - dps460-i2c-4-59/PSU-1(L) 220V Rail (in)/in1_max_alarm
+      - dps460-i2c-4-59/PSU-1(L) 220V Rail (in)/in1_lcrit_alarm
+      - dps460-i2c-4-59/PSU-1(L) 220V Rail (in)/in1_crit_alarm
+      - dps460-i2c-4-59/PSU-1(L) 220V Rail Pwr (in)/power1_alarm
+      - dps460-i2c-4-59/PSU-1(L) 12V Rail Pwr (out)/power2_max_alarm
+      - dps460-i2c-4-59/PSU-1(L) 12V Rail Pwr (out)/power2_crit_alarm
+      - dps460-i2c-4-59/PSU-1(L) 220V Rail Curr (in)/curr1_max_alarm
+      - dps460-i2c-4-59/PSU-1(L) 12V Rail Curr (out)/curr2_max_alarm
+      - dps460-i2c-4-59/PSU-1(L) 12V Rail Curr (out)/curr2_crit_alarm
+
+      - mp2975-i2c-5-67/PMIC-6 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-67/PMIC-6 DVDD_T0 ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-67/PMIC-6 DVDD_T0 ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-67/PMIC-6 DVDD_T1 ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-67/PMIC-6 DVDD_T1 ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-67/PMIC-6 13V5 DVDD_T0 DVDD_T1 (in)/power1_alarm
+      - mp2975-i2c-5-67/PMIC-6 13V5 DVDD_T0 DVDD_T1 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-67/PMIC-6 DVDD_T0 Rail Curr (out1)/curr2_alarm
+
+      - mp2975-i2c-39-6b/PMIC-6 PSU 12V Rail (vin)/in1_crit_alarm
+      - mp2975-i2c-39-6b/PMIC-6 COMEX VCORE (out1)/in2_lcrit_alarm
+      - mp2975-i2c-39-6b/PMIC-6 COMEX VCORE (out1)/in2_crit_alarm
+      - mp2975-i2c-39-6b/PMIC-6 COMEX VCCSA (out2)/in3_lcrit_alarm
+      - mp2975-i2c-39-6b/PMIC-6 COMEX VCCSA (out2)/in3_crit_alarm
+      - mp2975-i2c-39-6b/PMIC-6 COMEX Pwr (pin)/power1_alarm
+      - mp2975-i2c-39-6b/PMIC-6 COMEX Curr (iin)/curr1_alarm
+      - mp2975-i2c-39-6b/PMIC-6 COMEX VCORE Rail Curr (out1)/curr2_alarm
+      - mp2975-i2c-39-6b/PMIC-6 COMEX VCCSA Rail Curr (out2)/curr6_alarm
+
+      - mp2975-i2c-5-64/PMIC-3 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-64/PMIC-3 VDD_T2 ADJ Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-64/PMIC-3 VDD_T2 ADJ Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-64/PMIC-3 VDD_T3 ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-64/PMIC-3 VDD_T3 ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-64/PMIC-3 13V5 VDD_T2 VDD_T3 (in)/power1_alarm
+      - mp2975-i2c-5-64/PMIC-3 13V5 VDD_T2 VDD_T3 Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-64/PMIC-3 VDD_T2 Rail Curr (out1)/curr2_alarm
+
+      - mp2975-i2c-5-6e/PMIC-11 PSU 13V5 Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-5-6e/PMIC-11 VDDSCC 0V75 Rail (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-6e/PMIC-11 VDDSCC 0V75 Rail (out1)/in2_crit_alarm
+      - mp2975-i2c-5-6e/PMIC-11 DVDD_M ADJ Rail (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-6e/PMIC-11 DVDD_M ADJ Rail (out2)/in3_crit_alarm
+      - mp2975-i2c-5-6e/PMIC-11 13V5 VDDSCC DVDD_M (in)/power1_alarm
+      - mp2975-i2c-5-6e/PMIC-11 13V5 VDDSCC DVDD_M Rail Curr (in1)/curr1_alarm
+      - mp2975-i2c-5-6e/PMIC-11 VDDSCC Rail Curr (out1)/curr2_alarm
+
+
+      temp:
+
+      - mp2975-i2c-5-62/PMIC-1 VDD_M ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-62/PMIC-1 VDD_M ADJ Temp 1/temp1_crit_alarm
+
+      - mp2975-i2c-5-6a/PMIC-9 DVDD_T6 ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-6a/PMIC-9 DVDD_T6 ADJ Temp 1/temp1_crit_alarm
+
+      - pmbus-i2c-4-13/IBC-3 Temp 1/temp1_crit_alarm
+
+      - dps460-i2c-4-5a/PSU-2(R) Temp 1/temp1_max_alarm
+      - dps460-i2c-4-5a/PSU-2(R) Temp 1/temp1_crit_alarm
+      - dps460-i2c-4-5a/PSU-2(R) Temp 2/temp2_max_alarm
+      - dps460-i2c-4-5a/PSU-2(R) Temp 2/temp2_crit_alarm
+      - dps460-i2c-4-5a/PSU-2(R) Temp 3/temp3_max_alarm
+      - dps460-i2c-4-5a/PSU-2(R) Temp 3/temp3_crit_alarm
+
+      - mp2975-i2c-5-68/PMIC-7 DVDD_T2 ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-68/PMIC-7 DVDD_T2 ADJ Temp 1/temp1_crit_alarm
+
+      - pmbus-i2c-4-10/IBC-1 Temp 1/temp1_crit_alarm
+
+      - mp2975-i2c-5-66/PMIC-5 VDD_T6 ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-66/PMIC-5 VDD_T6 ADJ Temp 1/temp1_crit_alarm
+
+      - jc42-i2c-0-1c/SODIMM Temp/temp1_max_alarm
+      - jc42-i2c-0-1c/SODIMM Temp/temp1_min_alarm
+      - jc42-i2c-0-1c/SODIMM Temp/temp1_crit_alarm
+
+      - mlxsw-i2c-2-48/front panel 001/temp2_crit_alarm
+      - mlxsw-i2c-2-48/front panel 001/temp2_fault
+      - mlxsw-i2c-2-48/front panel 002/temp3_crit_alarm
+      - mlxsw-i2c-2-48/front panel 002/temp3_fault
+      - mlxsw-i2c-2-48/front panel 003/temp4_crit_alarm
+      - mlxsw-i2c-2-48/front panel 003/temp4_fault
+      - mlxsw-i2c-2-48/front panel 004/temp5_crit_alarm
+      - mlxsw-i2c-2-48/front panel 004/temp5_fault
+      - mlxsw-i2c-2-48/front panel 005/temp6_crit_alarm
+      - mlxsw-i2c-2-48/front panel 005/temp6_fault
+      - mlxsw-i2c-2-48/front panel 006/temp7_crit_alarm
+      - mlxsw-i2c-2-48/front panel 006/temp7_fault
+      - mlxsw-i2c-2-48/front panel 007/temp8_crit_alarm
+      - mlxsw-i2c-2-48/front panel 007/temp8_fault
+      - mlxsw-i2c-2-48/front panel 008/temp9_crit_alarm
+      - mlxsw-i2c-2-48/front panel 008/temp9_fault
+
+      - mp2975-i2c-5-65/PMIC-4 VDD_T4 ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-65/PMIC-4 VDD_T4 ADJ Temp 1/temp1_crit_alarm
+
+      - mp2975-i2c-5-63/PMIC-2 VDD_T0 ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-63/PMIC-2 VDD_T0 ADJ Temp 1/temp1_crit_alarm
+
+      - mp2975-i2c-5-6c/PMIC-10 HVDD_T03 1V2 Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-6c/PMIC-10 HVDD_T03 1V2 Temp 1/temp1_crit_alarm
+
+      - pmbus-i2c-4-15/IBC-4 Temp 1/temp1_crit_alarm
+
+      - jc42-i2c-0-1a/SODIMM Temp/temp1_max_alarm
+      - jc42-i2c-0-1a/SODIMM Temp/temp1_min_alarm
+      - jc42-i2c-0-1a/SODIMM Temp/temp1_crit_alarm
+
+      - mp2975-i2c-5-69/PMIC-8 DVDD_T4 ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-69/PMIC-8 DVDD_T4 ADJ Temp 1/temp1_crit_alarm
+
+      - pmbus-i2c-4-11/IBC-2 Temp 1/temp1_crit_alarm
+
+      - dps460-i2c-4-59/PSU-1(L) Temp 1/temp1_max_alarm
+      - dps460-i2c-4-59/PSU-1(L) Temp 1/temp1_crit_alarm
+      - dps460-i2c-4-59/PSU-1(L) Temp 2/temp2_max_alarm
+      - dps460-i2c-4-59/PSU-1(L) Temp 2/temp2_crit_alarm
+      - dps460-i2c-4-59/PSU-1(L) Temp 3/temp3_max_alarm
+      - dps460-i2c-4-59/PSU-1(L) Temp 3/temp3_crit_alarm
+
+      - mp2975-i2c-5-67/PMIC-6 DVDD_T0 ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-67/PMIC-6 DVDD_T0 ADJ Temp 1/temp1_crit_alarm
+
+      - mp2975-i2c-39-6b/PMIC-6 Temp/temp1_max_alarm
+      - mp2975-i2c-39-6b/PMIC-6 Temp/temp1_crit_alarm
+
+      - mp2975-i2c-5-64/PMIC-3 VDD_T2 ADJ Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-64/PMIC-3 VDD_T2 ADJ Temp 1/temp1_crit_alarm
+
+      - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit_alarm
+      - coretemp-isa-0000/Core 0/temp2_crit_alarm
+      - coretemp-isa-0000/Core 1/temp3_crit_alarm
+      - coretemp-isa-0000/Core 2/temp4_crit_alarm
+      - coretemp-isa-0000/Core 3/temp5_crit_alarm
+      - coretemp-isa-0000/Core 4/temp6_crit_alarm
+      - coretemp-isa-0000/Core 5/temp7_crit_alarm
+
+      - mp2975-i2c-5-6e/PMIC-11 VDDSCC 1V2 Temp 1/temp1_max_alarm
+      - mp2975-i2c-5-6e/PMIC-11 VDDSCC 1V2 Temp 1/temp1_crit_alarm
+
+
+    compares:
+      power: [ ]
+      temp:
+
+      - - mp2975-i2c-5-62/PMIC-1 VDD_M ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-62/PMIC-1 VDD_M ADJ Temp 1/temp1_crit
+
+      - - mp2975-i2c-5-6a/PMIC-9 DVDD_T6 ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-6a/PMIC-9 DVDD_T6 ADJ Temp 1/temp1_crit
+
+      - - pmbus-i2c-4-13/IBC-3 Temp 1/temp1_input
+        - pmbus-i2c-4-13/IBC-3 Temp 1/temp1_crit
+
+      - - dps460-i2c-4-5a/PSU-2(R) Temp 1/temp1_input
+        - dps460-i2c-4-5a/PSU-2(R) Temp 1/temp1_crit
+
+      - - dps460-i2c-4-5a/PSU-2(R) Temp 2/temp2_input
+        - dps460-i2c-4-5a/PSU-2(R) Temp 2/temp2_crit
+
+      - - dps460-i2c-4-5a/PSU-2(R) Temp 3/temp3_input
+        - dps460-i2c-4-5a/PSU-2(R) Temp 3/temp3_crit
+
+      - - mp2975-i2c-5-68/PMIC-7 DVDD_T2 ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-68/PMIC-7 DVDD_T2 ADJ Temp 1/temp1_crit
+
+      - - pmbus-i2c-4-10/IBC-1 Temp 1/temp1_input
+        - pmbus-i2c-4-10/IBC-1 Temp 1/temp1_crit
+
+      - - mp2975-i2c-5-66/PMIC-5 VDD_T6 ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-66/PMIC-5 VDD_T6 ADJ Temp 1/temp1_crit
+
+      - - jc42-i2c-0-1c/SODIMM Temp/temp1_input
+        - jc42-i2c-0-1c/SODIMM Temp/temp1_crit
+
+      - - mp2975-i2c-5-65/PMIC-4 VDD_T4 ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-65/PMIC-4 VDD_T4 ADJ Temp 1/temp1_crit
+
+      - - drivetemp-scsi-0-0/SSD Temp/temp1_input
+        - drivetemp-scsi-0-0/SSD Temp/temp1_crit
+
+      - - tmp102-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_input
+        - tmp102-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_max
+
+      - - mp2975-i2c-5-63/PMIC-2 VDD_T0 ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-63/PMIC-2 VDD_T0 ADJ Temp 1/temp1_crit
+
+      - - acpitz-acpi-0/CPU ACPI temp/temp1_input
+        - acpitz-acpi-0/CPU ACPI temp/temp1_crit
+
+      - - mp2975-i2c-5-6c/PMIC-10 HVDD_T03 1V2 Temp 1/temp1_input
+        - mp2975-i2c-5-6c/PMIC-10 HVDD_T03 1V2 Temp 1/temp1_crit
+
+      - - pmbus-i2c-4-15/IBC-4 Temp 1/temp1_input
+        - pmbus-i2c-4-15/IBC-4 Temp 1/temp1_crit
+
+      - - jc42-i2c-0-1a/SODIMM Temp/temp1_input
+        - jc42-i2c-0-1a/SODIMM Temp/temp1_crit
+
+      - - mp2975-i2c-5-69/PMIC-8 DVDD_T4 ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-69/PMIC-8 DVDD_T4 ADJ Temp 1/temp1_crit
+
+      - - pmbus-i2c-4-11/IBC-2 Temp 1/temp1_input
+        - pmbus-i2c-4-11/IBC-2 Temp 1/temp1_crit
+
+      - - dps460-i2c-4-59/PSU-1(L) Temp 1/temp1_input
+        - dps460-i2c-4-59/PSU-1(L) Temp 1/temp1_crit
+
+      - - dps460-i2c-4-59/PSU-1(L) Temp 2/temp2_input
+        - dps460-i2c-4-59/PSU-1(L) Temp 2/temp2_crit
+
+      - - dps460-i2c-4-59/PSU-1(L) Temp 3/temp3_input
+        - dps460-i2c-4-59/PSU-1(L) Temp 3/temp3_crit
+
+      - - mp2975-i2c-5-67/PMIC-6 DVDD_T0 ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-67/PMIC-6 DVDD_T0 ADJ Temp 1/temp1_crit
+
+      - - tmp102-i2c-6-49/Ambient Fan Side Temp (air intake)/temp1_input
+        - tmp102-i2c-6-49/Ambient Fan Side Temp (air intake)/temp1_max
+
+      - - mp2975-i2c-39-6b/PMIC-6 Temp/temp1_input
+        - mp2975-i2c-39-6b/PMIC-6 Temp/temp1_crit
+
+      - - mp2975-i2c-5-64/PMIC-3 VDD_T2 ADJ Temp 1/temp1_input
+        - mp2975-i2c-5-64/PMIC-3 VDD_T2 ADJ Temp 1/temp1_crit
+
+      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
+
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_crit
+
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_crit
+
+      - - coretemp-isa-0000/Core 4/temp6_input
+        - coretemp-isa-0000/Core 4/temp6_crit
+
+      - - coretemp-isa-0000/Core 5/temp7_input
+        - coretemp-isa-0000/Core 5/temp7_crit
+
+      - - mp2975-i2c-5-6e/PMIC-11 VDDSCC 1V2 Temp 1/temp1_input
+        - mp2975-i2c-5-6e/PMIC-11 VDDSCC 1V2 Temp 1/temp1_crit
+
+
+    non_zero:
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+    psu_skips: { }
+    sensor_skip_per_version: { }

@@ -1,29 +1,30 @@
 import pytest
 
-from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts                      # noqa F401
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config
+    snappi_api, snappi_testbed_config       # noqa F401
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list,\
-    lossless_prio_list, lossy_prio_list
+    lossless_prio_list, lossy_prio_list     # noqa F401
 
 from .files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
+
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
-def test_pfcwd_all_to_all(snappi_api,
-                          snappi_testbed_config,
-                          conn_graph_facts,
-                          fanout_graph_facts,
+def test_pfcwd_all_to_all(snappi_api,               # noqa F811
+                          snappi_testbed_config,    # noqa F811
+                          conn_graph_facts,         # noqa F811
+                          fanout_graph_facts,       # noqa F811
                           duthosts,
                           rand_one_dut_hostname,
                           rand_one_dut_portname_oper_up,
                           rand_one_dut_lossless_prio,
-                          lossy_prio_list,
-                          prio_dscp_map,
+                          lossy_prio_list,          # noqa F811
+                          prio_dscp_map,            # noqa F811
                           trigger_pfcwd):
 
     """

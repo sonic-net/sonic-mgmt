@@ -12,6 +12,7 @@ import pytest
 import logging
 import time
 import contextlib
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ def tor_blackhole_traffic():
 
 
 @pytest.fixture
-def reboot_tor(localhost, wait_for_device_reachable):
+def reboot_tor(localhost, wait_for_device_reachable, wait_for_mux_container):
     """
     Reboot TOR
     """
@@ -113,6 +114,8 @@ def reboot_tor(localhost, wait_for_device_reachable):
 
     for duthost in torhost:
         wait_for_device_reachable(duthost)
+    for duthost in torhost:
+        wait_for_mux_container(duthost)
 
 
 @pytest.fixture
@@ -138,6 +141,50 @@ def wait_for_device_reachable(localhost):
         logger.info("SSH started on {}".format((duthost.hostname)))
 
     return wait_for_device_reachable
+
+
+def check_mux_feature(duthost):
+    """
+    Check output of 'show feature status mux' to find if feature is enabled.
+    For dualtor:
+    $ show feature status mux
+    Feature    State    AutoRestart
+    ---------  -------  -------------
+    mux        enabled  enabled
+
+    For non-dualtor:
+    $ show feature status mux
+    Feature    State            AutoRestart
+    ---------  ---------------  -------------
+    mux        always_disabled  enabled
+    """
+    output = duthost.shell("show feature status mux")['stdout_lines']
+    return "disabled" not in str(output)
+
+
+def check_mux_container(duthost):
+    output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' mux")['stdout_lines']
+    return "running" in str(output)
+
+
+@pytest.fixture
+def wait_for_mux_container(duthost):
+    """
+    Returns a function that waits for mux container to be available on a device
+    """
+
+    def wait_for_mux_container(duthost, timeout=100, check_interval=1):
+        if not wait_until(timeout, check_interval, 0, check_mux_feature, duthost):
+            logger.info("mux feature is not enabled on {}".format((duthost.hostname)))
+            return
+
+        logger.info("Waiting for mux container to start on {}".format((duthost.hostname)))
+
+        if not wait_until(timeout, check_interval, 0, check_mux_container, duthost):
+            # Could not detect mux container so raise exception
+            raise Exception("Mux container is not up after {} seconds".format(timeout))
+
+    return wait_for_mux_container
 
 
 @contextlib.contextmanager

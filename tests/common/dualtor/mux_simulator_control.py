@@ -405,7 +405,8 @@ def _get_mux_ports(duthost, target_status=None, exclude_status=None):
 
     muxcables = json.loads(duthost.shell("show muxcable status --json")['stdout'])
     return {
-        port: mux_status for port, mux_status in list(muxcables['MUX_CABLE'].items()) if _check_status(mux_status["STATUS"])
+        port: mux_status for port, mux_status in list(muxcables['MUX_CABLE'].items())
+        if _check_status(mux_status["STATUS"])
     }
 
 

@@ -14,7 +14,7 @@ import sys
 import threading
 import time
 import traceback
-from io import BytesIO
+from io import StringIO
 from ast import literal_eval
 
 import pytest
@@ -25,7 +25,7 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -502,9 +502,12 @@ def compare_crm_facts(left, right):
 
 def dump_scapy_packet_show_output(packet):
     """Dump packet show output to string."""
-    _stdout, sys.stdout = sys.stdout, BytesIO()
+    _stdout, sys.stdout = sys.stdout, StringIO()
     try:
-        packet.show()
+        if six.PY2:
+            packet.show()
+        else:
+            packet.show2()
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
@@ -800,3 +803,30 @@ def get_upstream_neigh_type(topo_type, is_upper=True):
         return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+
+def get_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
+        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
+
+
+def convert_scapy_packet_to_bytes(packet):
+    """Convert scapy packet to bytes for python2 and python3 compatibility
+    Args:
+        packet: scapy packet
+    Returns:
+        str or bytes: packet in bytes
+    """
+    if six.PY2:
+        return str(packet)
+    else:
+        return bytes(packet)

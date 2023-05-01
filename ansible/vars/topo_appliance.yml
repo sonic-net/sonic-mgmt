@@ -8,7 +8,7 @@ topology:
       vlans:
         - 1
       vm_offset: 1
-  
+
 configuration_properties:
   common:
     dut_asn: 65100
