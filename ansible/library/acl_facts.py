@@ -178,7 +178,8 @@ def get_acl_rule_counters(module, namespace=None):
             cmd = 'sudo ip netns exec {} '.format(ns) if ns else ''
             rc, stdout, stderr = module.run_command(cmd + 'aclshow -a')
             if rc != 0:
-                 module.fail_json(msg='Failed to get acl counter data, rc=%s, stdout=%s, stderr=%s' % (rc, stdout, stderr))
+                module.fail_json(msg='Failed to get acl counter data, rc=%s, stdout=%s, stderr=%s' % (rc,
+                                 stdout, stderr))
         
             output_lines = stdout.splitlines()[2:]  # Skip the header lines in output
             for line in output_lines:
@@ -193,7 +194,7 @@ def get_acl_rule_counters(module, namespace=None):
                     except ValueError:
                         bytes_count = 0
 
-                    key = (line_expanded[0],line_expanded[1],line_expanded[2])
+                    key = (line_expanded[0], line_expanded[1], line_expanded[2])
                     if key in counter_aggrgeate_map:
                         counter_aggrgeate_map[key][0] = packets_count + counter_aggrgeate_map[key][0]
                         counter_aggrgeate_map[key][1] = bytes_count + counter_aggrgeate_map[key][1]

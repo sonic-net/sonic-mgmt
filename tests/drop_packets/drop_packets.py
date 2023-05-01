@@ -16,7 +16,6 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
 
-
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
 L2_COL_KEY = RX_DRP
@@ -432,7 +431,8 @@ def acl_ingress(duthosts):
 def create_or_remove_acl_egress_table(duthost, op):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_create_or_remove_acl_egress_table")
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-        namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
+        namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') \
+                                                      else DEFAULT_NAMESPACE
         if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
             # Create ACL table on host namespace without any ports.
             # This is done so that config acl update full can execute on all namspaces.
@@ -441,14 +441,16 @@ def create_or_remove_acl_egress_table(duthost, op):
         else:
             acl_table_config = {
                 "table_name": "OUTDATAACL",
-                "table_ports": ",".join(duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]),
+                "table_ports": ",".join(duthost.acl_facts(namespace=namespace) \
+                                        ["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]),
                 "table_stage": "egress",
                 "table_type": "L3"
             }
             table_port_list = []
             if namespace:
                 for port in acl_table_config["table_ports"].split(','):
-                    intf_per_namespace = duthost.interface_facts(namespace=namespace)['ansible_facts']['ansible_interface_facts']
+                    intf_per_namespace = duthost.interface_facts(namespace=namespace) \ 
+                                                                 ['ansible_facts']['ansible_interface_facts']
                     if port in intf_per_namespace:
                         table_port_list.append(port)
             else:
@@ -459,7 +461,6 @@ def create_or_remove_acl_egress_table(duthost, op):
                 loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
                 logger.info("Creating ACL table: \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
                 with loganalyzer:
-                    #sonic_host_or_asic_inst.command(
                     sonic_host_or_asic_inst.command(
                         "config acl add table {} {} -s {} -p {}".format(
                             acl_table_config["table_name"],
@@ -473,6 +474,7 @@ def create_or_remove_acl_egress_table(duthost, op):
                 sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
             else:
                 pytest.fail("Unvalid op {} should use add or remove".format(op))
+
 
 @pytest.fixture
 def acl_egress(duthosts):

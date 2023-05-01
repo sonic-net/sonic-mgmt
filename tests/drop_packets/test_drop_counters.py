@@ -13,6 +13,7 @@ from tests.common.helpers.drop_counters.drop_counters import verify_drop_counter
     ensure_no_l3_drops, ensure_no_l2_drops
 from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_UPDATE_INTERVAL,\
     MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params, setup, fanouthost, pkt_fields, ports_info, tx_dut_ports, rif_port_down  # noqa F401
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -140,7 +141,8 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         acl_drops = 0
         for duthost in duthosts.frontend_nodes:
             for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-                namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
+                namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 
+                                                                         'namespace') else DEFAULT_NAMESPACE
                 if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
                     continue
                 acl_drops += duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"][
