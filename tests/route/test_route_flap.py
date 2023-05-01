@@ -74,7 +74,7 @@ def announce_default_routes(localhost, tbinfo):
 def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
     data = {
-        "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}    
+        "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
     r = requests.post(url, data=data)
     assert r.status_code == 200
 
@@ -116,16 +116,18 @@ def check_route(asichost, route, dev_port, operation):
     nexthops = out[route][0]['nexthops']
     result = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
     if operation == WITHDRAW:
-        pytest_assert(dev_port not in result, "Route {} was not withdraw {}".format(route, result))
+        pytest_assert(dev_port not in result,
+                      "Route {} was not withdraw {}".format(route, result))
     else:
-        pytest_assert(dev_port in result, "Route {} was not announced {}".format(route, result))
-
+        pytest_assert(dev_port in result,
+                      "Route {} was not announced {}".format(route, result))
 
 def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip):
     # use ptf sender interface mac for easy identify testing packets
     src_mac = ptfadapter.dataplane.get_mac(0, ptf_send_port)
     pkt = testutils.simple_icmp_packet(
         eth_dst=dst_mac, eth_src=src_mac, ip_src=src_ip, ip_dst=dst_ip, icmp_type=8, icmp_code=0)
+
     ext_pkt = pkt.copy()
     ext_pkt['Ether'].src = exp_src_mac
 
@@ -247,6 +249,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
         normalized_level = 'basic'
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
+
     # accommadate for multi-asic which could have ~5k routes
     divisor = 100 if duthost.is_multi_asic else 10
     while loop_times > 0:
@@ -256,7 +259,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             dst_prefix = list(dst_prefix_set)[route_index].route
             aspath = list(dst_prefix_set)[route_index].aspath
 
-            #test link status
+            # test link status
             send_recv_ping_packet(
                 ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
