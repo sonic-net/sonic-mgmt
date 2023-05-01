@@ -3,6 +3,7 @@ import json
 import pytest
 
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa: F401
 from tests.common.dualtor.mux_simulator_control import check_mux_status, validate_check_result
 from tests.common.dualtor.dual_tor_utils import recover_linkmgrd_probe_interval, update_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
@@ -16,9 +17,12 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_topo(tbinfo):
+def check_topo(active_standby_ports, tbinfo):                                                           # noqa: F811
     if 'dualtor' not in tbinfo['topo']['name']:
         pytest.skip('Skip on non-dualtor testbed')
+
+    if not active_standby_ports:
+        pytest.skip("Skip as no 'active-standby' mux ports available")
 
 
 @pytest.fixture
