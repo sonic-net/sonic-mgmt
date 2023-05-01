@@ -424,7 +424,7 @@ def acl_ingress(duthosts):
     acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path)
 
 
-def create_or_remove_acl_egress_table(duthost, setup, op):
+def create_or_remove_acl_egress_table(duthost, op):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_create_or_remove_acl_egress_table")
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
         namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
@@ -470,7 +470,7 @@ def create_or_remove_acl_egress_table(duthost, setup, op):
                 pytest.fail("Unvalid op {} should use add or remove".format(op))
 
 @pytest.fixture
-def acl_egress(duthosts, setup):
+def acl_egress(duthosts):
     """
     Create acl table OUTDATAACL
     Create acl rule defined in config file.
@@ -485,11 +485,11 @@ def acl_egress(duthosts, setup):
 
     for duthost in duthosts.frontend_nodes:
         try:
-            create_or_remove_acl_egress_table(duthost, setup, "add")
+            create_or_remove_acl_egress_table(duthost, "add")
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
-            create_or_remove_acl_egress_table(duthost, setup, "remove")
+            create_or_remove_acl_egress_table(duthost, "remove")
             raise err
 
     acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template, dut_tmp_dir,
@@ -498,7 +498,7 @@ def acl_egress(duthosts, setup):
     acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path)
 
     for duthost in duthosts.frontend_nodes:
-        create_or_remove_acl_egress_table(duthost, setup, "remove")
+        create_or_remove_acl_egress_table(duthost, "remove")
 
 
 def log_pkt_params(dut_iface, mac_dst, mac_src, ip_dst, ip_src):
