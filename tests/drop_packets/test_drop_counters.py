@@ -141,7 +141,7 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         acl_drops = 0
         for duthost in duthosts.frontend_nodes:
             for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-                namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 
+                namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst,
                                                                          'namespace') else DEFAULT_NAMESPACE
                 if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
                     continue

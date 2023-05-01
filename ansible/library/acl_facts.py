@@ -180,7 +180,7 @@ def get_acl_rule_counters(module, namespace=None):
             if rc != 0:
                 module.fail_json(msg='Failed to get acl counter data, rc=%s, stdout=%s, stderr=%s' % (rc,
                                  stdout, stderr))
-        
+
             output_lines = stdout.splitlines()[2:]  # Skip the header lines in output
             for line in output_lines:
                 line_expanded = line.split()
