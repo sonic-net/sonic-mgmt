@@ -441,7 +441,7 @@ def create_or_remove_acl_egress_table(duthost, op):
         else:
             acl_table_config = {
                 "table_name": "OUTDATAACL",
-                "table_ports": ",".join(duthost.acl_facts(namespace=namespace) \
+                "table_ports": ",".join(duthost.acl_facts(namespace=namespace)\
                                         ["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]),
                 "table_stage": "egress",
                 "table_type": "L3"
@@ -449,7 +449,7 @@ def create_or_remove_acl_egress_table(duthost, op):
             table_port_list = []
             if namespace:
                 for port in acl_table_config["table_ports"].split(','):
-                    intf_per_namespace = duthost.interface_facts(namespace=namespace) \ 
+                    intf_per_namespace = duthost.interface_facts(namespace=namespace)\ 
                                                                  ['ansible_facts']['ansible_interface_facts']
                     if port in intf_per_namespace:
                         table_port_list.append(port)
