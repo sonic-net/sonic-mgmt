@@ -122,6 +122,7 @@ def check_route(asichost, route, dev_port, operation):
         pytest_assert(dev_port in result,
                       "Route {} was not announced {}".format(route, result))
 
+
 def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip):
     # use ptf sender interface mac for easy identify testing packets
     src_mac = ptfadapter.dataplane.get_mac(0, ptf_send_port)
