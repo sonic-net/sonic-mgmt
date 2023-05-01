@@ -12,3 +12,8 @@ DEFAULT_SSH_CONNECT_PARAMS = {
     "public": {"username": "admin",
                "password": "YourPaSsWoRd"}
 }
+# resolv.conf expected nameservers
+RESOLV_CONF_NAMESERVERS = {
+    "public": []
+}
+KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'

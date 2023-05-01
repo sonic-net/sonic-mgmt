@@ -115,7 +115,7 @@
 #     }
 # }
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 from collections import defaultdict
 from sonic_py_common import multi_asic
 
@@ -157,7 +157,8 @@ def get_all_config(module, namespace=None):
     try:
         return module.from_json(stdout)
     except Exception as e:
-        module.fail_json(msg='Failed to parse config from output of "sonic-cfggen -d --print-data", err=' + str(e))
+        module.fail_json(
+            msg='Failed to parse config from output of "sonic-cfggen -d --print-data", err=' + str(e))
 
     return None
 
@@ -201,12 +202,12 @@ def get_acl_rule_counters(module, namespace=None):
                         counter_aggrgeate_map[key].append(bytes_count)
 
     for k, v in counter_aggrgeate_map.items():
-         counter = dict(rule_name=k[0],
+        counter = dict(rule_name=k[0],
                        table_name=k[1],
                        priority=k[2],
                        packets_count=v[0],
                        bytes_count=v[1])
-         counters.append(counter)
+        counters.append(counter)
 
     return counters
 

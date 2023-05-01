@@ -230,7 +230,8 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
 
     upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
     downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
-    downstream_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(downstream_type)])
+    downstream_neighbors = \
+        natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(downstream_type)])
     downstream = downstream_neighbors[0]
     upstream_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(upstream_type)])
     other_neighbors = downstream_neighbors[1:3]    # Only check a few neighbors to save time
