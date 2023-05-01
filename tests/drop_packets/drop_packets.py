@@ -377,6 +377,10 @@ def acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template
               dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_setup")
+        acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+        if 'DATAACL' not in list(acl_facts.keys()):
+            pytest.skip("Skipping test since DATAACL table is not present on DUT")
+
         duthost.command("mkdir -p {}".format(dut_tmp_dir))
         dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
 
@@ -386,35 +390,23 @@ def acl_setup(duthosts, template_dir, acl_rules_template, del_acl_rules_template
         duthost.template(src=os.path.join(template_dir, del_acl_rules_template), dest=dut_clear_conf_file_path)
 
         logger.info("Applying {}".format(dut_conf_file_path))
-        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
-            if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
-                continue
-            acl_facts = duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]
-            if 'DATAACL' not in acl_facts.keys():
-                pytest.skip("Skipping test since DATAACL table is not present on DUT")
 
-            with loganalyzer:
-                sonic_host_or_asic_inst.command("config acl update full {}".format(dut_conf_file_path))
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+        with loganalyzer:
+            duthost.command("config acl update full {}".format(dut_conf_file_path))
+
 
 def acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path):
     for duthost in duthosts.frontend_nodes:
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_acl_teardown")
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
-            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
-            if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
-                continue
-            with loganalyzer:
-                logger.info("Applying {}".format(dut_clear_conf_file_path))
-                sonic_host_or_asic_inst.command("config acl update full {}".format(dut_clear_conf_file_path))
-                logger.info("Removing {}".format(dut_tmp_dir))
-                time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
-                # full update on one of the frontend namespace will apply to 
-                # to all frontend namepsace
-                break
-        duthost.command("rm -rf {}".format(dut_tmp_dir))
+        with loganalyzer:
+            logger.info("Applying {}".format(dut_clear_conf_file_path))
+            duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
+            logger.info("Removing {}".format(dut_tmp_dir))
+            duthost.command("rm -rf {}".format(dut_tmp_dir))
+            time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
+
 
 @pytest.fixture
 def acl_ingress(duthosts):
@@ -437,41 +429,45 @@ def create_or_remove_acl_egress_table(duthost, setup, op):
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
         namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else DEFAULT_NAMESPACE
         if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
-            continue
-        acl_table_config = {
-            "table_name": "OUTDATAACL",
-            "table_ports": ",".join(duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]),
-            "table_stage": "egress",
-            "table_type": "L3"
-        }
-        table_port_list = []
-        if namespace:
-            for port in acl_table_config["table_ports"].split(','):
-                if port in setup['intf_per_namespace'][namespace]:
-                    table_port_list.append(port)
+            # Create ACL table on host namespace without any ports.
+            # This is done so that config acl update full can execute on all namspaces.
+            # ACL update looks for table name in host namespace.
+            sonic_host_or_asic_inst.command("config acl add table {} {} -s {}" .format("OUTDATAACL", "L3", "egress"))
         else:
-            table_port_list = acl_table_config["table_ports"].split(',')
-        if table_port_list == []:
-            continue
-        if op == "add":
-            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-            logger.info("Creating ACL table: \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
-            with loganalyzer:
-                #sonic_host_or_asic_inst.command(
-                sonic_host_or_asic_inst.command(
-                    "config acl add table {} {} -s {} -p {}".format(
-                        acl_table_config["table_name"],
-                        acl_table_config["table_type"],
-                        acl_table_config["table_stage"],
-                        ','.join(table_port_list)
+            acl_table_config = {
+                "table_name": "OUTDATAACL",
+                "table_ports": ",".join(duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]),
+                "table_stage": "egress",
+                "table_type": "L3"
+            }
+            table_port_list = []
+            if namespace:
+                for port in acl_table_config["table_ports"].split(','):
+                    intf_per_namespace = duthost.interface_facts(namespace=namespace)['ansible_facts']['ansible_interface_facts']
+                    if port in intf_per_namespace:
+                        table_port_list.append(port)
+            else:
+                table_port_list = acl_table_config["table_ports"].split(',')
+            if table_port_list == []:
+                continue
+            if op == "add":
+                loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+                logger.info("Creating ACL table: \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
+                with loganalyzer:
+                    #sonic_host_or_asic_inst.command(
+                    sonic_host_or_asic_inst.command(
+                        "config acl add table {} {} -s {} -p {}".format(
+                            acl_table_config["table_name"],
+                            acl_table_config["table_type"],
+                            acl_table_config["table_stage"],
+                            ','.join(table_port_list)
+                        )
                     )
-                )
-        elif op == "remove":
-            logger.info("Removing ACL table \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
-            sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
-        else:
-            pytest.fail("Unvalid op {} should use add or remove".format(op))
-
+            elif op == "remove":
+                logger.info("Removing ACL table \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
+                sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
+            else:
+                pytest.fail("Unvalid op {} should use add or remove".format(op))
 
 @pytest.fixture
 def acl_egress(duthosts, setup):
