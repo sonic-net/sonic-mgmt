@@ -92,8 +92,9 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_asic_index):
 
 
 def test_bgp_peer_group_password(setup, enum_asic_index):
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'\
-        .format(setup['tor1_namespace'], setup['dut_asn'], setup['peer_group_v4'], bgp_pass, setup['peer_group_v6'], bgp_pass)
+    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
+        -c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], setup['peer_group_v4'], bgp_pass,
+                         setup['peer_group_v6'], bgp_pass)
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     if len(command_output["stdout_lines"]) != 0:
@@ -127,8 +128,9 @@ def test_bgp_peer_group_password(setup, enum_asic_index):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] == 'established'
 
     # mismatch peer group passwords
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'\
-        .format(setup['tor1_namespace'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass, setup['peer_group_v6'], mismatch_pass)
+    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
+          -c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
+                           setup['peer_group_v6'], mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
@@ -148,9 +150,9 @@ def test_bgp_peer_group_password(setup, enum_asic_index):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     # turn off peer group passwords on DUT
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" '\
-        '-c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass, setup['peer_group_v6'],
-                          mismatch_pass)
+    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}"'\
+        '-c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
+                          setup['peer_group_v6'], mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
@@ -175,8 +177,9 @@ def test_bgp_peer_group_password(setup, enum_asic_index):
 
 
 def test_bgp_neighbor_password(setup, enum_asic_index):
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'\
-        .format(setup['tor1_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], bgp_pass, setup['neigh_ip_v6'], bgp_pass)
+    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
+        -c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], bgp_pass,
+                         setup['neigh_ip_v6'], bgp_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
@@ -211,8 +214,9 @@ def test_bgp_neighbor_password(setup, enum_asic_index):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] == 'established'
 
     # mismatch passwords
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" -c "end"'\
-        .format(setup['tor1_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'], mismatch_pass)
+    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
+        -c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], mismatch_pass,
+                         setup['neigh_ip_v6'], mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
@@ -232,8 +236,10 @@ def test_bgp_neighbor_password(setup, enum_asic_index):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     # remove password configs
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}" '\
-        '-c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'], mismatch_pass)
+    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c \
+        "no neighbor {} password {}" -c "end"'.format(setup['tor1_namespace'], setup['dut_asn'], 
+                                                      setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'], 
+                                                      mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
