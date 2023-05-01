@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
     """
         In Mellanox, when techsupport is taken, it invokes fw dump.
         While taking the fw dump, the fw is busy and doesn't respond to other calls.
@@ -22,6 +22,6 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
         ".*ERR kernel:.*Fails to get module type.*",
         ".*ERR pmon#xcvrd:.*Failed to read sfp.*"
     ]
-
-    if loganalyzer:
-        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
+    for dut in duthosts:
+        if loganalyzer and loganalyzer[dut.hostname]:
+            loganalyzer[dut.hostname].ignore_regex.extend(ignoreRegex)
