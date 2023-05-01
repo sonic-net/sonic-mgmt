@@ -63,14 +63,18 @@ def announce_default_routes(localhost, tbinfo):
     topo_name = tbinfo["topo"]["name"]
     if topo_name not in ['t0', 'm0', 'mx']:
         return
-    logger.info("withdraw and announce default ipv4 and ipv6 routes for {}".format(topo_name))
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action=WITHDRAW, path="../ansible/")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action=ANNOUNCE, path="../ansible/")
+    logger.info(
+        "withdraw and announce default ipv4 and ipv6 routes for {}".format(topo_name))
+    localhost.announce_routes(
+        topo_name=topo_name, ptf_ip=ptf_ip, action=WITHDRAW, path="../ansible/")
+    localhost.announce_routes(
+        topo_name=topo_name, ptf_ip=ptf_ip, action=ANNOUNCE, path="../ansible/")
 
 
 def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
-    data = {"command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
+    data = {
+        "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}    
     r = requests.post(url, data=data)
     assert r.status_code == 200
 
@@ -120,8 +124,8 @@ def check_route(asichost, route, dev_port, operation):
 def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip):
     # use ptf sender interface mac for easy identify testing packets
     src_mac = ptfadapter.dataplane.get_mac(0, ptf_send_port)
-    pkt = testutils.simple_icmp_packet(eth_dst = dst_mac, eth_src = src_mac, ip_src = src_ip, ip_dst = dst_ip, icmp_type=8, icmp_code=0)
-
+    pkt = testutils.simple_icmp_packet(
+        eth_dst=dst_mac, eth_src=src_mac, ip_src=src_ip, ip_dst=dst_ip, icmp_type=8, icmp_code=0)
     ext_pkt = pkt.copy()
     ext_pkt['Ether'].src = exp_src_mac
 
@@ -140,8 +144,8 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "id")
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "seq")
 
-    logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'
-                .format(ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
+    logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(
+        ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
     testutils.send(ptfadapter, ptf_send_port, pkt)
     testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
@@ -153,7 +157,8 @@ def get_ip_route_info(asichost):
 
 
 def get_exabgp_port(duthost, tbinfo, dev_port):
-    tor1 = duthost.shell("show ip int | grep -w {} | awk '{{print $4}}'".format(dev_port))['stdout']
+    tor1 = duthost.shell(
+        "show ip int | grep -w {} | awk '{{print $4}}'".format(dev_port))['stdout']
     tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     return tor1_exabgp_port
@@ -168,8 +173,8 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes, 
                     enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
     ptf_ip = tbinfo['ptf_ip']
-    common_config = tbinfo['topo']['properties']['configuration_properties'].get('common', {})
-    logger.print("Wenyi: common_config: {}".formt(common_config))
+    common_config = tbinfo['topo']['properties']['configuration_properties'].get(
+        'common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
@@ -180,9 +185,9 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     dut_mac = duthost.facts['router_mac']
     vlan_mac = ""
     if is_dualtor(tbinfo):
-        # Just let it crash if missing vlan configs on dual-tor      
+        # Just let it crash if missing vlan configs on dual-tor
         vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-        
+
         if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
             default_vlan_name = vlan_cfgs['default_vlan_config']
             if default_vlan_name:
@@ -252,22 +257,23 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             aspath = list(dst_prefix_set)[route_index].aspath
 
             #test link status
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
-
+            send_recv_ping_packet(
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is withdraw with first 3 routes
             if route_index < 4:
                 time.sleep(1)
                 check_route(asichost, dst_prefix, dev_port, WITHDRAW)
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             announce_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is announced with first 3 routes
             if route_index < 4:
                 time.sleep(1)
                 check_route(asichost, dst_prefix, dev_port, ANNOUNCE)
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
-
+            send_recv_ping_packet(
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
             route_index += 1
 
         loop_times -= 1
