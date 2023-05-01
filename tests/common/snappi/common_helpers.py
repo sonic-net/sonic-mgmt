@@ -445,11 +445,11 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
 
         """ Ensure that Kmin is no larger than Kmax during the update """
 
-        gmx_cmd = 'sudo ecnconfig -p {} -gmax {}'
+        gmax_cmd = 'sudo ecnconfig -p {} -gmax {}'
         gmin_cmd = 'sudo ecnconfig -p {} -gmin {}'
 
         if asic_value != 'None':
-            gmx_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmax {}' % asic_value
+            gmax_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmax {}' % asic_value
             gmin_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmin {}' % asic_value
             if asic_type == 'broadcom':
                 try:
@@ -458,11 +458,11 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
                     host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
 
         if kmin > kmin_old:
-            host_ans.shell(gmx_cmd.format(p, kmax))
+            host_ans.shell(gmax_cmd.format(p, kmax))
             host_ans.shell(gmin_cmd.format(p, kmin))
         else:
             host_ans.shell(gmin_cmd.format(p, kmin))
-            host_ans.shell(gmx_cmd.format(p, kmax))
+            host_ans.shell(gmax_cmd.format(p, kmax))
 
     return True
 
@@ -527,14 +527,14 @@ def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value='None'):
         host_ans.shell('sudo ip netns exec {} mmuconfig -p {} -a {}'.format(asic_value, profile, alpha_log2))
 
 
-def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, namespace='None'):
+def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, asic_value='None'):
     """
     Configure ingress buffer thresholds (a.k.a., alpha) of a device to 2^alpha_log2
 
     Args:
         host_ans: Ansible host instance of the device
         alpha_log2 (int): set threshold to 2^alpha_log2
-        namespace: asic value of the host
+        asic_value: asic value of the host
 
     Returns:
         If configuration succeeds (bool)
@@ -542,13 +542,13 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, namespace='None')
     if not isinstance(alpha_log2, int):
         return False
 
-    if namespace == 'None':
+    if asic_value == 'None':
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
                                             host=host_ans.hostname,
                                             source="running",
-                                            namespace=namespace
+                                            namespace=asic_value
                                             )['ansible_facts']
 
     if "BUFFER_PROFILE" not in list(config_facts.keys()):
@@ -561,16 +561,16 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, namespace='None')
             ingress_profiles.append(profile)
 
     for profile in ingress_profiles:
-        config_buffer_alpha(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2, asic_value=namespace)
+        config_buffer_alpha(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2, asic_value=asic_value)
 
     """ Check if configuration succeeds """
-    if namespace == 'None':
+    if asic_value == 'None':
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
                                             host=host_ans.hostname,
                                             source="running",
-                                            namespace=namespace
+                                            namespace=asic_value
                                             )['ansible_facts']
 
     for profile in ingress_profiles:
@@ -581,7 +581,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, namespace='None')
     return True
 
 
-def get_pfcwd_config_attr(host_ans, config_scope, attr, namespace='None'):
+def get_pfcwd_config_attr(host_ans, config_scope, attr, asic_value='None'):
     """
     Get PFC watchdog configuration attribute
 
@@ -589,18 +589,18 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr, namespace='None'):
         host_ans: Ansible host instance of the device
         config_scope (str): 'GLOBAL' or interface name
         attr (str): config attribute name, e.g., 'detection_time'
-        namespace: asic value of the host
+        asic_value: asic value of the host
 
     Returns:
         config attribute (str) or None
     """
-    if namespace == 'None':
+    if asic_value == 'None':
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
                                             host=host_ans.hostname,
                                             source="running",
-                                            namespace=namespace
+                                            namespace=asic_value
                                             )['ansible_facts']
 
     if 'PFC_WD' not in list(config_facts.keys()):
