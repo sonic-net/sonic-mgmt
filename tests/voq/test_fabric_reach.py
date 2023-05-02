@@ -12,6 +12,7 @@ pytestmark = [
 localModule = 0
 supervisorAsicBase = 1
 
+
 # Try to get the reference data, and if the reference data files
 # not updated, error out the test rather than fail it.
 @pytest.fixture()
@@ -37,6 +38,7 @@ def refData(duthosts):
         referenceData[slot] = yaml.load(f)
     return referenceData
 
+
 # Try to load the setup information for supvisor.
 @pytest.fixture()
 def supData(duthosts):
@@ -53,6 +55,7 @@ def supData(duthosts):
     supData = yaml.load(f)
     f.close()
     return supData
+
 
 # Added a function to setup fabric links reference data for sup.
 @pytest.fixture()

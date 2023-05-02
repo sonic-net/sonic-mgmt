@@ -15,6 +15,7 @@ pytestmark = [
 # and runs the CLI command to get the link status
 # on the system and compares the output.
 
+
 # Try to get the reference data. If the reference data files
 # not updated, error out the test rather than fail it.
 @pytest.fixture()
