@@ -371,7 +371,7 @@ def acl_ingress(duthosts):
     acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path)
 
 
-def create_or_remove_acl_egress_table(duthost, setup, op):
+def create_or_remove_acl_egress_table(duthost, op):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_create_or_remove_acl_egress_table")
 
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
