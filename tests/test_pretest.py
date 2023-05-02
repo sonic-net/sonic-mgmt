@@ -307,14 +307,6 @@ def test_update_saithrift_ptf(request, ptfhost):
     logging.info("Python saithrift package installed successfully")
 
 
-def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
-    '''
-     Stop pfcwd on dual tor testbeds
-    '''
-    dut = duthosts[enum_dut_hostname]
-    dut.command('pfcwd stop')
-
-
 def prepare_autonegtest_params(duthosts, fanouthosts):
     from tests.common.platform.device_utils import list_dut_fanout_connections
 
