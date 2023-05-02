@@ -910,6 +910,9 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt, port
     return port_packet_count
 
 
+# behavior has changed with such that ecmp groups that span across multiple
+# mux interfaces are not balanced. Instead we expect packets to be sent to
+# a single mux interface.
 def check_nexthops_balance(rand_selected_dut,
     ptfadapter,
     dst_server_addr,
@@ -979,6 +982,69 @@ def check_nexthops_balance(rand_selected_dut,
             if count < pkt_num_lo or count > pkt_num_hi:
                 balance = False
                 pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on portchannel {}".format(
+                    pc))
+
+
+# verify nexthops are only sent to single active or standby mux
+def check_nexthops_single_downlink(rand_selected_dut,
+    ptfadapter,
+    dst_server_addr,
+    tbinfo,
+    downlink_ints):
+    HASH_KEYS = ["src-port", "dst-port", "src-ip"]
+    # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
+    expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+    expected_uplink_ports = list()
+    expected_uplink_portchannels = list()
+    portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
+    for pc, intfs in portchannel_ports.items():
+        expected_uplink_portchannels.append(pc)
+        for member in intfs:
+            expected_uplink_ports.append(int(member.strip("eth")))
+    logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
+    logging.info("Expecting packets in uplink ports {}".format(expected_uplink_ports))
+
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
+    port_packet_count = dict()
+    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr, 10000)
+    for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
+        # expect multi-mux nexthops to focus packets to one downlink
+        all_allowed_ports = expected_downlink_ports
+        ptf_port_count = count_matched_packets_all_ports(ptfadapter,
+                                            exp_packet=exp_pkt,
+                                            exp_tunnel_pkt=exp_tunnel_pkt,
+                                            ports=all_allowed_ports,
+                                            timeout=0.1,
+                                            count=1)
+
+        for ptf_idx, pkt_count in ptf_port_count.items():
+            port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
+
+    logging.info("Received packets in ports: {}".format(str(port_packet_count)))
+    expect_packet_num = 10000
+    for downlink_int in expected_downlink_ports:
+        # packets should be either 0 or expect_packet_num:
+        count = port_packet_count.get(downlink_int, 0)
+        logging.info("Packets received on downlink port {}: {}".format(downlink_int, count))
+        if count > 0 and count != expect_packet_num:
+            all_pkts = False
+            pt_assert(all_pkts, "Packets not sent down single active port {}".format(downlink_int))
+
+    if len(downlink_ints) == 0:
+        # All nexthops are now connected to standby mux, and the packets will be sent towards a single portchanel int
+        # Check if uplink distribution is towards a single portchannel
+        for pc, intfs in portchannel_ports.items():
+            count = 0
+            # Collect the packets count within a single portchannel
+            for member in intfs:
+                uplink_int = int(member.strip("eth"))
+                count = count + port_packet_count.get(uplink_int, 0)
+            logging.info("Packets received on portchannel {}: {}".format(pc, count))
+
+            if count > 0 and count != expect_packet_num:
+                all_pkts = False
+                pt_assert(all_pkts, "Packets not sent up single standby port {}".format(
                     pc))
 
 
