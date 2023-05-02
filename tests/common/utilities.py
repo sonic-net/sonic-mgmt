@@ -869,3 +869,16 @@ def run_until(delay, retry, condition, function, *args, **kwargs):
             if delay > 0:
                 time.sleep(delay)
     return func_call_result
+
+
+def convert_scapy_packet_to_bytes(packet):
+    """Convert scapy packet to bytes for python2 and python3 compatibility
+    Args:
+        packet: scapy packet
+    Returns:
+        str or bytes: packet in bytes
+    """
+    if six.PY2:
+        return str(packet)
+    else:
+        return bytes(packet)
