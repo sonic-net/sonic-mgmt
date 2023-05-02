@@ -3,7 +3,7 @@ import pprint
 import pytest
 import time
 import logging
-import tech_support_cmds as cmds 
+import tech_support_cmds as cmds
 
 from random import randint
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -275,31 +275,6 @@ def execute_command(duthost, since):
     return True
 
 
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
-    """
-        In Mellanox, when techsupport is taken, it invokes fw dump.
-        While taking the fw dump, the fw is busy and doesn't respond to other calls.
-        The access of sfp eeprom happens through firmware and xcvrd gets the DOM fields
-        every 60 seconds which fails during the fw dump.
-        This is a temporary issue and this log can be ignored. 
-        Issue link: https://github.com/sonic-net/sonic-buildimage/issues/12621
-    """
-    ignoreRegex = [
-        ".*ERR kernel:.*Reg cmd access status failed.*",
-        ".*ERR kernel:.*Reg cmd access failed.*",
-        ".*ERR kernel:.*Eeprom query failed.*",
-        ".*ERR kernel:.*Fails to access.*register MCIA.*",
-        ".*ERR kernel:.*Fails to read module eeprom.*",
-        ".*ERR kernel:.*Fails to access.*module eeprom.*",
-        ".*ERR kernel:.*Fails to get module type.*",
-        ".*ERR pmon#xcvrd:.*Failed to read sfp.*"
-    ]
-
-    if loganalyzer:
-        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
-
-
 def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     test the "show techsupport" command in a loop
@@ -323,8 +298,8 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
 
 
 def add_asic_arg(format_str, cmds_list, asic_num):
-    """ 
-    Add ASIC specific arg using the supplied string formatter 
+    """
+    Add ASIC specific arg using the supplied string formatter
 
     New commands are added for each ASIC. In case of a regex
     paramter, new regex is created for each ASIC.
@@ -359,9 +334,9 @@ def add_asic_arg(format_str, cmds_list, asic_num):
 @pytest.fixture(scope='function')
 def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
-    Prepare a list of commands to be expected in the 
-    show techsupport output. All the expected commands are 
-    categorized into groups. 
+    Prepare a list of commands to be expected in the
+    show techsupport output. All the expected commands are
+    categorized into groups.
 
     For multi ASIC platforms, command strings are generated based on
     the number of ASICs.
@@ -393,9 +368,9 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     if duthost.facts["asic_type"] == "broadcom":
         cmds_to_check.update(
             {
-                "broadcom_cmd_bcmcmd": 
+                "broadcom_cmd_bcmcmd":
                     add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
-                "broadcom_cmd_misc": 
+                "broadcom_cmd_misc":
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
@@ -422,8 +397,8 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist):
-    """ 
-    Check commands within a group against the command list 
+    """
+    Check commands within a group against the command list
 
     Returns: list commands not found
     """
