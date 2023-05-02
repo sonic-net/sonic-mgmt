@@ -700,9 +700,9 @@ pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on m0/mx or dual tor testbed."
+    reason: "Pfcwd tests skipped on m0/mx testbed."
     conditions:
-      - "'dualtor' in topo_name or topo_name in ['m0', 'mx']"
+      - "topo_name in ['m0', 'mx']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -1034,15 +1034,6 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.44'"
-
-#######################################
-#####       test_pretest.py       #####
-#######################################
-test_pretest.py::test_stop_pfcwd:
-  skip:
-    reason: "Skip this test on non dualTOR testbeds."
-    conditions:
-      - "'dualtor' not in topo_name"
 
 #######################################
 #####            vlan             #####
