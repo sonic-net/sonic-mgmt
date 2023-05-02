@@ -446,7 +446,6 @@ class QosSaiBase(QosBase):
         """
         swapSyncd = request.config.getoption("--qos_swap_syncd")
         public_docker_reg = request.config.getoption("--public_docker_registry")
-        swapSyncd = 0
         try:
             if swapSyncd:
                 if public_docker_reg:
