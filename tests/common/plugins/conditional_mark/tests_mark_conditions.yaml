@@ -772,9 +772,9 @@ qos/test_buffer.py:
 
 qos/test_buffer_traditional.py:
   skip:
-    reason: "Buffer traditional test is only supported 201911 branch and not yet supported on multi-ASIC platform."
+    reason: "Buffer traditional test is only supported 201911 branch"
     conditions:
-      - "is_multi_asic==True or release not in ['201911']"
+      - "release not in ['201911']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
