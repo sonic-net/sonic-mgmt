@@ -9,16 +9,56 @@ pytestmark = [
     pytest.mark.topology('t2')
 ]
 
-supReferenceData = {}
 localModule = 0
 supervisorAsicBase = 1
 
-# Added a function to setup the reference data for sup.
+# Try to get the reference data, and if the reference data files
+# not updated, error out the test rather than fail it.
+@pytest.fixture()
+def refData(duthosts):
+    # Get hwSku for Fabriccards from the supervisor.
+    if len(duthosts.supervisor_nodes) == 0:
+        logger.info("Please run the test on modular systems")
+        return {}
+    duthost = duthosts.supervisor_nodes[0]
+    logger.info("duthost: {}".format(duthost.hostname))
+    fabric_sku = None
+    fabric_sku = duthost.facts['hwsku']
+    pytest_assert(fabric_sku, "Need to add hwSku information for sup")
 
+    # Check reference data found, error out the test.
+    referenceData = {}
+    for duthost in duthosts.frontend_nodes:
+        slot = duthost.facts['slot_num']
+        lc_sku = duthost.facts['hwsku']
+        fileName = lc_sku + "_" + fabric_sku + "_" + "LC" + str(slot) + ".yaml"
+        f = open("voq/fabric_data/{}".format(fileName))
+        pytest_assert(f, "Need to update expected data for {}".format(fileName))
+        referenceData[slot] = yaml.load(f)
+    return referenceData
 
-def test_setup_reference_data(duthosts):
+# Try to load the setup information for supvisor.
+@pytest.fixture()
+def supData(duthosts):
+    if len(duthosts.supervisor_nodes) == 0:
+        logger.info("Please run the test on modular systems")
+        return {}
+    duthost = duthosts.supervisor_nodes[0]
+    logger.info("duthost: {}".format(duthost.hostname))
+    fabric_sku = None
+    fabric_sku = duthost.facts['hwsku']
+    fileName = fabric_sku + ".yaml"
+    f = open("voq/fabric_data/{}".format(fileName))
+    pytest_assert(f, "Need to update expected data for {}".format(fileName))
+    supData = yaml.load(f)
+    f.close()
+    return supData
+
+# Added a function to setup fabric links reference data for sup.
+@pytest.fixture()
+def supReferenceData(duthosts):
     # supReferenceData has the expected data for sup
-    global supReferenceData
+    supReferenceData = {}
     keys = []
     if len(duthosts.supervisor_nodes) == 0:
         logger.info("Please run the test on modular systems")
@@ -31,6 +71,7 @@ def test_setup_reference_data(duthosts):
     for asic in range(num_asics):
         keys.append('asic' + str(asic))
     supReferenceData = {key: {} for key in keys}
+    return supReferenceData
 
 # This test checks the output of the "show fabric reachability" command
 # on one linecard. It is called once for each linecard in the chassis.
@@ -38,9 +79,9 @@ def test_setup_reference_data(duthosts):
 # and compares the output.
 
 
-def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
+def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
+                                supReferenceData, refData, supData):
     """compare the CLI output with the reference data"""
-    global supReferenceData
     global localModule
     global supervisorAsicBase
 
@@ -51,28 +92,11 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
     duthost = duthosts.supervisor_nodes[0]
     logger.info("duthost: {}".format(duthost.hostname))
 
-    # Get hwSku for Fabriccards from the supervisor.
-    fabric_sku = None
-    fabric_sku = duthost.facts['hwsku']
-    pytest_assert(fabric_sku, "Need to add hwSku information for sup")
-
     # Load the reference data file.
     duthost = duthosts[enum_frontend_dut_hostname]
     logger.info("duthost: {}".format(duthost.hostname))
-    lc_sku = duthost.facts['hwsku']
     slot = duthost.facts['slot_num']
-    fileName = lc_sku + "_" + fabric_sku + "_" + "LC" + str(slot) + ".yaml"
-    f = open("voq/fabric_data/{}".format(fileName))
-    pytest_assert(f, "Need to update expected data for {}".format(fileName))
-    referenceData = yaml.load(f)
-    f.close()
-
-    # Load supervisor reference data
-    fileName = fabric_sku + ".yaml"
-    f = open("voq/fabric_data/{}".format(fileName))
-    pytest_assert(f, "Need to update expected data for {}".format(fileName))
-    supData = yaml.load(f)
-    f.close()
+    referenceData = refData[slot]
 
     # base module Id for asics on supervisor
     supervisorAsicBase = int(supData['moduleIdBase'])
@@ -119,7 +143,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
             fabricAsic = 'asic' + str(remoteMod - supervisorAsicBase)
             lkData = {'peer slot': slot, 'peer lk': localPortName, 'peer asic': asic, 'peer mod': localModule}
             supReferenceData[fabricAsic].update({referenceRemotePort: lkData})
-        # the module number increased by 2
+        # the module number increased by number of asics per slot.
         localModule += asicPerSlot
 
 # This test checks the output of the "show fabric reachability -n asic<n>"
@@ -133,11 +157,10 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname):
 # and compares the output.
 
 
-def test_fabric_reach_supervisor(duthosts, enum_supervisor_dut_hostname):
+def test_fabric_reach_supervisor(duthosts, enum_supervisor_dut_hostname, supReferenceData, refData):
     """compare the CLI output with the reference data for each asic"""
 
     # supReferenceData has the expected data
-    global supReferenceData
     duthost = duthosts[enum_supervisor_dut_hostname]
     logger.info("duthost: {}".format(duthost.hostname))
     num_asics = duthost.num_asics()
