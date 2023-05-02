@@ -2107,6 +2107,21 @@
   auto_recover: 'True'
   comment: lipingxu
 
+- conf-name: vms63-t1-4600-5
+  group-name: vms63-4
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: vms63-4
+  ptf_ip: 10.64.247.48/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63032
+  dut:
+    - str3-msn4600c-acs-05
+  inv_name: str3
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: testbed-bjw-can-3800-1
   group-name: bjw7-7
   topo: t1

@@ -39,6 +39,9 @@ all:
           ansible_host: 10.64.247.43
         vms63-3:
           ansible_host: 10.64.247.44
+        vms63-4:
+          ansible_host: 10.64.247.48
+
     pdu:
       hosts:
         pdu-85:
@@ -61,6 +64,9 @@ all:
           protocol: snmp
         pdu-92:
           ansible_host: 10.3.155.92
+          protocol: snmp
+        pdu-93:
+          ansible_host: 10.3.155.93
           protocol: snmp
         pdu-115:
           ansible_host: 10.3.155.115
@@ -139,6 +145,9 @@ fanout:
     str3-dx010-acs-1:
       ansible_host: 10.3.146.236
       os: sonic
+    str3-msn4600c-acs-06:
+      ansible_host: 10.3.146.146
+      os: sonic
 
 sonic:
   vars:
@@ -156,6 +165,30 @@ sonic:
     sonic_arista_7800_lc_100G:
     sonic_arista_7800_lc_400G:
     sonic_arista32_100:
+    sonic_mlnx_4600C:
+
+sonic_mlnx_4600C:
+  vars:
+    hwsku: ACS-MSN4600C
+    iface_speed: 100000
+  hosts:
+    str3-msn4600c-acs-05:
+      ansible_host: 10.3.146.222
+      model: MSN4600-CS2FO
+      serial: MT2021X01037
+      base_mac: 1C:34:DA:1D:13:00
+      syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2FO"
+        "0x23": "MT2021X01037"
+        "0x24": "1C:34:DA:1D:13:00"
+        "0x25": "05/28/2020 07:26:14"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2019.11-5.2.0020-115200"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x41E7E224"
 
 sonic_cisco_8102:
   vars:

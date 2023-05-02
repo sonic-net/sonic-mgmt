@@ -2,7 +2,7 @@ Hostname,ManagementIp,HwSku,Type,Protocol,Os
 str3-7260cx3-acs-root03,10.3.146.152/23,Arista-7260CX3-64,FanoutRoot,,
 str3-acs-serv-61,10.64.246.96/23,TestServ,Server,,
 str3-acs-serv-62,10.64.246.6/23,TestServ,Server,,
-str3-acs-serv-63,10.64.246.41/23,TestServ,Server,,
+str3-acs-serv-63,10.64.247.41/23,TestServ,Server,,
 str3-7260cx3-acs-fan-01,10.3.146.33/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-02,10.3.146.35/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-03,10.3.146.32/23,Arista-7260CX3,FanoutLeaf,,
@@ -18,6 +18,8 @@ str3-8101-fanout-02,10.3.146.193/23,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-03,10.3.146.192/23,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-05,10.3.146.177/23,Cisco-8101-O32,FanoutLeaf,,
 str3-8101-fanout-06,10.3.146.178/23,Cisco-8101-O32,FanoutLeaf,,
+str3-msn4600c-acs-06,10.3.146.146/23,ACS-MSN4600C,FanoutLeaf,,sonic
+str3-msn4600c-acs-05,10.3.146.222/23,ACS-MSN4600C,DevSonic,,sonic
 str3-8102-01,10.3.146.120/23,Cisco-8102-C64,DevSonic,,sonic
 str3-8102-05,10.3.146.121/23,Cisco-8102-C64,DevSonic,,sonic
 str3-8102-06,10.3.146.78/23,Cisco-8102-C64,DevSonic,,sonic
@@ -48,6 +50,7 @@ pdu-89,10.3.155.89,Apc,Pdu,snmp,
 pdu-90,10.3.155.90,Apc,Pdu,snmp,
 pdu-91,10.3.155.91,Sentry,Pdu,snmp,
 pdu-92,10.3.155.92,Sentry,Pdu,snmp,
+pdu-93,10.3.155.93,Sentry,Pdu,snmp,
 pdu-115,10.3.155.115,Sentry,Pdu,snmp,
 pdu-116,10.3.155.116,Sentry,Pdu,snmp,
 pdu-118,10.3.155.118,Sentry,Pdu,snmp,
@@ -55,6 +58,7 @@ pdu-122,10.3.155.122,Sentry,Pdu,snmp,
 pdu-123,10.3.155.123,Sentry,Pdu,snmp,
 pdu-119,10.3.155.119,Sentry4,Pdu,snmp,
 pdu-120,10.3.155.120,Sentry4,Pdu,snmp,
+console-175,10.3.145.175,Cisco,ConsoleServer,ssh,
 console-182,10.3.145.182,Cisco,ConsoleServer,ssh,
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
