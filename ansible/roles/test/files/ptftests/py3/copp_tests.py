@@ -238,34 +238,6 @@ class ControlPlaneBaseTest(BaseTest):
         self.log('RX PPS = %d' % rx_pps)
 
 
-class NoPolicyTest(ControlPlaneBaseTest):
-    def __init__(self):
-        ControlPlaneBaseTest.__init__(self)
-        self.needPreSend = False
-
-    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
-        pkt_rx_limit = send_count * 0.90
-
-        self.log("")
-        self.log("Checking constraints (NoPolicy):")
-        self.log(
-            "rx_pps (%d) > NO_POLICER_LIMIT (%d): %s" %
-            (int(rx_pps), int(self.NO_POLICER_LIMIT),
-             str(rx_pps > self.NO_POLICER_LIMIT))
-        )
-        self.log(
-            "recv_count (%d) > pkt_rx_limit (%d): %s" %
-            (int(recv_count), int(pkt_rx_limit), str(recv_count > pkt_rx_limit))
-        )
-
-        if self.has_trap:
-            assert (rx_pps > self.NO_POLICER_LIMIT)
-            assert (recv_count > pkt_rx_limit)
-        else:
-            assert (rx_pps < self.NO_POLICER_LIMIT)
-            assert (recv_count < pkt_rx_limit)
-
-
 class PolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
@@ -351,9 +323,9 @@ class DHCPTopoT1Test(PolicyTest):
 
 
 # SONIC configuration has no policer limiting for DHCP
-class DHCPTest(NoPolicyTest):
+class DHCPTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("DHCPTest")
@@ -385,9 +357,9 @@ class DHCPTest(NoPolicyTest):
 
 
 # SONIC configuration has no policer limiting for DHCPv6
-class DHCP6Test(NoPolicyTest):
+class DHCP6Test(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("DHCP6Test")
@@ -439,9 +411,9 @@ class DHCP6TopoT1Test(PolicyTest):
 # SONIC configuration has no policer limiting for LLDP
 
 
-class LLDPTest(NoPolicyTest):
+class LLDPTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("LLDPTest")
@@ -460,9 +432,9 @@ class LLDPTest(NoPolicyTest):
 
 
 # SONIC configuration has no policer limiting for UDLD
-class UDLDTest(NoPolicyTest):
+class UDLDTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("UDLDTest")
@@ -486,9 +458,9 @@ class UDLDTest(NoPolicyTest):
 
 
 # SONIC configuration has no policer limiting for BGP
-class BGPTest(NoPolicyTest):
+class BGPTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("BGPTest")
@@ -509,9 +481,9 @@ class BGPTest(NoPolicyTest):
 
 
 # SONIC configuration has no policer limiting for LACP
-class LACPTest(NoPolicyTest):
+class LACPTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("LACPTest")
