@@ -1,6 +1,5 @@
 import time
 import logging
-import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.snappi_helpers import get_dut_port_id
