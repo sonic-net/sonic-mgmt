@@ -1,5 +1,6 @@
 import time
 import logging
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.snappi_helpers import get_dut_port_id
@@ -10,7 +11,9 @@ from tests.common.snappi.snappi_helpers import wait_for_arp
 logger = logging.getLogger(__name__)
 
 FLOW_NAME = 'IP-IP Test Flow'
-FLOW_AGGR_RATE_PERCENT = 95
+TX_PORT_NAME = None
+RX_PORT_NAME = None
+FLOW_AGGR_RATE_PERCENT = 70
 LARGER_PKT_SIZE = 512
 SMALLER_PKT_SIZE = 256
 PKT_STEP_SIZE = LARGER_PKT_SIZE - SMALLER_PKT_SIZE
@@ -21,17 +24,10 @@ TOTAL_NUM_PKTS = 100000
 EXP_FLOW_DUR_SEC = 3
 PKT_SEND_DELAY = 2
 SNAPPI_POLL_DELAY_SEC = 2
-OUTER_PKT_SRC_IP = "15.0.20.20"
-OUTER_PKT_DST_IP = "16.0.20.20"
-STATIC_SRC_IP = "15.0.20.0"
-STATIC_DST_IP = "16.0.20.0"
 INNER_PKT_SRC_IP = "20.0.20.0"
 INNER_PKT_DST_IP = "21.0.20.0"
-DUT_INGRESS_GW_IP = "30.0.30.10"
-DUT_EGRESS_GW_IP = "31.0.30.10"
-NEIGHBOR_EGRESS_INTF_IP = "30.0.30.20"
-NEIGHBOR_INGRESS_INTF_IP = "31.0.30.20"
-IP_SUBNET = 24
+STATIC_IP_SUBNET = 24
+SEQUENCE_CHECKING_THRESHOLD = 1
 
 
 def run_ipip_packet_reorder_test(api,
@@ -103,10 +99,6 @@ def run_ipip_packet_reorder_test(api,
                      exp_rx_pkts=TOTAL_NUM_PKTS)
 
 
-def sec_to_nanosec(sec):
-    return sec * 1e9
-
-
 def __gen_traffic(duthost,
                   testbed_config,
                   port_config_list,
@@ -152,130 +144,70 @@ def __gen_traffic(duthost,
     tx_port_config = next((port_tx for port_tx in port_config_list if port_tx.id == tx_port_id), None)
     rx_port_config = next((port_rx for port_rx in port_config_list if port_rx.id == rx_port_id), None)
 
-    # Configure interfaces and gateway on DUT
-    __configure_DUT(duthost=duthost,
-                    ingress_intf=tx_port_config.peer_port,
-                    egress_intf=rx_port_config.peer_port)
+    # Set the correct MAC address for the switch
+    tx_mac = tx_port_config.mac
+    if tx_port_config.gateway == rx_port_config.gateway and \
+       tx_port_config.prefix_len == rx_port_config.prefix_len:
+        # If soruce and destination port are in the same subnet, use the rx port MAC, else use the switch MAC
+        rx_mac = rx_port_config.mac
+    else:
+        rx_mac = tx_port_config.gateway_mac
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
 
-    # Begin configuring flows
-    ipip_flow = testbed_config.flows.flow(name="{} Packet".format(flow_name))[-1]
-    ipip_flow.tx_rx.port.tx_name = tx_port_name
-    ipip_flow.tx_rx.port.rx_name = rx_port_name
-    eth, outer_ipv4, inner_ipv4, udp = ipip_flow.packet.ethernet().ipv4().ipv4().udp()
+    global TX_PORT_NAME, RX_PORT_NAME
+    TX_PORT_NAME = tx_port_name
+    RX_PORT_NAME = rx_port_name
 
-    # Configure ethernet header
-    eth.src.value = "00:AA:00:00:04:00"
-    eth.dst.value = "00:AA:00:00:00:AA"
-
-    # Configure outer IPv4 header
-    outer_ipv4.src.value = OUTER_PKT_SRC_IP
-    outer_ipv4.dst.value = OUTER_PKT_DST_IP
-    outer_ipv4.identification.choice = "increment"
-    outer_ipv4.identification.increment.start = 1
-    outer_ipv4.identification.increment.step = 1
-    outer_ipv4.identification.increment.count = total_tx_pkts
-    outer_ipv4.priority.choice = outer_ipv4.priority.DSCP
-    outer_ipv4.priority.dscp.ecn.value = (
-        outer_ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
-
-    # Configure inner IPv4 header
-    inner_ipv4.src.value = INNER_PKT_SRC_IP
-    inner_ipv4.dst.value = INNER_PKT_DST_IP
-    inner_ipv4.priority.choice = inner_ipv4.priority.DSCP
-    inner_ipv4.priority.dscp.ecn.value = (
-        inner_ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
-
-    # Configure UDP header
-    udp.src_port.value = UDP_SRC_PORT
-    udp.dst_port.value = UDP_DST_PORT
-    udp.length.value = UDP_PKT_LEN
-
-    # Configure the appropriate priorities for each header
     for prio in flow_prio_list:
-        eth.pfc_queue.values.append(prio)
+        # Begin configuring flows
+        ipip_flow = testbed_config.flows.flow(name="{} Packet_Prio_{}".format(flow_name, prio))[-1]
+        ipip_flow.tx_rx.port.tx_name = tx_port_name
+        ipip_flow.tx_rx.port.rx_name = rx_port_name
+        eth, outer_ipv4, inner_ipv4, udp = ipip_flow.packet.ethernet().ipv4().ipv4().udp()
+
+        # Configure ethernet header
+        eth.src.value = tx_mac
+        eth.dst.value = rx_mac
+
+        # Configure outer IPv4 header
+        outer_ipv4.src.value = tx_port_config.ip
+        outer_ipv4.dst.value = rx_port_config.ip
+        outer_ipv4.identification.choice = "increment"
+        outer_ipv4.identification.increment.start = 1
+        outer_ipv4.identification.increment.step = 1
+        outer_ipv4.identification.increment.count = total_tx_pkts
+        outer_ipv4.priority.choice = outer_ipv4.priority.DSCP
+        outer_ipv4.priority.dscp.ecn.value = (
+            outer_ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+
+        # Configure inner IPv4 header
+        inner_ipv4.src.value = INNER_PKT_SRC_IP
+        inner_ipv4.dst.value = INNER_PKT_DST_IP
+        inner_ipv4.priority.choice = inner_ipv4.priority.DSCP
+        inner_ipv4.priority.dscp.ecn.value = (
+            inner_ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+
+        # Configure UDP header
+        udp.src_port.value = UDP_SRC_PORT
+        udp.dst_port.value = UDP_DST_PORT
+        udp.length.value = UDP_PKT_LEN
+
+        # Configure the appropriate priorities for each header
+        eth.pfc_queue.value = prio
         outer_ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
         inner_ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
 
-    # Configure packet size and other variables
-    ipip_flow.size.increment.start = smaller_pkt_size
-    ipip_flow.size.increment.end = larger_pkt_size
-    ipip_flow.size.increment.step = pkt_step_size
-    ipip_flow.rate.percentage = flow_rate_percent
-    ipip_flow.duration.fixed_packets.packets = total_tx_pkts
+        # Configure packet size and other variables
+        ipip_flow.size.increment.start = smaller_pkt_size
+        ipip_flow.size.increment.end = larger_pkt_size
+        ipip_flow.size.increment.step = pkt_step_size
+        ipip_flow.rate.percentage = flow_rate_percent
+        ipip_flow.duration.fixed_packets.packets = total_tx_pkts
 
-    ipip_flow.metrics.enable = True
-    ipip_flow.metrics.loss = True
-
-    # Configure a neighbor device on the ixia device
-    neighbor_device = testbed_config.devices.device(name="ixia_neighbor_device")[-1]
-
-    # set up neighbor egress interface
-    neighbor_egress_port = neighbor_device.ethernets.add()
-    neighbor_egress_port.port_name = tx_port_name
-    neighbor_egress_port.name = "Ethernet0_ixia_egress_port"
-    neighbor_egress_port.mac = "00:AA:00:00:04:00"
-    neighbor_egress_ipv4 = neighbor_egress_port.ipv4_addresses.add()
-    neighbor_egress_ipv4.name = "ixia_egress_ipv4"
-    #neighbor_egress_ipv4.gateway_mac.choice = "auto"
-    neighbor_egress_ipv4.address = NEIGHBOR_EGRESS_INTF_IP
-    neighbor_egress_ipv4.gateway = DUT_INGRESS_GW_IP
-    neighbor_egress_ipv4.prefix = IP_SUBNET
-
-    # set up neighbor ingress interface
-    neighbor_ingress_port = neighbor_device.ethernets.add()
-    neighbor_egress_port.port_name = rx_port_name
-    neighbor_ingress_port.name = "Ethernet4_ixia_ingress_port"
-    neighbor_ingress_port.mac = "00:AA:00:00:00:AA"
-    neighbor_ingress_ipv4 = neighbor_ingress_port.ipv4_addresses.add()
-    neighbor_ingress_ipv4.name = "ixia_ingress_ipv4"
-    #neighbor_ingress_ipv4.gateway_mac.choice = "auto"
-    neighbor_ingress_ipv4.address = NEIGHBOR_INGRESS_INTF_IP
-    neighbor_ingress_ipv4.gateway = DUT_EGRESS_GW_IP
-    neighbor_ingress_ipv4.prefix = IP_SUBNET
-
-
-def __configure_DUT(duthost,
-                    ingress_intf,
-                    egress_intf):
-
-    """
-    Configure interface, gateway and static IP addresses on DUT
-    Args:
-        duthost (Ansible host instance): device under test
-        ingress_intf (str): ingress interface on DUT connected to ixia neighbor device ex. Ethernet4
-        egress_intf (str): egress interface on DUT connected to ixia neighbor device ex. Ethernet8
-    Returns:
-        N/A
-    """
-
-    # Configure IP gateway for both ingress and egress ports on DUT
-    duthost.shell("sudo config interface ip add {} {}/{}".format(ingress_intf, DUT_INGRESS_GW_IP, IP_SUBNET))
-    duthost.shell("sudo config interface ip add {} {}/{}".format(egress_intf, DUT_EGRESS_GW_IP, IP_SUBNET))
-
-    # Confirm that the gateway is configured on the interface
-    ingress_config = duthost.shell("redis-cli -n 4 KEYS '*INTERFACE|{}|{}*'"
-                                   .format(ingress_intf, DUT_INGRESS_GW_IP))['stdout']
-    egress_config = duthost.shell("redis-cli -n 4 KEYS '*INTERFACE|{}|{}*'"
-                                  .format(egress_intf, DUT_EGRESS_GW_IP))['stdout']
-    pytest_assert(ingress_config == "INTERFACE|{}|{}/{}".format(ingress_intf, DUT_INGRESS_GW_IP, IP_SUBNET),
-                  "Ingress interface {} is not configured with gateway {}".format(ingress_intf, DUT_INGRESS_GW_IP))
-    pytest_assert(egress_config == "INTERFACE|{}|{}/{}".format(egress_intf, DUT_EGRESS_GW_IP, IP_SUBNET),
-                  "Egress interface {} is not configured with gateway {}".format(egress_intf, DUT_EGRESS_GW_IP))
-
-    # Configure static IPs on each of the gateways
-    duthost.shell("sudo config route add prefix {}/{} nexthop {}"
-                  .format(STATIC_SRC_IP, IP_SUBNET, NEIGHBOR_EGRESS_INTF_IP))
-    duthost.shell("sudo config route add prefix {}/{} nexthop {}"
-                  .format(STATIC_DST_IP, IP_SUBNET, NEIGHBOR_INGRESS_INTF_IP))
-
-    # Confirm that the static routes are configured on the DUT
-    static_out_str = duthost.shell("redis-cli -n 4 KEYS '*STATIC_ROUTE*'")['stdout_lines']
-    for static_route in static_out_str:
-        pytest_assert(STATIC_SRC_IP in static_route or STATIC_DST_IP in static_route,
-                      "Static route not configured on DUT")
+        ipip_flow.metrics.enable = True
+        ipip_flow.metrics.loss = True
 
 
 def __run_traffic(api,
@@ -298,6 +230,9 @@ def __run_traffic(api,
 
     logger.info('Wait for Arp to Resolve ...')
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
+
+    logger.info("Setting up Ixia API session to capture advanced statistics ...")
+    __configure_advanced_stats(api)
 
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
@@ -339,6 +274,23 @@ def __run_traffic(api,
     return flow_metrics
 
 
+def __configure_advanced_stats(api):
+    """
+    Set up advanced statistics on the Ixia API session
+    Args:
+        api (obj): snappi session
+    Returns:
+        N/A
+    """
+
+    # Connect to restpy session
+    restpy_session = api.assistant.Session
+    ixnet = restpy_session.Ixnetwork
+    statVarIxia = ixnet.Traffic.Statistics
+    statVarIxia.AdvancedSequenceChecking.Enabled = True
+    statVarIxia.AdvancedSequenceChecking.AdvancedSequenceThreshold = SEQUENCE_CHECKING_THRESHOLD
+
+
 def __verify_results(api,
                      flow_metrics,
                      exp_rx_pkts):
@@ -352,7 +304,7 @@ def __verify_results(api,
         N/A
     """
 
-    # calculate total frames sent and received across all configured ports
+    # Calculate total frames sent and received across all configured ports
     total_tx = sum([flow_metric.frames_tx for flow_metric in flow_metrics])
     total_rx = sum([flow_metric.frames_rx for flow_metric in flow_metrics])
 
@@ -361,11 +313,10 @@ def __verify_results(api,
     pytest_assert(total_rx == exp_rx_pkts, "Number of total Rx packets = {} are not equal to expected packets = {}"
                   .format(total_rx, exp_rx_pkts))
 
-    # check for packet re-order
-    restpy_session = api.assistant.Session  # handler to ix-network RESTPy session
-    for stat in (restpy_session.StatViewAssistant('Flow Statistics').Rows):
-        small_error = stat["Small Error"]
-        big_error = stat["Big Error"]
-
-        pytest_assert(small_error == 0, "Packet re-ordering detected. Small error = {}".format(small_error))
-        pytest_assert(big_error == 0, "Packet re-ordering detected. Big error = {}".format(big_error))
+    # Check for packet re-order
+    flow_stat = api.assistant.StatViewAssistant("Flow Statistics")
+    for stat in flow_stat.Rows:
+        in_order_frames = int(stat["In Order Frames"])
+        reordered_frames = int(stat["Reordered Frames"])
+        error_msg = "Frames are out of order. Reordered frames = {}".format(reordered_frames)
+        pytest_assert(in_order_frames == total_tx and reordered_frames == 0, error_msg)
