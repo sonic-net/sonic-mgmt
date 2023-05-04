@@ -92,14 +92,17 @@ parameters:
 
 - name: DUMP_KVM_IF_FAIL
   type: string
-  default: True
+  default: "True"
+  values:
+  - "True"
+  - "False"
 
 - name: REQUESTER
   type: string
   default: ""
 
 - name: MAX_RUN_TEST_MINUTES
-  type: string
+  type: number
   default: 480
 
 - name: SPECIFIED_PARAMS
