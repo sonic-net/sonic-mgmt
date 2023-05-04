@@ -74,7 +74,7 @@ def announce_default_routes(localhost, tbinfo):
 def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
     data = {
-        "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}    
+        "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
     r = requests.post(url, data=data)
     assert r.status_code == 200
 
@@ -178,6 +178,7 @@ def filter_routes(iproute_info, route_prefix_len):
                 continue
             filtered_iproutes[route_prefix] = iproute_info[route_prefix]
     return filtered_iproutes
+
 
 def get_filtered_iproute_info(duthost, route_prefix_len):
     dev = {}
@@ -286,7 +287,9 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
         normalized_level = 'basic'
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
+
     # accommadate for t2 chassis which could have 30k~50k routes
+
     def switch(x):
         return {
             't2': 1000,
@@ -300,7 +303,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             dst_prefix = list(dst_prefix_set)[route_index].route
             aspath = list(dst_prefix_set)[route_index].aspath
 
-            #test link status
+            # test link status
             send_recv_ping_packet(
                 ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
