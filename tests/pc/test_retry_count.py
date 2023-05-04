@@ -191,6 +191,7 @@ def disable_retry_count_on_peer(request, nbrhosts, higher_retry_count_on_peers):
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature true")
 
+
 @pytest.fixture(scope="function")
 def disable_retry_count_on_dut(request, duthost, higher_retry_count_on_dut):
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
@@ -214,7 +215,9 @@ class TestNeighborRetryCount:
         for nbr in list(nbrhosts.keys()):
             port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
             pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on neighbor is incorrect")
-            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on DUT is incorrect; expected 5, but is {}".format(port_channel_status["runner"]["retry_count"]))
+            pytest_assert(port_channel_status["runner"]["retry_count"] == 5,
+                          "retry count on DUT is incorrect; expected 5, but is {}"
+                          .format(port_channel_status["runner"]["retry_count"]))
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         port_channels = cfg_facts["PORTCHANNEL"].keys()
@@ -225,7 +228,9 @@ class TestNeighborRetryCount:
                           "get port status error")
             for _, status in list(port_channel_status["ports"].items()):
                 pytest_assert(status["runner"]["selected"], "lag member is not up")
-                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect; expected 5, but is {}".format(status["runner"]["partner_retry_count"]))
+                pytest_assert(status["runner"]["partner_retry_count"] == 5,
+                              "partner retry count is incorrect; expected 5, but is {}"
+                              .format(status["runner"]["partner_retry_count"]))
 
     def test_peer_retry_count_packet_version(self, duthost, nbrhosts, higher_retry_count_on_peers, scapy_lacp_layer):
         """
@@ -249,7 +254,10 @@ class TestNeighborRetryCount:
             port_channel_status = duthost.get_port_channel_status(port_channel)
             for _, status in list(port_channel_status["ports"].items()):
                 pytest_assert(status["runner"]["selected"], "lag member is not up")
-                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect; expected 5, but is {}".format(status["runner"]["partner_retry_count"]))
+                pytest_assert(status["runner"]["partner_retry_count"] == 5,
+                              "partner retry count is incorrect; expected 5, but is {}"
+                              .format(status["runner"]["partner_retry_count"]))
+
 
 def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peers, disable_retry_count_on_peer):
     """
@@ -261,10 +269,13 @@ def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peer
     for port_channel in port_channels:
         port_channel_status = duthost.get_port_channel_status(port_channel)
         for _, status in list(port_channel_status["ports"].items()):
-            pytest_assert(status["runner"]["partner_retry_count"] == 3, "partner retry count is incorrect; expected 3, but is {}".format(status["runner"]["partner_retry_count"]))
+            pytest_assert(status["runner"]["partner_retry_count"] == 3,
+                          "partner retry count is incorrect; expected 3, but is {}"
+                          .format(status["runner"]["partner_retry_count"]))
 
     for nbr in list(nbrhosts.keys()):
-        processRc = nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count get PortChannel1", module_ignore_errors=True)
+        processRc = nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count get PortChannel1",
+                                                module_ignore_errors=True)
         pytest_assert(processRc["failed"], "Expected failure for getting retry count, but instead it succeeded")
 
 
@@ -277,13 +288,17 @@ class TestDutRetryCount:
         port_channels = cfg_facts["PORTCHANNEL"].keys()
         for port_channel in port_channels:
             port_channel_status = duthost.get_port_channel_status(port_channel)
-            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on DUT is incorrect; expected 5, but is {}".format(port_channel_status["runner"]["retry_count"]))
+            pytest_assert(port_channel_status["runner"]["retry_count"] == 5,
+                          "retry count on DUT is incorrect; expected 5, but is {}"
+                          .format(port_channel_status["runner"]["retry_count"]))
 
         for nbr in list(nbrhosts.keys()):
             port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
             for _, status in list(port_channel_status["ports"].items()):
                 pytest_assert(status["runner"]["selected"], "lag member is not up")
-                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect; expected 5, but is {}".format(status["runner"]["partner_retry_count"]))
+                pytest_assert(status["runner"]["partner_retry_count"] == 5,
+                              "partner retry count is incorrect; expected 5, but is {}"
+                              .format(status["runner"]["partner_retry_count"]))
 
     def test_retry_count_packet_version(self, duthost, nbrhosts, higher_retry_count_on_dut, scapy_lacp_layer):
         """
@@ -304,7 +319,10 @@ class TestDutRetryCount:
             port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
             for _, status in list(port_channel_status["ports"].items()):
                 pytest_assert(status["runner"]["selected"], "lag member is not up")
-                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect; expected 5, but is {}".format(status["runner"]["partner_retry_count"]))
+                pytest_assert(status["runner"]["partner_retry_count"] == 5,
+                              "partner retry count is incorrect; expected 5, but is {}"
+                              .format(status["runner"]["partner_retry_count"]))
+
 
 def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, disable_retry_count_on_dut):
     """
@@ -313,10 +331,13 @@ def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, 
     for nbr in list(nbrhosts.keys()):
         port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
         for _, status in list(port_channel_status["ports"].items()):
-            pytest_assert(status["runner"]["partner_retry_count"] == 3, "partner retry count is incorrect; expected 3, but is {}".format(status["runner"]["partner_retry_count"]))
+            pytest_assert(status["runner"]["partner_retry_count"] == 3,
+                          "partner retry count is incorrect; expected 3, but is {}"
+                          .format(status["runner"]["partner_retry_count"]))
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     port_channels = cfg_facts["PORTCHANNEL"].keys()
     for port_channel in port_channels:
-        processRc = duthost.shell("sudo config portchannel retry-count get {}".format(port_channel), module_ignore_errors=True)
+        processRc = duthost.shell("sudo config portchannel retry-count get {}".format(port_channel),
+                                  module_ignore_errors=True)
         pytest_assert(processRc["failed"], "Expected failure for getting retry count, but instead it succeeded")
