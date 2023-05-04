@@ -3,6 +3,7 @@ simulation:
   slurm_flags:
     pending_timeout: 60
     hours: 15
+    partition: regression
 
 devices:
   docker_ptf:
