@@ -467,7 +467,6 @@ class QosSaiBase(QosBase):
                     docker.restore_default_syncd(duthost, new_creds)
             add_route_to_ptf_cleanup(duthosts,tbinfo, request)
 
-
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
                     params=("single_asic", "single_dut_multi_asic", "multi_dut"))
     def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo, lower_tor_host):
@@ -1086,7 +1085,6 @@ class QosSaiBase(QosBase):
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
             for service in dst_services:
                 updateDockerService(dst_dut, action="stop", **service)
-
         yield
 
         for service in src_services:
@@ -1434,8 +1432,8 @@ class QosSaiBase(QosBase):
             duthost.docker_copy_to_all_asics("swss", "/tmp/switch.json", "/etc/swss/config.d/switch.json")
             self.__loadSwssConfig(duthost)
 
-       yield
-       for duthost in get_src_dst_asic_and_duts['all_duts']:
+        yield
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
             result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
             if result["matched"] > 0:
                 src = result["files"][0]["path"]
