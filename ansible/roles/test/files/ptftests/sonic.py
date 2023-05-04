@@ -211,6 +211,9 @@ class Sonic(host_device.HostDevice):
                 msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
                 self.fails.add(msg)
 
+        if cli_data['po'][1] > 0:
+            self.fails.add('Port channel flap occurred!')
+
         self.log('Finishing run()')
         return self.fails, self.info, cli_data, log_data, {
             "lacp_all": list(set(self.lacp_pdu_timings))
