@@ -14,7 +14,6 @@ from ptf import config
 import ptf.testutils as testutils
 import json
 import socket
-
 ################################################################
 #
 # Thrift interface base tests
@@ -168,6 +167,7 @@ class ThriftInterface(BaseTest):
         print ("********", file=sys.stderr)
 
     def sai_thrift_port_tx_enable(self, client, asic_type, port_list, target='dst', last_port=True):
+        sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
         if self.platform_asic and self.platform_asic == "broadcom-dnx" and last_port:
             # need to enable watchdog on the source asic using cint script
             cmd = "bcmcmd -n {} \"BCMSAI credit-watchdog enable\"".format(self.src_asic_index)
@@ -178,7 +178,6 @@ class ThriftInterface(BaseTest):
             assert 'Success rv = 0' in stdOut[1], "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index,
                                                                                             self.src_server_ip)
 
-        sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
 
     def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst'):
         if self.platform_asic and self.platform_asic == "broadcom-dnx":

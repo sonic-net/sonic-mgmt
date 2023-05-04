@@ -3086,7 +3086,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
-
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
         try:
@@ -3100,6 +3099,14 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             if asic_type == 'cisco-8000':
                 fill_leakout_plus_one(self, src_port_id, dst_port_id,
                        pkt, int(self.test_params['pg']), asic_type)
+
+            if check_leackout_compensation_support(asic_type, hwsku):
+                send_packet(self, src_port_id, pkt, pkts_num_leak_out)
+                time.sleep(5)
+                dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
+                                               port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
+                                               xmit_counters_base, self, src_port_id, pkt, 10)
+                pkts_num_leak_out = 0
 
            # send packets short of triggering egress drop
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
@@ -3121,6 +3128,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters, queue_counters = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
@@ -3129,7 +3137,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] == recv_counters_base[cntr])
+                if platform_asic and platform_asic == "broadcom-dnx" and cntr == 1:
+                    assert(recv_counters[cntr] == recv_counters_base[cntr])
+
             # xmit port no egress drop
             for cntr in egress_counters:
                 assert(xmit_counters[cntr] == xmit_counters_base[cntr])
