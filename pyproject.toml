@@ -1,0 +1,32 @@
+# Local pre-commit hook config
+[project]
+name = "sonic-mgmt-pre-commit-hooks"
+version = "1.0.0+pre_commit"
+description = "Some hooks for pre-commit in sonic-mgmt repo."
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+requires-python = ">=3.7"
+dependencies = ["tomli>=2.0.1;python_version<'4.0'"]
+
+[project.urls]
+Homepage = "https://github.com/sonic-net/sonic-mgmt"
+
+[tool.setuptools]
+package-dir = {"" = ".hooks"}
+
+[tool.setuptools.packages.find]
+where = [".hooks"]
+
+[project.scripts]
+check-conditional-mark-sort = 'pre_commit_hooks.check_conditional_mark_sort:main'
+
+[tool.black]
+exclude = '''
+/(
+    spytest/
+)/
+'''
