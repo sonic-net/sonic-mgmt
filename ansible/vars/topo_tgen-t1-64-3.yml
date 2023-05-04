@@ -135,7 +135,7 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.33/24
       ipv6: fc0a::33/64
-  
+
   ARISTA02T0:
     properties:
     - common
