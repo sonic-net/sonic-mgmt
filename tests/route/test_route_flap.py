@@ -286,8 +286,13 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
         normalized_level = 'basic'
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    # accommadate for multi-asic which could have ~5k routes
-    divisor = 100 if duthost.is_multi_asic else 10
+    # accommadate for t2 chassis which could have 30k~50k routes
+    def switch(x):
+        return {
+            't2': 1000,
+            't1': 100,
+        }.get(x, 10)
+    divisor = switch(tbinfo["topo"]["name"])
     while loop_times > 0:
         logger.info("Round %s" % loop_times)
         route_index = 1
