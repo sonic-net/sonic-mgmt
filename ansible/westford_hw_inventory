@@ -689,8 +689,8 @@ sonic_egl_100G:
       console_port: 2001
       test_resource_name: imm1
       slot_num: slot1
-      serial: EAG2-02-019
-      base_mac: 40:7C:7D:BB:25:B1
+      serial: EAG2-04-210
+      base_mac: A4:7B:2C:E5:94:3B
       switchids: [0,2]
       voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
       voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
