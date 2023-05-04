@@ -1260,7 +1260,7 @@ def get_multiple_flows_udp(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl
             print("Trying {} => {}, src_ip:{} dstip:{}".format(src_tuple[0], dst_id, ip_Addr, dst_ip), file=sys.stderr)
             pkt_args = [
                 pkt_len,
-                dst_mac,
+                dst_mac or dp.dataplane.get_mac(0, dst_id),
                 dp.dataplane.get_mac(0, src_tuple[0]),
                 ip_Addr,
                 #src_tuple[1],
