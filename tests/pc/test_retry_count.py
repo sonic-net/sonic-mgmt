@@ -81,7 +81,7 @@ def higher_retry_count_on_peers(request, nbrhosts):
         nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count set PortChannel1 3")
 
     # Wait for retry count info to be updated
-    time.sleep(60)
+    time.sleep(90)
 
 
 @pytest.fixture(scope="class")
@@ -108,7 +108,7 @@ def higher_retry_count_on_dut(request, duthost):
         duthost.shell("sudo config portchannel retry-count set {} 3".format(port_channel))
 
     # Wait for retry count info to be updated
-    time.sleep(60)
+    time.sleep(90)
 
 
 @pytest.fixture(scope="function")
@@ -141,9 +141,9 @@ def scapy_lacp_layer():
 
     yield
 
-    bind_layers(scapy.contrib.lacp.SlowProtocol, scapy.contrib.lacp.LACP, subtype=1)
-    split_layers(scapy.contrib.lacp.SlowProtocol, LACPRetryCount, subtype=1)
     split_layers(scapy.layers.l2.CookedLinux, scapy.contrib.lacp.SlowProtocol, proto=0x8809)
+    split_layers(scapy.contrib.lacp.SlowProtocol, LACPRetryCount, subtype=1)
+    bind_layers(scapy.contrib.lacp.SlowProtocol, scapy.contrib.lacp.LACP, subtype=1)
 
 
 def check_lacpdu_packet_version(duthost):
@@ -178,6 +178,34 @@ def check_lacpdu_packet_version(duthost):
                           "unable to verify that LACPDU packets received were the right version")
 
 
+@pytest.fixture(scope="function")
+def disable_retry_count_on_peer(request, nbrhosts, higher_retry_count_on_peers):
+    for nbr in list(nbrhosts.keys()):
+        nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature false")
+
+    # Wait 90 seconds for retry count to get updated on the DUT
+    time.sleep(90)
+
+    yield
+
+    for nbr in list(nbrhosts.keys()):
+        nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature true")
+
+@pytest.fixture(scope="function")
+def disable_retry_count_on_dut(request, duthost, higher_retry_count_on_dut):
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
+        duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature false".format(port_channel))
+
+    # Wait 90 seconds for retry count to get updated on the peers
+    time.sleep(90)
+
+    yield
+
+    for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
+        duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature true".format(port_channel))
+
+
 class TestNeighborRetryCount:
     def test_peer_retry_count(self, duthost, nbrhosts, higher_retry_count_on_peers):
         """
@@ -186,6 +214,7 @@ class TestNeighborRetryCount:
         for nbr in list(nbrhosts.keys()):
             port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
             pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on neighbor is incorrect")
+            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on DUT is incorrect; expected 5, but is {}".format(port_channel_status["runner"]["retry_count"]))
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         port_channels = cfg_facts["PORTCHANNEL"].keys()
@@ -195,8 +224,8 @@ class TestNeighborRetryCount:
             pytest_assert("ports" in port_channel_status and number_of_lag_member == len(port_channel_status["ports"]),
                           "get port status error")
             for _, status in list(port_channel_status["ports"].items()):
-                pytest_assert(status["runner"]["selected"], "status of lag member error")
-                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
+                pytest_assert(status["runner"]["selected"], "lag member is not up")
+                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect; expected 5, but is {}".format(status["runner"]["partner_retry_count"]))
 
     def test_peer_retry_count_packet_version(self, duthost, nbrhosts, higher_retry_count_on_peers, scapy_lacp_layer):
         """
@@ -209,20 +238,34 @@ class TestNeighborRetryCount:
         Test that the lag remains up for 150 seconds after killing teamd on the peer
         """
         for nbr in list(nbrhosts.keys()):
-            nbrhosts[nbr]['host'].shell("sudo pkill -x teamd")
+            nbrhosts[nbr]['host'].shell("sudo pkill -USR1 -x teamd")
 
-        # Give ourselves 30 seconds to check before the LAG goes down. This should also handle the
-        # worst case scenario where the last LACPDU was sent 29 seconds prior to teamd getting
-        # killed.
-        time.sleep(120)
+        # Give ourselves 15 seconds to check before the LAG goes down.
+        time.sleep(135)
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         port_channels = cfg_facts["PORTCHANNEL"].keys()
         for port_channel in port_channels:
             port_channel_status = duthost.get_port_channel_status(port_channel)
             for _, status in list(port_channel_status["ports"].items()):
-                pytest_assert(status["runner"]["selected"], "status of lag member error")
-                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
+                pytest_assert(status["runner"]["selected"], "lag member is not up")
+                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect; expected 5, but is {}".format(status["runner"]["partner_retry_count"]))
+
+def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peers, disable_retry_count_on_peer):
+    """
+    Test that peers reset the retry count to 3 when the feature is disabled
+    """
+
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    port_channels = cfg_facts["PORTCHANNEL"].keys()
+    for port_channel in port_channels:
+        port_channel_status = duthost.get_port_channel_status(port_channel)
+        for _, status in list(port_channel_status["ports"].items()):
+            pytest_assert(status["runner"]["partner_retry_count"] == 3, "partner retry count is incorrect; expected 3, but is {}".format(status["runner"]["partner_retry_count"]))
+
+    for nbr in list(nbrhosts.keys()):
+        processRc = nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count get PortChannel1", module_ignore_errors=True)
+        pytest_assert(processRc["failed"], "Expected failure for getting retry count, but instead it succeeded")
 
 
 class TestDutRetryCount:
@@ -234,13 +277,13 @@ class TestDutRetryCount:
         port_channels = cfg_facts["PORTCHANNEL"].keys()
         for port_channel in port_channels:
             port_channel_status = duthost.get_port_channel_status(port_channel)
-            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on DUT is incorrect")
+            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on DUT is incorrect; expected 5, but is {}".format(port_channel_status["runner"]["retry_count"]))
 
         for nbr in list(nbrhosts.keys()):
             port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
             for _, status in list(port_channel_status["ports"].items()):
-                pytest_assert(status["runner"]["selected"], "status of lag member error")
-                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
+                pytest_assert(status["runner"]["selected"], "lag member is not up")
+                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect; expected 5, but is {}".format(status["runner"]["partner_retry_count"]))
 
     def test_retry_count_packet_version(self, duthost, nbrhosts, higher_retry_count_on_dut, scapy_lacp_layer):
         """
@@ -252,15 +295,28 @@ class TestDutRetryCount:
         """
         Test that the lag remains up for 150 seconds after killing teamd on the DUT
         """
-        duthost.shell("sudo pkill -x teamd")
+        duthost.shell("docker exec teamd pkill -USR1 -x teamd")
 
-        # Give ourselves 30 seconds to check before the LAG goes down. This should also handle the
-        # worst case scenario where the last LACPDU was sent 29 seconds prior to teamd getting
-        # killed.
-        time.sleep(120)
+        # Give ourselves 15 seconds to check before the LAG goes down.
+        time.sleep(135)
 
         for nbr in list(nbrhosts.keys()):
             port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
             for _, status in list(port_channel_status["ports"].items()):
-                pytest_assert(status["runner"]["selected"], "status of lag member error")
-                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect")
+                pytest_assert(status["runner"]["selected"], "lag member is not up")
+                pytest_assert(status["runner"]["partner_retry_count"] == 5, "partner retry count is incorrect; expected 5, but is {}".format(status["runner"]["partner_retry_count"]))
+
+def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, disable_retry_count_on_dut):
+    """
+    Test that DUT resets the retry count to 3 when the feature is disabled
+    """
+    for nbr in list(nbrhosts.keys()):
+        port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
+        for _, status in list(port_channel_status["ports"].items()):
+            pytest_assert(status["runner"]["partner_retry_count"] == 3, "partner retry count is incorrect; expected 3, but is {}".format(status["runner"]["partner_retry_count"]))
+
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    port_channels = cfg_facts["PORTCHANNEL"].keys()
+    for port_channel in port_channels:
+        processRc = duthost.shell("sudo config portchannel retry-count get {}".format(port_channel), module_ignore_errors=True)
+        pytest_assert(processRc["failed"], "Expected failure for getting retry count, but instead it succeeded")
