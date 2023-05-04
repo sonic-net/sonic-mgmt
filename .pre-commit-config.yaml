@@ -15,3 +15,8 @@ repos:
     hooks:
     -   id: flake8
         args: ["--max-line-length=120"]
+
+-   repo: https://github.com/sonic-net/sonic-mgmt
+    rev: 1.0.0+pre_commit
+    hooks:
+    -   id: check-conditional-mark-sort
