@@ -66,9 +66,9 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-23" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet11/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-35" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str3-z9332f-06" EndPort="Ethernet257" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet13/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp54" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet6/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp54" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-03" EndPort="etp54" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet7/1"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="etp62" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet6/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-acs-serv-62" EndPort="ens4f0" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet14/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-05" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet15/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-06" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet16/1"/>
@@ -1702,9 +1702,9 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids="577-636"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet12/1" vlanids="637-672"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet13/1" vlanids="577-608"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet6/1" vlanids="673-736"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet5/1" vlanids="673-736"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet7/1" vlanids="737-800"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet5/1" vlanids="801-864,1861-1864"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet6/1" vlanids="801-864,1861-1864"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet14/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet15/1" vlanids="865-928"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet16/1" vlanids="929-992"/>
