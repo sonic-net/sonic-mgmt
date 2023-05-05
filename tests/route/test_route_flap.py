@@ -270,9 +270,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             per_hop = dev[route_to_ping][0]['nexthops'][0]
             if 'interfaceName' in per_hop.keys():
                 dev_port = per_hop['interfaceName']
-                asic_recorded = asic
                 break
-
 
     pytest_assert(dev_port, "dev_port not exist")
     route_nums = len(dst_prefix_set)
