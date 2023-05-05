@@ -1,0 +1,5 @@
+Hostname,ManagementIp,HwSku,Type,CardType
+str-acs-serv-01,172.17.0.1/23,TestServ,server,
+docker-ptf,192.168.122.220/24,,blank,
+nexus-5,10.251.0.13/23,Arista-7260QX-64,FanoutLeaf,
+crocodile-01,192.168.122.51,Cisco-8111-O64,DevSonic,
