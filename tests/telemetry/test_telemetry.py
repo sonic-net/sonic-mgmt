@@ -1,5 +1,5 @@
 import time
-
+import threading
 import logging
 import re
 import pytest
@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 TELEMETRY_PORT = 50051
 METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
+MEMORY_CHECKER_WAIT = 1
+MEMORY_CHECKER_CYCLES = 60
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -178,3 +180,29 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
                  "Streaming updates for Ethernet0 in:\n{0}".format(result))  # 1 for request, 3 for response
     assert_equal(len(re.findall(r'timestamp: \d+', result)), 3,
                  "Timestamp markers for each update message in:\n{0}".format(result))
+
+
+def invoke_py_cli_from_ptf(ptfhost, cmd):
+    ptfhost.shell(cmd)
+
+
+@pytest.mark.disable_loganalyzer
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
+    """Test whether memory usage of telemetry container will exceed threshold
+    if python gNMI client continuously creates channels with gNMI server.
+    """
+    logger.info("Starting to test the memory spike issue of telemetry container")
+
+    duthost = duthosts[rand_one_dut_hostname]
+
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
+                              xpath="DOCKER_STATS", target="STATE_DB", update_count=1, create_connections=2000)
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd,))
+    client_thread.start()
+
+    for i in range(MEMORY_CHECKER_CYCLES):
+        ret = duthost.shell("python3 /usr/bin/memory_checker telemetry 419430400", module_ignore_errors=True)
+        assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
+        time.sleep(MEMORY_CHECKER_WAIT)
+
+    client_thread.join()
