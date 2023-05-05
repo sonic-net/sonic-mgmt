@@ -176,7 +176,7 @@ def filter_routes(iproute_info, route_prefix_len):
                 continue
             # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
             multipath = route_per_prefix.get('multipath', False)
-            if not multipath:            
+            if not multipath:
                 continue
             filtered_iproutes[route_prefix] = iproute_info[route_prefix]
     return filtered_iproutes
@@ -251,7 +251,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             aspath = out[1:]
             entry = routes(route_prefix, ' '.join(aspath))
             dst_prefix_set.add(entry)
-    pytest_assert(dst_prefix_set, "dst_prefix_set is empty")   
+    pytest_assert(dst_prefix_set, "dst_prefix_set is empty")
 
     dev_port = None
     for dst_prefix in dst_prefix_set:
