@@ -59,9 +59,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
         if v['state'] == 'established':
             assert (k in arp_dict.keys() or k in ndp_dict.keys())
             if k in arp_dict:
-                ifname = arp_dict[k]
+                ifname = arp_dict[k].split('.',1)[0]
             else:
-                ifname = ndp_dict[k]
+                ifname = ndp_dict[k].split('.',1)[0]
             if (ifname.startswith("PortChannel")):
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
