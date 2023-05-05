@@ -168,7 +168,7 @@ vm_host_2:
 vm_host_3:
   hosts:
     STR-ACS-SERV-03:
-      ansible_host: 10.3.147.244
+      ansible_host: 10.64.247.45
 vm_host_6:
   hosts:
     STR-ACS-SERV-06:

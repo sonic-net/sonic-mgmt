@@ -102,6 +102,7 @@ stages:
   jobs:
   - job: vms28_t0_4600c_nightly_test_by_TestbedV2
     displayName: vms28_t0_4600c_NightlyTest_by_TestbedV2
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
