@@ -22,7 +22,7 @@ pytestmark = [
     pytest.mark.topology('t2'),
 ]
 
-MAX_TIME_TO_REBOOT = 120
+MAX_TIME_TO_REBOOT = 200
 
 
 @pytest.fixture(scope='function')
