@@ -819,10 +819,11 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
     return None
 
 
-def run_until(delay, retry, condition, function, *args, **kwargs):
+def run_until(interval, delay, retry, condition, function, *args, **kwargs):
     """
     @summary: Execute function until condition or retry number met.
-    @param delay: Delay between function execution.
+    @param interval: Interval between function execution.
+    @param delay: delay before start function call
     @param retry: Number of retries until function meets condition.
     @param condition: The expected condition for function to be met.
     @param function: The function to be executed.
@@ -831,8 +832,10 @@ def run_until(delay, retry, condition, function, *args, **kwargs):
     @return: If the function meets conditions returns function output before finish specified retries. If no conditions
         specified or was not meet - returns last function call output.
     """
-    logger.debug("Wait until %s meet condition %s or %s retries, delay between calls is %s seconds" %
-                 (function.__name__, condition, retry, delay))
+    logger.debug("Wait until %s meet condition %s or %s retries, interval between calls is %s seconds" %
+                 (function.__name__, condition, retry, interval))
+    if delay > 0:
+        time.sleep(delay)
 
     def compare_base_on_result_type(condition, result):
         # Check exact match
@@ -865,9 +868,9 @@ def run_until(delay, retry, condition, function, *args, **kwargs):
                 )
             )
         finally:
-            # Wait if delay is set
-            if delay > 0:
-                time.sleep(delay)
+            # Wait if interval is set
+            if interval > 0:
+                time.sleep(interval)
     return func_call_result
 
 
