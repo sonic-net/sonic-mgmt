@@ -700,9 +700,9 @@ pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on m0/mx or dual tor testbed."
+    reason: "Pfcwd tests skipped on m0/mx testbed."
     conditions:
-      - "'dualtor' in topo_name or topo_name in ['m0', 'mx']"
+      - "topo_name in ['m0', 'mx']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -772,9 +772,9 @@ qos/test_buffer.py:
 
 qos/test_buffer_traditional.py:
   skip:
-    reason: "Buffer traditional test is only supported 201911 branch and not yet supported on multi-ASIC platform."
+    reason: "Buffer traditional test is only supported 201911 branch"
     conditions:
-      - "is_multi_asic==True or release not in ['201911']"
+      - "release not in ['201911']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -1034,15 +1034,6 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.44'"
-
-#######################################
-#####       test_pretest.py       #####
-#######################################
-test_pretest.py::test_stop_pfcwd:
-  skip:
-    reason: "Skip this test on non dualTOR testbeds."
-    conditions:
-      - "'dualtor' not in topo_name"
 
 #######################################
 #####            vlan             #####
