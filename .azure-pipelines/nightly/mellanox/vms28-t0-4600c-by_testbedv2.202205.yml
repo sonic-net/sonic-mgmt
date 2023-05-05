@@ -42,6 +42,10 @@ parameters:
     default: $(SAITHRIFT_MLNX_202205)
     displayName: "py_saithrift URL"
 
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-202205
+
   # Custom run scripts, if both SCIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
@@ -65,17 +69,13 @@ parameters:
     displayName: "Features to be excluded"
 
   # Test timeout
-  - name: NIGHTLY_TEST_TIMEOUT
+  - name: MAX_RUN_TEST_MINUTES
     type: number
     default: 2880
 
   - name: REPO_NAME
     type: string
     default: Networking-acs-buildimage
-
-  - name: MGMT_BRANCH
-    type: string
-    default: internal-202205
 
   - name: STOP_ON_FAILURE
     type: string
@@ -93,10 +93,6 @@ parameters:
     type: string
     default: "Nightly Test"
 
-  - name: MAX_EXECUTE_SECONDS
-    type: string
-    default: 172800
-
 stages:
 - stage: Test
 
@@ -106,11 +102,10 @@ stages:
   jobs:
   - job: vms28_t0_4600c_nightly_test_by_TestbedV2
     displayName: vms28_t0_4600c_NightlyTest_by_TestbedV2
-    timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: ../../run-test-tbv2-nightly-template.yml
+    - template: ../../run-test-scheduler-template.yml
       parameters:
         TOPOLOGY: t0-64
         MIN_WORKER: 2
@@ -129,5 +124,5 @@ stages:
         RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
         DUMP_KVM_IF_FAIL: ${{ parameters.DUMP_KVM_IF_FAIL }}
         REQUESTER: ${{ parameters.REQUESTER }}
-        MAX_EXECUTE_SECONDS: ${{ parameters.MAX_EXECUTE_SECONDS }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
