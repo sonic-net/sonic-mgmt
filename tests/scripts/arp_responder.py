@@ -100,6 +100,9 @@ class ARPResponder(object):
     def action(self, interface):
         data = interface.recv()
         eth_type = struct.unpack('!H', data[12:14])[0]
+        # Retrieve the correct ethertype if the packet is VLAN tagged
+        if eth_type == 0x8100:  # 802.1Q, VLAN tagged
+            eth_type = struct.unpack('!H', data[16:18])[0]
 
         if eth_type == 0x0806:  # ARP
             if len(data) <= self.ARP_PKT_LEN:
