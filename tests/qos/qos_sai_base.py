@@ -4,6 +4,7 @@ import logging
 import pytest
 import re
 import yaml
+import time
 
 import random
 import os
@@ -1418,7 +1419,9 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        fdbAgingTime = 0
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+
 
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             self.__deleteTmpSwitchConfig(duthost)
