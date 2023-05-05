@@ -183,7 +183,7 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
                      dest="/etc/sonic/config_db.json")
         config_reload(duthost, wait=RELOAD_WAIT_TIME, start_bgp=True)
 
-    if hack_apply:
+    if True:
         # Hack: TODO: Before removing port, patch updater need to ensure
         # the port is down. Until then bring it down explicitly.
         #
