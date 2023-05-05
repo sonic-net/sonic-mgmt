@@ -5,10 +5,10 @@ import datetime
 import filecmp
 import os
 
-from mock_for_switch import get_duthost
+from .mock_for_switch import get_duthost
 
-from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
-from helpers import log_error, set_print
+from .base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
+from .helpers import log_error, set_print
 
 # To run test in switch:
 # Copy all files in this dir (tests/configlet/util) into switch
