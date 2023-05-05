@@ -137,6 +137,7 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     src_mac = ptfadapter.dataplane.get_mac(0, ptf_send_port)
     pkt = testutils.simple_icmp_packet(
         eth_dst=dst_mac, eth_src=src_mac, ip_src=src_ip, ip_dst=dst_ip, icmp_type=8, icmp_code=0)
+
     ext_pkt = pkt.copy()
     ext_pkt['Ether'].src = exp_src_mac
 
@@ -291,7 +292,6 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     # accommadate for t2 chassis which could have 30k~50k routes
-
     def switch(x):
         return {
             't2': 1000,
@@ -308,6 +308,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             # test link status
             send_recv_ping_packet(
                 ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is withdraw with first 3 routes
             if route_index < 4:
@@ -323,6 +324,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                 check_route(duthost, dst_prefix, dev_port, ANNOUNCE)
             send_recv_ping_packet(
                 ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+
             route_index += 1
 
         loop_times -= 1
