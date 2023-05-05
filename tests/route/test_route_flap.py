@@ -158,7 +158,8 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(
         ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
     testutils.send(ptfadapter, ptf_send_port, pkt)
-    testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+    testutils.verify_packet_any_port(
+        ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def filter_routes(iproute_info, route_prefix_len):
@@ -189,7 +190,7 @@ def get_filtered_iproute_info(duthost, route_prefix_len):
             dev.update(filter_routes(output['routes'], route_prefix_len))
     else:
         output = json.loads(duthost.shell('vtysh -c "show ip bgp ipv4 json"', verbose=False)['stdout'])
-        dev = output['routes']
+        dev = filter_routes(output['routes'], route_prefix_len)
     return dev
 
 
@@ -237,7 +238,6 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
         vlan_mac = dut_mac
 
     # get dst_prefix_set and aspath
-    
     route_prefix_len = get_route_prefix_len(tbinfo, common_config)
     routes = namedtuple('routes', ['route', 'aspath'])
     filtered_iproute_info = get_filtered_iproute_info(duthost, route_prefix_len)
