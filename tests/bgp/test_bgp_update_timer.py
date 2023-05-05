@@ -9,6 +9,7 @@ import time
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
+from tests.common.utilities import wait_until
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
@@ -32,6 +33,7 @@ NEIGHBOR_ASN0 = 61000
 NEIGHBOR_ASN1 = 61001
 NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
+WAIT_TIMEOUT = 120
 
 
 @contextlib.contextmanager
@@ -144,6 +146,21 @@ def constants(is_quagga, setup_interfaces):
         )
     return _constants
 
+def is_neighbor_sessions_established(duthost, neighbors):
+    is_established = True
+
+    # handle both multi-sic and single-asic
+    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
+        "ansible_facts"
+    ]
+    for neighbor in neighbors:
+        is_established &= (
+            neighbor.ip in bgp_facts["bgp_neighbors"]
+            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+        )
+
+    return is_established
+
 
 def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                           toggle_all_simulator_ports_to_rand_selected_tor_m):
@@ -206,16 +223,20 @@ def test_bgp_update_timer(common_setup_teardown, constants, duthosts, enum_rand_
         n0.start_session()
         n1.start_session()
 
-        # sleep till new sessions are steady
-        time.sleep(60)
+        # ensure new sessions are ready
+        if not wait_until(
+            WAIT_TIMEOUT,
+            5,
+            20,
+            lambda: is_neighbor_sessions_established(duthost, (n0, n1)),
+        ):
+            pytest.fail("Could not establish bgp sessions")
 
         # ensure new sessions are ready
         # handle both multi-sic and single-asic
         bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
         assert n0.ip in bgp_facts["bgp_neighbors"]
         assert n1.ip in bgp_facts["bgp_neighbors"]
-        assert bgp_facts["bgp_neighbors"][n0.ip]["state"] == "established"
-        assert bgp_facts["bgp_neighbors"][n1.ip]["state"] == "established"
 
         announce_intervals = []
         withdraw_intervals = []
