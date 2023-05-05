@@ -325,36 +325,41 @@ def fixture_setUp(duthosts,
 
 
 @pytest.fixture(scope="module")
-def default_routes(fixture_setUp, encap_type):
-    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
-    return fixture_setUp[encap_type]['dest_to_nh_map'][vnet]
+def default_routes(setUp, encap_type):
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
+    return setUp[encap_type]['dest_to_nh_map'][vnet]
 
 
 @pytest.fixture(scope="module")
-def routes_for_cleanup(fixture_setUp, encap_type):
+def routes_for_cleanup(setUp, encap_type):
     routes = {}
 
     yield routes
 
-    # prepare for route cleanup by fixture_setUp on module finish
-    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
-    fixture_setUp[encap_type]['dest_to_nh_map'][vnet] = routes
+    # prepare for route cleanup by setUp on module finish
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
+    setUp[encap_type]['dest_to_nh_map'][vnet] = routes
 
 
 @pytest.fixture(autouse=True)
-def reset_test_routes(fixture_setUp, encap_type, default_routes, routes_for_cleanup):
+def _reset_test_routes(
+        setUp,
+        encap_type,
+        default_routes,
+        routes_for_cleanup):
     """
-    The fixture makes sure each test uses the same route config not affected by previous test runs
+    The fixture makes sure each test uses the same route config
+    not affected by previous test runs
     """
-    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
 
     test_routes = {}
     test_routes.update(default_routes)
-    fixture_setUp[encap_type]['dest_to_nh_map'][vnet] = test_routes
+    setUp[encap_type]['dest_to_nh_map'][vnet] = test_routes
 
     yield
 
-    test_made_routes = fixture_setUp[encap_type]['dest_to_nh_map'][vnet]
+    test_made_routes = setUp[encap_type]['dest_to_nh_map'][vnet]
     routes_for_cleanup.update(test_made_routes)
 
 
@@ -372,7 +377,8 @@ class Test_VxLAN():
                                    random_dport=True,
                                    random_sport=False,
                                    random_src_ip=False,
-                                   tolerance=None):
+                                   tolerance=None,
+                                   payload=None):
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
@@ -429,7 +435,8 @@ class Test_VxLAN():
 
         ptf_runner(self.setup['ptfhost'],
                    "ptftests",
-                   "vxlan_traffic.VXLAN",
+                   "vxlan_traffic.VxLAN_in_VxLAN" if payload == 'vxlan'
+                   else "vxlan_traffic.VXLAN",
                    platform_dir="ptftests",
                    params=ptf_params,
                    qlen=1000,
@@ -481,6 +488,7 @@ class Test_VxLAN_route_tests(Test_VxLAN):
     '''
         Common class for the basic route test cases.
     '''
+
     def test_vxlan_single_endpoint(self, setUp, encap_type):
         '''
             tc1:Create a tunnel route to a single endpoint a.
@@ -488,6 +496,8 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         '''
         self.setup = setUp
         self.dump_self_info_and_run_ptf("tc1", encap_type, True)
+        self.dump_self_info_and_run_ptf("tc1", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_modify_route_different_endpoint(
             self, setUp, request, encap_type):
@@ -500,7 +510,8 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Choose a destination, which is already present.")
-        tc2_dest = list(self.setup[encap_type]['dest_to_nh_map'][vnet].keys())[0]
+        tc2_dest = list(self.setup[encap_type]
+                        ['dest_to_nh_map'][vnet].keys())[0]
 
         Logger.info("Create a new endpoint, or endpoint-list.")
         tc2_new_end_point_list = []
@@ -572,6 +583,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         Class for all the ECMP (multiple nexthops per destination)
         create testcases.
     '''
+
     def test_vxlan_configure_route1_ecmp_group_a(self, setUp, encap_type):
         '''
             tc4:create tunnel route 1 with two endpoints a = {a1, a2...}. send
@@ -614,6 +626,9 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         Logger.info("Verify that the new config takes effect and run traffic.")
 
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
+        # Add vxlan payload testing as well.
+        self.dump_self_info_and_run_ptf("tc4", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_remove_ecmp_route1(self, setUp, encap_type):
         '''
@@ -985,6 +1000,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
     '''
        Class for all the next-hop group modification testcases.
     '''
+
     def setup_route2_single_endpoint(self, encap_type):
         '''
             Function to handle dependency of tc9 on tc8.
@@ -997,7 +1013,8 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
 
         Logger.info(
             "Choose a route 2 destination and a new single endpoint for it.")
-        tc8_new_dest = list(self.setup[encap_type]['dest_to_nh_map'][vnet].keys())[0]
+        tc8_new_dest = list(
+            self.setup[encap_type]['dest_to_nh_map'][vnet].keys())[0]
         tc8_new_nh = ecmp_utils.get_ip_address(
             af=ecmp_utils.get_outer_layer_version(encap_type),
             netid=NEXTHOP_PREFIX)
@@ -1180,7 +1197,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         Logger.info("Map the new destinations to the same endpoint list.")
         for i in range(2):
             dest_nh_map[vnet][tc7_destinations[i]] = \
-                    tc7_end_point_list
+                tc7_end_point_list
 
         Logger.info("Apply the setup configs to the DUT.")
         payload_af = ecmp_utils.get_payload_version(encap_type)
@@ -1229,6 +1246,8 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup = setUp
         self.setup_route2_single_endpoint(encap_type)
         self.dump_self_info_and_run_ptf("tc8", encap_type, True)
+        self.dump_self_info_and_run_ptf("tc8", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_route2_shared_nh(self, setUp, encap_type):
         '''
@@ -1328,6 +1347,7 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
     '''
         Class for testing different tcp ports for payload.
     '''
+
     def test_vxlan_random_hash(self, setUp, encap_type):
         '''
             tc11: set tunnel route 3 to endpoint group c = {c1, c2, c3}.
@@ -1849,6 +1869,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
         Class for all test cases that modify the payload traffic
         properties - tcp source port, destination port and source IP address.
     '''
+
     def verify_entropy(
             self,
             encap_type,

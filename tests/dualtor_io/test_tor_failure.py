@@ -7,6 +7,7 @@ from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action,
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                                      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor                      # noqa F401
 from tests.common.dualtor.tor_failure_utils import reboot_tor, tor_blackhole_traffic, wait_for_device_reachable     # noqa F401
+from tests.common.dualtor.tor_failure_utils import wait_for_mux_container                                           # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, change_mac_addresses          # noqa F401
 from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator                                # noqa F401
 from tests.common.dualtor.nic_simulator_control import ForwardingState
@@ -17,6 +18,7 @@ from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +59,7 @@ def toggle_lower_tor_pdu(lower_tor_host, get_pdu_controller):       # noqa F811
 def test_active_tor_reboot_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor, toggle_upper_tor_pdu,      # noqa F811
-    wait_for_device_reachable, cable_type                               # noqa F811
+    wait_for_device_reachable, wait_for_mux_container, cable_type       # noqa F811
 ):
     """
     Send upstream traffic and reboot the active ToR. Confirm switchover
@@ -68,6 +70,7 @@ def test_active_tor_reboot_upstream(
         action=toggle_upper_tor_pdu, stop_after=60
     )
     wait_for_device_reachable(upper_tor_host)
+    wait_for_mux_container(upper_tor_host)
 
     if cable_type == CableType.active_standby:
         verify_tor_states(
@@ -87,7 +90,7 @@ def test_active_tor_reboot_upstream(
 def test_active_tor_reboot_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor, toggle_upper_tor_pdu,      # noqa F811
-    wait_for_device_reachable                                           # noqa F811
+    wait_for_device_reachable, wait_for_mux_container                   # noqa F811
 ):
     """
     Send downstream traffic to the standby ToR and reboot the active ToR.
@@ -98,6 +101,7 @@ def test_active_tor_reboot_downstream_standby(
         action=toggle_upper_tor_pdu, stop_after=60
     )
     wait_for_device_reachable(upper_tor_host)
+    wait_for_mux_container(upper_tor_host)
     verify_tor_states(
         expected_active_host=lower_tor_host,
         expected_standby_host=upper_tor_host
@@ -108,7 +112,7 @@ def test_active_tor_reboot_downstream_standby(
 def test_standby_tor_reboot_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor, toggle_lower_tor_pdu,      # noqa F811
-    wait_for_device_reachable                                           # noqa F811
+    wait_for_device_reachable, wait_for_mux_container                   # noqa F811
 ):
     """
     Send upstream traffic and reboot the standby ToR. Confirm no switchover
@@ -119,6 +123,7 @@ def test_standby_tor_reboot_upstream(
         action=toggle_lower_tor_pdu, stop_after=60
     )
     wait_for_device_reachable(lower_tor_host)
+    wait_for_mux_container(lower_tor_host)
     verify_tor_states(
         expected_active_host=upper_tor_host,
         expected_standby_host=lower_tor_host
@@ -129,7 +134,7 @@ def test_standby_tor_reboot_upstream(
 def test_standby_tor_reboot_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor, toggle_lower_tor_pdu,      # noqa F811
-    wait_for_device_reachable                                           # noqa F811
+    wait_for_device_reachable, wait_for_mux_container                   # noqa F811
 ):
     """
     Send downstream traffic to the active ToR and reboot the standby ToR.
@@ -140,6 +145,7 @@ def test_standby_tor_reboot_downstream_active(
         action=toggle_lower_tor_pdu, stop_after=60
     )
     wait_for_device_reachable(lower_tor_host)
+    wait_for_mux_container(lower_tor_host)
     verify_tor_states(
         expected_active_host=upper_tor_host,
         expected_standby_host=lower_tor_host
@@ -152,7 +158,8 @@ def test_standby_tor_reboot_downstream_active(
 def test_active_tor_reboot_downstream(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     toggle_upper_tor_pdu, wait_for_device_reachable, cable_type,        # noqa F811
-    tunnel_traffic_monitor, mux_status_from_nic_simulator               # noqa F811
+    tunnel_traffic_monitor, mux_status_from_nic_simulator,              # noqa F811
+    wait_for_mux_container                                              # noqa F811
 ):
     def check_forwarding_state(upper_tor_forwarding_state, lower_tor_forwarding_state):
         mux_status = mux_status_from_nic_simulator()
@@ -176,24 +183,28 @@ def test_active_tor_reboot_downstream(
         cable_type=cable_type
     )
 
-    # reboot the upper ToR and verify the upper ToR forwarding state is changed to standby
-    toggle_upper_tor_pdu()
-    pytest_assert(
-        wait_until(60, 5, 5, check_forwarding_state, ForwardingState.STANDBY, ForwardingState.ACTIVE),
-        "Forwarding state check failed after reboot."
-    )
+    # use loganalyzer to collect logs from the lower tor during reboot
+    with LogAnalyzer(ansible_host=lower_tor_host, marker_prefix="test_active_tor_reboot_downstream"):
+        # reboot the upper ToR and verify the upper ToR forwarding state is changed to standby
+        toggle_upper_tor_pdu()
+        pytest_assert(
+            wait_until(60, 5, 5, check_forwarding_state, ForwardingState.STANDBY, ForwardingState.ACTIVE),
+            "Forwarding state check failed after reboot."
+        )
+        lower_tor_host.shell("show mux grpc mux", module_ignore_errors=True)
 
-    # verify the upper ToR changes back to active after the upper comes back from reboot
-    wait_for_device_reachable(upper_tor_host)
-    pytest_assert(
-        wait_until(180, 5, 60, check_forwarding_state, ForwardingState.ACTIVE, ForwardingState.ACTIVE),
-        "Forwarding state check failed after the upper ToR comes back from reboot."
-    )
-    verify_tor_states(
-        expected_active_host=[upper_tor_host, lower_tor_host],
-        expected_standby_host=None,
-        cable_type=cable_type
-    )
+        # verify the upper ToR changes back to active after the upper comes back from reboot
+        wait_for_device_reachable(upper_tor_host)
+        wait_for_mux_container(upper_tor_host)
+        pytest_assert(
+            wait_until(180, 5, 60, check_forwarding_state, ForwardingState.ACTIVE, ForwardingState.ACTIVE),
+            "Forwarding state check failed after the upper ToR comes back from reboot."
+        )
+        verify_tor_states(
+            expected_active_host=[upper_tor_host, lower_tor_host],
+            expected_standby_host=None,
+            cable_type=cable_type
+        )
 
     # verify the server receives packets with no disrupts, no tunnel traffic
     with tunnel_traffic_monitor(upper_tor_host, existing=False):

@@ -5,6 +5,7 @@ import time
 import natsort
 import random
 import re
+import six
 from collections import defaultdict
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py # noqa F811
@@ -228,7 +229,7 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
 
         # Check traffic get forwarded to the nexthop
-        ip_dst = str(ipaddress.ip_network(str(prefix))[1])
+        ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
         # try to refresh arp entry before traffic testing to improve stability
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
@@ -244,9 +245,9 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
             # config reload on active tor
             duthost.shell('config save -y')
             if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
-                config_reload(duthost, wait=400)
+                config_reload(duthost, wait=500)
             else:
-                config_reload(duthost, wait=350)
+                config_reload(duthost, wait=450)
             # FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)

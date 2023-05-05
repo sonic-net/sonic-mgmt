@@ -9,15 +9,21 @@ Notes:
     Test is executed from asym_pfc.yml ansible playbook.
 """
 
-
-import ptf
-from sai_base_test import *
-from collections import defaultdict
-from switch import *
 import multiprocessing
 import subprocess
 import json
 import logging
+
+from collections import defaultdict
+
+import ptf
+import ptf.testutils as testutils
+from switch import sai_thrift_read_port_counters, switch_init, sai_thrift_clear_all_counters
+from sai_base_test import ThriftInterfaceDataPlane
+
+import switch_sai_thrift        # noqa F401
+from switch_sai_thrift.ttypes import sai_thrift_attribute_t, sai_thrift_attribute_value_t
+from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS
 
 
 class PfcAsymBaseTest(ThriftInterfaceDataPlane):
@@ -41,7 +47,8 @@ class PfcAsymBaseTest(ThriftInterfaceDataPlane):
         logging.info(message)
 
     def shell(self, cmds):
-        sp = subprocess.Popen(cmds, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        sp = subprocess.Popen(
+            cmds, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = sp.communicate()
         rc = sp.returncode
 
@@ -51,28 +58,32 @@ class PfcAsymBaseTest(ThriftInterfaceDataPlane):
         d = defaultdict(list)
 
         for server_port in server_ports:
-            d[server_port['ptf_name']].append(server_port['ptf_ip'].split('/')[0])
+            d[server_port['ptf_name']].append(
+                server_port['ptf_ip'].split('/')[0])
         with open('/tmp/arp_responder_pfc_asym.json', 'w') as file:
             json.dump(d, file)
 
     def setUp(self):
         ThriftInterfaceDataPlane.setUp(self)
-        switch_init(self.client)      
+        switch_init(self.client)
         self.dataplane = ptf.dataplane_instance
 
         self.server_ports = self.test_params['server_ports']
         self.non_server_port = self.test_params['non_server_port']
         self.router_mac = self.test_params['router_mac']
         self.pfc_to_dscp = self.test_params['pfc_to_dscp']
-        self.lossless_priorities = list(map(int, self.test_params['lossless_priorities']))
-        self.lossy_priorities = list(map(int, self.test_params['lossy_priorities']))
+        self.lossless_priorities = list(
+            map(int, self.test_params['lossless_priorities']))
+        self.lossy_priorities = list(
+            map(int, self.test_params['lossy_priorities']))
         self.asic_type = self.test_params['sonic_asic_type']
 
         self.setUpArpResponder(self.server_ports)
         self.shell(["supervisorctl", "start", "arp_responder"])
 
         attr_value = sai_thrift_attribute_value_t(mac=self.router_mac)
-        attr = sai_thrift_attribute_t(id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
+        attr = sai_thrift_attribute_t(
+            id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
         self.client.sai_thrift_set_switch_attribute(attr)
 
     def tearDown(self):
@@ -85,9 +96,9 @@ class PfcAsymBaseTest(ThriftInterfaceDataPlane):
 
         for pkt in packets:
             thread = multiprocessing.Process(
-                target=send_packet,
+                target=testutils.send_packet,
                 args=(self, int(pkt['port']),
-                    pkt['packet'], self.PACKET_NUM)
+                      pkt['packet'], self.PACKET_NUM)
             )
             thread.daemon = True
             threads.append(thread)
@@ -104,12 +115,12 @@ class PfcAsymOffOnTxTest(PfcAsymBaseTest):
 
     DUT should generate PFC frames only on lossless priorities, regardless of asymmetric off/on.
     """
+
     def __init__(self):
         PfcAsymBaseTest.__init__(self)
 
     def setUp(self):
         PfcAsymBaseTest.setUp(self)
-
 
     def tearDown(self):
         PfcAsymBaseTest.tearDown(self)
@@ -121,13 +132,14 @@ class PfcAsymOffOnTxTest(PfcAsymBaseTest):
             for p in priorities:
                 tos = (self.pfc_to_dscp[p] << 2) | self.PACKET_ECN
 
-                pkt = simple_tcp_packet(pktlen=self.PACKET_LEN,
-                                        eth_dst=router_mac,
-                                        eth_src=self.dataplane.get_mac(0, int(sp['index'])),
-                                        ip_src=sp['ptf_ip'].split('/')[0],
-                                        ip_dst=non_server_port['ip'].split('/')[0],
-                                        ip_tos=tos,
-                                        ip_ttl=self.PACKET_TTL)
+                pkt = testutils.simple_tcp_packet(
+                    pktlen=self.PACKET_LEN,
+                    eth_dst=router_mac,
+                    eth_src=self.dataplane.get_mac(0, int(sp['index'])),
+                    ip_src=sp['ptf_ip'].split('/')[0],
+                    ip_dst=non_server_port['ip'].split('/')[0],
+                    ip_tos=tos,
+                    ip_ttl=self.PACKET_TTL)
 
                 packets.append({'port': int(sp['index']), 'packet': pkt})
 
@@ -138,28 +150,32 @@ class PfcAsymOffOnTxTest(PfcAsymBaseTest):
         sai_thrift_clear_all_counters(self.client)
 
         # Send packets for lossless priorities from all server ports (src) to non-server port (dst)
-        self.sendData(self.server_ports, self.non_server_port, self.router_mac, self.lossless_priorities)
+        self.sendData(self.server_ports, self.non_server_port,
+                      self.router_mac, self.lossless_priorities)
 
         # 1. Verify that some packets are dropped on src ports, which means that Rx queue is full
         # 2. Verify that PFC frames are generated for lossless priorities
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, self.asic_type, sp['oid'])
+            port_counters, queue_counters = sai_thrift_read_port_counters(
+                self.client, self.asic_type, sp['oid'])
             self.log("\nLossless: port_counters = {}\n queue_counters = {}\nserver port = {}".format(
                 port_counters, queue_counters, sp))
-            assert(port_counters[self.INGRESS_DROP] > 0)
+            assert (port_counters[self.INGRESS_DROP] > 0)
             for p in self.lossless_priorities:
-                assert(port_counters[p + 2] > 0)
+                assert (port_counters[p + 2] > 0)
 
         # Send packets for lossy priorities from all server ports (src) to non-server port (dst)
-        self.sendData(self.server_ports, self.non_server_port, self.router_mac, self.lossy_priorities)
+        self.sendData(self.server_ports, self.non_server_port,
+                      self.router_mac, self.lossy_priorities)
 
         # Verify that PFC frames are not generated for lossy priorities
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, self.asic_type, sp['oid'])
-            self.log("\Lossy: port_counters = {}\n queue_counters = {}\nserver_ports = {}".format(
+            port_counters, queue_counters = sai_thrift_read_port_counters(
+                self.client, self.asic_type, sp['oid'])
+            self.log(r"\Lossy: port_counters = {}\n queue_counters = {}\nserver_ports = {}".format(
                 port_counters, queue_counters, sp))
             for p in self.lossy_priorities:
-                assert(port_counters[p + 2] == 0)
+                assert (port_counters[p + 2] == 0)
 
 
 class PfcAsymOffRxTest(PfcAsymBaseTest):
@@ -167,6 +183,7 @@ class PfcAsymOffRxTest(PfcAsymBaseTest):
 
     When asymetric mode is disabled DUT should handle PFC frames only on lossless priorities.
     """
+
     def __init__(self):
         PfcAsymBaseTest.__init__(self)
 
@@ -183,15 +200,17 @@ class PfcAsymOffRxTest(PfcAsymBaseTest):
             for p in priorities:
                 tos = (self.pfc_to_dscp[p] << 2) | self.PACKET_ECN
 
-                pkt = simple_tcp_packet(pktlen=self.PACKET_LEN,
-                                        eth_dst=router_mac,
-                                        eth_src=self.dataplane.get_mac(0, int(non_server_port['index'])),
-                                        ip_src=non_server_port['ip'].split('/')[0],
-                                        ip_dst=sp['ptf_ip'].split('/')[0],
-                                        ip_tos=tos,
-                                        ip_ttl=self.PACKET_TTL)
+                pkt = testutils.simple_tcp_packet(
+                    pktlen=self.PACKET_LEN,
+                    eth_dst=router_mac,
+                    eth_src=self.dataplane.get_mac(0, int(non_server_port['index'])),
+                    ip_src=non_server_port['ip'].split('/')[0],
+                    ip_dst=sp['ptf_ip'].split('/')[0],
+                    ip_tos=tos,
+                    ip_ttl=self.PACKET_TTL)
 
-                packets.append({'port': int(non_server_port['index']), 'packet': pkt})
+                packets.append(
+                    {'port': int(non_server_port['index']), 'packet': pkt})
 
         self.send(packets)
 
@@ -200,39 +219,43 @@ class PfcAsymOffRxTest(PfcAsymBaseTest):
         sai_thrift_clear_all_counters(self.client)
 
         # Send packets for lossy priorities from non-server port (src) to all server ports (dst)
-        self.sendData(self.server_ports, self.non_server_port, self.router_mac, self.lossy_priorities)
+        self.sendData(self.server_ports, self.non_server_port,
+                      self.router_mac, self.lossy_priorities)
 
         # Verify that packets are not dropped on src port
         port_counters, queue_counters = sai_thrift_read_port_counters(
             self.client, self.asic_type, self.non_server_port['oid'])
-        assert(port_counters[self.INGRESS_DROP] == 0)
+        assert (port_counters[self.INGRESS_DROP] == 0)
 
         # 1. Verify that packets are not dropped on dst ports
         # 2. Verify that packets are transmitted from dst ports
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, self.asic_type, sp['oid'])
+            port_counters, queue_counters = sai_thrift_read_port_counters(
+                self.client, self.asic_type, sp['oid'])
             self.log("Lossy - EGRESS_DROP: port_counters = {}\n queue_counters = {}\nserver_port = {}".format(
                 port_counters, queue_counters, sp))
-            assert(port_counters[self.EGRESS_DROP] == 0)
+            assert (port_counters[self.EGRESS_DROP] == 0)
             for p in self.lossy_priorities:
-                assert(port_counters[self.TRANSMITTED_PKTS] > 0)
+                assert (port_counters[self.TRANSMITTED_PKTS] > 0)
 
         # Send packets for lossless priorities from non-server port (src) to all server ports (dst)
-        self.sendData(self.server_ports, self.non_server_port, self.router_mac, self.lossless_priorities)
+        self.sendData(self.server_ports, self.non_server_port,
+                      self.router_mac, self.lossless_priorities)
 
         # Verify that some packets are dropped on src port, which means that Rx queue is full
         port_counters, queue_counters = sai_thrift_read_port_counters(
             self.client, self.asic_type, self.non_server_port['oid'])
         self.log("\nLossless - INGRESS_DROP: port_counters = {}\n queue_counters = {}".format(
             port_counters, queue_counters))
-        assert(port_counters[self.INGRESS_DROP] > 0)
+        assert (port_counters[self.INGRESS_DROP] > 0)
 
         # Verify that some packets are dropped on dst ports, which means that Tx buffer is full
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, self.asic_type, sp['oid'])
+            port_counters, queue_counters = sai_thrift_read_port_counters(
+                self.client, self.asic_type, sp['oid'])
             self.log("\nLossless - EGRESS_DROP: port_counters = {}\n queue_counters = {}\nserver_port = {}".format(
                 port_counters, queue_counters, sp))
-            assert(port_counters[self.EGRESS_DROP] > 0)
+            assert (port_counters[self.EGRESS_DROP] > 0)
 
 
 class PfcAsymOnRxTest(PfcAsymBaseTest):
@@ -240,6 +263,7 @@ class PfcAsymOnRxTest(PfcAsymBaseTest):
 
     When asymetric mode is enabled DUT should handle PFC frames on all priorities.
     """
+
     def __init__(self):
         PfcAsymBaseTest.__init__(self)
 
@@ -256,15 +280,17 @@ class PfcAsymOnRxTest(PfcAsymBaseTest):
             for p in priorities:
                 tos = (self.pfc_to_dscp[p] << 2) | self.PACKET_ECN
 
-                pkt = simple_tcp_packet(pktlen=self.PACKET_LEN,
-                                        eth_dst=router_mac,
-                                        eth_src=self.dataplane.get_mac(0, int(non_server_port['index'])),
-                                        ip_src=non_server_port['ip'].split('/')[0],
-                                        ip_dst=sp['ptf_ip'].split('/')[0],
-                                        ip_tos=tos,
-                                        ip_ttl=self.PACKET_TTL)
+                pkt = testutils.simple_tcp_packet(
+                    pktlen=self.PACKET_LEN,
+                    eth_dst=router_mac,
+                    eth_src=self.dataplane.get_mac(0, int(non_server_port['index'])),
+                    ip_src=non_server_port['ip'].split('/')[0],
+                    ip_dst=sp['ptf_ip'].split('/')[0],
+                    ip_tos=tos,
+                    ip_ttl=self.PACKET_TTL)
 
-                packets.append({'port': int(non_server_port['index']), 'packet': pkt})
+                packets.append(
+                    {'port': int(non_server_port['index']), 'packet': pkt})
 
         self.send(packets)
 
@@ -273,35 +299,39 @@ class PfcAsymOnRxTest(PfcAsymBaseTest):
         sai_thrift_clear_all_counters(self.client)
 
         # Send packets for lossy priorities from non-server port (src) to all server ports (dst)
-        self.sendData(self.server_ports, self.non_server_port, self.router_mac, self.lossy_priorities)
+        self.sendData(self.server_ports, self.non_server_port,
+                      self.router_mac, self.lossy_priorities)
 
         # Verify that packets are not dropped on src port
         port_counters, queue_counters = sai_thrift_read_port_counters(
             self.client, self.asic_type, self.non_server_port['oid'])
         self.log("Lossy - INGRESS_DROP: port_counters = {}\n queue_counters = {}".format(
             port_counters, queue_counters))
-        assert(port_counters[self.INGRESS_DROP] == 0)
+        assert (port_counters[self.INGRESS_DROP] == 0)
 
         # Verify that some packets are dropped on dst ports, which means that Tx buffer is full
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, self.asic_type, sp['oid'])
+            port_counters, queue_counters = sai_thrift_read_port_counters(
+                self.client, self.asic_type, sp['oid'])
             self.log("Lossy - EGRESS_DROP: port_counters = {}\n queue_counters = {}\nserver_port = {}".format(
                 port_counters, queue_counters, sp))
-            assert(port_counters[self.EGRESS_DROP] > 0)
+            assert (port_counters[self.EGRESS_DROP] > 0)
 
         # Send packets for lossless priorities from non-server port (src) to all server ports (dst)
-        self.sendData(self.server_ports, self.non_server_port, self.router_mac, self.lossless_priorities)
+        self.sendData(self.server_ports, self.non_server_port,
+                      self.router_mac, self.lossless_priorities)
 
         # Verify that some packets are dropped on src port, which means that Rx queue is full
         port_counters, queue_counters = sai_thrift_read_port_counters(
             self.client, self.asic_type, self.non_server_port['oid'])
         self.log("Lossy - INGRESS_DROP: port_counters = {}\n queue_counters = {}".format(
             port_counters, queue_counters))
-        assert(port_counters[self.INGRESS_DROP] > 0)
+        assert (port_counters[self.INGRESS_DROP] > 0)
 
         # Verify that some packets are dropped on dst ports, which means that Tx buffer is full
         for sp in self.server_ports:
-            port_counters, queue_counters = sai_thrift_read_port_counters(self.client, self.asic_type, sp['oid'])
+            port_counters, queue_counters = sai_thrift_read_port_counters(
+                self.client, self.asic_type, sp['oid'])
             self.log("\nLossless - EGRESS_DROP: port_counters = {}\n queue_counters = {}\nserver_port = {}".format(
                 port_counters, queue_counters, sp))
-            assert(port_counters[self.EGRESS_DROP] > 0)
+            assert (port_counters[self.EGRESS_DROP] > 0)

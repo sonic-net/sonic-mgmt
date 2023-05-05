@@ -1,21 +1,15 @@
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
 
-import os
-import subprocess
 import shlex
-import pipes
 import pexpect
-import random
-import select
-import fcntl
-import pwd
 import time
 import string
 
 from ansible import constants as C
-from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound
+from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound      # noqa F401
 from ansible.plugins.connection import ConnectionBase
+
 
 class Connection(ConnectionBase):
     ''' ssh based connections with expect '''
@@ -79,20 +73,27 @@ class Connection(ConnectionBase):
                 for conn_attempt in range(max_retries):
                     if client:
                         client.close()
-                    self._display.vvv("SSH: EXEC {0}".format(' '.join(cmd)), host=self.host)
-                    client = pexpect.spawn(' '.join(cmd), env={'TERM': 'dumb'}, timeout=self.timeout)
-                    i = client.expect(['[Pp]assword:', pexpect.EOF, pexpect.TIMEOUT])
+                    self._display.vvv("SSH: EXEC {0}".format(
+                        ' '.join(cmd)), host=self.host)
+                    client = pexpect.spawn(' '.join(cmd), env={
+                                           'TERM': 'dumb'}, timeout=self.timeout)
+                    i = client.expect(
+                        ['[Pp]assword:', pexpect.EOF, pexpect.TIMEOUT])
                     if i == 0:
                         break
                     else:
-                        self._display.vvv("Establish connection to server failed", host=self.host)
+                        self._display.vvv(
+                            "Establish connection to server failed", host=self.host)
                         if conn_attempt < max_retries - 1:   # To avoid unnecessary sleep if max retry reached
-                            self._display.vvv("Retry in %d seconds" % self.connection_retry_interval, host=self.host)
+                            self._display.vvv(
+                                "Retry in %d seconds" % self.connection_retry_interval, host=self.host)
                             time.sleep(self.connection_retry_interval)
                 else:
-                    raise AnsibleError("Establish connection to server failed after tried %d times." % max_retries)
+                    raise AnsibleError(
+                        "Establish connection to server failed after tried %d times." % max_retries)
 
-            self._display.vvv("Try password %s..." % login_passwd[0:4], host=self.host)
+            self._display.vvv("Try password %s..." %
+                              login_passwd[0:4], host=self.host)
             client.sendline(login_passwd)
             i = client.expect(['>', '#', '[Pp]assword:', pexpect.EOF])
             if i < 2:
@@ -135,8 +136,8 @@ class Connection(ConnectionBase):
             self.hname = ' '.join(self.before_backup[-3:])
             self.hname = self.hname.replace("(", "[(]")
             self.hname = self.hname.replace(")", "[)]")
-            self.hname = self.hname.replace("]", "\]")
-            self.hname = self.hname.replace("[", "\[")
+            self.hname = self.hname.replace("]", r"\]")
+            self.hname = self.hname.replace("[", r"\[")
         else:
             self.hname = self.before_backup[-1]
             self.hname = self.hname.replace("(", "[(]")
@@ -152,10 +153,12 @@ class Connection(ConnectionBase):
                     if attempt < len(self.login['enable']):
                         passwd = self.login['enable'][attempt]
                         client.sendline(passwd)
-                        self._display.vvv("Try enable password %s..." % passwd[0:4], host=self.host)
+                        self._display.vvv("Try enable password %s..." %
+                                          passwd[0:4], host=self.host)
                         attempt += 1
                     else:
-                        raise AnsibleError("none of the enable passwords works")
+                        raise AnsibleError(
+                            "none of the enable passwords works")
                 elif i == 2:
                     client.sendline('enable')
                 else:
@@ -168,43 +171,46 @@ class Connection(ConnectionBase):
             if self.sku == "nxos":
                 self._display.vvv("Enable configure mode", host=self.host)
                 client.sendline('conf t')
-                client.expect(['\(config\)#'])
+                client.expect([r'\(config\)#'])
                 self._display.vvv("Enable bash feature", host=self.host)
                 client.sendline('feature bash')
-                client.expect(['\(config\)#'])
+                client.expect([r'\(config\)#'])
                 client.sendline('run bash')
                 self._display.vvv("Run bash", host=self.host)
-                client.expect(['bash-\d.\d\$'])
+                client.expect([r'bash-\d.\d\$'])
                 if self.su:
                     if user != 'admin':
-                        raise AnsibleError("can only get into bash using local admin account")
+                        raise AnsibleError(
+                            "can only get into bash using local admin account")
                     client.sendline('sudo su root')
-                    i = client.expect(['Password:', 'bash-\d.\d#'])
+                    i = client.expect(['Password:', r'bash-\d.\d#'])
                     if i == 0:
-                        self._display.vvv("Provide sudo password", host=self.host)
+                        self._display.vvv(
+                            "Provide sudo password", host=self.host)
                         client.sendline(login_passwd)
-                        client.expect(['bash-\d.\d#'])
+                        client.expect([r'bash-\d.\d#'])
                     self._display.vvv("Entered bash with root", host=self.host)
                 else:
                     self._display.vvv("Entered bash", host=self.host)
             elif self.sku == "eos" or self.sku == "aos":
                 client.sendline('bash')
-                client.expect(['\$ '])
+                client.expect([r'\$ '])
             else:
-                raise AnsibleError("do not support shell mode for sku %s" % self.sku)
+                raise AnsibleError(
+                    "do not support shell mode for sku %s" % self.sku)
 
         return client
 
     def exec_command(self, *args, **kwargs):
         self.template = kwargs['template']
         if kwargs['host'] is not None:
-            self.host     = kwargs['host']
-        self.login    = kwargs['login']
-        self.enable   = kwargs['enable']
-        self.bash     = kwargs['bash']
-        self.su       = kwargs['su']
-        self.reboot   = kwargs['reboot']
-        self.os_name  = kwargs['os_name']
+            self.host = kwargs['host']
+        self.login = kwargs['login']
+        self.enable = kwargs['enable']
+        self.bash = kwargs['bash']
+        self.su = kwargs['su']
+        self.reboot = kwargs['reboot']
+        self.os_name = kwargs['os_name']
         if kwargs['root']:
             self.login['user'] = 'root'
         if kwargs['timeout']:
@@ -219,13 +225,15 @@ class Connection(ConnectionBase):
         # "%s(\([a-z\-]+\))?#": privileged prompt including configure mode
         # Prompt includes Login, Password, and yes/no for "start shell" case in Dell FTOS (launch bash shell)
         if not self.bash:
-            prompts = ["%s>" % self.hname, "%s.+" % self.hname, "%s(\([a-zA-Z0-9\/\-]+\))?#" % self.hname, '[Ll]ogin:', '[Pp]assword:', '\[(confirm )?yes\/no\]:', '\(y\/n\)\??\s?\[n\]']
+            prompts = ["%s>" % self.hname, "%s.+" % self.hname,
+                       r"%s(\([a-zA-Z0-9\/\-]+\))?#" % self.hname, '[Ll]ogin:', '[Pp]assword:',
+                       r'\[(confirm )?yes\/no\]:', r'\(y\/n\)\??\s?\[n\]']
         else:
             if self.sku == 'nxos':
                 # bash-3.2$ for nexus 6.5
-                prompts = ['bash-3\.2\$', 'bash-3\.2#']
+                prompts = [r'bash-3\.2\$', r'bash-3\.2#']
             elif self.sku == 'eos' or self.sku == "aos":
-                prompts = ['\$ ']
+                prompts = [r'\$ ']
 
         if self.sku in ('mlnx_os',):
             # extend with default \u@\h:\w# for docker container prompts
@@ -251,19 +259,22 @@ class Connection(ConnectionBase):
                 raise AnsibleError("can only reboot the box in enable mode")
             client.sendline('reload')
             # Proceed with reload\? \[confirm\] : EOS
-            i = client.expect(['\(y\/n\)\??\s*\[n\]', 'Proceed with reload\? \[confirm\]', 'System configuration has been modified. Save\? \[yes\/no\/cancel\/diff\]:'])
+            i = client.expect([r'\(y\/n\)\??\s*\[n\]', r'Proceed with reload\? \[confirm\]',
+                               r'System configuration has been modified. Save\? \[yes\/no\/cancel\/diff\]:'])
             if i == 2:
                 # EOS behavior
                 stdout += self._remove_unprintable(client.before)
                 client.sendline('n')
-                i = client.expect('Proceed with reload\? \[confirm\]')
+                i = client.expect(r'Proceed with reload\? \[confirm\]')
             stdout += self._remove_unprintable(client.before)
             client.sendline('y')
             # The system is going down for reboot NOW: EOS
-            i = client.expect(['>', '#', 'The system is going down for reboot NOW', pexpect.TIMEOUT, pexpect.EOF])
+            i = client.expect(
+                ['>', '#', 'The system is going down for reboot NOW', pexpect.TIMEOUT, pexpect.EOF])
             stdout += self._remove_unprintable(client.before)
             if i < 2:
-                raise AnsibleError("Box failed to reboot. stdout = %s" % stdout)
+                raise AnsibleError(
+                    "Box failed to reboot. stdout = %s" % stdout)
             self._display.vvv("Box rebooted", host=self.host)
 
         return stdout

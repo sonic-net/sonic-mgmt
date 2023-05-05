@@ -7,12 +7,12 @@ Parameters:
 """
 
 import logging
-import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link, check_orch_cpu_utilization, check_bgp_routes, check_portchannel_status
+from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link,\
+    check_orch_cpu_utilization, check_bgp_routes
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
@@ -22,12 +22,14 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 class TestContLinkFlap(object):
     """
     TestContLinkFlap class for continuous link flap
     """
 
-    def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, bring_up_dut_interfaces, tbinfo):
+    def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
+                            fanouthosts, bring_up_dut_interfaces, tbinfo):
         """
         Validates that continuous link flap works as expected
 
@@ -39,7 +41,7 @@ class TestContLinkFlap(object):
             3.) Watch for memory (show system-memory) ,orchagent CPU Utilization
                 and Redis_memory.
 
-        Pass Criteria: All routes must be re-learned with < 5% increase in Redis and 
+        Pass Criteria: All routes must be re-learned with < 5% increase in Redis and
             ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -51,7 +53,8 @@ class TestContLinkFlap(object):
         logging.info("Memory Status at start: %s", memory_output)
 
         # Record Redis Memory at start
-        start_time_redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
+        start_time_redis_memory = duthost.shell(
+            r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'")["stdout"]
         logging.info("Redis Memory: %s M", start_time_redis_memory)
 
         # Record ipv4 route counts at start
@@ -69,8 +72,9 @@ class TestContLinkFlap(object):
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
         pytest_assert(wait_until(100, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
+                      "Orch CPU utilization {} > orch cpu threshold {} before link flap"
+                      .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                              orch_cpu_threshold))
 
         # Flap all interfaces one by one on DUT
         for iteration in range(3):
@@ -88,14 +92,12 @@ class TestContLinkFlap(object):
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
 
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
-        if not wait_until(120, 2, 0, check_bgp_routes, duthost, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
+        if not wait_until(120, 2, 0, check_bgp_routes, duthost,
+                          start_time_ipv4_route_counts, start_time_ipv6_route_counts):
             endv4, endv6 = duthost.get_ip_route_summary(skip_kernel_tunnel=True)
             failmsg = []
-            failmsg.append(
-                "IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}".format(sumv4,
-                                                                                                                sumv6,
-                                                                                                                endv4,
-                                                                                                                endv6))
+            failmsg.append("IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}"
+                           .format(sumv4, sumv6, endv4, endv6))
             config_facts = duthost.get_running_config_facts()
             nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
             dut_type = None
@@ -127,14 +129,15 @@ class TestContLinkFlap(object):
         logging.info("Memory Status at end: %s", memory_output)
 
         # Record orchagent CPU utilization at end
-        orch_cpu = duthost.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $1, $9}'")[
-            "stdout_lines"]
+        orch_cpu = duthost.shell(
+            "COLUMNS=512 show processes cpu | grep orchagent | awk '{print $1, $9}'")["stdout_lines"]
         for line in orch_cpu:
             pid, util = line.split(" ")
             logging.info("Orchagent PID {0} CPU Util at end: {1}".format(pid, util))
 
         # Record Redis Memory at end
-        end_time_redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\\1/'")["stdout"]
+        end_time_redis_memory = duthost.shell(
+            r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'")["stdout"]
         logging.info("Redis Memory at start: %s M", start_time_redis_memory)
         logging.info("Redis Memory at end: %s M", end_time_redis_memory)
 
@@ -146,10 +149,12 @@ class TestContLinkFlap(object):
         if incr_redis_memory > 0.0:
             percent_incr_redis_memory = (incr_redis_memory / float(start_time_redis_memory)) * 100
             logging.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
-            pytest_assert(percent_incr_redis_memory < 5, "Redis Memory Increase more than expected: {}".format(percent_incr_redis_memory))
+            pytest_assert(percent_incr_redis_memory < 5, "Redis Memory Increase more than expected: {}"
+                          .format(percent_incr_redis_memory))
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
         pytest_assert(wait_until(45, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} after link flap"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"], orch_cpu_threshold))
+                      "Orch CPU utilization {} > orch cpu threshold {} after link flap"
+                      .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                              orch_cpu_threshold))

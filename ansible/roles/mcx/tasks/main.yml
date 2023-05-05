@@ -2,7 +2,7 @@
 ### playbook to deploy the mcx switch
 ### Use this playbook to deploy the console configurations of mcx switch in SONiC testbed
 ### This playbook now supports Nokia-7215 and Celestica-E1031-T48S4 only
-### This playbook will configure management IP (default to Ethernet47 for Nokia-7215) and setup 
+### This playbook will configure management IP (default to Ethernet47 for Nokia-7215) and setup
 ### console links based on connection graph.
 ################################################################################################
 - name: Gathering lab graph facts about the device

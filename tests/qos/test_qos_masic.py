@@ -1,12 +1,13 @@
+from tests.common.helpers.assertions import pytest_assert
 import json
 import logging
 import pytest
+import time
 
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t1')
@@ -14,7 +15,6 @@ pytestmark = [
 
 
 class QosSaiBaseMasic:
-
 
     def runPtfTest(self, ptfhost, testCase='', testParams={}):
         """
@@ -32,7 +32,7 @@ class QosSaiBaseMasic:
                 RunAnsibleModuleFail if ptf test fails
         """
         pytest_assert(ptfhost.shell(
-                      argv = [
+                      argv=[
                           "/root/env-python3/bin/ptf",
                           "--test-dir",
                           "saitests/py3",
@@ -42,7 +42,8 @@ class QosSaiBaseMasic:
                           "--platform",
                           "remote",
                           "-t",
-                          ";".join(["{}={}".format(k, repr(v)) for k, v in list(testParams.items())]),
+                          ";".join(["{}={}".format(k, repr(v))
+                                   for k, v in list(testParams.items())]),
                           "--disable-ipv6",
                           "--disable-vxlan",
                           "--disable-geneve",
@@ -54,7 +55,7 @@ class QosSaiBaseMasic:
                           "--test-case-timeout",
                           "600"
                       ],
-                      chdir = "/root",
+                      chdir="/root",
                       )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
 
     def build_port_ips(self, asic_index, ifaces, mg_facts):
@@ -142,11 +143,13 @@ class QosSaiBaseMasic:
         ip_ifs = self.get_backend_ip_ifs(duthost, frontend_asic)
 
         for intf, asic in list(ip_ifs.items()):
-            if  asic != "asic{}".format(test_asic):
+            if asic != "asic{}".format(test_asic):
                 if admin_state == "startup":
-                    duthost.asic_instance(frontend_asic).startup_interface(intf)
+                    duthost.asic_instance(
+                        frontend_asic).startup_interface(intf)
                 else:
-                    duthost.asic_instance(frontend_asic).shutdown_interface(intf)
+                    duthost.asic_instance(
+                        frontend_asic).shutdown_interface(intf)
 
                 # wait for port status to change
                 pytest_assert(
@@ -158,7 +161,6 @@ class QosSaiBaseMasic:
                         intf, admin_state
                     )
                 )
-
 
     def find_asic_traffic_ports(self, duthost, ptfhost, test_params):
         """
@@ -230,14 +232,14 @@ class QosSaiBaseMasic:
                     rx_port is None and tx_port is None,
                     "Multiple backend ASICs with rx/tx ports"
                 )
-                rx_port, tx_port, asic_idx  = rx, tx, asic
+                rx_port, tx_port, asic_idx = rx, tx, asic
 
         pytest_assert(asic_idx is not None, "ASIC, rx and tx ports not found")
         return ({
             "test_src_port_name": rx_port,
             "test_dst_port_name": tx_port,
             "asic_under_test": asic_idx,
-            }
+        }
         )
 
     def build_ip_interface(self, duthost, tbinfo):
@@ -258,7 +260,7 @@ class QosSaiBaseMasic:
            .
            .
         }
-        """ 
+        """
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
@@ -353,7 +355,8 @@ class TestQosSaiMasic(QosSaiBaseMasic):
         bgp_neighbors.update(duthost.get_internal_bgp_peers())
 
         if not wait_until(
-            300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())
+            300, 10, 0, duthost.check_bgp_session_state, list(
+                bgp_neighbors.keys())
         ):
             pytest.fail("Not all bgp sessions are Up. BGP Sessions: {}".format(
                 duthost.get_bgp_neighbors()

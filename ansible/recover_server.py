@@ -40,7 +40,8 @@ root.addHandler(handler)
 
 def parse_testbed(testbedfile, testbed_servers):
     """Return a dictionary containing mapping from server name to testbeds."""
-    testbed = imp.load_source('testbed', os.path.join(SONIC_MGMT_DIR, 'tests/common/testbed.py'))
+    testbed = imp.load_source('testbed', os.path.join(
+        SONIC_MGMT_DIR, 'tests/common/testbed.py'))
     testbeds = {server_name: list() for server_name in testbed_servers}
     for tbname, tb in testbed.TestbedInfo(testbedfile).testbed_topo.items():
         if tb['server'] in testbeds:
@@ -72,7 +73,8 @@ class Task(object):
             log_file = '%s.log' % self.taskname
             log_file = os.path.join(self.log_save_dir, log_file)
             with open(log_file, 'w') as lf:
-                self._p = subprocess.Popen(args=self.args, stdout=lf, stderr=lf)
+                self._p = subprocess.Popen(
+                    args=self.args, stdout=lf, stderr=lf)
                 logging.debug('task %s PID: %s', self, self._p.pid)
                 self._p.communicate()
                 self.returncode = self._p.returncode
@@ -90,16 +92,20 @@ class TaskStartTopoVMs(Task):
     """Task start-topo-vms."""
 
     def __init__(self, tbname, passfile, log_save_dir, tbfile=None, vmfile=None, vmtype=None, dry_run=False):
-        Task.__init__(self, tbname + '_start_topo_vms', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=dry_run)
+        Task.__init__(self, tbname + '_start_topo_vms', log_save_dir=log_save_dir,
+                      tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=dry_run)
         self.args.extend(('start-topo-vms', tbname, passfile))
         self.tbname = tbname
+
 
 class TaskStartVMs(Task):
     """Task start-vm"""
 
     def __init__(self, server, passfile, log_save_dir, tbfile=None, vmfile=None, vmtype=None, dry_run=False):
-        Task.__init__(self, server + '_start_vms', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=dry_run)
+        Task.__init__(self, server + '_start_vms', log_save_dir=log_save_dir,
+                      tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=dry_run)
         self.args.extend(('start-vms', server, passfile))
+
 
 class TaskAddTopo(Task):
     """Task add-topo."""
@@ -115,7 +121,8 @@ class TaskDeployMG(Task):
     """Task deploy-mg."""
 
     def __init__(self, tbname, inventory, passfile, log_save_dir, tbfile=None, vmfile=None, dry_run=False):
-        Task.__init__(self, tbname + '_deloy_mg', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
+        Task.__init__(self, tbname + '_deloy_mg', log_save_dir=log_save_dir,
+                      tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
         self.args.extend(('deploy-mg', tbname, inventory, passfile))
         self.tbname = tbname
 
@@ -124,7 +131,8 @@ class TaskCleanupVMHosts(Task):
     """Task cleanup-vmhost."""
 
     def __init__(self, server, passfile, log_save_dir, tbfile=None, vmfile=None, dry_run=False):
-        Task.__init__(self, server + '_cleanup_vmhost', log_save_dir=log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
+        Task.__init__(self, server + '_cleanup_vmhost', log_save_dir=log_save_dir,
+                      tbfile=tbfile, vmfile=vmfile, dry_run=dry_run)
         self.args.extend(('cleanup-vmhost', server, passfile))
 
 
@@ -147,21 +155,25 @@ class Job(object):
         if jobname == 'cleanup':
             server = kwargs['server']
             self.tasks = [
-                TaskCleanupVMHosts(server, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
+                TaskCleanupVMHosts(server, passfile, log_save_dir,
+                                   tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
             ]
             self.ignore_errors = False
         elif jobname == 'start-vms':
             server = kwargs['server']
             self.tasks = [
-                TaskStartVMs(server, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=self.dry_run)
+                TaskStartVMs(server, passfile, log_save_dir, tbfile=tbfile,
+                             vmfile=vmfile, vmtype=vmtype, dry_run=self.dry_run)
             ]
             self.ignore_errors = False
         elif jobname == 'init_testbed':
             tbname = kwargs['tbname']
             inventory = kwargs['inventory']
             self.tasks = [
-                TaskAddTopo(tbname, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, dry_run=self.dry_run),
-                TaskDeployMG(tbname, inventory, passfile, log_save_dir, tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
+                TaskAddTopo(tbname, passfile, log_save_dir, tbfile=tbfile,
+                            vmfile=vmfile, vmtype=vmtype, dry_run=self.dry_run),
+                TaskDeployMG(tbname, inventory, passfile, log_save_dir,
+                             tbfile=tbfile, vmfile=vmfile, dry_run=self.dry_run)
             ]
             self.ignore_errors = True
             self.tbname = tbname
@@ -191,7 +203,8 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
         output = [HEAD_LINE]
         if not skip_cleanup:
             if jobs[0].failed_task is not None:
-                output.append('Server %s cleanup failed, skip recovery.' % server)
+                output.append(
+                    'Server %s cleanup failed, skip recovery.' % server)
             jobs = jobs[1:]
 
         if vmtype != 'ceos':
@@ -200,7 +213,8 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
                 start_vms_result = 'Succeed.'
             else:
                 start_vms_result = 'Failed.'
-            output.append('Server %s start-vms result: %s ' % (server, start_vms_result))
+            output.append('Server %s start-vms result: %s ' %
+                          (server, start_vms_result))
             jobs = jobs[1:]
 
         output.append('Server %s recovery result:' % server)
@@ -244,10 +258,12 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
                 break
             time.sleep(5)
 
-    utilities = imp.load_source('utilities', os.path.join(SONIC_MGMT_DIR, 'tests/common/utilities.py'))
+    utilities = imp.load_source('utilities', os.path.join(
+        SONIC_MGMT_DIR, 'tests/common/utilities.py'))
 
     curr_date = datetime.datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
-    log_save_dir = os.path.join(tempfile.gettempdir(), 'recover_server_' + curr_date)
+    log_save_dir = os.path.join(
+        tempfile.gettempdir(), 'recover_server_' + curr_date)
     logging.info('LOG PATH: %s', log_save_dir)
     threads = []
     for server, tbs in testbeds.items():
@@ -296,7 +312,8 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
                     dry_run=dry_run
                 )
             ] + jobs
-        thread = utilities.InterruptableThread(name=server, target=_do_jobs, args=(jobs,))
+        thread = utilities.InterruptableThread(
+            name=server, target=_do_jobs, args=(jobs,))
         thread.start()
         threads.append(thread)
 
@@ -305,15 +322,24 @@ def do_jobs(testbeds, passfile, tbfile=None, vmfile=None, vmtype=None, skip_clea
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Recover testbed servers.')
-    parser.add_argument('--testbed-servers', action='append', type=str, required=True, help='testbed server to recover')
-    parser.add_argument('--testbed', default='testbed.csv', help='testbed file(default: testbed.csv)')
-    parser.add_argument('--vm-file', default='veos', help='vm inventory file(default: veos)')
-    parser.add_argument('--vm-type', default='veos', choices=['veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: veos)')
-    parser.add_argument('--inventory', help='Deprecated. Inventory info is already in testbed.(csv|yaml), no need to specify in argument')
-    parser.add_argument('--passfile', default='password.txt', help='Ansible vault password file(default: password.txt)')
-    parser.add_argument('--skip-cleanup', action='store_true', help='Skip cleanup server')
+    parser.add_argument('--testbed-servers', action='append',
+                        type=str, required=True, help='testbed server to recover')
+    parser.add_argument('--testbed', default='testbed.csv',
+                        help='testbed file(default: testbed.csv)')
+    parser.add_argument('--vm-file', default='veos',
+                        help='vm inventory file(default: veos)')
+    parser.add_argument('--vm-type', default='veos', choices=[
+                        'veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: veos)')
+    parser.add_argument(
+        '--inventory',
+        help='Deprecated. Inventory info is already in testbed.(csv|yaml), no need to specify in argument')
+    parser.add_argument('--passfile', default='password.txt',
+                        help='Ansible vault password file(default: password.txt)')
+    parser.add_argument('--skip-cleanup', action='store_true',
+                        help='Skip cleanup server')
     parser.add_argument('--dry-run', action='store_true', help='Dry run')
-    parser.add_argument('--log-level', choices=['debug', 'info', 'warn', 'error', 'critical'], default='info', help='logging output level')
+    parser.add_argument('--log-level', choices=['debug', 'info', 'warn',
+                        'error', 'critical'], default='info', help='logging output level')
     args = parser.parse_args()
 
     servers = args.testbed_servers
@@ -328,4 +354,5 @@ if __name__ == '__main__':
     handler.setLevel(getattr(logging, log_level.upper()))
 
     testbeds = parse_testbed(tbfile, servers)
-    do_jobs(testbeds, passfile, tbfile=tbfile, vmfile=vmfile, vmtype=vmtype, skip_cleanup=skip_cleanup, dry_run=dry_run)
+    do_jobs(testbeds, passfile, tbfile=tbfile, vmfile=vmfile,
+            vmtype=vmtype, skip_cleanup=skip_cleanup, dry_run=dry_run)

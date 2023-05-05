@@ -6,6 +6,9 @@
 #
 # ref: https://github.com/ansible/ansible/blob/devel/lib/ansible/executor/module_common.py
 
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.parsing.convert_bool import BOOLEANS
+
 DOCUMENTATION = '''
 ---
 module: switch_tables
@@ -13,7 +16,7 @@ version_added: "1.9"
 short_description: Retrieve layer 3 tables
 description:
     - Retrieve route, neighbor, nexthop, nexthopgroup table from ACS device
- 
+
     Table format:
     results[route][prefix] = nhid/nhgid
     results[neighbor][ip]  = mac
@@ -27,15 +30,9 @@ EXAMPLES = '''
   switch_tables: l3table=yes egress=yes asic=broadcom
 '''
 
-from collections import defaultdict
-import json
-import re
-import socket
-
-
-
 # MELLANOX SECTION #
 ####################
+
 
 def general_parse_log(output, keyword):
     list = []
@@ -89,7 +86,8 @@ def parse_ecmp_id(output):
         ecmp = ecmp[11:-1]
         for word in ecmp.split(" "):
             ecmp_attributes.append(word.strip())
-        nh_list.append(convert_hex_to_ip(ecmp_attributes[2].split("=")[1].strip()))
+        nh_list.append(convert_hex_to_ip(
+            ecmp_attributes[2].split("=")[1].strip()))
     return nh_list
 
 
@@ -106,15 +104,15 @@ def main():
     results = dict()
 
     if module.params['asic'] == 'broadcom':
-        self.module.fail_json(msg="Broadcom support missing.")
-        
+        module.fail_json(msg="Broadcom support missing.")
 
     if module.params['asic'] == 'mellanox':
 
-        rc, out, err = module.run_command("/usr/local/bin/sx_api_router_uc_routes_dump_all.py")
+        rc, out, err = module.run_command(
+            "/usr/local/bin/sx_api_router_uc_routes_dump_all.py")
         if rc != 0:
-            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
-                                      (rc, out, err))
+            module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
+                             (rc, out, err))
         routes_table = {}
         nhg_table = {}
         ecmp_ids = []
@@ -134,7 +132,8 @@ def main():
                 elif word.split("=")[0].strip() == "type" and word.split("=")[1].strip() == "NEXT_HOP":
                     for attr in attributes:
                         if attr.split("=")[0].strip() == "nexthoplist" and attr.split("=")[1].strip() != "":
-                            routes_table[route] = convert_hex_to_ip(attr.split("=")[4].strip())
+                            routes_table[route] = convert_hex_to_ip(
+                                attr.split("=")[4].strip())
 
                         elif attr.split("=")[0].strip() == "ecmp_id" and attr.split("=")[1].strip() != "0":
                             routes_table[route] = attr.split("=")[1].strip()
@@ -149,10 +148,11 @@ def main():
                                      (rc, out, err))
             nhg_table[id] = parse_ecmp_id(out)
 
-        rc, out, err = module.run_command("/usr/local/bin/sx_api_router_neigh_dump.py")
+        rc, out, err = module.run_command(
+            "/usr/local/bin/sx_api_router_neigh_dump.py")
         if rc != 0:
-            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
-                                      (rc, out, err))
+            module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
+                             (rc, out, err))
         neighbors_table = parse_neighbors(out)
 
         if module.params['neighbor']:
@@ -175,8 +175,6 @@ def main():
 
     module.exit_json(ansible_facts=results)
 
-
-from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()
