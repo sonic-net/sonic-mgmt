@@ -209,7 +209,7 @@ def is_dualtor(tbinfo):
 
 
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
-                    get_function_conpleteness_level, announce_default_routes, 
+                    get_function_conpleteness_level, announce_default_routes,
                     enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get(
