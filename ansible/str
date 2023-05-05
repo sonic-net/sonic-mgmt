@@ -1003,7 +1003,7 @@ server:
     str-acs-serv-02:
       ansible_host: 10.3.147.192
     str-acs-serv-03:
-      ansible_host: 10.3.147.244
+      ansible_host: 10.64.247.45
     str-acs-serv-06:
       ansible_host: 10.64.247.1
     str-acs-serv-07:
