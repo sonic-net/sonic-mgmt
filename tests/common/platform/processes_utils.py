@@ -47,7 +47,7 @@ def wait_critical_processes(dut):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     """
     logging.info("Wait until all critical processes are healthy")
-    is_chassis = duthost.get_facts().get("modular_chassis")
+    is_chassis = dut.get_facts().get("modular_chassis")
     timeout = 400 if is_chassis else 300
     pytest_assert(wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut),
                   "Not all critical processes are healthy")
