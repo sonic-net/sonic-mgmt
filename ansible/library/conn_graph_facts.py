@@ -505,12 +505,13 @@ class Parse_Lab_Graph():
         """
         if hostname in self.devices:
             ret = {}
-            for key in ['PSU1', 'PSU2', 'PSU3', 'PSU4']:
-                try:
-                    ret.update(
-                        {key: self.devices[self.pdulinks[hostname][key]['peerdevice']]})
-                except KeyError:
-                    pass
+            if hostname in self.pdulinks:
+                for key in self.pdulinks[hostname].keys():
+                    try:
+                        ret.update(
+                            {key: self.devices[self.pdulinks[hostname][key]['peerdevice']]})
+                    except KeyError:
+                        pass
             return ret
         else:
             # Please be noted that an empty dict is returned when hostname is not found
