@@ -18,6 +18,7 @@ class SonicAsic(object):
 
     _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
+    _RPC_PORT_FOR_SSH_TUNNEL = 9092
 
     def __init__(self, sonichost, asic_index):
         """ Initializing a ASIC on a SONiC host.
@@ -325,6 +326,9 @@ class SonicAsic(object):
 
         logger.debug(output)
 
+    def get_rpc_port_ssh_tunnel(self):
+        return self._RPC_PORT_FOR_SSH_TUNNEL + self.asic_index
+
     def remove_ssh_tunnel_sai_rpc(self):
         """
         Removes any ssh tunnels if present created for syncd RPC communication
@@ -334,7 +338,15 @@ class SonicAsic(object):
         """
         if not self.sonichost.is_multi_asic:
             return
-        return self.sonichost.remove_ssh_tunnel_sai_rpc()
+
+        try:
+            pid_list = self.sonichost.shell(
+                r'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:{}"'.format(self.get_rpc_port_ssh_tunnel())
+            )["stdout_lines"]
+        except RunAnsibleModuleFail:
+            return
+        for pid in pid_list:
+            self.shell("kill {}".format(pid), module_ignore_errors=True)
 
     def create_ssh_tunnel_sai_rpc(self):
         """
@@ -363,9 +375,9 @@ class SonicAsic(object):
 
         self.sonichost.shell(
             ("ssh -o StrictHostKeyChecking=no -fN"
-             " -L *:9092:{}:9092 localhost"
-            ).format(ns_docker_if_ipv4)
-        )
+             " -L *:{}:{}:{} localhost").format(self.get_rpc_port_ssh_tunnel(), ns_docker_if_ipv4,
+                                                self._RPC_PORT_FOR_SSH_TUNNEL ))
+
 
     def command(self, cmdstr):
         """
