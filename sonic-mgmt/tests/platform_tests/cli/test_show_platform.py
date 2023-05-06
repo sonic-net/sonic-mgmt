@@ -199,7 +199,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
 
         for line in utility_cmd_output["stdout_lines"]:
             if not line.startswith('-'):  # do not validate line '-------------------- ---- --- -----'
-                line_regexp = re.sub(r'\s+', '\\s+', line)
+                line_regexp = re.sub(r'\s+', r'\\s+', line)
                 pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".
                               format(line, duthost.hostname))
 
