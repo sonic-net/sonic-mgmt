@@ -52,6 +52,11 @@ parameters:
     default: "vlan/test_vlan.py"
     displayName: "Skip Scripts"
 
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800
+
   - name: AGENT_POOL
     type: string
     default: nightly-bjw
@@ -70,5 +75,6 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
       PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}

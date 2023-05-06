@@ -49,6 +49,11 @@ parameters:
               platform_tests/test_reboot.py::test_fast_reboot"
     displayName: "Skip Scripts"
 
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800
+
   - name: PREV_IMAGE_URL
     type: string
     default: $(IMAGE_BRCM_ABOOT_201811)
@@ -62,4 +67,5 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
       PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
