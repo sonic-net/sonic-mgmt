@@ -3,9 +3,9 @@ import logging
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from macsec_platform_helper import get_portchannel
-from macsec_platform_helper import find_portchannel_from_member
-from macsec_config_helper import enable_macsec_port, disable_macsec_port
+from .macsec_platform_helper import get_portchannel
+from .macsec_platform_helper import find_portchannel_from_member
+from .macsec_config_helper import enable_macsec_port, disable_macsec_port
 
 
 logger = logging.getLogger(__name__)
