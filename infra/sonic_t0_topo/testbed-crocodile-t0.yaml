@@ -1,0 +1,379 @@
+device_groups:
+  fanout:
+    host:
+    - nexus-5
+  lab:
+    children:
+    - sonic
+    - fanout
+    vars:
+      mgmt_subnet_mask_length: '24'
+  ptf:
+    host:
+    - docker-ptf
+  sonic:
+    children:
+    - sonic_cisco
+  sonic_cisco:
+    host:
+    - crocodile-01
+    vars:
+      hwsku: Cisco-8111-O64
+      iface_speed: '400000'
+devices:
+  crocodile-01:
+    alias: null
+    ansible:
+      ansible_host: 192.168.122.47
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: cisco
+    credentials:
+      enable_password: cisco123
+      password: cisco123
+      username: cisco
+    device_type: DevSonic
+    hwsku: Cisco-8111-O64
+    os: sonic
+  nexus-5:
+    alias: null
+    ansible:
+      ansible_host: 10.251.0.13/23
+      ansible_ssh_pass: password
+      ansible_ssh_user: user
+      fanout_sonic_password: password
+      fanout_sonic_user: admin
+    credentials:
+      password: null
+      username: null
+    device_type: FanoutLeaf
+    hwsku: Arista-7260QX-64
+  str-acs-serv-01:
+    alias: null
+    ansible:
+      ansible_become_pass: cisco123
+      ansible_host: 172.17.0.1/23
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: vxr
+      sonicadmin_initial_password: cisco123
+      sonicadmin_password: cisco123
+      sonicadmin_user: admin
+    credentials:
+      password: cisco123
+      username: vxr
+    device_type: server
+    hwsku: TestServ
+    mgmt_subnet_mask_length: '24'
+  docker-ptf:
+    device_type: blank
+    hwsku:
+    ansible:
+        ansible_ssh_user: root
+        ansible_host: 1.74.23.21/16
+        ansible_hostv6: fc0b::1/64
+        ansible_ssh_pass: root
+    credentials:
+        password: root
+        username: root
+docker_registry:
+  docker_registry_host: sonicdev-microsoft.azurecr.io:443
+  docker_registry_password: sonic
+  docker_registry_username: 1dafc8d7-d19c-4f58-8653-e8d904f30dab
+host_vars:
+  str-acs-serv-01:
+    external_port: eth0
+    mgmt_bridge: br1
+    mgmt_gw: 172.17.0.1
+    mgmt_prefixlen: 24
+testbed:
+  docker-ptf:
+    comment: Test ptf crocodile
+    dut: crocodile-01
+    group-name: sonic_cisco
+    ptf_image_name: docker-ptf-crocodile
+    ptf_ip: 192.168.122.66/24
+    ptf_ipv6: fc0b::1/64
+    ptf: docker-ptf 
+    server: server_1
+    topo: t0
+    vm_base: VM0100
+    ansible:
+      ansible_ssh_user: root
+      ansible_host: 192.168.122.66/24
+      ansible_hostv6: fc0b::1/64
+      ansible_ssh_pass: root
+    credentials:
+      password: root
+      username: root
+
+testbed_config:
+  alias: crocodiletopologyTestbed
+  name: testbed-crocodile-t0
+  type: Physical
+topology:
+  crocodile-01:
+    interfaces:
+      Ethernet0:
+        Bandwidth: 40000
+        EndDevice: VM0100
+        EndPort: Ethernet1
+        VlanID: 1681
+        VlanMode: Access
+      Ethernet1:
+        Bandwidth: 40000
+        EndDevice: VM0101
+        EndPort: Ethernet1
+        VlanID: 1682
+        VlanMode: Access
+      Ethernet10:
+        Bandwidth: 40000
+        EndDevice: VM0110
+        EndPort: Ethernet1
+        VlanID: 1691
+        VlanMode: Access
+      Ethernet11:
+        Bandwidth: 40000
+        EndDevice: VM0111
+        EndPort: Ethernet1
+        VlanID: 1692
+        VlanMode: Access
+      Ethernet12:
+        Bandwidth: 40000
+        EndDevice: VM0112
+        EndPort: Ethernet1
+        VlanID: 1693
+        VlanMode: Access
+      Ethernet13:
+        Bandwidth: 40000
+        EndDevice: VM0113
+        EndPort: Ethernet1
+        VlanID: 1694
+        VlanMode: Access
+      Ethernet14:
+        Bandwidth: 40000
+        EndDevice: VM0114
+        EndPort: Ethernet1
+        VlanID: 1695
+        VlanMode: Access
+      Ethernet15:
+        Bandwidth: 40000
+        EndDevice: VM0115
+        EndPort: Ethernet1
+        VlanID: 1696
+        VlanMode: Access
+      Ethernet16:
+        Bandwidth: 40000
+        EndDevice: VM0116
+        EndPort: Ethernet1
+        VlanID: 1697
+        VlanMode: Access
+      Ethernet17:
+        Bandwidth: 40000
+        EndDevice: VM0117
+        EndPort: Ethernet1
+        VlanID: 1698
+        VlanMode: Access
+      Ethernet18:
+        Bandwidth: 40000
+        EndDevice: VM0118
+        EndPort: Ethernet1
+        VlanID: 1699
+        VlanMode: Access
+      Ethernet19:
+        Bandwidth: 40000
+        EndDevice: VM0119
+        EndPort: Ethernet1
+        VlanID: 1700
+        VlanMode: Access
+      Ethernet2:
+        Bandwidth: 40000
+        EndDevice: VM0102
+        EndPort: Ethernet1
+        VlanID: 1683
+        VlanMode: Access
+      Ethernet20:
+        Bandwidth: 40000
+        EndDevice: VM0120
+        EndPort: Ethernet1
+        VlanID: 1701
+        VlanMode: Access
+      Ethernet21:
+        Bandwidth: 40000
+        EndDevice: VM0121
+        EndPort: Ethernet1
+        VlanID: 1702
+        VlanMode: Access
+      Ethernet22:
+        Bandwidth: 40000
+        EndDevice: VM0122
+        EndPort: Ethernet1
+        VlanID: 1703
+        VlanMode: Access
+      Ethernet23:
+        Bandwidth: 40000
+        EndDevice: VM0123
+        EndPort: Ethernet1
+        VlanID: 1704
+        VlanMode: Access
+      Ethernet24:
+        Bandwidth: 40000
+        EndDevice: VM0124
+        EndPort: Ethernet1
+        VlanID: 1705
+        VlanMode: Access
+      Ethernet25:
+        Bandwidth: 40000
+        EndDevice: VM0125
+        EndPort: Ethernet1
+        VlanID: 1706
+        VlanMode: Access
+      Ethernet26:
+        Bandwidth: 40000
+        EndDevice: VM0126
+        EndPort: Ethernet1
+        VlanID: 1707
+        VlanMode: Access
+      Ethernet27:
+        Bandwidth: 40000
+        EndDevice: VM0127
+        EndPort: Ethernet1
+        VlanID: 1708
+        VlanMode: Access
+      Ethernet28:
+        Bandwidth: 40000
+        EndDevice: VM0128
+        EndPort: Ethernet1
+        VlanID: 1709
+        VlanMode: Access
+      Ethernet29:
+        Bandwidth: 40000
+        EndDevice: VM0129
+        EndPort: Ethernet1
+        VlanID: 1710
+        VlanMode: Access
+      Ethernet3:
+        Bandwidth: 40000
+        EndDevice: VM0103
+        EndPort: Ethernet1
+        VlanID: 1684
+        VlanMode: Access
+      Ethernet30:
+        Bandwidth: 40000
+        EndDevice: VM0130
+        EndPort: Ethernet1
+        VlanID: 1711
+        VlanMode: Access
+      Ethernet31:
+        Bandwidth: 40000
+        EndDevice: VM0131
+        EndPort: Ethernet1
+        VlanID: 1712
+        VlanMode: Access
+      Ethernet4:
+        Bandwidth: 40000
+        EndDevice: VM0104
+        EndPort: Ethernet1
+        VlanID: 1685
+        VlanMode: Access
+      Ethernet5:
+        Bandwidth: 40000
+        EndDevice: VM0105
+        EndPort: Ethernet1
+        VlanID: 1686
+        VlanMode: Access
+      Ethernet6:
+        Bandwidth: 40000
+        EndDevice: VM0106
+        EndPort: Ethernet1
+        VlanID: 1687
+        VlanMode: Access
+      Ethernet7:
+        Bandwidth: 40000
+        EndDevice: VM0107
+        EndPort: Ethernet1
+        VlanID: 1688
+        VlanMode: Access
+      Ethernet8:
+        Bandwidth: 40000
+        EndDevice: VM0108
+        EndPort: Ethernet1
+        VlanID: 1689
+        VlanMode: Access
+      Ethernet9:
+        Bandwidth: 40000
+        EndDevice: VM0109
+        EndPort: Ethernet1
+        VlanID: 1690
+        VlanMode: Access
+veos:
+  cd_image_filename: Aboot-veos-serial-8.0.0.iso
+  credentials:
+    password: 123456
+    username: admin
+  eos_ansible:
+    ansible_password: 123456
+    ansible_user: admin
+  hdd_image_filename: vEOS-lab-4.20.15M.vmdk
+  max_fp_num: 4
+  memory: 2097152
+  proxy_env:
+    http_proxy: http://173.36.224.108:80
+    https_proxy: http://173.36.224.108:80
+  root_path: /home/azure/veos-vm
+  skip_image_downloading: false
+  vm_console_base: 7000
+  vm_host_ansible:
+    ansible_password: cisco123
+    ansible_sudo_pass: cisco123
+    ansible_user: vxr
+  vm_images_url: https://acsbe.blob.core.windows.net/vmimages
+  vm_host_1:
+    STR-ACS-SERV-01:
+      ansible_host: 192.168.122.150
+  vms_1:
+    VM0100:
+      ansible_host: 192.168.122.94
+    VM0101:
+      ansible_host: 192.168.122.228
+    VM0102:
+      ansible_host: 192.168.122.40
+    VM0103:
+      ansible_host: 192.168.122.188
+veos_groups:
+  eos:
+    children:
+    - vms_1
+  server_1:
+    children:
+    - vm_host_1
+    - vms_1
+    vars:
+      host_var_file: host_vars/STR-ACS-SERV-01.yml
+  servers:
+    children:
+    - server_1
+    vars:
+      topologies:
+      - t1
+      - t1-lag
+      - t1-64-lag
+      - t1-64-lag-clet
+      - t0
+      - t0-56
+      - t0-52
+      - ptf32
+      - ptf64
+      - t0-64
+      - t0-64-32
+      - t0-116
+  vm_host:
+    children:
+    - vm_host_1
+  vm_host_1:
+    host:
+    - STR-ACS-SERV-01
+  vms_1:
+    host:
+    - VM0100
+    - VM0101
+    - VM0102
+    - VM0103

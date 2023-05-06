@@ -43,6 +43,7 @@ def get_dut_names(data):
 #
 #   - For VXR topologies with multiple DUT, use 0-indexed single digit
 #       ('sonic_dut_0', 'mathilda') -> 'mathilda-0'
+#       ('sonic_dut_0', 'crocodile') -> 'crocodile-0'
 #       ('sonic_dut_1', 'sherman')  -> 'sherman-1'
 def get_tdata_dut_name(vxr_dut_name, dut_platform):
     assert vxr_dut_name.startswith('sonic_dut')
@@ -70,8 +71,8 @@ def _create_parser():
                       required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, sfd',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'sfd'])
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd',
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -488,6 +489,10 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('lab_connection_graph_mth32.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
         ftp_client.put('sonic_lab_devices_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
+    elif device_type == 'crocodile':
+        ftp_client.put('lab_connection_graph_crocodile.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('sonic_lab_links_crocodile.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
+        ftp_client.put('sonic_lab_devices_crocodile.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     elif device_type == 'sfd' and topo_type == 't2-min':
@@ -926,6 +931,8 @@ def main():
         dut_platform = "sherman"
     elif device_type == 'sfd':
         dut_platform = 'sfd'
+    elif device_type == 'crocodile':
+        dut_platform = 'crocodile'
     else:
         dut_platform = "mathilda"
 
@@ -943,6 +950,8 @@ def main():
         vEOS_count = 4
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
+        elif device_type == 'crocodile':
+            base_topo_file = 'testbed-crocodile-t0.yaml'
         else:
             base_topo_file = 'testbed-mth32-t0.yaml'
     elif topo_type == 't1':
@@ -1066,6 +1075,9 @@ def main():
     if device_type == 'sherman':
         print("Device name is sherman. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    elif device_type == 'crocodile':
+        print("Device name is crocodile. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32 or m64. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
@@ -1123,6 +1135,9 @@ def main():
     if device_type == 'sherman':
         print("Device name is sherman. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
+    elif device_type == 'crocodile':
+        print("Device name is crocodile. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
