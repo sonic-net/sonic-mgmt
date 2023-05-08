@@ -58,7 +58,7 @@ def config_force_option_supported(duthost):
 @ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0,
-                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False, is_dut = True):
+                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False, is_dut=True):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
@@ -90,7 +90,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
             output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
-                                   module_ignore_errors=True)
+                                      module_ignore_errors=True)
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
