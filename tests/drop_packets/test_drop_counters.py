@@ -12,7 +12,8 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters,\
     ensure_no_l3_drops, ensure_no_l2_drops
 from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_UPDATE_INTERVAL,\
-    MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params, setup, fanouthost, pkt_fields, ports_info, tx_dut_ports, rif_port_down  # noqa F401
+    MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params, setup, fanouthost, pkt_fields,\
+    send_packets, ports_info, tx_dut_ports, rif_port_down  # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
@@ -107,7 +108,7 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
             CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
             duthost.command(CMD_PREFIX+"sonic-clear rifcounters")
 
-    testutils.send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
+    send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
 
     # Some test cases will not increase the drop counter consistently on certain platforms
     if skip_counter_check:
@@ -211,7 +212,7 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             cls.asic_index = asic_index
             cls.iface = iface
 
-            def check_mtu(duthost, iface, asic_index):
+            def check_mtu():
                 return get_intf_mtu(duthost, iface, asic_index) == mtu
 
             pytest_assert(
