@@ -65,7 +65,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     :param config_source: configuration source is 'config_db', 'minigraph' or 'running_golden_config'
     :param wait: wait timeout for sonic_host to initialize after configuration reload
     :param override_config: override current config with '/etc/sonic/golden_config_db.json'
-    :param is_dut: True if the host is DUT, False if the host may be neighbor device
+    :param is_dut: True if the host is DUT, False if the host may be neighbor device.
+                    To the non-DUT host, it may lack of some runtime variables like `topo_type`
+                    so that this config_reload may fail.
     :return:
     """
     def _config_reload_cmd_wrapper(cmd, executable):
