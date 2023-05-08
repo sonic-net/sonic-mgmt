@@ -262,9 +262,13 @@ def __gen_data_flow(testbed_config,
     else:
         rx_mac = tx_port_config.gateway_mac
     if 'Background Flow' in flow_name_prefix:
-        flow = testbed_config.flows.flow(name='{} {} {} -> {} Rate:{}'.format(index, flow_name_prefix, src_port_id, dst_port_id, flow_rate_percent))[-1]
+        flow = testbed_config.flows.flow(
+                name='{} {} {} -> {} Rate:{}'.format(index, flow_name_prefix,
+                                                     src_port_id, dst_port_id, flow_rate_percent))[-1]
     else:
-        flow = testbed_config.flows.flow(name='{} {} -> {} Rate:{}'.format(flow_name_prefix, src_port_id, dst_port_id, flow_rate_percent))[-1]
+        flow = testbed_config.flows.flow(
+                name='{} {} -> {} Rate:{}'.format(flow_name_prefix,
+                                                  src_port_id, dst_port_id, flow_rate_percent))[-1]
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
     eth, ipv4 = flow.packet.ethernet().ipv4()
@@ -371,7 +375,7 @@ def __verify_results(rows,
         rows (list): per-flow statistics
         test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
-        rx_port : rx port of the dut 
+        rx_port : rx port of the dut
 
     Returns:
         N/A
