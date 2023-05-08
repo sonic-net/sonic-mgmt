@@ -640,7 +640,9 @@ def simulator_server_down(set_drop, set_output):
         set_drop(interface_name, [UPPER_TOR, LOWER_TOR])
 
     yield _drop_helper
-    set_output(tmp_list[0], [UPPER_TOR, LOWER_TOR])
+
+    for port in tmp_list:
+        set_output(port, [UPPER_TOR, LOWER_TOR])
 
 
 @pytest.fixture
