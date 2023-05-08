@@ -86,7 +86,7 @@
 - name: Update python3 packages
   block:
   - name: remove old python packages
-    pip: name=docker state=absent executable={{ pip_executable }}
+    pip: name=docker-py state=absent executable={{ pip_executable }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
     ignore_errors: yes
