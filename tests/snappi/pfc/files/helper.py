@@ -6,7 +6,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
-    stop_pfcwd, disable_packet_aging
+    stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
+    get_pfc_pause_frame_count
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -150,10 +151,6 @@ def run_pfc_test(api,
                      tolerance=TOLERANCE_THRESHOLD,
                      pfc_pause_zero_src_mac=pfc_pause_zero_src_mac,
                      headroom_test_params=headroom_test_params)
-
-
-def sec_to_nanosec(sec):
-    return sec * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -540,21 +537,3 @@ def __verify_results(rows,
                 pfc_pause_rx_frames = get_pfc_pause_frame_count(duthost, peer_port, prio)
                 pytest_assert(pfc_pause_rx_frames > 0,
                               "PFC pause frames with zero source MAC are not counted in the PFC counters")
-
-
-def get_pfc_pause_frame_count(duthost, port, priority):
-    """
-    Get the PFC pause frame count for a given port and priority
-    Args:
-        duthost (Ansible host instance): device under test
-        port (str): port name
-        priority (int): priority of flow
-    Returns:
-        int: PFC pause frame count
-    """
-
-    port_oid = duthost.command("sonic-db-cli COUNTERS_DB HGET COUNTERS_PORT_NAME_MAP {}".format(port))['stdout']
-    pause_frame_count = duthost.command("sonic-db-cli COUNTERS_DB HGET COUNTERS:{} SAI_PORT_STAT_PFC_{}_RX_PKTS"
-                                        .format(port_oid, priority))['stdout']
-
-    return int(pause_frame_count)
