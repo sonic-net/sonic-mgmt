@@ -1291,8 +1291,10 @@ class QosSaiBase(QosBase):
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
 
-        dut_asic.command('sonic-clear fdb all')
-        dut_asic.command('sonic-clear arp')
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut_asic.command('sonic-clear fdb all')
+            dut_asic.command('sonic-clear arp')
+
 
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
