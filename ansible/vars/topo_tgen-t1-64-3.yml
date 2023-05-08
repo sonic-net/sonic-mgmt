@@ -108,6 +108,8 @@ configuration:
         ipv4: 100.1.0.3/32
         ipv6: 2064:100::3/128
       Ethernet1:
+        lacp: 1
+      Port-Channel1:
         ipv4: 1.0.0.3/31
         ipv6: fc00::3/126
     bp_interface:
