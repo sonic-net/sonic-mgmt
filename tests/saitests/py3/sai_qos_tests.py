@@ -3071,14 +3071,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         )
         print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
 
-        self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
-                             self.test_params['dut_password'],
-                             "bcmcmd -n {} \"clear counter\"".format(self.src_asic_index))
-
-        self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                             self.test_params['dut_password'],
-                             "bcmcmd -n {} \"clear counter\"".format(self.dst_asic_index))
-
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         recv_counters_base, queue_counters = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
@@ -3136,25 +3128,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            "bcmcmd -n {} \"show counter\"".format(self.src_asic_index))
-            self.print_cmd_out(stdOut, "Show Counter on source: ")
-
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            "bcmcmd -n {} \"show counter\"".format(self.dst_asic_index))
-            self.print_cmd_out(stdOut, "Show Counter on dst: ")
-
-            cmd = "bcmcmd -n {} \"tm ing q non\"".format(self.src_asic_index)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'], cmd)
-            self.print_cmd_out(stdOut, "tm ing q non on src: ")
-
-            cmd = "bcmcmd -n {} \"tm ing vsq non g=f\"".format(self.src_asic_index)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'], cmd)
-            self.print_cmd_out(stdOut, "tm ing output on src: ")
 
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
@@ -3165,7 +3138,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port no ingress drop
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx" and cntr == 1:
-                    print ("recv_counters_base: %d, recv_counters: %d" %(recv_counters_base[cntr], recv_counters[cntr]),file=sys.stderr)
                     assert(recv_counters[cntr] == recv_counters_base[cntr])
 
             # xmit port no egress drop
@@ -3185,7 +3157,6 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port no ingress drop
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx" and cntr == 1:
-                    print ("recv_counters_base: %d, recv_counters: %d" % (recv_counters_base[cntr], recv_counters[cntr]), file=sys.stderr)
                     assert (recv_counters[cntr] > recv_counters_base[cntr])
                 else:
                     assert (recv_counters[cntr] == recv_counters_base[cntr])
