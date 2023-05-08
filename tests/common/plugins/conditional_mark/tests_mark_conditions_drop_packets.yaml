@@ -12,23 +12,17 @@ drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
 #######################################
 #####     test_drop_counters.py   #####
 #######################################
-drop_packets/test_drop_counters.py::test_acl_egress_drop:
-  skip:
-    reason: "Not supported on Broadcom platforms"
-    conditions:
-      - "asic_type in ['broadcom']"
-
 drop_packets/test_drop_counters.py::test_absent_ip_header:
   skip:
     reason: "Test case not supported on Broadcom DNX platform"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
 
-drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
+drop_packets/test_drop_counters.py::test_acl_egress_drop:
   skip:
-    reason: "Drop not enabled on chassis since internal traffic uses same smac & dmac"
+    reason: "Not supported on Broadcom platforms"
     conditions:
-      - "asic_subtype in ['broadcom-dnx']"
+      - "asic_type in ['broadcom']"
 
 drop_packets/test_drop_counters.py::test_dst_ip_absent:
   skip:
@@ -63,6 +57,12 @@ drop_packets/test_drop_counters.py::test_dst_ip_link_local:
     reason: "Cisco 8000 and broadcom DNX platforms do not drop DIP linklocal packets"
     conditions:
       - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
+
+drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
+  skip:
+    reason: "Drop not enabled on chassis since internal traffic uses same smac & dmac"
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
   skip:
