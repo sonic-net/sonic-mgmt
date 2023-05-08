@@ -28,7 +28,7 @@ class ActiveActivePortID(object):
 
 
 @pytest.fixture(params=[CableType.active_standby, CableType.active_active])
-def cable_type(request, active_active_ports, active_standby_ports):
+def cable_type(request, active_active_ports, active_standby_ports, tbinfo):
     """Dualtor cable type."""
     cable_type = request.param
     has_enable_active_active_marker = False
@@ -38,6 +38,9 @@ def cable_type(request, active_active_ports, active_standby_ports):
             has_enable_active_active_marker = True
         elif marker.name == "skip_active_standby":
             skip_active_standby_marker = True
+
+    if 'dualtor' not in tbinfo['topo']['name']:
+        pytest.skip("Skip on non-dualtor testbed")
 
     if ((not has_enable_active_active_marker) and (cable_type == CableType.active_active)):
         pytest.skip("Skip cable type 'active-active'")
