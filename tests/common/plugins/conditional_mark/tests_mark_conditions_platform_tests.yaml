@@ -82,6 +82,13 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
@@ -89,6 +96,13 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_to
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
   skip:
@@ -123,20 +137,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
@@ -381,11 +381,16 @@ platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
 
-
-
 #######################################
 #####    api/test_psu_fans.py     #####
 #######################################
+platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
+
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_fans_target_speed:
   skip:
     reason: "Unsupported platform API"
@@ -424,13 +429,6 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
 #######################################
 #####        api/test_sfp.py      #####
 #######################################
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
-
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
     reason: "Unsupported platform API"
