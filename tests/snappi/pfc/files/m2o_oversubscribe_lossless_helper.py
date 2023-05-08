@@ -373,7 +373,7 @@ def __verify_results(rows,
         rows (list): per-flow statistics
         test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
-        rx_port : rx port of the dut 
+        rx_port : rx port of the dut
 
     Returns:
         N/A
