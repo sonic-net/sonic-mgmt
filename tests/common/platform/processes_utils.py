@@ -5,25 +5,34 @@ This script contains re-usable functions for checking status of critical service
 """
 import logging
 import time
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+
+TIMEOUT_TO_REBOOT = 300
+
+
+@pytest.fixture(scope='function')
+def set_timeout(duthost):
+    global TIMEOUT_TO_REBOOT
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'processes_utils.py')
+    if plt_reboot_ctrl:
+        TIMEOUT_TO_REBOOT = plt_reboot_ctrl['wait']
 
 
 def get_critical_processes_status(dut):
     processes_status = dut.all_critical_process_status()
-    for k, v in list(processes_status.items()):
-        if v['status'] is False or len(v['exited_critical_process']) > 0:
+    for k, v in processes_status.items():
+        if v['status'] == False or len(v['exited_critical_process']) > 0:
             return False, processes_status
 
     return True, processes_status
-
 
 def _all_critical_processes_healthy(dut):
     logging.info("Check critical processes status")
     status, _ = get_critical_processes_status(dut)
     return status
-
 
 def check_critical_processes(dut, watch_secs=0):
     """
@@ -40,14 +49,11 @@ def check_critical_processes(dut, watch_secs=0):
             time.sleep(min(5, watch_secs))
         watch_secs = watch_secs - 5
 
-
 def wait_critical_processes(dut):
     """
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     """
     logging.info("Wait until all critical processes are healthy")
-    is_chassis = dut.get_facts().get("modular_chassis")
-    timeout = 400 if is_chassis else 300
-    pytest_assert(wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut),
+    pytest_assert(wait_until(TIMEOUT_TO_REBOOT, 20, 0, _all_critical_processes_healthy, dut),
                   "Not all critical processes are healthy")
