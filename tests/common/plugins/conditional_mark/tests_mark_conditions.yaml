@@ -373,16 +373,14 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
       - "asic_type not in ['mellanox']"
 
 ecmp/test_fgnhg.py:
-  xfail:
-    reason: "case failed waiting for fix"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/6558 and platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/7755 and ('x86_64-mlnx_msn' in platform or 'x86_64-nvidia' in platform)"
   skip:
-    reason: "The test case only runs on Mellanox T0"
+    conditions_logical_operator: or
+    reason: "The test case only runs on Mellanox T0 platform running 202012 or above; Mellanox 2700 platform is skipped"
     conditions:
-      - "topo_type not in ['t0'] or asic_type not in ['mellanox']"
+      - "branch in ['201811', '201911']"
+      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####         everflow            #####
