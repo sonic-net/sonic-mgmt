@@ -8,7 +8,7 @@ topology:
       vlans:
         - 1
       vm_offset: 1
-  
+
 configuration_properties:
   common:
     dut_asn: 65100
@@ -28,7 +28,7 @@ configuration:
       asn: 65200
       peers:
         65100:
-        - 10.0.0.32
+        - 10.0.1.1
         - FC00::41
     vips:
       ipv4:
@@ -40,7 +40,7 @@ configuration:
         ipv4: 100.1.0.17/32
         ipv6: 2064:100::11/128
       Ethernet1:
-        ipv4: 10.0.0.33/31
+        ipv4: 10.0.1.2/24
         ipv6: fc00::42/126
     bp_interface:
       ipv4: 10.10.246.17/24
@@ -52,17 +52,17 @@ configuration:
     - tor
     tornum: 2
     bgp:
-      asn: 65200
+      asn: 65201
       peers:
         65100:
-        - 10.0.0.34
+        - 10.0.2.1
         - FC00::45
     interfaces:
       Loopback0:
         ipv4: 100.1.0.18/32
         ipv6: 2064:100::12/128
       Ethernet1:
-        ipv4: 10.0.0.35/31
+        ipv4: 10.0.2.2/24
         ipv6: fc00::46/126
     bp_interface:
       ipv4: 10.10.246.18/24

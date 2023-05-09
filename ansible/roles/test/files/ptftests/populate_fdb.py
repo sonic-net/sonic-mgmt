@@ -1,7 +1,8 @@
 import ipaddress
 import json
 import logging
-import ptf
+import six
+import os
 
 # Packet Test Framework imports
 import ptf
@@ -11,6 +12,7 @@ from ptf import config
 from ptf.base_tests import BaseTest
 
 logger = logging.getLogger(__name__)
+
 
 class PopulateFdb(BaseTest):
     """
@@ -53,10 +55,13 @@ class PopulateFdb(BaseTest):
             self.configData = json.load(fp)
 
         self.dutMac = self.configData["dut_mac"]
-        self.macToIpRatio = [int(i) for i in self.testParams["mac_to_ip_ratio"].split(':')]
+        self.macToIpRatio = [
+            int(i) for i in self.testParams["mac_to_ip_ratio"].split(':')]
         self.assertTrue(
-            len(self.macToIpRatio) == 2 and self.macToIpRatio[0] > 0 and self.macToIpRatio[1] > 0,
-            "Invalid MAC to IP ratio: {0}".format(self.testParams["mac_to_ip_ratio"])
+            len(
+                self.macToIpRatio) == 2 and self.macToIpRatio[0] > 0 and self.macToIpRatio[1] > 0,
+            "Invalid MAC to IP ratio: {0}".format(
+                self.testParams["mac_to_ip_ratio"])
         )
 
         if config["log_dir"] is not None:
@@ -99,7 +104,7 @@ class PopulateFdb(BaseTest):
                 mac (str): string representation of MAC address
         """
         mac = "{:012x}".format(mac)
-        return ":".join(mac[i : i + 2] for i in range(0, len(mac), 2))
+        return ":".join(mac[i: i + 2] for i in range(0, len(mac), 2))
 
     def __prepareVmIp(self):
         """
@@ -112,10 +117,11 @@ class PopulateFdb(BaseTest):
                 vmIp (dict): Map containing vlan to VM IP address
         """
         vmIp = {}
-        for vlan, config in self.configData["vlan_interfaces"].items():
+        for vlan, vlan_config in self.configData["vlan_interfaces"].items():
             prefixLen = self.configData["vlan_interfaces"][vlan]["prefixlen"]
             ipCount = 2**(32 - prefixLen) - 3
-            numDistinctIp = self.packetCount * self.macToIpRatio[1] / self.macToIpRatio[0]
+            numDistinctIp = self.packetCount * \
+                self.macToIpRatio[1] / self.macToIpRatio[0]
             self.assertTrue(
                 ipCount >= numDistinctIp,
                 "Vlan network '{0}' does not support the requested number of IPs '{1}'".format(
@@ -123,7 +129,8 @@ class PopulateFdb(BaseTest):
                     numDistinctIp
                 )
             )
-            vmIp[vlan] = ipaddress.ip_address(unicode(config["addr"])) + 1
+            vmIp[vlan] = ipaddress.ip_address(
+                six.text_type(vlan_config["addr"])) + 1
 
         return vmIp
 
@@ -160,13 +167,15 @@ class PopulateFdb(BaseTest):
                 mac = self.__convertMacToStr(macInt + i)
                 numMac += 1
             if i % self.macToIpRatio[0] == 0:
-                vmIp[vlan] = ipaddress.ip_address(unicode(vmIp[vlan])) + 1
+                vmIp[vlan] = ipaddress.ip_address(
+                    six.text_type(vmIp[vlan])) + 1
                 numIp += 1
 
             packet[scapy.Ether].src = mac
             packet[scapy.IP].src = str(vmIp[vlan])
             packet[scapy.IP].dst = self.configData["vlan_interfaces"][vlan]["addr"]
-            testutils.send(self, self.configData["vlan_ports"][port]["index"], packet)
+            testutils.send(
+                self, self.configData["vlan_ports"][port]["index"], packet)
 
         logger.info(
             "Generated {0} packets with distinct {1} MAC addresses and {2} IP addresses".format(

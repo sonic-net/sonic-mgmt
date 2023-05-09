@@ -11,6 +11,7 @@ POST = 'POST'
 DELETE = 'DELETE'
 PATCH = 'PATCH'
 
+
 class Restapi:
     def __init__(self, client_cert, client_key):
         self.CLIENT_CERT = client_cert
@@ -22,9 +23,9 @@ class Restapi:
         session.headers.update({'Content-type': 'application/json'})
         # Disable proxies explicitly
         proxies = {
-                    "http": "",
+            "http": "",
                     "https": ""
-                    }
+        }
         session.proxies.update(proxies)
         if method == GET:
             req = requests.Request(GET, url)
@@ -35,17 +36,18 @@ class Restapi:
         elif method == PATCH:
             req = requests.Request(PATCH, url, data=params)
         req_p = req.prepare()
-        clientcert=(self.CLIENT_CERT, self.CLIENT_KEY)
+        clientcert = (self.CLIENT_CERT, self.CLIENT_KEY)
         response = session.send(req_p,
-                        verify=False,
-                        cert=clientcert
-                    )
+                                verify=False,
+                                cert=clientcert
+                                )
         response.close()
         return response
     #
     # Fundamental operations
     #
     # Reset Status
+
     def get_reset_status(self, construct_url):
         path = API_VERSION+"/config/resetstatus"
         url = construct_url(path)
@@ -53,7 +55,7 @@ class Restapi:
             return self.request(GET, url)
         else:
             logger.error("Malformed URL for "+path+"!")
-    
+
     def post_reset_status(self, construct_url, params):
         path = API_VERSION+"/config/resetstatus"
         url = construct_url(path)
@@ -61,21 +63,25 @@ class Restapi:
             return self.request(POST, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
-        
+
     # Decap
     def post_config_tunnel_decap_tunnel_type(self, construct_url, tunnel_type, params):
-        path = API_VERSION+'/config/tunnel/decap/{tunnel_type}'.format(tunnel_type=tunnel_type)
+        path = API_VERSION + \
+            '/config/tunnel/decap/{tunnel_type}'.format(
+                tunnel_type=tunnel_type)
         url = construct_url(path)
         if url:
-            return self.request(POST, url, params)           
+            return self.request(POST, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     def get_config_tunnel_decap_tunnel_type(self, construct_url, tunnel_type):
-        path = API_VERSION+'/config/tunnel/decap/{tunnel_type}'.format(tunnel_type=tunnel_type)
+        path = API_VERSION + \
+            '/config/tunnel/decap/{tunnel_type}'.format(
+                tunnel_type=tunnel_type)
         url = construct_url(path)
         if url:
-            return self.request(GET, url)           
+            return self.request(GET, url)
         else:
             logger.error("Malformed URL for "+path+"!")
 
@@ -84,7 +90,7 @@ class Restapi:
         path = API_VERSION+'/config/vrouter/{vrf_id}'.format(vrf_id=vrf_id)
         url = construct_url(path)
         if url:
-            return self.request(POST, url, params)           
+            return self.request(POST, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
 
@@ -92,7 +98,7 @@ class Restapi:
         path = API_VERSION+'/config/vrouter/{vrf_id}'.format(vrf_id=vrf_id)
         url = construct_url(path)
         if url:
-            return self.request(GET, url)           
+            return self.request(GET, url)
         else:
             logger.error("Malformed URL for "+path+"!")
 
@@ -100,88 +106,104 @@ class Restapi:
         path = API_VERSION+'/config/vrouter/{vrf_id}'.format(vrf_id=vrf_id)
         url = construct_url(path)
         if url:
-            return self.request(DELETE, url, params)           
+            return self.request(DELETE, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
-    
+
     # Vlan
     def post_config_vlan(self, construct_url, vlan_id, params):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}'.format(vlan_id=vlan_id)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}'.format(vlan_id=vlan_id)
         url = construct_url(path)
         if url:
-            return self.request(POST, url, params)           
+            return self.request(POST, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     def get_config_vlan(self, construct_url, vlan_id):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}'.format(vlan_id=vlan_id)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}'.format(vlan_id=vlan_id)
         url = construct_url(path)
         if url:
-            return self.request(GET, url)           
+            return self.request(GET, url)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     def delete_config_vlan(self, construct_url, vlan_id, params):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}'.format(vlan_id=vlan_id)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}'.format(vlan_id=vlan_id)
         url = construct_url(path)
         if url:
-            return self.request(DELETE, url, params)      
+            return self.request(DELETE, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     # Vlan Member
     def post_config_vlan_member(self, construct_url, vlan_id, if_name, params):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}/member/{if_name}'.format(vlan_id=vlan_id, if_name=if_name)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}/member/{if_name}'.format(
+                vlan_id=vlan_id, if_name=if_name)
         url = construct_url(path)
         if url:
-            return self.request(POST, url, params)           
+            return self.request(POST, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     def get_config_vlan_member(self, construct_url, vlan_id, if_name):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}/member/{if_name}'.format(vlan_id=vlan_id, if_name=if_name)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}/member/{if_name}'.format(
+                vlan_id=vlan_id, if_name=if_name)
         url = construct_url(path)
         if url:
-            return self.request(GET, url)           
+            return self.request(GET, url)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     def delete_config_vlan_member(self, construct_url, vlan_id, if_name, params):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}/member/{if_name}'.format(vlan_id=vlan_id, if_name=if_name)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}/member/{if_name}'.format(
+                vlan_id=vlan_id, if_name=if_name)
         url = construct_url(path)
         if url:
-            return self.request(DELETE, url, params)           
+            return self.request(DELETE, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     # Vlan Neighbor
     def post_config_vlan_neighbor(self, construct_url, vlan_id, ip_addr, params):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}/neighbor/{ip_addr}'.format(vlan_id=vlan_id, ip_addr=ip_addr)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}/neighbor/{ip_addr}'.format(
+                vlan_id=vlan_id, ip_addr=ip_addr)
         url = construct_url(path)
         if url:
-            return self.request(POST, url, params)           
+            return self.request(POST, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     def get_config_vlan_neighbor(self, construct_url, vlan_id, ip_addr):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}/neighbor/{ip_addr}'.format(vlan_id=vlan_id, ip_addr=ip_addr)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}/neighbor/{ip_addr}'.format(
+                vlan_id=vlan_id, ip_addr=ip_addr)
         url = construct_url(path)
         if url:
-            return self.request(GET, url)           
+            return self.request(GET, url)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     def delete_config_vlan_neighbor(self, construct_url, vlan_id, ip_addr, params):
-        path = API_VERSION+'/config/interface/vlan/{vlan_id}/neighbor/{ip_addr}'.format(vlan_id=vlan_id, ip_addr=ip_addr)
+        path = API_VERSION + \
+            '/config/interface/vlan/{vlan_id}/neighbor/{ip_addr}'.format(
+                vlan_id=vlan_id, ip_addr=ip_addr)
         url = construct_url(path)
         if url:
-            return self.request(DELETE, url, params)           
+            return self.request(DELETE, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")
 
     # Routes
     def patch_config_vrouter_vrf_id_routes(self, construct_url, vrf_id, params):
-        path = API_VERSION+'/config/vrouter/{vrf_id}/routes'.format(vrf_id=vrf_id)
+        path = API_VERSION + \
+            '/config/vrouter/{vrf_id}/routes'.format(vrf_id=vrf_id)
         url = construct_url(path)
         if url:
             return self.request(PATCH, url, params)
@@ -189,19 +211,28 @@ class Restapi:
             logger.error("Malformed URL for "+path+"!")
 
     def get_config_vrouter_vrf_id_routes(self, construct_url, vrf_id, params):
-        path = API_VERSION+'/config/vrouter/{vrf_id}/routes'.format(vrf_id=vrf_id)
+        path = API_VERSION + \
+            '/config/vrouter/{vrf_id}/routes'.format(vrf_id=vrf_id)
         url = construct_url(path)
         if url:
             return self.request(GET, url)
         else:
             logger.error("Malformed URL for "+path+"!")
 
-    # Basic operations        
+    # Basic operations
     def heartbeat(self, construct_url):
         path = API_VERSION+"/state/heartbeat"
         url = construct_url(path)
         if url:
             r = self.request(GET, url)
             pytest_assert(r.status_code == 200)
+        else:
+            logger.error("Malformed URL for "+path+"!")
+
+    def post_config_tunnel_decap(self, construct_url, params):
+        path = API_VERSION+'/config/tunnel/decap/vxlan'
+        url = construct_url(path)
+        if url:
+            return self.request(POST, url, params)
         else:
             logger.error("Malformed URL for "+path+"!")

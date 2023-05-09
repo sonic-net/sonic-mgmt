@@ -1,15 +1,16 @@
 import logging
-import json
 import pytest
+import json
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.asic('mellanox')
+    pytest.mark.asic('mellanox'),
+    pytest.mark.topology('any'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,18 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
+@pytest.fixture(autouse=True, scope="module")
+def enable_default_pfcwd_configuration(duthost):
+    res = duthost.shell('redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
+    meta_data = json.loads(res["stdout"])
+    pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
+    if pfc_status == 'disable':
+        duthost.shell('redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable')
+    # Enable default pfcwd configuration
+    start_pfcwd = duthost.shell('config pfcwd start_default')
+    pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
+
+
 def ensure_application_of_updated_config(duthost, value):
     """
     Ensures application of the JSON patch config update by verifying field value presence in FLEX COUNTER DB
@@ -46,7 +59,8 @@ def ensure_application_of_updated_config(duthost, value):
         value: expected value of POLL_INTERVAL
     """
     def _confirm_value_in_flex_counter_db():
-        poll_interval = duthost.shell('sonic-db-cli PFC_WD_DB hget FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL')["stdout"]
+        poll_interval = duthost.shell(
+            'sonic-db-cli PFC_WD_DB hget FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL')["stdout"]
         return value == poll_interval
 
     pytest_assert(
@@ -57,7 +71,8 @@ def ensure_application_of_updated_config(duthost, value):
 
 def prepare_pfcwd_interval_config(duthost, value):
     """
-    Prepares config db by setting pfcwd poll interval to specified value. If value is empty string, delete the current entry. 
+    Prepares config db by setting pfcwd poll interval to specified value.
+    If value is empty string, delete the current entry.
 
     Args:
         duthost: DUT host object
@@ -65,35 +80,37 @@ def prepare_pfcwd_interval_config(duthost, value):
     """
 
     logger.info("Setting configdb entry pfcwd poll interval to value: {}".format(value))
-   
+
     if value:
         cmd = "pfcwd interval {}".format(value)
     else:
-        cmd = "sonic-db-cli CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
-    
+        cmd = r"sonic-db-cli CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
+
     duthost.shell(cmd)
 
 
 def get_detection_restoration_times(duthost):
     """
-    Returns detection_time, restoration_time for an interface. Poll_interval must be greater than both in order to be valid
-    
+    Returns detection_time, restoration_time for an interface.
+    Poll_interval must be greater than both in order to be valid
+
     Args:
         duthost: DUT host object
     """
-     
+
+    duthost.shell('config pfcwd start --action drop all 400 --restoration-time 400', module_ignore_errors=True)
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
-    
+
     for line in pfcwd_config['stdout_lines']:
         if line.startswith('Ethernet'):
-            interface = line.split()[0] # Since line starts with Ethernet, we can safely use 0 index
+            interface = line.split()[0]     # Since line starts with Ethernet, we can safely use 0 index
 
             cmd = "sonic-db-cli CONFIG_DB hget \"PFC_WD|{}\" \"detection_time\" ".format(interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read detection time")
             detection_time = output["stdout"]
-            
+
             cmd = "sonic-db-cli CONFIG_DB hget \"PFC_WD|{}\" \"restoration_time\" ".format(interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read restoration time")
@@ -102,7 +119,7 @@ def get_detection_restoration_times(duthost):
             return int(detection_time), int(restoration_time)
 
     pytest_assert(True, "Failed to read detection_time and/or restoration time")
-            
+
 
 def get_new_interval(duthost, is_valid):
     """
@@ -110,7 +127,8 @@ def get_new_interval(duthost, is_valid):
 
     Args:
         duthost: DUT host object
-        is_valid: if is_valid is true, return a valid new interval. Config update should succeed. If is_valid is false, return an invalid new interval. Config update should fail.
+        is_valid: if is_valid is true, return a valid new interval. Config update should succeed.
+        If is_valid is false, return an invalid new interval. Config update should fail.
     """
 
     detection_time, restoration_time = get_detection_restoration_times(duthost)
@@ -120,18 +138,61 @@ def get_new_interval(duthost, is_valid):
         return min(detection_time, restoration_time) + 10
 
 
+def test_stop_pfcwd(duthost, ensure_dut_readiness):
+    pfcwd_config = duthost.shell("show pfcwd config")
+    pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
+
+    for line in pfcwd_config['stdout_lines']:
+        if line.startswith('Ethernet'):
+            interface = line.split()[0]
+            break
+    else:
+        pytest_assert(False, "No interface found running pfcwd - unable to run test")
+
+    json_patch = [
+        {
+            "op": "remove",
+            "path": "/PFC_WD/{}/detection_time".format(interface),
+        },
+        {
+            "op": "remove",
+            "path": "/PFC_WD/{}/restoration_time".format(interface),
+        },
+        {
+            "op": "remove",
+            "path": "/PFC_WD/{}/action".format(interface)
+        }
+    ]
+
+    try:
+        tmpfile = generate_tmpfile(duthost)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+        pfcwd_updated_config = duthost.shell("show pfcwd config")
+        pytest_assert(not pfcwd_config['rc'], "Unable to read updated pfcwd config")
+        pytest_assert(interface not in pfcwd_updated_config['stdout'].split(),
+                      "pfcwd unexpectedly still running on interface {}".format(interface))
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+        # Restore default config
+        duthost.shell('config pfcwd stop')
+        start_pfcwd = duthost.shell('config pfcwd start_default')
+        pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
+
+
 @pytest.mark.parametrize("operation", ["add", "replace"])
 @pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
 @pytest.mark.parametrize("is_valid_config_update", [True, False])
-def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation, field_pre_status, is_valid_config_update):
+def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
+                                       field_pre_status, is_valid_config_update):
     new_interval = get_new_interval(duthost, is_valid_config_update)
 
-    operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval), "remove": ""}
+    operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval)}
     detection_time, restoration_time = get_detection_restoration_times(duthost)
     pre_status = max(detection_time, restoration_time)
     field_pre_status_to_value_map = {"existing": "{}".format(pre_status), "nonexistent": ""}
-    
-    prepare_pfcwd_interval_config(duthost, field_pre_status_to_value_map[field_pre_status]) 
+
+    prepare_pfcwd_interval_config(duthost, field_pre_status_to_value_map[field_pre_status])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of pfcwd poll interval and operation: {}".format(tmpfile, operation))
@@ -140,14 +201,14 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
 
     json_patch = [
         {
-            "op": "{}".format(operation), 
-            "path": "/PFC_WD/GLOBAL/POLL_INTERVAL", 
+            "op": "{}".format(operation),
+            "path": "/PFC_WD/GLOBAL/POLL_INTERVAL",
             "value": "{}".format(value)
         }]
-    
+
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    
+
         if is_valid_config_update:
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, value)

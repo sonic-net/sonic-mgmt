@@ -9,9 +9,11 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('ptf')
 ]
+
+
 class TestNeighborMac:
     """
-        Test handling of neighbor MAC in SONiC switch with PTF docker 
+        Test handling of neighbor MAC in SONiC switch with PTF docker
     """
     PTF_HOST_IF = "eth0"
     DUT_ETH_IF = "Ethernet0"

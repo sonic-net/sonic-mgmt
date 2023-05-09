@@ -2,7 +2,8 @@
 Description:    This file contains the EVERFLOW policer test
 
 Usage:          Examples of how to use:
-                ptf --test-dir acstests everflow_policer_test.EverflowPolicerTest --platform remote -t 'router_mac="00:02:03:04:05:00";src_port="20";dst_ports="21,22";verbose=True' --relax
+                ptf --test-dir acstests everflow_policer_test.EverflowPolicerTest --platform remote \
+                -t 'router_mac="00:02:03:04:05:00";src_port="20";dst_ports="21,22";verbose=True' --relax
 '''
 
 
@@ -20,12 +21,12 @@ from ptf.mask import Mask
 
 logger = logging.getLogger('EverflowPolicerTest')
 
+
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
     NUM_OF_TOTAL_PACKETS = 10000
     METER_TYPES = ['packets', 'bytes']
-
 
     def __init__(self):
         '''
@@ -33,7 +34,6 @@ class EverflowPolicerTest(BaseTest):
         '''
         BaseTest.__init__(self)
         self.test_params = testutils.test_params_get()
-
 
     def greFilter(self, pkt_str):
         '''
@@ -46,9 +46,8 @@ class EverflowPolicerTest(BaseTest):
                 return False
 
             return pkt[scapy.IP].proto == self.GRE_PROTOCOL_NUMBER
-        except:
+        except Exception:
             return False
-
 
     def getCBSRefillTime(self):
         '''
@@ -62,11 +61,9 @@ class EverflowPolicerTest(BaseTest):
 
         return self.cbs / self.cir
 
-
     def setupLogging(self):
         handler = logging.StreamHandler(sys.stdout)
         logger.addHandler(handler)
-
 
     def logParams(self):
         '''
@@ -120,11 +117,15 @@ class EverflowPolicerTest(BaseTest):
         '''
         @summary: Setup the test
         '''
-        print ""
+        print("")
 
         self.dataplane = ptf.dataplane_instance
         self.hwsku = self.test_params['hwsku']
         self.asic_type = self.test_params['asic_type']
+        # The router MAC is the VLAN MAC for upstream traffic on dualtor testbed
+        self.dualtor_upstream = self.test_params.get('dualtor_upstream', False)
+        if self.dualtor_upstream:
+            self.vlan_mac = self.test_params['vlan_mac']
         self.router_mac = self.test_params['router_mac']
         self.mirror_stage = self.test_params['mirror_stage']
         self.session_src_ip = self.test_params['session_src_ip']
@@ -150,15 +151,14 @@ class EverflowPolicerTest(BaseTest):
 
         self.min_rx_pps, self.max_rx_pps = self.cbs * (1 - self.tolerance/100.), self.cbs * (1 + self.tolerance/100.)
 
-        self.base_pkt = testutils.simple_tcp_packet(
-                eth_dst = self.router_mac,
-                eth_src = self.dataplane.get_mac(0, 0),
-                ip_src = "20.0.0.1",
-                ip_dst = "30.0.0.1",
-                tcp_sport = 0x1234,
-                tcp_dport = 0x50,
-                ip_dscp = 9,
-                ip_ttl = 64)
+        self.base_pkt = testutils.simple_tcp_packet(eth_dst=self.vlan_mac if self.dualtor_upstream else self.router_mac,
+                                                    eth_src=self.dataplane.get_mac(0, 0),
+                                                    ip_src="20.0.0.1",
+                                                    ip_dst="30.0.0.1",
+                                                    tcp_sport=0x1234,
+                                                    tcp_dport=0x50,
+                                                    ip_dscp=9,
+                                                    ip_ttl=64)
 
         self.setupLogging()
         self.logParams()
@@ -187,9 +187,9 @@ class EverflowPolicerTest(BaseTest):
                 count += 1
             elif count == 0:
                 assert_str = "The first original packet is not recieved"
-                assert count > 0, assert_str # Fast failure without waiting for full iteration
+                assert count > 0, assert_str    # Fast failure without waiting for full iteration
             else:
-                break # No more packets available
+                break   # No more packets available
 
         logger.info("Recieved {} original packets".format(count))
 
@@ -215,33 +215,31 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["mellanox"]:
             import binascii
-            payload = binascii.unhexlify("0"*44) + str(payload) # Add the padding
+            payload = binascii.unhexlify("0"*44) + str(payload)     # Add the padding
         elif self.asic_type in ["innovium"]:
             import binascii
-            payload = binascii.unhexlify("0"*24) + str(payload) # Add the padding
+            payload = binascii.unhexlify("0"*24) + str(payload)     # Add the padding
 
-        exp_pkt = testutils.simple_gre_packet(
-                eth_src = self.router_mac,
-                ip_src = self.session_src_ip,
-                ip_dst = self.session_dst_ip,
-                ip_dscp = self.session_dscp,
-                ip_id = 0,
-                #ip_flags = 0x10, # need to upgrade ptf version to support it
-                ip_ttl = self.session_ttl,
-                inner_frame = payload)
+        exp_pkt = testutils.simple_gre_packet(eth_src=self.router_mac,
+                                              ip_src=self.session_src_ip,
+                                              ip_dst=self.session_dst_ip,
+                                              ip_dscp=self.session_dscp,
+                                              ip_id=0,
+                                              # ip_flags=0x10,  # need to upgrade ptf version to support it
+                                              ip_ttl=self.session_ttl,
+                                              inner_frame=payload)
 
         if self.asic_type in ["mellanox"]:
-            exp_pkt['GRE'].proto = 0x8949 # Mellanox specific
+            exp_pkt['GRE'].proto = 0x8949   # Mellanox specific
         elif self.asic_type in ["barefoot"]:
-            exp_pkt = testutils.ipv4_erspan_pkt(
-                eth_src = self.router_mac,
-                ip_src = self.session_src_ip,
-                ip_dst = self.session_dst_ip,
-                ip_dscp = self.session_dscp,
-                ip_ttl = self.session_ttl,
-                inner_frame = str(payload),
-                ip_id = 0,
-                sgt_other=0x4)
+            exp_pkt = testutils.ipv4_erspan_pkt(eth_src=self.router_mac,
+                                                ip_src=self.session_src_ip,
+                                                ip_dst=self.session_dst_ip,
+                                                ip_dscp=self.session_dscp,
+                                                ip_ttl=self.session_ttl,
+                                                inner_frame=str(payload),
+                                                ip_id=0,
+                                                sgt_other=0x4)
         else:
             exp_pkt['GRE'].proto = 0x88be
 
@@ -252,6 +250,8 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["innovium"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
+        if self.asic_type in ["marvell"]:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
 
         if exp_pkt.haslayer(scapy.ERSPAN_III):
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")
@@ -267,7 +267,7 @@ class EverflowPolicerTest(BaseTest):
         def match_payload(pkt):
             if self.asic_type in ["mellanox"]:
                 pkt = scapy.Ether(pkt).load
-                pkt = pkt[22:] # Mask the Mellanox specific inner header
+                pkt = pkt[22:]  # Mask the Mellanox specific inner header
                 pkt = scapy.Ether(pkt)
             elif self.asic_type in ["innovium"]:
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
@@ -296,7 +296,7 @@ class EverflowPolicerTest(BaseTest):
             if rcv_pkt is not None and match_payload(rcv_pkt):
                 rx_pkts += 1
             else:
-                break # No more packets available
+                break   # No more packets available
 
         tx_pps = tx_pkts / self.send_time
         rx_pps = rx_pkts / self.send_time
@@ -307,7 +307,6 @@ class EverflowPolicerTest(BaseTest):
         logger.info("RX PPS {}".format(rx_pps))
 
         return rx_pkts, tx_pps, rx_pps
-
 
     def runTest(self):
         """
@@ -336,7 +335,8 @@ class EverflowPolicerTest(BaseTest):
         rx_pkts, tx_pps, rx_pps = self.checkMirroredFlow()
 
         assert_str = "Transmition rate is lower then policer rate limiting." \
-                     "Most probably slow testbed server issue: tx_pps({}) <= rx_pps_max({})".format(tx_pps, self.max_rx_pps)
+                     "Most probably slow testbed server issue: tx_pps({}) <= rx_pps_max({})"\
+                     .format(tx_pps, self.max_rx_pps)
         assert tx_pps > self.max_rx_pps, assert_str
 
         assert_str = "min({1}) <= pps({0}) <= max({2})".format(rx_pps, self.min_rx_pps, self.max_rx_pps)

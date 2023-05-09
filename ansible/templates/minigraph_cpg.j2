@@ -4,7 +4,7 @@
     <PeeringSessions>
 {% for index in range(vms_number) %}
 {% set vm=vms[index] %}
-{% if vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] %}
+{% if (vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] and vm_topo_config['topo_type'] != 'wan') %}
       <BGPSession>
         <MacSec>false</MacSec>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
@@ -18,7 +18,7 @@
 {% if vm_asic_ifnames is defined %}
       <BGPSession>
         <MacSec>false</MacSec>
-        <StartRouter>{{ vm_asic_ifnames[vm][0].split('-')[1] }}</StartRouter>
+        <StartRouter>{{ vm_asic_ids[vm][0] }}</StartRouter>
         <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv4'][dut_index|int] }}</StartPeer>
         <EndRouter>{{ vm }}</EndRouter>
         <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] }}</EndPeer>
@@ -28,7 +28,7 @@
       </BGPSession>
 {% endif %}
 {% endif %}
-{% if vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] %}
+{% if (vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] and vm_topo_config['topo_type'] != 'wan') %}
       <BGPSession>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
         <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'][dut_index|int] }}</StartPeer>
@@ -40,7 +40,7 @@
       </BGPSession>
 {% if vm_asic_ifnames is defined %}
       <BGPSession>
-        <StartRouter>{{ vm_asic_ifnames[vm][0].split('-')[1] }}</StartRouter>
+        <StartRouter>{{ vm_asic_ids[vm][0] }}</StartRouter>
         <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'][dut_index|int] }}</StartPeer>
         <EndRouter>{{ vm }}</EndRouter>
         <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] }}</EndPeer>
@@ -77,7 +77,7 @@
         <KeepAliveTime>0</KeepAliveTime>
       </BGPSession>
 {% endif %}
-{% endfor %} 
+{% endfor %}
 {% endfor %}
 {% endif %}
 {% if switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
@@ -142,7 +142,7 @@
 {% endif %}
     </PeeringSessions>
     <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% if card_type is not defined or card_type != 'supervisor' %}
+{% if ((card_type is not defined or card_type != 'supervisor') and vm_topo_config['topo_type'] != 'wan') %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
         <a:Hostname>{{ inventory_hostname }}</a:Hostname>
@@ -191,7 +191,7 @@
         <a:RouteMaps/>
       </a:BGPRouterDeclaration>
 {% for index in range( vms_number) %}
-{% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length > 0 %}
+{% if (vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length > 0 and vm_topo_config['topo_type'] != 'wan') %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['vm'][vms[index]]['bgp_asn'] }}</a:ASN>
         <a:Hostname>{{ vms[index] }}</a:Hostname>
@@ -207,7 +207,7 @@
         <a:Hostname>{{ asic }}</a:Hostname>
         <a:Peers>
 {% for index in range( vms_number) %}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic %}
           <BGPPeer>
             <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] }}</Address>
             <RouteMapIn i:nil="true"/>
@@ -267,4 +267,3 @@
     </Routers>
 {% endif %}
   </CpgDec>
-

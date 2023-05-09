@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
 module:         sysfs_facts
@@ -19,7 +19,7 @@ EXAMPLES = '''
 
 # Example of input config
 '''
-sysfs_facts accept a list of check item configuration. 
+sysfs_facts accept a list of check item configuration.
 
 Single check item config:
 {
@@ -33,7 +33,7 @@ Single check item config:
     ]
 }
 
-User can get the item property value by: 
+User can get the item property value by:
 ansible_facts['item_name']['prop_name']
 
 Increment check item config:
@@ -74,14 +74,16 @@ class SysfsModule(object):
     def run(self):
         for item in self.config:
             if 'type' not in item:
-                self.module.fail_json(msg='Check item must have a type field: {}'.format(item))
+                self.module.fail_json(
+                    msg='Check item must have a type field: {}'.format(item))
 
             if item['type'] == 'single':
                 self.collect_single_item(item)
             elif item['type'] == 'increment':
                 self.collect_increment_item(item)
             else:
-                self.module.fail_json(msg='Unsupported check item type {}'.format(item['type']))
+                self.module.fail_json(
+                    msg='Unsupported check item type {}'.format(item['type']))
 
         self.module.exit_json(ansible_facts=self.facts)
 
@@ -110,9 +112,11 @@ class SysfsModule(object):
 
     def run_command(self, command):
         try:
-            rc, out, err = self.module.run_command(command, executable='/bin/bash', use_unsafe_shell=True)
+            rc, out, err = self.module.run_command(
+                command, executable='/bin/bash', use_unsafe_shell=True)
         except Exception as e:
-            self.module.fail_json(msg='command {} failed with exception {}'.format(command, e))
+            self.module.fail_json(
+                msg='command {} failed with exception {}'.format(command, e))
 
         return out.strip()
 

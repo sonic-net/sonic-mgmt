@@ -6,14 +6,9 @@ and/or dataplane automatically set up.
 """
 
 import os
-import logging
-import unittest
-
-
 import ptf
 from ptf.base_tests import BaseTest
 from ptf import config
-import ptf.dataplane as dataplane
 import ptf.testutils as testutils
 
 ################################################################
@@ -29,6 +24,7 @@ from thrift.protocol import TBinaryProtocol
 
 interface_to_front_mapping = {}
 
+
 class ThriftInterface(BaseTest):
 
     def setUp(self):
@@ -37,25 +33,27 @@ class ThriftInterface(BaseTest):
         BaseTest.setUp(self)
 
         self.test_params = testutils.test_params_get()
-        if self.test_params.has_key("server"):
+        if "server" in self.test_params:
             server = self.test_params['server']
         else:
             server = 'localhost'
 
-        if self.test_params.has_key("port_map"):
+        if "port_map" in self.test_params:
             user_input = self.test_params['port_map']
             splitted_map = user_input.split(",")
             for item in splitted_map:
                 interface_front_pair = item.split("@")
-                interface_to_front_mapping[interface_front_pair[0]] = interface_front_pair[1]
-        elif self.test_params.has_key("port_map_file"):
+                interface_to_front_mapping[interface_front_pair[0]
+                                           ] = interface_front_pair[1]
+        elif "port_map_file" in self.test_params:
             user_input = self.test_params['port_map_file']
             f = open(user_input, 'r')
             for line in f:
-                if (len(line) > 0 and (line[0] == '#' or line[0] == ';' or line[0]=='/')):
+                if (len(line) > 0 and (line[0] == '#' or line[0] == ';' or line[0] == '/')):
                     continue
                 interface_front_pair = line.split("@")
-                interface_to_front_mapping[interface_front_pair[0]] = interface_front_pair[1].strip()
+                interface_to_front_mapping[interface_front_pair[0]
+                                           ] = interface_front_pair[1].strip()
         else:
             exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
 
@@ -68,24 +66,26 @@ class ThriftInterface(BaseTest):
         self.transport.open()
 
     def tearDown(self):
-        if config["log_dir"] != None:
+        if config["log_dir"] is not None:
             self.dataplane.stop_pcap()
         BaseTest.tearDown(self)
         self.transport.close()
+
 
 class ThriftInterfaceDataPlane(ThriftInterface):
     """
     Root class that sets up the thrift interface and dataplane
     """
+
     def setUp(self):
         ThriftInterface.setUp(self)
         self.dataplane = ptf.dataplane_instance
         self.dataplane.flush()
-        if config["log_dir"] != None:
+        if config["log_dir"] is not None:
             filename = os.path.join(config["log_dir"], str(self)) + ".pcap"
             self.dataplane.start_pcap(filename)
 
     def tearDown(self):
-        if config["log_dir"] != None:
+        if config["log_dir"] is not None:
             self.dataplane.stop_pcap()
         ThriftInterface.tearDown(self)

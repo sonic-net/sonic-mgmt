@@ -28,7 +28,7 @@ To avoid the issue, a solution was proposed in [\[HLD\] DSCP/TC remapping for tu
 
 The general idea is to deliver the bounced back traffic in another lossless queue.
 
-In current design, the bounced traffic for queue 3 is delivered in queue 2, and the bounced traffic for queue 4 is delivered in queue 6. 
+In current design, the bounced traffic for queue 3 is delivered in queue 2, and the bounced traffic for queue 4 is delivered in queue 6.
 
 To achieve the remap, 4 new QoS maps are introduced for tunnel.
 ![Tunnel Qos remap](./Img/tunnel_remap_attributes.png)
@@ -44,7 +44,7 @@ Supported topologies: dual-tor testbed
 No setup pre-configuration is required, test will configure and return testbed to the initial state.
 
 ## Test cases
-The test suite is categorized into two groups. 
+The test suite is categorized into two groups.
 
 ## Test case group for packet encapsulation
 ### Setup of DUT switch
@@ -122,7 +122,7 @@ The `DSCP` combinations and expected PGs are as below
 ##### Test steps
 1. Generate `100` encapped packets with different various `DSCP` combinations (listed below), `target_ip = 10.1.0.33`, `src_ip = 10.1.0.32`
 2. Send the `100` packets to `active_tor` via a portchannel
-3. Verify the decapped packets is egressed to server at expected queue with CLI `show queue counter`. The packet counter for expected queue is supposed to be larger or equal to `100`. 
+3. Verify the decapped packets is egressed to server at expected queue with CLI `show queue counter`. The packet counter for expected queue is supposed to be larger or equal to `100`.
 
 The `DSCP` combinations and expected Queues are as below
 
@@ -140,7 +140,7 @@ The `DSCP` combinations and expected Queues are as below
 #### Test case 3 - Verify PFC frame generation at expected priority
 ##### Test steps
 1. Block a random port between `active_tor` and server with sai_thrift api `sai_thrift_port_tx_disable`
-2. Generate encapsulated packet with different DSCP combinations as below, set `dst_ip = 192.168.0.2`, `src_ip = loopback0 of standby_tor`. 
+2. Generate encapsulated packet with different DSCP combinations as below, set `dst_ip = 192.168.0.2`, `src_ip = loopback0 of standby_tor`.
 
 |DSCP outter|DSCP inner|Expected PFC priority|
 | ---- | ---- | --- |
@@ -152,7 +152,7 @@ The `DSCP` combinations and expected Queues are as below
 #### Test case 4 - Verify PFC frame generation at two priorities
 ##### Test steps
 1. Block a random port between `active_tor` and server with sai_thrift api `sai_thrift_port_tx_disable`
-2. Generate one encapsulated packet with `outer_dscp=2, inner_dscp=3, dst_ip = 192.168.0.2`, `src_ip = loopback0 of standby_tor`, and one regular packet with `dscp=3, dst_ip = 192.168.0.2, src_ip = 1.1.1.1`. 
+2. Generate one encapsulated packet with `outer_dscp=2, inner_dscp=3, dst_ip = 192.168.0.2`, `src_ip = loopback0 of standby_tor`, and one regular packet with `dscp=3, dst_ip = 192.168.0.2, src_ip = 1.1.1.1`.
 3. Send `N` packets to `active_tor` via a portchannel to fill the shared buffer, and verify PFC pause frames are generated on both priority 2 and 3
 4. Send the packets again, and check the `PG` dropcounters to verify the counter increased as expected.
 
@@ -164,4 +164,4 @@ As we are having extra lossless PG/Queue for ports between `T1` and `dualtor`, t
 2. For `dualtor` testbeds, since we have two extra lossless PGs and Queues, the extra PGs and Queues are to be verified
 
 ### 2 Update the hardcoded lossless PG/Queue in current test set
-The fixed lossless PG/Queue `3-4` is hardcoded in a few test cases. These test cases are to be updated to be compatible with new extra lossless PG/Queue. 
+The fixed lossless PG/Queue `3-4` is hardcoded in a few test cases. These test cases are to be updated to be compatible with new extra lossless PG/Queue.

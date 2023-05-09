@@ -4,7 +4,7 @@ from ansible.module_utils._text import to_text
 from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.connection import Connection, ConnectionError
 from ansible.module_utils.network.common.utils import to_list, ComplexList
-from ansible.module_utils.six import iteritems
+from ansible.module_utils.six import items
 
 _DEVICE_CONNECTION = None
 
@@ -57,7 +57,7 @@ def check_args(module, warnings):
 
 def load_params(module):
     provider = module.params.get('provider') or dict()
-    for key, value in iteritems(provider):
+    for key, value in items(provider):
         if key in aos_argument_spec:
             if module.params.get(key) is None and value is not None:
                 module.params[key] = value
@@ -131,15 +131,17 @@ class Cli:
             response = conn.edit_config(commands, commit, replace)
         except ConnectionError as exc:
             message = getattr(exc, 'err', to_text(exc))
-            self._module.fail_json(msg="%s" % message, data=to_text(message, errors='surrogate_then_replace'))
+            self._module.fail_json(msg="%s" % message,
+                                   data=to_text(message, errors='surrogate_then_replace'))
 
         return response
 
-    def get_diff(self, candidate=None, running=None, diff_match='line', diff_ignore_lines=None, path=None, diff_replace='line'):
+    def get_diff(self, candidate=None, running=None, diff_match='line',
+                 diff_ignore_lines=None, path=None, diff_replace='line'):
         conn = self._get_connection()
         try:
-            diff = conn.get_diff(candidate=candidate, running=running, diff_match=diff_match, diff_ignore_lines=diff_ignore_lines, path=path,
-                                 diff_replace=diff_replace)
+            diff = conn.get_diff(candidate=candidate, running=running, diff_match=diff_match,
+                                 diff_ignore_lines=diff_ignore_lines, path=path, diff_replace=diff_replace)
         except ConnectionError as exc:
             self._module.fail_json(msg=to_text(exc, errors='surrogate_then_replace'))
         return diff
@@ -160,7 +162,7 @@ class Cli:
 
 
 def to_command(module, commands):
-    
+
     default_output = 'text'
 
     transform = ComplexList(dict(
@@ -192,9 +194,11 @@ def load_config(module, config, commit=False, replace=False):
     return conn.load_config(config, commit, replace)
 
 
-def get_diff(self, candidate=None, running=None, diff_match='line', diff_ignore_lines=None, path=None, diff_replace='line'):
+def get_diff(self, candidate=None, running=None, diff_match='line',
+             diff_ignore_lines=None, path=None, diff_replace='line'):
     conn = self.get_connection()
-    return conn.get_diff(candidate=candidate, running=running, diff_match=diff_match, diff_ignore_lines=diff_ignore_lines, path=path, diff_replace=diff_replace)
+    return conn.get_diff(candidate=candidate, running=running, diff_match=diff_match,
+                         diff_ignore_lines=diff_ignore_lines, path=path, diff_replace=diff_replace)
 
 
 def get_capabilities(module):

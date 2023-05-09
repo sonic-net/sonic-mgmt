@@ -12,9 +12,9 @@ call or teardown section starts and ends while inspecting the log files.
 This plugin uses pytest hook functions to insert a visually outstanding log message at the start of each section. The
 log message also contains 'nodeid' of the current test case. Examples of such log messages:
 
-09:40:50 INFO __init__.py:_log_sep_line:27: ==================== test_plugin.py::test_case2 setup  ====================
-09:40:50 INFO __init__.py:_log_sep_line:27: ==================== test_plugin.py::test_case2 call ====================
-09:40:52 INFO __init__.py:_log_sep_line:27: ==================== test_plugin.py::test_case2 teardown ====================
+09:40:50 INFO __init__.py:_log_sep_line:27: =================== test_plugin.py::test_case2 setup  ===================
+09:40:50 INFO __init__.py:_log_sep_line:27: =================== test_plugin.py::test_case2 call ===================
+09:40:52 INFO __init__.py:_log_sep_line:27: =================== test_plugin.py::test_case2 teardown ===================
 """
 import pytest
 import logging
@@ -45,6 +45,16 @@ def pytest_configure(config):
     logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
     config.pluginmanager.register(LogSectionStartPlugin(logging_plugin), "LogSectionStart")
     logging.LogRecord = _LogRecord
+
+    if sys.version_info.major > 2:
+        old_factory = logging.getLogRecordFactory()
+
+        def record_factory(*args, **kwargs):
+            record = old_factory(*args, **kwargs)
+            record.funcNamewithModule = "%s.%s" % (record.module, record.funcName)
+            return record
+
+        logging.setLogRecordFactory(record_factory)
 
     postimport.register_hook(_pytest_import_callback)
     # simply replace the fixture decorator in the imported `pytest` with the mocked one
@@ -84,7 +94,7 @@ def _pytest_import_callback(module):
         try:
             next(it)
         except StopIteration:
-            raise
+            return
         except Exception as detail:
             logging.exception("\n%r", detail)
             raise

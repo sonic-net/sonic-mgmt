@@ -2,7 +2,7 @@ import logging
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from .files.pfcwd_helper import start_wd_on_ports
@@ -15,20 +15,22 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope='module', autouse=True)
-def stop_pfcwd(duthosts, rand_one_dut_hostname):
+def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Fixture that stops PFC Watchdog before each test run
 
     Args:
         duthost (AnsibleHost): DUT instance
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
+
 @pytest.fixture(autouse=True)
-def ignore_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
     Fixture that ignores expected failures during test execution.
 
@@ -38,21 +40,25 @@ def ignore_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """
     if loganalyzer:
         ignoreRegex = [
-            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
-            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*"
+            (".*ERR syncd#syncd: :- process_on_fdb_event: "
+             "invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"),
+            (".*ERR syncd#syncd: :- process_on_fdb_event: "
+             "FDB notification was not sent since it contain invalid OIDs, bug.*")
         ]
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
     yield
 
+
 @pytest.fixture(scope='class', autouse=True)
-def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand_one_dut_hostname, fanouthosts):
+def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa F811
+                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
     Args:
         setup_pfc_test (fixture): module scoped, autouse PFC fixture
-        fanout_graph_facts (fixture): fanout graph info
+        enum_fanout_graph_facts (fixture): fanout graph info
         duthost (AnsibleHost): DUT instance
         fanouthosts (AnsibleHost): fanout instance
 
@@ -60,15 +66,17 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand
         timers (dict): pfcwd timer values
         storm_handle (PFCStorm): class PFCStorm instance
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Pfcwd timer test setup ---")
     setup_info = setup_pfc_test
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']
     eth0_ip = setup_info['eth0_ip']
-    pfc_wd_test_port = test_ports.keys()[0]
+    # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
+    # So that convert to list explicitly.
+    pfc_wd_test_port = list(test_ports.keys())[0]
     neighbors = setup_info['neighbors']
-    fanout_info = fanout_graph_facts
+    fanout_info = enum_fanout_graph_facts
     dut = duthost
     fanout = fanouthosts
     peer_params = populate_peer_info(neighbors, fanout_info, pfc_wd_test_port)
@@ -85,14 +93,15 @@ def pfcwd_timer_setup_restore(setup_pfc_test, fanout_graph_facts, duthosts, rand
                  to_destination="{}:514".format(syslog_ip))
 
     logger.info("--- Pfcwd Timer Testrun ---")
-    yield { 'timers' : timers,
-            'storm_handle': storm_handle
-          }
+    yield {'timers': timers,
+           'storm_handle': storm_handle
+           }
 
     logger.info("--- Pfcwd timer test cleanup ---")
     dut.iptables(table="nat", flush="yes")
     dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=0, sysctl_set=True)
     storm_handle.stop_storm()
+
 
 def populate_peer_info(neighbors, fanout_info, port):
     """
@@ -111,8 +120,9 @@ def populate_peer_info(neighbors, fanout_info, port):
     peer_info = {'peerdevice': peer_dev,
                  'hwsku': fanout_info[peer_dev]['device_info']['HwSku'],
                  'pfc_fanout_interface': peer_port
-                }
+                 }
     return peer_info
+
 
 def set_storm_params(dut, fanout_info, fanout, peer_params):
     """
@@ -129,9 +139,9 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     """
     logger.info("Setting up storm params")
     pfc_queue_index = 4
-    pfc_frames_count = 300000
+    pfc_frames_count = 1000000
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
-                           pfc_frames_number=pfc_frames_count, peer_info=peer_params)
+                            pfc_frames_number=pfc_frames_count, peer_info=peer_params)
     storm_handle.deploy_pfc_gen()
     return storm_handle
 
@@ -153,7 +163,7 @@ class TestPfcwdAllTimer(object):
         storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
         storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         logger.info("Wait for PFC storm end marker to appear in logs")
-        time.sleep(1)
+        time.sleep(8)
         storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
         storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
         real_detect_time = storm_detect_ms - storm_start_ms
@@ -206,12 +216,13 @@ class TestPfcwdAllTimer(object):
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
         cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg =self.dut.shell(cmd)['stdout']
+        syslog_msg = self.dut.shell(cmd)['stdout']
         timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
         timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
         return int(timestamp_ms)
 
-    def test_pfcwd_timer_accuracy(self, duthosts, rand_one_dut_hostname, pfcwd_timer_setup_restore):
+    def test_pfcwd_timer_accuracy(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                  pfcwd_timer_setup_restore):
         """
         Tests PFCwd timer accuracy
 
@@ -219,7 +230,7 @@ class TestPfcwdAllTimer(object):
             duthost (AnsibleHost): DUT instance
             pfcwd_timer_setup_restore (fixture): class scoped autouse setup fixture
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = pfcwd_timer_setup_restore
         self.storm_handle = setup_info['storm_handle']
         self.timers = setup_info['timers']
@@ -227,7 +238,7 @@ class TestPfcwdAllTimer(object):
         self.all_detect_time = list()
         self.all_restore_time = list()
         try:
-            for i in xrange(1, 20):
+            for i in range(1, 20):
                 logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                 self.run_test()
             self.verify_pfcwd_timers()

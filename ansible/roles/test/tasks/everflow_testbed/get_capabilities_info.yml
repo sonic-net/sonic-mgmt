@@ -46,4 +46,3 @@
 - debug: var=test_ingress_mirror_on_egress_acl
 - debug: var=test_egress_mirror_on_ingress_acl
 - debug: var=test_egress_mirror_on_egress_acl
-

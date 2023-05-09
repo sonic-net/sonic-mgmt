@@ -166,7 +166,3 @@ Verify that when a LAG MEMBER is dynamically deleted via CLI on an ASIC from an 
 *  Verify on THE line card that the MEMBER is deleted from LAG in local ASIC_DB and APPL_DB
 *  Verify on ANY line card the LAG MEMBER is removed from SYSTEM_LAG_MEMBER_TABLE in CHASSIS_APP_DB
 *  Verify on ALL line cards that the MEMBER is deleted from LAG in ASIC_DB
-
-
-
-

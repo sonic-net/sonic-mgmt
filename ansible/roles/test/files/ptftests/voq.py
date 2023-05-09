@@ -1,11 +1,13 @@
 import os
 import ptf
 import ptf.packet as scapy
-from ptf.testutils import *
 from ptf.mask import Mask
 from ptf import config
 from ptf.base_tests import BaseTest
 import ptf.testutils as testutils
+from ptf.testutils import test_params_get, MINSIZE, ip_make_tos, reset_filters, send, send_packet, dp_poll,\
+    simple_udp_packet, simple_udpv6_packet, simple_icmp_packet, simple_icmpv6_packet, simple_ip_packet,\
+    simple_ipv6ip_packet, simple_arp_packet, verify_packet_any_port, verify_no_packet_any
 from scapy.all import Ether
 from scapy.layers.l2 import Dot1Q
 from scapy.layers.inet6 import IPv6, ICMPv6ND_NA, ICMPv6NDOptDstLLAddr
@@ -62,7 +64,8 @@ def make_ndp_grat_ndp_packet(pktlen=64,
     pkt = Ether(dst=eth_dst, src=eth_src)
     if dl_vlan_enable or vlan_vid or vlan_pcp:
         pkt /= Dot1Q(vlan=vlan_vid, prio=vlan_pcp)
-    pkt /= IPv6(src=ipv6_src, dst=ipv6_dst, fl=ipv6_fl, tc=ipv6_tc, hlim=ipv6_hlim)
+    pkt /= IPv6(src=ipv6_src, dst=ipv6_dst,
+                fl=ipv6_fl, tc=ipv6_tc, hlim=ipv6_hlim)
     pkt /= ICMPv6ND_NA(R=0, S=0, O=1, tgt=ipv6_tgt)
     pkt /= ICMPv6NDOptDstLLAddr(lladdr=hw_tgt)
     pkt /= ("D" * (pktlen - len(pkt)))
@@ -79,7 +82,8 @@ class DataplaneTest(BaseTest):
         BaseTest.setUp(self)
 
         self.test_params = test_params_get()
-        logger.info("You specified the following test-params when invoking ptf:")
+        logger.info(
+            "You specified the following test-params when invoking ptf:")
         logger.info(self.test_params)
 
         self.dataplane = ptf.dataplane_instance
@@ -246,16 +250,20 @@ class TTL0(DataplaneTest):
         src_rx_ports = self.test_params['src_rx_ports']
         dst_rx_ports = self.test_params['dst_rx_ports']
 
-        send_pkt, masked_pkt, exp_pkt255 = build_ttl0_pkts(version, dst_mac, dst_ip, vm_mac, vm_ip, dut_lb)
+        send_pkt, masked_pkt, exp_pkt255 = build_ttl0_pkts(
+            version, dst_mac, dst_ip, vm_mac, vm_ip, dut_lb)
         logger.info("sending packet to port %s", src_port)
         send(self, src_port, send_pkt)
         print("masked packet matched port: %s" % src_port)
 
         result = dp_poll(self, device_number=0, exp_pkt=masked_pkt, timeout=2)
-        self.at_receive(result.packet, device_number=result.device, port_number=result.port)
+        self.at_receive(result.packet, device_number=result.device,
+                        port_number=result.port)
 
-        print("Found %s ICMP ttl expired packets on ports: %s" % (result, str(src_rx_ports)))
-        logger.info("Found %s ICMP ttl expired packets on ports: %s" % (result, str(src_rx_ports)))
+        print("Found %s ICMP ttl expired packets on ports: %s" %
+              (result, str(src_rx_ports)))
+        logger.info("Found %s ICMP ttl expired packets on ports: %s" %
+                    (result, str(src_rx_ports)))
         print("port: %s" % result.port)
         if result.port not in src_rx_ports:
             self.fail("Port %s not in %s" % (result.port, src_rx_ports))
@@ -340,7 +348,6 @@ class MtuTest(BaseTest):
             masked_exp_pkt = Mask(exp_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "id")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
@@ -349,13 +356,15 @@ class MtuTest(BaseTest):
 
         src_port = self.src_ptf_port_list[0]
         send_packet(self, src_port, pkt)
-        logging.info("Sending packet from port " + str(src_port) + " address " + ip_src)
+        logging.info("Sending packet from port " +
+                     str(src_port) + " address " + ip_src)
         logging.info("To MAC %s, dst_ip: %s", self.router_mac, ip_dst)
         dst_port_list = self.src_ptf_port_list
         logging.info("Expect packet on port: %s of len %s, eth: %s, ipsrc: %s, ipdst: %s",
                      str(dst_port_list), pktlen, self.router_mac, ip_dst, ip_src)
 
-        (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        (matched_index, received) = verify_packet_any_port(
+            self, masked_exp_pkt, dst_port_list)
 
         assert received
 
@@ -409,14 +418,15 @@ class MtuTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
             if self.ignore_ttl:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-                masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
 
         src_port = self.src_ptf_port_list[0]
         send_packet(self, src_port, pkt)
 
         dst_port_list = self.dst_ptf_port_list
-        logging.info("Sending packet from port " + str(src_port) + " to " + ip_dst + " expected ports " + str(dst_port_list))
-        (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
+        logging.info("Sending packet from port " + str(src_port) +
+                     " to " + ip_dst + " expected ports " + str(dst_port_list))
+        (matched_index, received) = verify_packet_any_port(
+            self, masked_exp_pkt, dst_port_list)
 
         assert received
 

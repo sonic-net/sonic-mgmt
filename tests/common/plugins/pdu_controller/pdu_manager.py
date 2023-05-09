@@ -50,8 +50,8 @@ class PduManager():
         self.controllers = []
 
     def _update_outlets(self, outlets, pdu_index, controller_index=None):
-        for outlet_idx, outlet in enumerate(outlets):
-            outlet['pdu_index'] = pdu_index + outlet_idx
+        for outlet in outlets:
+            outlet['pdu_index'] = pdu_index
             if controller_index is None:
                 controller_index = pdu_index
             outlet['pdu_name'] = self.controllers[controller_index]['psu_peer']['peerdevice']
@@ -74,7 +74,7 @@ class PduManager():
             return
 
         if psu_peer['Protocol'] != 'snmp':
-            logger.warning('Controller protocol {} is not supported'.format(protocol))
+            logger.warning('Controller protocol {} is not supported'.format(psu_peer['Protocol']))
             return
 
         controller = None
@@ -91,10 +91,10 @@ class PduManager():
         outlets = []
         pdu = {
             'psu_name': psu_name,
-                'host': pdu_ip,
-                'controller': controller,
-                'outlets': outlets,
-                'psu_peer': psu_peer,
+            'host': pdu_ip,
+            'controller': controller,
+            'outlets': outlets,
+            'psu_peer': psu_peer,
         }
         next_index = len(self.controllers)
         self.controllers.append(pdu)
@@ -105,7 +105,7 @@ class PduManager():
 
         if not (shared_pdu and outlet is None):
             if controller is None:
-                controller = get_pdu_controller(pdu_ip, pdu_vars)
+                controller = get_pdu_controller(pdu_ip, pdu_vars, psu_peer['HwSku'], psu_peer['Type'])
                 if not controller:
                     logger.warning('Failed creating pdu controller: {}'.format(psu_peer))
                     return
@@ -188,14 +188,14 @@ class PduManager():
 
 def _merge_dev_link(devs, links):
     ret = copy.deepcopy(devs)
-    for host, info in links.items():
+    for host, info in list(links.items()):
         if host not in ret:
             ret[host] = {}
 
-        for key, val in info.items():
+        for key, val in list(info.items()):
             if key not in ret[host]:
                 ret[host][key] = {}
-            ret[host][key]=dict(ret[host][key], **val)
+            ret[host][key] = dict(ret[host][key], **val)
 
     return ret
 
@@ -210,8 +210,8 @@ def _build_pdu_manager_from_graph(pduman, dut_hostname, conn_graph_facts, pdu_va
         logger.info('PDU informatin for {} is not found in graph'.format(dut_hostname))
         return False
 
-    for psu_name, psu_peer in pdu_info[dut_hostname].items():
-        pduman.add_controller(psu_name, psu_peer, pdu_vars)
+    for psu_name, psu_peer in list(pdu_info[dut_hostname].items()):
+        pduman.add_controller(psu_name, psu_peer, pdu_vars[psu_peer['Hostname']])
 
     return len(pduman.controllers) > 0
 
@@ -222,7 +222,7 @@ def _build_pdu_manager_from_inventory(pduman, dut_hostname, pdu_hosts, pdu_vars)
         logger.info('Do not have sufficient PDU information to create PDU manager for host {}'.format(dut_hostname))
         return False
 
-    for ph, var_list in pdu_hosts.items():
+    for ph, var_list in list(pdu_hosts.items()):
         controller_ip = var_list.get("ansible_host")
         if not controller_ip:
             logger.info('No "ansible_host" is defined in inventory file for "{}"'.format(pdu_hosts))
@@ -237,13 +237,13 @@ def _build_pdu_manager_from_inventory(pduman, dut_hostname, pdu_hosts, pdu_vars)
 
         psu_peer = {
             'peerdevice': ph,
-                        'HwSku': 'unknown',
-                        'Protocol': controller_protocol,
-                        'ManagementIp': controller_ip,
-                        'Type': 'Pdu',
-                        'peerport': 'probing',
+            'HwSku': 'unknown',
+            'Protocol': controller_protocol,
+            'ManagementIp': controller_ip,
+            'Type': 'Pdu',
+            'peerport': 'probing',
         }
-        pduman.add_controller(ph, psu_peer, pdu_vars)
+        pduman.add_controller(ph, psu_peer, pdu_vars[psu_peer['Hostname']])
 
     return len(pduman.controllers) > 0
 

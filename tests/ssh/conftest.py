@@ -24,6 +24,7 @@ PERMITTED_KEXS = [
     "ecdh-sha2-nistp521"
 ]
 
+
 def generate_ssh_ciphers(request, typename):
     if typename == "enc":
         remote_cmd = "ssh -Q cipher"
@@ -38,18 +39,22 @@ def generate_ssh_ciphers(request, typename):
     testbed_name = request.config.option.testbed
     testbed_file = request.config.option.testbed_file
     testbed_module = imp.load_source('testbed', 'common/testbed.py')
-    tbinfo = testbed_module.TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+    tbinfo = testbed_module.TestbedInfo(
+        testbed_file).testbed_topo.get(testbed_name, None)
 
     dut_name = tbinfo['duts'][0]
-    inv_name = tbinfo['inv_name'] if 'inv_name' in tbinfo.keys() else 'lab'
+    inv_name = tbinfo['inv_name'] if 'inv_name' in list(
+        tbinfo.keys()) else 'lab'
 
-    ansible_cmd = "ansible -m shell -i ../ansible/{} {} -a".format(inv_name, dut_name)
+    ansible_cmd = "ansible -m shell -i ../ansible/{} {} -a".format(
+        inv_name, dut_name)
     cmd = ansible_cmd.split()
     cmd.append(remote_cmd)
     logger.debug('cmd:\n{}'.format(cmd))
 
     try:
-        raw_output = subprocess.check_output(cmd, shell=False, stderr=subprocess.STDOUT, universal_newlines=True).decode('utf-8')
+        raw_output = subprocess.check_output(
+            cmd, shell=False, stderr=subprocess.STDOUT, universal_newlines=True)
         cipher_list = raw_output.split("rc=0 >>", 1)[1].split()
         logger.debug('cipher full list: {}'.format(cipher_list))
         cipher_param_list = permitted_list
@@ -57,16 +62,22 @@ def generate_ssh_ciphers(request, typename):
             if cipher in permitted_list:
                 continue
             else:
-                cipher_param_list.append(pytest.param(cipher, marks=pytest.mark.xfail))
+                cipher_param_list.append(pytest.param(
+                    cipher, marks=pytest.mark.xfail))
 
         return cipher_param_list
     except subprocess.CalledProcessError as e:
-        logger.error('Failed to get DUT\'s {} ciphers full list: {}'.format(typename, e.output))
+        logger.error('Failed to get DUT\'s {} ciphers full list: {}'.format(
+            typename, e.output))
+
 
 def pytest_generate_tests(metafunc):
     if 'enum_dut_ssh_enc_cipher' in metafunc.fixturenames:
-        metafunc.parametrize('enum_dut_ssh_enc_cipher', generate_ssh_ciphers(metafunc, "enc"))
+        metafunc.parametrize('enum_dut_ssh_enc_cipher',
+                             generate_ssh_ciphers(metafunc, "enc"))
     elif 'enum_dut_ssh_mac' in metafunc.fixturenames:
-        metafunc.parametrize('enum_dut_ssh_mac', generate_ssh_ciphers(metafunc, "mac"))
+        metafunc.parametrize('enum_dut_ssh_mac',
+                             generate_ssh_ciphers(metafunc, "mac"))
     elif 'enum_dut_ssh_kex' in metafunc.fixturenames:
-        metafunc.parametrize('enum_dut_ssh_kex', generate_ssh_ciphers(metafunc, "kex"))
+        metafunc.parametrize('enum_dut_ssh_kex',
+                             generate_ssh_ciphers(metafunc, "kex"))
