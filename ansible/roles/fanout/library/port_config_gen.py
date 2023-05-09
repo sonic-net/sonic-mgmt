@@ -94,7 +94,7 @@ class PortConfigGenerator(object):
             for line in machine_conf:
                 if not line:
                     continue
-                if "platform" in line:
+                if "platform" in line and "build_platform" not in line:
                     return line.split("=")[1].strip()
         raise ValueError("Failed to retrieve platform from '%s'" %
                          self.MACHINE_CONF)
