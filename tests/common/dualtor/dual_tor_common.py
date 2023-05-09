@@ -2,6 +2,8 @@
 import json
 import pytest
 
+from tests.common.helpers.assertions import pytest_require
+
 
 __all__ = [
     'cable_type',
@@ -39,8 +41,7 @@ def cable_type(request, active_active_ports, active_standby_ports, tbinfo):
         elif marker.name == "skip_active_standby":
             skip_active_standby_marker = True
 
-    if 'dualtor' not in tbinfo['topo']['name']:
-        pytest.skip("Skip on non-dualtor testbed")
+    pytest_require('dualtor' in tbinfo['topo']['name'], skip_message="Skip on non-dualtor testbed")
 
     if ((not has_enable_active_active_marker) and (cable_type == CableType.active_active)):
         pytest.skip("Skip cable type 'active-active'")
