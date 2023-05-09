@@ -598,6 +598,14 @@ class SonicHost(AnsibleHostBase):
 
         return group_process_results
 
+    def critical_processes_running(self, service):
+        """
+        @summary: Check whether critical processes are running for a service
+
+        @param service: Name of the SONiC service
+        """
+        return self.critical_process_status(service)['status']
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.

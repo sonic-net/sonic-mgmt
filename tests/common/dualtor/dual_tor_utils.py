@@ -1367,6 +1367,7 @@ def recover_linkmgrd_probe_interval(duthosts, tbinfo):
     '''
     default_probe_interval_ms = 100
     update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
+    duthosts.shell('sonic-db-cli CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
 
 
 def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
