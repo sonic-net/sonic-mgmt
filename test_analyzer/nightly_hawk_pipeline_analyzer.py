@@ -168,6 +168,9 @@ class Nightly_hawk_pipeline_analyzer(object):
         # logger.info("nightly {}  ".format(self.sorted_key_dict(self.nightly_pipelines_dict)))
         # logger.info("nightly_pipeline_testbeds {}  ".format(self.nightly_pipeline_testbeds))
 
+        # self.collect_pipeline_trusty_images()
+        # logger.info("pipeline_trusty_images {}  ".format(self.pipeline_trusty_images))
+
     def collect_pipeline_trusty_images(self):
         """
         poll and collect all pipelines' image, and convert/save it 
@@ -216,8 +219,7 @@ class Nightly_hawk_pipeline_analyzer(object):
                     logger.error("testbed {}  image {} has no trusty image ".format(testbed, trusty_image))
 
         logger.info("pipeline trusty images {}  ".format(self.pipeline_trusty_images))
-
-        logger.info("pipeline sorted trusty images {}  ".format(self.sorted_value_dict(self.pipeline_trusty_images)))
+        # logger.info("pipeline sorted trusty images {}  ".format(self.sorted_value_dict(self.pipeline_trusty_images)))
 
 
     def get_pipelines_build_log_buffer(self, url):
