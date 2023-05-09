@@ -33,7 +33,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
 
 def test_active_tor_heartbeat_failure_upstream(
-    toggle_all_simulator_ports_to_upper_tor, pper_tor_host, lower_tor_host,     # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,     # noqa F811
     send_server_to_t1_with_action, shutdown_tor_heartbeat, cable_type           # noqa F811
 ):
     """
