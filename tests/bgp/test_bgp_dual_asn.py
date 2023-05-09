@@ -230,6 +230,7 @@ class BgpDualAsn:
         logger.info("vlan_ports: %s, ptf_ports: %s" % (str(vlan_ports), self.ptf_ports))
 
         # setup ip addr and routes on ptf
+        # config ip addresses on one ptf port to avoid FDB, ND Cache mismatch issue
         for i in range(0, 2):
             ptfhost.shell(
                 "ip addr add %s/%d dev %s:%s"
