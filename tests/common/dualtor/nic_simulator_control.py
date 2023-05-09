@@ -393,7 +393,7 @@ def stop_nic_grpc_server(mux_config, nic_simulator_client, restart_nic_simulator
 
 
 @pytest.fixture
-def simulator_server_down_active_active(active_active_ports, set_drop_active_active):
+def simulator_server_down_active_active(active_active_ports, set_drop_active_active):       # noqa F811
     """Simulate server down scenario for active-active mux ports."""
 
     def _simulate_server_down(interface_name):

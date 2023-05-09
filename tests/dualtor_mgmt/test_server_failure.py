@@ -4,7 +4,7 @@ import random
 
 from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_upper_tor, \
                                                        simulator_flap_counter, simulator_server_down    # noqa F401
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status                                    # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
