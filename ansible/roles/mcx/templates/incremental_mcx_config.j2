@@ -1,0 +1,24 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "hostname": "{{ inventory_hostname }}"
+        }
+    },
+    "CONSOLE_PORT": {
+{% for line, peer_info in device_console_link[inventory_hostname].iteritems() %}
+{% if line != "ConsolePort" %}
+        "{{ line }}": {
+            "baud_rate": "{{ peer_info["baud_rate"] }}",
+            "flow_control": "0",
+            "remote_device": "{{ peer_info["peerdevice"] }}"
+        }{% if not loop.last %},{% endif %}
+
+{% endif %}
+{% endfor %}
+    },
+    "CONSOLE_SWITCH": {
+        "console_mgmt": {
+            "enabled": "yes"
+        }
+    }
+}
