@@ -26,7 +26,6 @@ __all__ = [
     "nic_simulator_client",
     "mux_status_from_nic_simulator",
     "toggle_active_all_ports_both_tors",
-    "toggle_auto_all_ports_both_tors", 
     "set_drop_active_active",
     "TrafficDirection",
     "ForwardingState",
@@ -206,7 +205,7 @@ def nic_simulator_url(nic_simulator_info):
     pass
 
 
-def toggle_ports(duthosts, intf_name, state, config_back_to_auto=False):
+def toggle_ports(duthosts, intf_name, state):
     """Toggle port from cmd line"""
 
     if not isinstance(duthosts, collections.Iterable):
@@ -215,10 +214,6 @@ def toggle_ports(duthosts, intf_name, state, config_back_to_auto=False):
     toggled_intfs = []
     for duthost in duthosts:
         toggled_intfs.extend(_toggle_cmd(duthost, intf_name, state))
-
-        if config_back_to_auto:
-            toggled_intfs.extend(_toggle_cmd(duthost, intf_name, 'auto'))
-            
     return toggled_intfs
 
 
@@ -246,14 +241,13 @@ def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports)
     """A function level fixture to toggle both ToRs' admin forwarding state to active for all active-active ports."""
 
     if cable_type == CableType.active_active:
-        toggle_ports(duthosts, active_active_ports, state="active", config_back_to_auto=True)
-
-@pytest.fixture
-def toggle_auto_all_ports_both_tors(duthosts, cable_type, active_active_ports):
-    """A function level fixture to toggle both ToRs' mux mode to auto for all active-active ports."""
-
-    if cable_type == CableType.active_active:
+        toggle_ports(duthosts, active_active_ports, state="active")
+        yield
         toggle_ports(duthosts, active_active_ports, state="auto")
+        return
+
+    yield
+    return
 
 
 class TrafficDirection(object):
