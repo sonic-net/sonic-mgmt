@@ -22,11 +22,15 @@ pytestmark = [
     pytest.mark.topology('t2'),
 ]
 
-MAX_TIME_TO_REBOOT = 200
+MAX_TIME_TO_REBOOT = 120
 
 
 @pytest.fixture(scope='function')
 def set_max_to_reboot(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file, 
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
     global MAX_TIME_TO_REBOOT
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_link_down.py', 'cold')
     if plt_reboot_ctrl:
@@ -197,10 +201,10 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     link_status_on_all_fanouts(localhost, fanouts_and_ports)
 
 
-def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname,
+def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
                                     conn_graph_facts,
                                     fanouthosts, xcvr_skip_list, tbinfo, set_max_to_reboot):
-    duthost = duthosts[enum_frontend_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     hostname = duthost.hostname
 
     # Before test, check all interfaces and services are up
