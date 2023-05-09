@@ -33,8 +33,10 @@ drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
 drop_packets/test_drop_counters.py::test_dst_ip_absent:
   skip:
     reason: "Test case not supported on Broadcom DNX platform and Cisco 8000 platform"
+    conditions_logical_operator: or
     conditions:
-      - "asic_subtype in ['broadcom-dnx'] or asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000']"
+      - "asic_subtype in ['broadcom-dnx']"
 
 drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
   skip:
