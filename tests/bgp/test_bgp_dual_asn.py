@@ -6,6 +6,7 @@ import random
 import re
 
 from tests.common import constants
+from datetime import datetime, timedelta
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
@@ -442,6 +443,19 @@ def verify_bgp_session(duthost, bgp_neighbor):
     )
 
 
+def get_bgp_uptime(duthost, bgp_neighbor):
+    # it's a work around for show ip bgp neighbors <ipaddress>, it can not show
+    # neighbors which are not configured
+    output = duthost.shell(
+        "show ip bgp neighbors | grep -A 10 {} | grep 'Established'".format(bgp_neighbor)
+    )
+    if not output["stdout"]:
+        pytest_assert(True, "Bgp neighbor {} is not up".format(bgp_neighbor))
+    time_string = re.search(r"up for (\d{2}:\d{2}:\d{2})", output["stdout"]).group(1)
+    t = datetime.strptime(time_string, "%H:%M:%S").time()
+    return int(timedelta(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds())
+
+
 def check_bgp_routes_exist(duthost, prefix):
     result = duthost.get_route(prefix)
     pytest_assert(result, "Route {} is not found on DUT".format(prefix))
@@ -454,7 +468,7 @@ def announce_route(ptfhost, exabgp_port, prefix, nexthop):
     update_routes("announce", ptfhost.mgmt_ip, exabgp_port, route)
 
 
-def test_bgp_dual_asn_v4(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
+def test_bgp_dual_asn_v4(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, setup_env):
     duthost = duthosts[rand_one_dut_hostname]
 
     dualAsn = BgpDualAsn()
@@ -491,6 +505,8 @@ def test_bgp_dual_asn_v4(duthosts, rand_one_dut_hostname, ptfhost, localhost, tb
             30, 5, 10, verify_bgp_session, duthost, dualAsn.peer_addrs[0]
         ):
             pytest.fail("bgp peer %s should up" % dualAsn.peer_addrs[0])
+        current_bgp_uptime = get_bgp_uptime(duthost, dualAsn.peer_addrs[0])
+        current_time = time.time()
         # announce route from valid bgp peer
         announce_route(ptfhost, NEIGHBOR_PORT_LIST[0], PREFIX, dualAsn.peer_addrs[0])
         # bgp peer which is not in peer range group should not up
@@ -551,6 +567,12 @@ def test_bgp_dual_asn_v4(duthosts, rand_one_dut_hostname, ptfhost, localhost, tb
         # check both bgp neighbors announced routes are right there
         check_bgp_routes_exist(duthost, PREFIX)
         check_bgp_routes_exist(duthost, PREFIX_2)
+
+        # check original bgp neighbor no flapping
+        latest_time = time.time()
+        latest_bgp_uptime = get_bgp_uptime(duthost, dualAsn.peer_addrs[0])
+        if latest_time - current_time > latest_bgp_uptime - current_bgp_uptime:
+            pytest.fail("bgp %s flapped during testing" % dualAsn.peer_addrs[0])
 
         # remove first peer range group configuration, check it's neighbor's bgp state
         bgp_peer_range_delete_config(
