@@ -76,7 +76,7 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
 
     for acl_id in acl_rule_list:
         ip_addr1 = acl_id % 256
-        ip_addr2 = acl_id / 256
+        ip_addr2 = int(acl_id / 256)
 
         src_ip_addr = "20.0.{}.{}".format(ip_addr2, ip_addr1)
         dst_ip_addr = "10.0.0.1"
@@ -136,7 +136,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
         else:
             readd_id = loops + ACL_RULE_NUMS
             ip_addr1 = readd_id % 256
-            ip_addr2 = readd_id / 256
+            ip_addr2 = int(readd_id / 256)
             rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
                                     "SRC_IP" "20.0.{}.{}/32" "PACKET_ACTION" "DROP" "PRIORITY" "{}"'
                                     .format(readd_id, ip_addr2, ip_addr1, readd_id))
