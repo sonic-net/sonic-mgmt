@@ -489,19 +489,20 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # dscp  6 -> queue 1           queue 1         queue 6                                         queue 1                                  queue 6
             # rest 56 dscps -> queue 1
             # So for the 64 pkts sent the mapping should be the following:
-            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57                                     59                                        57
-            # queue 2/6  1                 0               1                                                0                                         0
-            # queue 3/4  1                 1               1                                                1                                         1
-            # queue 5    1                 1               1                                                1                                         1
-            # queue 7    0                 1               1                                                1                                         1
-            # LAG ports can have LACP packets on queue 0, hence using >= comparison
-            assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
-            assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
-            assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
-            assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
-            if dual_tor or (dual_tor_scenario == False) or (leaf_downstream == False):
-                assert(queue_results[QUEUE_2] == 1 + queue_results_base[QUEUE_2])
-                assert(queue_results[QUEUE_6] == 1 + queue_results_base[QUEUE_6])
+            # queue 1    56 + 2 = 58       56 + 3 = 59     56 + 1 = 57                                     59                                        57                         # noqa E501
+            # queue 2/6  1                 0               1                                                0                                         0                         # noqa E501
+            # queue 3/4  1                 1               1                                                1                                         1                         # noqa E501
+            # queue 5    1                 1               1                                                1                                         1                         # noqa E501
+            # queue 7    0                 1               1                                                1                                         1                         # noqa E501
+            assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
+            assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
+            assert (queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
+            assert (queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
+            if dual_tor or (dual_tor_scenario is False) or (leaf_downstream is False):
+                assert (queue_results[QUEUE_2] == 1 +
+                        queue_results_base[QUEUE_2])
+                assert (queue_results[QUEUE_6] == 1 +
+                        queue_results_base[QUEUE_6])
             else:
                 assert(queue_results[QUEUE_2] == queue_results_base[QUEUE_2])
                 assert(queue_results[QUEUE_6] == queue_results_base[QUEUE_6])
@@ -509,14 +510,16 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                 if (dual_tor == False) or leaf_downstream:
                     assert(queue_results[QUEUE_1] == 59 + queue_results_base[QUEUE_1])
                 else:
-                    assert(queue_results[QUEUE_1] ==
-                           57 + queue_results_base[QUEUE_1])
-                assert(queue_results[QUEUE_7] == 1 +
-                       queue_results_base[QUEUE_7])
+                    assert (queue_results[QUEUE_1] ==
+                            57 + queue_results_base[QUEUE_1])
+                # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                assert (queue_results[QUEUE_7] >= 1 +
+                        queue_results_base[QUEUE_7])
             else:
-                assert(queue_results[QUEUE_1] == 58 +
-                       queue_results_base[QUEUE_1])
-                assert(queue_results[QUEUE_7] == queue_results_base[QUEUE_7])
+                assert (queue_results[QUEUE_1] == 58 +
+                        queue_results_base[QUEUE_1])
+                # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                assert (queue_results[QUEUE_7] >= queue_results_base[QUEUE_7])
 
         finally:
             print("END OF TEST", file=sys.stderr)
