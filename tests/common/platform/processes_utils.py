@@ -11,6 +11,15 @@ from tests.common.utilities import wait_until
 
 
 def reset_timeout(duthost):
+    """
+    return: if timeout is specified in inventory file for this dut, return new timeout
+            if not specified, return 300 sec as default timeout
+    e.g.
+        processes_utils.py:
+          timeout: 400
+          wait: 60
+    """
+    reset_timeout = 300
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'processes_utils.py')
     if plt_reboot_ctrl:
         reset_timeout = plt_reboot_ctrl['timeout']
