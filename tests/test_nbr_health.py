@@ -67,7 +67,7 @@ def check_eos_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
     res = host.eos_command(commands=['show ip bgp sum'])
     logger.info("bgp: {}".format(res))
-    if 'stdout_lines' not in res or 'BGP summary' not in res['stdout_lines'][0][0]:
+    if 'stdout_lines' not in res or u'BGP summary' not in res['stdout_lines'][0][0]:
         return "neighbor {} bgp not configured correctly".format(hostname)
 
 
@@ -75,7 +75,7 @@ def check_sonic_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
     res = host.command('vtysh -c "show ip bgp sum"')
     logger.info("bgp: {}".format(res))
-    if 'stdout_lines' not in res or 'Unicast Summary' not in "\n".join(res['stdout_lines']):
+    if 'stdout_lines' not in res or u'Unicast Summary' not in "\n".join(res['stdout_lines']):
         return "neighbor {} bgp not configured correctly".format(hostname)
 
 

@@ -325,36 +325,41 @@ def fixture_setUp(duthosts,
 
 
 @pytest.fixture(scope="module")
-def default_routes(fixture_setUp, encap_type):
-    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
-    return fixture_setUp[encap_type]['dest_to_nh_map'][vnet]
+def default_routes(setUp, encap_type):
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
+    return setUp[encap_type]['dest_to_nh_map'][vnet]
 
 
 @pytest.fixture(scope="module")
-def routes_for_cleanup(fixture_setUp, encap_type):
+def routes_for_cleanup(setUp, encap_type):
     routes = {}
 
     yield routes
 
-    # prepare for route cleanup by fixture_setUp on module finish
-    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
-    fixture_setUp[encap_type]['dest_to_nh_map'][vnet] = routes
+    # prepare for route cleanup by setUp on module finish
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
+    setUp[encap_type]['dest_to_nh_map'][vnet] = routes
 
 
 @pytest.fixture(autouse=True)
-def reset_test_routes(fixture_setUp, encap_type, default_routes, routes_for_cleanup):
+def _reset_test_routes(
+        setUp,
+        encap_type,
+        default_routes,
+        routes_for_cleanup):
     """
-    The fixture makes sure each test uses the same route config not affected by previous test runs
+    The fixture makes sure each test uses the same route config
+    not affected by previous test runs
     """
-    vnet = list(fixture_setUp[encap_type]['vnet_vni_map'].keys())[0]
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
 
     test_routes = {}
     test_routes.update(default_routes)
-    fixture_setUp[encap_type]['dest_to_nh_map'][vnet] = test_routes
+    setUp[encap_type]['dest_to_nh_map'][vnet] = test_routes
 
     yield
 
-    test_made_routes = fixture_setUp[encap_type]['dest_to_nh_map'][vnet]
+    test_made_routes = setUp[encap_type]['dest_to_nh_map'][vnet]
     routes_for_cleanup.update(test_made_routes)
 
 
@@ -372,7 +377,8 @@ class Test_VxLAN():
                                    random_dport=True,
                                    random_sport=False,
                                    random_src_ip=False,
-                                   tolerance=None):
+                                   tolerance=None,
+                                   payload=None):
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
@@ -429,7 +435,8 @@ class Test_VxLAN():
 
         ptf_runner(self.setup['ptfhost'],
                    "ptftests",
-                   "vxlan_traffic.VXLAN",
+                   "vxlan_traffic.VxLAN_in_VxLAN" if payload == 'vxlan'
+                   else "vxlan_traffic.VXLAN",
                    platform_dir="ptftests",
                    params=ptf_params,
                    qlen=1000,
@@ -489,6 +496,8 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         '''
         self.setup = setUp
         self.dump_self_info_and_run_ptf("tc1", encap_type, True)
+        self.dump_self_info_and_run_ptf("tc1", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_modify_route_different_endpoint(
             self, setUp, request, encap_type):
@@ -617,6 +626,9 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         Logger.info("Verify that the new config takes effect and run traffic.")
 
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
+        # Add vxlan payload testing as well.
+        self.dump_self_info_and_run_ptf("tc4", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_remove_ecmp_route1(self, setUp, encap_type):
         '''
@@ -1234,6 +1246,8 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup = setUp
         self.setup_route2_single_endpoint(encap_type)
         self.dump_self_info_and_run_ptf("tc8", encap_type, True)
+        self.dump_self_info_and_run_ptf("tc8", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_route2_shared_nh(self, setUp, encap_type):
         '''

@@ -29,6 +29,9 @@ class DeviceMocker:
     def mock_psu_voltage(self, good):
         return False, None
 
+    def mock_fan_direction(self, good):
+        return False, None
+
 
 @pytest.fixture
 def device_mocker_factory():
