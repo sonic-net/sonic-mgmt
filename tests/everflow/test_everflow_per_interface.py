@@ -25,18 +25,6 @@ EVERFLOW_SESSION_NAME = "everflow_session_per_interface"
 
 logger = logging.getLogger(__file__)
 
-@pytest.fixture(scope="module", autouse=True)
-def skip_if_not_supported(tbinfo, rand_selected_dut, ip_ver):
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Skip running on dualtor testbed")
-
-    asic_type = rand_selected_dut.facts["asic_type"]
-    unsupported_platforms = ["mellanox", "marvell", "barefoot", "cisco-8000"]
-    # Skip ipv6 test on Mellanox platform
-    is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
-    # Skip ipv6 test on cisco-8000 platform
-    is_cisco_ipv4 = asic_type == 'cisco-8000' and ip_ver == 'ipv4'	
-    pytest_require(asic_type not in unsupported_platforms or is_mellanox_ipv4 or is_cisco_ipv4, "Match 'IN_PORTS' is not supported on {} platform".format(asic_type))
 
 def build_candidate_ports(duthost, tbinfo):
     """
@@ -46,6 +34,8 @@ def build_candidate_ports(duthost, tbinfo):
     unselected_ports = {}
     if tbinfo['topo']['type'] == 't0':
         candidate_neigh_name = 'Server'
+    elif tbinfo['topo']['type'] == 'm0':
+        candidate_neigh_name = 'MX'
     else:
         candidate_neigh_name = 'T0'
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -56,10 +46,10 @@ def build_candidate_ports(duthost, tbinfo):
             candidate_ports.update({dut_port: ptf_idx})
         if len(unselected_ports) < 4 and dut_port not in candidate_ports:
             unselected_ports.update({dut_port: ptf_idx})
-    
+
     logger.info("Candidate testing ports are {}".format(candidate_ports))
     return candidate_ports, unselected_ports
-    
+
 
 def build_acl_rule_vars(candidate_ports, ip_ver):
     """
@@ -107,7 +97,7 @@ def apply_acl_rule(rand_selected_dut, tbinfo, apply_mirror_session, ip_ver):
     # Skip if EVERFLOW table doesn't exist
     pytest_require(len(output) > 2, "Skip test since {} dosen't exist".format(table_name))
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    mirror_session_info, monitor_port = apply_mirror_session    
+    mirror_session_info, monitor_port = apply_mirror_session
     # Build testing port list
     candidate_ports, unselected_ports = build_candidate_ports(rand_selected_dut, tbinfo)
     pytest_require(len(candidate_ports) >= 1, "Not sufficient ports for testing")
@@ -128,7 +118,7 @@ def apply_acl_rule(rand_selected_dut, tbinfo, apply_mirror_session, ip_ver):
         "mirror_session_info": mirror_session_info,
         "monitor_port": {monitor_port: mg_facts["minigraph_ptf_indices"][monitor_port]}
     }
-    
+
     yield ret
 
     logger.info("Removing acl rule config from DUT")
@@ -151,13 +141,15 @@ def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac
 
 
 def get_uplink_ports(duthost, tbinfo):
-    """The collector IP is a destination reachable by default. 
+    """The collector IP is a destination reachable by default.
     So we need to collect the uplink ports to do a packet capture
     """
     uplink_ports = []
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if 't0' == tbinfo['topo']['type']:
         neigh_name = 'T1'
+    elif 'm0' == tbinfo['topo']['type']:
+        neigh_name = 'M1'
     else:
         neigh_name = 'T2'
     for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
@@ -187,10 +179,10 @@ def test_everflow_per_interface(ptfadapter, rand_selected_dut, apply_acl_rule, t
     for port, ptf_idx in everflow_config['candidate_ports'].items():
         logger.info("Verifying packet ingress from {} is mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, True)
-    
+
     # Verify that packet ingressed from unselected ports are not mirrored
     for port, ptf_idx in everflow_config['unselected_ports'].items():
         logger.info("Verifying packet ingress from {} is not mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, False)
-   
-   
+
+

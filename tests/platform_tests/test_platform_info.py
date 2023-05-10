@@ -240,6 +240,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
         logging.info("DUT is MgmtTsToR, the last 2 outlets are reserved for Console Switch and are not visible from DUT.")
     for outlet in all_outlet_status:
         psu_under_test = None
+        if outlet['outlet_on'] is False:
+            continue
 
         logging.info("Turn off outlet {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)

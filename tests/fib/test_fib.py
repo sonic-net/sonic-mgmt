@@ -19,6 +19,7 @@ from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.fib_utils import fib_info_files_per_function
 from tests.common.fixtures.fib_utils import single_fib_for_duts
 from tests.common.utilities import wait
+from tests.common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,7 @@ def hash_keys(duthost):
             hash_keys.remove('src-port')
         if 'dst-port' in hash_keys:
             hash_keys.remove('dst-port')
-    if duthost.facts['asic_type'] in ["mellanox"]:
+    if duthost.facts['asic_type'] in ["mellanox", "innovium", "cisco-8000"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     if duthost.facts['asic_type'] in ["barefoot"]:
@@ -206,7 +207,7 @@ def ipver(request):
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
     """
     Add a default route to the device for storage backend testbed.
@@ -281,3 +282,73 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
             log_file=log_file,
             qlen=PTF_QLEN,
             socket_recv_size=16384)
+
+# The test case is to verify src-ip, dst-ip, src-port, dst-port and ip-proto of inner_frame in a IPinIP packet are
+# used as hash keys
+def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_per_function, hash_keys, ptfhost, ipver,
+              tbinfo, mux_server_url, router_macs,
+              ignore_ttl, single_fib_for_duts):
+    # Skip test on none T1 testbed
+    pytest_require('t1' == tbinfo['topo']['type'], "The test case runs on T1 topology")
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(ipver, timestamp)
+    logging.info("PTF log file: %s" % log_file)
+    if ipver == "ipv4":
+        src_ip_range = SRC_IP_RANGE
+        dst_ip_range = DST_IP_RANGE
+    else:
+        src_ip_range = SRC_IPV6_RANGE
+        dst_ip_range = DST_IPV6_RANGE
+    ptf_runner(ptfhost,
+            "ptftests",
+            "hash_test.IPinIPHashTest",
+            platform_dir="ptftests",
+            params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
+                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url),
+                    "hash_keys": hash_keys,
+                    "src_ip_range": ",".join(src_ip_range),
+                    "dst_ip_range": ",".join(dst_ip_range),
+                    "router_macs": router_macs,
+                    "vlan_ids": VLANIDS,
+                    "ignore_ttl":ignore_ttl,
+                    "single_fib_for_duts": single_fib_for_duts,
+                    "ipver": ipver
+                   },
+            log_file=log_file,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384)
+
+# The test is to verify the hashing logic is not using unexpected field as keys
+# Only inner frame length is tested at this moment
+def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files_per_function, ptfhost, ipver,
+              tbinfo, mux_server_url, router_macs,
+              ignore_ttl, single_fib_for_duts):
+    hash_keys = ['inner_length']
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(ipver, timestamp)
+    logging.info("PTF log file: %s" % log_file)
+    if ipver == "ipv4":
+        src_ip_range = SRC_IP_RANGE
+        dst_ip_range = DST_IP_RANGE
+    else:
+        src_ip_range = SRC_IPV6_RANGE
+        dst_ip_range = DST_IPV6_RANGE
+    ptf_runner(ptfhost,
+            "ptftests",
+            "hash_test.IPinIPHashTest",
+            platform_dir="ptftests",
+            params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
+                    "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url),
+                    "hash_keys": hash_keys,
+                    "src_ip_range": ",".join(src_ip_range),
+                    "dst_ip_range": ",".join(dst_ip_range),
+                    "router_macs": router_macs,
+                    "vlan_ids": VLANIDS,
+                    "ignore_ttl":ignore_ttl,
+                    "single_fib_for_duts": single_fib_for_duts,
+                    "ipver": ipver
+                   },
+            log_file=log_file,
+            qlen=PTF_QLEN,
+            socket_recv_size=16384)
+

@@ -128,8 +128,8 @@ def show_counter(counter_name, ptftest, asic_type, ports, current=None, base=Non
                     'PgCnt'        : [[pg_counter_field_template.format(i) for i in range(PG_NUM)],        sai_thrift_read_pg_counters,      None, True],
                     'PgDrop'       : [[pg_drop_field_template.format(i) for i in range(PG_NUM)],           sai_thrift_read_pg_drop_counters, None, True],
                     'PtfCnt'       : [['rx', 'tx'],                                                        read_ptf_counters,                None, False]}
-    if counter_name not in counter_info:
-        return None
+    if counter_name not in counter_info or ports == None:
+        return (None, None)
 
     counter_fields = counter_info[counter_name][0]
     counter_query = counter_info[counter_name][1]
@@ -1947,13 +1947,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
         self.src_port_macs = [self.dataplane.get_mac(0, ptid) for ptid in self.src_port_ids]
 
-        is_dualtor = self.test_params.get('is_dualtor', False)
-        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
-        if is_dualtor and def_vlan_mac != None:
-            self.dst_port_mac = def_vlan_mac
-
         if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
             # populate ARP
+            # sender's MAC address is corresponding PTF port's MAC address
+            # sender's IP address is caculated in tests/qos/qos_sai_base.py::QosSaiBase::__assignTestPortIps()
+            # for dualtor: sender_IP_address = DUT_default_VLAN_interface_IP_address + portIndex + 1
             for idx, ptid in enumerate(self.src_port_ids):
 
                 arpreq_pkt = simple_arp_packet(
@@ -1975,6 +1973,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                           hw_tgt='00:00:00:00:00:00')
             send_packet(self, self.dst_port_id, arpreq_pkt)
         time.sleep(8)
+
+        # for dualtor, need to change test traffic's dest MAC address to point DUT's default VLAN interface
+        # and then DUT is able to correctly forward test traffic to dest PORT on PTF
+        # Reminder: need to change this dest MAC address after above ARP population to avoid corrupt ARP packet
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac != None:
+            self.dst_port_mac = def_vlan_mac
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -3940,7 +3946,6 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         Tx is disabled on the egress port to trigger PFC pause.
         """
         switch_init(self.client)
-        stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), silent=True)
 
         # Parse input parameters
         active_tor_mac = self.test_params['active_tor_mac']
@@ -3950,6 +3955,8 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = self.test_params['src_port_id']
         dst_port_id = self.test_params['dst_port_id']
         dst_port_ip = self.test_params['dst_port_ip']
+
+        stats = show_stats('just collect base data', self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', [src_port_id, dst_port_id]), silent=True)
 
         inner_dscp = int(self.test_params['dscp'])
         tunnel_traffic_test = False
@@ -4019,7 +4026,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             # Verify PFC pause frame is generated on expected PG
             assert(rx_counters[pg] > rx_counters_base[pg])
         finally:
-            show_stats(self.__class__.__name__, self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), bases=stats)
+            show_stats(self.__class__.__name__, self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', [src_port_id, dst_port_id]), bases=stats)
             # Enable tx on dest port
             sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
