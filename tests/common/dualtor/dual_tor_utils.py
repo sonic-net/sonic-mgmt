@@ -33,7 +33,7 @@ from tests.common.dualtor.dual_tor_common import active_standby_ports           
 from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa F401
 from tests.common.dualtor.dual_tor_common import mux_config                                             # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route
-from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address, wait_until
 from tests.ptf_runner import ptf_runner
 
 
@@ -1477,3 +1477,39 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
     yield
 
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+
+
+@pytest.fixture
+def validate_active_active_dualtor_setup(duthosts, active_active_ports, ptfhost, tbinfo):                 # noqa F811
+    """Validate that both ToRs are active for active-active mux ports."""
+
+    def check_active_active_port_status(duthost, ports, status):
+        logging.debug("Check mux status for ports {} is {}".format(ports, status))
+        show_mux_status_ret = show_muxcable_status(duthost)
+        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
+        for port in ports:
+            if port not in show_mux_status_ret:
+                return False
+            elif show_mux_status_ret[port]['status'] != status:
+                return False
+        return True
+
+    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
+        return
+
+    # verify icmp_responder is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
+    if "RUNNING" not in icmp_responder_status:
+        ptfhost.shell("supervisorctl start icmp_responder")
+
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
+    pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
+
+    # verify both ToRs are active
+    for duthost in duthosts:
+        pt_assert(
+            wait_until(30, 5, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
+            "Not all active-active mux ports are active on device %s" % duthost.hostname
+        )
+
+    return
