@@ -3,6 +3,12 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
+logger = logging.getLogger(__name__)
+
 
 def is_service_loaded(duthost, service):
     output = duthost.shell("systemctl show -p LoadState --value {}.service".format(service))
@@ -31,7 +37,7 @@ def change_service_state(duthost, service, enable):
             return
 
 
-@ignore_loganalyzer
+@pytest.mark.disable_loganalyzer
 def test_masked_services(duthosts, rand_one_dut_hostname):
     """
     @summary: This test case will mask telemetry service, then test load_minigraph and check its success
