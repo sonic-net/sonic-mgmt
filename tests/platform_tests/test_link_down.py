@@ -147,7 +147,7 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
 
 
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
-                                 conn_graph_facts,
+                                 conn_graph_facts, set_max_to_reboot,
                                  fanouthosts, xcvr_skip_list):
     if len(duthosts.nodes) == 1:
         pytest.skip("Skip single-host dut for this test")
@@ -202,7 +202,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
 
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
-                                    conn_graph_facts,
+                                    conn_graph_facts, set_max_to_reboot,
                                     fanouthosts, xcvr_skip_list):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     hostname = duthost.hostname
