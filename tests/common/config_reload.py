@@ -115,7 +115,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     elif config_source == 'config_db':
         cmd = 'config reload -y &>/dev/null'
-        if config_force_option_supported(duthost):
+        if config_force_option_supported(sonic_host):
             cmd = 'config reload -y -f &>/dev/null'
         sonic_host.shell(cmd, executable="/bin/bash")
 
