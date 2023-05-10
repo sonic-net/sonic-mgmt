@@ -111,6 +111,11 @@ class MellanoxDeviceMocker(DeviceMocker):
         return True
 
     def mock_psu_presence(self, status):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        always_present = not platform_data['psus']['hot_swappable']
+        if always_present:
+            return False, None
+
         self.psu_data.mock_presence(1 if status else 0)
         return True, self.psu_data.name
 
@@ -119,6 +124,11 @@ class MellanoxDeviceMocker(DeviceMocker):
         return True, self.psu_data.name
 
     def mock_psu_temperature(self, good):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        always_present = not platform_data['psus']['hot_swappable']
+        if always_present:
+            return False, None
+
         threshold = self.psu_data.get_psu_temperature_threshold()
         if good:
             value = threshold - 1000
@@ -130,3 +140,14 @@ class MellanoxDeviceMocker(DeviceMocker):
     def mock_psu_voltage(self, good):
         # Not Supported for now
         return False, None
+
+    def mock_fan_direction(self, good):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        drawer_num = platform_data['fans']['number']
+        if drawer_num < 2:
+            return False, None
+
+        fan_name = self.fan_drawer_data.mock_fan_direction_status(good, drawer_num)
+        if not fan_name:
+            return False, None
+        return True, fan_name

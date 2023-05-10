@@ -365,6 +365,8 @@ class FanDrawerData:
     # FAN direction sys fs path available in 202012 and later
     FAN_DIR_PATH_PER_FAN = '/run/hw-management/thermal/fan{}_dir'
 
+    FAN_EXPECT_DIRECTION = None
+
     def __init__(self, mock_helper, naming_rule, index):
         """
         Constructor of FAN drawer data.
@@ -500,6 +502,26 @@ class FanDrawerData:
                 return 'red'
 
         return 'green'
+
+    def mock_fan_direction_status(self, good, drawer_num):
+        if FanDrawerData.FAN_EXPECT_DIRECTION is None:
+            try:
+                FanDrawerData.FAN_EXPECT_DIRECTION = int(self.helper.read_value(
+                    FanDrawerData.FAN_DIR_PATH_PER_FAN.format(1)))
+            except SysfsNotExistError:
+                return None
+
+        if good:
+            target_dir = FanDrawerData.FAN_EXPECT_DIRECTION
+        else:
+            target_dir = 1 if FanDrawerData.FAN_EXPECT_DIRECTION == 0 else 0
+
+        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH_PER_FAN.format(drawer_num), str(target_dir))
+        platform_data = get_platform_data(self.helper.dut)
+        if platform_data['fans']['hot_swappable']:
+            return FAN_NAMING_RULE['fan']['name'].format(drawer_num * MockerHelper.FAN_NUM_PER_DRAWER)
+        else:
+            return FAN_NAMING_RULE['fan']['name'].format(drawer_num)
 
 
 class FanData:
