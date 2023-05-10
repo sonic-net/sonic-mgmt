@@ -53,6 +53,7 @@ SUMMARY_NOT_OK = 'Not OK'
 EXPECT_FAN_MISSING = '{} is missing'
 EXPECT_FAN_BROKEN = '{} is broken'
 EXPECT_FAN_INVALID_SPEED = '{} speed is out of range'
+EXPECT_FAN_INVALID_DIRECTION = '{} direction'
 EXPECT_ASIC_HOT = 'ASIC temperature is too hot'
 EXPECT_PSU_MISSING = '{} is missing or not available'
 EXPECT_PSU_NO_POWER = '{} is out of power'
@@ -291,6 +292,27 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
                 duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
             assert not value or psu_expect_value not in value,\
                 'Mock PSU normal temperature, but it is still overheated'
+
+        fan_mock_result, fan_name = device_mocker.mock_fan_direction(False)
+        expect_value = EXPECT_FAN_INVALID_DIRECTION.format(fan_name)
+        if fan_mock_result:
+            logger.info('Mocked fan invalid direction for {}, waiting {} seconds for it to take effect'.format(
+                fan_name,
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert value and expect_value in value, 'Mock fan invalid direction, expect {}, but got {}'.format(
+                expect_value,
+                value)
+
+        fan_mock_result, fan_name = device_mocker.mock_fan_direction(True)
+        if fan_mock_result:
+            logger.info('Mocked fan valid direction for {}, waiting {} seconds for it to take effect'.format(
+                fan_name,
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert not value or expect_value not in value, 'Mock fan valid direction, but it is still invalid'
 
         mock_result, psu_name = device_mocker.mock_psu_voltage(False)
         expect_value = EXPECT_PSU_INVALID_VOLTAGE.format(psu_name)
