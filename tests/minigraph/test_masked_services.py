@@ -45,10 +45,10 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
 
     change_service_state(duthost, test_service, False)
     logging.info("Wait until service is masked and inactive")
-    pytest_assert(wait_until(100, 10, 0, not duthost.is_service_fully_started, "telemetry"), "TELEMETRY is still running.")
+    pytest_assert(wait_until(100, 10, 0, not duthost.is_service_fully_started, "telemetry"), "TELEMETRY still running")
 
     logging.info("Check service status")
-    assert is_service_loaded(duthost, test_service) == False
+    assert not is_service_loaded(duthost, test_service)
 
     logging.info("Starting load_minigraph")
     load_minigraph_ret = duthost.shell("config load_minigraph -y")
@@ -57,7 +57,7 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
     logging.info("Bring back service if not up")
     change_service_state(duthost, test_service, True)
     logging.info("Wait until service is unmasked and active")
-    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started")
 
     if load_minigraph_error_code:
-       pytest.fail("Test failed as load_minigraph was not successful")
+        pytest.fail("Test failed as load_minigraph was not successful")
