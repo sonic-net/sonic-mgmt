@@ -24,8 +24,8 @@ console-199,8,str2-z9332f-05,ssh,admin
 console-199,7,str2-z9332f-02,ssh,admin
 console-194,2010,str2-dx010-acs-6,ssh,admin
 console-194,2031,str2-dx010-acs-7,ssh,admin
-console-194,2024,str2-msn4600c-acs-01,ssh,admin
-console-194,2033,str2-msn4600c-acs-02,ssh,admin
+console-194,24,str2-msn4600c-acs-01,ssh,admin
+console-194,33,str2-msn4600c-acs-02,ssh,admin
 console-212,35,str2-msn4600c-acs-03,ssh,admin
 console-212,34,str2-msn4600c-acs-04,ssh,admin
 console-212,32,str2-7050cx3-acs-04,ssh,admin

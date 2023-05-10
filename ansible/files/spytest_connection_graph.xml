@@ -6171,8 +6171,8 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-z9332f-02" Proxy="admin" StartDevice="console-199" StartPort="7"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-dx010-acs-6" Proxy="admin" StartDevice="console-194" StartPort="2010"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-dx010-acs-7" Proxy="admin" StartDevice="console-194" StartPort="2031"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-01" Proxy="admin" StartDevice="console-194" StartPort="2024"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-02" Proxy="admin" StartDevice="console-194" StartPort="2033"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-01" Proxy="admin" StartDevice="console-194" StartPort="24"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-02" Proxy="admin" StartDevice="console-194" StartPort="33"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-03" Proxy="admin" StartDevice="console-212" StartPort="35"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-msn4600c-acs-04" Proxy="admin" StartDevice="console-212" StartPort="34"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7050cx3-acs-04" Proxy="admin" StartDevice="console-212" StartPort="32"/>
