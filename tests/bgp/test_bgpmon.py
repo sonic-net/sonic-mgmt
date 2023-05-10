@@ -10,7 +10,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 pytestmark = [
@@ -22,6 +22,7 @@ BGP_CONNECT_TIMEOUT = 121
 MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
+
 
 @pytest.fixture
 def set_timeout_for_bgpmon(duthost):
