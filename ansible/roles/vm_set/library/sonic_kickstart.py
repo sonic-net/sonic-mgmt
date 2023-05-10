@@ -136,15 +136,15 @@ def core(module):
 def main():
 
     module = AnsibleModule(argument_spec=dict(
-        telnet_port = dict(required=True),
-        login = dict(required=True),
-        passwords = dict(required=True, type='list'),
-        hostname = dict(required=True),
-        mgmt_ip = dict(required=True),
-        mgmt_gw = dict(required=True),
-        new_password = dict(required=True),
-        num_asic = dict(required=True),
-        disable_updategraph = dict(required=True, type='bool'),
+        telnet_port=dict(required=True),
+        login=dict(required=True),
+        passwords=dict(required=True, type='list'),
+        hostname=dict(required=True),
+        mgmt_ip=dict(required=True),
+        mgmt_gw=dict(required=True),
+        new_password=dict(required=True),
+        num_asic=dict(required=True),
+        disable_updategraph=dict(required=True, type='bool'),
     ))
 
     try:
