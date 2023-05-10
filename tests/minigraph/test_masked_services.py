@@ -3,11 +3,13 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
+
 def is_service_loaded(duthost, service):
     output = duthost.shell("systemctl show -p LoadState --value {}.service".format(service))
     if output["failed"]:
         return False
     return output["stdout"] == "loaded"
+
 
 def change_service_state(duthost, service, enable):
     outputs = []
@@ -28,6 +30,7 @@ def change_service_state(duthost, service, enable):
             pytest.fail("Error starting or stopping service")
             return
 
+
 def test_masked_services(duthosts, rand_one_dut_hostname):
     """
     @summary: This test case will mask telemetry service, then test load_minigraph and check its success
@@ -36,13 +39,13 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
     test_service = "telemetry"
     logging.info("Bringing down telemetry service")
     service_status = duthost.critical_process_status("telemetry")
-    
+
     if not service_status:
         pytest.fail("Make sure telemetry is up and running before calling this test")
 
     change_service_state(duthost, test_service, False)
     logging.info("Wait until service is masked and inactive")
-    wait_until(10, 3, 0, lambda: not is_service_loaded(duthost, test_service))
+    pytest_assert(wait_until(100, 10, 0, not duthost.is_service_fully_started, "telemetry"), "TELEMETRY is still running.")
 
     logging.info("Check service status")
     assert is_service_loaded(duthost, test_service) == False
@@ -54,7 +57,7 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
     logging.info("Bring back service if not up")
     change_service_state(duthost, test_service, True)
     logging.info("Wait until service is unmasked and active")
-    wait_until(10, 3, 0, lambda: is_service_loaded(duthost, test_service))
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
 
     if load_minigraph_error_code:
        pytest.fail("Test failed as load_minigraph was not successful")
