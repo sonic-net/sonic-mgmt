@@ -7,7 +7,7 @@ import logging
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 
 
 def reset_timeout(duthost):
