@@ -1599,6 +1599,8 @@ Totals               6450                 6449
             asic = "th3"
         elif "Cisco Systems Inc Device a001" in output:
             asic = "gb"
+        elif "Mellanox Technologies" in output:
+            asic = "spc"
 
         return asic
 
