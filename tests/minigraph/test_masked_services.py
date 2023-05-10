@@ -31,6 +31,7 @@ def change_service_state(duthost, service, enable):
             return
 
 
+@ignore_loganalyzer
 def test_masked_services(duthosts, rand_one_dut_hostname):
     """
     @summary: This test case will mask telemetry service, then test load_minigraph and check its success
