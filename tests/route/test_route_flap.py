@@ -264,14 +264,16 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                 if dev_port:
                     break
                 dev = json.loads(asic.run_vtysh(cmd)['stdout'])
-                per_hop = dev[route_to_ping][0]['nexthops'][0]
-                dev_port = per_hop['interfaceName'] if 'interfaceName' in per_hop.keys() else None
+                for per_hop in dev[route_to_ping][0]['nexthops']:
+                    if 'interfaceName' in per_hop.keys() and 'IB' not in per_hop['interfaceName']:
+                        dev_port = per_hop['interfaceName']
+                        break
         else:
             dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
-            per_hop = dev[route_to_ping][0]['nexthops'][0]
-            if 'interfaceName' in per_hop.keys():
-                dev_port = per_hop['interfaceName']
-                break
+            for per_hop in dev[route_to_ping][0]['nexthops']:
+                if 'interfaceName' in per_hop.keys() and 'IB' not in per_hop['interfaceName']:
+                    dev_port = per_hop['interfaceName']
+                    break
 
     pytest_assert(dev_port, "dev_port not exist")
     route_nums = len(dst_prefix_set)
