@@ -11,6 +11,7 @@ from tests.common.dualtor.dual_tor_common import cable_type                     
 from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
 
@@ -237,7 +238,7 @@ def toggle_simulator_port_to_upper_tor(url, tbinfo):
             target: "upper_tor" or "lower_tor"
         """
         # Skip on non dualtor testbed
-        if 'dualtor' not in tbinfo['topo']['name']:
+        if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
             return
         server_url = url(interface_name)
         data = {"active_side": UPPER_TOR}
