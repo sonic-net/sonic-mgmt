@@ -45,7 +45,7 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
 
     change_service_state(duthost, test_service, False)
     logging.info("Wait until service is masked and inactive")
-    pytest_assert(wait_until(100, 10, 0, not duthost.is_service_fully_started, "telemetry"), "TELEMETRY still running")
+    pytest_assert(not wait_until(30, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY still running")
 
     logging.info("Check service status")
     assert not is_service_loaded(duthost, test_service)
