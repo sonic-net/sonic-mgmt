@@ -43,7 +43,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'
+    default: '-I "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets" -S "acl/test_acl_outer_vlan.py"'
     displayName: Testbed specific
 
 stages:
