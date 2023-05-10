@@ -28,7 +28,7 @@ MAX_TIME_TO_REBOOT = 120
 @pytest.fixture(scope='function')
 def set_max_to_reboot(duthost):
     """
-    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file, 
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
     to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
     """
     global MAX_TIME_TO_REBOOT
