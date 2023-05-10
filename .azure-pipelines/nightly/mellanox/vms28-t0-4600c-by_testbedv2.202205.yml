@@ -83,7 +83,7 @@ parameters:
 
   - name: RETRY_TIMES
     type: string
-    default: 1
+    default: 0
 
   - name: DUMP_KVM_IF_FAIL
     type: string
