@@ -789,40 +789,45 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
             # There are packet leak even port tx is disabled (18 packets leak on TD3 found)
             # Hence we send some packet to fill the leak before testing
-            for dscp, _ in dscp_to_pg_map.items():
-                pkt = self._build_testing_pkt(
-                    active_tor_mac=active_tor_mac,
-                    standby_tor_mac=standby_tor_mac,
-                    active_tor_ip=active_tor_ip,
-                    standby_tor_ip=standby_tor_ip,
-                    inner_dscp=dscp,
-                    outer_dscp=0,
-                    dst_ip=dst_port_ip
-                )
-                send_packet(self, src_port_id, pkt, 20)
-            time.sleep(10)
+            if asic_type != 'mellanox':
+                for dscp, _ in dscp_to_pg_map.items():
+                    pkt = self._build_testing_pkt(
+                        active_tor_mac=active_tor_mac,
+                        standby_tor_mac=standby_tor_mac,
+                        active_tor_ip=active_tor_ip,
+                        standby_tor_ip=standby_tor_ip,
+                        inner_dscp=dscp,
+                        outer_dscp=0,
+                        dst_ip=dst_port_ip
+                    )
+                    send_packet(self, src_port_id, pkt, 20)
+                time.sleep(10)
 
-            for dscp, pg in dscp_to_pg_map.items():
+            for inner_dscp, pg in dscp_to_pg_map.items():
+                logging.info("Iteration: inner_dscp:{}, pg: {}".format(inner_dscp, pg))
                 # Build and send packet to active tor.
                 # The inner DSCP is set to testing value,
                 # and the outer DSCP is set to 0 as it has no impact on remapping
+                # On Nvidia platforms, the dscp mode is pipe and the PG is determined by the outer dscp before decap
+                outer_dscp = inner_dscp if asic_type == 'mellanox' else 0
                 pkt = self._build_testing_pkt(
                     active_tor_mac=active_tor_mac,
                     standby_tor_mac=standby_tor_mac,
                     active_tor_ip=active_tor_ip,
                     standby_tor_ip=standby_tor_ip,
-                    inner_dscp=dscp,
-                    outer_dscp=0,
+                    inner_dscp=inner_dscp,
+                    outer_dscp=outer_dscp,
                     dst_ip=dst_port_ip
                 )
                 pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(
                     self.client, asic_type, port_list[src_port_id])
+                logging.info(pg_shared_wm_res_base)
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
                 time.sleep(8)
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(
                     self.client, asic_type, port_list[src_port_id])
-
+                logging.info(pg_shared_wm_res)
                 assert (pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
                         <= (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size)
                 assert (pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
@@ -4616,7 +4621,11 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             pkts_num_margin = int(self.test_params['pkts_num_margin'])
         else:
             pkts_num_margin = 2
-
+        if 'cell_size' in self.test_params:
+            cell_size = self.test_params['cell_size']
+            cell_occupancy = (packet_size + cell_size - 1) // cell_size
+        else:
+            cell_occupancy = 1
         try:
             # Disable tx on EGRESS port so that headroom buffer cannot be free
             self.sai_thrift_port_tx_disable(
@@ -4648,7 +4657,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
                                               packet_size=packet_size)
 
             # Send packets short of triggering pfc
-            send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+            send_packet(self, src_port_id, pkt, pkts_num_trig_pfc // cell_occupancy - 1 - pkts_num_margin)
             time.sleep(8)
             # Read TX_OK again to calculate leaked packet number
             tx_counters, _ = sai_thrift_read_port_counters(

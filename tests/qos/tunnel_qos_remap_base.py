@@ -101,22 +101,32 @@ def counter_poll_config(duthost, type, interval_ms):
         time.sleep(10)
 
 
-def load_tunnel_qos_map():
+def load_tunnel_qos_map(asic_name=None):
     """
     Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from file
     return a dict
     """
-    TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map.json"
+    is_nvidia_platform = asic_name is not None and 'spc' in asic_name
+    if not is_nvidia_platform:
+        TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map.json"
+    else:
+        TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map_nvidia.json"
     TUNNEL_MAP_NAME = "AZURE_TUNNEL"
+    UPLINK_MAP_NAME = "AZURE_UPLINK"
     MAP_NAME = "AZURE"
     ret = {}
     with open(TUNNEL_QOS_MAP_FILENAME, "r") as f:
         maps = json.load(f)
     # inner_dscp_to_pg map, a map for mapping dscp to priority group at decap side
     ret['inner_dscp_to_pg_map'] = {}
-    for k, v in list(maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items()):
-        ret['inner_dscp_to_pg_map'][int(k)] = int(
-            maps['TC_TO_PRIORITY_GROUP_MAP'][TUNNEL_MAP_NAME][v])
+    if is_nvidia_platform:
+        for k, v in maps['DSCP_TO_TC_MAP'][UPLINK_MAP_NAME].items():
+            ret['inner_dscp_to_pg_map'][int(k)] = int(
+                maps['TC_TO_PRIORITY_GROUP_MAP'][MAP_NAME][v])
+    else:
+        for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
+            ret['inner_dscp_to_pg_map'][int(k)] = int(
+                maps['TC_TO_PRIORITY_GROUP_MAP'][TUNNEL_MAP_NAME][v])
     # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
     ret['inner_dscp_to_outer_dscp_map'] = {}
     for k, v in list(maps['DSCP_TO_TC_MAP'][MAP_NAME].items()):
@@ -124,9 +134,14 @@ def load_tunnel_qos_map():
             maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
     # inner_dscp_to_queue_map, a map for mapping the tunnel traffic to egress queue at decap side
     ret['inner_dscp_to_queue_map'] = {}
-    for k, v in list(maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items()):
-        ret['inner_dscp_to_queue_map'][int(k)] = int(
-            maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
+    if is_nvidia_platform:
+        for k, v in maps['DSCP_TO_TC_MAP'][UPLINK_MAP_NAME].items():
+            ret['inner_dscp_to_queue_map'][int(k)] = int(
+                maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
+    else:
+        for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
+            ret['inner_dscp_to_queue_map'][int(k)] = int(
+                maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
 
     return ret
 
@@ -238,6 +253,26 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
     profile_name = profile_name.lstrip('pg_lossless_').rstrip('_profile')
 
     return qos_configs['qos_params'][dut_asic][dut_topo][profile_name]
+
+
+@pytest.fixture(scope='module', autouse=True)
+def disable_packet_aging(rand_selected_dut, duthosts):
+    for duthost in duthosts:
+        asic = duthost.get_asic_name()
+        if 'spc' in asic:
+            logger.info("Disable Mellanox packet aging")
+            duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+            duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+            duthost.command("docker exec syncd python /packets_aging.py disable")
+
+    yield
+
+    for duthost in duthosts:
+        asic = duthost.get_asic_name()
+        if 'spc' in asic:
+            logger.info("Enable Mellanox packet aging")
+            duthost.command("docker exec syncd python /packets_aging.py enable")
+            duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
 
 def _create_ssh_tunnel_to_syncd_rpc(duthost):
