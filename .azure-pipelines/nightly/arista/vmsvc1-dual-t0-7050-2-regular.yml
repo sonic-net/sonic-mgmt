@@ -45,7 +45,7 @@ parameters:
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "pfc_asym span sub_port_interfaces platform_tests dualtor_io generic_config_updater crm autorestart fdb process_monitoring show_techsupport"'
+    default: '-S "pfc_asym span sub_port_interfaces snappi wan_test metadata-scripts mpls mx console ixia macsec mclag voq platform_tests dualtor dualtor_io dualtor_mgmt generic_config_updater crm autorestart fdb process_monitoring show_techsupport route override_config_table monit"'
     displayName: Testbed specific
 
   - name: AGENT_POOL
