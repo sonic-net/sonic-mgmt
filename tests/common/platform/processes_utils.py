@@ -22,7 +22,7 @@ def reset_timeout(duthost):
     reset_timeout = 300
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'processes_utils.py', 'cold')
     if plt_reboot_ctrl:
-        reset_timeout = plt_reboot_ctrl['timeout']
+        reset_timeout = plt_reboot_ctrl.get('timeout', 300)
     return reset_timeout
 
 
