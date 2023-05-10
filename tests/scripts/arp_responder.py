@@ -1,6 +1,7 @@
-import scapy.arch.pcapdnet
-import scapy.all as scapy2
 import ptf.packet as scapy
+import scapy.all as scapy2
+scapy2.conf.use_pcap=True
+import scapy.arch.pcapdnet
 import binascii
 import socket
 import struct
@@ -12,7 +13,7 @@ from collections import defaultdict
 from fcntl import ioctl
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-scapy2.conf.use_pcap = True
+
 
 NEIGH_SOLICIT_ICMP_MSG_TYPE = 135
 
@@ -205,10 +206,10 @@ class ARPResponder(object):
         return eth_hdr + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
 
     def generate_neigh_adv(self, local_mac, remote_mac, target_ip, remote_ip):
-        neigh_adv_pkt = scapy.Ether(src=local_mac, dst=remote_mac) / \
-            scapy.IPv6(src=target_ip, dst=remote_ip)
-        neigh_adv_pkt /= scapy.ICMPv6ND_NA(tgt=target_ip, R=0, S=1, O=1)
-        neigh_adv_pkt /= scapy.ICMPv6NDOptDstLLAddr(lladdr=local_mac)
+        neigh_adv_pkt = Ether(src=local_mac, dst=remote_mac) / \
+            IPv6(src=target_ip, dst=remote_ip)
+        neigh_adv_pkt /= ICMPv6ND_NA(tgt=target_ip, R=0, S=1, O=1)
+        neigh_adv_pkt /= ICMPv6NDOptDstLLAddr(lladdr=local_mac)
 
         return neigh_adv_pkt
 
