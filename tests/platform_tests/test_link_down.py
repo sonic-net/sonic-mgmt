@@ -34,7 +34,7 @@ def set_max_to_reboot(duthost):
     global MAX_TIME_TO_REBOOT
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_link_down.py', 'cold')
     if plt_reboot_ctrl:
-        MAX_TIME_TO_REBOOT = plt_reboot_ctrl['wait']
+        MAX_TIME_TO_REBOOT = plt_reboot_ctrl['timeout']
 
 
 def multi_duts_and_ports(duthosts):
