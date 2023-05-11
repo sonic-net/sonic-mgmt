@@ -98,7 +98,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
 def test_config_clock_date(duthosts, init_timezone, restore_time):
     """
     @summary:
-        Check that 'config clock ate' command works correctly
+        Check that 'config clock date' command works correctly
 
         Steps:
         1. Set a new valid date and time using the command
