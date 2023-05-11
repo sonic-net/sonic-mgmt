@@ -26,6 +26,7 @@ sonic:
     sonic_arista32_100:
     sonic_arista32_40_10:
     sonic_arista32_7050cx3:
+    sonic_str3_8102:
 
 sonic_dell64_40:
   hosts:
@@ -67,9 +68,19 @@ sonic_arista32_7050cx3:
     hwsku: Arista-7050CX3-32S-C32
     iface_speed: 100000
 
+sonic_str3_8102:
+  hosts:
+    str3-8102-01:
+      ansible_host: 10.3.146.120
+  vars:
+    hwsku: Cisco-8102-C64
+    iface_speed: 100000
+
 ixia_chassis:
   hosts:
     msr-ixia-1:
     msr-ixia-2:
     msr-ixia-3:
       ansible_host: 10.3.145.24
+    msr-ixia-4:
+      ansible_host: 10.3.145.39

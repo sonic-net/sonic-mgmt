@@ -142,6 +142,7 @@ all:
           - dualtor-120
           - tgen-t0-3
           - tgen-t1-3-lag
+          - tgen-t1-64-4
           - tgen-t0-35-3
           - mgmttor
           - t2

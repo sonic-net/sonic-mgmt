@@ -10,6 +10,8 @@
       <Device Hostname="msr-ixia-2" HwSku="IXIA-tester" Type="DevIxiaChassis"/>
       <Device Hostname="msr-ixia-3" HwSku="IXIA-tester" Type="DevIxiaChassis"/>
       <Device Hostname="msr-ixia-api-serv-1" HwSku="IXIA-tester" Type="DevIxiaApiServ"/>
+      <Device Hostname="msr-ixia-4" HwSku="IXIA-tester" Type="DevIxiaChassis"/>
+      <Device Hostname="str3-8102-01" HwSku="Cisco-8102-C64" Type="DevSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-1" EndPort="Card12/Port1" StartDevice="msr-a7060-dut-1" StartPort="Ethernet0"/>
@@ -29,24 +31,32 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-3" EndPort="Card12/Port1" StartDevice="msr-7050cx3-dut-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-3" EndPort="Card12/Port2" StartDevice="msr-7050cx3-dut-1" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-3" EndPort="Card12/Port3" StartDevice="msr-7050cx3-dut-1" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port2" StartDevice="str3-8102-01" StartPort="Ethernet184"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port3" StartDevice="str3-8102-01" StartPort="Ethernet188"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port1" StartDevice="str3-8102-01" StartPort="Ethernet196"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
     <DevicesL3Info Hostname="msr-s6100-dut-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.1/32"/>
     </DevicesL3Info>
-    <DevicesL3Info Hostname="msr-a7060-dut-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.3/32"/>
+    <DevicesL3Info Hostname="msr-ixia-3">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.145.24/32"/>
     </DevicesL3Info>
-    <DevicesL3Info Hostname="msr-sn2700-dut-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.0/32"/>
+    <DevicesL2Info Hostname="msr-ixia-3">
+      <InterfaceVlan mode="Access" portname="Card12/Port1" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card12/Port2" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card12/Port3" vlanids=""/>
+    </DevicesL2Info>
+    <DevicesL3Info Hostname="msr-ixia-2">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.145.24/32"/>
     </DevicesL3Info>
-    <DevicesL3Info Hostname="msr-7050qx-dut-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.2/23"/>
-    </DevicesL3Info>
-    <DevicesL3Info Hostname="msr-7050cx3-dut-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.42/32"/>
-    </DevicesL3Info>
+    <DevicesL2Info Hostname="msr-ixia-2">
+      <InterfaceVlan mode="Access" portname="Card12/Port1" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card12/Port2" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card12/Port3" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card12/Port4" vlanids=""/>
+    </DevicesL2Info>
     <DevicesL3Info Hostname="msr-ixia-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.145.24/32"/>
     </DevicesL3Info>
@@ -62,28 +72,56 @@
       <InterfaceVlan mode="Access" portname="Card12/Port6" vlanids=""/>
       <InterfaceVlan mode="Access" portname="Card12/Port7" vlanids=""/>
     </DevicesL2Info>
-    <DevicesL3Info Hostname="msr-ixia-2">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.145.24/32"/>
+    <DevicesL3Info Hostname="msr-sn2700-dut-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.0/32"/>
     </DevicesL3Info>
-    <DevicesL2Info Hostname="msr-ixia-2">
-      <InterfaceVlan mode="Access" portname="Card12/Port1" vlanids=""/>
-      <InterfaceVlan mode="Access" portname="Card12/Port2" vlanids=""/>
-      <InterfaceVlan mode="Access" portname="Card12/Port3" vlanids=""/>
-      <InterfaceVlan mode="Access" portname="Card12/Port4" vlanids=""/>
-    </DevicesL2Info>
-    <DevicesL3Info Hostname="msr-ixia-3">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.145.24/32"/>
+    <DevicesL3Info Hostname="msr-7050cx3-dut-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.42/32"/>
     </DevicesL3Info>
-    <DevicesL2Info Hostname="msr-ixia-3">
-      <InterfaceVlan mode="Access" portname="Card12/Port1" vlanids=""/>
-      <InterfaceVlan mode="Access" portname="Card12/Port2" vlanids=""/>
-      <InterfaceVlan mode="Access" portname="Card12/Port3" vlanids=""/>
+    <DevicesL3Info Hostname="msr-ixia-4">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.145.39/32"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="msr-ixia-4">
+      <InterfaceVlan mode="Access" portname="Card1/Port2" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port3" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port1" vlanids=""/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="str3-8102-01">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.120/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="msr-7050qx-dut-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.2/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="msr-a7060-dut-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.3/32"/>
+    </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo/>
+    <ConsoleLinksInfo>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-msn2700-01" Proxy="root" StartDevice="console-1" StartPort="10"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-7260-10" Proxy="root" StartDevice="console-2" StartPort="11"/>
+      <ConsoleLinkInfo BaudRate="" Console_type="ssh" EndDevice="str-7260-11" Proxy="root" StartDevice="console-1" StartPort="12"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-acs-serv-01" Proxy="root" StartDevice="management-1" StartPort="13"/>
+    </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
+  <BmcGraphDeclaration>
+    <DevicesBmcInfo/>
+    <BmcLinksInfo>
+      <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
+    </BmcLinksInfo>
+  </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo/>
+    <PowerControlLinksInfo>
+      <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU1" StartDevice="pdu-1" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU2" StartDevice="pdu-1" StartPort="3"/>
+      <PowerControlLinkInfo EndDevice="str-7260-10" EndPort="PSU1" StartDevice="pdu-1" StartPort="2"/>
+      <PowerControlLinkInfo EndDevice="str-7260-10" EndPort="PSU2" StartDevice="pdu-1" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str-7260-11" EndPort="PSU1" StartDevice="pdu-2" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str-7260-11" EndPort="PSU2" StartDevice="pdu-2" StartPort="3"/>
+      <PowerControlLinkInfo EndDevice="str-acs-serv-01" EndPort="PSU1" StartDevice="pdu-2" StartPort="2"/>
+      <PowerControlLinkInfo EndDevice="str-acs-serv-01" EndPort="PSU2" StartDevice="pdu-2" StartPort="4"/>
+    </PowerControlLinksInfo>
   </PowerControlGraphDeclaration>
 </LabConnectionGraph>
