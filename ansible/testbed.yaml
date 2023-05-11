@@ -2158,7 +2158,7 @@
 
 - conf-name: testbed-bjw-can-4600c-1
   group-name: bjw7-8
-  topo: t1-64-lag
+  topo: t0-64
   ptf_image_name: docker-ptf
   ptf: bjw7-8
   ptf_ip: 10.150.23.68/23
