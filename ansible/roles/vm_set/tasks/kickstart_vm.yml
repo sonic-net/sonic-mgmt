@@ -4,6 +4,10 @@
   when: respin_vms is not defined
 
 - set_fact:
+    disable_updategraph: False
+  when: disable_updategraph is not defined
+
+- set_fact:
     skip_this_vm: True
 
 - set_fact:
@@ -61,6 +65,7 @@
               mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
               new_password={{ sonic_password }}
               num_asic={{ num_asic }}
+              disable_updategraph={{ disable_updategraph }}
     register: kickstart_output
     until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
     retries: 5
@@ -92,6 +97,7 @@
               mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
               new_password={{ sonic_password }}
               num_asic={{ num_asic }}
+              disable_updategraph={{ disable_updategraph }}
     register: kickstart_output_final
     until: '"kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code == 0'
     retries: 5
