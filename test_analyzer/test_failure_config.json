@@ -27,8 +27,7 @@
         "regression_success_rate_percent": 40,
         "total_case_minimum_release_version": 3,
         "total_case_minimum_internal_version": 2,
-        "recent_failure_tolerance_day": 3,
-        "max_icm_count_per_module": 10
+        "recent_failure_tolerance_day": 3
     },
     "icm_limitation": {
         "setup_error_limit": 10,
@@ -37,7 +36,7 @@
         "icm_20201231_limit": 5,
         "icm_20220531_limit": 5,
         "new_icm_number_limit": 30,
-        "max_icm_count_per_module": 10
+        "max_icm_count_per_module": 40
     },
     "auto_blame_branch": {
         "branches": ["master", "internal", "20201231", "20220531"],
