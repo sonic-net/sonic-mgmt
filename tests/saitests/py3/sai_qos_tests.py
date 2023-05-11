@@ -91,7 +91,7 @@ STOP_PORT_MAX_RATE = 1
 RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53  # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52  # Fits the ptf hex_dump_buffer() parse function
-COUNTER_MARGIN = 2 # Margin for counter check
+COUNTER_MARGIN = 2  # Margin for counter check
 
 
 def check_leackout_compensation_support(asic, hwsku):
