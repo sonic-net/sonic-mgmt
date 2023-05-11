@@ -721,7 +721,7 @@ class TestQosSai(QosSaiBase):
             # Skip if buffer pools and profiles are not be present, marked by qos param generator
             pytest.skip(qosConfig[sharedResSizeKey]["skip"])
 
-        self.updateTestPortIdIp(dutConfig, qosConfig[sharedResSizeKey])
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[sharedResSizeKey])
 
         src_port_idx_to_id = list(src_testPortIps.keys())
         dst_port_idx_to_id = list(dst_testPortIps.keys())
