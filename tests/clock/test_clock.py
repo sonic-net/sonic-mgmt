@@ -58,16 +58,16 @@ def test_config_clock_timezone(duthosts, init_timezone):
         while new_timezone == orig_timezone:
             new_timezone = random.choice(valid_timezones)
 
-    with allure.step('Set the new timezone "{}"'.format(new_timezone)):
-        logging.info('Set the new timezone "{}"'.format(new_timezone))
+    with allure.step(f'Set the new timezone "{new_timezone}"'):
+        logging.info(f'Set the new timezone "{new_timezone}"')
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, new_timezone)
 
     with allure.step('Verify command success'):
         logging.info('Verify command success')
         ClockUtils.verify_command(cmd_output=output, should_succeed=True)
 
-    with allure.step('Verify timezone changed to "{}"'.format(new_timezone)):
-        logging.info('Verify timezone changed to "{}"'.format(new_timezone))
+    with allure.step(f'Verify timezone changed to "{new_timezone}"'):
+        logging.info(f'Verify timezone changed to "{new_timezone}"')
         cur_timezone = ClockUtils \
             .parse_show_clock_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK))[ClockConsts.TIMEZONE]
         ClockUtils.verify_timezone_value(duthosts, tz_name=new_timezone, tz_abbreviation=cur_timezone)
@@ -77,10 +77,10 @@ def test_config_clock_timezone(duthosts, init_timezone):
         invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
         while invalid_timezone in valid_timezones:
             invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
-        logging.info('Selected invalid timezone: "{}"'.format(invalid_timezone))
+        logging.info(f'Selected invalid timezone: "{invalid_timezone}"')
 
-    with allure.step('Try to set the invalid timezone "{}"'.format(invalid_timezone)):
-        logging.info('Try to set the invalid timezone "{}"'.format(invalid_timezone))
+    with allure.step(f'Try to set the invalid timezone "{invalid_timezone}"'):
+        logging.info(f'Try to set the invalid timezone "{invalid_timezone}"')
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, invalid_timezone)
 
     with allure.step('Verify command failure'):
@@ -112,16 +112,16 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         new_time = ClockUtils.select_random_time()
         new_datetime = new_date + ' ' + new_time
 
-    with allure.step('Set new date and time "{}"'.format(new_datetime)):
-        logging.info('Set new date and time "{}"'.format(new_datetime))
+    with allure.step(f'Set new date and time "{new_datetime}"'):
+        logging.info(f'Set new date and time "{new_datetime}"')
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)
 
     with allure.step('Verify command success'):
         logging.info('Verify command success')
         ClockUtils.verify_command(cmd_output=output, should_succeed=True)
 
-    with allure.step('Verify date and time changed to "{}"'.format(new_datetime)):
-        logging.info('Verify date and time changed to "{}"'.format(new_datetime))
+    with allure.step(f'Verify date and time changed to "{new_datetime}"'):
+        logging.info(f'Verify date and time changed to "{new_datetime}"')
         with allure.step('Get datetime from show clock'):
             logging.info('Get datetime from show clock')
             show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
@@ -140,29 +140,29 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
     with allure.step('Select random string as invalid input'):
         logging.info('Select random string as invalid input')
         rand_str = ''.join(random.choice(string.ascii_lowercase) for i in range(ClockConsts.RANDOM_NUM))
-        logging.info('Selected random string: "{}"'.format(rand_str))
+        logging.info(f'Selected random string: "{rand_str}"')
 
     with allure.step('Try to set invalid inputs'):
         logging.info('Try to set invalid inputs')
         errors = {
             '': ClockConsts.ERR_MISSING_DATE,
             rand_str: ClockConsts.ERR_MISSING_TIME,
-            rand_str + ' ' + rand_str: ClockConsts.ERR_BAD_DATE.format(rand_str) + '\n' + ClockConsts.ERR_BAD_TIME
-            .format(rand_str),
+            rand_str + ' ' + rand_str: ClockConsts.ERR_BAD_DATE.format(rand_str) + '\n'
+                                       + ClockConsts.ERR_BAD_TIME.format(rand_str),
             rand_str + ' ' + new_time: ClockConsts.ERR_BAD_DATE.format(rand_str),
             new_date + ' ' + rand_str: ClockConsts.ERR_BAD_TIME.format(rand_str)
         }
 
         i = 0
         for invalid_input, err_msg in errors.items():
-            logging.info('Invalid input #{}: "{}"\nExpected error:\n{}'.format(i, invalid_input, err_msg))
+            logging.info(f'Invalid input #{i}: "{invalid_input}"\nExpected error:\n{err_msg}')
 
             with allure.step('Get show clock output before running the config command'):
                 logging.info('Get show clock output before running the config command')
                 show_clock_output_before = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
 
-            with allure.step('Try to set "{}"'.format(invalid_input)):
-                logging.info('Try to set "{}"'.format(invalid_input))
+            with allure.step(f'Try to set "{invalid_input}"'):
+                logging.info(f'Try to set "{invalid_input}"')
                 output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, invalid_input)
 
             with allure.step('Get show clock output after running the config command'):
@@ -173,8 +173,8 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
                 logging.info('Verify command failure')
                 ClockUtils.verify_command(cmd_output=output, should_succeed=False, expected_err=err_msg)
 
-            with allure.step('Verify date and time have not changed (still "{}")'.format(new_datetime)):
-                logging.info('Verify date and time have not changed (still "{}")'.format(new_datetime))
+            with allure.step(f'Verify date and time have not changed (still "{new_datetime}")'):
+                logging.info(f'Verify date and time have not changed (still "{new_datetime}")')
                 show_clock_dict_before = ClockUtils.parse_show_clock_output(show_clock_output_before)
                 show_clock_dict_after = ClockUtils.parse_show_clock_output(show_clock_output_after)
 
