@@ -241,7 +241,14 @@ class ReloadTest(BaseTest):
         #   Inter-packet interval, to be used in send_in_background method.
         #   Improve this interval to gain more precision of disruptions.
         self.send_interval = 0.0035
+<<<<<<< df9a1d710e33f71fd06293c17275c41a97d038ba:ansible/roles/test/files/ptftests/py3/advanced-reboot.py
         self.sent_packet_count = 0
+=======
+        # How many packets to be sent in send_in_background method
+        self.packets_to_send = min(
+            int(self.time_to_listen / (self.send_interval + 0.0015)), 70000)
+
+>>>>>>> Update advanced-reboot ptf test to support 70K packets:ansible/roles/test/files/ptftests/advanced-reboot.py
         # Thread pool for background watching operations
         self.pool = ThreadPool(processes=3)
 
