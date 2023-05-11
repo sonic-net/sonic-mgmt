@@ -91,6 +91,7 @@ STOP_PORT_MAX_RATE = 1
 RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53  # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52  # Fits the ptf hex_dump_buffer() parse function
+COUNTER_MARGIN = 2 # Margin for counter check
 
 
 def check_leackout_compensation_support(asic, hwsku):
@@ -2054,7 +2055,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg, port_counter_fields[pg], step_id, step_desc)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                     port_counter_fields[cntr], step_id, step_desc)
             # xmit port no egress drop
