@@ -518,7 +518,7 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                 ]
 
     disabled_ptf_ports = set()
-    for ptf_map in list(tbinfo['topo']['ptf_map_disabled'].values()):
+    for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
         # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
         disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
 
@@ -543,7 +543,7 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
         asic_idx = 0
         dut_port = None
 
-        if len(list(dut_intf_map.keys())) == 2:
+        if len(dut_intf_map.keys()) == 4:
             # PTF port is mapped to two DUTs -> dualtor topology and the PTF port is a vlan port
             # Packet sent from this ptf port will only be accepted by the active side DUT
             # DualToR DUTs use same special Vlan interface MAC addres

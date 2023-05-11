@@ -83,7 +83,7 @@ class QosBase:
             if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
                 default_vlan_name = vlan_cfgs['default_vlan_config']
                 if default_vlan_name:
-                    for vlan in list(vlan_cfgs[default_vlan_name].values()):
+                    for vlan in vlan_cfgs[default_vlan_name].values():
                         if 'mac' in vlan and vlan['mac']:
                             dut_test_params_qos["basicParams"]["def_vlan_mac"] = vlan['mac']
                             break
@@ -613,7 +613,7 @@ class QosSaiBase(QosBase):
         if dstPorts is None:
             if dst_port_ids:
                 pytest_assert(
-                    len(set(testPortIds).intersection(
+                    len(set(dst_test_port_ids).intersection(
                         set(dst_port_ids))) == len(set(dst_port_ids)),
                     "Dest port id passed in qos.yml not valid"
                 )
@@ -628,7 +628,7 @@ class QosSaiBase(QosBase):
         if srcPorts is None:
             if src_port_ids:
                 pytest_assert(
-                    len(set(testPortIds).intersection(
+                    len(set(src_test_port_ids).intersection(
                         set(src_port_ids))) == len(set(src_port_ids)),
                     "Source port id passed in qos.yml not valid"
                 )
@@ -722,12 +722,12 @@ class QosSaiBase(QosBase):
             )
             dutLagInterfaces = []
             testPortIds[src_dut_index] = {}
-            for _, lag in list(src_mgFacts["minigraph_portchannels"].items()):
+            for _, lag in src_mgFacts["minigraph_portchannels"].items():
                 for intf in lag["members"]:
                     dutLagInterfaces.append(src_mgFacts["minigraph_ptf_indices"][intf])
 
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
-                                for port in list(src_mgFacts["minigraph_ports"].keys()))
+                                for port in src_mgFacts["minigraph_ports"].keys())
             testPortIds[src_dut_index][src_asic_index] -= set(dutLagInterfaces)
             if isMellanoxDevice(src_dut):
                 # The last port is used for up link from DUT switch
@@ -786,7 +786,7 @@ class QosSaiBase(QosBase):
             testPortIds[src_dut_index] = {}
             for dut_asic in get_src_dst_asic_and_duts['all_asics']:
                 dutPortIps[src_dut_index][dut_asic.asic_index] = {}
-                for iface, addr in list(dut_asic.get_active_ip_interfaces(tbinfo).items()):
+                for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                     vlan_id = None
                     if iface.startswith("Ethernet"):
                         portName = iface
@@ -836,7 +836,8 @@ class QosSaiBase(QosBase):
             dutPortIps[src_dut_index] = {}
             testPortIds[src_dut_index] = {}
             dutPortIps[src_dut_index][src_asic_index] = {}
-            for iface,addr in list(src_asic.get_active_ip_interfaces(tbinfo).items()):
+            active_ips = src_asic.get_active_ip_interfaces(tbinfo)
+            for iface,addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
@@ -890,7 +891,7 @@ class QosSaiBase(QosBase):
         dutAsic = None
         for asic in self.SUPPORTED_ASIC_LIST:
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-            if vendorAsic in list(hostvars.keys()) and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+            if vendorAsic in hostvars.keys() and src_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
                 dutAsic = asic
                 break
 
@@ -943,7 +944,7 @@ class QosSaiBase(QosBase):
                         dutinterfaces[ptf_port] = ptf_val['port']
         else:
             dutinterfaces = {
-                index: port for port, index in list(src_mgFacts["minigraph_ptf_indices"].items())
+                index: port for port, index in src_mgFacts["minigraph_ptf_indices"].items()
             }
 
         yield {

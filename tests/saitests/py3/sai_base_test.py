@@ -41,9 +41,6 @@ class ThriftInterface(BaseTest):
         BaseTest.setUp(self)
 
         self.test_params = testutils.test_params_get()
-        self.platform_asic = self.test_params.get('platform_asic', None)
-        self.src_asic_index = self.test_params.get('src_asic_index', None)
-        self.dst_asic_index = self.test_params.get('dst_asic_index', None)
 
         # server is a list [ <server_ip_for_dut1>, <server_ip_for_dut2>, ... }
         if "src_server" in self.test_params:
@@ -70,8 +67,9 @@ class ThriftInterface(BaseTest):
             with open(user_input) as f:
                 ptf_test_port_map = json.load(f)
                 src_dut_index = self.test_params['src_dut_index']
+                self.src_asic_index = self.test_params.get('src_asic_index', None)
                 dst_dut_index = self.test_params['dst_dut_index']
-
+                self.dst_asic_index = self.test_params.get('dst_asic_index', None)
                 for a_ptf_port, a_ptf_port_info in ptf_test_port_map.items():
                     if src_dut_index in a_ptf_port_info['target_dut'] and \
                             a_ptf_port_info['asic_idx'] == self.src_asic_index:
@@ -106,6 +104,8 @@ class ThriftInterface(BaseTest):
             self.dst_client = switch_sai_rpc.Client(self.dst_protocol)
             self.dst_transport.open()
             self.clients['dst'] = self.dst_client
+
+        self.platform_asic = self.test_params.get('platform_asic', None)
 
     def tearDown(self):
         if config["log_dir"] is not None:
