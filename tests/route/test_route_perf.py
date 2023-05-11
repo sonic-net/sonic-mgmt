@@ -281,9 +281,12 @@ def test_perf_add_remove_routes(
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    max_scale = request.config.getoption("--max_scale")
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
-    if set_num_routes is None:
+    if max_scale and set_num_routes is not None:
+        raise Exception("--max_scale and --num_routes are mutually exclusive")
+    elif not max_scale and set_num_routes is None:
         topo_name = tbinfo["topo"]["name"]
         if topo_name in ["m0", "mx"]:
             set_num_routes = DEAFULT_M0_MX_NUM_ROUTES
@@ -310,7 +313,10 @@ def test_perf_add_remove_routes(
         ),
     )
 
-    num_routes = min(avail_routes_count, set_num_routes)
+    if (max_scale):
+        num_routes = avail_routes_count
+    else:
+        num_routes = min(avail_routes_count, set_num_routes)
     logger.info(
         "IP route utilization before test start: Used: {}, Available: {}, Test count: {}".format(
             used_routes_count, avail_routes_count, num_routes
