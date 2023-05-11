@@ -1513,3 +1513,56 @@ def validate_active_active_dualtor_setup(duthosts, active_active_ports, ptfhost,
         )
 
     return
+
+
+@pytest.fixture
+def config_active_active_dualtor_active_standby(
+    duthosts, active_active_ports, tbinfo, validate_active_active_dualtor_setup                         # noqa F811
+):
+    """Config the active-active dualtor that one ToR as active and the other as standby."""
+    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
+        yield
+        return
+
+    def check_active_active_port_status(duthost, ports, status):
+        logging.debug("Check mux status for ports {} is {}".format(ports, status))
+        show_mux_status_ret = show_muxcable_status(duthost)
+        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
+        for port in ports:
+            if port not in show_mux_status_ret:
+                return False
+            elif show_mux_status_ret[port]['status'] != status:
+                return False
+        return True
+
+    def _config_the_active_active_dualtor(active_tor, standby_tor, ports):
+        active_side_commands = []
+        standby_side_commands = []
+        for port in ports:
+            if port not in active_active_ports:
+                raise ValueError("Port {} is not in the active-active ports".format(port))
+            active_side_commands.append("config mux mode active {}".format(port))
+            standby_side_commands.append("config mux mode standby {}".format(port))
+
+        if not check_active_active_port_status(active_tor, ports, 'active'):
+            active_tor.shell_cmds(cmds=active_side_commands)
+        standby_tor.shell_cmds(cmds=standby_side_commands)
+
+        pt_assert(wait_until(30, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
+                  "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
+        pt_assert(wait_until(30, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
+                  "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+
+        ports_to_restore.extend(ports)
+
+    ports_to_restore = []
+
+    yield _config_the_active_active_dualtor
+
+    if ports_to_restore:
+        restore_cmds = []
+        for port in ports_to_restore:
+            restore_cmds.append("config mux mode auto {}".format(port))
+
+        for duthost in duthosts:
+            duthost.shell_cmds(cmds=restore_cmds)
