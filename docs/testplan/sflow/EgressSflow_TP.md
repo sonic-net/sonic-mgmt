@@ -50,8 +50,8 @@
  sai_remove_samplepacket<br />
  sai_set_samplepacket_attribute<br />
  sai_get_samplepacket_attribute<br />
- set SAI_PORT_ATTR_INGRESS_SAMPLEPACKET_ENABLE<br />
- set SAI_PORT_ATTR_EGRESS_SAMPLEPACKET_ENABLE<br />
+ SAI_PORT_ATTR_INGRESS_SAMPLEPACKET_ENABLE<br />
+ SAI_PORT_ATTR_EGRESS_SAMPLEPACKET_ENABLE<br />
 
 
 
