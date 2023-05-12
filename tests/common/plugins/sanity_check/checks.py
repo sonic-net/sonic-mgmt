@@ -35,8 +35,12 @@ __all__ = CHECK_ITEMS
 
 def _find_down_phy_ports(dut, phy_interfaces):
     down_phy_ports = []
+    include_inband_intfs = True if dut.sonichost.get_facts().get(
+        'switch_type', None) == 'voq' else False
     intf_facts = dut.show_interface(command='status',
-                                    include_internal_intfs=('201811' not in dut.os_version))[
+                                    include_internal_intfs=(
+                                        '201811' not in dut.os_version),
+                                    include_inband_intfs=include_inband_intfs)[
                                         'ansible_facts']['int_status']
     for intf in phy_interfaces:
         try:
