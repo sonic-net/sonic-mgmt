@@ -1,7 +1,6 @@
 import datetime
 import time
 import threading
-import sys
 import json
 import re
 from collections import defaultdict
