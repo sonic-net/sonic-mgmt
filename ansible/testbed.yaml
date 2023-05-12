@@ -563,7 +563,7 @@
   ptf_ip: 10.64.246.84/23
   ptf_ipv6:
   server: server_12
-  vm_base: VM12032
+  vm_base: VM12036
   dut:
     - str-s6000-on-5
   inv_name: str
