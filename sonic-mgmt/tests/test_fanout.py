@@ -8,6 +8,7 @@ Script to check if the fanout is working as required.
 The following config changes are needed to make it work.
 1-a. Add a user called : "shelladmin/shellpassword" in the fanout host.
 config t
+no password strength-check
 username shelladmin password 0 shellpassword  role priv-15
 username shelladmin shelltype bash
 username shelladmin role network-admin
