@@ -485,20 +485,12 @@ class Sonic(host_device.HostDevice):
         return self.fails, lag_state
 
     def verify_neigh_lag_no_flap(self):
-        flap_cnt = sys.maxint
-        output = self.do_cmd('show interfaces Po1 | json')
-        if 'Invalid' not in output:
-            data = '\n'.join(output.split('\r\n')[1:-1])
-            obj = json.loads(data)
-
-            if 'interfaces' in obj and 'Port-Channel1' in obj['interfaces']:
-                intf_cnt_info = obj['interfaces']['Port-Channel1']['interfaceCounters']
-                flap_cnt = intf_cnt_info['linkStatusChanges']
-            else:
-                self.fails.add('Object missing in output for Port-Channel1')
-            return self.fails, flap_cnt
-
-        self.fails.add('Invalid interface name - Po1')
+        # Note: this function may have false-positives (with regards to link flaps). The start time used here is
+        # the system's boot time, not the test start time, which means any LAG flaps before the start of the test
+        # would get included here.
+        log_lines = self.do_cmd("sudo cat /var/log/teamd.log{,.1}").split('\n')
+        boot_time = datetime.datetime.strptime(self.do_cmd("uptime -s").strip(), "%Y-%m-%d %H:%M:%S")
+        _, flap_cnt = self.check_lag_flaps("PortChannel1", log_lines, time.mktime(boot_time.timetuple()))
         return self.fails, flap_cnt
 
     def check_gr_peer_status(self, output):
