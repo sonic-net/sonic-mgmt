@@ -81,6 +81,8 @@ class ThriftInterface(BaseTest):
                         if dst_dut_index in a_ptf_port_info['target_dut'] and \
                                 a_ptf_port_info['asic_idx'] == self.dst_asic_index:
                             interface_to_front_mapping['dst'][a_ptf_port] = a_ptf_port_info['dut_port']
+                else:
+                    interface_to_front_mapping['dst'] = interface_to_front_mapping['src']
         else:
             exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
         # dictionary with key 'src' or 'dst'
