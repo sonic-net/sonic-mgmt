@@ -101,7 +101,11 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
 
     # Run as RO and use the commands allowed by the sudoers file
     commands = {
-        "cat": ["sudo cat /var/log/syslog", "sudo cat /var/log/syslog.1"],
+        "cat": [
+            "sudo cat /var/log/syslog",
+            "sudo cat /var/log/syslog.1",
+            "sudo cat /var/log/syslog.1 /var/log/syslog"
+        ],
         "brctl": ["sudo brctl show"],
         "docker": [
             "sudo docker exec snmp cat /etc/snmp/snmpd.conf",
@@ -167,6 +171,30 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
                                                   'sudo sonic_installer list')
         pytest_assert(underscore_allowed, "command 'sudo sonic_installer list' should be allowed if"
                                           " 'sudo sonic-installer list' is banned")
+
+
+def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+
+    # Run as RO and use the commands not allowed by the sudoers file
+    commands = {
+        "cat": [
+            "sudo cat /etc/hosts",
+            "sudo cat /var/log/syslog /etc/hosts",
+            "sudo cat /var/log/syslog.1 /etc/hosts"
+        ]
+    }
+
+    for command in commands:
+        if does_command_exist(localhost, dutip, tacacs_creds['tacacs_ro_user'],
+                              tacacs_creds['tacacs_ro_user_passwd'], command):
+            for subcommand in commands[command]:
+                allowed = ssh_remote_allow_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
+                                               tacacs_creds['tacacs_ro_user_passwd'], subcommand)
+                pytest_assert(not allowed, "command '{}' not block by sudoers".format(subcommand))
+        else:
+            logger.info('"{}" not found on DUT, skipping...'.format(command))
 
 
 def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):

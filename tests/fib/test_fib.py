@@ -183,11 +183,7 @@ def hash_keys(duthost):
             hash_keys.remove('ip-proto')
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
-    if duthost.facts['asic_type'] in ["innovium"]:
-        if 'ip-proto' in hash_keys:
-            hash_keys.remove('ip-proto')
-    # removing ip-proto from hash_keys for Cisco-8000 Distributed Chassis
-    if duthost.facts['platform'] in ['x86_64-8800_rp_o-r0', 'x86_64-88_lc0_36fh_mo-r0', 'x86_64-8800_lc_48h_o-r0']:
+    if duthost.facts['asic_type'] in ["innovium", "cisco-8000"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
@@ -380,7 +376,7 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
 
 def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files_per_function,          # noqa F811
                               ptfhost, ipver, tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,  # noqa F811
-                              duts_running_config_facts, duts_minigraph_facts):
+                              duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator):
     hash_keys = ['inner_length']
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
@@ -397,8 +393,11 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
                "hash_test.IPinIPHashTest",
                platform_dir="ptftests",
                params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
-                                                              duts_running_config_facts, duts_minigraph_facts),
+                       "ptf_test_port_map": ptf_test_port_map_active_active(
+                           ptfhost, tbinfo, duthosts, mux_server_url,
+                           duts_running_config_facts, duts_minigraph_facts,
+                           mux_status_from_nic_simulator()
+                        ),
                        "hash_keys": hash_keys,
                        "src_ip_range": ",".join(src_ip_range),
                        "dst_ip_range": ",".join(dst_ip_range),

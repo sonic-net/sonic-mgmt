@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.pretest,
-    pytest.mark.topology('util'),
+    pytest.mark.topology('util', 'any'),
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health
 ]
@@ -305,14 +305,6 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
-
-
-def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
-    '''
-     Stop pfcwd on dual tor testbeds
-    '''
-    dut = duthosts[enum_dut_hostname]
-    dut.command('pfcwd stop')
 
 
 def prepare_autonegtest_params(duthosts, fanouthosts):

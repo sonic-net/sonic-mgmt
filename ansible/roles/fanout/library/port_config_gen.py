@@ -94,7 +94,7 @@ class PortConfigGenerator(object):
             for line in machine_conf:
                 if not line:
                     continue
-                if "platform" in line:
+                if "platform" in line and "build_platform" not in line:
                     return line.split("=")[1].strip()
         raise ValueError("Failed to retrieve platform from '%s'" %
                          self.MACHINE_CONF)
@@ -150,10 +150,13 @@ class PortConfigGenerator(object):
         port_config = {}
         with open(filepath) as fd:
             lines = fd.readlines()
-            header = lines[0].strip("#\n ")
+            data_index = 0
+            while lines[data_index].startswith("#"):
+                data_index = data_index + 1
+            header = lines[data_index-1].strip("#\n ")
             keys = header.split()
             alias_index = keys.index("alias")
-            for line in lines[1:]:
+            for line in lines[data_index:]:
                 if not line:
                     continue
                 values = line.split()
