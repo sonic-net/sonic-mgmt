@@ -5346,24 +5346,34 @@ class PCBBMultiPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             # leakout should already be filled for the same egress queue.
             for pkt in pkts[1:]:
                 send_packet(self, src_port_id, pkt, pkts_num_trig_pfc - pkts_num_margin)
-                print("Sending separate PG {} packets to port {}".format(num_pkts, src_port_id), file=sys.stderr)
+                print("Sending separate PG {} packets to port {}".format(num_pkts, src_port_id),
+                      file=sys.stderr)
             time.sleep(8)
             # Read rx counter again. No PFC pause frame should be triggered
             rx_counters, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])
             # Verify no pfc
             for pg_cntr_idx, pg in zip(pg_cntr_idxs, pgs):
-                assert rx_counters[pg_cntr_idx] == rx_counters_base[pg_cntr_idx], "Triggered PFC on PG {} to early".format(pg)
+                assert rx_counters[pg_cntr_idx] == rx_counters_base[pg_cntr_idx], \
+                    "Triggered PFC on PG {} to early".format(pg)
             rx_counters_base = rx_counters
             # Send some packets to trigger PFC
             for pkt in pkts:
                 send_packet(self, src_port_id, pkt, 1 + 2 * pkts_num_margin)
-                print("Sending {} packets to port {} to trigger PFC".format(1 + 2 * pkts_num_margin, src_port_id),
+                print("Sending {} packets to port {} to trigger PFC".format(1 + 2 * pkts_num_margin,
+                                                                            src_port_id),
                       file=sys.stderr)
             time.sleep(8)
             rx_counters, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])
             # Verify PFC pause frame is generated on expected PGs
             for pg_cntr_idx, pg in zip(pg_cntr_idxs, pgs):
-                assert rx_counters[pg_cntr_idx] > rx_counters_base[pg_cntr_idx], "Failed to trigger PFC on PG {}".format(pg)
+                assert rx_counters[pg_cntr_idx] > rx_counters_base[pg_cntr_idx], \
+                    "Failed to trigger PFC on PG {}".format(pg)
+            # Verify no egress drops due to simultaneously congested Bounce-Back and
+            # direct traffic
+            tx_counters, _ = sai_thrift_read_port_counters(
+                    self.client, asic_type, port_list[dst_port_id])
+            diff = tx_counters[EGRESS_DROP] - tx_counters_base[EGRESS_DROP]
+            assert diff == 0, "Detected egress drops {} on port {}".format(diff, dst_port_id)
         finally:
             # Enable tx on dest port
             self.sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
