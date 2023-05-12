@@ -22,7 +22,7 @@ RC_GET_DUT_VERSION_FAILED = 2
 def get_duts_version(sonichosts):
     try:
         ret = {}
-        duts_version = sonichosts.command("show version", module_attrs={"become": True})
+        duts_version = sonichosts.command("show version")
         for dut, version in duts_version.items():
             ret[dut] = version["stdout_lines"]
         return ret
