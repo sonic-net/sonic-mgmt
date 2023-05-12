@@ -5,7 +5,7 @@ import logging
 import os
 
 from telemetry_utils import listen_for_event, drain_cache
-from telemetry_utils import move_to_localhost, prepare_yang_validation
+from telemetry_utils import prepare_yang_validation
 logger = logging.getLogger(__name__)
 
 
@@ -15,7 +15,7 @@ def run_test(duthost, run_cmd, data_dir, validate_yang, trigger, json_file, tag,
     trigger(duthost) # add events to cache
     # listen from cache
     listen_for_event(tag, event, timeout, duthost, run_cmd, json_file)
-    op_file = move_to_localhost(duthost, json_file)
+    op_file = os.path.join(data_dir, json_file)
     data = {}
     with open(op_file, "r") as f:
         data = json.load(f)

@@ -6,7 +6,7 @@ import sys
 
 from telemetry_utils import skip_201911_and_older
 from telemetry_utils import skip_arm_platform
-from telemetry_utils import drain_cache, move_to_localhost
+from telemetry_utils import drain_cache
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -69,6 +69,8 @@ def do_init(duthost):
 
 
 def move_to_localhost(duthost, op_file):
+    if op_file == "":
+        return
     cmd = "docker cp telemetry:/{} /tmp/".format(op_file)
     duthost.shell(cmd)
     src = "/tmp/{}".format(op_file)
@@ -78,11 +80,12 @@ def move_to_localhost(duthost, op_file):
 
 
 def check_heartbeat(duthost):
-    op_file = "check_heartbeat.json"
+    json_file = "check_heartbeat.json"
     logger.info("Validating sonic-events-eventd:heartbeat is working")
-    run_cmd(duthost, ["heartbeat=2"], op_file=op_file,
+    run_cmd(duthost, ["heartbeat=2"], op_file=json_file,
             filter_event="sonic-events-eventd:heartbeat", event_cnt=1,
             timeout=180)
+    op_file = os.path.join(DATA_DIR, json_file)
     data = {}
     with open(op_file, "r") as f:
         data = json.load(f)
@@ -106,7 +109,7 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
 
     # Load all events test code and run
     for file in os.listdir(EVENTS_TESTS_PATH):
-        if file.endswith(".py"):
+        if file.endswith("_events.py"):
             module = __import__(file[:len(file)-3])
             module.test_event(duthost, run_cmd, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))

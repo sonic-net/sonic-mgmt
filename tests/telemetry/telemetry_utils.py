@@ -99,7 +99,7 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
 def drain_cache(duthost, timeout, run_cmd):
     logger.info("Start to drain eventd cache")
     run_cmd(duthost, ["hearbeat=2"], filter_event="sonic-events-eventd:heartbeat",
-            event_cnt=1, timeout=timeout))
+            event_cnt=1, timeout=timeout)
     logger.info("eventd cache is drained")
 
 
