@@ -245,7 +245,7 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
     return src_vlan_id
 
 
-def work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
+def work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
     """
     Read running config facts and get vlan ports list
 
@@ -364,7 +364,7 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut,
+def setup_vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ports_list,
                ptfadapter, tbinfo, vlan_intfs_dict, cfg_facts, setup_acl_table):
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
@@ -372,7 +372,7 @@ def setup_vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut,
         create_checkpoint(duthost, SETUP_ENV_CP)
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
 
-        vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo)
+        vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
         populate_fdb(ptfadapter, vlan_ports_list, vlan_intfs_dict)
         bind_acl_table(duthost, tbinfo)
         apply_acl_rules(duthost, tbinfo)
@@ -498,7 +498,7 @@ def populate_fdb(ptfadapter, vlan_ports_list, vlan_intfs_dict):
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
-                                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
+                                ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """
     Test case #1
     Verify packets egress without tag from ports whose PVID same with ingress port
@@ -512,7 +512,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
     tagged_pkt = build_icmp_packet(4095)
     exp_pkt = Mask(tagged_pkt)
     exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
-    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo)
+    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for vlan_port in vlan_ports_list:
         logger.info("Send untagged packet from {} ...".format(
             vlan_port["port_index"][0]))
@@ -533,7 +533,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
-                              toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+                              ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
     """
     Test case #2
     Send tagged packets from each port.
@@ -543,7 +543,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_
 
     logger.info("Test case #2 starting ...")
 
-    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo)
+    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for vlan_port in vlan_ports_list:
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             pkt = build_icmp_packet(permit_vlanid)
@@ -559,7 +559,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
-                                   toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                   ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
     """
     Test case #3
     Send packets with invalid VLAN ID
@@ -568,7 +568,7 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
 
     logger.info("Test case #3 starting ...")
 
-    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo)
+    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     invalid_tagged_pkt = build_icmp_packet(4095)
     masked_invalid_tagged_pkt = Mask(invalid_tagged_pkt)
     masked_invalid_tagged_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
@@ -590,14 +590,14 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                 tbinfo, vlan_intfs_dict,
+                                 tbinfo, vlan_intfs_dict, ports_list,
                                  toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
     """
     Test case #4
     Send packets w/ src and dst specified over tagged ports in vlan
     Verify that bidirectional communication between two tagged ports work
     """
-    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo)
+    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for tagged_test_vlan in vlan_intfs_dict:
         ports_for_test = []
 
@@ -643,14 +643,14 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, ra
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                   tbinfo, vlan_intfs_dict,
+                                   tbinfo, vlan_intfs_dict, ports_list,
                                    toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
     """
     Test case #5
     Send packets w/ src and dst specified over untagged ports in vlan
     Verify that bidirectional communication between two untagged ports work
     """
-    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo)
+    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for untagged_test_vlan in vlan_intfs_dict:
 
         ports_for_test = []
@@ -697,14 +697,14 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                          tbinfo, vlan_intfs_dict,
+                                          tbinfo, vlan_intfs_dict, ports_list,
                                           toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
     """
     Test case #6
     Send packets w/ src and dst specified over tagged port and untagged port in vlan
     Verify that bidirectional communication between tagged port and untagged port work
     """
-    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo)
+    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for test_vlan in vlan_intfs_dict:
         untagged_ports_for_test = []
         tagged_ports_for_test = []
@@ -763,14 +763,14 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hos
 
 @pytest.mark.exo
 def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                                  tbinfo, vlan_intfs_dict, duthost,
+                                                  tbinfo, vlan_intfs_dict, duthost, ports_list,
                                                   toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
     """
     Test case #7
     Send qinq packets w/ src and dst specified over tagged ports in vlan
     Verify that the qinq packet is switched based on outer vlan tag + src/dst mac
     """
-    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo)
+    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for tagged_test_vlan in vlan_intfs_dict:
         ports_for_test = []
         for vlan_port in vlan_ports_list:
