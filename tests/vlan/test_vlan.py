@@ -5,9 +5,7 @@ from ptf.mask import Mask
 
 import collections
 import ipaddress
-import itertools
 import logging
-import pprint
 import time
 import sys
 from netaddr import valid_ipv4
@@ -15,8 +13,6 @@ from netaddr import valid_ipv4
 from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.config_reload import config_reload
-from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list   # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
@@ -166,7 +162,6 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict):
 
     # Get id of vlan that concludes enough up ports as src_vlan_id, port in this vlan is used for testing
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    port_status = cfg_facts["PORT"]
     src_vlan_id = get_vlan_id(cfg_facts, number_of_lag_member)
     pytest_require(src_vlan_id != -1, "Can't get usable vlan concluding enough member")
 
@@ -209,7 +204,7 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict):
 
     vlan = {}
     for k, v in vlan_intfs_dict.items():
-        if v['orig'] == False:
+        if v['orig'] is False:
             vlan['id'] = k
             vlan['ip'] = v['ip']
             break
@@ -502,6 +497,7 @@ def populate_fdb(ptfadapter, vlan_ports_list, vlan_intfs_dict):
 
 
 @pytest.mark.bsl
+@pytest.mark.exo
 def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list,
                                 toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """
@@ -536,6 +532,7 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
 
 
 @pytest.mark.bsl
+@pytest.mark.exo
 def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list,
                               toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
     """
@@ -561,6 +558,7 @@ def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_
 
 
 @pytest.mark.bsl
+@pytest.mark.exo
 def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list,
                                    toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
     """
@@ -591,6 +589,7 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
 
 
 @pytest.mark.bsl
+@pytest.mark.exo
 def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
                                  tbinfo, ports_list, vlan_intfs_dict,
                                  toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
@@ -643,6 +642,7 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, ra
 
 
 @pytest.mark.bsl
+@pytest.mark.exo
 def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
                                    ports_list, vlan_intfs_dict,
                                    toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
@@ -696,6 +696,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
 
 
 @pytest.mark.bsl
+@pytest.mark.exo
 def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
                                           ports_list, vlan_intfs_dict,
                                           toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
@@ -761,6 +762,7 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hos
             test_vlan, dst_port, src_port))
 
 
+@pytest.mark.exo
 def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo,
                                                   ports_list, vlan_intfs_dict, duthost,
                                                   toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
