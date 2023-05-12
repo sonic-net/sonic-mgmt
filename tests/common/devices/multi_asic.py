@@ -82,7 +82,8 @@ class MultiAsicSonicHost(object):
                 if config_facts['FEATURE'][service]['state'] == "disabled":
                     self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
         for asic in active_asics:
-            service_list += asic.get_critical_services()
+            if asic:
+                service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)
 
     def get_default_critical_services_list(self):
