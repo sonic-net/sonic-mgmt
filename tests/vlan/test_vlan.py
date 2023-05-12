@@ -13,7 +13,7 @@ from netaddr import valid_ipv4
 from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list   # noqa F401
+from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
 from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
@@ -245,7 +245,7 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
     return src_vlan_id
 
 
-def work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):
+def work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list): # noqa F811
     """
     Read running config facts and get vlan ports list
 
@@ -364,8 +364,8 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ports_list,
-               ptfadapter, tbinfo, vlan_intfs_dict, cfg_facts, setup_acl_table):
+def setup_vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
+               ports_list, tbinfo, vlan_intfs_dict, cfg_facts, setup_acl_table):  # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
@@ -590,8 +590,8 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                 tbinfo, vlan_intfs_dict, ports_list,
-                                 toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
+                                 tbinfo, vlan_intfs_dict,
+                                 ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
     """
     Test case #4
     Send packets w/ src and dst specified over tagged ports in vlan
@@ -643,8 +643,8 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, ra
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                   tbinfo, vlan_intfs_dict, ports_list,
-                                   toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                                   tbinfo, vlan_intfs_dict,
+                                   ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
     """
     Test case #5
     Send packets w/ src and dst specified over untagged ports in vlan
@@ -697,8 +697,8 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
 @pytest.mark.bsl
 @pytest.mark.exo
 def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                          tbinfo, vlan_intfs_dict, ports_list,
-                                          toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+                                          tbinfo, vlan_intfs_dict,
+                                          ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
     """
     Test case #6
     Send packets w/ src and dst specified over tagged port and untagged port in vlan
@@ -763,8 +763,8 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hos
 
 @pytest.mark.exo
 def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, duthosts, rand_one_dut_hostname, rand_selected_dut,
-                                                  tbinfo, vlan_intfs_dict, duthost, ports_list,
-                                                  toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+                                                  tbinfo, vlan_intfs_dict, duthost,
+                                                  ports_list, toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
     """
     Test case #7
     Send qinq packets w/ src and dst specified over tagged ports in vlan
