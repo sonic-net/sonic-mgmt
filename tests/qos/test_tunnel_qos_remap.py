@@ -781,3 +781,44 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
         test_case="sai_qos_tests.PCBBPFCTest",
         test_params=test_params
     )
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize("xoff_profile", ["pcbb_multi_xoff_1", "pcbb_multi_xoff_2"])
+def test_multi_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module):
+    """
+    Verifies xoff threshold for PCBB (Priority Control for Bounced Back traffic) while both
+    direct and tunneled traffic are enqueued.
+
+    Test steps
+    1. Toggle all ports to active on randomly selected ports
+    2. Populate ARP table by GARP service
+    3. Disable Tx on egress port
+    4. Verify bounced back traffic (tunnel traffic, IPinIP) and regular traffic
+       can trigger separate PFCs simultaneously with no drops
+    """
+    toggle_mux_to_host(rand_selected_dut)
+    # Delay 5 seconds between each test run
+    time.sleep(5)
+    test_params = dict()
+    test_params.update({
+            "src_port_id": dut_config["lag_port_ptf_id"],
+            "dst_port_id": dut_config["server_port_ptf_id"],
+            "dst_port_ip": dut_config["server_ip"],
+            "active_tor_mac": dut_config["selected_tor_mac"],
+            "active_tor_ip": dut_config["selected_tor_loopback"],
+            "standby_tor_mac": dut_config["unselected_tor_mac"],
+            "standby_tor_ip": dut_config["unselected_tor_loopback"],
+            "server": dut_config["selected_tor_mgmt"],
+            "port_map_file": dut_config["port_map_file"],
+            "platform_asic": dut_config["platform_asic"],
+            "sonic_asic_type": dut_config["asic_type"],
+        })
+    # Update qos config into test_params
+    test_params.update(qos_config[xoff_profile])
+    # Run test on ptfhost
+    run_ptf_test(
+        ptfhost,
+        test_case="sai_qos_tests.PCBBMultiPFCTest",
+        test_params=test_params
+    )

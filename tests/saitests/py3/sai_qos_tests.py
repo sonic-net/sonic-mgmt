@@ -5116,8 +5116,8 @@ class PacketTransmit(sai_base_test.ThriftInterfaceDataPlane):
 # PFC test on tunnel traffic (dualtor specific test case)
 class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
 
-    def _build_testing_ipinip_pkt(self, active_tor_mac, standby_tor_mac, active_tor_ip,
-                                  standby_tor_ip, inner_dscp, outer_dscp, dst_ip, ecn=1, packet_size=64):
+    def build_testing_ipinip_pkt(active_tor_mac, standby_tor_mac, active_tor_ip,
+                                 standby_tor_ip, inner_dscp, outer_dscp, dst_ip, ecn=1, packet_size=64):
         pkt = simple_tcp_packet(
             pktlen=packet_size,
             eth_dst=standby_tor_mac,
@@ -5139,7 +5139,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         )
         return ipinip_packet
 
-    def _build_testing_pkt(self, active_tor_mac, dscp, dst_ip, ecn=1, packet_size=64):
+    def build_testing_pkt(active_tor_mac, dscp, dst_ip, ecn=1, packet_size=64):
         pkt = simple_tcp_packet(
             pktlen=packet_size,
             eth_dst=active_tor_mac,
@@ -5204,23 +5204,22 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.src_client, asic_type, port_list['src'][src_port_id])
             if tunnel_traffic_test:
                 # Build IPinIP packet for testing
-                pkt = self._build_testing_ipinip_pkt(active_tor_mac=active_tor_mac,
-                                                     standby_tor_mac=standby_tor_mac,
-                                                     active_tor_ip=active_tor_ip,
-                                                     standby_tor_ip=standby_tor_ip,
-                                                     inner_dscp=inner_dscp,
-                                                     outer_dscp=outer_dscp,
-                                                     dst_ip=dst_port_ip,
-                                                     ecn=ecn,
-                                                     packet_size=packet_size
-                                                     )
+                pkt = PCBBPFCTest.build_testing_ipinip_pkt(active_tor_mac=active_tor_mac,
+                                                           standby_tor_mac=standby_tor_mac,
+                                                           active_tor_ip=active_tor_ip,
+                                                           standby_tor_ip=standby_tor_ip,
+                                                           inner_dscp=inner_dscp,
+                                                           outer_dscp=outer_dscp,
+                                                           dst_ip=dst_port_ip,
+                                                           ecn=ecn,
+                                                           packet_size=packet_size)
             else:
                 # Build regular packet
-                pkt = self._build_testing_pkt(active_tor_mac=active_tor_mac,
-                                              dscp=inner_dscp,
-                                              dst_ip=dst_port_ip,
-                                              ecn=ecn,
-                                              packet_size=packet_size)
+                pkt = PCBBPFCTest.build_testing_pkt(active_tor_mac=active_tor_mac,
+                                                    dscp=inner_dscp,
+                                                    dst_ip=dst_port_ip,
+                                                    ecn=ecn,
+                                                    packet_size=packet_size)
 
             # Send packets short of triggering pfc while compensating for leakout
             if 'cisco-8000' in asic_type:
@@ -5263,6 +5262,111 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             # Enable tx on dest port
             self.sai_thrift_port_tx_enable(
                 self.dst_client, asic_type, [dst_port_id])
+
+
+# Multi PFC test on tunnel traffic (dualtor specific test case)
+class PCBBMultiPFCTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        """
+        This test case is to verify PFC for tunnel traffic and direct traffic.
+        Both bounce-back (from IPinIP tunnel LAG port) and direct traffic ingress, then are decaped
+        at active tor, and then egress to server.
+        Tx is disabled on the egress port to trigger PFC pause on both priorities.
+        """
+        switch_init(self.client)
+
+        # Parse input parameters
+        active_tor_mac = self.test_params['active_tor_mac']
+        active_tor_ip = self.test_params['active_tor_ip']
+        standby_tor_mac = self.test_params['standby_tor_mac']
+        standby_tor_ip = self.test_params['standby_tor_ip']
+        src_port_id = self.test_params['src_port_id']
+        dst_port_id = self.test_params['dst_port_id']
+        dst_port_ip = self.test_params['dst_port_ip']
+
+        inner_dscp = int(self.test_params['dscp'])
+        outer_dscp = int(self.test_params['outer_dscp'])
+        ecn = int(self.test_params['ecn'])
+        pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        pgs = self.test_params['pgs']
+        # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
+        pg_cntr_idxs = [pg + 2 for pg in pgs]
+
+        asic_type = self.test_params['sonic_asic_type']
+        packet_size = int(self.test_params.get('packet_size', 64))
+        pkts_num_margin = int(self.test_params.get('pkts_num_margin', 2))
+
+        try:
+            # Disable tx on EGRESS port so that headroom buffer cannot be free
+            self.sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+            # Make a snapshot of transmitted packets
+            tx_counters_base, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[dst_port_id])
+            # Make a snapshot of received packets
+            rx_counters_base, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])
+            pkts = []
+            # Build IPinIP packet for testing
+            pkts.append(PCBBPFCTest.build_testing_ipinip_pkt(active_tor_mac=active_tor_mac,
+                                                             standby_tor_mac=standby_tor_mac,
+                                                             active_tor_ip=active_tor_ip,
+                                                             standby_tor_ip=standby_tor_ip,
+                                                             inner_dscp=inner_dscp,
+                                                             outer_dscp=outer_dscp,
+                                                             dst_ip=dst_port_ip,
+                                                             ecn=ecn,
+                                                             packet_size=packet_size))
+            # Build regular packet
+            pkts.append(PCBBPFCTest.build_testing_pkt(active_tor_mac=active_tor_mac,
+                                                      dscp=inner_dscp,
+                                                      dst_ip=dst_port_ip,
+                                                      ecn=ecn,
+                                                      packet_size=packet_size))
+
+            # Send packets short of triggering pfc while compensating for leakout for the
+            # first packet only
+            pkt = pkts[0]
+            if 'cisco-8000' in asic_type:
+                # Queue is always the inner_dscp due to the TC_TO_QUEUE_MAP redirection
+                queue = inner_dscp
+                assert(fill_leakout_plus_one(self, src_port_id,
+                       dst_port_id, pkt, queue, asic_type))
+                num_pkts = pkts_num_trig_pfc - pkts_num_margin - 1
+                send_packet(self, src_port_id, pkt, num_pkts)
+                print("Sending {} packets to port {}".format(num_pkts, src_port_id), file=sys.stderr)
+            else:
+                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc - pkts_num_margin)
+                time.sleep(8)
+                # Read TX_OK again to calculate leaked packet number
+                tx_counters, _ = sai_thrift_read_port_counters(
+                    self.client, asic_type, port_list[dst_port_id])
+                leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - \
+                    tx_counters_base[TRANSMITTED_PKTS]
+                # Send packets to compensate the leaked packets
+                send_packet(self, src_port_id, pkt, leaked_packet_number)
+            # Next, send the rest of the packets without compensating for leakout, as the
+            # leakout should already be filled for the same egress queue.
+            for pkt in pkts[1:]:
+                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc - pkts_num_margin)
+                print("Sending separate PG {} packets to port {}".format(num_pkts, src_port_id), file=sys.stderr)
+            time.sleep(8)
+            # Read rx counter again. No PFC pause frame should be triggered
+            rx_counters, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])
+            # Verify no pfc
+            for pg_cntr_idx, pg in zip(pg_cntr_idxs, pgs):
+                assert rx_counters[pg_cntr_idx] == rx_counters_base[pg_cntr_idx], "Triggered PFC on PG {} to early".format(pg)
+            rx_counters_base = rx_counters
+            # Send some packets to trigger PFC
+            for pkt in pkts:
+                send_packet(self, src_port_id, pkt, 1 + 2 * pkts_num_margin)
+                print("Sending {} packets to port {} to trigger PFC".format(1 + 2 * pkts_num_margin, src_port_id),
+                      file=sys.stderr)
+            time.sleep(8)
+            rx_counters, _ = sai_thrift_read_port_counters(self.client, asic_type, port_list[src_port_id])
+            # Verify PFC pause frame is generated on expected PGs
+            for pg_cntr_idx, pg in zip(pg_cntr_idxs, pgs):
+                assert rx_counters[pg_cntr_idx] > rx_counters_base[pg_cntr_idx], "Failed to trigger PFC on PG {}".format(pg)
+        finally:
+            # Enable tx on dest port
+            self.sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
 
 
 class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
