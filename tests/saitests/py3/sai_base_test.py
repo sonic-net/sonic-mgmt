@@ -104,7 +104,7 @@ class ThriftInterface(BaseTest):
             self.dst_protocol = TBinaryProtocol.TBinaryProtocol(self.dst_transport)
             self.dst_client = switch_sai_rpc.Client(self.dst_protocol)
             self.dst_transport.open()
-            self.clients['dst'] = self.dst_client
+        self.clients['dst'] = self.dst_client
 
         self.platform_asic = self.test_params.get('platform_asic', None)
 
