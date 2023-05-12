@@ -11,7 +11,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.bgp.bgp_helpers import update_routes
+from bgp_helpers import update_routes
 from tests.generic_config_updater.test_bgp_speaker import get_bgp_speaker_runningconfig
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
