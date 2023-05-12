@@ -24,6 +24,7 @@
           sonic-cfggen -H -k Force10-S6000 --preset empty
           | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'
           | jq '.DEVICE_METADATA.localhost.bgp_asn="{{ configuration[hostname]['bgp']['asn'] }}"'
+          | jq '.DEVICE_METADATA.localhost.deployment_id="1"'
           > config-metadata.json
   when: hostname in configuration
 
