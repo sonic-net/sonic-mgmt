@@ -1,4 +1,3 @@
-from ansible.devutil.devices import init_localhost, init_testbed_sonichosts
 import argparse
 import logging
 import os
@@ -12,18 +11,23 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
+from devutil.devices import init_localhost, init_testbed_sonichosts     # noqa E402
+
 logger = logging.getLogger(__name__)
 
 RC_INIT_FAILED = 1
 RC_GET_DUT_VERSION_FAILED = 2
 
 
-def get_dut_info(sonichosts):
+def get_duts_version(sonichosts):
     try:
-        dut_version = sonichosts.command("show version", module_attrs={"become": True})
-        return dut_version
+        ret = {}
+        duts_version = sonichosts.command("show version", module_attrs={"become": True})
+        for dut, version in duts_version.items():
+            ret[dut] = version["stdout_lines"]
+        return ret
     except Exception as e:
-        logger.error("Failed to get DUT version: {}".repr(e))
+        logger.error("Failed to get DUT version: {}".format(e))
         sys.exit(RC_GET_DUT_VERSION_FAILED)
 
 
@@ -55,15 +59,14 @@ def main(args):
     if not localhost or not sonichosts:
         sys.exit(RC_INIT_FAILED)
 
-    dut_version = get_dut_info(sonichosts)
-    print(dut_version)
+    return get_duts_version(sonichosts)
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Tool for getting sonic device information during nightly tests.")
+        description="Tool for getting sonic device version.")
 
     parser.add_argument(
         "-i", "--inventory",
