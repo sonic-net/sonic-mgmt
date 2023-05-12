@@ -785,7 +785,7 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("xoff_profile", ["pcbb_multi_xoff_1", "pcbb_multi_xoff_2"])
-def test_multi_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module):
+def test_multi_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module):     # noqa F811
     """
     Verifies xoff threshold for PCBB (Priority Control for Bounced Back traffic) while both
     direct and tunneled traffic are enqueued.
