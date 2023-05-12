@@ -94,3 +94,24 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                 submode, intervalms,
                 update_count, create_connections)
     return cmd
+
+
+def drain_cache(duthost, timeout, run_cmd):
+    logger.info("Start to drain eventd cache")
+    run_cmd(duthost, ["hearbeat=2"], filter_event="sonic-events-eventd:heartbeat",
+            event_cnt=1, timeout=timeout))
+    logger.info("eventd cache is drained")
+
+
+def listen_for_event(tag, event, timeout, duthost, run_cmd, op_file):
+    logger.info("Starting to listen for event {}".format(event))
+    filter_event = tag + ":" + event
+    run_cmd(duthost, ["heartbeat=5"], op_file=op_file,
+            filter_event=filter_event, event_cnt=1, timeout=timeout)
+
+
+def prepare_yang_validation(duthost, json_file):
+    dest = "/tmp/{}".format(json_file)
+    cmd = "docker cp telemetry:/{} /tmp/".format(json_file)
+    duthost.shell(cmd)
+    return dest
