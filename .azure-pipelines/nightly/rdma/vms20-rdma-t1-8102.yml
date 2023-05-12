@@ -38,6 +38,12 @@ parameters:
     type: string
     default: '-I "snappi"'
     displayName: Testbed specific
+  
+  # Extra parameters to skip sanity since BGP connections are down
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--skip_sanity --allow_recover --showlocals --assert plain -rav --collect_techsupport False"
+    displayName: "Extra parameters"
 
   - name: NIGHTLY_TEST_TIMEOUT
     type: number
@@ -50,4 +56,5 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
       NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
