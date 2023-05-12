@@ -875,12 +875,7 @@ class QosSaiBase(QosBase):
 
         dutTopo = "topo-"
 
-        if dutAsic == "gb" and topo == "t2":
-            if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
-                dutTopo = dutTopo + "any"
-            else:
-                dutTopo = dutTopo + topo
-        elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
+        if dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
             # Default topo is any
