@@ -49,7 +49,7 @@
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['interfaces']['Port-Channel1']['ipv6' if peer | ipv6 else 'ipv4'].split('/')[0] | lower }}",
-            "name": "{{ hostname }}",
+            "name": "{{ duts_name }}",
             "nhopself": "0",
             "rrclient": "0"
         },
@@ -73,6 +73,13 @@
             "name": "exabgp_v6",
             "nhopself": "0",
             "rrclient": "0"
+        }
+    },
+    "DEVICE_NEIGHBOR_METADATA": {
+        "{{ duts_name }}": {
+                "hwsku": "SONiC-VM",
+                "mgmt_addr": "{{ hostvars[duts_name]['ansible_host'] }}",
+                "type": "TorRouter"
         }
     },
 {% set separator = joiner(",") %}
