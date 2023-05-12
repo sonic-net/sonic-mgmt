@@ -89,8 +89,8 @@ def patch_rsyslog(sonichosts):
             path=conf_file,
             state="present",
             insertafter="# Define a custom template",
-            line='$template RemoteSONiCFileFormat,"<%PRI%>1 %TIMESTAMP:::date-rfc3339% %HOSTNAME% %APP-NAME% '
-                 '%PROCID% %MSGID% [origin swVersion="{}"] %msg%\n"'.format(sonic_build_version),
+            line=r'$template RemoteSONiCFileFormat,"<%PRI%>1 %TIMESTAMP:::date-rfc3339% %HOSTNAME% %APP-NAME% '
+                 r'%PROCID% %MSGID% [origin swVersion=\"{}\"] %msg%\n"'.format(sonic_build_version),
             module_attrs={"become": True}
         )
 
