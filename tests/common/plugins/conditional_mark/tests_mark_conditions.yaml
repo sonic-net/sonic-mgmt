@@ -453,6 +453,12 @@ generic_config_updater/test_eth_interface.py:
     reason: 'Xfail this script due to many failures found'
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
+      
+generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
+  skip:
+    reason: 'Not supported on Cisco platforms'
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
