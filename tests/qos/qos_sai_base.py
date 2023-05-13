@@ -1059,7 +1059,7 @@ class QosSaiBase(QosBase):
             {"docker": src_asic.get_docker_name("bgp"), "service": "bgpd"},
             {"docker": src_asic.get_docker_name("bgp"), "service": "bgpmon"},
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
-            {"docker": src_asic.get_docker_name("swss"), "service": "radvd"}
+            {"docker": src_asic.get_docker_name("swss"), "service": "radvd"},
             {"docker": src_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
         dst_services = []
