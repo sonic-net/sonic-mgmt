@@ -1,8 +1,6 @@
 #! /usr/bin/env python3
 
-import json
 import logging
-import os
 
 from run_event_tests import run_test
 

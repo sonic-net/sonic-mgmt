@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 def run_test(duthost, run_cmd, data_dir, validate_yang, trigger, json_file, tag,
              event, timeout=60):
-    drain_cache(duthost, 60, run_cmd) # timeout may be called before event is seen
-    trigger(duthost) # add events to cache
+    drain_cache(duthost, 60, run_cmd)  # timeout may be called before event is seen
+    trigger(duthost)  # add events to cache
     # listen from cache
     listen_for_event(tag, event, timeout, duthost, run_cmd, json_file)
     op_file = os.path.join(data_dir, json_file)

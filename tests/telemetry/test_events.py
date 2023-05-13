@@ -22,8 +22,8 @@ BASE_DIR = "logs/telemetry"
 DATA_DIR = os.path.join(BASE_DIR, "files")
 
 GNMI_CLI_CMD = ("gnmi_cli -client_types=gnmi -a 127.0.0.1:50051 -t EVENTS "
-                  "-logtostderr -insecure -v 7 -streaming_type ON_CHANGE "
-                  "-qt s -q all")
+                "-logtostderr -insecure -v 7 -streaming_type ON_CHANGE "
+                "-qt s -q all")
 
 
 def validate_yang(duthost, op_file="", yang_file=""):
@@ -65,7 +65,7 @@ def do_init(duthost):
         except OSError as e:
             logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
 
-    ret = duthost.copy(src="telemetry/validate_yang_events.py", dest="/tmp")
+    duthost.copy(src="telemetry/validate_yang_events.py", dest="/tmp")
 
 
 def move_to_localhost(duthost, op_file):
