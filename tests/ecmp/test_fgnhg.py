@@ -4,6 +4,7 @@ import time
 import logging
 import ipaddress
 import json
+import six
 from collections import defaultdict
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
@@ -116,7 +117,7 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
 
     for ip, port in list(ip_to_port.items()):
 
-        if isinstance(ipaddress.ip_address(ip.decode('utf8')), ipaddress.IPv4Address):
+        if isinstance(ipaddress.ip_address(six.text_type(ip)), ipaddress.IPv4Address):
             neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
                 "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
                 "family": "IPv4"

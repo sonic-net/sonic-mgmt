@@ -183,10 +183,10 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
 
     | Step | Goal | Expected results |
     |-|-|-|
-    | Send traffic to some IP in the VLAN subnet but not configured as soc or server address | Forwarding through tunnel | Verify tunnel traffic on standby ToR | 
+    | Send traffic to some IP in the VLAN subnet but not configured as soc or server address | Forwarding through tunnel | Verify tunnel traffic on standby ToR |
 
     * Active-Active DualToR
 
     | Step | Goal | Expected results |
     |-|-|-|
-    | Send traffic to some IP in the VLAN subnet but not configured as soc or server address | Forwarding through tunnel | Verify tunnel-route on this ToR | 
+    | Send traffic to some IP in the VLAN subnet but not configured as soc or server address | Forwarding through tunnel | Verify tunnel-route on this ToR |

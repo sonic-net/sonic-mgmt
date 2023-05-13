@@ -18,11 +18,11 @@
   file: path={{ k8s_root_path }}/images state=directory mode=0755
   become: yes
 
-- name: Check local cloud image 
-  stat: 
+- name: Check local cloud image
+  stat:
     path: "{{ k8s_root_path }}/images/{{ k8s_hdd_image_filename }}"
-    get_checksum: no 
-  register: cloudimg_local_stat 
+    get_checksum: no
+  register: cloudimg_local_stat
 
 - name: Download Ubuntu 18.04 hdd image
   get_url: url="{{ k8s_vm_images_url }}/{{ k8s_hdd_image_filename }}?{{ k8s_vmimage_saskey }}" dest="{{ k8s_root_path }}/images/{{ k8s_hdd_image_filename }}"
@@ -40,4 +40,3 @@
     disk_image: "{{ k8s_root_path }}/{{ vm_name }}/{{ vm_name }}_hdd.qcow2"
     mgmt_gw: "{{ mgmt_gw_k8s }}"
   with_items: "{{ kvm_hosts }}"
-

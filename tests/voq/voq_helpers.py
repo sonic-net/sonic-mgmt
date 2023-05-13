@@ -9,6 +9,7 @@ from tests.common.helpers.sonic_db import AsicDbCli, AppDbCli, VoqDbCli, SonicDb
 
 logger = logging.getLogger(__name__)
 
+
 def check_host_arp_table_deleted(host, asic, neighs):
     """
     Verifies the ARP entry is deleted.
@@ -32,7 +33,8 @@ def check_host_arp_table_deleted(host, asic, neighs):
             table = arptable['arptable']['v4']
         if neighbor_ip in table:
             neighs_present.append(neighbor_ip)
-    logger.debug("On host {} asic {}, found neighbors {} that were supposed to be deleted".format(host, asic.asic_index, neighs_present))
+    logger.debug("On host {} asic {}, found neighbors {} that were supposed to be deleted"
+                 .format(host, asic.asic_index, neighs_present))
     return len(neighs_present) == 0
 
 
@@ -180,7 +182,8 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
         output = host.command("docker exec " + docker + " vtysh -c \"show {} route {} json\"".format(ipver, prefix))
         parsed = json.loads(output["stdout"])
     if present is True:
-        pytest_assert(prefix in list(parsed.keys()), "Prefix: %s not in route list: %s" % (prefix, list(parsed.keys())))
+        pytest_assert(prefix in list(parsed.keys()),
+                      "Prefix: %s not in route list: %s" % (prefix, list(parsed.keys())))
         found = False
         for route in parsed[prefix]:
             if route['distance'] != 0:
@@ -196,7 +199,7 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
         pytest_assert(found, "Kernel route is not present in bgp output: %s" % parsed[prefix])
         logger.debug("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
     if present is False:
-        #logger.info("outout: %s", parsed)
+        # logger.info("outout: %s", parsed)
         pytest_assert(prefix not in parsed, "Prefix: %s still in route list: %s" % (prefix, list(parsed.keys())))
         logger.info("Route %s is removed from remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
 
@@ -221,7 +224,8 @@ def verify_no_routes_from_nexthop(duthosts, nexthop):
     for dut in duthosts.frontend_nodes:
         for asic in dut.asics:
             pytest_assert(wait_until(45, 2, 0, check_no_routes_from_nexthop, asic, nexthop),
-                          "Not all routes flushed from nexthop {} on asic {} on {}".format(nexthop, asic.asic_index, dut.hostname))
+                          "Not all routes flushed from nexthop {} on asic {} on {}"
+                          .format(nexthop, asic.asic_index, dut.hostname))
 
 
 def check_host_kernel_route(host, asicnum, ipaddr, ipver, interface, present=True):
@@ -472,9 +476,9 @@ def get_device_system_ports(cfg_facts):
     """Returns the system ports from the config facts as a single dictionary, instead of a nested dictionary.
 
     The ansible module for config facts automatically makes a 2 level nested dictionary when the keys are in the form
-    of part1|part2|part3 or part1|part2.  The first dictionary is keyed as "part1" and the nested dictionary is the
-    remainder of the key with the value.  This function returns a flat dictionary with the keys restored to their values
-    from the files.
+    of part1|part2|part3 or part1|part2. The first dictionary is keyed as "part1" and the nested dictionary is the
+    remainder of the key with the value. This function returns a flat dictionary with the keys
+    restored to their values from the files.
 
    Args:
         cfg_facts: The "ansible_facts" output from the duthost "config_facts" module.
@@ -675,7 +679,8 @@ def check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts, nbr_macs, che
                                               nbrhosts, all_cfg_facts, nbr_macs, check_nbr_state=check_nbr_state)
 
 
-def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_cfg_facts, nbrhosts, nbr_macs, check_nbr_state=True):
+def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_cfg_facts,
+                                      nbrhosts, nbr_macs, check_nbr_state=True):
     """
     Dumps out data from redis and CLI and validates all local neighbors at once.
 
@@ -791,14 +796,15 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
                               "Asic for %s does not match %s" % (entry, asicname))
 
                 pytest_assert(voq_dump[entry]['value']['neigh'].lower() == neigh_mac.lower(),
-                              "Voq: neighbor: %s mac does not match: %s" % (neighbor,
-                                                                            voq_dump[entry]['value']['neigh'].lower()))
+                              "Voq: neighbor: %s mac does not match: %s" %
+                              (neighbor, voq_dump[entry]['value']['neigh'].lower()))
                 pytest_assert(voq_dump[entry]['value']['encap_index'].lower() == encaps[neighbor],
-                              "Voq: encap: %s mac does not match: %s" % (neighbor,
-                                                                         voq_dump[entry]['value']['encap_index'].lower()))
+                              "Voq: encap: %s mac does not match: %s" %
+                              (neighbor, voq_dump[entry]['value']['encap_index'].lower()))
                 break
         else:
-            logger.error("Neighbor: %s on slot: %s, asic: %s not present in voq", neighbor, sysport_info['slot'], sysport_info['asic'])
+            logger.error("Neighbor: %s on slot: %s, asic: %s not present in voq",
+                         neighbor, sysport_info['slot'], sysport_info['asic'])
             fail_cnt += 1
 
         logger.info("Local %s/%s and chassisdb neighbor validation of %s is successful (mac: %s, idx: %s)",
@@ -807,7 +813,8 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
     return {'encaps': encaps, 'fail_cnt': fail_cnt}
 
 
-def check_all_neighbors_present_remote(local_host, rem_host, rem_asic, neighs, encaps, all_cfg_facts, nbrhosts, nbr_macs):
+def check_all_neighbors_present_remote(local_host, rem_host, rem_asic, neighs,
+                                       encaps, all_cfg_facts, nbrhosts, nbr_macs):
     """
     Dumps and verifies all neighbors on a remote host.
 
@@ -829,7 +836,8 @@ def check_all_neighbors_present_remote(local_host, rem_host, rem_asic, neighs, e
     rem_cfg_facts = all_cfg_facts[rem_host.hostname][rem_asic.asic_index]['ansible_facts']
     remote_inband_info = get_inband_info(rem_cfg_facts)
     if remote_inband_info == {}:
-        logger.info("No inband configuration on this asic: %s/%s, will be skipped.", rem_host.hostname, rem_asic.asic_index)
+        logger.info("No inband configuration on this asic: %s/%s, will be skipped.",
+                    rem_host.hostname, rem_asic.asic_index)
         return {'fail_cnt': 0}
     remote_inband_mac = get_sonic_mac(rem_host, rem_asic.asic_index, remote_inband_info['port'])
     fail_cnt = 0
@@ -914,7 +922,8 @@ def check_all_neighbors_present_remote(local_host, rem_host, rem_asic, neighs, e
             matchstr = ':%s' % neighbor
             if entry.endswith(matchstr):
                 if neighbor_mac_on_dut.lower() != app_dump[entry]['value']['neigh'].lower():
-                    logger.error("App neighbor macs for %s do not match: %s != %s", neighbor, remote_inband_mac.lower(),
+                    logger.error("App neighbor macs for %s do not match: %s != %s",
+                                 neighbor, remote_inband_mac.lower(),
                                  app_dump[entry]['value']['neigh'].lower())
                     fail_cnt += 1
                 else:
@@ -929,8 +938,8 @@ def check_all_neighbors_present_remote(local_host, rem_host, rem_asic, neighs, e
 
         # Verify ARP table
 
-        check_host_arp_table(rem_host, rem_asic, neighbor, neighbor_mac_on_dut, remote_inband_info['port'], 'PERMANENT',
-                             arptable=arptable)
+        check_host_arp_table(rem_host, rem_asic, neighbor, neighbor_mac_on_dut,
+                             remote_inband_info['port'], 'PERMANENT', arptable=arptable)
 
         # Verify routing tables
         if ":" in neighbor:
@@ -945,8 +954,8 @@ def check_all_neighbors_present_remote(local_host, rem_host, rem_asic, neighs, e
             kern_route = v4_kern
 
         # bgp routing table
-        check_bgp_kernel_route(rem_host, rem_asic.asic_index, prefix, ipver, remote_inband_info['port'], present=True,
-                               parsed=bgp_parse)
+        check_bgp_kernel_route(rem_host, rem_asic.asic_index, prefix, ipver,
+                               remote_inband_info['port'], present=True, parsed=bgp_parse)
 
         # kernel routing table
         for route in kern_route:
@@ -963,7 +972,8 @@ def check_all_neighbors_present_remote(local_host, rem_host, rem_asic, neighs, e
     return {'fail_cnt': fail_cnt}
 
 
-def dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighs, nbrhosts, all_cfg_facts, nbr_macs, check_nbr_state=True):
+def dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighs, nbrhosts,
+                                      all_cfg_facts, nbr_macs, check_nbr_state=True):
     """
     Verifies all neighbors for all sonic hosts in a voq system.
 
@@ -979,7 +989,8 @@ def dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighs, nbrhosts
     """
 
     logger.info("Checking local neighbors on host: %s, asic: %s", per_host.hostname, asic.asic_index)
-    ret = check_all_neighbors_present_local(duthosts, per_host, asic, neighs, all_cfg_facts, nbrhosts, nbr_macs, check_nbr_state=check_nbr_state)
+    ret = check_all_neighbors_present_local(duthosts, per_host, asic, neighs, all_cfg_facts,
+                                            nbrhosts, nbr_macs, check_nbr_state=check_nbr_state)
     encaps = ret['encaps']
     fail_cnt = ret['fail_cnt']
 
@@ -1084,8 +1095,8 @@ def check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors)
     voq_dump = voqdb.dump_neighbor_table()
 
     for neighbor in neighbors:
-        logger.info("Checking neighbor entry for %s is deleted from host: %s, asic: %s", neighbor, per_host.hostname,
-                    asic.asic_index)
+        logger.info("Checking neighbor entry for %s is deleted from host: %s, asic: %s",
+                    neighbor, per_host.hostname, asic.asic_index)
 
         for entry in list(asicdb_neigh_table.keys()):
             search = '"ip":"%s"' % neighbor

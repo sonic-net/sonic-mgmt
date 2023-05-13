@@ -61,14 +61,18 @@ def announce_default_routes(localhost, tbinfo):
 
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
-    logger.info("withdraw and announce default ipv4 and ipv6 routes for {}".format(topo_name))
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action=WITHDRAW, path="../ansible/")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action=ANNOUNCE, path="../ansible/")
+    logger.info(
+        "withdraw and announce default ipv4 and ipv6 routes for {}".format(topo_name))
+    localhost.announce_routes(
+        topo_name=topo_name, ptf_ip=ptf_ip, action=WITHDRAW, path="../ansible/")
+    localhost.announce_routes(
+        topo_name=topo_name, ptf_ip=ptf_ip, action=ANNOUNCE, path="../ansible/")
 
 
 def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
-    data = {"command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
+    data = {
+        "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
     r = requests.post(url, data=data)
     assert r.status_code == 200
 
@@ -105,30 +109,35 @@ def get_ptf_send_ports(duthost, tbinfo, dev_port):
 
 
 def check_route(duthost, route, dev_port, operation):
-    out = json.loads(duthost.shell('vtysh -c "show ip route {} json"'.format(route), verbose=False)['stdout'])
-    result = [nexthop['interfaceName'] for nexthop in out[route][0]['nexthops']]
+    out = json.loads(duthost.shell(
+        'vtysh -c "show ip route {} json"'.format(route), verbose=False)['stdout'])
+    result = [nexthop['interfaceName']
+              for nexthop in out[route][0]['nexthops']]
     if operation == WITHDRAW:
-        pytest_assert(dev_port not in result, "Route {} was not withdraw {}".format(route, result))
+        pytest_assert(dev_port not in result,
+                      "Route {} was not withdraw {}".format(route, result))
     else:
-        pytest_assert(dev_port in result, "Route {} was not announced {}".format(route, result))
+        pytest_assert(dev_port in result,
+                      "Route {} was not announced {}".format(route, result))
 
 
 def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip):
     # use ptf sender interface mac for easy identify testing packets
     src_mac = ptfadapter.dataplane.get_mac(0, ptf_send_port)
-    pkt = testutils.simple_icmp_packet(eth_dst = dst_mac, eth_src = src_mac, ip_src = src_ip, ip_dst = dst_ip, icmp_type=8, icmp_code=0)
+    pkt = testutils.simple_icmp_packet(
+        eth_dst=dst_mac, eth_src=src_mac, ip_src=src_ip, ip_dst=dst_ip, icmp_type=8, icmp_code=0)
 
     ext_pkt = pkt.copy()
     ext_pkt['Ether'].src = exp_src_mac
 
     masked_exp_pkt = Mask(ext_pkt)
-    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"flags")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"frag")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.IP,"ttl")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "frag")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
 
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "code")
@@ -136,30 +145,37 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "id")
     masked_exp_pkt.set_do_not_care_scapy(scapy.ICMP, "seq")
 
-    logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
+    logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(
+        ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
     testutils.send(ptfadapter, ptf_send_port, pkt)
-    testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+    testutils.verify_packet_any_port(
+        ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def get_ip_route_info(duthost):
-    output = json.loads(duthost.shell('vtysh -c "show ip bgp ipv4 json"', verbose=False)['stdout'])
+    output = json.loads(duthost.shell(
+        'vtysh -c "show ip bgp ipv4 json"', verbose=False)['stdout'])
     return output['routes']
 
 
 def get_exabgp_port(duthost, tbinfo, dev_port):
-    tor1 = duthost.shell("show ip int | grep -w {} | awk '{{print $4}}'".format(dev_port))['stdout']
+    tor1 = duthost.shell(
+        "show ip int | grep -w {} | awk '{{print $4}}'".format(dev_port))['stdout']
     tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     return tor1_exabgp_port
+
 
 def is_dualtor(tbinfo):
     """Check if the testbed is dualtor."""
     return "dualtor" in tbinfo["topo"]["name"]
 
+
 def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes):
     ptf_ip = tbinfo['ptf_ip']
-    common_config = tbinfo['topo']['properties']['configuration_properties'].get('common', {})
+    common_config = tbinfo['topo']['properties']['configuration_properties'].get(
+        'common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
 
     # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
@@ -169,9 +185,9 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     dut_mac = duthost.facts['router_mac']
     vlan_mac = ""
     if is_dualtor(tbinfo):
-        # Just let it crash if missing vlan configs on dual-tor      
+        # Just let it crash if missing vlan configs on dual-tor
         vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-        
+
         if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
             default_vlan_name = vlan_cfgs['default_vlan_config']
             if default_vlan_name:
@@ -181,9 +197,9 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                         break
         pytest_assert(vlan_mac, 'dual-tor without vlan mac !!!')
     else:
-       vlan_mac = dut_mac
+        vlan_mac = dut_mac
 
-    #get dst_prefix_list and aspath
+    # get dst_prefix_list and aspath
     routes = namedtuple('routes', ['route', 'aspath'])
     iproute_info = get_ip_route_info(duthost)
     dst_prefix_list = []
@@ -199,13 +215,14 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
                 dst_prefix_list.append(entry)
 
     route_to_ping = dst_prefix_list[0].route
-    dev = json.loads(duthost.shell('vtysh -c "show ip route {} json"'.format(route_to_ping))['stdout'])
+    dev = json.loads(duthost.shell(
+        'vtysh -c "show ip route {} json"'.format(route_to_ping))['stdout'])
     dev_port = dev[route_to_ping][0]['nexthops'][0]['interfaceName']
 
     route_nums = len(dst_prefix_list)
     logger.info("route_nums = %d" % route_nums)
 
-    #choose one ptf port to send msg
+    # choose one ptf port to send msg
     ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
     ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
 
@@ -226,22 +243,25 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
             dst_prefix = dst_prefix_list[route_index].route
             aspath = dst_prefix_list[route_index].aspath
 
-            #test link status
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+            # test link status
+            send_recv_ping_packet(
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is withdraw with first 3 routes
             if route_index < 4:
                 time.sleep(1)
                 check_route(duthost, dst_prefix, dev_port, WITHDRAW)
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             announce_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is announced with first 3 routes
             if route_index < 4:
                 time.sleep(1)
                 check_route(duthost, dst_prefix, dev_port, ANNOUNCE)
-            send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+            send_recv_ping_packet(
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
 
             route_index += 1
 

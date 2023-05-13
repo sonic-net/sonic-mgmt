@@ -31,7 +31,8 @@ class LabGraph(object):
     infrastucture for Sonic development and testing environment.
     """
 
-    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None, bmc_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
+    def __init__(self, dev_csvfile=None, link_csvfile=None, cons_csvfile=None,
+                 bmc_csvfile=None, pdu_csvfile=None, graph_xmlfile=None):
         self.devices = {}
         self.links = []
         self.consoles = []
@@ -92,8 +93,8 @@ class LabGraph(object):
         """
         Given the device hostname and port alias, return the corresponding port name.
         """
-        devtype = self.devices[device_hostname]['Type'].lower()
-        if 'sonic' not in devtype:
+        os = self.devices[device_hostname].get('Os', '').lower()
+        if os != 'sonic':
             raise Exception("Cannot convert port alias to name for non-SONiC device {}".format(device_hostname))
         hwsku = self.devices[device_hostname]['HwSku']
         port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
@@ -146,8 +147,8 @@ class LabGraph(object):
         # For SONiC devices (DUT/Fanout), convert port alias to port name. Updates in `links_group_by_devices` will
         # also be reflected in `self.links`, because they are holding reference to the same underlying `link` variable.
         for device, links in links_group_by_devices.items():
-            devtype = self.devices[device]['Type'].lower()
-            if 'sonic' not in devtype:
+            os = self.devices[device].get('Os', '').lower()
+            if os != 'sonic':
                 continue
             ports = []
             for link in links:
@@ -155,7 +156,8 @@ class LabGraph(object):
                     ports.append(link['StartPort'])
                 elif device == link['EndDevice']:
                     ports.append(link['EndPort'])
-            if any([port not in self._get_port_alias_set(device).union(self._get_port_name_set(device)) for port in ports]):
+            if any([port not in self._get_port_alias_set(device).union(self._get_port_name_set(device))
+                    for port in ports]):
                 # If any port of a device is neither port name nor port alias, skip conversion for this device.
                 continue
             if all([port in self._get_port_alias_set(device) for port in ports]):
@@ -229,7 +231,8 @@ class LabGraph(object):
                 l3inforoot = etree.SubElement(self.dpgroot, 'DevicesL3Info', {'Hostname': hostname})
                 etree.SubElement(l3inforoot, 'ManagementIPInterface', {'Name': 'ManagementIp', 'Prefix': managementip})
             elif 'fanout' in devtype or 'ixiachassis' in devtype:
-                # Build Management interface IP here, if we create each device indivial minigraph file, we may comment this out
+                # Build Management interface IP here,
+                # if we create each device indivial minigraph file, we may comment this out
                 l3inforoot = etree.SubElement(self.dpgroot, 'DevicesL3Info', {'Hostname': hostname})
                 etree.SubElement(l3inforoot, 'ManagementIPInterface', {'Name': 'ManagementIp', 'Prefix': managementip})
                 # Build L2 information Here
@@ -286,12 +289,19 @@ def get_file_names(args):
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--device", help="device file [deprecate warning: use -i instead]", default=DEFAULT_DEVICECSV)
-    parser.add_argument("-l", "--links", help="link file [deprecate warning: use -i instead]", default=DEFAULT_LINKCSV)
-    parser.add_argument("-c", "--console", help="console connection file [deprecate warning: use -i instead]", default=DEFAULT_CONSOLECSV)
-    parser.add_argument("-b", "--bmc", help="bmc connection file [deprecate warning: use -i instead]", default=DEFAULT_BMCCSV)
-    parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]", default=DEFAULT_PDUCSV)
-    parser.add_argument("-i", "--inventory", help="specify inventory namei to generate device/link/console/pdu file names, default none", default=None)
+    parser.add_argument("-d", "--device", help="device file [deprecate warning: use -i instead]",
+                        default=DEFAULT_DEVICECSV)
+    parser.add_argument("-l", "--links", help="link file [deprecate warning: use -i instead]",
+                        default=DEFAULT_LINKCSV)
+    parser.add_argument("-c", "--console", help="console connection file [deprecate warning: use -i instead]",
+                        default=DEFAULT_CONSOLECSV)
+    parser.add_argument("-b", "--bmc", help="bmc connection file [deprecate warning: use -i instead]",
+                        default=DEFAULT_BMCCSV)
+    parser.add_argument("-p", "--pdu", help="pdu connection file [deprecate warning: use -i instead]",
+                        default=DEFAULT_PDUCSV)
+    parser.add_argument("-i", "--inventory",
+                        help="specify inventory namei to generate device/link/console/pdu file names, default none",
+                        default=None)
     parser.add_argument("-o", "--output", help="output xml file", required=True)
     args = parser.parse_args()
 

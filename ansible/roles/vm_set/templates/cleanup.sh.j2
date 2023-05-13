@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 # stop rynning VMs
 test -z "$(virsh list --state-running --name)" || virsh list --state-running --name | xargs -I % virsh destroy %
@@ -18,13 +18,11 @@ rm -f {{ root_path }}/disks/*
 test -z "$(ovs-vsctl list-br)" || ovs-vsctl list-br | xargs -I % ovs-vsctl del-br %
 
 # stop exabgp process before stopping ptf container
-test -z "$(docker ps | grep ptf | awk '{print $NF}')"
-ptf_container_name=$(docker ps | grep ptf | awk '{print $NF}')
-for ptf in  $ptf_container_name;
+ptf_container_names=$(docker ps | grep ptf | awk '{print $NF}')
+for ptf in $ptf_container_names;
 do
-  test -z "$(docker exec $ptf supervisorctl status | grep exabgp | awk '{print $1}')"
-  exabgp_process_name="$(docker exec $ptf supervisorctl status | grep exabgp | awk '{print $1}')"
-  docker exec $ptf supervisorctl stop $exabgp_process_name
+  docker exec $ptf supervisorctl stop exabgpv4:*
+  docker exec $ptf supervisorctl stop exabgpv6:*
 done
 
 # stop all running docker containers

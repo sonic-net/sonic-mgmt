@@ -21,13 +21,14 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("any"),
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
 ]
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -65,6 +66,34 @@ DOWNSTREAM_IP_TO_ALLOW = {
     "ipv6": "20c0:a800::1"
 }
 DOWNSTREAM_IP_TO_BLOCK = {
+    "ipv4": "192.168.0.251",
+    "ipv6": "20c0:a800::9"
+}
+
+# Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
+DOWNSTREAM_DST_IP_M0_L3 = {
+    "ipv4": "192.168.1.65",
+    "ipv6": "20c0:a800:0:1::14"
+}
+DOWNSTREAM_IP_TO_ALLOW_M0_L3 = {
+    "ipv4": "192.168.1.66",
+    "ipv6": "20c0:a800:0:1::1"
+}
+DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
+    "ipv4": "192.168.1.67",
+    "ipv6": "20c0:a800:0:1::9"
+}
+
+# Below M0_VLAN IPs are ip in vlan range
+DOWNSTREAM_DST_IP_M0_VLAN = {
+    "ipv4": "192.168.0.253",
+    "ipv6": "20c0:a800::14"
+}
+DOWNSTREAM_IP_TO_ALLOW_M0_VLAN = {
+    "ipv4": "192.168.0.252",
+    "ipv6": "20c0:a800::1"
+}
+DOWNSTREAM_IP_TO_BLOCK_M0_VLAN = {
     "ipv4": "192.168.0.251",
     "ipv6": "20c0:a800::9"
 }
@@ -204,7 +233,7 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -222,8 +251,21 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
     vlan_ports = []
     vlan_mac = None
+    # Need to refresh below constants for two scenarios of M0
+    global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
 
-    if topo in ["t0", "m0", "mx"]:
+    # Announce routes for m0 is something different from t1/t0
+    if topo_scenario == "m0_vlan_scenario":
+        topo = "m0_vlan"
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_VLAN
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_VLAN
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_VLAN
+    elif topo_scenario == "m0_l3_scenario":
+        topo = "m0_l3"
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
+    if topo in ["t0", "mx", "m0_vlan"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
                       for ifname in list(mg_facts["minigraph_vlans"].values())[0]["members"]]
 
@@ -241,8 +283,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     upstream_port_id_to_router_mac_map = {}
     downstream_port_id_to_router_mac_map = {}
 
-    # For M0/T0/dual ToR testbeds, we need to use the VLAN MAC to interact with downstream ports
-    # For T1 testbeds, no VLANs are present so using the router MAC is acceptable
+    # For M0_VLAN/MX/T0/dual ToR scenario, we need to use the VLAN MAC to interact with downstream ports
+    # For T1/M0_L3 scenario, no VLANs are present so using the router MAC is acceptable
     downlink_dst_mac = vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
 
     if topo == "t2":
@@ -252,15 +294,17 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         downstream_port_id_to_router_mac_map = t2_info['downstream_port_id_to_router_mac_map']
         upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
     else:
+        upstream_neigh_type = get_upstream_neigh_type(topo)
+        downstream_neigh_type = get_downstream_neigh_type(topo)
+        pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
+                       "Cannot get neighbor type for unsupported topo: {}".format(topo))
         for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
             port_id = mg_facts["minigraph_ptf_indices"][interface]
-            if (topo == "t1" and "T0" in neighbor["name"]) or \
-               (topo in ["t0", "m0", "mx"] and "Server" in neighbor["name"]):
+            if downstream_neigh_type in neighbor["name"].upper():
                 downstream_ports[neighbor['namespace']].append(interface)
                 downstream_port_ids.append(port_id)
                 downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
-            elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
-                 (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]):
+            elif upstream_neigh_type in neighbor["name"].upper():
                 upstream_ports[neighbor['namespace']].append(interface)
                 upstream_port_ids.append(port_id)
                 upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
@@ -286,14 +330,15 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
 
-    if topo in ["t0", "m0", "mx"] or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
+    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
 
-    if topo in ["t0", "m0"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet", "t1-56-lag"):
+    if topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
+                                                                        "t1-56-lag"):
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
@@ -337,9 +382,11 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
-def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
-    if tbinfo["topo"]["type"] in ["t0", "m0", "mx"] and request.param == "ipv6":
-        pytest.skip("IPV6 ACL test not currently supported on t0/m0 testbeds")
+def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname, topo_scenario):
+    if tbinfo["topo"]["type"] in ["t0", "mx"] and request.param == "ipv6":
+        pytest.skip("IPV6 ACL test not currently supported on t0/mx testbeds")
+    if topo_scenario == "m0_vlan_scenario" and request.param == "ipv6":
+        pytest.skip("IPV6 ACL test not currently supported on m0_vlan")
 
     return request.param
 
@@ -347,14 +394,17 @@ def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="module")
 def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, ip_version):
     """Set up the ARP responder utility in the PTF container."""
+    global DOWNSTREAM_IP_PORT_MAP
+    # For m0 topo, need to refresh this constant for two different scenario
+    DOWNSTREAM_IP_PORT_MAP = {}
     duthost = duthosts[rand_one_dut_hostname]
-    if setup["topo"] not in ["t0", "m0", "mx"]:
+    if setup["topo"] not in ["t0", "mx", "m0_vlan"]:
         def noop():
             pass
 
         yield noop
 
-        return  # Don't fall through to t0/m0 case
+        return  # Don't fall through to t0/mx/m0_vlan case
 
     addr_list = [DOWNSTREAM_DST_IP[ip_version], DOWNSTREAM_IP_TO_ALLOW[ip_version], DOWNSTREAM_IP_TO_BLOCK[ip_version]]
 
@@ -810,16 +860,16 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         exp_pkt = pkt.copy()
 
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_packet(packet.Ether, "dst")
-        exp_pkt.set_do_not_care_packet(packet.Ether, "src")
+        exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
 
         if ip_version == "ipv4":
-            exp_pkt.set_do_not_care_packet(packet.IP, "chksum")
+            exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
+            exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
         else:
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_packet(packet.IPv6, 'hlim')
+            exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
 
         return exp_pkt
 
@@ -863,23 +913,47 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(7)
 
-    def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version,
+                                     topo_scenario):
         """Verify that we can match and forward a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_ALLOW[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_ALLOW[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(2 if direction == "uplink->downlink" else 3)
+        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        if direction == "uplink->downlink":
+            if topo_scenario == "m0_l3_scenario":
+                if ip_version == "ipv6":
+                    rule_id = 32
+                else:
+                    rule_id = 30
+            else:
+                rule_id = 2
+        else:
+            rule_id = 3
+        counters_sanity_check.append(rule_id)
 
-    def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version,
+                                   topo_scenario):
         """Verify that we can match and drop a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_BLOCK[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_BLOCK[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(15 if direction == "uplink->downlink" else 16)
+        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        if direction == "uplink->downlink":
+            if topo_scenario == "m0_l3_scenario":
+                if ip_version == "ipv6":
+                    rule_id = 33
+                else:
+                    rule_id = 31
+            else:
+                rule_id = 15
+        else:
+            rule_id = 16
+        counters_sanity_check.append(rule_id)
 
     def test_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop a packet on source IP."""

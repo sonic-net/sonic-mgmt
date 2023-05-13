@@ -23,7 +23,7 @@ LOOP_TIMES_LEVEL_MAP = {
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 

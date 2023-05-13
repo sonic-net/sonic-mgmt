@@ -9,7 +9,8 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # no
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_test_port_map
+
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -19,6 +20,7 @@ from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.fib_utils import fib_info_files_per_function     # noqa F401
 from tests.common.fixtures.fib_utils import single_fib_for_duts             # noqa F401
 from tests.common.utilities import wait
+from tests.common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,8 @@ pytestmark = [
 # When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different ingress ports
 # and expect that they are forwarded from same egress port.
 # HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'src-mac', 'dst-mac', 'ip-proto', 'vlan-id']
-HASH_KEYS = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'ingress-port', 'ip-proto']
+HASH_KEYS = ['src-ip', 'dst-ip', 'src-port',
+             'dst-port', 'ingress-port', 'ip-proto']
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
 SRC_IPV6_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
@@ -62,8 +65,10 @@ def updated_tbinfo(tbinfo):
         ifaces_po_201 = tbinfo['topo']['properties']['topology']['DUT']['portchannel_config']['PortChannel201']['intfs']
         for iface in ifaces_po_201:
             ptf_map_iface_index = tbinfo['topo']['ptf_map']['0'][str(iface)]
-            tbinfo['topo']['ptf_map_disabled']['0'].update({str(iface): ptf_map_iface_index})
-            tbinfo['topo']['properties']['topology']['disabled_host_interfaces'].append(iface)
+            tbinfo['topo']['ptf_map_disabled']['0'].update(
+                {str(iface): ptf_map_iface_index})
+            tbinfo['topo']['properties']['topology']['disabled_host_interfaces'].append(
+                iface)
     return tbinfo
 
 
@@ -90,7 +95,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
         test_balancing = True
 
     logging.info("run ptf test")
-    log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(ipv4, ipv6, timestamp)
+    log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(
+        ipv4, ipv6, timestamp)
     logging.info("PTF log file: %s" % log_file)
     ptf_runner(
         ptfhost,
@@ -98,7 +104,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
         "fib_test.FibTest",
         platform_dir="ptftests",
         params={
-            "fib_info_files": fib_info_files_per_function[:3],  # Test at most 3 DUTs
+            # Test at most 3 DUTs
+            "fib_info_files": fib_info_files_per_function[:3],
             "ptf_test_port_map": ptf_test_port_map_active_active(
                 ptfhost, updated_tbinfo, duthosts, mux_server_url,
                 duts_running_config_facts, duts_minigraph_facts,
@@ -138,7 +145,8 @@ def get_vlan_untag_ports(duthosts, duts_running_config_facts):
 
             vlans = list(asic_cfg_facts[1].get('VLAN_INTERFACE', {}).keys())
             for vlan in vlans:
-                vlan_member_info = asic_cfg_facts[1].get('VLAN_MEMBER', {}).get(vlan, {})
+                vlan_member_info = asic_cfg_facts[1].get(
+                    'VLAN_MEMBER', {}).get(vlan, {})
                 if vlan_member_info:
                     for port_name, tag_mode in list(vlan_member_info.items()):
                         if tag_mode['tagging_mode'] == 'untagged':
@@ -149,7 +157,8 @@ def get_vlan_untag_ports(duthosts, duts_running_config_facts):
 
 @pytest.fixture(scope="module")
 def hash_keys(duthost):
-    hash_keys = HASH_KEYS[:]    # Copy from global var to avoid side effects of multiple iterations
+    # Copy from global var to avoid side effects of multiple iterations
+    hash_keys = HASH_KEYS[:]
     if 'dst-mac' in hash_keys:
         hash_keys.remove('dst-mac')
 
@@ -174,11 +183,7 @@ def hash_keys(duthost):
             hash_keys.remove('ip-proto')
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
-    if duthost.facts['asic_type'] in ["innovium"]:
-        if 'ip-proto' in hash_keys:
-            hash_keys.remove('ip-proto')
-    # removing ip-proto from hash_keys for Cisco-8000 Distributed Chassis
-    if duthost.facts['platform'] in ['x86_64-8800_rp_o-r0', 'x86_64-88_lc0_36fh_mo-r0', 'x86_64-8800_lc_48h_o-r0']:
+    if duthost.facts['asic_type'] in ["innovium", "cisco-8000"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
@@ -197,7 +202,8 @@ def configure_vlan(duthost, ports):
         duthost.shell('config vlan add {}'.format(vlan))
         for port in ports:
             duthost.shell('config vlan member add {} {}'.format(vlan, port))
-        duthost.shell('config interface ip add Vlan{} '.format(vlan) + VLANIP.format(vlan % 256))
+        duthost.shell('config interface ip add Vlan{} '.format(
+            vlan) + VLANIP.format(vlan % 256))
     time.sleep(5)
 
 
@@ -205,7 +211,8 @@ def unconfigure_vlan(duthost, ports):
     for vlan in VLANIDS:
         for port in ports:
             duthost.shell('config vlan member del {} {}'.format(vlan, port))
-        duthost.shell('config interface ip remove Vlan{} '.format(vlan) + VLANIP.format(vlan % 256))
+        duthost.shell('config interface ip remove Vlan{} '.format(
+            vlan) + VLANIP.format(vlan % 256))
         duthost.shell('config vlan del {}'.format(vlan))
     time.sleep(5)
 
@@ -213,7 +220,8 @@ def unconfigure_vlan(duthost, ports):
 @pytest.fixture
 def setup_vlan(tbinfo, duthosts, duts_running_config_facts, hash_keys):
 
-    vlan_untag_ports = get_vlan_untag_ports(duthosts, duts_running_config_facts)
+    vlan_untag_ports = get_vlan_untag_ports(
+        duthosts, duts_running_config_facts)
     need_to_clean_vlan = False
 
     # add some vlan for hash_key vlan-id test
@@ -235,7 +243,7 @@ def ipver(request):
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
     """
     Add a default route to the device for storage backend testbed.
@@ -271,8 +279,10 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
                 for asic in duthost.asics:
                     if asic.is_it_backend():
                         continue
-                    asic.shell("ip route del default", module_ignore_errors=True)
-                    asic.shell("ip -6 route del default", module_ignore_errors=True)
+                    asic.shell("ip route del default",
+                               module_ignore_errors=True)
+                    asic.shell("ip -6 route del default",
+                               module_ignore_errors=True)
     else:
         yield
 
@@ -305,17 +315,97 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
                     ptfhost, updated_tbinfo, duthosts, mux_server_url,
                     duts_running_config_facts, duts_minigraph_facts,
                     mux_status_from_nic_simulator()
-                ),
-                "hash_keys": hash_keys,
-                "src_ip_range": ",".join(src_ip_range),
-                "dst_ip_range": ",".join(dst_ip_range),
-                "vlan_ids": VLANIDS,
-                "ignore_ttl": ignore_ttl,
-                "single_fib_for_duts": single_fib_for_duts,
-                "switch_type": switch_type
-                },
+        ),
+            "hash_keys": hash_keys,
+            "src_ip_range": ",".join(src_ip_range),
+            "dst_ip_range": ",".join(dst_ip_range),
+            "vlan_ids": VLANIDS,
+            "ignore_ttl": ignore_ttl,
+            "single_fib_for_duts": single_fib_for_duts,
+            "switch_type": switch_type
+        },
         log_file=log_file,
         qlen=PTF_QLEN,
         socket_recv_size=16384,
         is_python3=True
     )
+
+# The test case is to verify src-ip, dst-ip, src-port, dst-port and ip-proto of inner_frame in a IPinIP packet are
+# used as hash keys
+
+
+def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_per_function,  # noqa F811
+                     hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa F811
+                     ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
+                     duts_minigraph_facts):
+    # Skip test on none T1 testbed
+    pytest_require('t1' == tbinfo['topo']['type'],
+                   "The test case runs on T1 topology")
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
+        ipver, timestamp)
+    logging.info("PTF log file: %s" % log_file)
+    if ipver == "ipv4":
+        src_ip_range = SRC_IP_RANGE
+        dst_ip_range = DST_IP_RANGE
+    else:
+        src_ip_range = SRC_IPV6_RANGE
+        dst_ip_range = DST_IPV6_RANGE
+    ptf_runner(ptfhost,
+               "ptftests",
+               "hash_test.IPinIPHashTest",
+               platform_dir="ptftests",
+               params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
+                       "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
+                                                              duts_running_config_facts, duts_minigraph_facts),
+                       "hash_keys": hash_keys,
+                       "src_ip_range": ",".join(src_ip_range),
+                       "dst_ip_range": ",".join(dst_ip_range),
+                       "vlan_ids": VLANIDS,
+                       "ignore_ttl": ignore_ttl,
+                       "single_fib_for_duts": single_fib_for_duts,
+                       "ipver": ipver
+                       },
+               log_file=log_file,
+               qlen=PTF_QLEN,
+               socket_recv_size=16384)
+
+# The test is to verify the hashing logic is not using unexpected field as keys
+# Only inner frame length is tested at this moment
+
+
+def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files_per_function,          # noqa F811
+                              ptfhost, ipver, tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,  # noqa F811
+                              duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator):
+    hash_keys = ['inner_length']
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+    log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
+        ipver, timestamp)
+    logging.info("PTF log file: %s" % log_file)
+    if ipver == "ipv4":
+        src_ip_range = SRC_IP_RANGE
+        dst_ip_range = DST_IP_RANGE
+    else:
+        src_ip_range = SRC_IPV6_RANGE
+        dst_ip_range = DST_IPV6_RANGE
+    ptf_runner(ptfhost,
+               "ptftests",
+               "hash_test.IPinIPHashTest",
+               platform_dir="ptftests",
+               params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
+                       "ptf_test_port_map": ptf_test_port_map_active_active(
+                           ptfhost, tbinfo, duthosts, mux_server_url,
+                           duts_running_config_facts, duts_minigraph_facts,
+                           mux_status_from_nic_simulator()
+                        ),
+                       "hash_keys": hash_keys,
+                       "src_ip_range": ",".join(src_ip_range),
+                       "dst_ip_range": ",".join(dst_ip_range),
+                       "vlan_ids": VLANIDS,
+                       "ignore_ttl": ignore_ttl,
+                       "single_fib_for_duts": single_fib_for_duts,
+                       "ipver": ipver
+                       },
+               log_file=log_file,
+               qlen=PTF_QLEN,
+               socket_recv_size=16384)

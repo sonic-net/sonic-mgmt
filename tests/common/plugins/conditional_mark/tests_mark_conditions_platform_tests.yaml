@@ -82,6 +82,13 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
@@ -89,6 +96,13 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_to
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
   skip:
@@ -123,20 +137,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
-
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
@@ -381,11 +381,16 @@ platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
 
-
-
 #######################################
 #####    api/test_psu_fans.py     #####
 #######################################
+platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
+
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_fans_target_speed:
   skip:
     reason: "Unsupported platform API"
@@ -424,13 +429,6 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
 #######################################
 #####        api/test_sfp.py      #####
 #######################################
-platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
-
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -727,8 +725,8 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 #######################################
 platform_tests/fwutil/test_fwutil.py:
   skip:
-  reason: "Non-Mellanox platforms doesn't support fwutil for now"
-  conditions:
+    reason: "Non-Mellanox platforms doesn't support fwutil for now"
+    conditions:
       - "asic_type not in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/7811
 
@@ -750,6 +748,15 @@ platform_tests/mellanox/test_reboot_cause.py:
     reason: "Does not support platform_tests/mellanox/test_reboot_cause.py"
     conditions:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
+
+#######################################
+####  test_memory_exhaustion.py   #####
+#######################################
+platform_tests/test_memory_exhaustion.py:
+  skip:
+    reason: "Unsupported release or platforms"
+    conditions:
+      - "(is_multi_asic==True and release in ['201911']) or (hwsku in ['Celestica-E1031-T48S4'])"
 
 #######################################
 #####    test_platform_info.py    #####
@@ -848,9 +855,11 @@ platform_tests/test_reboot.py::test_warm_reboot:
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
-    reason: "Skip watchdog reboot test for Wistron / Nokia 7215"
+    reason: "Skip watchdog reboot test for Wistron / Nokia 7215 / cisco platform x86_64-8102_64h_o-r0"
+    conditions_logical_operator: or
     conditions:
       - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "'t1' in topo_type and platform in ['x86_64-8102_64h_o-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
@@ -867,12 +876,3 @@ platform_tests/test_reload_config.py:
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
-
-#######################################
-####  test_memory_exhaustion.py   #####
-#######################################
-platform_tests/test_memory_exhaustion.py:
-  skip:
-    reason: "Unsupported release 20191130"
-    conditions:
-      - "is_multi_asic==True and release in ['201911']"

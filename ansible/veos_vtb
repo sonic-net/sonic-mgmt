@@ -33,6 +33,9 @@ all:
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
+          - dualtor-aa
+          - dualtor-aa-56
+          - dualtor-aa-120
           - wan-pub
           - wan-4link
           - wan-pub-cisco

@@ -37,6 +37,9 @@ class SonicHost(AnsibleHostBase):
     """
     DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
+    """
+    setting either one of shell_user/shell_pw or ssh_user/ssh_passwd pair should yield the same result.
+    """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
                  ssh_user=None, ssh_passwd=None):
@@ -2301,7 +2304,10 @@ Totals               6450                 6449
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
-        return out["stdout_lines"][0]
+        if out["stdout_lines"]:
+            return out["stdout_lines"][0]
+        else:
+            return None
 
     def set_port_fec(self, portname, state):
         if not state:
