@@ -15,7 +15,7 @@ def test_event(duthost, run_cmd, data_dir, validate_yang):
 
 
 def test_bgp_state_event(duthost, run_cmd, data_dir, validate_yang):
-    run_test(duthost, run_cmd, data_dir, validate_yang, shutdown_bgp_neighbors
+    run_test(duthost, run_cmd, data_dir, validate_yang, shutdown_bgp_neighbors,
              "bgp_state.json", tag, "bgp-state", 60)
 
 
