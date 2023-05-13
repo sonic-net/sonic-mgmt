@@ -454,17 +454,17 @@ generic_config_updater/test_eth_interface.py:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
       
-generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
-  skip:
-    reason: 'Not supported on Cisco platforms'
-    conditions:
-      - "asic_type in ['cisco-8000']"
-
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
     conditions:
       - "platform in ['x86_64-kvm_x86_64-r0']"
+      
+generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
+  skip:
+    reason: 'Not supported on Cisco platforms'
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
   skip:
