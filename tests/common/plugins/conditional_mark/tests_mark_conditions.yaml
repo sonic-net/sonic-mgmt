@@ -467,6 +467,12 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
       - "asic_type in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/7733
 
+generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
+  skip:
+    reason: "Skip asym pfc on unsupported platforms"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+      
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test was not run on this hwsku type currently"
