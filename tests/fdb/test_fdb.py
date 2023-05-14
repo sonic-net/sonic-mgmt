@@ -15,8 +15,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging           # noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby     # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup            # noqa F401
 from tests.common.dualtor.mux_simulator_control import mux_server_url, \
                                                        toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
 from .utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 
 pytestmark = [
@@ -271,10 +274,31 @@ def record_mux_status(request, rand_selected_dut, tbinfo):
         logger.warning("fdb test failed. Mux status are \n {}".format(mux_status))
 
 
+@pytest.fixture(params=PKT_TYPES)
+def pkt_type(request):
+    """Packet type to test."""
+    return request.param
+
+
+@pytest.fixture
+def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
+                              pkt_type, config_active_active_dualtor_active_standby,                        # noqa F811
+                              validate_active_active_dualtor_setup):                                        # noqa F811
+    if active_active_ports and pkt_type == "ethernet":
+        # for active-active dualtor, the upstream traffic is ECMPed to both ToRs, so let's
+        # config the unselected ToR as standby to ensure all ethernet type packets are
+        # forwarded to the selected ToR.
+        logger.info("Configuring {} as active".format(rand_selected_dut.hostname))
+        logger.info("Configuring {} as standby".format(rand_unselected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
+
+    return
+
+
 @pytest.mark.bsl
-@pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
-             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status, get_dummay_mac_count):   # noqa F811
+             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa F811
+             setup_active_active_ports, get_dummay_mac_count):                                  # noqa F811
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
@@ -368,7 +392,6 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     assert dummy_mac_count == configured_dummay_mac_count * vlan_member_count
 
 
-@pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type,
                              toggle_all_simulator_ports_to_rand_selected_tor_m, tbinfo):    # noqa F811
     """
