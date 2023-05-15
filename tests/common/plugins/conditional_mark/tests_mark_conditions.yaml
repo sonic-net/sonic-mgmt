@@ -1064,6 +1064,21 @@ vlan/test_vlan_ping.py:
       - "asic_type in ['broadcom']"
 
 #######################################
+#####             voq             #####
+#######################################
+voq/test_fabric_reach.py:
+  skip:
+    reason: "Skip test_fabric_reach on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
+
+voq/test_voq_fabric_status_all.py:
+  skip:
+    reason: "Skip test_voq_fabric_status_all on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
+
+#######################################
 #####             vrf             #####
 #######################################
 vrf/test_vrf.py::TestVrfAclRedirect:
