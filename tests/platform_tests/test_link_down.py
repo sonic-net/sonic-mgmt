@@ -25,6 +25,30 @@ pytestmark = [
 MAX_TIME_TO_REBOOT = 120
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_hostname, loganalyzer):
+    """
+    Ignore following syslog errors, when loganalyzer is enabled
+    """
+    ignore_regex_dict = [
+            ".*ERR lldp[0-9]*#lldpmgrd.*Port init timeout reached (300 seconds), resuming lldpd.*",
+            ".*ERR monit.*",
+    ]
+
+    impacted_duts = []
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        impacted_duts = duthosts
+    else:
+        impacted_duts = [duthost]
+
+    logger.info("Impacted DUTs: '{}'".format(impacted_duts))
+
+    if loganalyzer:
+        for a_dut in impacted_duts:
+            loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex_dict)
+
+
 @pytest.fixture(scope='function')
 def set_max_to_reboot(duthost):
     """
