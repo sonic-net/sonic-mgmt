@@ -146,7 +146,7 @@ def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
                     else:
                         assert ifname == vlan_port["dev"]
                     assert vlan_id == permit_vlanid
-                assert arp_cnt == DUMMY_ARP_COUNT, "Expect {} ARP entries, but only {} found".format(DUMMY_ARP_COUNT, arp_cnt)
+                assert arp_cnt == DUMMY_ARP_COUNT, "Expect {} entries, but {} found".format(DUMMY_ARP_COUNT, arp_cnt)
             except Exception as detail:
                 logger.error("Except: {}".format(detail))
                 raise
