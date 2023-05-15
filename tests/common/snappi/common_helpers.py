@@ -387,10 +387,14 @@ def get_wred_profiles(host_ans, asic_value="None"):
         }
     """
     if asic_value == "None":
-        config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
+        config_facts = host_ans.config_facts(
+                                             host=host_ans.hostname,
+                                             source="running"
+                                             )['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
-                                            host=host_ans.hostname, source="running",
+                                            host=host_ans.hostname,
+                                            source="running",
                                             namespace=asic_value
                                             )['ansible_facts']
 
@@ -517,6 +521,7 @@ def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value='None'):
         host_ans: Ansible host instance of the device
         profile (str): buffer profile name
         alpha_log2 (int): set threshold to 2^alpha_log2
+        asic_value: asic value of the host
 
     Returns:
         N/A

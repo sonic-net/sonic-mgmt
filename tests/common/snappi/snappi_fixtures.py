@@ -529,10 +529,8 @@ def snappi_dut_base_config(duthost_list,
     """
     Geenrate snappi API config and port config information for the testbed
     Args:
-        conn_graph_facts (pytest fixture)
-        fanout_graph_facts (pytest fixture)
-        duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (pytest fixture): DUT hostname
+        duthost_list (pytest fixture): list of DUTs
+        snappi_ports: list of snappi ports
         snappi_api(pytest fixture): Snappi API fixture
     Returns:
         - config (obj): Snappi API config of the testbed
@@ -703,6 +701,16 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
 
 
 def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
+    """
+    Configures interfaces of the DUT
+    Args:
+        config (obj): Snappi API config of the testbed
+        port_config_list (list): list of Snappi port configuration information
+        duthost (object): device under test
+        snappi_ports (list): list of Snappi port information
+    Returns:
+        True if we successfully configure the interfaces or False
+    """
     prefix = 24
     dutIps = create_ip_list("20.0.1.1", len(snappi_ports), mask=prefix)
     tgenIps = create_ip_list("20.0.1.2", len(snappi_ports), mask=prefix)
@@ -755,6 +763,16 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
 
 
 def get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, number_of_tgen_peer_ports=2):
+    """
+    Configures interfaces of the DUT
+    Args:
+        line_card_choice (obj): Line card type defined by the variable file
+        ports (list): list of Snappi port configuration information
+        config_set: Comprises of linecard configuration type and asic values
+        number_of_tgen_peer_ports: number of ports needed for the test
+    Returns:
+        The ports for the respective line card choice from the testbed file
+    """
     linecards = {}
     try:
         from itertools import izip_longest as zip_longest
