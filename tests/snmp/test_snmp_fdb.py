@@ -75,7 +75,7 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
 @pytest.mark.po2vlan
 def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,          # noqa F811
                               toggle_all_simulator_ports_to_rand_selected_tor_m,    # noqa F811
-                              rand_selected_dut, tbinfo, ports_list, localhost, creds_all_duts):
+                              rand_selected_dut, tbinfo, ports_list, localhost, creds_all_duts): # noqa F811
     """
     Send tagged packets from each port.
     Verify SNMP FDB entry
