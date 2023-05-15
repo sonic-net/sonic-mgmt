@@ -172,15 +172,23 @@ stages:
 #        MAX_WORKER: $(T0_INSTANCE_NUM)
 
 
+<<<<<<< HEAD
 #  - job: t0_2vlans_elastictest
 #    displayName: "kvmtest-t0-2vlans by Elastictest"
 #    timeoutInMinutes: 240
+=======
+#  - job: t0_testbedv2
+#    displayName: "kvmtest-t0 by TestbedV2"
+#    timeoutInMinutes: 240
+#    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+>>>>>>> cd1de345e (Mock bgp failure)
 #    continueOnError: false
 #    pool: ubuntu-20.04
 #    steps:
 #    - template: .azure-pipelines/run-test-scheduler-template.yml
 #      parameters:
 #        TOPOLOGY: t0
+<<<<<<< HEAD
 #        TEST_SET: t0-2vlans
 #        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
 #        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
@@ -241,3 +249,7 @@ stages:
 #  - job: sonic_t0_elastictest
 #    displayName: "kvmtest-t0-sonic by Elastictest"
 
+=======
+#        MIN_WORKER: $(T0_INSTANCE_NUM)
+#        MAX_WORKER: $(T0_INSTANCE_NUM)
+>>>>>>> cd1de345e (Mock bgp failure)
