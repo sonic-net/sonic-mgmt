@@ -5,6 +5,8 @@ import functools
 from isis_helpers import setup_isis
 from isis_helpers import teardown_isis
 
+MESH_CAST_LIST = ['test_isis_database']
+
 
 def pytest_addoption(parser):
     """
@@ -15,18 +17,12 @@ def pytest_addoption(parser):
 
 
 def get_target_dut_port(mg_facts, dut_intf):
-    for k, v in mg_facts['minigraph_portchannels'].items():
+    for k, v in list(mg_facts['minigraph_portchannels'].items()):
         if dut_intf in v['members']:
             dut_port = k
             # One member interface would only exist in one Portchannel.
             break
     return dut_port
-
-
-def get_dut_port_p2p(mg_facts, dut_port):
-    for p2p in mg_facts['minigraph_portchannel_interfaces']:
-        if p2p['attachto'] == dut_port:
-            return (p2p['subnet'], p2p['peer_addr'])
 
 
 def parse_vm_vlan_port(vlan):
@@ -42,14 +38,15 @@ def parse_vm_vlan_port(vlan):
 
 def port_indice_to_name(dut_host, tbinfo, port_indice):
     mg_facts = dut_host.get_extended_minigraph_facts(tbinfo)
-    indice_port_map = dict(zip(mg_facts['minigraph_port_indices'].values(), mg_facts['minigraph_port_indices'].keys()))
+    indice_port_map = dict(list(zip(list(mg_facts['minigraph_port_indices'].values()),
+                                    list(mg_facts['minigraph_port_indices'].keys()))))
     return indice_port_map[port_indice]
 
 
 def get_dut_isis_dpg_topo(dut_host, nbrhosts, duts_interconnects, tbinfo):
     connections = []
     mg_facts = dut_host.get_extended_minigraph_facts(tbinfo)
-    for k, v in mg_facts['minigraph_neighbors'].items():
+    for k, v in list(mg_facts['minigraph_neighbors'].items()):
         if v['name'] in nbrhosts:
             dut_port = get_target_dut_port(mg_facts, k)
             nbr_port = nbrhosts[v['name']]['host'].get_portchannel_by_member(v['port'])
@@ -73,9 +70,9 @@ def get_dut_isis_dpg_topo(dut_host, nbrhosts, duts_interconnects, tbinfo):
 def duts_interconnects(duthosts, tbinfo):
     connections = []
     dut_names = [dut.hostname for dut in duthosts]
-    dut_index_map = dict(zip(tbinfo['duts_map'].values(), tbinfo['duts_map'].keys()))
+    dut_index_map = dict(list(zip(list(tbinfo['duts_map'].values()), list(tbinfo['duts_map'].keys()))))
     if 'devices_interconnect_interfaces' in tbinfo['topo']['properties']['topology']:
-        for _, items in tbinfo['topo']['properties']['topology']['devices_interconnect_interfaces'].items():
+        for _, items in list(tbinfo['topo']['properties']['topology']['devices_interconnect_interfaces'].items()):
             assert(len(items) == 2)
             connect = []
             for item in items:
@@ -100,7 +97,7 @@ def isis_dpg_topo(duthosts, nbrhosts, duts_interconnects, tbinfo):
 def isis_common_setup_teardown(isis_dpg_topo, request, rand_selected_dut):
     dut_host = rand_selected_dut
     selected_connections = []
-    if request.config.getoption("--swan_agent"):
+    if request.config.getoption("--swan_agent") or request.module.__name__ in MESH_CAST_LIST:
         selected_connections = isis_dpg_topo
     else:
         for item in isis_dpg_topo:

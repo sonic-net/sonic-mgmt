@@ -118,9 +118,10 @@ class snmpPduController(PduControllerBase):
             for varBinds in varTable:
                 for oid, val in varBinds:
                     oid = oid.getOid() if hasattr(oid, 'getoid') else oid
-                    current_oid = oid.prettyPrint()
+                    current_oid = str(oid)
                     port_oid = current_oid.replace(pdu_port_base, '')
                     label = val.prettyPrint().lower()
+                    logger.info("Found port {} with label {}".format(port_oid, label))
                     self._build_outlet_maps(port_oid, label)
 
     def _get_pdu_ports(self):
@@ -226,8 +227,8 @@ class snmpPduController(PduControllerBase):
 
         for oid, val in varBinds:
             oid = oid.getOid() if hasattr(oid, 'getoid') else oid
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = str(oid)
+            current_val = str(val)
             port_oid = current_oid.replace(self.PORT_POWER_BASE_OID, '')
             if port_oid == port_id:
                 status['output_watts'] = current_val
@@ -245,8 +246,8 @@ class snmpPduController(PduControllerBase):
 
         for oid, val in varBinds:
             oid = oid.getOid() if hasattr(oid, 'getoid') else oid
-            current_oid = oid.prettyPrint()
-            current_val = val.prettyPrint()
+            current_oid = str(oid)
+            current_val = str(val)
             port_oid = current_oid.replace(self.PORT_STATUS_BASE_OID, '')
             if port_oid == port_id:
                 status = {"outlet_id": port_oid, "outlet_on": True if current_val == self.STATUS_ON else False}
@@ -278,14 +279,15 @@ class snmpPduController(PduControllerBase):
 
         if not outlet and not hostname:
             # Return status of all outlets
-            ports = self.port_oid_dict.keys()
+            ports = list(self.port_oid_dict.keys())
         elif outlet:
-            ports = [oid for oid in self.port_oid_dict.keys() if oid.endswith(outlet)]
+            ports = [oid for oid in list(self.port_oid_dict.keys()) if oid.endswith(outlet)]
             if not ports:
                 logger.error("Outlet ID {} doesn't belong to PDU {}".format(outlet, self.controller))
         elif hostname:
             hn = hostname.lower()
-            ports = [self.port_label_dict[label]['port_oid'] for label in self.port_label_dict.keys() if hn in label]
+            ports = [self.port_label_dict[label]['port_oid']
+                     for label in list(self.port_label_dict.keys()) if hn in label]
             if not ports:
                 logger.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
 

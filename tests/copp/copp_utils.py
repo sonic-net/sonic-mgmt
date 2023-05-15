@@ -9,6 +9,7 @@ import logging
 import json
 
 from tests.common.config_reload import config_reload
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 DEFAULT_NN_TARGET_PORT = 3
 
@@ -196,12 +197,16 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
 
 def restore_syncd(dut, nn_target_namespace):
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
-
     syncd_docker_name = asichost.get_docker_name("syncd")
 
-    dut.command("docker exec {} rm -rf /etc/supervisor/conf.d/{}".format(syncd_docker_name, _SYNCD_NN_FILE))
-    dut.command("docker exec {} supervisorctl reread".format(syncd_docker_name))
-    dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
+    if nn_target_namespace == DEFAULT_NAMESPACE and dut.is_multi_asic:
+        asics_list = dut.asics
+    else:
+        asics_list = [dut.asic_instance_from_namespace(nn_target_namespace)]
+
+    for asic in asics_list:
+        asic.stop_service(syncd_docker_name)
+        asic.delete_container(syncd_docker_name)
 
 
 def _install_nano(dut, creds,  syncd_docker_name):

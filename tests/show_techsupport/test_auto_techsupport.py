@@ -67,7 +67,8 @@ class TestAutoTechSupport:
 
     def set_test_dockers_list(self):
         self.dockers_list = []
-        auto_tech_support_features_list = self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys()
+        auto_tech_support_features_list = list(
+            self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys())
         system_features_status = self.duthost.get_feature_status()
         for feature in auto_tech_support_features_list:
             if is_docker_enabled(system_features_status, feature):
@@ -826,7 +827,7 @@ def validate_auto_techsupport_feature_config(dut_cli, expected_status_dict=None)
     """
     auto_techsupport_feature_dict = dut_cli.auto_techsupport.parse_show_auto_techsupport_feature()
 
-    for feature, configuration in auto_techsupport_feature_dict.items():
+    for feature, configuration in list(auto_techsupport_feature_dict.items()):
         if expected_status_dict:
             if feature not in expected_status_dict:
                 continue
@@ -949,6 +950,7 @@ def get_new_techsupport_files_list(duthost, available_tech_support_files):
     :return: list of new techsupport files
     """
     try:
+        duthost.shell('ls -lh /var/dump/')  # print into logs full folder content(for debug purpose)
         new_available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
     except RunAnsibleModuleFail:
         new_available_tech_support_files = []
@@ -981,7 +983,7 @@ def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
             syslogs_creation_date_dict[file_timestamp] = [syslog_file_name]
 
     # Sorted from new to old
-    syslogs_sorted = sorted(syslogs_creation_date_dict.keys(), reverse=True)
+    syslogs_sorted = sorted(list(syslogs_creation_date_dict.keys()), reverse=True)
     expected_files_in_techsupport_list = []
     for date in syslogs_sorted:
         expected_files_in_techsupport_list.extend(syslogs_creation_date_dict[date])
@@ -1110,7 +1112,7 @@ def create_core_stub_file(duthost, size_in_mb):
     """
     with allure.step('Create stub .core file'):
         current_time = int(time.time())
-        random_pid = random.choice(range(100, 20000))  # Get random PID
+        random_pid = random.choice(list(range(100, 20000)))  # Get random PID
         file_name = 'bash.{}.{}.core.gz'.format(current_time, random_pid)
         core_folder_path = '/var/core/'
         full_path_to_file = '{}{}'.format(core_folder_path, file_name)
@@ -1232,6 +1234,10 @@ def clear_folders(duthost):
     Clear auto-techsupport related folders
     :param duthost: duthost object
     """
+    # print into logs folders content(for debug purpose) before remove
+    duthost.shell('sudo ls -lh /var/core/')
+    duthost.shell('sudo ls -lh /var/dump/')
+
     duthost.shell('sudo rm -rf /var/core/*')
     duthost.shell('sudo rm -rf /var/dump/*')
 
@@ -1265,11 +1271,13 @@ def get_random_physical_port_non_po_member(minigraph_facts):
     :return: string, port name
     """
     po_members = []
-    for po_iface, po_data in minigraph_facts['minigraph_portchannels'].items():
+    test_port = None
+    for po_iface, po_data in list(minigraph_facts['minigraph_portchannels'].items()):
         po_members += po_data['members']
-    all_ports = list(minigraph_facts[u'minigraph_ports'].keys())
+    all_ports = list(minigraph_facts['minigraph_ports'].keys())
     non_po_ports = [port for port in all_ports if port not in po_members]
-    test_port = random.choice(non_po_ports)
+    if non_po_ports:
+        test_port = random.choice(non_po_ports)
     return test_port
 
 

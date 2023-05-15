@@ -393,7 +393,7 @@ def main():
     set_print()
     print("Calling compare dumps")
     ret, msg = compare_dumps("logs/AddRack/orig", "logs/AddRack/clet")
-    print("ret = {} msg={}".format(ret, msg))
+    print(("ret = {} msg={}".format(ret, msg)))
 
 
 if __name__ == "__main__":

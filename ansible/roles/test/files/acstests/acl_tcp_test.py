@@ -60,16 +60,16 @@ class SendTCP(acs_base_test.ACSDataplaneTest):
             self.assertTrue(False)
 
         # res = scapy2.sniff(iface="eth2", timeout=3)
-        # print res
+        # print(res)
         # if res:
         #     raise
 
         # if reply:
         #     raise
-        # print "================______====\n"
-        # print reply
-        # print error
-        # print "================______====\n"
+        # print("================______====\n")
+        # print(reply)
+        # print(error)
+        # print("================______====\n")
         # if reply:
         #     reply.show()
         # (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, port_number=0, timeout=5)
@@ -83,24 +83,24 @@ class SendTCP(acs_base_test.ACSDataplaneTest):
         # mpkt.set_do_not_care(16*8, 49*8)
         # verify_packet(self, mpkt, 0)
         # (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, port_number=0, timeout=5)
-        # print "================______====\n"
+        # print("================______====\n")
         # y = 0
         # for x in rcv_pkt:
-        #     print "%d - %X" % (y, ord(x))
+        #     print("%d - %X" % (y, ord(x)))
         #     y +=1
 
 
 """
 (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(self, device_number=0, timeout=3)
-        print "================______====\n"
+        print("================______====\n")
         y = 0
         for x in rcv_pkt:
-            print "%d - %X" % (y, ord(x))
+            print("%d - %X" % (y, ord(x)))
             y +=1
 
         y = 0
         for x in str(pkt):
-            print "%d - %X" % (y, ord(x))
+            print("%d - %X" % (y, ord(x)))
             y +=1
 """
 
@@ -132,7 +132,7 @@ from ptf.mask import Mask
 
 class ACLpermit(acs_base_test.ACSDataplaneTest):
     def runTest(self):
-        print "The test is passed"
+        print("The test is passed")
         pass
        # pkt = simple_ip_packet( eth_dst='00:01:02:03:04:05',
        #                         eth_src='00:06:07:08:09:0a',

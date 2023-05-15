@@ -1,6 +1,6 @@
 import os
 import pytest
-import httplib
+import http.client
 
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
@@ -89,7 +89,7 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_ip = duthost.mgmt_ip
 
-    conn = httplib.HTTPConnection(dut_ip, SERVER_PORT)
+    conn = http.client.HTTPConnection(dut_ip, SERVER_PORT)
     try:
         yield conn
     finally:
@@ -105,7 +105,7 @@ def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     yield
     loganalyzer.match_regex.extend(['WARNING pmon#platform_api_server.py: API.+not implemented'])
     loganalyzer.analyze(marker)
-    
+
 
 def pytest_addoption(parser):
     parser.addoption("--unresettable_xcvr_types", action="append", default=[], help="unsupported resettable xcvr types")

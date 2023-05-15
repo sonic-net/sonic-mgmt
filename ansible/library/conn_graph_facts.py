@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from ansible.module_utils.basic import AnsibleModule
 import lxml.etree as ET
 import yaml
 import os
@@ -25,7 +25,7 @@ except ImportError:
 config_module_logging('conn_graph_facts')
 
 
-DOCUMENTATION='''
+DOCUMENTATION = '''
 module: conn_graph_facts.py
 version_added:  2.0
 short_description: Retrive lab fanout switches physical and vlan connections
@@ -64,13 +64,15 @@ Ansible_facts:
     server_links: each server port vlan ids
     device_console_info: The device's console server type, mgmtip, hwsku and protocol
     device_console_link:  The console server port connected to the device
+    device_bmc_info: The device's bmc server type, mgmtip, hwsku and protocol
+    device_bmc_link:  The bmc server port connected to the device
     device_pdu_info: The device's pdu server type, mgmtip, hwsku and protocol
     device_pdu_links: The pdu server ports connected to the device
 
 '''
 
 
-EXAMPLES='''
+EXAMPLES = '''
     - name: conn_graph_facts: host = "str-7260-11"
 
     return:
@@ -113,10 +115,12 @@ class Parse_Lab_Graph():
     for deploying fanout switches and dynamically configure vlan mapping to hook up EOS VMs
     and ptf docker for lab testing
 
-    There is a creategraph.py under ansible/files to create the png and dpg like graph file for lab devices from csv file
+    There is a creategraph.py under ansible/files to create the png and
+    dpg like graph file for lab devices from csv file
     The  2 csv files under ansible/files are csv files to list all devices and device links for Sonic testbed
     There is a sonic_server_links.yml file to describe the connections between servers port and Sonic devices
-    This module conn_graph_file also parse the server links to have a full root fanout switches template for deployment.
+    This module conn_graph_file also parse the server links to have
+    a full root fanout switches template for deployment.
     """
 
     def __init__(self, xmlfile):
@@ -126,12 +130,14 @@ class Parse_Lab_Graph():
         self.vlanrange = {}
         self.links = {}
         self.consolelinks = {}
+        self.bmclinks = {}
         self.pdulinks = {}
         self.server = defaultdict(dict)
         self.pngtag = 'PhysicalNetworkGraphDeclaration'
         self.dpgtag = 'DataPlaneGraph'
         self.pcgtag = 'PowerControlGraphDeclaration'
         self.csgtag = 'ConsoleGraphDeclaration'
+        self.bmcgtag = 'BmcGraphDeclaration'
 
     def port_vlanlist(self, vlanrange):
         vlans = []
@@ -157,21 +163,18 @@ class Parse_Lab_Graph():
         devices = deviceroot.findall('Device')
         if devices is not None:
             for dev in devices:
-                hostname = dev.attrib['Hostname']
+                attributes = dev.attrib
+                hostname = attributes['Hostname']
                 if hostname is not None:
                     deviceinfo[hostname] = {}
-                    hwsku = dev.attrib['HwSku']
-                    devtype = dev.attrib['Type']
-                    card_type = "Linecard"
-                    if 'CardType' in dev.attrib:
-                        card_type = dev.attrib['CardType']
-                    hwsku_type = "predefined"
-                    if "HwSkuType" in dev.attrib:
-                        hwsku_type = dev.attrib["HwSkuType"]
-                    deviceinfo[hostname]['HwSku'] = hwsku
-                    deviceinfo[hostname]['Type'] = devtype
-                    deviceinfo[hostname]['CardType'] = card_type
-                    deviceinfo[hostname]["HwSkuType"] = hwsku_type
+                    deviceinfo[hostname]["Hostname"] = hostname
+                    deviceinfo[hostname]['HwSku'] = attributes.get('HwSku')
+                    deviceinfo[hostname]['Type'] = attributes.get('Type')
+                    deviceinfo[hostname]['CardType'] = attributes.get(
+                        'CardType', 'Linecard')
+                    deviceinfo[hostname]['HwSkuType'] = attributes.get(
+                        'HwSkuType', 'predefined')
+                    deviceinfo[hostname]['Os'] = attributes.get('Os')
                     self.links[hostname] = {}
         devicel2info = {}
         devicel3s = self.root.find(self.dpgtag).findall('DevicesL3Info')
@@ -187,62 +190,139 @@ class Parse_Lab_Graph():
                         portmode = vlan.attrib['mode']
                         portvlanid = vlan.attrib['vlanids']
                         portvlanlist = self.port_vlanlist(portvlanid)
-                        devicel2info[hostname][portname] = {'mode': portmode, 'vlanids': portvlanid, 'vlanlist': portvlanlist}
+                        devicel2info[hostname][portname] = {
+                            'mode': portmode, 'vlanids': portvlanid, 'vlanlist': portvlanlist}
         if devicel3s is not None:
             for l3info in devicel3s:
                 hostname = l3info.attrib['Hostname']
                 if hostname is not None:
-                    management_ip = l3info.find('ManagementIPInterface').attrib['Prefix']
+                    deviceinfo[hostname]["Hostname"] = hostname
+                    management_ip = l3info.find(
+                        'ManagementIPInterface').attrib['Prefix']
                     deviceinfo[hostname]['ManagementIp'] = management_ip
                     mgmtip = ipaddress.IPNetwork(management_ip)
                     deviceinfo[hostname]['mgmtip'] = str(mgmtip.ip)
                     management_gw = str(mgmtip.network+1)
                     deviceinfo[hostname]['ManagementGw'] = management_gw
-        allinks = self.root.find(self.pngtag).find('DeviceInterfaceLinks').findall('DeviceInterfaceLink')
+        allinks = self.root.find(self.pngtag).find(
+            'DeviceInterfaceLinks').findall('DeviceInterfaceLink')
         if allinks is not None:
             for link in allinks:
                 start_dev = link.attrib['StartDevice']
                 end_dev = link.attrib['EndDevice']
                 if start_dev:
-                    self.links[start_dev][link.attrib['StartPort']] = {'peerdevice':link.attrib['EndDevice'], 'peerport': link.attrib['EndPort'], 'speed': link.attrib['BandWidth']}
+                    self.links[start_dev][link.attrib['StartPort']] = {
+                        'peerdevice': link.attrib['EndDevice'], 'peerport': link.attrib['EndPort'],
+                        'speed': link.attrib['BandWidth']}
                 if end_dev:
-                    self.links[end_dev][link.attrib['EndPort']] = {'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort'], 'speed': link.attrib['BandWidth']}
+                    self.links[end_dev][link.attrib['EndPort']] = {
+                        'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort'],
+                        'speed': link.attrib['BandWidth']}
         console_root = self.root.find(self.csgtag)
         if console_root:
             devicecsgroot = console_root.find('DevicesConsoleInfo')
             devicescsg = devicecsgroot.findall('DeviceConsoleInfo')
             if devicescsg is not None:
                 for dev in devicescsg:
-                    hostname = dev.attrib['Hostname']
+                    attributes = dev.attrib
+                    hostname = attributes['Hostname']
                     if hostname is not None:
                         deviceinfo[hostname] = {}
-                        hwsku = dev.attrib['HwSku']
-                        devtype = dev.attrib['Type']
-                        protocol = dev.attrib['Protocol']
-                        mgmt_ip = dev.attrib['ManagementIp']
-                        deviceinfo[hostname]['HwSku'] = hwsku
-                        deviceinfo[hostname]['Type'] = devtype
-                        deviceinfo[hostname]['Protocol'] = protocol
+                        deviceinfo[hostname]["Hostname"] = hostname
+                        deviceinfo[hostname]['HwSku'] = attributes.get('HwSku')
+                        deviceinfo[hostname]['Type'] = attributes.get('Type')
+                        deviceinfo[hostname]['Protocol'] = attributes.get(
+                            'Protocol')
+                        deviceinfo[hostname]['Os'] = attributes.get('Os')
+                        mgmt_ip = attributes.get('ManagementIp')
+                        management_gw = str(
+                            ipaddress.IPNetwork(mgmt_ip).network+1)
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
+                        deviceinfo[hostname]['ManagementGw'] = management_gw
                         self.consolelinks[hostname] = {}
             console_link_root = console_root.find('ConsoleLinksInfo')
             if console_link_root:
                 allconsolelinks = console_link_root.findall('ConsoleLinkInfo')
                 if allconsolelinks is not None:
                     for consolelink in allconsolelinks:
-                        start_dev = consolelink.attrib['StartDevice']
-                        end_dev = consolelink.attrib['EndDevice']
-                        console_proxy = consolelink.attrib['Proxy']
-                        console_type = consolelink.attrib['Console_type']
+                        attributes = consolelink.attrib
+                        start_dev = attributes.get('StartDevice')
+                        start_port = attributes.get('StartPort')
+                        end_dev = attributes.get('EndDevice')
+                        end_port = 'ConsolePort'
+                        console_proxy = attributes.get('Proxy')
+                        console_type = attributes.get('Console_type')
+                        baud_rate = attributes.get('BaudRate')
 
                         if start_dev:
                             if start_dev not in self.consolelinks:
-                                self.consolelinks.update({start_dev : {}})
-                            self.consolelinks[start_dev][consolelink.attrib['StartPort']] = {'peerdevice':consolelink.attrib['EndDevice'], 'peerport': 'ConsolePort', 'proxy':console_proxy, 'type':console_type}
+                                self.consolelinks.update({start_dev: {}})
+                            self.consolelinks[start_dev][start_port] = {
+                                'peerdevice': end_dev,
+                                'peerport': end_port,
+                                'proxy': console_proxy,
+                                'type': console_type,
+                                'baud_rate': baud_rate
+                            }
                         if end_dev:
                             if end_dev not in self.consolelinks:
-                                self.consolelinks.update({end_dev : {}})
-                            self.consolelinks[end_dev]['ConsolePort'] = {'peerdevice': consolelink.attrib['StartDevice'], 'peerport': consolelink.attrib['StartPort'], 'proxy':console_proxy, 'type':console_type}
+                                self.consolelinks.update({end_dev: {}})
+                            self.consolelinks[end_dev][end_port] = {
+                                'peerdevice': start_dev,
+                                'peerport': start_port,
+                                'proxy': console_proxy,
+                                'type': console_type,
+                                'baud_rate': baud_rate
+                            }
+        bmc_root = self.root.find(self.bmcgtag)
+        if bmc_root:
+            devicebmcgroot = bmc_root.find('DevicesBmcInfo')
+            devicesbmcg = devicebmcgroot.findall('DeviceBmcInfo')
+            if devicesbmcg is not None:
+                for dev in devicesbmcg:
+                    attributes = dev.attrib
+                    hostname = attributes['Hostname']
+                    if hostname is not None:
+                        deviceinfo[hostname] = {}
+                        deviceinfo[hostname]["Hostname"] = hostname
+                        deviceinfo[hostname]['HwSku'] = attributes.get('HwSku')
+                        deviceinfo[hostname]['Type'] = attributes.get('Type')
+                        deviceinfo[hostname]['Protocol'] = attributes.get(
+                            'Protocol')
+                        deviceinfo[hostname]['Os'] = attributes.get('Os')
+                        mgmt_ip = attributes.get('ManagementIp')
+                        management_gw = str(
+                            ipaddress.IPNetwork(mgmt_ip).network+1)
+                        deviceinfo[hostname]['ManagementIp'] = mgmt_ip
+                        deviceinfo[hostname]['ManagementGw'] = management_gw
+                        self.bmclinks[hostname] = {}
+            bmc_link_root = bmc_root.find('BmcLinksInfo')
+            if bmc_link_root:
+                allbmclinks = bmc_link_root.findall('BmcLinkInfo')
+                if allbmclinks is not None:
+                    for bmclink in allbmclinks:
+                        attributes = bmclink.attrib
+                        start_dev = attributes.get('StartDevice')
+                        start_port = attributes.get('StartPort')
+                        end_dev = attributes.get('EndDevice')
+                        end_port = attributes.get('EndPort')
+                        bmc_ip = attributes.get("BmcIp")
+                        if start_dev:
+                            if start_dev not in self.bmclinks:
+                                self.bmclinks.update({start_dev: {}})
+                            self.bmclinks[start_dev][start_port] = {
+                                'peerdevice': end_dev,
+                                'peerport': end_port,
+                                'bmc_ip': bmc_ip
+                            }
+                        if end_dev:
+                            if end_dev not in self.bmclinks:
+                                self.bmclinks.update({end_dev: {}})
+                            self.bmclinks[end_dev][end_port] = {
+                                'peerdevice': start_dev,
+                                'peerport': start_port,
+                                'bmc_ip': bmc_ip
+                            }
 
         pdu_root = self.root.find(self.pcgtag)
         if pdu_root:
@@ -253,6 +333,7 @@ class Parse_Lab_Graph():
                     hostname = dev.attrib['Hostname']
                     if hostname is not None:
                         deviceinfo[hostname] = {}
+                        deviceinfo[hostname]["Hostname"] = hostname
                         hwsku = dev.attrib['HwSku']
                         devtype = dev.attrib['Type']
                         protocol = dev.attrib['Protocol']
@@ -273,21 +354,23 @@ class Parse_Lab_Graph():
                         logging.debug("self.pdulinks {}".format(self.pdulinks))
                         if start_dev:
                             if start_dev not in self.pdulinks:
-                                self.pdulinks.update({start_dev : {}})
-                            self.pdulinks[start_dev][pdulink.attrib['StartPort']] = {'peerdevice':pdulink.attrib['EndDevice'], 'peerport': pdulink.attrib['EndPort']}
+                                self.pdulinks.update({start_dev: {}})
+                            self.pdulinks[start_dev][pdulink.attrib['StartPort']] = {
+                                'peerdevice': pdulink.attrib['EndDevice'], 'peerport': pdulink.attrib['EndPort']}
                         if end_dev:
                             if end_dev not in self.pdulinks:
-                                self.pdulinks.update({end_dev : {}})
-                            self.pdulinks[end_dev][pdulink.attrib['EndPort']] = {'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
+                                self.pdulinks.update({end_dev: {}})
+                            self.pdulinks[end_dev][pdulink.attrib['EndPort']] = {
+                                'peerdevice': pdulink.attrib['StartDevice'], 'peerport': pdulink.attrib['StartPort']}
         self.devices = deviceinfo
         self.vlanport = devicel2info
 
-    def convert_list2range(self, l):
+    def convert_list2range(self, list_name):
         """
         common module to convert a  list to range for easier vlan configuration generation
         """
         ranges = []
-        sl = sorted(set(l))
+        sl = sorted(set(list_name))
         for _, g in groupby(enumerate(sl), lambda t: t[0] - t[1]):
             group = list(map(itemgetter(1), g))
             if len(group) == 1:
@@ -314,7 +397,8 @@ class Parse_Lab_Graph():
                 peerportmode = self.vlanport[peerdevice][peerport]['mode']
                 peervlanids = self.vlanport[peerdevice][peerport]['vlanids']
                 peervlanlist = self.vlanport[peerdevice][peerport]['vlanlist']
-                self.vlanport[hostname][port] = {'mode': peerportmode, 'vlanids': peervlanids, 'vlanlist': peervlanlist}
+                self.vlanport[hostname][port] = {
+                    'mode': peerportmode, 'vlanids': peervlanids, 'vlanlist': peervlanlist}
 
         if hostname in self.vlanport:
             dpgvlans = self.vlanport[hostname]
@@ -353,14 +437,15 @@ class Parse_Lab_Graph():
                 count += 1
         return hostnames and (count * 1.0 / len(hostnames) >= THRESHOLD)
 
-
+    # get the console of a device, if it exists, host is being managed by the returned device
     def get_host_console_info(self, hostname):
         """
         return  the given hostname console info of mgmtip, protocol, hwsku and type
         """
         if hostname in self.devices:
             try:
-                ret = self.devices[self.consolelinks[hostname]['ConsolePort']['peerdevice']]
+                ret = self.devices[self.consolelinks[hostname]
+                                   ['ConsolePort']['peerdevice']]
             except KeyError:
                 ret = {}
             return ret
@@ -372,12 +457,44 @@ class Parse_Lab_Graph():
             """
             return {}
 
+    # return the list of devices that is managed by host through console
     def get_host_console_link(self, hostname):
         """
         return  the given hostname console link info of console server and port
         """
         if hostname in self.consolelinks:
-            return  self.consolelinks[hostname]
+            return self.consolelinks[hostname]
+        else:
+            # Please be noted that an empty dict is returned when hostname is not found
+            return {}
+
+    # get the bmc of a device, if it exists, host is being managed by the returned device
+    def get_host_bmc_info(self, hostname):
+        """
+        return  the given hostname bmc info of mgmtip, protocol, hwsku and type
+        """
+        if hostname in self.devices:
+            try:
+                # currently we only support end port iDRAC
+                ret = self.devices[self.bmclinks[hostname]
+                                   ['iDRAC']['peerdevice']]
+            except KeyError:
+                ret = {}
+            return ret
+        else:
+            """
+            Please be noted that an empty dict is returned when hostname is not found
+            The behavior is different with get_host_vlan.
+            """
+            return {}
+
+    # return the list of devices that is managed by host through bmc
+    def get_host_bmc_link(self, hostname):
+        """
+        return  the given hostname bmc link info of management server and port
+        """
+        if hostname in self.bmclinks:
+            return self.bmclinks[hostname]
         else:
             # Please be noted that an empty dict is returned when hostname is not found
             return {}
@@ -388,11 +505,13 @@ class Parse_Lab_Graph():
         """
         if hostname in self.devices:
             ret = {}
-            for key in ['PSU1', 'PSU2', 'PSU3', 'PSU4']:
-                try:
-                    ret.update({key : self.devices[self.pdulinks[hostname][key]['peerdevice']]})
-                except KeyError:
-                    pass
+            if hostname in self.pdulinks:
+                for key in self.pdulinks[hostname].keys():
+                    try:
+                        ret.update(
+                            {key: self.devices[self.pdulinks[hostname][key]['peerdevice']]})
+                    except KeyError:
+                        pass
             return ret
         else:
             # Please be noted that an empty dict is returned when hostname is not found
@@ -403,7 +522,7 @@ class Parse_Lab_Graph():
         return  the given hostname pdu links info of pdu servers and ports
         """
         if hostname in self.pdulinks:
-            return  self.pdulinks[hostname]
+            return self.pdulinks[hostname]
         else:
             # Please be noted that an empty dict is returned when hostname is not found
             return {}
@@ -429,19 +548,23 @@ def find_graph(hostnames, part=False):
 
     # Finding the graph file contains all duts from hostnames,
     for fn in file_list:
-        logging.debug("Looking at conn graph file: %s for hosts %s" % (fn, hostnames))
+        logging.debug("Looking at conn graph file: %s for hosts %s" %
+                      (fn, hostnames))
         filename = os.path.join(LAB_GRAPHFILE_PATH, fn)
         lab_graph = Parse_Lab_Graph(filename)
         lab_graph.parse_graph()
-        logging.debug("For file %s, got hostnames %s" % (fn, lab_graph.devices))
+        logging.debug("For file %s, got hostnames %s" %
+                      (fn, lab_graph.devices))
         if lab_graph.contains_hosts(hostnames, part):
-            logging.debug("Returning lab graph from conn graph file: %s for hosts %s" % (fn, hostnames))
+            logging.debug(
+                "Returning lab graph from conn graph file: %s for hosts %s" % (fn, hostnames))
             return lab_graph
     # Fallback to return an empty connection graph, this is
     # needed to bridge the kvm test needs. The KVM test needs
     # A graph file, which used to be whatever hardcoded file.
     # Here we provide one empty file for the purpose.
-    lab_graph = Parse_Lab_Graph(os.path.join(LAB_GRAPHFILE_PATH, EMPTY_GRAPH_FILE))
+    lab_graph = Parse_Lab_Graph(os.path.join(
+        LAB_GRAPHFILE_PATH, EMPTY_GRAPH_FILE))
     lab_graph.parse_graph()
     return lab_graph
 
@@ -459,6 +582,7 @@ def get_port_name_list(hwsku):
     port_name_list_sorted = natsorted(port_name_list)
     return port_name_list_sorted
 
+
 def build_results(lab_graph, hostnames, ignore_error=False):
     """
     Refactor code for building json results.
@@ -472,6 +596,8 @@ def build_results(lab_graph, hostnames, ignore_error=False):
     device_vlan_map_list = {}
     device_console_info = {}
     device_console_link = {}
+    device_bmc_info = {}
+    device_bmc_link = {}
     device_pdu_info = {}
     device_pdu_links = {}
     msg = {}
@@ -494,31 +620,40 @@ def build_results(lab_graph, hostnames, ignore_error=False):
                 device_vlan_map_list[hostname] = {}
 
                 port_name_list_sorted = get_port_name_list(dev['HwSku'])
-                logging.debug("For %s with hwsku %s, port_name_list is %s" % (hostname, dev['HwSku'], port_name_list_sorted))
+                logging.debug("For %s with hwsku %s, port_name_list is %s" % (
+                    hostname, dev['HwSku'], port_name_list_sorted))
                 for a_host_vlan in host_vlan["VlanList"]:
                     # Get the corresponding port for this vlan from the port vlan list for this hostname
                     found_port_for_vlan = False
                     for a_port in port_vlans:
                         if a_host_vlan in port_vlans[a_port]['vlanlist']:
                             if a_port in port_name_list_sorted:
-                                port_index = port_name_list_sorted.index(a_port)
+                                port_index = port_name_list_sorted.index(
+                                    a_port)
                                 device_vlan_map_list[hostname][port_index] = a_host_vlan
                                 found_port_for_vlan = True
                                 break
                             elif not ignore_error:
-                                msg = "Did not find port for %s in the ports based on hwsku '%s' for host %s" % (a_port, dev['HwSku'], hostname)
+                                msg = "Did not find port for %s in the ports based on hwsku '%s' for host %s" % (
+                                    a_port, dev['HwSku'], hostname)
                                 return (False, msg)
                     if not found_port_for_vlan and not ignore_error:
-                        msg = "Did not find corresponding link for vlan %d in %s for host %s" % (a_host_vlan, port_vlans, hostname)
+                        msg = "Did not find corresponding link for vlan %d in %s for host %s" % (
+                            a_host_vlan, port_vlans, hostname)
                         return (False, msg)
         device_port_vlans[hostname] = port_vlans
-        device_console_info[hostname] = lab_graph.get_host_console_info(hostname)
-        device_console_link[hostname] = lab_graph.get_host_console_link(hostname)
+        device_console_info[hostname] = lab_graph.get_host_console_info(
+            hostname)
+        device_console_link[hostname] = lab_graph.get_host_console_link(
+            hostname)
+        device_bmc_info[hostname] = lab_graph.get_host_bmc_info(hostname)
+        device_bmc_link[hostname] = lab_graph.get_host_bmc_link(hostname)
         device_pdu_info[hostname] = lab_graph.get_host_pdu_info(hostname)
         device_pdu_links[hostname] = lab_graph.get_host_pdu_links(hostname)
     results = {k: v for k, v in locals().items()
-                   if (k.startswith("device_") and v)}
+               if (k.startswith("device_") and v)}
     return (True, results)
+
 
 def main():
     module = AnsibleModule(
@@ -572,17 +707,18 @@ def main():
                 'device_port_vlans': lab_graph.vlanport,
             }
             module.exit_json(ansible_facts=results)
-        succeed, results = build_results(lab_graph, hostnames, m_args['ignore_errors'])
+        succeed, results = build_results(
+            lab_graph, hostnames, m_args['ignore_errors'])
         if succeed:
             module.exit_json(ansible_facts=results)
         else:
             module.fail_json(msg=results)
     except (IOError, OSError):
-        module.fail_json(msg="Can not find lab graph file under {}".format(LAB_GRAPHFILE_PATH))
-    except Exception as e:
+        module.fail_json(
+            msg="Can not find lab graph file under {}".format(LAB_GRAPHFILE_PATH))
+    except Exception:
         module.fail_json(msg=traceback.format_exc())
 
 
-from ansible.module_utils.basic import *
 if __name__ == "__main__":
     main()

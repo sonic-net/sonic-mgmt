@@ -11,6 +11,7 @@ import random
 import time
 import contextlib
 import scapy
+import six
 
 from ptf import mask
 from ptf import testutils
@@ -56,7 +57,7 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter,          # no
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
-        peer_ipv4_address = [_["address_ipv4"] for _ in config_facts["PEER_SWITCH"].values()][0]
+        peer_ipv4_address = [_["address_ipv4"] for _ in list(config_facts["PEER_SWITCH"].values())][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
 
@@ -64,8 +65,8 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter,          # no
                         if is_ipv4_address(_.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    inner_dscp = random.choice(range(0, 33))
-    inner_ttl = random.choice(range(3, 65))
+    inner_dscp = random.choice(list(range(0, 33)))
+    inner_ttl = random.choice(list(range(3, 65)))
     inner_packet = testutils.simple_ip_packet(
         ip_src="1.1.1.1",
         ip_dst=server_ipv4,
@@ -141,8 +142,12 @@ def test_decap_standby_tor(
         """Verify packet is passed downstream to server."""
         packets = ptfadapter.dataplane.packet_queues[(0, port)]
         for packet in packets:
-            if exp_pkt.pkt_match(packet):
-                return True
+            if six.PY2:
+                if exp_pkt.pkt_match(packet):
+                    return True
+            else:
+                if exp_pkt.pkt_match(packet[0]):
+                    return True
         return False
 
     if is_t0_mocked_dualtor(tbinfo):        # noqa F405
@@ -186,7 +191,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
     """
     pytest_require("dualtor" in tbinfo['topo']['name'], "Only run on dualtor testbed")
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    portchannels = mg_facts['minigraph_portchannels'].keys()
+    portchannels = list(mg_facts['minigraph_portchannels'].keys())
     up_portchannel = random.choice(portchannels)
     logger.info("Select uplink {} for testing".format(up_portchannel))
     # Shutdown other uplinks except for the selected one

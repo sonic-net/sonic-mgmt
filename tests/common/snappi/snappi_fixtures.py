@@ -126,7 +126,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
 
     dut_mac = str(duthost.facts['router_mac'])
 
-    for k, v in l3_intf.items():
+    for k, v in list(l3_intf.items()):
         intf = str(k)
         gw_addr = str(v['addr'])
         prefix = str(v['prefixlen'])
@@ -189,7 +189,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
         return True
 
     vlan_member = {}
-    for k, v in vlan_facts.items():
+    for k, v in list(vlan_facts.items()):
         vlan_member[k] = v['members']
 
     vlan_intf_facts = mg_facts['minigraph_vlan_interfaces']
@@ -269,7 +269,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         return True
 
     pc_member = {}
-    for k, v in pc_facts.items():
+    for k, v in list(pc_facts.items()):
         pc_member[k] = v['members']
 
     pc_intf_facts = mg_facts['minigraph_portchannel_interfaces']
@@ -493,7 +493,7 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
     try:
         for port in snappi_ports:
             peer_port = port['peer_port']
-            int_addrs = config_facts['INTERFACE'][peer_port].keys()
+            int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
             if not ipv4_subnet:
                 raise Exception("IPv4 is not configured on the interface {}".format(peer_port))

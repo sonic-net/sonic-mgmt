@@ -9,14 +9,14 @@ import random
 import pytest
 
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release
 from tests.common.reboot import reboot
-from counterpoll_constants import CounterpollConstants
-from counterpoll_helper import ConterpollHelper
+from .counterpoll_constants import CounterpollConstants
+from .counterpoll_helper import ConterpollHelper
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -60,7 +60,7 @@ def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
 
 
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_hostname, dut_vars,
-                                             backup_and_restore_config_db):
+                                             backup_and_restore_config_db):     # noqa F811
     """
     @summary: Verify FLEXCOUNTERS_DB and COUNTERS_DB content after `counterpoll queue/watermark/queue enable`
 
@@ -86,7 +86,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     with allure.step("choosing random config apply method"):
         config_apply_method = random.choice(["config reload", "switch reboot"])
     with allure.step("disabling all counterpolls"):
-        ConterpollHelper.disable_counterpoll(duthost, CounterpollConstants.COUNTERPOLL_MAPPING.values())
+        ConterpollHelper.disable_counterpoll(duthost, list(CounterpollConstants.COUNTERPOLL_MAPPING.values()))
 
     # verify relevant counterpolls (queue/watermark/pg-drop) are disabled
     with allure.step("Verifying initial output of {} on {} ..."
@@ -144,7 +144,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         # build expected counterpoll stats vs unexpected
         expected_types = []
         unexpected_types = []
-        for counterpoll, v in RELEVANT_MAPS.items():
+        for counterpoll, v in list(RELEVANT_MAPS.items()):
             types_to_check = v[CounterpollConstants.TYPE]
             if counterpoll in tested_counterpoll:
                 for type in types_to_check:
@@ -186,7 +186,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         for map_prefix in MAPS_PREFIX_FOR_ALL_COUNTERPOLLS:
             stats_output = redis_get_keys(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix))
             for line in stats_output:
-                for counterpoll, v in RELEVANT_MAPS.items():
+                for counterpoll, v in list(RELEVANT_MAPS.items()):
                     types_to_check = v[CounterpollConstants.TYPE]
                     for type in types_to_check:
                         if type in line:
@@ -213,7 +213,7 @@ def verify_counterpoll_status(duthost, counterpoll_list, expected):
 
         verified_output_dict = {}
         for counterpoll_parsed_dict in counterpoll_output:
-            for k, v in CounterpollConstants.COUNTERPOLL_MAPPING.items():
+            for k, v in list(CounterpollConstants.COUNTERPOLL_MAPPING.items()):
                 if k in counterpoll_parsed_dict[CounterpollConstants.TYPE]:
                     verified_output_dict[v] = counterpoll_parsed_dict[CounterpollConstants.STATUS]
 
@@ -233,5 +233,5 @@ def count_watermark_stats_in_counters_db(duthost):
             if watermark_type in line:
                 watermark_stats[watermark_type] += 1
     logging.info("watermark_stats {}".format(watermark_stats))
-    for k, v in watermark_stats.items():
+    for k, v in list(watermark_stats.items()):
         pytest_assert(v > 0, "watermark_stats {} in COUNTERS_DB: {}, expected > 0".format(k, v))

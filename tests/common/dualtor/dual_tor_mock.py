@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import time
+import six
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
@@ -244,7 +245,7 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
+        server_ip_mac_map[server_ipv4_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ip_mac_map
 
@@ -268,7 +269,7 @@ def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = ptf_mac
+        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ipv6_mac_map
 
@@ -283,15 +284,15 @@ def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbin
 
     dut = rand_selected_dut
 
-    vlan = dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys()[0]
+    vlan = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
     cmds = []
-    for ip, mac in mock_server_ip_mac_map.items():
+    for ip, mac in list(mock_server_ip_mac_map.items()):
         # Use `ip neigh replace` in case entries already exist for the target IP
         # If there are no pre-existing entries, equivalent to `ip neigh add`
         cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
 
-    for ipv6, mac in mock_server_ipv6_mac_map.items():
+    for ipv6, mac in list(mock_server_ipv6_mac_map.items()):
         cmds.append('ip -6 neigh replace {} lladdr {} dev {}'.format(ipv6, mac, vlan))
     dut.shell_cmds(cmds=cmds)
 
@@ -305,7 +306,7 @@ def apply_dual_tor_peer_switch_route(cleanup_mocked_configs, rand_selected_dut, 
     '''
     logger.info("Applying dual ToR peer switch loopback route")
     dut = rand_selected_dut
-    bgp_neighbors = dut.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
+    bgp_neighbors = list(dut.bgp_facts()['ansible_facts']['bgp_neighbors'].keys())
 
     ipv4_neighbors = []
 
@@ -338,7 +339,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     peer_switch_key = 'PEER_SWITCH|{}'.format(peer_switch_hostname)
     device_meta_key = 'DEVICE_METADATA|localhost'
     restart_swss = False
-    if dut.get_asic_name() in ['th2', 'td3']:
+    if dut.get_asic_name() in ['th2', 'td3', 'gb']:
         restart_swss = True
     cmd = 'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
     dut.shell(cmd=cmd)

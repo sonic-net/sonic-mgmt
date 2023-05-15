@@ -1,4 +1,4 @@
-from __future__ import division
+
 import logging
 import json
 import pytest
@@ -72,7 +72,7 @@ def get_uplink_downlink_count(duthost, tbinfo):
     if "t1" in topo:
         spine_router_count = 0
         tor_router_count = 0
-        for neighbor in device_neighbor_metadata.keys():
+        for neighbor in list(device_neighbor_metadata.keys()):
             neighbor_data = device_neighbor_metadata[neighbor]
             if neighbor_data['type'] == "SpineRouter":
                 spine_router_count += 1
@@ -83,7 +83,7 @@ def get_uplink_downlink_count(duthost, tbinfo):
     elif "t0" in topo:
         leaf_router_count = 0
         server_count = 0
-        for neighbor in device_neighbor_metadata.keys():
+        for neighbor in list(device_neighbor_metadata.keys()):
             neighbor_data = device_neighbor_metadata[neighbor]
             if neighbor_data['type'] == "LeafRouter":
                 leaf_router_count += 1
@@ -110,12 +110,12 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
     neighbor_to_type_map = {}
     neighbor_type_to_pg_headroom_map = {}
 
-    for neighbor in device_neighbor_metadata.keys():
+    for neighbor in list(device_neighbor_metadata.keys()):
         neighbor_set.add(neighbor)
         neighbor_data = device_neighbor_metadata[neighbor]
         neighbor_to_type_map[neighbor] = neighbor_data['type']
 
-    for interface in interfaces_data.keys():
+    for interface in list(interfaces_data.keys()):
         for neighbor in neighbor_set:
             if neighbor in json.dumps(interfaces_data[interface]):
                 neighbor_to_interface_map[neighbor] = interface

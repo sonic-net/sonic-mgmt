@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
 
-from ansible.module_utils.basic import *
-from collections import defaultdict
+from ansible.module_utils.basic import AnsibleModule
+
 
 def main():
     module = AnsibleModule(
         argument_spec=dict(
             data=dict(required=False, type='dict', default=None),),
-    supports_check_mode=False)
+        supports_check_mode=False)
 
     m_args = module.params
     results = {}
@@ -23,7 +23,7 @@ def main():
         host_ip = data[key]['chassis']['mgmt-ip']
 
         if host_ip not in data_struct:
-            data_struct = {host_ip:{}}
+            data_struct = {host_ip: {}}
             data_struct[host_ip]['nei_interfaces'] = {}
             data_struct[host_ip]['nei_device_type'] = {}
         if 'Arista' in data[key]['chassis']['descr']:
@@ -37,5 +37,6 @@ def main():
 
     results['ansible_interface_up_down_data_struct_facts'] = data_struct
     module.exit_json(ansible_facts=results)
+
 
 main()

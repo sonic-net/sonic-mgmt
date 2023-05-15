@@ -1,9 +1,7 @@
-import re, copy
+import copy
+import re
 
-try:
-    from urllib.parse import unquote, quote
-except Exception:
-    from urlparse import unquote
+from six.moves.urllib.parse import unquote, quote
 
 RestDataPrefix = '/restconf/data'
 RestOperPrefix = '/restconf/operations'

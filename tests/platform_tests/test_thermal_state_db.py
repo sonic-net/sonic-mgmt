@@ -35,7 +35,7 @@ def get_expected_num_thermals(duts, dutname=None):
 
 def check_therm_data(thermal_dict):
     failed_check_msg = []
-    for therm_sensor in thermal_dict.keys():
+    for therm_sensor in list(thermal_dict.keys()):
         max_threshold = float(thermal_dict[therm_sensor]['value']['high_threshold'])
         low_threshold = float(thermal_dict[therm_sensor]['value']['low_threshold'])
         min_temp = float(thermal_dict[therm_sensor]['value']['maximum_temperature'])
@@ -70,8 +70,9 @@ def test_thermal_state_db(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     num_thermals = get_expected_num_thermals(duthosts, enum_rand_one_per_hwsku_hostname)
     thermal_out = duthost.command("redis-dump -d 6 -y -k \"TEMP*\"")
     out_dict = json.loads(thermal_out['stdout'])
-    pytest_assert(len(out_dict.keys()) == num_thermals,
-                  "num of thermal sensors incorrect expected {} but got {}".format(num_thermals, len(out_dict.keys())))
+    pytest_assert(len(list(out_dict.keys())) == num_thermals,
+                  "num of thermal sensors incorrect expected {} but got {}"
+                  .format(num_thermals, len(list(out_dict.keys()))))
     result = check_therm_data(out_dict)
     pytest_assert(not result,
                   "Warning status incorrect for following thermal sensors:\n{}".format("\n".join(result)))
@@ -104,11 +105,11 @@ def test_thermal_global_state_db(duthosts, enum_supervisor_dut_hostname, tbinfo)
         """
         delete all keys that we know should not be checked from the global dictionary
         """
-        for skip_sensor_key in skip_dict.keys():
-            if skip_sensor_key in out_dict.keys():
+        for skip_sensor_key in list(skip_dict.keys()):
+            if skip_sensor_key in list(out_dict.keys()):
                 del out_dict[skip_sensor_key]
 
-    actual_num_thermal_sensors = len(out_dict.keys())
+    actual_num_thermal_sensors = len(list(out_dict.keys()))
     pytest_assert(actual_num_thermal_sensors == expected_num_thermals,
                   "got {} thermal sensors expected {}".format(actual_num_thermal_sensors, expected_num_thermals))
     result = check_therm_data(out_dict)

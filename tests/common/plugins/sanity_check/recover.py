@@ -81,7 +81,7 @@ def _neighbor_vm_recover_bgpd(node=None, results=None):
     result = {}
 
     # restore interfaces and portchannels
-    intf_list = node['conf']['interfaces'].keys()
+    intf_list = list(node['conf']['interfaces'].keys())
     result['restore_intfs'] = []
     for intf in intf_list:
         result['restore_intfs'].append(nbr_host.no_shutdown(intf))
@@ -95,7 +95,7 @@ def _neighbor_vm_recover_bgpd(node=None, results=None):
     # no shut bgp neighbors
     peers = node['conf'].get('bgp', {}).get('peers', {})
     neighbors = []
-    for key, value in peers.items():
+    for key, value in list(peers.items()):
         if key == 'asn':
             continue
         if isinstance(value, list):
@@ -107,7 +107,7 @@ def _neighbor_vm_recover_bgpd(node=None, results=None):
 
 def _neighbor_vm_recover_config(node=None, results=None):
     if isinstance(node["host"], SonicHost):
-        config_reload(node["host"])
+        config_reload(node["host"], is_dut=False)
     return results
 
 
@@ -119,13 +119,13 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo, result=None):
         if result and "check_item" in result:
             if result["check_item"] == "neighbor_macsec_empty":
                 unhealthy_nbrs = []
-                for name, host in nbrhosts.items():
+                for name, host in list(nbrhosts.items()):
                     if name in result["unhealthy_nbrs"]:
                         unhealthy_nbrs.append(host)
                 parallel_run(_neighbor_vm_recover_config, (), {}, unhealthy_nbrs, timeout=300)
                 logger.debug('Results of restoring neighbor VMs: {}'.format(unhealthy_nbrs))
         else:
-            results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, nbrhosts.values(), timeout=300)
+            results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, list(nbrhosts.values()), timeout=300)
             logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
     return 'config_reload'  # May still need to do a config reload
 

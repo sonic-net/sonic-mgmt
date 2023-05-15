@@ -2,7 +2,7 @@
 This script is providing an API for SAI testing
 initialization via Ansible module
 """
-from __future__ import print_function
+
 import json
 import subprocess
 import logging

@@ -182,8 +182,8 @@ def get_disabled_container_list(duthost):
     container_status, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
 
-    for container_name, status in container_status.items():
-        if "disabled".encode('UTF-8') in status:
+    for container_name, status in list(container_status.items()):
+        if "disabled" in status:
             disabled_containers.append(container_name)
 
     return disabled_containers
@@ -256,7 +256,7 @@ def verify_features_state(duthost):
         logger.info("Failed to get list of feature names.")
         return False
 
-    for feature_name, status in feature_status.items():
+    for feature_name, status in list(feature_status.items()):
         logger.info("The state of '{}' is '{}'.".format(feature_name, status))
 
         if status not in ("enabled", "always_enabled", "disabled", "always_disabled"):
@@ -286,3 +286,29 @@ def verify_orchagent_running_or_assert(duthost):
         wait_until(120, 10, 0, _orchagent_running),
         "Orchagent is not running"
     )
+
+
+def ignore_t2_syslog_msgs(duthost):
+
+    """
+        When we reboot / config_reload on T2 chassis cards, we see 2 error messages in the linecards
+
+        1) During config_reload/reboot of linecard, LAGS are deleted, but ports are up,
+        and we get mac learning events from SAI to orchagent
+        which is in middle of cleanup and doesn't have the right data.
+        This causes error message like Failed to get port by bridge port ID
+
+        2) reboot/config_reload on supoervisor  will cause all the fabric links in the linecard to
+        bounce which results in SAI sending messages orchagent regarding the fabric port state change.
+        However, in linecards in T2 chassis, there is modelling of fabric ports in orchagent. Thus, orchagent generates
+        error message indication to port object found for the port.
+        Please see https://github.com/Azure/sonic-buildimage/issues/9033 for details.
+    """
+    if duthost.topo_type == "t2" and duthost.facts.get('platform_asic') == "broadcom-dnx":
+        ignoreRegex = [".*orchagent.*Failed to get port by bridge port ID.*"]
+        if duthost.is_supervisor_node():
+            ignoreRegex.extend([".*orchagent.*Failed to get port object for port id.*"])
+        for a_dut in duthost.duthosts.frontend_nodes:
+            # DUT's loganalyzer would be null if we have disable_loganalyzer specified
+            if a_dut.loganalyzer:
+                a_dut.loganalyzer.ignore_regex.extend(ignoreRegex)

@@ -23,6 +23,16 @@ all:
             str-msn2700-02:
               ansible_host: 10.251.0.235
               os: sonic
+        mgmt:
+          hosts:
+            console-1:
+              ansible_host: 192.168.10.1
+            console-2:
+              ansible_host: 192.168.10.2
+              os: sonic
+            management-1:
+              ansible_host: 192.168.10.3
+              os: sonic
     ptf:
       hosts:
         ptf_ptf1:

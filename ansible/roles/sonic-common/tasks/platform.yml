@@ -15,4 +15,3 @@
   become: true
   include_tasks: platform-cavm.yml
   when: sonic_hwsku == "AS7512"
-

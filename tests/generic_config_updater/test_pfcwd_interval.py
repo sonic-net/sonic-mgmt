@@ -1,5 +1,6 @@
 import logging
 import pytest
+import json
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -8,7 +9,8 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.asic('mellanox')
+    pytest.mark.asic('mellanox'),
+    pytest.mark.topology('any'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,18 @@ def ensure_dut_readiness(duthost):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def enable_default_pfcwd_configuration(duthost):
+    res = duthost.shell('redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
+    meta_data = json.loads(res["stdout"])
+    pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
+    if pfc_status == 'disable':
+        duthost.shell('redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable')
+    # Enable default pfcwd configuration
+    start_pfcwd = duthost.shell('config pfcwd start_default')
+    pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
 
 
 def ensure_application_of_updated_config(duthost, value):
@@ -84,6 +98,7 @@ def get_detection_restoration_times(duthost):
         duthost: DUT host object
     """
 
+    duthost.shell('config pfcwd start --action drop all 400 --restoration-time 400', module_ignore_errors=True)
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
 
@@ -124,8 +139,6 @@ def get_new_interval(duthost, is_valid):
 
 
 def test_stop_pfcwd(duthost, ensure_dut_readiness):
-    start_pfcwd = duthost.shell('config pfcwd start_default')
-    pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
 
@@ -161,6 +174,10 @@ def test_stop_pfcwd(duthost, ensure_dut_readiness):
                       "pfcwd unexpectedly still running on interface {}".format(interface))
     finally:
         delete_tmpfile(duthost, tmpfile)
+        # Restore default config
+        duthost.shell('config pfcwd stop')
+        start_pfcwd = duthost.shell('config pfcwd start_default')
+        pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
 
 
 @pytest.mark.parametrize("operation", ["add", "replace"])

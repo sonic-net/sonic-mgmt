@@ -73,6 +73,7 @@ class LogAnalyzerError(Exception):
 class LogAnalyzer:
     def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None, additional_files={}):
         self.ansible_host = ansible_host
+        ansible_host.loganalyzer = self
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
         self.marker_prefix = marker_prefix.replace(' ', '_')
@@ -160,7 +161,7 @@ class LogAnalyzer:
         expect_dic = result['expect_messages']
         unused_list = result['unused_expected_regexp']
 
-        for msg_type, counter in total_dic.items():
+        for msg_type, counter in list(total_dic.items()):
             result_str += msg_type + ": " + str(counter) + "\n"
 
         if any(msg_dic.values()):
@@ -359,7 +360,7 @@ class LogAnalyzer:
         expected_lines_total = []
         unused_regex_messages = []
 
-        for key, value in analyzer_parse_result.items():
+        for key, value in list(analyzer_parse_result.items()):
             matching_lines, expecting_lines = value
             analyzer_summary["total"]["match"] += len(matching_lines)
             analyzer_summary["total"]["expected_match"] += len(expecting_lines)

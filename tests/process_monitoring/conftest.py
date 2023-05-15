@@ -23,6 +23,7 @@ def skip_vendor_specific_container(request):
     skip_vendor_specific_container_opt = request.config.getoption("--skip_vendor_specific_container", default="")
     vendor_specific_container_list = []
     if skip_vendor_specific_container_opt:
-        vendor_specific_container_list = [container.strip() for container in skip_vendor_specific_container_opt.split(",")]
+        vendor_specific_container_list = [container.strip() for container
+                                          in skip_vendor_specific_container_opt.split(",")]
 
     return vendor_specific_container_list
