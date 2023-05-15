@@ -29,9 +29,11 @@ from ptf.mask import Mask
 from ptf.testutils import *
 from ptf.testutils import dp_poll
 
+
 def verify_no_packet_on_all_port(test, pkt, timeout=1):
     result = dp_poll(test, exp_pkt=pkt, timeout=timeout)
     return isinstance(result, test.dataplane.PollSuccess)
+
 
 class MtuTest(BaseTest):
     '''
@@ -142,8 +144,8 @@ class MtuTest(BaseTest):
             matched_port = dst_port_list[matched_index]
             logging.info("Received packet at " + str(matched_port))
         else:
-            pkt_recv = verify_no_packet_on_all_port(self,masked_exp_pkt)
-            assert pkt_recv == False
+            pkt_recv = verify_no_packet_on_all_port(self, masked_exp_pkt)
+            assert not pkt_recv
         return
 
     # ---------------------------------------------------------------------
@@ -199,7 +201,7 @@ class MtuTest(BaseTest):
                      str(src_port) + " to " + ip_dst)
 
         dst_port_list = self.dst_ptf_port_list
-        if self.expect_drop_pkt == False:
+        if not self.expect_drop_pkt:
             (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 
             assert received
@@ -207,8 +209,8 @@ class MtuTest(BaseTest):
             matched_port = dst_port_list[matched_index]
             logging.info("Received packet at " + str(matched_port))
         else:
-            pkt_recv = verify_no_packet_on_all_port(self,masked_exp_pkt)
-            assert pkt_recv == False
+            pkt_recv = verify_no_packet_on_all_port(self, masked_exp_pkt)
+            assert not pkt_recv
         return
 
     # ---------------------------------------------------------------------
