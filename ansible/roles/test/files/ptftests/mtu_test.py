@@ -23,11 +23,10 @@ import logging
 import ptf
 import ptf.packet as scapy
 
-from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
-from ptf.testutils import *
-from ptf.testutils import dp_poll
+from ptf.testutils import test_params_get, simple_icmp_packet, simple_icmpv6_packet, send_packet,\
+    simple_ip_packet, simple_tcpv6_packet, verify_packet_any_port, dp_poll
 
 
 def verify_no_packet_on_all_port(test, pkt, timeout=1):
@@ -136,7 +135,7 @@ class MtuTest(BaseTest):
                      str(src_port) + " to " + ip_dst)
         dst_port_list = self.src_ptf_port_list
 
-        if self.expect_drop_pkt == False:
+        if not self.expect_drop_pkt:
             (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 
             assert received
