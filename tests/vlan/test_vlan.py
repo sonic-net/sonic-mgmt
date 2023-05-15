@@ -365,8 +365,8 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
-               ports_list, tbinfo, vlan_intfs_dict, cfg_facts, setup_acl_table):  # noqa F811
+def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
+               ports_list, tbinfo, vlan_intfs_dict, setup_acl_table):  # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
