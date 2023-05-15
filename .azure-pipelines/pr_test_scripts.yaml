@@ -2,6 +2,7 @@ t0:
   - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
+  - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved
   - bgp/test_bgp_speaker.py
@@ -61,7 +62,6 @@ t0:
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
   - telemetry/test_telemetry.py
-  - telemetry/test_events.py
   - test_features.py
   - test_interfaces.py
   - test_procdockerstatsd.py

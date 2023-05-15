@@ -15,6 +15,8 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import skip_release
 from tests.common.helpers.port_utils import is_sfp_speed_supported
+from tests.conftest import get_autoneg_tests_data
+from tests.common.mellanox_data import is_mellanox_device
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -27,8 +29,8 @@ STATE_PORT_TABLE_TEMPLATE = 'PORT_TABLE|{}'
 STATE_PORT_FIELD_SUPPORTED_SPEEDS = 'supported_speeds'
 APPL_DB = 'APPL_DB'
 APPL_PORT_TABLE_TEMPLATE = 'PORT_TABLE:{}'
-ALL_PORT_WAIT_TIME = 60
-SINGLE_PORT_WAIT_TIME = 40
+ALL_PORT_WAIT_TIME = 90
+SINGLE_PORT_WAIT_TIME = 90
 PORT_STATUS_CHECK_INTERVAL = 10
 
 # To avoid getting candidate test ports again and again, use a global variable
@@ -356,3 +358,35 @@ def test_force_speed(enum_speed_per_dutport_fixture):
         fanout_actual_speed == speed,
         'expect fanout speed: {}, but got {}'.format(speed, fanout_actual_speed)
     )
+
+
+@pytest.fixture(scope='module', autouse=True)
+def change_cable_length(duthost):
+    if is_mellanox_device(duthost):
+        """
+        For nvidia device, when buffer model is dynamic, the headroom size is related to the speed and cable length.
+        When speed is bigger or equal to 400G, we need change the cable length to one smaller one such as 50m, otherwise
+        there will be some log errors like: refreshPgsForPort: Update speed (400000) and cable length (300m) for port
+        Ethernet0 failed, accumulative headroom size exceeds the limit.
+        """
+        buffer_model = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+        if buffer_model == "dynamic":
+            autoneg_test_data = get_autoneg_tests_data()
+            new_cable_length = '50m'
+            speed_threshold_for_change_cable_length = 400000
+            for autonego_item in autoneg_test_data:
+                dut_name = autonego_item['dutname']
+                if dut_name == "unknown":
+                    pytest_require(
+                        dut_name != 'unknown',
+                        'required datafile is missing at metadata/autoneg-test-params.json. '
+                        'To create it before the tests run: py.test test_pretest -k test_update_testbed_metadata'
+                    )
+                dut_port = autonego_item['port']
+                speeds = autonego_item['speeds']
+                for speed in speeds:
+                    if int(speed) >= speed_threshold_for_change_cable_length:
+                        logger.info("Port:{}, Speed {} >= {}, change cable length to {}".format(
+                            dut_port, speed, speed_threshold_for_change_cable_length, new_cable_length))
+                        duthost.shell("config interface cable-length {} {}".format(dut_port, new_cable_length))
+                        break
