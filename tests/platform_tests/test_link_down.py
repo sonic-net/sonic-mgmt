@@ -136,7 +136,7 @@ def links_up(fanout, ports):
     return fanout.links_status_up(ports)
 
 
-def link_status_on_host(localhost, fanouts_and_ports, up=True):
+def link_status_on_host(fanouts_and_ports, up=True):
     for fanout, ports in list(fanouts_and_ports.items()):
         hostname = fanout.hostname
         # Assumption here is all fanouts are healthy.
@@ -152,14 +152,14 @@ def link_status_on_host(localhost, fanouts_and_ports, up=True):
     return True
 
 
-def link_status_on_all_fanouts(localhost, fanouts_and_ports, up=True):
+def link_status_on_all_fanouts(fanouts_and_ports, up=True):
     """
     Return:
         True: if up=True, and all links on all fanout hosts are up
               or
               if up=False, and all link on all fanout hosts are down
     """
-    link_status_on_host(localhost, fanouts_and_ports, up)
+    link_status_on_host(fanouts_and_ports, up)
     logger.info("All interfaces on all fanouts are {}!".format('up' if up else 'down'))
     return True
 
@@ -194,7 +194,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, duts_and_ports)
 
     # Also make sure fanout hosts' links are up
-    link_status_on_all_fanouts(localhost, fanouts_and_ports)
+    link_status_on_all_fanouts(fanouts_and_ports)
 
     # Get a dut uptime before reboot
     dut_uptime_before = duthost.get_up_time()
@@ -203,7 +203,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     reboot(duthost, localhost, wait_for_ssh=False)
 
     # Also make sure fanout hosts' links are down
-    link_status_on_all_fanouts(localhost, fanouts_and_ports, up=False)
+    link_status_on_all_fanouts(fanouts_and_ports, up=False)
 
     # Wait for ssh port to open up on the SUP
     wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
@@ -222,7 +222,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
         duthosts, conn_graph_facts, xcvr_skip_list)
 
     # Also make sure fanout hosts' links are up
-    link_status_on_all_fanouts(localhost, fanouts_and_ports)
+    link_status_on_all_fanouts(fanouts_and_ports)
 
 
 def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
@@ -239,7 +239,7 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, dut_ports)
 
     # Also make sure fanout hosts' links are up
-    link_status_on_host(localhost, fanouts_and_ports)
+    link_status_on_host(fanouts_and_ports)
 
     # Get a dut uptime before reboot
     dut_uptime_before = duthost.get_up_time()
@@ -248,7 +248,7 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku
     reboot(duthost, localhost, wait_for_ssh=False)
 
     # After reboot, immediately check if all links on all fanouts are down
-    link_status_on_host(localhost, fanouts_and_ports, up=False)
+    link_status_on_host(fanouts_and_ports, up=False)
 
     # Wait for ssh port to open up on the DUT
     wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
@@ -264,4 +264,4 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku
         duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
 
     # Also make sure fanout hosts' links are up
-    link_status_on_host(localhost, fanouts_and_ports)
+    link_status_on_host(fanouts_and_ports)
