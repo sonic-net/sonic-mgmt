@@ -30,25 +30,24 @@ sonic:
   vars:
     mgmt_subnet_mask_length: 23
   children:
-    sonic_cisco_lc_100G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
 
 sonic_cisco_sup:
   vars:
-    HwSku:  8800-RP-O
-    sonic_hwsku:  8800-RP-O
-    sonic_hw_platform:  x86_64-8800_rp_o-r0
+    hwsku: Cisco-8800-RP
+    sonic_hwsku:  Cisco-8800-RP
+    model: 'Cisco-8800-RP'
+    sonic_hw_platform:  x86_64-8800_rp-r0
     slot_num: slot0
     card_type: supervisor
     switch_type: chassis-packet
   hosts:
     svcstr2-8800-sup-1:
       ansible_host: 10.206.144.119
-      hwsku: 8800-RP-O
-      model: '8800-RP-O'
       num_asics: 16
       asic_name: Q200
+      asics_present: [0,1,4,5,8,9,10,11,12,13]
 
 sonic_cisco_lc_400G:
   vars:
@@ -57,47 +56,41 @@ sonic_cisco_lc_400G:
     frontend_asics: [0,1,2]
   hosts:
     svcstr2-8800-lc1-1:
-      hwsku: 88-LC0-36FH-MO
-      sonic_hwsku: 88-LC0-36FH-MO
-      sonic_hw_platform: x86_64-88_lc0_36fh_mo-r0
+      hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh_m-r0
       slot_num: slot1
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32,3.3.3.5/32]
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
       ansible_host: 10.206.144.120
-      model: '88-LC0-36FH-MO'
+      model: 'Cisco-88-LC0-36FH-M-O36'
     svcstr2-8800-lc4-1:
-      hwsku: 88-LC0-36FH-MO
-      sonic_hwsku: 88-LC0-36FH-MO
-      sonic_hw_platform: x86_64-88_lc0_36fh_mo-r0
+      hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh_m-r0
       slot_num: slot4
-      loopback4096_ip: [3.3.3.10/32,3.3.3.11/32,3.3.3.12/32]
-      loopback4096_ipv6: [2603:10e2:400::a/128,2603:10e2:400::b/128,2603:10e2:400::c/128]
+      loopback4096_ip: [3.3.3.12/32,3.3.3.13/32,3.3.3.14/32]
+      loopback4096_ipv6: [2603:10e2:400::c/128,2603:10e2:400::d/128,2603:10e2:400::e/128]
       ansible_host: 10.206.144.123
-      model: '88-LC0-36FH-MO'
-
-sonic_cisco_lc_100G:
-  vars:
-    switch_type: chassis-packet
-    num_asics: 2
-    frontend_asics: [0,1]
-  hosts:
+      model: 'Cisco-88-LC0-36FH-M-O36'
     svcstr2-8800-lc2-1:
-      hwsku: 88-LC0-36FH-W
-      sonic_hwsku: 8800-LC-48H-O
-      sonic_hw_platform:  x86_64-8800_lc_48h_o-r0
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform:  x86_64-88_lc0_36fh-r0
       slot_num: slot2
-      loopback4096_ip: [3.3.3.6/32,3.3.3.7/32]
-      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128]
+      loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.206.144.121
+      model: 'Cisco-88-LC0-36FH-O36'
     svcstr2-8800-lc3-1:
-      hwsku: 88-LC0-36FH-W
-      sonic_hwsku: 8800-LC-48H-O
-      sonic_hw_platform:  x86_64-8800_lc_48h_o-r0
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform:  x86_64-88_lc0_36fh-r0
       slot_num: slot3
-      loopback4096_ip: [3.3.3.8/32,3.3.3.9/32]
-      loopback4096_ipv6: [2603:10e2:400::8/128,2603:10e2:400::9/128]
+      loopback4096_ip: [3.3.3.9/32,3.3.3.10/32,3.3.3.11/32]
+      loopback4096_ipv6: [2603:10e2:400::9/128,2603:10e2:400::a/128,2603:10e2:400::b/128]
       ansible_host: 10.206.144.122
-
+      model: 'Cisco-88-LC0-36FH-O36'
 server:
   hosts:
     svcstr2-server-5:
