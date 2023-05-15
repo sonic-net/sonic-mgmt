@@ -52,6 +52,7 @@ parameters:
       server_svc_3:
       server_bjw_6:
       server_29:
+      server_svc_5:
 
 jobs:
   - job: TriggerDeepClean
