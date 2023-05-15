@@ -351,6 +351,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         dual_tor = self.test_params.get('dual_tor', None)
         leaf_downstream = self.test_params.get('leaf_downstream', None)
         asic_type = self.test_params['sonic_asic_type']
+        platform_asic = self.test_params['platform_asic']
         exp_ip_id = 101
         exp_ttl = 63
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -456,7 +457,11 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 3/4  1                 1               1                                                1                                         1                         # noqa E501
             # queue 5    1                 1               1                                                1                                         1                         # noqa E501
             # queue 7    0                 1               1                                                1                                         1                         # noqa E501
-            assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
+            if platform_asic and platform_asic == "broadcom-dnx":
+                # LACP packets go to queue0 in dnx
+                assert (queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
+            else:
+                assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
             assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert (queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
             assert (queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
@@ -3091,7 +3096,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                                xmit_counters_base, self, src_port_id, pkt, 10)
                 pkts_num_leak_out = 0
 
-           # send packets short of triggering egress drop
+            # send packets short of triggering egress drop
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +

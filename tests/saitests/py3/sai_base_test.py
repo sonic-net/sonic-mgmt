@@ -179,7 +179,6 @@ class ThriftInterface(BaseTest):
                     cmd, self.src_asic_index, self.src_server_ip)
 
 
-
     def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst'):
         if self.platform_asic and self.platform_asic == "broadcom-dnx":
             # need to enable watchdog on the source asic using cint script
