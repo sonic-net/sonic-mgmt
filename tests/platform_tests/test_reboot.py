@@ -12,7 +12,7 @@ import time
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
     check_reboot_cause_history, reboot_ctrl_dict, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_POWEROFF, REBOOT_TYPE_WATCHDOG
@@ -31,6 +31,18 @@ logger = logging.getLogger(__name__)
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
+
+
+@pytest.fixture
+def set_max_time_for_interfaces(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
+    global MAX_WAIT_TIME_FOR_INTERFACES
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', 300)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -73,7 +85,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
 
 
-def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=None):
+def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, set_max_time_for_interfaces, reboot_type=None):
     """
     Perform a further check after reboot-cause, including transceiver status, interface status
     @param localhost: The Localhost object.
