@@ -20,10 +20,11 @@ def pause_orchagent(duthost):
                     r"ps -ef | grep orchagent | grep -v grep | awk '{print $2}'",
                     module_ignore_errors=True)['stdout']
     logger.info('Get orchagent pid: {}'.format(pid))
-    
+
     # pause orchagent and clear syslog
     duthost.shell(r"sudo kill -STOP {}".format(pid), module_ignore_errors=True)
     duthost.shell(r"sudo truncate -s 0 /var/log/syslog", module_ignore_errors=True)
+
     yield
 
     # resume orchagent and clear syslog
