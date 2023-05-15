@@ -52,7 +52,7 @@ def run_cmd(duthost, params={}, op_file="", filter_event="", event_cnt=0, timeou
     if (timeout > 0):
         cmd += " -streaming_timeout={}".format(timeout)
 
-    cmd = "docker exec -it telemetry " + cmd
+    cmd = "docker exec -t telemetry " + cmd
     ret = duthost.shell(cmd)
     assert ret["rc"] == 0, "Failed to run cmd {}".format(cmd)
     move_to_localhost(duthost, op_file)
