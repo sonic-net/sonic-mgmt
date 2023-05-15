@@ -150,4 +150,3 @@ def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
             except Exception as detail:
                 logger.error("Except: {}".format(detail))
                 raise
-
