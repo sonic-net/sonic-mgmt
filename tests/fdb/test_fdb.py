@@ -22,8 +22,8 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url, \
 from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
 from .utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
-from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
 from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
 from tests.vlan.test_vlan import setup_acl_table             # noqa F401
 from tests.vlan.test_vlan import acl_rule_cleanup            # noqa F401
