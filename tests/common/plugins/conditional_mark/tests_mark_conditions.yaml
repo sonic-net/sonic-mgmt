@@ -448,17 +448,23 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
-generic_config_updater/test_eth_interface.py:
-  xfail:
-    reason: 'Xfail this script due to many failures found'
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8143
-
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
     conditions:
       - "platform in ['x86_64-kvm_x86_64-r0']"
+
+generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
+  skip:
+    reason: "Skip asym pfc on unsupported platforms"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+generic_config_updater/test_eth_interface.py::test_update_speed:
+  xfail:
+    reason: 'Xfail this script due to this not being a production scenario and misleading StateDB output for valid speed'
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
 generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
   skip:
@@ -1056,6 +1062,21 @@ vlan/test_vlan_ping.py:
     reason: "test_vlan_ping doesn't work on Broadcom platform"
     conditions:
       - "asic_type in ['broadcom']"
+
+#######################################
+#####             voq             #####
+#######################################
+voq/test_fabric_reach.py:
+  skip:
+    reason: "Skip test_fabric_reach on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
+
+voq/test_voq_fabric_status_all.py:
+  skip:
+    reason: "Skip test_voq_fabric_status_all on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
 
 #######################################
 #####             vrf             #####
