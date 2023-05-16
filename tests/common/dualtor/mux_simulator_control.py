@@ -9,7 +9,9 @@ import requests
 from tests.common import utilities
 from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
 from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, \
                                            OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
@@ -242,7 +244,7 @@ def toggle_simulator_port_to_upper_tor(url, tbinfo):
             target: "upper_tor" or "lower_tor"
         """
         # Skip on non dualtor testbed
-        if 'dualtor' not in tbinfo['topo']['name']:
+        if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
             return
         server_url = url(interface_name)
         data = {"active_side": UPPER_TOR}
@@ -506,8 +508,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
     Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
     """
-    # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    # Skip on non dualtor testbed or dualtor testbed without active-standby ports
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         yield
         return
 
@@ -640,7 +642,9 @@ def simulator_server_down(set_drop, set_output):
         set_drop(interface_name, [UPPER_TOR, LOWER_TOR])
 
     yield _drop_helper
-    set_output(tmp_list[0], [UPPER_TOR, LOWER_TOR])
+
+    for port in tmp_list:
+        set_output(port, [UPPER_TOR, LOWER_TOR])
 
 
 @pytest.fixture
