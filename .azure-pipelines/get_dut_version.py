@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import sys
+import json
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -19,13 +20,36 @@ RC_INIT_FAILED = 1
 RC_GET_DUT_VERSION_FAILED = 2
 
 
-def get_duts_version(sonichosts):
+def get_duts_version(sonichosts, output=None):
     try:
         ret = {}
         duts_version = sonichosts.command("show version")
         for dut, version in duts_version.items():
-            ret[dut] = version["stdout_lines"]
-        return ret
+            ret[dut] = {}
+            dut_version = version["stdout_lines"]
+
+            for line in dut_version:
+                if ":" in line:
+                    line_splitted = line.split(":", 1)
+                    key = line_splitted[0].strip()
+                    value = line_splitted[1].strip()
+                    if key == "Docker images":
+                        ret[dut]["Docker images"] = []
+                        continue
+                    ret[dut][key] = value
+                elif "docker" in line:
+                    line_splitted = line.split()
+                    ret[dut]["Docker images"].append({"REPOSITORY": line_splitted[0],
+                                                      "TAG": line_splitted[1],
+                                                      "IMAGE ID": line_splitted[2],
+                                                      "SIZE": line_splitted[3]})
+
+        if output:
+            with open(output, "w") as f:
+                f.write(json.dumps(ret))
+                f.close()
+        else:
+            print(ret)
     except Exception as e:
         logger.error("Failed to get DUT version: {}".format(e))
         sys.exit(RC_GET_DUT_VERSION_FAILED)
@@ -59,7 +83,7 @@ def main(args):
     if not localhost or not sonichosts:
         sys.exit(RC_INIT_FAILED)
 
-    return get_duts_version(sonichosts)
+    get_duts_version(sonichosts, args.output)
 
 
 if __name__ == "__main__":
@@ -106,6 +130,14 @@ if __name__ == "__main__":
         choices=["debug", "info", "warning", "error", "critical"],
         default="debug",
         help="Loglevel"
+    )
+
+    parser.add_argument(
+        "-o", "--output",
+        type=str,
+        dest="output",
+        required=False,
+        help="Output duts version to the specified file."
     )
 
     args = parser.parse_args()
