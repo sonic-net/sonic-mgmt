@@ -420,7 +420,7 @@ sonic_mlnx_4600C:
   hosts:
     str2-msn4600c-acs-01:
       ansible_host: 10.3.146.51
-      model: MSN4600-CS2FO
+      model: MSN4600-CS2RO
       serial: MT2115X26246
       base_mac: 1C:34:DA:BB:83:00
       syseeprom_info:
