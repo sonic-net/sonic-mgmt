@@ -2250,7 +2250,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
 
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
+                send_packet(
+                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, int(pkt_cnt))
 
                 time.sleep(8)   # wait pfc counter refresh
                 self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
