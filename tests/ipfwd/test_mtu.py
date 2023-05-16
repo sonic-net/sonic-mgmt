@@ -46,6 +46,10 @@ def test_mtu(tbinfo, ptfhost, mtu, gather_facts):
     All of the values listed in parametrized arg 'mtu' must be smaller or equal to the default mtu
     size.
     """
+    topo_type = tbinfo['topo']['type']
+    if topo_type not in ('t1', 't2'):
+        pytest.skip("Unsupported topology")
+
     testbed_type = tbinfo['topo']['name']
 
     log_file = "/tmp/mtu_test.{}-{}.log".format(mtu, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
@@ -85,6 +89,9 @@ def test_mtu_change(tbinfo, duthost, ptfhost, mtu, gather_facts):
     that the ptf test resut is falied. For the values listed in parametrized arg 'mtu' that are less
     than or equal to 1514, it is expected the ptf test is passed.
     """
+    topo_type = tbinfo['topo']['type']
+    if topo_type not in ('t1', 't2'):
+        pytest.skip("Unsupported topology")
 
     testbed_type = tbinfo['topo']['name']
     log_file = "/tmp/mtu_change_test.{}-{}.log".format(mtu, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
@@ -139,6 +146,10 @@ def test_mtu_boundary(tbinfo, duthost, ptfhost, gather_facts, mtu_boundary, boun
             It is expected that all of the executed commands to set mtu are failed on all of the ports
             used in this test.
     """
+    topo_type = tbinfo['topo']['type']
+    if topo_type not in ('t1', 't2'):
+        pytest.skip("Unsupported topology")
+
     testbed_type = tbinfo['topo']['name']
 
     log_file = "/tmp/mtu_change_test.{}-{}.log".format(mtu_boundary, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
