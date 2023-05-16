@@ -450,17 +450,18 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
-generic_config_updater/test_eth_interface.py::test_update_speed:
-  xfail:
-    reason: 'Xfail this script due to this not being a production scenario and misleading StateDB output for valid speed'
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
     conditions:
       - "platform in ['x86_64-kvm_x86_64-r0']"
+
+generic_config_updater/test_eth_interface.py::test_update_speed:
+  xfail:
+    reason: 'Xfail this script due to this not being a production scenario and misleading StateDB output for valid speed'
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
