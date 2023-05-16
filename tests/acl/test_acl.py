@@ -203,7 +203,7 @@ def get_t2_info(duthosts, tbinfo):
             if len(upstream_rifs):
                 for port in upstream_rifs:
                     # This code is commented due to a bug which restricts rif interfaces to
-                    # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
+                    # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
                     if namespace == DEFAULT_NAMESPACE:
                         acl_table_ports[''].append(port)
                     else:
@@ -211,7 +211,7 @@ def get_t2_info(duthosts, tbinfo):
             else:
                 for port in downstream_rifs:
                     # This code is commented due to a bug which restricts rif interfaces to
-                    # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
+                    # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
                     if namespace == DEFAULT_NAMESPACE:
                         acl_table_ports[''].append(port)
                     else:
