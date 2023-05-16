@@ -13,6 +13,7 @@ in .csv format etc.
 import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
+from tests.common.broadcom_data import is_broadcom_device as isBroadcomDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 
@@ -456,10 +457,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
             gmax_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmax {}' % asic_value
             gmin_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmin {}' % asic_value
             if asic_type == 'broadcom':
-                try:
-                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
-                except Exception:
-                    host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+                disable_packet_aging(host_ans, asic_value)
 
         if kmin > kmin_old:
             host_ans.shell(gmax_cmd.format(p, kmax))
@@ -507,10 +505,7 @@ def disable_ecn(host_ans, prio, asic_value='None'):
         asic_type = str(host_ans.facts["asic_type"])
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} off'.format(asic_value, prio))
         if asic_type == 'broadcom':
-            try:
-                host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-            except Exception:
-                host_ans.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+            enable_packet_aging(host_ans, asic_value)
 
 
 def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value='None'):
@@ -734,11 +729,12 @@ def stop_pfcwd(duthost, asic_value='None'):
         duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic_value))
 
 
-def disable_packet_aging(duthost):
+def disable_packet_aging(duthost, asic_value='None'):
     """
     Disable packet aging feature (only on MLNX switches)
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
+        asic_value: asic value of the multi chassis based linecard
     Returns:
         N/A
     """
@@ -747,13 +743,19 @@ def disable_packet_aging(duthost):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
+    elif isBroadcomDevice(duthost):
+        try:
+            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+        except Exception:
+            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
 
 
-def enable_packet_aging(duthost):
+def enable_packet_aging(duthost, asic_value='None'):
     """
     Enable packet aging feature (only on MLNX switches)
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
+        asic_value: asic value of the multi chassis based linecard
     Returns:
         N/A
     """
@@ -762,6 +764,11 @@ def enable_packet_aging(duthost):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
+    elif isBroadcomDevice(duthost):
+        try:
+            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+        except Exception:
+            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
