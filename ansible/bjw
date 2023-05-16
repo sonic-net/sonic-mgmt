@@ -18,11 +18,11 @@ all:
         # Please order the followng ptf hosts by IP address
         bjw6-1:
           ansible_host: 10.150.23.50
-        bjw6-2:
+        bjw16-1:
           ansible_host: 10.150.23.51
         bjw6-3:
           ansible_host: 10.150.23.52
-        bjw6-4:
+        bjw16-2:
           ansible_host: 10.150.23.53
         bjw6-5:
           ansible_host: 10.150.23.54

@@ -1857,14 +1857,14 @@
   comment: Beijing lab
 
 - conf-name: testbed-bjw-can-ec9516-1
-  group-name: bjw6-2
+  group-name: bjw16-1
   topo: t1-lag
   ptf_image_name: docker-ptf
-  ptf: bjw6-2
+  ptf: bjw16-1
   ptf_ip: 10.150.23.51/23
   ptf_ipv6:
-  server: server_bjw_6
-  vm_base: VM56006
+  server: server_bjw_16
+  vm_base: VM73000
   dut:
     - bjw-can-ec9516-1
   inv_name: bjw
@@ -1887,14 +1887,14 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw-slx-can-1
-  group-name: bjw6-4
+  group-name: bjw16-2
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: bjw6-4
+  ptf: bjw16-2
   ptf_ip: 10.150.23.53/23
   ptf_ipv6:
-  server: server_bjw_6
-  vm_base: VM56034
+  server: server_bjw_16
+  vm_base: VM73024
   dut:
     - bjw-slx-can-1
   inv_name: bjw
