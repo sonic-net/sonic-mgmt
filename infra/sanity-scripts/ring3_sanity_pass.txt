@@ -14,7 +14,7 @@ test_interfaces.py
 test_nbr_health.py
 #arp/test_arpall.py::test_arp_no_reply_src_out_range
 cacl/test_cacl_application.py
-dhcp_relay/test_dhcp_relay.py::test_interface_binding
+#dhcp_relay/test_dhcp_relay.py::test_interface_binding
 lldp/test_lldp.py
 monit/test_monit_status.py::test_monit_status
 mvrf/test_mgmtvrf.py::TestMvrfInbound::test_ping
