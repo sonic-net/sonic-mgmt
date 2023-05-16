@@ -6,6 +6,7 @@ import sys
 
 DEFAULT_LOCK_HOURS = 36
 
+
 def get_token(client_id, client_secret, proxies):
     token_url = 'https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/token'
     headers = {
@@ -19,6 +20,26 @@ def get_token(client_id, client_secret, proxies):
     }
     try:
         resp = requests.post(token_url, headers=headers, data=payload, proxies=proxies, timeout=10).json()
+        return resp['access_token']
+    except Exception as e:
+        print('Get token failed with exception: {}'.format(repr(e)))
+    return None
+
+
+def get_token_from_testbedV2():
+    token_url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(os.environ.get('TESTBEDV2_MSAL_TENANT'))
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+    payload = {
+        'grant_type': 'client_credentials',
+        'client_id': os.environ.get('TESTBEDV2_MSAL_CLIENT_ID'),
+        'client_secret': os.environ.get('TESTBEDV2_MSAL_SECRET_VALUE'),
+        'scope': os.environ.get('TESTBEDV2_MSAL_SCOPE')
+    }
+
+    try:
+        resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
         return resp['access_token']
     except Exception as e:
         print('Get token failed with exception: {}'.format(repr(e)))
@@ -63,9 +84,57 @@ def lock_release(testbed, action, token, proxies, hours, user, reason, force, ab
             return 2
         else:
             print('{} testbed {} succeeded'.format(action, testbed))
+            # sync lock/release to testbedV2, but not block current operation
+            lock_release_from_testbedV2(testbed, action, hours, user, reason, force, absolute)
             return 0
+
     except Exception as e:
         print('{} testbed {} failed with exception: {}'.format(action, testbed, repr(e)))
+        return 3
+
+
+def lock_release_from_testbedV2(testbed, action, hours, user, reason, force, absolute):
+    try:
+        data = {
+            "testbed_requirement": {
+                'platform': 'physical',
+                'name': [testbed],
+                'min': 1,
+                'max': 1
+            },
+            "hours": hours,
+            "requester_id": user,
+            'lock_reason': reason,
+            'absolute_lock': absolute,
+            'force_lock': force,
+
+        }
+        if action == 'release':
+            data = {
+                'testbed_names': [testbed],
+            }
+
+        headers = {
+            'Authorization': 'Bearer {}'.format(get_token_from_testbedV2())
+        }
+        resp = requests.post("{}/{}".format(os.environ.get("TESTBEDV2_MGMT_TESTBED_URL"), action),
+                             json=data,
+                             headers=headers).json()
+
+        if 'failed' in resp and resp['failed']:
+            print('[TestbedV2] {} testbed {} failed'.format(action, testbed))
+            if 'msg' in resp:
+                print(resp['msg'])
+            return 2
+        else:
+            if not resp['success']:
+                print('[TestbedV2] Lock testbeds failed with error: {}'.format(resp['errmsg']))
+                return 2
+            print('[TestbedV2] {} testbed {} succeeded'.format(action, testbed))
+            return 0
+
+    except Exception as e:
+        print('[TestbedV2] {} testbed {} failed with exception: {}'.format(action, testbed, repr(e)))
         return 3
 
 
