@@ -32,7 +32,8 @@ class ClockUtils:
         """
         @summary:
             Run a given command and return its output.
-            * A successful command returns an empty output (''), while failure returns an error message
+            * A successful command returns an empty output (except for show commands),
+                while failure returns an error message
         @return: commands output (str)
         """
         with allure_step(f'Run command: "{cmd}" with param "{param}"'):
@@ -49,14 +50,10 @@ class ClockUtils:
                 cmd_output = output if output else err
                 logging.info(f'Command Error!\nError message: "{cmd_output}"')
 
-            logging.info(f'Output type: {type(cmd_output)}')
-            logging.info(f'Output: {cmd_output}')
-
             logging.info('Convert output to string')
             cmd_output = str(cmd_output)
-            logging.info(f'Output type: {type(cmd_output)}')
             logging.info(f'Output: {cmd_output}')
-            
+
         return cmd_output
 
     @staticmethod
@@ -117,9 +114,8 @@ class ClockUtils:
             res_dict = {}
             for row in rows:
                 logging.info(f'row: "{row}"')
-                idx = row.index(':')
-                k, v = row[0: idx], row[idx + 2:]
-                res_dict[k] = v
+                row_split = row.split(':', 1)
+                res_dict[row_split[0]] = row_split[1].strip()
             logging.info(f'Result dict:\n{res_dict}')
             return res_dict
 
@@ -229,7 +225,7 @@ class ClockUtils:
                           f'Expected substring: "{expected_substr}"\n'
                           f'Given (whole) string: "{whole_str}"')
 
-    @ staticmethod
+    @staticmethod
     def verify_command(cmd_output, should_succeed=True, expected_err=''):
         """
         @summary:
@@ -247,7 +243,7 @@ class ClockUtils:
             with allure_step(f'Verify that command failed and output contains "{expected_err}"'):
                 ClockUtils.verify_substring(expected_substr=expected_err, whole_str=cmd_output)
 
-    @ staticmethod
+    @staticmethod
     def verify_timezone_value(duthosts, tz_name, tz_abbreviation):
         """
         @summary:
@@ -260,7 +256,6 @@ class ClockUtils:
         """
         with allure_step(f'Verify that given timezone abbreviation "{tz_abbreviation}" matches to '
                          f'expected timezone "{tz_name}"'):
-
             with allure_step('Get timezone details from timedatectl command'):
                 timedatectl_output = \
                     ClockUtils.parse_linux_cmd_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_TIMEDATECTL))
@@ -279,7 +274,7 @@ class ClockUtils:
                              f'matches the expected timezone "{tz_name}"'):
                 ClockUtils.verify_value(expected=timedatectl_tz_abbreviation, actual=tz_abbreviation)
 
-    @ staticmethod
+    @staticmethod
     def select_random_date():
         """
         @summary:
@@ -301,7 +296,7 @@ class ClockUtils:
             logging.info(f'Selected random date: "{rand_date_str}"')
             return rand_date_str
 
-    @ staticmethod
+    @staticmethod
     def select_random_time():
         """
         @summary:
@@ -318,7 +313,7 @@ class ClockUtils:
             logging.info(f'Selected random time: "{rand_time_str}"')
             return rand_time_str
 
-    @ staticmethod
+    @staticmethod
     def convert_show_clock_date(show_clock_date):
         """
         @summary:
@@ -332,7 +327,7 @@ class ClockUtils:
             logging.info(f'Converted date: "{converted_date}"')
             return converted_date
 
-    @ staticmethod
+    @staticmethod
     def convert_show_clock_time(show_clock_time):
         """
         @summary:
@@ -346,7 +341,7 @@ class ClockUtils:
             logging.info(f'Converted time: "{converted_time}"')
             return converted_time
 
-    @ staticmethod
+    @staticmethod
     def verify_time(expected, actual, allowed_margin=ClockConsts.TIME_MARGIN):
         """
         @summary:
@@ -358,12 +353,32 @@ class ClockUtils:
         """
         with allure_step(f'Verify that diff between "{expected}" and "{actual}" (in seconds) '
                          f'is no longer than {allowed_margin}'):
-
             with allure_step(f'Calculate diff between "{expected}" and "{actual}" in seconds'):
                 time_obj1 = datetime.datetime.strptime(expected, "%H:%M:%S")
                 time_obj2 = datetime.datetime.strptime(actual, "%H:%M:%S")
 
                 diff_seconds = abs((time_obj2 - time_obj1).total_seconds())
+
+            with allure_step(f'Verify that actual diff {diff_seconds} is not larger than {allowed_margin}'):
+                ClockUtils.verify_value(True, diff_seconds <= allowed_margin)
+
+    @staticmethod
+    def verify_datetime(expected, actual, allowed_margin=ClockConsts.TIME_MARGIN):
+        """
+        @summary:
+            Asserts a given date-time value is as expected
+            * expected and actual date-time values are strings in the format "YYYY-MM-DD HH:MM:SS"
+        @param expected: expected date-time value
+        @param actual: actual given date-time value
+        @param allowed_margin: allowed margin between two times (in seconds)
+        """
+        with allure_step(f'Verify that diff between "{expected}" and "{actual}" (in seconds) '
+                         f'is no longer than {allowed_margin}'):
+            with allure_step(f'Calculate diff between "{expected}" and "{actual}" in seconds'):
+                datetime_obj1 = datetime.datetime.strptime(expected, "%Y-%m-%d %H:%M:%S")
+                datetime_obj2 = datetime.datetime.strptime(actual, "%Y-%m-%d %H:%M:%S")
+
+                diff_seconds = abs((datetime_obj2 - datetime_obj1).total_seconds())
 
             with allure_step(f'Verify that actual diff {diff_seconds} is not larger than {allowed_margin}'):
                 ClockUtils.verify_value(True, diff_seconds <= allowed_margin)

@@ -112,13 +112,20 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
             show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
             show_clock_dict = ClockUtils.parse_show_clock_output(show_clock_output)
 
-        with allure_step('Verify date'):
+        with allure_step('Verify date-time'):
             cur_date = ClockUtils.convert_show_clock_date(show_clock_dict[ClockConsts.DATE])
-            ClockUtils.verify_value(expected=new_date, actual=cur_date)
-
-        with allure_step('Verify time'):
             cur_time = ClockUtils.convert_show_clock_time(show_clock_dict[ClockConsts.TIME])
-            ClockUtils.verify_time(expected=new_time, actual=cur_time)
+            cur_datetime = f'{cur_date} {cur_time}'
+
+            ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime)
+
+        # with allure_step('Verify date'):
+        #     cur_date = ClockUtils.convert_show_clock_date(show_clock_dict[ClockConsts.DATE])
+        #     ClockUtils.verify_value(expected=new_date, actual=cur_date)
+        #
+        # with allure_step('Verify time'):
+        #     cur_time = ClockUtils.convert_show_clock_time(show_clock_dict[ClockConsts.TIME])
+        #     ClockUtils.verify_time(expected=new_time, actual=cur_time)
 
     with allure_step('Select random string as invalid input'):
         rand_str = ''.join(random.choice(string.ascii_lowercase) for i in range(ClockConsts.RANDOM_NUM))
@@ -134,9 +141,8 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
             new_date + ' ' + rand_str: ClockConsts.ERR_BAD_TIME.format(rand_str)
         }
 
-        i = 0
         for invalid_input, err_msg in errors.items():
-            logging.info(f'Invalid input #{i}: "{invalid_input}"\nExpected error:\n{err_msg}')
+            logging.info(f'Invalid input: "{invalid_input}"\nExpected error:\n{err_msg}')
 
             with allure_step('Get show clock output before running the config command'):
                 show_clock_output_before = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
@@ -154,13 +160,22 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
                 show_clock_dict_before = ClockUtils.parse_show_clock_output(show_clock_output_before)
                 show_clock_dict_after = ClockUtils.parse_show_clock_output(show_clock_output_after)
 
-                with allure_step('Verify date'):
-                    ClockUtils.verify_value(expected=show_clock_dict_before[ClockConsts.DATE],
-                                            actual=show_clock_dict_after[ClockConsts.DATE])
-
-                with allure_step('Verify time'):
+                with allure_step('Verify date-time'):
+                    date_before = ClockUtils.convert_show_clock_date(show_clock_dict_before[ClockConsts.DATE])
                     time_before = ClockUtils.convert_show_clock_time(show_clock_dict_before[ClockConsts.TIME])
-                    time_after = ClockUtils.convert_show_clock_time(show_clock_dict_after[ClockConsts.TIME])
-                    ClockUtils.verify_time(expected=time_before, actual=time_after)
+                    datetime_before = f'{date_before} {time_before}'
 
-            i += 1
+                    date_after = ClockUtils.convert_show_clock_date(show_clock_dict_after[ClockConsts.DATE])
+                    time_after = ClockUtils.convert_show_clock_time(show_clock_dict_after[ClockConsts.TIME])
+                    datetime_after = f'{date_after} {time_after}'
+
+                    ClockUtils.verify_datetime(expected=datetime_before, actual=datetime_after)
+
+                # with allure_step('Verify date'):
+                #     ClockUtils.verify_value(expected=show_clock_dict_before[ClockConsts.DATE],
+                #                             actual=show_clock_dict_after[ClockConsts.DATE])
+                #
+                # with allure_step('Verify time'):
+                #     time_before = ClockUtils.convert_show_clock_time(show_clock_dict_before[ClockConsts.TIME])
+                #     time_after = ClockUtils.convert_show_clock_time(show_clock_dict_after[ClockConsts.TIME])
+                #     ClockUtils.verify_time(expected=time_before, actual=time_after)
