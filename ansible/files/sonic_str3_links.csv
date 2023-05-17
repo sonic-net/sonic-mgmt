@@ -21,7 +21,7 @@ str3-7260cx3-acs-root03,Ethernet19/1,str3-z9332f-02,Ethernet257,10000,1121-1156,
 str3-7260cx3-acs-root03,Ethernet22/1,str3-7060-acs-fan-01,Ethernet25/1,100000,"1157-1598,1601-1612",Trunk
 str3-7260cx3-acs-root03,Ethernet24/1,str3-dx010-acs-1,etp32,100000,1669-1698,Trunk
 str3-7260cx3-acs-root03,Ethernet25/1,str3-acs-serv-63,ens4f0,100000,"1157-1700,1801-1864",Trunk
-str3-7260cx3-acs-root03,Ethernet32/1,str3-msn4600c-acs-06,etp64,100000,1801-1860,Trunk
+str3-7260cx3-acs-root03,Ethernet32/1,str3-msn4600c-acs-06,etp64,100000,1801-1863,Trunk
 str3-8102-01,Ethernet0,str3-7260cx3-acs-fan-04,Ethernet1/1,100000,385,Access
 str3-8102-01,Ethernet4,str3-7260cx3-acs-fan-04,Ethernet2/1,100000,386,Access
 str3-8102-01,Ethernet8,str3-7260cx3-acs-fan-04,Ethernet3/1,100000,387,Access
@@ -1009,8 +1009,7 @@ str3-msn4600c-acs-05,Ethernet220,str3-msn4600c-acs-06,etp56,100000,1856,Access
 str3-msn4600c-acs-05,Ethernet224,str3-msn4600c-acs-06,etp57,100000,1857,Access
 str3-msn4600c-acs-05,Ethernet228,str3-msn4600c-acs-06,etp58,100000,1858,Access
 str3-msn4600c-acs-05,Ethernet232,str3-msn4600c-acs-06,etp59,100000,1859,Access
-str3-msn4600c-acs-05,Ethernet236,str3-msn4600c-acs-06,etp60,100000,1860,Access
-str3-msn4600c-acs-05,Ethernet240,str3-8101-fanout-01,Ethernet76,100000,1861,Access
-str3-msn4600c-acs-05,Ethernet244,str3-8101-fanout-01,Ethernet80,100000,1862,Access
-str3-msn4600c-acs-05,Ethernet248,str3-8101-fanout-01,Ethernet84,100000,1863,Access
-str3-msn4600c-acs-05,Ethernet252,str3-8101-fanout-01,Ethernet88,100000,1864,Access
+str3-msn4600c-acs-05,Ethernet240,str3-msn4600c-acs-06,etp60,100000,1860,Access
+str3-msn4600c-acs-05,Ethernet244,str3-msn4600c-acs-06,etp61,100000,1861,Access
+str3-msn4600c-acs-05,Ethernet248,str3-msn4600c-acs-06,etp62,100000,1862,Access
+str3-msn4600c-acs-05,Ethernet252,str3-msn4600c-acs-06,etp63,100000,1863,Access

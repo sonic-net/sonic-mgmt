@@ -2143,7 +2143,7 @@
 
 - conf-name: vms63-t1-4600-5
   group-name: vms63-4
-  topo: t1-lag
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: vms63-4
   ptf_ip: 10.64.247.48/23

@@ -1066,11 +1066,10 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet224" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet224"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet228" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet228"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet232" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet232"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet236" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet236"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet76" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet240"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet80" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet244"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet84" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet248"/>
-      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet88" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet252"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet236" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet240"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet240" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet244"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet244" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet248"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet248" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet252"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -1714,7 +1713,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet22/1" vlanids="1157-1598,1601-1612"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet24/1" vlanids="1669-1698"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids="1157-1700,1801-1864"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1801-1860"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1801-1863"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str3-8101-fanout-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.195/23"/>
@@ -1733,10 +1732,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="816"/>
       <InterfaceVlan mode="Access" portname="Ethernet64" vlanids="1732"/>
       <InterfaceVlan mode="Access" portname="Ethernet72" vlanids="1796"/>
-      <InterfaceVlan mode="Access" portname="Ethernet76" vlanids="1861"/>
-      <InterfaceVlan mode="Access" portname="Ethernet80" vlanids="1862"/>
-      <InterfaceVlan mode="Access" portname="Ethernet84" vlanids="1863"/>
-      <InterfaceVlan mode="Access" portname="Ethernet88" vlanids="1864"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str3-8101-fanout-06">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.178/23"/>
@@ -2249,7 +2244,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.146/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-msn4600c-acs-06">
-      <InterfaceVlan mode="Trunk" portname="Ethernet252" vlanids="1801-1860"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet252" vlanids="1801-1863"/>
       <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1801"/>
       <InterfaceVlan mode="Access" portname="Ethernet4" vlanids="1802"/>
       <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="1803"/>
@@ -2310,6 +2305,9 @@
       <InterfaceVlan mode="Access" portname="Ethernet228" vlanids="1858"/>
       <InterfaceVlan mode="Access" portname="Ethernet232" vlanids="1859"/>
       <InterfaceVlan mode="Access" portname="Ethernet236" vlanids="1860"/>
+      <InterfaceVlan mode="Access" portname="Ethernet240" vlanids="1861"/>
+      <InterfaceVlan mode="Access" portname="Ethernet244" vlanids="1862"/>
+      <InterfaceVlan mode="Access" portname="Ethernet248" vlanids="1863"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str3-msn4600c-acs-05">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.222/23"/>
@@ -2359,6 +2357,9 @@
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
     <DevicesBmcInfo/>
+    <BmcLinksInfo>
+      <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
+    </BmcLinksInfo>
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
