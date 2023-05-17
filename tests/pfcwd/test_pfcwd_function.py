@@ -758,6 +758,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.run_test(self.dut, port, action)
                 except Exception as e:
                     pytest.fail(str(e))
+
                 finally:
                     if self.storm_hndle:
                         logger.info("--- Stop pfc storm on port {}".format(port))
