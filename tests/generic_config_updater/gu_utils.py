@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 import pytest
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
+GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 
 
 def generate_tmpfile(duthost):
@@ -286,3 +288,41 @@ def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
     output = duthost.shell("show {} route vrf {} | grep -w {}".format(address_family, vrf_name, intf_name))
 
     pytest_assert(not output['rc'], "Route not found for {} in vrf {}".format(intf_name, vrf_name))
+
+
+def get_asic_name(duthost):
+    asic_type = duthost.facts["asic_type"]
+    asic = "unknown"
+    gcu_conf = get_gcu_field_operations_conf()
+    asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
+    if asic_type == 'cisco-8000':
+        asic = "cisco-8000"
+    elif asic_type == 'melanox':
+        GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
+        spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
+        hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
+        if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
+            asic = "spc1"
+    elif asic_type == 'broadcom':
+        output = duthost.shell("lspci")['stdout']
+        broadcom_asics = asic_mapping["broadcom_asics"]
+        for asic_shorthand, asic_descriptions in broadcom_asics.items():
+            if asic != "unknown":
+                break
+            for asic_description in asic_descriptions:
+                if asic_description in output:
+                    asic = asic_shorthand
+                    break
+    return asic
+
+
+def is_valid_platform_and_version(duthost, table, scenario):
+    asic = get_asic_name(duthost)
+    os_version = duthost.os_version
+    if asic == "unknown":
+        return False
+    if os_version == "none":
+        return True
+    gcu_conf = get_gcu_field_operations_conf()
+    version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6] # slice 0:6 for consistency with duthost.os_version slicing
+    return os_version >= version_required
