@@ -728,7 +728,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
@@ -810,7 +809,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.ports = {key: value}
         port = key
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
@@ -886,7 +884,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
