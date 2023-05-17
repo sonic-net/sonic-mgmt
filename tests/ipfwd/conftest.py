@@ -33,6 +33,7 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags,
                 [mg_facts['minigraph_ptf_indices'][intf] for intf in a_lag_data['po_config']['ports']]
             selected_lag_facts[key + '_router_mac'] = \
                 dut.asic_instance(enum_rand_one_frontend_asic_index).get_router_mac()
+            selected_lag_facts[key + '_port'] = [intf for intf in a_lag_data['po_config']['ports']]
             for intf in mg_facts['minigraph_portchannel_interfaces']:
                 if dut.is_backend_portchannel(intf['attachto'], mg_facts):
                     continue
@@ -86,6 +87,7 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs,
                         dut.asic_instance(enum_rand_one_frontend_asic_index).get_router_mac()
                     addr = ip_address(str(intf['addr']))
                     selected_port_facts[key + '_router_intf_name'] = intf['attachto']
+                    selected_port_facts[key + '_port'] = [a_intf_name]
                     if addr.version == 4:
                         selected_port_facts[key + '_router_ipv4'] = intf['addr']
                         selected_port_facts[key + '_host_ipv4'] = intf['peer_addr']
