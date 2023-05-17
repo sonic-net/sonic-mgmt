@@ -476,7 +476,6 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     arp_count = 8
     arplist = Arp(duthost, asic, arp_count, gather_facts['src_router_intf_name'])
     neighbor_mac = [neighbor[1].lower() for neighbor in arplist.ip_mac_list]
-    original_ip_mac_list = arplist.ip_mac_list[:]
     ip_route = "192.168.100.50"
     ip_prefix = ip_route + "/31"
     ip_ttl = 121
