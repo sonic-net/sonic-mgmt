@@ -19,8 +19,8 @@ def ntp_server(request):
     ntp_server_ip = request.config.getoption("ntp_server")
     logging.info(f'NTP server ip from execution parameter: {ntp_server_ip}')
     if ntp_server_ip is None:
-        logging.info('IP of NTP server was not given, will not run the test')
-        pytest.skip("IP of NTP server was not given, will not run the test")
+        logging.info('IP of NTP server was not given. Skipping the test')
+        pytest.skip("IP of NTP server was not given. Skipping the test")
     return ntp_server_ip
 
 
@@ -47,7 +47,7 @@ def restore_time(duthosts, ntp_server):
 
     yield
 
-    logging.info('Reset time after test. Sync with NTP server: {}')
+    logging.info(f'Reset time after test. Sync with NTP server: {ntp_server}')
 
     logging.info(f'Sync with NTP server: {ntp_server}')
     ClockUtils.verify_substring(ClockConsts.OUTPUT_CMD_NTP_ADD_SUCCESS.format(ntp_server),
