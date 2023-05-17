@@ -21,6 +21,14 @@ test_features.py
 test_interfaces.py
 test_nbr_health.py
 test_posttest.py
-test_pretest.py
+test_pretest.py::test_cleanup_cache
+test_pretest.py::test_cleanup_testbed
+test_pretest.py::test_collect_testbed_prio
+test_pretest.py::test_disable_container_autorestart
+test_pretest.py::test_disable_rsyslog_rate_limit
+test_pretest.py::test_features_state
+test_pretest.py::test_generate_running_golden_config
+test_pretest.py::test_stop_pfcwd
+test_pretest.py::test_update_saithrift_ptf
 test_procdockerstatsd.py::test_verify_redisexport
 test_procdockerstatsd.py::test_verify_status
