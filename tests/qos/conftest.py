@@ -91,7 +91,7 @@ def nearbySourcePorts(duthost, mg_facts, singleMemberPort):
         ns_spec = ""
         ns = duthost.asic_instance().get_asic_namespace()
         if ns:
-          ns_spec = " -n " + ns
+            ns_spec = " -n " + ns
         lanes = duthost.shell(
             'sonic-db-cli {} CONFIG_DB hget "PORT|{}" lanes'.format(
                 ns_spec, intf))['stdout'].split(',')
