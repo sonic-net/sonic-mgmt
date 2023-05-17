@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import json
+import yaml
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -12,12 +13,34 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices import init_localhost, init_testbed_sonichosts     # noqa E402
+from devutil.devices import init_localhost, init_testbed_sonichosts  # noqa E402
 
 logger = logging.getLogger(__name__)
 
 RC_INIT_FAILED = 1
 RC_GET_DUT_VERSION_FAILED = 2
+
+ASIC_NAME_PATH = '/../ansible/group_vars/sonic/variables'
+
+
+def read_asic_name(hwsku):
+    asic_name_file = os.path.dirname(__file__) + ASIC_NAME_PATH
+    try:
+        with open(asic_name_file) as f:
+            asic_name = yaml.safe_load(f)
+
+        for key, value in list(asic_name.copy().items()):
+            if ('td' not in key) and ('th' not in key) and ('spc' not in key):
+                asic_name.pop(key)
+
+        for name, hw in list(asic_name.items()):
+            if hwsku in hw:
+                return name.split('_')[1]
+
+        return "unknown"
+
+    except IOError:
+        return None
 
 
 def get_duts_version(sonichosts, output=None):
@@ -36,6 +59,11 @@ def get_duts_version(sonichosts, output=None):
                     if key == "Docker images":
                         ret[dut]["Docker images"] = []
                         continue
+                    elif key == "ASIC":
+                        ret[dut]["ASIC TYPE"] = value
+                        continue
+                    elif key == "HwSKU":
+                        ret[dut]["ASIC"] = read_asic_name(value)
                     ret[dut][key] = value
                 elif "docker" in line:
                     line_splitted = line.split()
@@ -87,7 +115,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Tool for getting sonic device version.")
