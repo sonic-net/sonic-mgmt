@@ -4103,13 +4103,19 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt=simple_tcp_packet(pktlen=packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = get_multiple_flows_udp(
+                self,
+                router_mac if router_mac != '' else dst_port_mac,
+                dst_port_id,
+                dst_port_ip,
+                None,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                [(src_port_id, src_port_ip)],
+                packets_per_port=1)[src_port_id][0][0]
+
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -4193,13 +4199,12 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
                     self.src_client, buf_pool_roid) - buffer_pool_wm_base
-                print("lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
-                      * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size), file=sys.stderr)
-                assert(buffer_pool_wm <= (expected_wm + \
-                       upper_bound_margin) * cell_size)
-                assert((expected_wm - lower_bound_margin)
-                       * cell_size <= buffer_pool_wm)
-
+                msg = "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
+                      * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size)
+                print(msg, file=sys.stderr)
+                assert buffer_pool_wm <= (expected_wm + \
+                       upper_bound_margin) * cell_size, msg
+                assert (expected_wm - lower_bound_margin) * cell_size <= buffer_pool_wm, msg
                 pkts_num=pkts_inc
 
             # overflow the shared pool
@@ -4216,12 +4221,13 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             time.sleep(8)
             buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
                 self.src_client, buf_pool_roid) - buffer_pool_wm_base
-            print("exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
-                pkts_num, (expected_wm * cell_size), buffer_pool_wm), file=sys.stderr)
-            assert(expected_wm == total_shared)
-            assert((expected_wm - lower_bound_margin)
-                   * cell_size <= buffer_pool_wm)
-            assert(buffer_pool_wm <= (expected_wm + extra_cap_margin) * cell_size)
+            msg = "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
+                pkts_num, (expected_wm * cell_size), buffer_pool_wm)
+            print(msg, file=sys.stderr)
+            assert expected_wm == total_shared, msg
+            assert (expected_wm - lower_bound_margin) \
+                   * cell_size <= buffer_pool_wm, msg
+            assert buffer_pool_wm <= (expected_wm + extra_cap_margin) * cell_size, msg
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
