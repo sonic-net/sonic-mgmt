@@ -7,28 +7,27 @@
     },
     {
       "file": "spytest/apis/routing/bgp.py",
-      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/Azure/sonic-mgmt/tree/master/spytest/spytest"
+      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/sonic-net/sonic-mgmt/tree/master/spytest/spytest"
     },
     {
       "file": "spytest/apis/security/user.py",
-      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/Azure/sonic-mgmt/tree/master/spytest/spytest"
+      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/sonic-net/sonic-mgmt/tree/master/spytest/spytest"
     },
     {
       "file": "spytest/apis/system/rest.py",
-      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/Azure/sonic-mgmt/tree/master/spytest/spytest"
+      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/sonic-net/sonic-mgmt/tree/master/spytest/spytest"
     },
     {
       "file": "spytest/spytest/tgen/tg.py",
-      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/Azure/sonic-mgmt/tree/master/spytest/spytest"
+      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/sonic-net/sonic-mgmt/tree/master/spytest/spytest"
     },
     {
       "file": "spytest/tests/routing/BGP/bgplib.py",
-      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/Azure/sonic-mgmt/tree/master/spytest/spytest"
+      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/sonic-net/sonic-mgmt/tree/master/spytest/spytest"
     },
     {
       "file": "spytest/tests/routing/BGP/test_bgp.py",
-      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/Azure/sonic-mgmt/tree/master/spytest/spytest"
+      "_justification": "Broadcom contribution to open source project. Password available publicly at https://github.com/sonic-net/sonic-mgmt/tree/master/spytest/spytest"
     }
   ]
 }
-

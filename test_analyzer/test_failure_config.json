@@ -46,9 +46,9 @@
         "20220531": ["202205", "internal-202205", "internal", "master"]
     },
     "auto_blame_repo": {
-        "master": ["Azure/sonic-mgmt", "Azure/sonic-buildimage"],
-        "internal": ["Azure/sonic-mgmt", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
-        "20201231": ["Azure/sonic-mgmt", "Azure/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
-        "20220531": ["Azure/sonic-mgmt", "Azure/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"]
+        "master": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage"],
+        "internal": ["sonic-net/sonic-mgmt", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
+        "20201231": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
+        "20220531": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"]
     }
 }
