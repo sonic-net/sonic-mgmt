@@ -81,7 +81,10 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
     # Check that class to handle fanout config is implemented
     if "mellanox" == duthost.facts["asic_type"]:
         fanout = get_fanout_obj(conn_graph_facts, duthost, fanouthosts)
-        if not is_mellanox_fanout(duthost, localhost):
+        # if the leaf fanout switch is Mellanox, but running SONiC OS
+        # then we have to skip some test cases because some operation (like the openflow)
+        # ia only supported on the Mellanox onyx
+        if not is_mellanox_fanout(duthost, localhost) or fanout.os == "sonic":
             fanout = None
 
     yield fanout
