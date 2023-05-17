@@ -290,6 +290,13 @@ def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
     pytest_assert(not output['rc'], "Route not found for {} in vrf {}".format(intf_name, vrf_name))
 
 
+def get_gcu_field_operations_conf():
+    conf_path = os.path.join(os.path.dirname(__file__), GCU_FIELD_OPERATION_CONF_FILE)
+    with open(conf_path, 'r') as s:
+        gcu_conf = json.load(s)
+    return gcu_conf
+
+
 def get_asic_name(duthost):
     asic_type = duthost.facts["asic_type"]
     asic = "unknown"
@@ -324,5 +331,5 @@ def is_valid_platform_and_version(duthost, table, scenario):
     if os_version == "none":
         return True
     gcu_conf = get_gcu_field_operations_conf()
-    version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6] # slice 0:6 for consistency with duthost.os_version slicing
+    version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6]
     return os_version >= version_required
