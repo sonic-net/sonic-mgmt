@@ -21,11 +21,9 @@ UDP_DST_PORT = 63
 UDP_PKT_LEN = 190
 TOTAL_NUM_PKTS = 100000
 EXP_FLOW_DUR_SEC = 3
-PKT_SEND_DELAY = 2
 SNAPPI_POLL_DELAY_SEC = 2
 INNER_PKT_SRC_IP = "20.0.20.0"
 INNER_PKT_DST_IP = "21.0.20.0"
-STATIC_IP_SUBNET = 24
 SEQUENCE_CHECKING_THRESHOLD = 1
 
 
@@ -56,7 +54,6 @@ def run_ipip_packet_reorder_test(api,
     """
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-    disable_packet_aging(duthost)
 
     # Get the ID of the port to test
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
@@ -70,8 +67,7 @@ def run_ipip_packet_reorder_test(api,
     flow_rate_percent = int(FLOW_AGGR_RATE_PERCENT / len(flow_prio_list))
 
     # Generate traffic config
-    __gen_traffic(duthost=duthost,
-                  testbed_config=testbed_config,
+    __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
                   port_id=port_id,
                   flow_name=FLOW_NAME,
@@ -98,8 +94,7 @@ def run_ipip_packet_reorder_test(api,
                      exp_rx_pkts=TOTAL_NUM_PKTS)
 
 
-def __gen_traffic(duthost,
-                  testbed_config,
+def __gen_traffic(testbed_config,
                   port_config_list,
                   port_id,
                   flow_name,
@@ -114,7 +109,6 @@ def __gen_traffic(duthost,
     Generate configurations of flows, and device configurations on both the DUT, and ixia device which
     emulates a neighbor.
     Args:
-        duthost (Ansible host instance): device under test
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test

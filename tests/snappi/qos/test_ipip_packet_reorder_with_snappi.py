@@ -20,7 +20,7 @@ def test_ip_in_ip_packet_reorder(snappi_api, # noqa F811
                                  duthosts,
                                  rand_one_dut_hostname,
                                  rand_one_dut_portname_oper_up,
-                                 enum_dut_lossless_prio,
+                                 enum_dut_all_prio,
                                  prio_dscp_map): # noqa F811
     """
     Validate that IPinIP RDMA packets are not being reordered on a single lossless priority
@@ -33,7 +33,7 @@ def test_ip_in_ip_packet_reorder(snappi_api, # noqa F811
         duthosts (pytest fixture): list of DUTs
         rand_one_dut_hostname (str): hostname of DUT
         rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
-        enum_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
+        enum_dut_all_prio (str): priority (lossy and lossless) to test, e.g., 's6100-1|3'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
 
     Returns:
@@ -41,14 +41,14 @@ def test_ip_in_ip_packet_reorder(snappi_api, # noqa F811
     """
 
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
-    dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')
+    dut_hostname2, prio = enum_dut_all_prio.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
                    "Priority and port are not mapped to the expected DUT")
 
     testbed_config, port_config_list = snappi_testbed_config
     duthost = duthosts[rand_one_dut_hostname]
-    lossless_prio = int(lossless_prio)
-    flow_prio_list = [lossless_prio]
+    test_prio = int(prio)
+    flow_prio_list = [test_prio]
 
     run_ipip_packet_reorder_test(api=snappi_api,
                                  testbed_config=testbed_config,
