@@ -72,7 +72,7 @@ def test_pfc_zero_src_mac_single_lossless_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
-                 pfc_pause_zero_src_mac=True)
+                 pfc_pause_src_mac="00:00:00:00:00:00")
 
 
 def test_pfc_zero_src_mac_multi_lossless_prio(snappi_api, # noqa F811
@@ -128,4 +128,4 @@ def test_pfc_zero_src_mac_multi_lossless_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
-                 pfc_pause_zero_src_mac=True)
+                 pfc_pause_src_mac="00:00:00:00:00:00")

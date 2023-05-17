@@ -7,7 +7,7 @@ from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
-    get_pfc_pause_frame_count
+    get_pfc_frame_count
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -24,7 +24,6 @@ DATA_FLOW_DURATION_SEC = 2
 DATA_FLOW_DELAY_SEC = 1
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
-ZERO_MAC = "00:00:00:00:00:00"
 
 
 def run_pfc_test(api,
@@ -41,7 +40,7 @@ def run_pfc_test(api,
                  prio_dscp_map,
                  test_traffic_pause,
                  headroom_test_params=None,
-                 pfc_pause_zero_src_mac=False):
+                 pfc_pause_src_mac=None):
     """
     Run a PFC test
     Args:
@@ -60,7 +59,7 @@ def run_pfc_test(api,
         test_traffic_pause (bool): if test flows are expected to be paused
         headroom_test_params (array): 2 element array if the associated pfc pause quanta
                                     results in no packet drop [pfc_delay, headroom_result]
-        pfc_pause_zero_src_mac (bool): if pause frames are expected to have zero source MAC
+        pfc_pause_src_mac (string): MAC address of source PFC Pause frame
     Returns:
         N/A
     """
@@ -112,7 +111,7 @@ def run_pfc_test(api,
                   data_flow_delay_sec=DATA_FLOW_DELAY_SEC,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_dscp_map=prio_dscp_map,
-                  pfc_pause_zero_src_mac=pfc_pause_zero_src_mac)
+                  pfc_pause_src_mac=pfc_pause_src_mac)
 
     flows = testbed_config.flows
 
@@ -135,6 +134,8 @@ def run_pfc_test(api,
     """ Reset pfc delay parameter"""
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
+
+    pfc_pause_zero_src_mac = True if pfc_pause_src_mac == "00:00:00:00:00:00" else False
 
     """ Verify experiment results """
     __verify_results(rows=flow_stats,
@@ -169,7 +170,7 @@ def __gen_traffic(testbed_config,
                   data_flow_delay_sec,
                   data_pkt_size,
                   prio_dscp_map,
-                  pfc_pause_zero_src_mac):
+                  pfc_pause_src_mac):
     """
     Generate configurations of flows, including test flows, background flows and
     pause storm. Test flows and background flows are also known as data flows.
@@ -190,7 +191,7 @@ def __gen_traffic(testbed_config,
         data_flow_delay_sec (int): start delay of data flows in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-        pfc_pause_zero_src_mac (bool): if pause frames are expected to have zero source MAC
+        pfc_pause_src_mac (string): MAC address of source PFC Pause frame
     Returns:
         flows configurations (list): the list should have configurations of
         len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
@@ -297,11 +298,7 @@ def __gen_traffic(testbed_config,
     if global_pause:
         pause_pkt = pause_flow.packet.ethernetpause()[-1]
         pause_pkt.dst.value = '01:80:C2:00:00:01'
-        if pfc_pause_zero_src_mac:
-            pause_pkt.src.value = ZERO_MAC
-        else:
-            pause_pkt.src.value = '00:00:fa:ce:fa:ce'
-
+        pause_pkt.src.value = pfc_pause_src_mac if pfc_pause_src_mac else '00:00:fa:ce:fa:ce'
     else:
         pause_time = []
         for x in range(8):
@@ -312,10 +309,7 @@ def __gen_traffic(testbed_config,
 
         vector = pfc_class_enable_vector(pause_prio_list)
         pause_pkt = pause_flow.packet.pfcpause()[-1]
-        if pfc_pause_zero_src_mac:
-            pause_pkt.src.value = ZERO_MAC
-        else:
-            pause_pkt.src.value = '00:00:fa:ce:fa:ce'
+        pause_pkt.src.value = pfc_pause_src_mac if pfc_pause_src_mac else '00:00:fa:ce:fa:ce'
         pause_pkt.dst.value = '01:80:C2:00:00:01'
         pause_pkt.class_enable_vector.value = vector
         pause_pkt.pause_class_0.value = pause_time[0]
@@ -534,6 +528,6 @@ def __verify_results(rows,
     if pfc_pause_zero_src_mac:
         for peer_port, prios in flow_port_config[1].items():
             for prio in prios:
-                pfc_pause_rx_frames = get_pfc_pause_frame_count(duthost, peer_port, prio)
+                pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio)
                 pytest_assert(pfc_pause_rx_frames > 0,
                               "PFC pause frames with zero source MAC are not counted in the PFC counters")

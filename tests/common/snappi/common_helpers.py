@@ -686,9 +686,9 @@ def sec_to_nanosec(secs):
     return secs * 1e9
 
 
-def get_pfc_pause_frame_count(duthost, port, priority, is_Tx=False):
+def get_pfc_frame_count(duthost, port, priority, is_Tx=False):
     """
-    Get the PFC pause frame count for a given port and priority from SONiC CLI
+    Get the PFC frame count for a given port and priority from SONiC CLI
     Args:
         duthost (Ansible host instance): device under test
         port (str): port name
