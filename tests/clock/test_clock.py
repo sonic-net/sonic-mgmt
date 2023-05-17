@@ -2,7 +2,6 @@ import logging
 import random
 import string
 import pytest
-import allure
 
 from tests.clock.ClockUtils import ClockUtils, allure_step
 from tests.clock.ClockConsts import ClockConsts
@@ -128,17 +127,17 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         #     ClockUtils.verify_time(expected=new_time, actual=cur_time)
 
     with allure_step('Select random string as invalid input'):
-        rand_str = ''.join(random.choice(string.ascii_lowercase) for i in range(ClockConsts.RANDOM_NUM))
+        rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(ClockConsts.RANDOM_NUM))
         logging.info(f'Selected random string: "{rand_str}"')
 
     with allure_step('Try to set invalid inputs'):
         errors = {
             '': ClockConsts.ERR_MISSING_DATE,
             rand_str: ClockConsts.ERR_MISSING_TIME,
-            rand_str + ' ' + rand_str: ClockConsts.ERR_BAD_DATE.format(rand_str) + '\n'
-                                       + ClockConsts.ERR_BAD_TIME.format(rand_str),
-            rand_str + ' ' + new_time: ClockConsts.ERR_BAD_DATE.format(rand_str),
-            new_date + ' ' + rand_str: ClockConsts.ERR_BAD_TIME.format(rand_str)
+            f'{rand_str} {rand_str}': f'{ClockConsts.ERR_BAD_DATE.format(rand_str)}\n'
+                                      f'{ClockConsts.ERR_BAD_TIME.format(rand_str)}',
+            f'{rand_str} {new_time}': ClockConsts.ERR_BAD_DATE.format(rand_str),
+            f'{new_date} {rand_str}': ClockConsts.ERR_BAD_TIME.format(rand_str)
         }
 
         for invalid_input, err_msg in errors.items():
