@@ -529,7 +529,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             if iter_count == 0:
                 fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                                 gather_facts['src_port'][0])
-                # Simulate ECMP Acceleation with link flap where ECMP memeber are removed
+                # Simulate ECMP Acceleration with link flap where ECMP memeber are removed
                 # and added back to the group
                 # BGP service is stoped so we don't get Route Removal message
                 # from FRR and it is just member add/remove trigger
