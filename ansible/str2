@@ -1736,7 +1736,7 @@ sonic_nokia_7215:
         "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.4"
         "0x2A": "64"
         "0x2F": "CSM9W00FRA"
-        "0xFD": ""
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xB5"
         "0xFE": "0x330F7F44"
     str2-7215-acs-3:
       ansible_host: 10.3.147.140
