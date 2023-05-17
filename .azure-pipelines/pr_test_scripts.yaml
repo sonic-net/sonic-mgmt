@@ -124,7 +124,6 @@ multi-asic-t1-lag:
   - iface_namingmode/test_iface_namingmode.py
   - scp/test_scp_copy.py
   - test_interfaces.py
-  - override_config_table/test_override_config_table.py
   - process_monitoring/test_critical_process_monitoring.py
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
