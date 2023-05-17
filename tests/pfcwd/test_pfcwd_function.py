@@ -747,16 +747,17 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
             actions = ['dontcare', 'drop', 'forward']
-            if duthost.sonichost._facts['asic_type']=="cisco-8000":
+            if duthost.sonichost._facts['asic_type'] == "cisco-8000":
                 actions = ['dontcare', 'drop']
             for action in actions:
                 try:
-                     self.set_traffic_action(duthost, action)
-                     self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
-                     logger.info("{} on port {}: Tx traffic action {}, Rx traffic action {} ".format(WD_ACTION_MSG_PFX[action], port, self.tx_action, self.rx_action))
-                     self.run_test(self.dut, port, action)
+                    self.set_traffic_action(duthost, action)
+                    self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
+                    logger.info("{} on port {}: Tx traffic action {}, Rx traffic action {} ".
+                                format(WD_ACTION_MSG_PFX[action], port, self.tx_action, self.rx_action))
+                    self.run_test(self.dut, port, action)
                 except Exception as e:
-                     pytest.fail(str(e))
+                    pytest.fail(str(e))
                 finally:
                     if self.storm_hndle:
                         logger.info("--- Stop pfc storm on port {}".format(port))
