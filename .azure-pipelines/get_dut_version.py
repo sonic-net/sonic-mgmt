@@ -20,20 +20,21 @@ logger = logging.getLogger(__name__)
 RC_INIT_FAILED = 1
 RC_GET_DUT_VERSION_FAILED = 2
 
-ASIC_NAME_PATH = '/../ansible/group_vars/sonic/variables'
+ASIC_NAME_PATH = '../ansible/group_vars/sonic/variables'
 
 
 def read_asic_name(hwsku):
-    asic_name_file = os.path.dirname(__file__) + ASIC_NAME_PATH
+    asic_name_file = os.path.join(os.path.dirname(__file__), ASIC_NAME_PATH)
     try:
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
 
-        for key, value in list(asic_name.copy().items()):
-            if ('td' not in key) and ('th' not in key) and ('spc' not in key):
-                asic_name.pop(key)
+        asic_name_dict = {}
+        for key, value in asic_name.items():
+            if "hwskus" in key:
+                asic_name_dict[key] = value
 
-        for name, hw in list(asic_name.items()):
+        for name, hw in asic_name_dict.items():
             if hwsku in hw:
                 return name.split('_')[1]
 
