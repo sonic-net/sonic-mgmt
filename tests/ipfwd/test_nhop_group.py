@@ -487,7 +487,6 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
     rtr_mac = asic.get_router_mac()
 
-
     def built_and_send_tcp_ip_packet():
         for flow_count in range(50):
             pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl, flow_count)
@@ -528,75 +527,138 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             built_and_send_tcp_ip_packet()
 
             if iter_count == 0:
-                fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, gather_facts['src_port'][0])
-                # Simulate ECMP Acceleation with link flap where ECMP memeber are removed and added back to the group
-                # BGP service is stoped so we don't get Route Removal message from FRR and it is just member add/remove trigger
+                fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
+                                                                gather_facts['src_port'][0])
+                # Simulate ECMP Acceleation with link flap where ECMP memeber are removed
+                # and added back to the group
+                # BGP service is stoped so we don't get Route Removal message
+                # from FRR and it is just member add/remove trigger
                 asic.stop_service("bgp")
                 time.sleep(15)
                 toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
                 time.sleep(5)
-                
+
                 built_and_send_tcp_ip_packet()
 
             for flow_count, nexthop_selected in recvd_pkt_result.items():
-                pytest_assert(len(nexthop_selected) == 1, "Error flow {} received on different nexthop in iteration {}".format(flow_count, iter_count))
+                pytest_assert(len(nexthop_selected) == 1,
+                              "Error flow {} received on different nexthop in iteration {}"
+                              .format(flow_count, iter_count))
         finally:
             asic.start_service("bgp")
             time.sleep(15)
             nhop.delete_routes()
             arplist.clean_up()
 
-    th_asic_flow_map={0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b', 2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
-                      5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:11',
-                      10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f', 12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d', 14: 'c0:ff:ee:00:00:10',
-                      15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0c',
-                      20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b', 22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d', 24: 'c0:ff:ee:00:00:11',
-                      25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                      30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12', 32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f', 34: 'c0:ff:ee:00:00:0e',
-                      35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                      40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d', 42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                      45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+    th_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
+                        2: 'c0:ff:ee:00:00:12',
+                        3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
+                        5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
+                        7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
+                        9: 'c0:ff:ee:00:00:11',
+                        10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
+                        12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
+                        14: 'c0:ff:ee:00:00:10',
+                        15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
+                        17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
+                        19: 'c0:ff:ee:00:00:0c',
+                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
+                        22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
+                        24: 'c0:ff:ee:00:00:11',
+                        25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
+                        27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
+                        30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
+                        32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
+                        34: 'c0:ff:ee:00:00:0e',
+                        35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
+                        37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
+                        40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
+                        42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
+                        45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
+                        47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
 
-    gb_asic_flow_map={0: 'c0:ff:ee:00:00:0f', 1: 'c0:ff:ee:00:00:10', 2: 'c0:ff:ee:00:00:0e', 3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:11',
-                      5: 'c0:ff:ee:00:00:0f', 6: 'c0:ff:ee:00:00:12', 7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:10',
-                      10: 'c0:ff:ee:00:00:11', 11: 'c0:ff:ee:00:00:0f', 12: 'c0:ff:ee:00:00:0c', 13: 'c0:ff:ee:00:00:0f', 14: 'c0:ff:ee:00:00:11',
-                      15: 'c0:ff:ee:00:00:0c', 16: 'c0:ff:ee:00:00:0e', 17: 'c0:ff:ee:00:00:11', 18: 'c0:ff:ee:00:00:11', 19: 'c0:ff:ee:00:00:0c',
-                      20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b', 22: 'c0:ff:ee:00:00:0d', 23: 'c0:ff:ee:00:00:10', 24: 'c0:ff:ee:00:00:12',
-                      25: 'c0:ff:ee:00:00:11', 26: 'c0:ff:ee:00:00:11', 27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:11', 29: 'c0:ff:ee:00:00:0c',
-                      30: 'c0:ff:ee:00:00:12', 31: 'c0:ff:ee:00:00:10', 32: 'c0:ff:ee:00:00:11', 33: 'c0:ff:ee:00:00:0c', 34: 'c0:ff:ee:00:00:0c',
-                      35: 'c0:ff:ee:00:00:0b', 36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0e', 39: 'c0:ff:ee:00:00:0d',
-                      40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:11', 42: 'c0:ff:ee:00:00:11', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0e',
-                      45: 'c0:ff:ee:00:00:0f', 46: 'c0:ff:ee:00:00:0f', 47: 'c0:ff:ee:00:00:0c', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:10'}
+    gb_asic_flow_map = {0: 'c0:ff:ee:00:00:0f', 1: 'c0:ff:ee:00:00:10',
+                        2: 'c0:ff:ee:00:00:0e', 3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:11',
+                        5: 'c0:ff:ee:00:00:0f', 6: 'c0:ff:ee:00:00:12',
+                        7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:10',
+                        10: 'c0:ff:ee:00:00:11', 11: 'c0:ff:ee:00:00:0f',
+                        12: 'c0:ff:ee:00:00:0c', 13: 'c0:ff:ee:00:00:0f',
+                        14: 'c0:ff:ee:00:00:11',
+                        15: 'c0:ff:ee:00:00:0c', 16: 'c0:ff:ee:00:00:0e',
+                        17: 'c0:ff:ee:00:00:11', 18: 'c0:ff:ee:00:00:11', 19: 'c0:ff:ee:00:00:0c',
+                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
+                        22: 'c0:ff:ee:00:00:0d', 23: 'c0:ff:ee:00:00:10', 24: 'c0:ff:ee:00:00:12',
+                        25: 'c0:ff:ee:00:00:11', 26: 'c0:ff:ee:00:00:11',
+                        27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:11', 29: 'c0:ff:ee:00:00:0c',
+                        30: 'c0:ff:ee:00:00:12', 31: 'c0:ff:ee:00:00:10',
+                        32: 'c0:ff:ee:00:00:11', 33: 'c0:ff:ee:00:00:0c', 34: 'c0:ff:ee:00:00:0c',
+                        35: 'c0:ff:ee:00:00:0b', 36: 'c0:ff:ee:00:00:0d',
+                        37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0e', 39: 'c0:ff:ee:00:00:0d',
+                        40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:11',
+                        42: 'c0:ff:ee:00:00:11', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0e',
+                        45: 'c0:ff:ee:00:00:0f', 46: 'c0:ff:ee:00:00:0f',
+                        47: 'c0:ff:ee:00:00:0c', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:10'}
 
-    td2_asic_flow_map={0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b', 2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
-                       5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:11',
-                       10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f', 12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d', 14: 'c0:ff:ee:00:00:10',
-                       15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0c',
-                       20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b', 22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d', 24: 'c0:ff:ee:00:00:11',
-                       25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                       30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12', 32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f', 34: 'c0:ff:ee:00:00:0e',
-                       35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                       40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d', 42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                       45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+    td2_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
+                         2: 'c0:ff:ee:00:00:12',
+                         3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
+                         5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
+                         7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
+                         9: 'c0:ff:ee:00:00:11',
+                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
+                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
+                         14: 'c0:ff:ee:00:00:10',
+                         15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
+                         17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
+                         19: 'c0:ff:ee:00:00:0c',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
+                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
+                         24: 'c0:ff:ee:00:00:11',
+                         25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
+                         27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
+                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
+                         34: 'c0:ff:ee:00:00:0e',
+                         35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
+                         37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
+                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
+                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
+                         45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
+                         47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
 
-    th2_asic_flow_map={0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b', 2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
-                       5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:11',
-                       10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f', 12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d', 14: 'c0:ff:ee:00:00:10',
-                       15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0c',
-                       20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b', 22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d', 24: 'c0:ff:ee:00:00:11',
-                       25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                       30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12', 32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f', 34: 'c0:ff:ee:00:00:0e',
-                       35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                       40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d', 42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                       45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
-
-    # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
+    th2_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
+                         2: 'c0:ff:ee:00:00:12',
+                         3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
+                         5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
+                         7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
+                         9: 'c0:ff:ee:00:00:11',
+                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
+                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
+                         14: 'c0:ff:ee:00:00:10',
+                         15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
+                         17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
+                         19: 'c0:ff:ee:00:00:0c',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
+                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
+                         24: 'c0:ff:ee:00:00:11',
+                         25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
+                         27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
+                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
+                         34: 'c0:ff:ee:00:00:0e',
+                         35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
+                         37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
+                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
+                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
+                         45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
+                         47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+    # Make sure a givenflow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
-                                              "td2": td2_asic_flow_map, "th2":th2_asic_flow_map}
+                                              "td2": td2_asic_flow_map, "th2": th2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -610,6 +672,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     # Vendor need to update SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP . To do this we need to run the test case 1st
     # time and see the neighbor picked by flow (pkt) sent above. Once that is determined update the map
     # SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP
-    pytest_assert(dutAsic, "Please add ASIC in the SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP list and update the asic to nexthop mapping")
+    pytest_assert(dutAsic, "Please add ASIC in the SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP \
+                            list and update the asic to nexthop mapping")
     for flow_count, nexthop_selected in recvd_pkt_result.items():
-        pytest_assert(nexthop_map[flow_count] in nexthop_selected, "Flow {} is not picking expected Neighbor".format(flow_count))
+        pytest_assert(nexthop_map[flow_count] in nexthop_selected,
+                      "Flow {} is not picking expected Neighbor".format(flow_count))
