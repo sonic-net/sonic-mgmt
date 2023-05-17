@@ -1,0 +1,188 @@
+[
+	{
+		"DASH_APPLIANCE_TABLE:123" : {
+			"sip":"11.110.1.1",
+			"vm_vni":"4321"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_VNET_TABLE:Vnet1" : {
+			"vni":"45654",
+			"guid":"559c6ce8-26ab-4193-b946-ccc6e8f930b2"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_VNET_TABLE:Vnet2" : {
+			"vni":"35421",
+			"guid":"659c6ce8-26ab-4193-b946-ccc6e8f930b2"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_VNET_MAPPING_TABLE:Vnet1:10.1.1.1" : {
+			"routing_type":"vnet_encap",
+			"underlay_ip":"101.1.2.3",
+			"mac_address":"F9-22-83-99-22-A2"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_VNET_MAPPING_TABLE:Vnet1:10.0.0.5" : {
+			"routing_type":"vnet_encap",
+			"underlay_ip":"100.1.2.3",
+			"mac_address":"F9-22-83-99-22-A2"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_VNET_MAPPING_TABLE:Vnet1:10.0.0.6" : {
+			"routing_type":"vnet_encap",
+			"underlay_ip":"2601:12:7A:1::1234",
+			"mac_address":"F9-22-83-99-22-A2"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_VNET_MAPPING_TABLE:Vnet2:100.0.0.12" : {
+			"routing_type":"vnet_encap",
+			"underlay_ip":"f2d9:03a8:0:0::f78d",
+			"mac_address":"B3-45-72-81-11-C3"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_QOS_TABLE:qos100" : {
+			"qos_id":"100",
+			"bw":"10000",
+			"cps":"1000",
+			"flows":"10"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ENI_TABLE:E3828EDEB36D" : {
+			"eni_id":"386e12c6-e0ab-3b88-a87e-48b360d7b6ac",
+			"mac_address":"E3:82:8E:DE:B3:6D",
+			"underlay_ip":"50.2.2.2",
+			"admin_state":"disabled",
+			"vnet":"Vnet2"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ENI_TABLE:D82E9E3FB46A" : {
+			"eni_id":"82ef24c6-e1bf-5a89-a876-49b630d5b7ba",
+			"mac_address":"D8:2E:9E:3F:B4:6A",
+			"underlay_ip":"ac5c:99c2:30c9:98eb:c617:f88f:7c5c:ea90",
+			"admin_state":"disabled",
+			"vnet":"Vnet1",
+			"qos":"qos100"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ENI_TABLE:E43D4A59A87B" : {
+			"eni_id":"43d421b2-d0cc-4de8-ab74-47b151c7b6ca",
+			"mac_address":"E4:3D:4A:59:A8:7B",
+			"underlay_ip":"d95d:46e5:d5b2:4ce0:02a3:0d9d:44a4:f20b",
+			"admin_state":"disabled",
+			"vnet":"Vnet2"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ENI_TABLE:F4939FEFC47E" : {
+			"eni_id":"497f23d7-f0ac-4c99-a98f-59b470e8c7bd",
+			"mac_address":"F4:93:9F:EF:C4:7E",
+			"underlay_ip":"25.1.1.1",
+			"admin_state":"disabled",
+			"vnet":"Vnet1",
+			"qos":"qos100"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_TABLE:F4939FEFC47E:10.1.0.0/16" : {
+			"action_type":"vnet",
+			"vnet":"Vnet1"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_TABLE:E3828EDEB36D:20.2.0.0/16" : {
+			"action_type":"vnet",
+			"vnet":"Vnet2"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_TABLE:F4939FEFC47E:10.1.0.0/24" : {
+			"action_type":"vnet_direct",
+			"vnet":"Vnet1",
+			"overlay_ip":"10.0.0.6"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_TABLE:E3828EDEB36D:45.135.0.0/16" : {
+			"action_type":"vnet_direct",
+			"vnet":"Vnet2",
+			"overlay_ip":"100.0.0.12"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_TABLE:F4939FEFC47E:30.0.0.0/16" : {
+			"action_type":"direct"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_TABLE:F4939FEFC47E:10.2.5.0/24" : {
+			"action_type":"drop"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_RULE_TABLE:D82E9E3FB46A:3251:215.192.1.1" : {
+			"action_type":"decap",
+			"vnet":"Vnet1",
+			"priority":"1",
+			"protocol":"0",
+			"pa_validation":"true"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_RULE_TABLE:E43D4A59A87B:123:80.2.0.0/24" : {
+			"action_type":"decap",
+			"vnet":"Vnet2",
+			"priority":"1",
+			"protocol":"0",
+			"pa_validation":"true"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_RULE_TABLE:D82E9E3FB46A:4345:112.75.102.0/24" : {
+			"action_type":"drop",
+			"vnet":"Vnet1",
+			"priority":"2",
+			"protocol":"0",
+			"pa_validation":"false"
+		},
+		"OP": "SET"
+	},
+	{
+		"DASH_ROUTE_RULE_TABLE:E43D4A59A87B:456:137.239.203.208" : {
+			"action_type":"drop",
+			"vnet":"Vnet2",
+			"priority":"2",
+			"protocol":"0",
+			"pa_validation":"false"
+		},
+		"OP": "SET"
+	}
+]

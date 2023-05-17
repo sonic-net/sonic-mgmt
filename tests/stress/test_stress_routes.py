@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 
-import math
-import os
-import yaml
-import re
-import requests
 import logging
 import pytest
 
@@ -22,11 +17,12 @@ pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')
 ]
 
+
 def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
     logger.info("announce ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
-    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") == True)
+    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") is True)
 
     logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
@@ -35,16 +31,22 @@ def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
     logger.info("withdraw ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
-    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") == True)
+    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
     sleep_to_wait(CRM_POLLING_INTERVAL * 5)
     logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
 
 
 def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conpleteness_level,
-                                 withdraw_and_announce_existing_routes):
+                                 withdraw_and_announce_existing_routes, loganalyzer):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR route_check.py:.*",
+            ".*ERR.* \'routeCheck\' status failed.*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
@@ -64,6 +66,6 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
     ipv6_route_used_after = get_crm_resources(duthost, "ipv6_route", "used")
 
     pytest_assert(abs(ipv4_route_used_after - ipv4_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
-              "ipv4 route used after is not equal to it used before")
+                  "ipv4 route used after is not equal to it used before")
     pytest_assert(abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
-              "ipv6 route used after is not equal to it used before")
+                  "ipv6 route used after is not equal to it used before")

@@ -20,8 +20,20 @@ SUPPORTED_CHECKS = checks.CHECK_ITEMS
 
 
 def pytest_sessionfinish(session, exitstatus):
-    if session.config.cache.get("sanity_check_failed", None):
-        session.config.cache.set("sanity_check_failed", None)
+
+    pre_sanity_failed = session.config.cache.get("pre_sanity_check_failed", None)
+    post_sanity_failed = session.config.cache.get("post_sanity_check_failed", None)
+
+    if pre_sanity_failed:
+        session.config.cache.set("pre_sanity_check_failed", None)
+    if post_sanity_failed:
+        session.config.cache.set("post_sanity_check_failed", None)
+
+    if pre_sanity_failed and not post_sanity_failed:
+        session.exitstatus = constants.PRE_SANITY_CHECK_FAILED_RC
+    elif not pre_sanity_failed and post_sanity_failed:
+        session.exitstatus = constants.POST_SANITY_CHECK_FAILED_RC
+    elif pre_sanity_failed and post_sanity_failed:
         session.exitstatus = constants.SANITY_CHECK_FAILED_RC
 
 
@@ -121,7 +133,6 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
     post_check = False
-    enable_macsec = False
 
     customized_sanity_check = None
     for m in request.node.iter_markers():
@@ -163,10 +174,8 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     if request.config.option.post_check:
         post_check = True
 
-    if request.config.option.enable_macsec:
-        enable_macsec = True
-        startup_macsec = request.getfixturevalue("startup_macsec")
-        start_macsec_service = request.getfixturevalue("start_macsec_service")
+    if not request.config.option.enable_macsec:
+        pre_check_items.remove("check_neighbor_macsec_empty")
 
     cli_check_items = request.config.getoption("--check_items")
     cli_post_check_items = request.config.getoption("--post_check_items")
@@ -224,7 +233,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
         failed_results = [result for result in check_results if result['failed']]
         if failed_results:
             if not allow_recover:
-                request.config.cache.set("sanity_check_failed", True)
+                request.config.cache.set("pre_sanity_check_failed", True)
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
@@ -241,18 +250,15 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                             if 'action' in failed_result and failed_result['action'] is not None \
                                     and callable(failed_result['action']):
                                 infra_recovery_actions.append(failed_result['action'])
-                    for dut_name, dut_results in dut_failed_results.items():
+                    for dut_name, dut_results in list(dut_failed_results.items()):
                         # Attempt to restore DUT state
                         recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
                                 recover_method)
                     for action in infra_recovery_actions:
                         action()
 
-                    if enable_macsec:
-                        start_macsec_service()
-                        startup_macsec()
                 except Exception as e:
-                    request.config.cache.set("sanity_check_failed", True)
+                    request.config.cache.set("pre_sanity_check_failed", True)
                     logger.error("Recovery of sanity check failed with exception: ")
                     pt_assert(
                         False,
@@ -267,7 +273,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
 
                 new_failed_results = [result for result in new_check_results if result['failed']]
                 if new_failed_results:
-                    request.config.cache.set("sanity_check_failed", True)
+                    request.config.cache.set("pre_sanity_check_failed", True)
                     pt_assert(False,
                               "!!!!!!!!!!!!!!!! Pre-test sanity check after recovery failed: !!!!!!!!!!!!!!!!\n{}"
                               .format(json.dumps(new_failed_results, indent=4, default=fallback_serializer)))
@@ -290,7 +296,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
 
         post_failed_results = [result for result in post_check_results if result['failed']]
         if post_failed_results:
-            request.config.cache.set("sanity_check_failed", True)
+            request.config.cache.set("post_sanity_check_failed", True)
             pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                       .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
 

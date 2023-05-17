@@ -11,6 +11,7 @@ all:
         topologies:
           - t1
           - t1-lag
+          - t1-56-lag
           - t1-64-lag
           - t1-8-lag
           - t1-64-lag-clet
@@ -32,10 +33,16 @@ all:
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
+          - dualtor-aa
+          - dualtor-aa-56
+          - dualtor-aa-120
           - wan-pub
           - wan-4link
           - wan-pub-cisco
           - wan-2dut
+          - wan-3link-tg
+          - wan-ecmp
+          - wan-pub-isis
       children:
         server_1:
     lab:
@@ -101,7 +108,7 @@ all:
           ansible_hostv6: fec0::ffff:afa:2
           type: kvm
           hwsku: Force10-S6100
-          serial_port: 9000
+          serial_port: 9095
           ansible_password: password
           ansible_user: admin
         vlab-03:

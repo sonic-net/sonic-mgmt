@@ -1,16 +1,18 @@
 import pytest
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, send_server_to_t1_with_action                                  # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                                                                  # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor                                                  # lgtm[py/unused-import]
-from tests.common.dualtor.tor_failure_utils import kill_bgpd                                                                                    # lgtm[py/unused-import]
-from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions                                                                        # lgtm[py/unused-import]
+from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, \
+                                                  send_server_to_t1_with_action                     # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                      # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
+from tests.common.dualtor.tor_failure_utils import kill_bgpd                                        # noqa F401
+from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions                            # noqa F401
 from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions_on_duthost
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
+                                                copy_ptftests_directory, change_mac_addresses       # noqa F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
-from tests.common.dualtor.dual_tor_common import cable_type                                                                                     # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 
 
@@ -27,6 +29,7 @@ Out of scope: taking down the active ToR's BGP sessions means the T1 will never 
 
 Remaining cases for bgp shutdown are defined in this module.
 '''
+
 
 @pytest.fixture(scope='module', autouse=True)
 def temp_enable_bgp_autorestart(duthosts):
@@ -54,9 +57,23 @@ def temp_enable_bgp_autorestart(duthosts):
         duthost.shell_cmds(cmds=cmds)
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: vtysh -c 'show bgp summary json'"
+    ]
+
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
+
+
 def test_active_tor_kill_bgpd_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    toggle_all_simulator_ports_to_upper_tor, kill_bgpd):
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, kill_bgpd):                # noqa F811
     '''
     Case: Server -> ToR -> T1 (Active ToR BGP Down)
     Action: Shutdown all BGP sessions on the active ToR
@@ -77,8 +94,8 @@ def test_active_tor_kill_bgpd_upstream(
 
 
 def test_standby_tor_kill_bgpd_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    toggle_all_simulator_ports_to_upper_tor, kill_bgpd):
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, kill_bgpd):                # noqa F811
     '''
     Case: Server -> ToR -> T1 (Standby ToR BGP Down)
     Action: Shutdown all BGP sessions on the standby ToR
@@ -98,9 +115,9 @@ def test_standby_tor_kill_bgpd_upstream(
 
 
 def test_standby_tor_kill_bgpd_downstream_active(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    toggle_all_simulator_ports_to_upper_tor, kill_bgpd,
-    tunnel_traffic_monitor):
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, kill_bgpd,                 # noqa F811
+    tunnel_traffic_monitor):                                            # noqa F811
     '''
     Case: T1 -> Active ToR -> Server (Standby ToR BGP Down)
     Action: Shutdown all BGP sessions on the standby ToR
@@ -120,9 +137,9 @@ def test_standby_tor_kill_bgpd_downstream_active(
 
 
 def test_active_tor_kill_bgpd_downstream_standby(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    toggle_all_simulator_ports_to_upper_tor, kill_bgpd,
-    tunnel_traffic_monitor):
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, kill_bgpd,                 # noqa F811
+    tunnel_traffic_monitor):                                            # noqa F811
     '''
     Case: T1 -> Standby ToR -> Server (Active ToR BGP Down)
     Action: Shutdown all BGP sessions on the active ToR
@@ -143,9 +160,9 @@ def test_active_tor_kill_bgpd_downstream_standby(
 
 @pytest.mark.enable_active_active
 def test_active_tor_shutdown_bgp_sessions_upstream(
-    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,
-    toggle_all_simulator_ports_to_upper_tor,
-    shutdown_bgp_sessions, cable_type
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
+    toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
+    shutdown_bgp_sessions, cable_type                                   # noqa F811
 ):
     """
     Case: Server -> ToR -> T1 (Active ToR BGP Down)
@@ -183,11 +200,12 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
             cable_type=cable_type
         )
 
+
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_tor_shutdown_bgp_sessions_downstream(
-    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,
-    cable_type, tunnel_traffic_monitor
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
+    cable_type, tunnel_traffic_monitor                                  # noqa F811
 ):
     """
     Case: T1 -> ToR -> Server (Upper ToR shutdown/startup BGP sessions)
@@ -205,7 +223,7 @@ def test_active_tor_shutdown_bgp_sessions_downstream(
     )
 
     # verify the upper ToR changes to standby after shutdown BGP sessions
-    with shutdown_bgp_sessions_on_duthost() as shutdown_bgp_sessions:
+    with shutdown_bgp_sessions_on_duthost() as shutdown_bgp_sessions:   # noqa F811
         shutdown_bgp_sessions(upper_tor_host)
         verify_tor_states(
             expected_active_host=lower_tor_host,

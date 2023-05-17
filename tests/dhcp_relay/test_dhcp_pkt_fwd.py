@@ -2,6 +2,7 @@ import logging
 import random
 import ipaddr
 import pytest
+import ipaddress
 
 import ptf.testutils as testutils
 import ptf.packet as scapy
@@ -14,6 +15,7 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
 
 class DhcpPktFwdBase:
     """Base class for DHCP packet forwarding test. The test ensure that DHCP packets are going through T1 device."""
@@ -57,7 +59,7 @@ class DhcpPktFwdBase:
                 break
 
         lags = [mgFacts["minigraph_ptf_indices"][testPort]]
-        for portchannelConfig in mgFacts["minigraph_portchannels"].values():
+        for portchannelConfig in list(mgFacts["minigraph_portchannels"].values()):
             if testPort in portchannelConfig["members"]:
                 for lag in portchannelConfig["members"]:
                     if testPort != lag:
@@ -112,7 +114,7 @@ class DhcpPktFwdBase:
 
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
-        for dutPort, neigh in mgFacts["minigraph_neighbors"].items():
+        for dutPort, neigh in list(mgFacts["minigraph_neighbors"].items()):
             if "t1" in topo_name and "T0" in neigh["name"] or topo_name == "m0" and "MX" in neigh["name"]:
                 downstreamPorts.append(dutPort)
             elif "t1" in topo_name and "T2" in neigh["name"] or topo_name == "m0" and "M1" in neigh["name"]:
@@ -287,6 +289,7 @@ class DhcpPktFwdBase:
             padding_bytes=0,
             set_broadcast_bit=True
         )
+
 
 class TestDhcpPktFwd(DhcpPktFwdBase):
     """DHCP Packet forward test class"""

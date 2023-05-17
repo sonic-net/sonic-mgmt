@@ -1,49 +1,123 @@
 {% set host = configuration[hostname] %}
 {
+    "PORTCHANNEL": {
+{% set separator = joiner(",") %}
 {% for name, iface in host['interfaces'].items() %}
 {% if name.startswith('Port-Channel') %}
-    "PORTCHANNEL": {
+{{ separator() }}
         "{{ name | replace("-", "") }}": {
             "admin_status": "up",
             "mtu": "9100"
         }
+{% endif %}
+{% endfor %}
     },
-    "PORTCHANNEL_INTERFACE": {
-        "{{ name | replace("-", "") }}": {},
+    "INTERFACE": {
+{% set separator = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if not name.startswith('Loopback') and not name.startswith('Port-Channel') and iface['lacp'] is not defined %}
+{{ separator() }}
+        "{{ name | replace("-", "") }}": {}
 {% if iface['ipv4'] is defined %}
-        "{{ name | replace("-", "") }}|{{ iface['ipv4'] }}": {},
+{{ separator() }}
+        "{{ name | replace("-", "") }}|{{ iface['ipv4'] }}": {}
 {% endif %}
 {% if iface['ipv6'] is defined %}
+{{ separator() }}
         "{{ name | replace("-", "") }}|{{ iface['ipv6'] }}": {}
 {% endif %}
-    },
 {% endif %}
 {% endfor %}
-{% set portchannel_members = [] %}
-{% for name, iface in host['interfaces'].items() -%}
-{% if iface['lacp'] is defined -%}
-{{ portchannel_members.append('PortChannel' ~ iface['lacp'] ~ '|' ~ name) }}
-{%- endif %}
-{%- endfor %}
-{% if portchannel_members | length > 0 %}
-    "PORTCHANNEL_MEMBER": {
-{% for i in range(portchannel_members | length) %}
-        "{{ portchannel_members[i] }}": {}{% if i < portchannel_members | length - 1 -%},{%- endif %}
-
-{% endfor %}
-    },
+{% if host['bp_interface'] is defined %}
+{{ separator() }}
+        "{{ bp_ifname | replace("-", "") }}": {}
+{% if host['bp_interface']['ipv4'] is defined %}
+{{ separator() }}
+        "{{ bp_ifname | replace("-", "") }}|{{ host['bp_interface']['ipv4'] }}": {}
 {% endif %}
+{% if host['bp_interface']['ipv6'] is defined %}
+{{ separator() }}
+        "{{ bp_ifname | replace("-", "") }}|{{ host['bp_interface']['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+    },
+    "BGP_NEIGHBOR": {
+{% for peer in host['bgp']['peers'][configuration_properties['common']['dut_asn']] %}
+        "{{ peer | lower }}": {
+            "admin_status": "up",
+            "asn": "{{ configuration_properties['common']['dut_asn'] }}",
+            "holdtime": "10",
+            "keepalive": "3",
+            "local_addr": "{{ host['interfaces']['Port-Channel1']['ipv6' if peer | ipv6 else 'ipv4'].split('/')[0] | lower }}",
+            "name": "{{ hostname }}",
+            "nhopself": "0",
+            "rrclient": "0"
+        },
+{% endfor %}
+        "{{ configuration_properties['common']['nhipv4'] }}": {
+            "admin_status": "up",
+            "asn": "{{ configuration_properties['common']['leaf_asn_start'] }}",
+            "holdtime": "10",
+            "keepalive": "3",
+            "local_addr": "{{ host['bp_interface']['ipv4'].split('/')[0] }}",
+            "name": "exabgp_v4",
+            "nhopself": "0",
+            "rrclient": "0"
+        },
+        "{{ configuration_properties['common']['nhipv6'] | lower }}": {
+            "admin_status": "up",
+            "asn": "{{ configuration_properties['common']['leaf_asn_start'] }}",
+            "holdtime": "10",
+            "keepalive": "3",
+            "local_addr": "{{ host['bp_interface']['ipv6'].split('/')[0] | lower }}",
+            "name": "exabgp_v6",
+            "nhopself": "0",
+            "rrclient": "0"
+        }
+    },
+{% set separator = joiner(",") %}
+{% set first_in_loop = true %}
+    "PORTCHANNEL_INTERFACE": {
 {% for name, iface in host['interfaces'].items() %}
-{% if name.startswith('Loopback') %}
-    "LOOPBACK_INTERFACE": {
-        "{{ name }}": {},
+{% if name.startswith('Port-Channel') %}
+{{ separator() }}
+        "{{ name | replace("-", "") }}": {}
 {% if iface['ipv4'] is defined %}
-        "{{ name }}|{{ iface['ipv4'] }}": {},
+{{ separator() }}
+        "{{ name | replace("-", "") }}|{{ iface['ipv4'] }}": {}
 {% endif %}
 {% if iface['ipv6'] is defined %}
-        "{{ name }}|{{ iface['ipv6'] }}": {}
+{{ separator() }}
+        "{{ name | replace("-", "") }}|{{ iface['ipv6'] }}": {}
 {% endif %}
-    }
 {% endif %}
 {% endfor %}
+    },
+{% set separator = joiner(",") %}
+    "PORTCHANNEL_MEMBER": {
+{% for name, iface in host['interfaces'].items() %}
+{% if iface['lacp'] is defined %}
+{{ separator() }}
+{% set index = name | replace("Ethernet", "") | int - 1 %}
+        "PortChannel{{ iface['lacp'] }}|{{ name }}": {}
+{% endif %}
+{% endfor %}
+    },
+{% set separator = joiner(",") %}
+    "LOOPBACK_INTERFACE": {
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Loopback') %}
+{{ separator() }}
+        "{{ name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ separator() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ separator() }}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+    }
 }

@@ -5,7 +5,7 @@ import pytest
 
 from collections import defaultdict
 from jinja2 import Template
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 
 
 TESTBED_TEMPLATE = "templates/spytest_testbed.yaml.j2"
@@ -28,7 +28,7 @@ def hostvars(duthosts):
             for duthost in duthosts}
 
 
-def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,
+def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,        # noqa F811
                          pytestconfig):
     """Generate spytest testbed file."""
 
@@ -72,7 +72,7 @@ def test_gen_spy_testbed(conn_graph_facts, hostvars, tbinfo,
     dev_connections = defaultdict(list)
     for hostname in hostnames:
         conns = connections[hostname]
-        for start_port in sorted(conns.keys(), key=_interface_key):
+        for start_port in sorted(list(conns.keys()), key=_interface_key):
             end_device = conns[start_port]["peerdevice"]
             end_port = conns[start_port]["peerport"]
             dev_connections[hostname].append(

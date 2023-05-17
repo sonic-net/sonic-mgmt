@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.broadcom,
+    pytest.mark.asic('broadcom'),
     pytest.mark.topology('any')
 ]
 
@@ -81,9 +81,6 @@ def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
     @param duthost: Ansible framework testbed DUT device
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    asic_type = duthost.facts["asic_type"]
-    if "broadcom" not in asic_type:
-        pytest.skip('Skipping SER test for asic_type: %s' % asic_type)
 
     logger.info('Copying SER injector to dut: %s' % duthost.hostname)
     duthost.copy(

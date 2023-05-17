@@ -4,53 +4,123 @@ import logging
 import operator
 import pytest
 import re
+import json
 
+from functools import reduce
 from ptf import mask, testutils
 from scapy.all import IP, IPv6, Ether
 from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.utilities import wait_until
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 
-def derive_queue_id_from_dscp(dscp):
-    """ Derive queue id form DSCP using following mapping
-          DSCP -> Queue mapping
-            8          0
-            5          2
-            3          3
-            4          4
-            46         5
-            48         6
-            Rest       1
+def dut_dscp_tc_queue_maps(duthost):
     """
+    A module level fixture to get QoS map from DUT host.
+    Return a dict
+    {
+        "dscp_to_tc_map": {
+            "AZURE": {
+                "0": "1",
+                ...
+            },
+            ...
+        },
+        "tc_to_queue_map": {
+            "AZURE": {
+                "0": "0",
+                ...
+            },
+            ...
+        },
+        "tc_to_dscp_map": {
+            "AZURE_TUNNEL": {
+                "0": "8",
+                ...
+            }
+        }
+    }
+    or an empty dict if failed to parse the output
+    """
+    maps = {}
+    try:
+        # dscp_to_tc_map
+        maps['dscp_to_tc_map'] = json.loads(duthost.shell("sonic-cfggen -d --var-json 'DSCP_TO_TC_MAP'")['stdout'])
+        # tc_to_queue_map
+        maps['tc_to_queue_map'] = json.loads(duthost.shell("sonic-cfggen -d --var-json 'TC_TO_QUEUE_MAP'")['stdout'])
+        # tc_to_dscp_map
+        maps['tc_to_dscp_map'] = json.loads(duthost.shell("sonic-cfggen -d --var-json 'TC_TO_DSCP_MAP'")['stdout'])
+    except Exception as e:
+        logging.error("Failed to retrieve map on {}, exception {}".format(duthost.hostname, repr(e)))
+    return maps
 
-    dscp_to_queue = { 8 : 0, 5 : 2, 3 : 3, 4 : 4, 46  : 5,  48 : 6}
 
-    return dscp_to_queue.get(dscp, 1)
+def derive_queue_id_from_dscp(duthost, dscp, is_tunnel):
+    """
+    Helper function to find Queue ID for a DSCP ID.
+    """
+    if is_tunnel_qos_remap_enabled(duthost) and is_tunnel:
+        dscp_to_tc_map_name = "AZURE"
+        tc_to_queue_map_name = "AZURE_TUNNEL"
+        logging.info("Enable pcbb")
+    else:
+        dscp_to_tc_map_name = "AZURE"
+        tc_to_queue_map_name = "AZURE"
+    try:
+        map = dut_dscp_tc_queue_maps(duthost)
+        # Load dscp_to_tc_map
+        tc_id = map['dscp_to_tc_map'][dscp_to_tc_map_name][str(dscp)]
+        # Load tc_to_queue_map
+        queue_id = map['tc_to_queue_map'][tc_to_queue_map_name][str(tc_id)]
+    except Exception as e:
+        logging.error("Failed to retrieve queue id for dscp {} on {}, exception {}"
+                      .format(dscp, duthost.hostname, repr(e)))
+        return
+    return int(queue_id)
 
-def queue_stats_check(dut, exp_queue):
+
+def derive_out_dscp_from_inner_dscp(duthost, inner_dscp):
+    """
+    Helper function to find outer DSCP ID for a inner DSCP ID.
+    """
+    if is_tunnel_qos_remap_enabled(duthost):
+        tc_to_dscp_map_name = "AZURE_TUNNEL"
+        map = dut_dscp_tc_queue_maps(duthost)
+        # Load tc_to_dscp_map
+        dscp_id = map['tc_to_dscp_map'][tc_to_dscp_map_name][str(inner_dscp)]
+        return int(dscp_id)
+    else:
+        return inner_dscp
+
+
+def queue_stats_check(dut, exp_queue, packet_count):
     queue_counter = dut.shell('show queue counters | grep "UC"')['stdout']
     logging.debug('queue_counter:\n{}'.format(queue_counter))
+    # In case of other noise packets
+    DIFF = 0.1
 
     """
     regex search will look for following pattern in queue_counter outpute
     ----------------------------------------------------------------------------_---
     Port           TxQ    Counter/pkts     Counter/bytes     Drop/pkts    Drop/bytes
     -----------  -----  --------------  ---------------  -----------  --------------
-    Ethernet124    UC1              10             1000            0             0
+    Ethernet124    UC1             100           12,400            0             0
     """
-    result = re.findall(r'\S+\s+UC%d\s+10+\s+\S+\s+\S+\s+\S+' % exp_queue, queue_counter)
+    result = re.findall(r'\S+\s+UC%d\s+(\d+)+\s+\S+\s+\S+\s+\S+' % exp_queue, queue_counter)
 
     if result:
-        for line in result:
-            rec_queue = int(line.split()[1][2])
-            if rec_queue != exp_queue:
-                logging.debug("the expected Queue : {} not matching with received Queue : {}".format(exp_queue, rec_queue))
-            else:
-                logging.info("the expected Queue : {} matching with received Queue : {}".format(exp_queue, rec_queue))
+        for number in result:
+            if int(number) <= packet_count * (1 + DIFF) and int(number) >= packet_count:
+                logging.info("the expected Queue : {} received expected numbers of packet {}"
+                             .format(exp_queue, number))
+
                 return True
+        logging.debug("the expected Queue : {} did not receive expected numbers of packet : {}"
+                      .format(exp_queue, packet_count))
+        return False
     else:
-        logging.debug("Could not find queue counter matches.")
+        logging.debug("Could not find expected queue counter matches.")
     return False
 
 
@@ -65,7 +135,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
         def _get_t1_ptf_port_indexes(dut, tbinfo):
             """Get the port indexes of those ptf port connecting to T1 switches."""
             pc_ports = dual_tor_utils.get_t1_ptf_pc_ports(dut, tbinfo)
-            return [int(_.strip("eth")) for _ in reduce(operator.add, pc_ports.values(), [])]
+            return [int(_.strip("eth")) for _ in reduce(operator.add, list(pc_ports.values()), [])]
 
         @staticmethod
         def _find_ipv4_lo_addr(config_facts):
@@ -121,8 +191,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 return "outer packet's TTL expected TTL 255, actual %s" % outer_ttl
             return ""
 
-        @staticmethod
-        def _check_tos(packet):
+        def _check_tos(self, packet):
             """Check ToS field in the packet."""
 
             def _disassemble_ip_tos(tos):
@@ -139,12 +208,15 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
-            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
+            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {1:02b}".format(outer_ecn, inner_ecn))
             check_res = []
-            if outer_dscp != inner_dscp:
-                check_res.append("outer packet DSCP not same as inner packet DSCP")
+            expected_outer_dscp = derive_out_dscp_from_inner_dscp(self.standby_tor, inner_dscp)
+            if outer_dscp != expected_outer_dscp:
+                check_res.append("outer packet DSCP {0:06b} not same as expected packet DSCP {1:06b}"
+                                 .format(outer_dscp, expected_outer_dscp))
             if outer_ecn != inner_ecn:
-                check_res.append("outer packet ECN not same as inner packet ECN")
+                check_res.append("outer packet ECN {0:02b} not same as inner packet ECN {1:02b}"
+                                 .format(outer_ecn, inner_ecn))
             return " ,".join(check_res)
 
         def _check_queue(self, packet):
@@ -165,13 +237,14 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             inner_dscp, _ = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
             check_res = []
-            exp_queue = derive_queue_id_from_dscp(outer_dscp)
+            exp_queue = derive_queue_id_from_dscp(self.standby_tor, inner_dscp, True)
             logging.info("Expect queue: %s", exp_queue)
-            if not wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue):
+            if not wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue, self.packet_count):
                 check_res.append("no expect counter in the expected queue %s" % exp_queue)
             return " ,".join(check_res)
 
-        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None, check_items=("ttl", "tos", "queue")):
+        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None,
+                     check_items=("ttl", "tos", "queue"), packet_count=10):
             """
             Init the tunnel traffic monitor.
 
@@ -182,6 +255,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.standby_tor = standby_tor
             self.listen_ports = sorted(self._get_t1_ptf_port_indexes(standby_tor, tbinfo))
             self.ptfadapter = ptfadapter
+            self.packet_count = packet_count
 
             standby_tor_cfg_facts = self.standby_tor.config_facts(
                 host=self.standby_tor.hostname, source="running"
@@ -194,14 +268,15 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 self.active_tor_lo_addr = self._find_ipv4_lo_addr(active_tor_cfg_facts)
             else:
                 self.active_tor_lo_addr = [
-                    _["address_ipv4"] for _ in standby_tor_cfg_facts["PEER_SWITCH"].values()
+                    _["address_ipv4"] for _ in list(standby_tor_cfg_facts["PEER_SWITCH"].values())
                 ][0]
 
             self.existing = existing
             self.inner_packet = None
             if self.existing:
                 self.inner_packet = inner_packet
-            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr, inner_packet=self.inner_packet)
+            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr,
+                                                     inner_packet=self.inner_packet)
             self.rec_pkt = None
             self.check_items = check_items
 

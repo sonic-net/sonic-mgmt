@@ -6,8 +6,22 @@
 ### specified in this playbook, you would need to come up with your own fanout switch deployment
 ### playbook
 ################################################################################################
+- name: set login to tacacs if tacacs is defined
+  set_fact: ansible_ssh_user={{ fanout_tacacs_mlnx_user }} ansible_ssh_pass={{ fanout_tacacs_mlnx_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_mlnx_user is defined and fanout_tacacs_mlnx_password is defined
+  tags: always
+
 - name: prepare fanout switch admin login info
-  set_fact: ansible_ssh_user={{ fanout_mlnx_user }} ansible_ssh_pass={{ fanout_mlnx_password }} peer_hwsku={{device_info[inventory_hostname]['HwSku']}}
+  set_fact: ansible_ssh_user={{ fanout_mlnx_user }} ansible_ssh_pass={{ fanout_mlnx_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_mlnx_user is not defined and fanout_tacacs_mlnx_password is not defined
+  tags: always
+
+- name: prepare peer hwsku
+  set_fact: peer_hwsku={{ device_info[inventory_hostname]['HwSku'] }}
   tags: always
 
 ##########################################

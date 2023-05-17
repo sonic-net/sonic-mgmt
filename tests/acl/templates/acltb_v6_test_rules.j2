@@ -46,7 +46,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "20c1:cb50::1/128"
+                                        "destination-ip-address": "20c1:cb50::12/128"
                                     }
                                 }
                             },
@@ -243,7 +243,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "20c1:e2f0::9/128"
+                                        "destination-ip-address": "20c1:e2f0::13/128"
                                     }
                                 }
                             },
@@ -490,6 +490,36 @@
                                     "config": {
                                         "type": "136",
                                         "code": "0"
+                                    }
+                                }
+                            },
+                            "32": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 32
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "20c0:a800:0:1::1/128"
+                                    }
+                                }
+                            },
+                            "33": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 33
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "20c0:a800:0:1::9/128"
                                     }
                                 }
                             }

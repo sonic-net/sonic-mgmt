@@ -1,20 +1,19 @@
 import logging
 import pytest
 import threading
-import time
 import random
 import allure
 import re
 
 from scapy.all import rdpcap
-from .syslog_utils import *
+from .syslog_utils import create_vrf, remove_vrf, add_syslog_server, del_syslog_server, capture_syslog_packets,\
+    replace_ip_neigh, is_mgmt_vrf_enabled, bind_interface_to_vrf, TCPDUMP_CAPTURE_TIME, DUT_PCAP_FILEPATH
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
 from tests.common.config_reload import config_reload
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +132,7 @@ class TestSSIP:
 
         def find_routed_interface():
             intf_status = self.asichost.show_interface(command="status")["ansible_facts"]["int_status"]
-            for intf, status in intf_status.items():
+            for intf, status in list(intf_status.items()):
                 if "routed" in status["vlan"] and "up" in status["oper_state"]:
                     test_routed_interfaces.append(intf)
                     if len(test_routed_interfaces) == 2:
@@ -159,21 +158,21 @@ class TestSSIP:
 
         mgmt_interface_info = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts'][
             "MGMT_INTERFACE"]
-        mgmt_interface = mgmt_interface_info.keys()
+        mgmt_interface = list(mgmt_interface_info.keys())
 
         logger.info("Update mgmt dict according to the real config on dut")
-        for k, v in mgmt_interface_info[mgmt_interface[0]].items():
-            ip_addr_instance = ip_address(unicode(k.split("/")[0]))
+        for k, v in list(mgmt_interface_info[mgmt_interface[0]].items()):
+            ip_addr_instance = ip_address(str(k.split("/")[0]))
             if isinstance(ip_addr_instance, IPv4Address):
                 MGMT_IP_ADDRESSES["ipv4"]["source_ip"] = k
-                for host in ip_network(unicode(v["gwaddr"])):
+                for host in ip_network(str(v["gwaddr"])):
                     if host != ip_addr_instance:
                         syslog_server_ip = str(host)
                         break
                 MGMT_IP_ADDRESSES["ipv4"]["syslog_server_ip"] = syslog_server_ip
             elif isinstance(ip_addr_instance, IPv6Address):
                 MGMT_IP_ADDRESSES["ipv6"]["source_ip"] = k
-                for host in IPv6Network(unicode(v["gwaddr"])):
+                for host in IPv6Network(str(v["gwaddr"])):
                     if host != ip_addr_instance:
                         syslog_server_ip = str(host)
                         break
@@ -183,8 +182,9 @@ class TestSSIP:
         return mgmt_interface
 
     @pytest.fixture(scope="class", autouse=True)
-    def setup_ssip_test_env(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                            mgmt_interface, routed_interfaces, backup_and_restore_config_db_on_duts, localhost):
+    def setup_ssip_test_env(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                            enum_frontend_asic_index, mgmt_interface, routed_interfaces,
+                            backup_and_restore_config_db_on_duts, localhost):       # noqa F811
         """
         Setup env for ssip(syslog soruce ip) test
         """
@@ -224,7 +224,7 @@ class TestSSIP:
         bind_interface_to_vrf(self.asichost, VRF_LIST[1], routed_interfaces[1])
 
         logger.info("Configure Ip address on the selected interface and add ip neigh for data vrf on dut")
-        for k, v in DATA_VRF_IP_ADDRESSES.items():
+        for k, v in list(DATA_VRF_IP_ADDRESSES.items()):
             self.asichost.config_ip_intf(routed_interfaces[1], DATA_VRF_IP_ADDRESSES[k]["source_ip"], "add")
             replace_ip_neigh(self.duthost, neighbour=DATA_VRF_IP_ADDRESSES[k]["syslog_server_ip"],
                              neigh_mac_addr=DATA_VRF_IP_ADDRESSES[k]["syslog_server_mac"],
@@ -235,7 +235,7 @@ class TestSSIP:
         Configure test data for default vrf
         """
         logger.info("Configure Ip address on the selected interface and add ip neigh for default vrf on dut")
-        for k, v in DEFAULT_VRF_IP_ADDRESSES.items():
+        for k, v in list(DEFAULT_VRF_IP_ADDRESSES.items()):
             self.asichost.config_ip_intf(routed_interfaces[0], DEFAULT_VRF_IP_ADDRESSES[k]["source_ip"], "add")
             replace_ip_neigh(self.duthost, neighbour=DEFAULT_VRF_IP_ADDRESSES[k]["syslog_server_ip"],
                              neigh_mac_addr=DEFAULT_VRF_IP_ADDRESSES[k]["syslog_server_mac"],
@@ -254,7 +254,7 @@ class TestSSIP:
             localhost.wait_for(host=self.duthost.hostname, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
                                state='started', delay=2, timeout=180)
 
-        for k, v in MGMT_IP_ADDRESSES.items():
+        for k, v in list(MGMT_IP_ADDRESSES.items()):
             logger.info("Add neigh for {}".format(v))
             replace_ip_neigh(self.duthost, neighbour=MGMT_IP_ADDRESSES[k]["syslog_server_ip"],
                              neigh_mac_addr=MGMT_IP_ADDRESSES[k]["syslog_server_mac"],
@@ -303,7 +303,7 @@ class TestSSIP:
 
     def add_syslog_config(self, port, vrf_list, is_set_source, is_set_vrf):
         for vrf in vrf_list:
-            for k, v in SYSLOG_TEST_DATA[vrf].items():
+            for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                 if self.is_link_local_ip(v["source_ip"]):
                     continue
                 add_syslog_server(self.duthost,
@@ -314,14 +314,14 @@ class TestSSIP:
 
     def remove_syslog_config(self, vrf_list):
         for vrf in vrf_list:
-            for k, v in SYSLOG_TEST_DATA[vrf].items():
+            for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                 if self.is_link_local_ip(v["source_ip"]):
                     continue
                 del_syslog_server(self.duthost, syslog_server_ip=v["syslog_server_ip"])
 
     def check_syslog_config_exist(self, port, vrf_list, is_set_source, is_set_vrf):
         for vrf in vrf_list:
-            for k, v in SYSLOG_TEST_DATA[vrf].items():
+            for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                 if self.is_link_local_ip(v["source_ip"]):
                     continue
                 source_ip = v["source_ip"].split("/")[0] if is_set_source else "N/A"
@@ -337,7 +337,7 @@ class TestSSIP:
     def check_syslog_config_nonexist(self, port, vrf_list, is_set_source, is_set_vrf):
         logger.info("Check syslog config nonexist")
         for vrf in vrf_list:
-            for k, v in SYSLOG_TEST_DATA[vrf].items():
+            for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                 if self.is_link_local_ip(v["source_ip"]):
                     continue
                 source_ip = v["source_ip"].split("/")[0] if is_set_source else "N/A"
@@ -353,7 +353,7 @@ class TestSSIP:
         for vrf in vrf_list:
             def check_syslog_one_vrf(routed_interfaces, port, vrf):
                 tcpdump_file = self.gen_tcpdump_cmd_and_capture_syslog_packets(routed_interfaces, port, vrf)
-                for k, v in SYSLOG_TEST_DATA[vrf].items():
+                for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                     if self.is_link_local_ip(v["source_ip"]):
                         continue
                     source_ip = v["source_ip"].split("/")[0] if is_set_source else None
@@ -385,7 +385,7 @@ class TestSSIP:
         for vrf in vrf_list:
             def check_no_syslog_one_vrf(routed_interfaces, port, vrf):
                 tcpdump_file = self.gen_tcpdump_cmd_and_capture_syslog_packets(routed_interfaces, port, vrf)
-                for k, v in SYSLOG_TEST_DATA[vrf].items():
+                for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                     source_ip = v["source_ip"].split("/")[0] if is_set_source else None
                     pytest_assert(
                         not self.verify_syslog_packets(tcpdump_file,
@@ -409,9 +409,10 @@ class TestSSIP:
             tcpdump_interface = routed_interfaces[0]
         else:
             tcpdump_interface = vrf
-        tcpdump_cmd = "sudo timeout {tcpdump_capture_time} tcpdump -i {interface} port {port} -w {dut_pcap_file}".format(
-            tcpdump_capture_time=TCPDUMP_CAPTURE_TIME, interface=tcpdump_interface, port=port if port else SYSLOG_DEFAULT_PORT,
-            dut_pcap_file=DUT_PCAP_FILEPATH.format(vrf=vrf))
+        tcpdump_cmd = "sudo timeout {tcpdump_capture_time} tcpdump -i {interface} port {port} -w {dut_pcap_file}"\
+            .format(tcpdump_capture_time=TCPDUMP_CAPTURE_TIME, interface=tcpdump_interface,
+                    port=port if port else SYSLOG_DEFAULT_PORT,
+                    dut_pcap_file=DUT_PCAP_FILEPATH.format(vrf=vrf))
         tcpdump_file = capture_syslog_packets(self.duthost, tcpdump_cmd)
         return tcpdump_file
 
@@ -439,7 +440,8 @@ class TestSSIP:
             self.add_syslog_config(port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
 
         with allure.step("Check syslog config is configured successfully"):
-            self.check_syslog_config_exist(port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
+            self.check_syslog_config_exist(
+                port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
 
         with allure.step("Check interface of {} send syslog msg ".format(routed_interfaces[0])):
             self.check_syslog_msg_is_sent(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
@@ -476,13 +478,13 @@ class TestSSIP:
             vrf = VRF_LIST[1]
 
         with allure.step("Add non-existing source ip {} into syslog config".format(non_existing_ip)):
-            expected_msg = r'.*Error: Invalid value for \"-s\" \/ "--source": {} IP doesn\'t exist in Linux {} VRF'.format(
-                non_existing_ip, vrf)
-            err_msg = add_syslog_server(self.duthost,
-                                        syslog_server_ip=
-                                        DEFAULT_VRF_IP_ADDRESSES["ipv4"]["syslog_server_ip"].split('/')[0],
-                                        source=non_existing_ip,
-                                        vrf=vrf)["stderr"]
+            expected_msg = r'.*Error: Invalid value for \"-s\" \/ "--source": {} IP doesn\'t exist in Linux {} VRF'\
+                .format(non_existing_ip, vrf)
+            err_msg = add_syslog_server(
+                self.duthost,
+                syslog_server_ip=DEFAULT_VRF_IP_ADDRESSES["ipv4"]["syslog_server_ip"].split('/')[0],
+                source=non_existing_ip,
+                vrf=vrf)["stderr"]
             pytest_assert(re.search(expected_msg, err_msg),
                           "Error msg is not correct: Expectd msg:{}, actual msg:{}".format(expected_msg, err_msg))
 
@@ -514,7 +516,8 @@ class TestSSIP:
         2. Check syslog config is configured successfully
         3. Check the related interface sends corresponding syslog msg
         4. Config save -y
-        5. Do reboot according to the specified parameter of ssip_reboot_type (reboot/warm-reboot/fast-reboot/soft-reboot)
+        5. Do reboot according to the specified parameter of ssip_reboot_type
+           (reboot/warm-reboot/fast-reboot/soft-reboot)
         6. Check syslog configuration still exist
         7. Check Syslog msg can be sent on the relevant interface
         """
@@ -549,7 +552,7 @@ class TestSSIP:
 
         with allure.step("After boot,add ip neigh for tested interface"):
             for vrf in vrf_list:
-                for k, v in SYSLOG_TEST_DATA[vrf].items():
+                for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                     if vrf == "default":
                         dev = routed_interfaces[0]
                     else:

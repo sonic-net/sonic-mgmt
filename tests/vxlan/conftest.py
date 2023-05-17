@@ -6,7 +6,7 @@ import yaml
 from tests.vxlan.vnet_utils import (
     safe_open_template,
     combine_dicts
-    )
+)
 from tests.vxlan.vnet_constants import (
     NUM_VNET_KEY,
     NUM_ROUTES_KEY,
@@ -153,8 +153,8 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--bfd",
         action="store",
-        default=False,
-        type=bool,
+        default=True,
+        type=str2bool,
         help="BFD Status"
     )
 

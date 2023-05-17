@@ -6,7 +6,7 @@ from netmiko.ssh_exception import NetMikoAuthenticationException
 
 class SSHConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
-        if "console_username" not in kwargs.has_key \
+        if "console_username" not in kwargs \
                 or "console_password" not in kwargs:
             raise ValueError("Either console_username or console_password is not set")
 

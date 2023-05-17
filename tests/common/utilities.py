@@ -14,7 +14,8 @@ import sys
 import threading
 import time
 import traceback
-from io import BytesIO
+from io import StringIO
+from ast import literal_eval
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -24,9 +25,12 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+
 
 def check_skip_release(duthost, release_list):
     """
@@ -46,6 +50,7 @@ def check_skip_release(duthost, release_list):
 
     return (False, '')
 
+
 def skip_release(duthost, release_list):
     """
     @summary: Skip current test if any given release keywords are in os_version, match sonic_release.
@@ -57,20 +62,20 @@ def skip_release(duthost, release_list):
     if skip:
         pytest.skip(reason)
 
+
 def skip_release_for_platform(duthost, release_list, platform_list):
     """
-    @summary: Skip current test if any given release keywords are in os_version and any given platform keywords are in platform
+    @summary: Skip current test if any given release keywords are in os_version
+              and any given platform keywords are in platform
     @param duthost: The DUT
     @param release_list: A list of incompatible releases
     @param platform_list: A list of incompatible platforms
     """
     if any(release in duthost.os_version for release in release_list) and \
-		any(platform in duthost.facts['platform'] for platform in platform_list):
+            any(platform in duthost.facts['platform'] for platform in platform_list):
         pytest.skip("DUT has version {} and platform {} and test does not support {} for {}".format(
-            duthost.os_version,
-            duthost.facts['platform'],
-			", ".join(release_list),
-			", ".join(platform_list)))
+                    duthost.os_version, duthost.facts['platform'], ", ".join(release_list), ", ".join(platform_list)))
+
 
 def wait(seconds, msg=""):
     """
@@ -94,8 +99,8 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
     @return: If the condition function returns True before timeout, return True. If the condition function raises an
         exception, log the error and keep waiting and polling.
     """
-    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" % \
-        (condition.__name__, timeout, interval, delay))
+    logger.debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
+                 (condition.__name__, timeout, interval, delay))
 
     if delay > 0:
         logger.debug("Delay for %s seconds first" % delay)
@@ -131,7 +136,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         return False
 
 
-def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30):
+def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
     """
     @summary: Wait until tcp connection is ready or timeout
     @param client: The tcp client host instance
@@ -145,7 +150,8 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s = 30)
                           timeout=timeout_s,
                           module_ignore_errors=True)
     if 'exception' in res:
-        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" % (str(server_hostname), listening_port, timeout_s))
+        logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
+                    (str(server_hostname), listening_port, timeout_s))
         return False
     return True
 
@@ -314,8 +320,10 @@ def get_host_visible_vars(inv_files, hostname):
     The variable could be defined in host_vars or in group_vars that the host belongs to.
 
     Args:
-        inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
+        inv_files (list or string): List of inventory file paths, or string of a single inventory file path. In tests,
             it can be get from request.config.getoption("ansible_inventory").
+            MUST use the inventory file under the ansible folder, otherwise host_vars and group_vars would not be
+            visible.
         hostname (string): Hostname
 
     Returns:
@@ -441,7 +449,7 @@ def get_test_server_visible_vars(inv_files, server):
 
 def is_ipv4_address(ip_address):
     """Check if ip address is ipv4."""
-    ip_address = unicode(ip_address)
+    ip_address = ip_address.encode().decode()
     try:
         ipaddress.IPv4Address(ip_address)
         return True
@@ -461,7 +469,7 @@ def compare_crm_facts(left, right):
     """
     unmatched = []
 
-    for k, v in left['resources'].items():
+    for k, v in list(left['resources'].items()):
         lv = v
         rv = right['resources'][k]
         if lv['available'] != rv['available'] or lv['used'] != rv['used']:
@@ -483,7 +491,7 @@ def compare_crm_facts(left, right):
             'used': ag['used count']
         }
 
-    for k, v in left_acl_group.items():
+    for k, v in list(left_acl_group.items()):
         lv = v
         rv = right_acl_group[k]
         if lv['available'] != rv['available'] or lv['used'] != rv['used']:
@@ -494,21 +502,27 @@ def compare_crm_facts(left, right):
 
 def dump_scapy_packet_show_output(packet):
     """Dump packet show output to string."""
-    _stdout, sys.stdout = sys.stdout, BytesIO()
+    _stdout, sys.stdout = sys.stdout, StringIO()
     try:
-        packet.show()
+        if six.PY2:
+            packet.show()
+        else:
+            packet.show2()
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
 
 
-def compose_dict_from_cli(fields_list):
-    """Convert the output of hgetall command to a dict object containing the field, key pairs of the database table content
+def compose_dict_from_cli(str_output):
+    """Convert the output of sonic-db-cli <DB> HGETALL command from string to
+       dict object containing the field, key pairs of the database table content
 
     Args:
-        fields_list: A list of lines, the output of redis-cli hgetall command
+        str_output: String with output of cli sonic-db-cli <DB> HGETALL <key>
+    Returns:
+        dict: dict object containing the field, key pairs of the database table content
     """
-    return dict(zip(fields_list[0::2], fields_list[1::2]))
+    return literal_eval(str_output)
 
 
 def get_intf_by_sub_intf(sub_intf, vlan_id=None):
@@ -546,7 +560,8 @@ def check_qos_db_fv_reference_with_table(duthost):
     """
     release_list = ["201811", "201911", "202012", "202106"]
     if any(release == duthost.sonic_release for release in release_list):
-        logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names".format(duthost.sonic_release, ", ".join(release_list)))
+        logger.info("DUT release {} exits in release list {}, QOS db field value refered to table names"
+                    .format(duthost.sonic_release, ", ".join(release_list)))
         return True
     return False
 
@@ -595,11 +610,11 @@ def setup_ferret(duthost, ptfhost, tbinfo):
 
     ptfhost.copy(src="arp/files/ferret.py", dest="/opt")
     result = duthost.shell(
-        cmd='''ip route show type unicast |
-        sed -e '/proto 186\|proto zebra\|proto bgp/!d' -e '/default/d' -ne '/0\//p' |
-        head -n 1 |
-        sed -ne 's/0\/.*$/1/p'
-        '''
+        cmd=r'''ip route show type unicast |
+            sed -e '/proto 186\|proto zebra\|proto bgp/!d' -e '/default/d' -ne '/0\//p' |
+            head -n 1 |
+            sed -ne 's/0\/.*$/1/p'
+            '''
     )
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
@@ -639,7 +654,7 @@ def safe_filename(filename, replacement_char='_'):
     Returns:
         str: New filename with illegal characters replaced.
     """
-    illegal_chars_pattern = re.compile("[#%&{}\\<>\*\?/ \$!'\":@\+`|=]")
+    illegal_chars_pattern = re.compile(r"[#%&{}\\<>\*\?/ \$!'\":@\+`|=]")
     return re.sub(illegal_chars_pattern, replacement_char, filename)
 
 
@@ -670,6 +685,45 @@ def update_environ(*remove, **update):
             env.pop(k)
 
 
+def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
+    """
+    @summary: utility function returns list of reboot dict containing timeout and wait
+    for each reboot type
+    @return a list of reboot dict containing timeout and wait for each reboot type
+    DUTHOST:
+        plt_reboot_dict:
+          cold:
+            timeout: 300
+            wait: 600
+          warm-reboot:
+            timeout: 300
+            wait: 600
+          acl/test_acl.py::TestAclWithReboot:
+            timeout: 300
+            wait: 600
+          platform_tests/test_reload_config.py::test_reload_configuration_checks:
+            timeout: 300
+            wait: 60
+    """
+
+    reboot_dict = dict()
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
+    if 'plt_reboot_dict' in dut_vars:
+        for key in list(dut_vars['plt_reboot_dict'].keys()):
+            if key in tc_name:
+                for mod_id in list(dut_vars['plt_reboot_dict'][key].keys()):
+                    reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][key][mod_id]
+        if not reboot_dict:
+            if reboot_type in list(dut_vars['plt_reboot_dict'].keys()):
+                for mod_id in list(dut_vars['plt_reboot_dict'][reboot_type].keys()):
+                    reboot_dict[mod_id] = dut_vars['plt_reboot_dict'][reboot_type][mod_id]
+
+    return reboot_dict
+
+
 def get_image_type(duthost):
     """get the SONiC image type
         It might be public/microsoft/...or any other type.
@@ -682,3 +736,97 @@ def get_image_type(duthost):
     """
 
     return "public"
+
+
+def find_duthost_on_role(duthosts, role, tbinfo):
+    role_set = False
+    role_host = None
+    for duthost in duthosts:
+        if role_set:
+            break
+        if duthost.is_supervisor_node():
+            continue
+
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+            if role in neighbor["name"]:
+                role_host = duthost
+                role_set = True
+    pytest_assert(role_host, "Could not find {} duthost".format(role))
+    return role_host
+
+
+def get_neighbor_port_list(duthost, neighbor_name):
+    """
+    @summary: Get neighbor port in dut by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @return a list of port name
+        Sample output: ["Ethernet45", "Ethernet46"]
+    """
+    config_facts = duthost.get_running_config_facts()
+    neighbor_port_list = []
+    for port_name, value in list(config_facts["DEVICE_NEIGHBOR"].items()):
+        if neighbor_name.upper() in value["name"].upper():
+            neighbor_port_list.append(port_name)
+
+    return neighbor_port_list
+
+
+def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
+    """
+    @summary: Get neighbor port in ptf by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @param tbinfo: testbed information
+    @return a list of port index
+        Sample output: [45, 46]
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    neighbor_port_list = get_neighbor_port_list(duthost, neighbor_name)
+    ptf_port_list = []
+    for neighbor_port in neighbor_port_list:
+        ptf_port_list.append(mg_facts["minigraph_ptf_indices"][neighbor_port])
+
+    return ptf_port_list
+
+
+def get_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in UPSTREAM_NEIGHBOR_MAP:
+        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
+
+
+def get_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
+        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
+
+
+def convert_scapy_packet_to_bytes(packet):
+    """Convert scapy packet to bytes for python2 and python3 compatibility
+    Args:
+        packet: scapy packet
+    Returns:
+        str or bytes: packet in bytes
+    """
+    if six.PY2:
+        return str(packet)
+    else:
+        return bytes(packet)

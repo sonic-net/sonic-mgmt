@@ -2,16 +2,16 @@ import time
 from math import ceil
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api                                      # noqa F401
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
 from tests.common.ixia.port import select_ports
+from tests.common.cisco_data import is_cisco_device
 
-from abstract_open_traffic_generator.flow import TxRx, Flow, Header,Size, Rate,\
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size, Rate,\
     Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
@@ -28,6 +28,7 @@ BG_FLOW_AGGR_RATE_PERCENT = 45
 DATA_PKT_SIZE = 1024
 IXIA_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+
 
 def run_pfcwd_multi_node_test(api,
                               testbed_config,
@@ -94,12 +95,12 @@ def run_pfcwd_multi_node_test(api,
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
 
     """ Generate traffic config """
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / \
-                                 (num_ports - 1) / \
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT /
+                                 (num_ports - 1) /
                                  len(test_prio_list))
 
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / \
-                               (num_ports - 1) / \
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT /
+                               (num_ports - 1) /
                                len(bg_prio_list))
 
     flows = __gen_traffic(testbed_config=testbed_config,
@@ -144,7 +145,9 @@ def run_pfcwd_multi_node_test(api,
                      data_pkt_size=DATA_PKT_SIZE,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=port_id,
-                     tolerance=TOLERANCE_THRESHOLD)
+                     tolerance=TOLERANCE_THRESHOLD,
+                     duthost=duthost)
+
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
     """
@@ -161,6 +164,7 @@ def __data_flow_name(name_prefix, src_id, dst_id, prio):
     """
     return "{} {} -> {} Prio {}".format(name_prefix, src_id, dst_id, prio)
 
+
 def __data_flow_src(flow_name):
     """
     Get the source ID from the data flow's name
@@ -175,6 +179,7 @@ def __data_flow_src(flow_name):
     index = words.index('->')
     return int(words[index-1])
 
+
 def __data_flow_dst(flow_name):
     """
     Get the destination ID from the data flow's name
@@ -188,6 +193,7 @@ def __data_flow_dst(flow_name):
     words = flow_name.split()
     index = words.index('->')
     return int(words[index+1])
+
 
 def __gen_traffic(testbed_config,
                   port_config_list,
@@ -274,6 +280,7 @@ def __gen_traffic(testbed_config,
 
     return result
 
+
 def __gen_data_flows(testbed_config,
                      port_config_list,
                      src_port_id_list,
@@ -325,6 +332,7 @@ def __gen_data_flows(testbed_config,
                 flows.append(flow)
 
     return flows
+
 
 def __gen_data_flow(testbed_config,
                     port_config_list,
@@ -394,6 +402,7 @@ def __gen_data_flow(testbed_config,
 
     return flow
 
+
 def __gen_pause_flow(testbed_config,
                      port_config_list,
                      src_port_id,
@@ -461,6 +470,7 @@ def __gen_pause_flow(testbed_config,
 
     return pause_flow
 
+
 def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     """
     Run traffic and dump per-flow statistics
@@ -503,6 +513,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
 
     return rows
 
+
 def __verify_results(rows,
                      speed_gbps,
                      pause_flow_name,
@@ -514,7 +525,8 @@ def __verify_results(rows,
                      data_pkt_size,
                      trigger_pfcwd,
                      pause_port_id,
-                     tolerance):
+                     tolerance,
+                     duthost):
     """
     Verify if we get expected experiment results
 
@@ -531,6 +543,7 @@ def __verify_results(rows,
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
         tolerance (float): maximum allowable deviation
+        duthost (obj): AnsibleHost object for dut.
 
     Returns:
         N/A
@@ -550,11 +563,11 @@ def __verify_results(rows,
             pytest_assert(tx_frames == rx_frames,
                           '{} should not have any dropped packet'.format(flow_name))
 
-            exp_bg_flow_rx_pkts =  bg_flow_rate_percent / 100.0 * speed_gbps \
+            exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
             deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
             pytest_assert(abs(deviation) < tolerance,
-                          '{} should receive {} packets (actual {})'.\
+                          '{} should receive {} packets (actual {})'.
                           format(flow_name, exp_bg_flow_rx_pkts, rx_frames))
 
         elif test_flow_name in flow_name:
@@ -562,11 +575,13 @@ def __verify_results(rows,
             src_port_id = __data_flow_src(flow_name)
             dst_port_id = __data_flow_dst(flow_name)
 
-            exp_test_flow_rx_pkts =  test_flow_rate_percent / 100.0 * speed_gbps \
+            exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
-            if trigger_pfcwd and\
-               (src_port_id == pause_port_id or dst_port_id == pause_port_id):
+            ports_to_check = [dst_port_id, src_port_id]
+            if is_cisco_device(duthost):
+                ports_to_check = [dst_port_id]
+            if trigger_pfcwd and pause_port_id in ports_to_check:
                 """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
                 pytest_assert(tx_frames > rx_frames,
                               '{} should have dropped packets'.format(flow_name))
@@ -576,7 +591,7 @@ def __verify_results(rows,
                 pytest_assert(tx_frames == rx_frames,
                               '{} should not have any dropped packet'.format(flow_name))
                 pytest_assert(rx_frames < exp_test_flow_rx_pkts,
-                              '{} shoudl receive less than {} packets (actual {})'.\
+                              '{} shoudl receive less than {} packets (actual {})'.
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))
 
             else:
@@ -586,5 +601,5 @@ def __verify_results(rows,
 
                 deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
                 pytest_assert(abs(deviation) < tolerance,
-                              '{} should receive {} packets (actual {})'.\
+                              '{} should receive {} packets (actual {})'.
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))

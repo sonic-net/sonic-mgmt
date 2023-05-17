@@ -1,0 +1,21 @@
+[
+    {
+        "DASH_ACL_GROUP_TABLE:group1": {
+            "ip_version": "ipv4",
+            "guid": "dash-group-1"
+        },
+        "OP": "{{ op }}"
+    },
+    {
+        "DASH_ACL_RULE_TABLE:group1:rule1" :{
+            "priority": 0,
+            "action": "allow",
+            "terminating": "true",
+            "src_addr": "0.0.0.0/0",
+            "dst_addr": "0.0.0.0/0",
+            "src_port": "0-65535",
+            "dst_port": "0-65535"
+        },
+        "OP": "{{ op }}"
+    }
+]

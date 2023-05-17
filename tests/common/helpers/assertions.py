@@ -1,9 +1,11 @@
 import pytest
 
-def pytest_assert(condition, message = None):
+
+def pytest_assert(condition, message=None):
     __tracebackhide__ = True
     if not condition:
         pytest.fail(message)
+
 
 def pytest_require(condition, skip_message="", allow_module_level=True):
     if not condition:

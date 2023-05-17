@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CMD_EXECUTION_TIMEOUT_SEC = 10
 
+
 class DeviceConnection:
     '''
     DeviceConnection uses Paramiko module to connect to devices
@@ -15,6 +16,7 @@ class DeviceConnection:
     Paramiko module uses fallback mechanism where it would first try to use
     ssh key and that fails, it will attempt username/password combination
     '''
+
     def __init__(self, hostname, username, password=None, alt_password=None):
         '''
         Class constructor
@@ -27,7 +29,6 @@ class DeviceConnection:
         self.username = username
         self.password = password
         self.alt_password = alt_password
-
 
     @retry(
         stop_max_attempt_number=2,
@@ -54,13 +55,15 @@ class DeviceConnection:
         stdOut = stdErr = []
         retValue = 1
         try:
-            client.connect(self.hostname, username=self.username, password=self.password, allow_agent=False)
+            client.connect(self.hostname, username=self.username,
+                           password=self.password, allow_agent=False)
             si, so, se = client.exec_command(cmd, timeout=timeout)
             stdOut = so.readlines()
             stdErr = se.readlines()
             retValue = 0
         except AuthenticationException as authenticationException:
-            logger.error('SSH Authentication failure with message: %s' % authenticationException)
+            logger.error('SSH Authentication failure with message: %s' %
+                         authenticationException)
             if self.alt_password is not None:
                 # attempt retry with alt_password
                 self.password = self.alt_password
@@ -68,13 +71,16 @@ class DeviceConnection:
         except SSHException as sshException:
             logger.error('SSH Command failed with message: %s' % sshException)
         except BadHostKeyException as badHostKeyException:
-            logger.error('SSH Authentication failure with message: %s' % badHostKeyException)
+            logger.error('SSH Authentication failure with message: %s' %
+                         badHostKeyException)
         except socket.timeout as e:
             # The ssh session will timeout in case of a successful reboot
-            logger.error('Caught exception socket.timeout: {}, {}, {}'.format(repr(e), str(e), type(e)))
+            logger.error('Caught exception socket.timeout: {}, {}, {}'.format(
+                repr(e), str(e), type(e)))
             retValue = 255
         except Exception as e:
-            logger.error('Exception caught: {}, {}, type: {}'.format(repr(e), str(e), type(e)))
+            logger.error('Exception caught: {}, {}, type: {}'.format(
+                repr(e), str(e), type(e)))
             logger.error(sys.exc_info())
         finally:
             client.close()

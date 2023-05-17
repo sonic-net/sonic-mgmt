@@ -43,4 +43,4 @@ def bgp_sessions_config(duthost):
 def check_bgp_is_shutdown(duthost):
     logger.info("checking bgp status")
     return not duthost.command("show ip route bgp")["stdout_lines"] and \
-           not duthost.command("show ipv6 route bgp")["stdout_lines"]
+        not duthost.command("show ipv6 route bgp")["stdout_lines"]

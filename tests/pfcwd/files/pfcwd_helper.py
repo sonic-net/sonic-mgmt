@@ -1,7 +1,12 @@
 import datetime
 import ipaddress
+import sys
 
 from tests.common import constants
+
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
 
 
 class TrafficPorts(object):
@@ -58,7 +63,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for intf in self.mg_facts['minigraph_interfaces']:
-            if ipaddress.ip_address(unicode(intf['addr'])).version != 4:
+            if ipaddress.ip_address(str(intf['addr'])).version != 4:
                 continue
             # first port
             if not self.pfc_wd_rx_port:
@@ -77,7 +82,7 @@ class TrafficPorts(object):
                 pfc_wd_test_neighbor_addr = None
 
                 for item in self.bgp_info:
-                    if ipaddress.ip_address(unicode(item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(item['addr'])).version != 4:
                         continue
                     if not self.pfc_wd_rx_neighbor_addr and item['peer_addr'] == self.pfc_wd_rx_port_addr:
                         self.pfc_wd_rx_neighbor_addr = item['addr']
@@ -91,17 +96,18 @@ class TrafficPorts(object):
                                                      'test_port_id': pfc_wd_test_port_id,
                                                      'rx_port_id': [self.pfc_wd_rx_port_id],
                                                      'test_port_type': 'interface'
-                                                    }
+                                                     }
             # populate info for the first port
             if first_pair:
-                self.test_ports[self.pfc_wd_rx_port] = {'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
-                                                        'rx_port': [pfc_wd_test_port],
-                                                        'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
-                                                        'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
-                                                        'test_port_id': self.pfc_wd_rx_port_id,
-                                                        'rx_port_id': [pfc_wd_test_port_id],
-                                                        'test_port_type': 'interface'
-                                                       }
+                self.test_ports[self.pfc_wd_rx_port] = {
+                    'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
+                    'rx_port': [pfc_wd_test_port],
+                    'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
+                    'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
+                    'test_port_id': self.pfc_wd_rx_port_id,
+                    'rx_port_id': [pfc_wd_test_port_id],
+                    'test_port_type': 'interface'
+                    }
 
             first_pair = False
 
@@ -120,7 +126,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for item in self.mg_facts['minigraph_portchannel_interfaces']:
-            if ipaddress.ip_address(unicode(item['addr'])).version != 4:
+            if ipaddress.ip_address(str(item['addr'])).version != 4:
                 continue
             pc = item['attachto']
             # first port
@@ -135,14 +141,13 @@ class TrafficPorts(object):
 
             # populate info for all ports except the first one
             if first_pair or pfc_wd_test_port:
-                pfc_wd_test_portchannel = pc
                 pfc_wd_test_port = self.pc_info[pc]['members']
                 pfc_wd_test_port_addr = item['addr']
                 pfc_wd_test_port_id = [self.port_idx_info[port] for port in pfc_wd_test_port]
                 pfc_wd_test_neighbor_addr = None
 
                 for bgp_item in self.bgp_info:
-                    if ipaddress.ip_address(unicode(bgp_item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(bgp_item['addr'])).version != 4:
                         continue
                     if not self.pfc_wd_rx_neighbor_addr and bgp_item['peer_addr'] == self.pfc_wd_rx_port_addr:
                         self.pfc_wd_rx_neighbor_addr = bgp_item['addr']
@@ -158,7 +163,7 @@ class TrafficPorts(object):
                                              'rx_port_id': self.pfc_wd_rx_port_id,
                                              'test_portchannel_members': pfc_wd_test_port_id,
                                              'test_port_type': 'portchannel'
-                                            }
+                                             }
             # populate info for the first port
             if first_pair:
                 for port in self.pfc_wd_rx_port:
@@ -170,7 +175,7 @@ class TrafficPorts(object):
                                              'rx_port_id': pfc_wd_test_port_id,
                                              'test_portchannel_members': self.pfc_wd_rx_port_id,
                                              'test_port_type': 'portchannel'
-                                            }
+                                             }
 
             first_pair = False
 
@@ -188,7 +193,9 @@ class TrafficPorts(object):
             temp_ports (dict): port info constructed from the vlan interfaces
         """
         temp_ports = dict()
-        vlan_details = self.vlan_info.values()[0]
+        # In Python2, dict.values() returns list object, but in Python3 returns an iterable but not indexable object.
+        # So that convert to list explicitly.
+        vlan_details = list(self.vlan_info.values())[0]
         # Filter(remove) PortChannel interfaces from VLAN members list
         vlan_members = [port for port in vlan_details['members'] if 'PortChannel' not in port]
 
@@ -204,7 +211,7 @@ class TrafficPorts(object):
                                 'test_port_id': self.port_idx_info[item],
                                 'rx_port_id': rx_port_id,
                                 'test_port_type': 'vlan'
-                               }
+                                }
             if hasattr(self, 'pfc_wd_rx_port_vlan_id'):
                 temp_ports[item]['rx_port_vlan_id'] = self.pfc_wd_rx_port_vlan_id
             if vlan_type is not None and vlan_type == 'Tagged':
@@ -217,7 +224,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for sub_intf in self.mg_facts['minigraph_vlan_sub_interfaces']:
-            if ipaddress.ip_address(unicode(sub_intf['addr'])).version != 4:
+            if ipaddress.ip_address(str(sub_intf['addr'])).version != 4:
                 continue
             intf_name, vlan_id = sub_intf['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
             # first port
@@ -238,7 +245,7 @@ class TrafficPorts(object):
                 pfc_wd_test_neighbor_addr = None
 
                 for item in self.bgp_info:
-                    if ipaddress.ip_address(unicode(item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(item['addr'])).version != 4:
                         continue
                     if not self.pfc_wd_rx_neighbor_addr and item['peer_addr'] == self.pfc_wd_rx_port_addr:
                         self.pfc_wd_rx_neighbor_addr = item['addr']
@@ -254,19 +261,20 @@ class TrafficPorts(object):
                                                      'rx_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
                                                      'test_port_vlan_id': vlan_id,
                                                      'test_port_type': 'interface'
-                                                    }
+                                                     }
             # populate info for the first port
             if first_pair:
-                self.test_ports[self.pfc_wd_rx_port] = {'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
-                                                        'rx_port': [pfc_wd_test_port],
-                                                        'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
-                                                        'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
-                                                        'test_port_id': self.pfc_wd_rx_port_id,
-                                                        'rx_port_id': [pfc_wd_test_port_id],
-                                                        'rx_port_vlan_id': vlan_id,
-                                                        'test_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
-                                                        'test_port_type': 'interface'
-                                                       }
+                self.test_ports[self.pfc_wd_rx_port] = {
+                    'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
+                    'rx_port': [pfc_wd_test_port],
+                    'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
+                    'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
+                    'test_port_id': self.pfc_wd_rx_port_id,
+                    'rx_port_id': [pfc_wd_test_port_id],
+                    'rx_port_vlan_id': vlan_id,
+                    'test_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
+                    'test_port_type': 'interface'
+                    }
 
             first_pair = False
 
@@ -285,7 +293,7 @@ def set_pfc_timers():
                   'pfc_wd_restore_time': 400,
                   'pfc_wd_restore_time_large': 3000,
                   'pfc_wd_poll_time': 400
-                 }
+                  }
     return pfc_timers
 
 
@@ -302,7 +310,7 @@ def select_test_ports(test_ports):
     selected_ports = dict()
     rx_ports = set()
     seed = int(datetime.datetime.today().day)
-    for port, port_info in test_ports.items():
+    for port, port_info in list(test_ports.items()):
         rx_port = port_info["rx_port"]
         if isinstance(rx_port, (list, tuple)):
             rx_ports.update(rx_port)
@@ -312,11 +320,11 @@ def select_test_ports(test_ports):
             selected_ports[port] = port_info
 
     # filter out selected ports that also act as rx ports
-    selected_ports = {p: pi for p, pi in selected_ports.items()
+    selected_ports = {p: pi for p, pi in list(selected_ports.items())
                       if p not in rx_port}
 
     if not selected_ports:
-        random_port = test_ports.keys()[0]
+        random_port = list(test_ports.keys())[0]
         selected_ports[random_port] = test_ports[random_port]
 
     return selected_ports

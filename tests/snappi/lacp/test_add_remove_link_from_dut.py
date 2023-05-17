@@ -1,8 +1,8 @@
-from tests.common.snappi.snappi_fixtures import cvg_api,snappi_api
-from tests.common.snappi.snappi_fixtures import (
+from tests.common.snappi.snappi_fixtures import cvg_api, snappi_api     # noqa F401
+from tests.common.snappi.snappi_fixtures import (                       # noqa F401
     snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
-from files.lacp_dut_helper import run_lacp_add_remove_link_from_dut
-from tests.common.fixtures.conn_graph_facts import (
+from .files.lacp_dut_helper import run_lacp_add_remove_link_from_dut
+from tests.common.fixtures.conn_graph_facts import (                    # noqa F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
@@ -10,17 +10,16 @@ import pytest
 @pytest.mark.parametrize('port_count', [4])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('iterations', [1])
-@pytest.mark.parametrize('port_speed',['speed_100_gbps'])
-def test_lacp_add_remove_link_from_dut(snappi_api,
-                                        duthost,
-                                        tgen_ports,
-                                        iterations,
-                                        conn_graph_facts,
-                                        fanout_graph_facts,
-                                        port_count,
-                                        number_of_routes,
-                                        port_speed,):
-
+@pytest.mark.parametrize('port_speed', ['speed_100_gbps'])
+def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa F811
+                                       duthost,
+                                       tgen_ports,                      # noqa F811
+                                       iterations,
+                                       conn_graph_facts,                # noqa F811
+                                       fanout_graph_facts,              # noqa F811
+                                       port_count,
+                                       number_of_routes,
+                                       port_speed,):
     """
     Topo:
     LAG1 --- DUT --- LAG2 (N-1 TGEN Ports)
@@ -49,11 +48,11 @@ def test_lacp_add_remove_link_from_dut(snappi_api,
         number_of_routes:  Number of IPv4/IPv6 Routes
         port_speed: speed of the port used for test
     """
-    #port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
+    # port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
     run_lacp_add_remove_link_from_dut(snappi_api,
-                                     duthost,
-                                     tgen_ports,
-                                     iterations,
-                                     port_count,
-                                     number_of_routes,
-                                     port_speed,)
+                                      duthost,
+                                      tgen_ports,
+                                      iterations,
+                                      port_count,
+                                      number_of_routes,
+                                      port_speed,)
