@@ -3468,6 +3468,16 @@ qos_params:
             hdrm_pool_wm_multiplier: 1
             cell_size: 384
         topo-t2:
+            shared_res_size_1:
+                ecn: 1
+                packet_size: 1350
+                cell_size: 384
+                pkts_num_margin: 1
+            shared_res_size_2:
+                ecn: 1
+                packet_size: 1350
+                cell_size: 384
+                pkts_num_margin: 1
             100000_300m:
                 pkts_num_egr_mem: 6884
                 pg_drop:
