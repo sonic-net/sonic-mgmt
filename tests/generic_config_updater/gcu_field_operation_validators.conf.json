@@ -1,0 +1,137 @@
+{
+    "README": [
+        "field_operation_validators provides, module & method name as ",
+        "    <module name>.<method name>",
+        "NOTE: module name could have '.'",
+        " ",
+        "The last element separated by  '.' is considered as ",
+        "method name",
+        "",
+        "e.g. 'show.acl.test_acl'",
+        "",
+        "field_operation_validators for a given table defines a list of validators that all must pass for modification to the specified field and table to be allowed",
+        "",
+        "validator_data provides data relevant to each validator",
+        ""
+    ],
+    "helper_data": {
+        "rdma_config_update_validator": {
+            "mellanox_asics": {
+                "spc1": [ "ACS-MSN2700", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2010", "Mellanox-SN2700", "Mellanox-SN2700-D48C8" ]
+            },
+            "broadcom_asics": {
+                "th": ["Broadcom Limited Device b960", "Broadcom Limited Broadcom BCM56960"],
+                "th2": ["Broadcom Limited Device b971"],
+                "td2": ["Broadcom Limited Device b850", "Broadcom Limited Broadcom BCM56850"],
+                "td3": ["Broadcom Limited Device b870", "Broadcom Inc. and subsidiaries Device b870"]
+            }
+	}
+    },
+    "tables": {
+        "PFC_WD": {
+            "field_operation_validators": [ "generic_config_updater.field_operation_validators.rdma_config_update_validator" ],
+            "validator_data": {
+                "rdma_config_update_validator": {
+                    "PFCWD enable/disable": {
+                        "fields": [
+                            "restoration_time",
+                            "detection_time",
+                            "action",
+                            "global/poll_interval"
+                        ],
+                        "operations": ["remove", "add", "replace"],
+                        "platforms": {
+                            "spc1": "20181100",
+                            "td2": "20181100",
+                            "th": "20181100",
+                            "th2": "20181100",
+                            "td3": "20181100",
+                            "cisco-8000": "20201200"
+                        }
+                    }
+                }
+            }
+        },
+        "BUFFER_POOL": {
+            "field_operation_validators": [ "generic_config_updater.field_operation_validators.rdma_config_update_validator" ],
+            "validator_data": {
+                "rdma_config_update_validator": {
+                    "Shared/headroom pool size changes": {
+                        "fields": [
+                            "ingress_lossless_pool/xoff",
+                            "ingress_lossless_pool/size",
+                            "egress_lossy_pool/size"
+                        ],
+                        "operations": ["replace"],
+                        "platforms": {
+                            "spc1": "20191100",
+                            "td2": "",
+                            "th": "20221100",
+                            "th2": "20221100",
+                            "td3": "20221100",
+                            "cisco-8000": ""
+                        }
+                    }
+                }
+            }
+        },
+        "BUFFER_PROFILE": {
+            "field_operation_validators": [ "generic_config_updater.field_operation_validators.rdma_config_update_validator" ],
+            "validator_data": {
+                "rdma_config_update_validator": {
+                    "Dynamic threshold tuning": {
+                        "fields": [
+                            "dynamic_th"
+                        ],
+                        "operations": ["replace"],
+                        "platforms": {
+                            "spc1": "20181100",
+                            "td2": "20181100",
+                            "th": "20181100",
+                            "th2": "20181100",
+                            "td3": "20201200",
+                            "cisco-8000": ""
+                        }
+                    },
+                    "PG headroom modification": {
+                        "fields": [
+                            "xoff"
+                        ],
+                        "operations": ["replace"],
+                        "platforms": {
+                            "spc1": "20191100",
+                            "td2": "",
+                            "th": "20221100",
+                            "th2": "20221100",
+                            "td3": "20221100",
+                            "cisco-8000": ""
+                        }
+                    }
+                }
+            }
+        },
+        "WRED_PROFILE": {
+            "field_operation_validators": [ "generic_config_updater.field_operation_validators.rdma_config_update_validator" ],
+            "validator_data": {
+                "rdma_config_update_validator": {
+                    "ECN tuning": {
+                        "fields": [
+                            "azure_lossless/green_min_threshold",
+                            "azure_lossless/green_max_threshold",
+                            "azure_lossless/green_drop_probability"
+                        ],
+                        "operations": ["replace"],
+                        "platforms": {
+                            "spc1": "20181100",
+                            "td2": "20181100",
+                            "th": "20181100",
+                            "th2": "20181100",
+                            "td3": "20201200",
+                            "cisco-8000": ""
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
