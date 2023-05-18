@@ -6188,6 +6188,10 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-pikez-acs-1" Proxy="admin" StartDevice="console-182" StartPort="18"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7215-acs-5" Proxy="admin" StartDevice="console-182" StartPort="16"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8101-32fh-02" Proxy="admin" StartDevice="console-185" StartPort="32"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8102-01" Proxy="admin" StartDevice="console-199" StartPort="25"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8102-02" Proxy="admin" StartDevice="console-199" StartPort="26"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8102-03" Proxy="admin" StartDevice="console-199" StartPort="30"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8102-04" Proxy="admin" StartDevice="console-199" StartPort="29"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
