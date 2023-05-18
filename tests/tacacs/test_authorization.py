@@ -417,3 +417,43 @@ def test_backward_compatibility_disable_authorization(
 
     # cleanup
     start_tacacs_server(ptfhost)
+
+
+def test_stop_request_next_server_after_reject(
+        duthosts, enum_rand_one_per_hwsku_hostname,
+        tacacs_creds, ptfhost, check_tacacs, remote_user_client, local_user_client):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    skip_versions = ["201811", "201911", "202012", "202106", "202111", "202205", "202211"]
+    skip_release(duthost, skip_versions)
+    
+    # Use ptfhost ipv6 address as second ip address
+    ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
+    if 'ansible_hostv6' not in ptfhost_vars:
+        pytest.skip("Skip UT. ptf ansible_hostv6 not configured.")
+    tacacs_server_ipv6 = ptfhost_vars['ansible_hostv6']
+
+    # Setup second tacacs server
+    duthost.shell("sudo config tacacs add {}".format(tacacs_server_ipv6))
+    duthost.shell("sudo config tacacs timeout 1")
+
+    # Clean tacacs log
+    res = ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
+
+    # Login with invalied user, the first tacacs server will reject user login
+    dutip = duthost.mgmt_ip
+    check_ssh_connect_remote_failed(
+        dutip,
+        "invalid_user",
+        "invalid_password"
+    )
+
+    # Server side should only have 1 login request log:
+    #       After first tacacs server reject user login, tacacs will not try to connect to second server.
+    res = ptfhost.command(r"sed -n 's/\(exec authorization request for invalid_user\)/\1/p'  /var/log/tac_plus.log")
+    logger.warning(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) == 1)
+
+    # Remove second server IP
+    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ipv6)
+    duthost.shell("sudo config tacacs timeout 5")
