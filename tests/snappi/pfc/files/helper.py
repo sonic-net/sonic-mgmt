@@ -59,7 +59,7 @@ def run_pfc_test(api,
         test_traffic_pause (bool): if test flows are expected to be paused
         headroom_test_params (array): 2 element array if the associated pfc pause quanta
                                     results in no packet drop [pfc_delay, headroom_result]
-        pfc_pause_src_mac (string): MAC address of source PFC Pause frame
+        pfc_pause_src_mac (string): source MAC address of PFC Pause frames
     Returns:
         N/A
     """
@@ -191,7 +191,7 @@ def __gen_traffic(testbed_config,
         data_flow_delay_sec (int): start delay of data flows in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-        pfc_pause_src_mac (string): MAC address of source PFC Pause frame
+        pfc_pause_src_mac (string): source MAC address of PFC Pause frames
     Returns:
         flows configurations (list): the list should have configurations of
         len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
