@@ -1,5 +1,4 @@
 import logging
-import pytest
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
