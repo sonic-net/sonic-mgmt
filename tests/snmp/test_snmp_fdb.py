@@ -6,9 +6,17 @@ import time
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list       # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
+from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
+from tests.vlan.test_vlan import setup_acl_table             # noqa F401
+from tests.vlan.test_vlan import acl_rule_cleanup            # noqa F401
+from tests.vlan.test_vlan import vlan_intfs_dict             # noqa F401
+from tests.vlan.test_vlan import setup_po2vlan               # noqa F401
+from tests.vlan.test_vlan import work_vlan_ports_list
 
 logger = logging.getLogger(__name__)
 
@@ -64,19 +72,22 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
 
 
 @pytest.mark.bsl
-def test_snmp_fdb_send_tagged(ptfadapter, utils_vlan_ports_list,                    # noqa F811
+@pytest.mark.po2vlan
+def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,          # noqa F811
                               toggle_all_simulator_ports_to_rand_selected_tor_m,    # noqa F811
-                              duthost, localhost, creds_all_duts):
+                              rand_selected_dut, tbinfo, ports_list, localhost, creds_all_duts): # noqa F811
     """
     Send tagged packets from each port.
     Verify SNMP FDB entry
     """
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")[
+    duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")[
         'ansible_facts']
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     send_cnt = 0
     send_portchannels_cnt = 0
-    for vlan_port in utils_vlan_ports_list:
+    vlan_ports_list = work_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
+    for vlan_port in vlan_ports_list:
         port_index = vlan_port["port_index"][0]
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             dummy_mac = '{}:{:02x}:{:02x}'.format(
