@@ -397,7 +397,9 @@ def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_te
     for _, status in list(port_channel_status["ports"].items()):
         pytest_assert(status["runner"]["selected"], "status of lag member error")
         if "partner_retry_count" in status["runner"]:
-            pytest_assert(status["runner"]["partner_retry_count"] == 3, "partner retry count is incorrect")
+            pytest_assert(status["runner"]["partner_retry_count"] == 3,
+                          "partner retry count is incorrect; expected 3, but is {}"
+                          .format(status["runner"]["partner_retry_count"]))
 
 
 def run_lag_member_traffic_test(duthost, dut_vlan, ptf_lag_map, ptfhost):
