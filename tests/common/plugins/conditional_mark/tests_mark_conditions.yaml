@@ -545,7 +545,7 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
   skip:
     reason: "Broadcom DNX Asic will drop IP packets with 0xffff checksum"
     conditions:
-      - "asic_subtype in ['broadcom-dnx']"
+      - "asic_subtype in ['mellanox','broadcom-dnx']"
 
 #######################################
 #####            ipfwd            #####
