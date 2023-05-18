@@ -102,3 +102,6 @@ class NxosHost(AnsibleHostBase):
         for intf in interfaces:
             ret_list.append(self.no_shutdown(intf))
         return ret_list
+
+    def _has_cli_cmd_failed(self, cmd_output_obj):
+        return 'failed' in cmd_output_obj and cmd_output_obj['failed']
