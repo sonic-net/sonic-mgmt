@@ -125,6 +125,7 @@ all:
           - t0-35
           - t0-56
           - t0-56-po2vlan
+          - t0-56-d48c8
           - t0-52
           - ptf32
           - ptf64
@@ -5104,7 +5105,7 @@ vms_svc_5:
     VM50019:
       ansible_host: 172.16.128.51
     VM50020:
-      ansible_host: 172.16.128.52 
+      ansible_host: 172.16.128.52
     VM50021:
       ansible_host: 172.16.128.53
     VM50022:
@@ -5301,7 +5302,7 @@ vms_bjw_6:
     VM56048:
       ansible_host: 172.16.190.80
     VM56049:
-      ansible_host: 172.16.190.81    
+      ansible_host: 172.16.190.81
     VM56050:
       ansible_host: 172.16.190.82
     VM56051:
