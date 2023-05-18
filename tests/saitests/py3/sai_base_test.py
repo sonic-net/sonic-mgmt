@@ -81,6 +81,8 @@ class ThriftInterface(BaseTest):
                         if dst_dut_index in a_ptf_port_info['target_dut'] and \
                                 a_ptf_port_info['asic_idx'] == self.dst_asic_index:
                             interface_to_front_mapping['dst'][a_ptf_port] = a_ptf_port_info['dut_port']
+                else:
+                    interface_to_front_mapping['dst'] = interface_to_front_mapping['src']
         else:
             exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
         # dictionary with key 'src' or 'dst'
@@ -104,7 +106,7 @@ class ThriftInterface(BaseTest):
             self.dst_protocol = TBinaryProtocol.TBinaryProtocol(self.dst_transport)
             self.dst_client = switch_sai_rpc.Client(self.dst_protocol)
             self.dst_transport.open()
-            self.clients['dst'] = self.dst_client
+        self.clients['dst'] = self.dst_client
 
         self.platform_asic = self.test_params.get('platform_asic', None)
 
