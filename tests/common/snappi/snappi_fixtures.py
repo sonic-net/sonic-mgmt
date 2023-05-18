@@ -527,7 +527,7 @@ def snappi_dut_base_config(duthost_list,
                            snappi_ports,
                            snappi_api):
     """
-    Geenrate snappi API config and port config information for the testbed
+    Generate snappi API config and port config information for the testbed
     Args:
         duthost_list (pytest fixture): list of DUTs
         snappi_ports: list of snappi ports
