@@ -10,7 +10,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 pytestmark = [
@@ -19,8 +19,21 @@ pytestmark = [
 
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
+MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture
+def set_timeout_for_bgpmon(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
+    global MAX_TIME_FOR_BGPMON
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_bgpmon.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_TIME_FOR_BGPMON = plt_reboot_ctrl.get('timeout', 180)
 
 
 def get_default_route_ports(host, tbinfo):
@@ -126,7 +139,8 @@ def build_syn_pkt(local_addr, peer_addr):
     return exp_packet
 
 
-def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index, common_setup_teardown, ptfadapter, ptfhost):
+def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
+                common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
@@ -171,7 +185,8 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
                       "Failed to start bgp monitor session on PTF")
-        pytest_assert(wait_until(180, 5, 0, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
+        pytest_assert(wait_until(MAX_TIME_FOR_BGPMON, 5, 0, bgpmon_peer_connected, duthost, peer_addr),
+                      "BGPMon Peer connection not established")
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))
