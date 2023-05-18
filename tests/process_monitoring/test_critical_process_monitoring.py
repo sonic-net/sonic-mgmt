@@ -10,6 +10,7 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common import config_reload
+from tests.common.constants import KVM_PLATFORM
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
@@ -586,9 +587,14 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     stop_critical_processes(duthost, containers_in_namespaces)
 
-    # Wait for 70 seconds such that Supervisord/Monit has a chance to write alerting message into syslog.
-    logger.info("Sleep 70 seconds to wait for the alerting messages in syslog...")
-    time.sleep(70)
+    wait_time = 70
+    # For KVM DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
+    if duthost.facts['platform'] == KVM_PLATFORM:
+        wait_time = 90
+
+    # Wait for sometime such that Supervisord/Monit has a chance to write alerting message into syslog.
+    logger.info("Sleep {} seconds to wait for the alerting messages in syslog...".format(wait_time))
+    time.sleep(wait_time)
 
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)

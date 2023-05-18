@@ -43,6 +43,14 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         config_reload(duthost, config_source='running_golden_config', safe_reload=True)
 
 
+def enable_autorestart(duthost):
+    # Enable autorestart for all features
+    feature_list, _ = duthost.get_feature_status()
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                           enum_dut_feature, loganalyzer):
@@ -111,7 +119,7 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
             ".*ERR syncd[0-9]*#SDK.*validate_port: Can't add port which is under bridge.*",
             ".*ERR syncd[0-9]*#SDK.*listFailedAttributes.*",
-            ".*ERR syncd[0-9]*#SDK.*processSingleVid: failed to create object SAI_OBJECT_TYPE_LAG_MEMBER: SAI_STATUS_INVALID_PARAMETER.*",
+            ".*ERR syncd[0-9]*#SDK.*processSingleVid: failed to create object SAI_OBJECT_TYPE_LAG_MEMBER: SAI_STATUS_INVALID_PARAMETER.*",          # noqa E501
             # Known issue, captured here: https://github.com/sonic-net/sonic-buildimage/issues/10000 , ignore it for now
             ".*ERR swss[0-9]*#fdbsyncd.*readData.*netlink reports an error=-25 on reading a netlink socket.*",
             ".*ERR swss[0-9]*#portsyncd.*readData.*netlink reports an error=-33 on reading a netlink socket.*",
@@ -129,20 +137,20 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR gbsyncd#syncd: :- updateNotificationsPointers: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not "
             "handled.*",
             ".*ERR gbsyncd#syncd: :- diagShellThreadProc: Failed to enable switch shell: SAI_STATUS_NOT_SUPPORTED.*",
-            ".*ERR swss[0-9]*#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled.*",
-            ".*ERR swss[0-9]*#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled.*",
+            ".*ERR swss[0-9]*#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_WRITE is not handled.*",      # noqa E501
+            ".*ERR swss[0-9]*#orchagent: :- updateNotifications: pointer for SAI_SWITCH_ATTR_REGISTER_READ is not handled.*",       # noqa E501
             ".*ERR swss[0-9]*#orchagent:.*pfcFrameCounterCheck: Invalid port oid.*",
             ".*ERR swss[0-9]*#orchagent: :- mcCounterCheck: Invalid port oid.*",
-            ".*ERR lldp[0-9]*#lldp-syncd \[lldp_syncd\].*Could not infer system information from.*",
+            ".*ERR lldp[0-9]*#lldp-syncd \[lldp_syncd\].*Could not infer system information from.*",    # noqa W605
             ".*ERR lldp[0-9]*#lldpmgrd.*Port init timeout reached (300 seconds), resuming lldpd.*",
             ".*ERR syncd[0-9]*#syncd.*threadFunction: time span WD exceeded.*create:SAI_OBJECT_TYPE_SWITCH.*",
             ".*ERR syncd[0-9]*#syncd.*logEventData:.*SAI_SWITCH_ATTR.*",
             ".*ERR syncd[0-9]*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*",
             ".*ERR syncd[0-9]*#syncd.*setEndTime:.*SAI_OBJECT_TYPE_SWITCH.*",
-            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_port_wred_stats_get:.*port gport get failed with error Feature unavailable.*",
-            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_get_recycle_port_attribute.*Error processing port attributes for attr_id.*",
+            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_port_wred_stats_get:.*port gport get failed with error Feature unavailable.*",        # noqa E501
+            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_get_recycle_port_attribute.*Error processing port attributes for attr_id.*",          # noqa E501
             ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_get_recycle_port_attribute.*Unknown port attribute.*",
-            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_port_wred_stats_get:15102 Hardware failure -16 in getting WRED stat 68 for port.*",
+            ".*ERR syncd[0-9]*#syncd:.*SAI_API_PORT:_brcm_sai_port_wred_stats_get:15102 Hardware failure -16 in getting WRED stat 68 for port.*",   # noqa E501
             ".*ERR swss[0-9]*#orchagent: :- doLagMemberTask: Failed to locate port.*",
             ".*ERR swss[0-9]*#orchagent:.*update: Failed to get port by bridge port ID.*",
             ".*ERR swss[0-9]*#orchagent:.*handlePortStatusChangeNotification: Failed to get port object for port id.*",
@@ -507,6 +515,10 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     )
     if not (critical_proceses and bgp_check):
         config_reload(duthost, safe_reload=True)
+        # after config reload, the feature autorestart config is reset,
+        # so, before next test, enable again
+        enable_autorestart(duthost)
+
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
         processes_status = duthost.all_critical_process_status()
@@ -533,6 +545,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     logger.info("End of testing the container '{}'".format(container_name))
 
 
+@pytest.mark.disable_loganalyzer
 def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                 enum_dut_feature, tbinfo):
     """

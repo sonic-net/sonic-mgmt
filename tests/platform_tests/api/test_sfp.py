@@ -16,10 +16,10 @@ from platform_api_test_base import PlatformApiTestBase
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = str
+    STRING_TYPE = basestring    # noqa F821
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -98,15 +98,15 @@ class TestSfpApi(PlatformApiTestBase):
 
     # some new keys added for QSFP-DD and OSFP in 202205 or later branch
     EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS = ['active_firmware',
-                                           'host_lane_count',
-                                           'media_lane_count',
-                                           'cmis_rev',
-                                           'host_lane_assignment_option',
-                                           'inactive_firmware',
-                                           'media_interface_technology',
-                                           'media_interface_code',
-                                           'host_electrical_interface',
-                                           'media_lane_assignment_option']
+                                                'host_lane_count',
+                                                'media_lane_count',
+                                                'cmis_rev',
+                                                'host_lane_assignment_option',
+                                                'inactive_firmware',
+                                                'media_interface_technology',
+                                                'media_interface_code',
+                                                'host_electrical_interface',
+                                                'media_lane_assignment_option']
 
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
@@ -280,6 +280,18 @@ class TestSfpApi(PlatformApiTestBase):
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         return xcvr_type not in not_resettable_xcvr_type
 
+    def lp_mode_assert_delay(self, xcvr_info_dict):
+        xcvr_type = xcvr_info_dict["type_abbrv_name"]
+        if "QSFP" in xcvr_type and xcvr_type != "QSFP-DD":
+            return 0.1
+        return 0
+
+    def lp_mode_deassert_delay(self, xcvr_info_dict):
+        xcvr_type = xcvr_info_dict["type_abbrv_name"]
+        if "QSFP" in xcvr_type and xcvr_type != "QSFP-DD":
+            return 0.3
+        return 0
+
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
@@ -371,7 +383,7 @@ class TestSfpApi(PlatformApiTestBase):
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
                                                            self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS + \
                                                            ["active_apsel_hostlane{}".format(n)
-                                                           for n in range(1, info_dict['host_lane_count'] + 1)]
+                                                            for n in range(1, info_dict['host_lane_count'] + 1)]
                         else:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
                     missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
@@ -685,6 +697,10 @@ class TestSfpApi(PlatformApiTestBase):
                 # Test all channels for a eight-channel transceiver
                 all_channel_mask = 0xFF
                 expected_mask = 0x80
+            elif info_dict["type_abbrv_name"] == "SFP":
+                # Test all channels for a single-channel transceiver
+                all_channel_mask = 0x1
+                expected_mask = 0x1
             else:
                 # Test all channels for a four-channel transceiver
                 all_channel_mask = 0XF
@@ -743,9 +759,14 @@ class TestSfpApi(PlatformApiTestBase):
                 if ret is None:
                     logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
+                if state is True:
+                    delay = self.lp_mode_assert_delay(info_dict)
+                else:
+                    delay = self.lp_mode_deassert_delay(info_dict)
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}"
                             .format("enable" if state is True else "disable", i))
-                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                self.expect(wait_until(5, 1, delay,
+                                       self._check_lpmode_status, sfp, platform_api_conn, i, state),
                             "Transceiver {} expected low-power state {} is not aligned with the real state"
                             .format(i, "enable" if state is True else "disable"))
         self.assert_expectations()

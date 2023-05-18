@@ -34,8 +34,7 @@ class QosBase:
                           "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2",
-                           "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3", "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -1017,17 +1016,22 @@ class QosSaiBase(QosBase):
                 logger.info('ARP proxy is {} on {}'.format(
                     value['proxy_arp'], key))
 
-    def dutBufferConfig(self, duthost):
+    def dutBufferConfig(self, duthost, dut_asic):
         bufferConfig = {}
         try:
+            ns_spec = ""
+            ns = dut_asic.get_asic_namespace()
+            if ns is not None:
+                # multi-asic support
+                ns_spec = " -n " + ns
             bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_POOL"')['stdout'])
+                'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
             bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PROFILE"')['stdout'])
+                'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
             bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_QUEUE"')['stdout'])
+                'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
             bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PG"')['stdout'])
+                'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
         except Exception as err:
             logger.info(err)
         return bufferConfig
@@ -1102,7 +1106,7 @@ class QosSaiBase(QosBase):
                     "THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
-                bufferConfig = self.dutBufferConfig(duthost)
+                bufferConfig = self.dutBufferConfig(duthost, dut_asic)
                 pytest_assert(len(bufferConfig) == 4,
                               "buffer config is incompleted")
                 pytest_assert('BUFFER_POOL' in bufferConfig,
@@ -1135,7 +1139,7 @@ class QosSaiBase(QosBase):
                                                            tbinfo["topo"]["name"])
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
-            bufferConfig = self.dutBufferConfig(duthost)
+            bufferConfig = self.dutBufferConfig(duthost, dut_asic)
             pytest_assert('BUFFER_POOL' in bufferConfig,
                           'BUFFER_POOL does not exist in bufferConfig')
             pytest_assert('BUFFER_PROFILE' in bufferConfig,

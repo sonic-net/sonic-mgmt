@@ -289,10 +289,10 @@ def test_po_update_io_no_loss(
         exp_pkt = pkt.copy()
         exp_pkt = mask.Mask(exp_pkt)
 
-        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
-        exp_pkt.set_do_not_care_packet(packet.IP, 'chksum')
-        exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
+        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
 
         ptfadapter.dataplane.flush()
         member_update_finished_flag = Queue(1)

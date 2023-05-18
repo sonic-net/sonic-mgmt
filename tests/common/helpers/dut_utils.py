@@ -294,14 +294,15 @@ def ignore_t2_syslog_msgs(duthost):
         When we reboot / config_reload on T2 chassis cards, we see 2 error messages in the linecards
 
         1) During config_reload/reboot of linecard, LAGS are deleted, but ports are up,
-        and we get mac learning events from SAI to orchagent which is in middle of cleanup and doesn't have the right data.
+        and we get mac learning events from SAI to orchagent
+        which is in middle of cleanup and doesn't have the right data.
         This causes error message like Failed to get port by bridge port ID
 
         2) reboot/config_reload on supoervisor  will cause all the fabric links in the linecard to
         bounce which results in SAI sending messages orchagent regarding the fabric port state change.
         However, in linecards in T2 chassis, there is modelling of fabric ports in orchagent. Thus, orchagent generates
         error message indication to port object found for the port.
-        Please see https://github.com/Azure/sonic-buildimage/issues/9033 for details.
+        Please see https://github.com/sonic-net/sonic-buildimage/issues/9033 for details.
     """
     if duthost.topo_type == "t2" and duthost.facts.get('platform_asic') == "broadcom-dnx":
         ignoreRegex = [".*orchagent.*Failed to get port by bridge port ID.*"]

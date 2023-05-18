@@ -2,6 +2,7 @@ t0:
   - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
+  - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved
   - bgp/test_bgp_speaker.py
@@ -28,6 +29,7 @@ t0:
   - generic_config_updater/test_syslog.py
   - generic_config_updater/test_vlan_interface.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
+  - generic_config_updater/test_ecn_config_update.py
   - iface_namingmode/test_iface_namingmode.py
   - lldp/test_lldp.py
   - monit/test_monit_status.py
@@ -63,6 +65,7 @@ t0:
   - test_features.py
   - test_interfaces.py
   - test_procdockerstatsd.py
+  - database/test_db_scripts.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -121,7 +124,6 @@ multi-asic-t1-lag:
   - iface_namingmode/test_iface_namingmode.py
   - scp/test_scp_copy.py
   - test_interfaces.py
-  - override_config_table/test_override_config_table.py
   - process_monitoring/test_critical_process_monitoring.py
   - container_checker/test_container_checker.py
   - http/test_http_copy.py

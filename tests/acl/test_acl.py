@@ -203,7 +203,7 @@ def get_t2_info(duthosts, tbinfo):
             if len(upstream_rifs):
                 for port in upstream_rifs:
                     # This code is commented due to a bug which restricts rif interfaces to
-                    # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
+                    # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
                     if namespace == DEFAULT_NAMESPACE:
                         acl_table_ports[''].append(port)
                     else:
@@ -211,7 +211,7 @@ def get_t2_info(duthosts, tbinfo):
             else:
                 for port in downstream_rifs:
                     # This code is commented due to a bug which restricts rif interfaces to
-                    # be added to global acl table - https://github.com/Azure/sonic-utilities/issues/2185
+                    # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
                     if namespace == DEFAULT_NAMESPACE:
                         acl_table_ports[''].append(port)
                     else:
@@ -860,16 +860,16 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         exp_pkt = pkt.copy()
 
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt.set_do_not_care_packet(packet.Ether, "dst")
-        exp_pkt.set_do_not_care_packet(packet.Ether, "src")
+        exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
 
         if ip_version == "ipv4":
-            exp_pkt.set_do_not_care_packet(packet.IP, "chksum")
+            exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
+            exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
         else:
             # In multi-asic we cannot determine this so ignore.
-            exp_pkt.set_do_not_care_packet(packet.IPv6, 'hlim')
+            exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
 
         return exp_pkt
 

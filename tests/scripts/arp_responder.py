@@ -1,6 +1,3 @@
-import scapy.arch.pcapdnet
-import scapy.all as scapy2
-import ptf.packet as scapy
 import binascii
 import socket
 import struct
@@ -11,8 +8,13 @@ import os.path
 from collections import defaultdict
 from fcntl import ioctl
 import logging
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+import ptf.packet as scapy
+import scapy.all as scapy2
+import scapy.arch.pcapdnet # noqa F401
 scapy2.conf.use_pcap = True
+
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
 
 NEIGH_SOLICIT_ICMP_MSG_TYPE = 135
 
@@ -104,11 +106,26 @@ class ARPResponder(object):
 
     def action(self, interface):
         data = interface.recv()
+        eth_type = struct.unpack('!H', data[12:14])[0]
+        # Retrieve the correct ethertype if the packet is VLAN tagged
+        if eth_type == 0x8100:  # 802.1Q, VLAN tagged
+            eth_type = struct.unpack('!H', data[16:18])[0]
 
-        if len(data) <= self.ARP_PKT_LEN:
-            return self.reply_to_arp(data, interface)
-        elif len(data) <= self.NDP_PKT_LEN:
-            return self.reply_to_ndp(data, interface)
+        if eth_type == 0x0806:  # ARP
+            if len(data) <= self.ARP_PKT_LEN:
+                return self.reply_to_arp(data, interface)
+            else:
+                # Handle the case where data length is greater than ARP packet length
+                pass
+        elif eth_type == 0x86DD:  # IPv6
+            if len(data) <= self.NDP_PKT_LEN:
+                return self.reply_to_ndp(data, interface)
+            else:
+                # Handle the case where data length is greater than NDP packet length
+                pass
+        else:
+            # Handle other Ethernet types
+            pass
 
     def reply_to_arp(self, data, interface):
         remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(
@@ -190,10 +207,9 @@ class ARPResponder(object):
         return eth_hdr + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
 
     def generate_neigh_adv(self, local_mac, remote_mac, target_ip, remote_ip):
-        neigh_adv_pkt = scapy.Ether(src=local_mac, dst=remote_mac) / \
-            scapy.IPv6(src=target_ip, dst=remote_ip)
-        neigh_adv_pkt /= scapy.ICMPv6ND_NA(tgt=target_ip, R=0, S=1, O=1)
-        neigh_adv_pkt /= scapy.ICMPv6NDOptDstLLAddr(lladdr=local_mac)
+        neigh_adv_pkt = Ether(src=local_mac, dst=remote_mac) / IPv6(src=target_ip, dst=remote_ip) # noqa F821
+        neigh_adv_pkt /= ICMPv6ND_NA(tgt=target_ip, R=0, S=1, O=1)                                # noqa F821
+        neigh_adv_pkt /= ICMPv6NDOptDstLLAddr(lladdr=local_mac)                                   # noqa F821
 
         return neigh_adv_pkt
 
