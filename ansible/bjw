@@ -298,7 +298,7 @@ sonic_arista_720dt:
         "0x22": "ASY0624302A0"
         "0x23": "WTW22420720"
         "0x24": "c0:69:11:b2:e0:0e"
-        "0x25": "2022/06/10 11:19:51"
+        "0x25": "2022/11/02 22:48:04"
         "0x26": "01"
         "0x27": "03.00"
         "0x28": "x86_64-arista_720dt_48s"
@@ -306,7 +306,7 @@ sonic_arista_720dt:
         "0x2B": "Arista Networks"
         "0x2C": "US"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
+        "0x2E": "Aboot-norcal11-11.0.1-28325063"
         "0x2F": "WTW22420720"
         "0xFE": "0xdeadbeef"
 
