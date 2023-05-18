@@ -12,7 +12,7 @@ from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
 from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
-from tests.generic_config_updater.gu_utils import create_checkpoint, rollback
+from tests.common.checkpoint import create_checkpoint, rollback
 
 
 # TODO: Remove this once we no longer support Python 2
