@@ -73,7 +73,7 @@ class NxosHost(AnsibleHostBase):
             'output': 'json'
         }])
         if self._has_cli_cmd_failed(output):
-            _raise_err('Failed to get auto neg state for {}: {}'.format(interface_name, output['msg']))
+            raise Exception('Failed to get auto neg state for {}: {}'.format(interface_name, output['msg']))
         autoneg_enabled = output['stdout'][0]['TABLE_interface']['ROW_interface'].get('autonegotiation', False)
         return autoneg_enabled
 
