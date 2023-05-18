@@ -34,7 +34,13 @@ __all__ = CHECK_ITEMS
 
 def _find_down_phy_ports(dut, phy_interfaces):
     down_phy_ports = []
-    intf_facts = dut.show_interface(command='status', include_internal_intfs=('201811' not in dut.os_version))['ansible_facts']['int_status']
+    include_inband_intfs = True if dut.sonichost.get_facts().get(
+        'switch_type', None) == 'voq' else False
+    intf_facts = dut.show_interface(command='status',
+                                    include_internal_intfs=(
+                                        '201811' not in dut.os_version),
+                                    include_inband_intfs=include_inband_intfs)[
+                                        'ansible_facts']['int_status']
     for intf in phy_interfaces:
         try:
             if intf_facts[intf]['oper_state'] == 'down':
