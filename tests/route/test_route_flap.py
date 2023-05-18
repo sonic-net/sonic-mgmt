@@ -242,8 +242,9 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     route_prefix_len = get_route_prefix_len(tbinfo, common_config)
     routes = namedtuple('routes', ['route', 'aspath'])
     filtered_iproute_info = get_filtered_iproute_info(duthost, route_prefix_len)
-    pytest.skip(filtered_iproute_info, "Skip this test for current topo, \
-                this topo does not have enough routes! At least 1 multipath route coming from ebgp is needed")
+    if not filtered_iproute_info:
+        pytest.skip("Skip this test for current topo.\
+                    At least 1 multipath route coming from ebgp is needed!")
 
     dst_prefix_set = set()
     for route_prefix in filtered_iproute_info:
