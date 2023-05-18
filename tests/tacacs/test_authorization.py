@@ -426,7 +426,7 @@ def test_stop_request_next_server_after_reject(
 
     skip_versions = ["201811", "201911", "202012", "202106", "202111", "202205", "202211"]
     skip_release(duthost, skip_versions)
-    
+
     # Use ptfhost ipv6 address as second ip address
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' not in ptfhost_vars:
