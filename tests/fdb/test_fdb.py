@@ -21,14 +21,6 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url, \
                                                        toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
 from .utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
-from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
-from tests.vlan.test_vlan import setup_acl_table             # noqa F401
-from tests.vlan.test_vlan import acl_rule_cleanup            # noqa F401
-from tests.vlan.test_vlan import vlan_intfs_dict             # noqa F401
-from tests.vlan.test_vlan import setup_po2vlan               # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
@@ -304,7 +296,6 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 
 
 @pytest.mark.bsl
-@pytest.mark.po2vlan
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
              toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa F811
              setup_active_active_ports, get_dummay_mac_count):                                  # noqa F811
@@ -319,7 +310,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     2. verify show mac command on DUT for learned mac.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    conf_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
 
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
