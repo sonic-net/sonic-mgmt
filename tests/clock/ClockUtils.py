@@ -1,11 +1,11 @@
 import logging
 import random
-import datetime
-from contextlib import contextmanager
-
-import allure
 import time
+import datetime as dt
+import pytest
+import allure
 
+from contextlib import contextmanager
 from tests.common.helpers.assertions import pytest_assert
 from tests.clock.ClockConsts import ClockConsts
 from tests.common.errors import RunAnsibleModuleFail
@@ -57,27 +57,35 @@ class ClockUtils:
         return cmd_output
 
     @staticmethod
-    def parse_show_clock_output(show_clock_output):
+    def verify_and_parse_show_clock_output(show_clock_output):
         """
         @summary:
-            Split output of show clock into date, time and timezone strings
+            Verify, and then split output of show clock into date, time and timezone strings
 
             Exapmple:
-            "Mon 03 Apr 2023 11:29:46 AM UTC" -> {"date": "Mon 03 Apr 2023", "time": "11:29:46 AM", "timezone": "UTC"}
+            "Mon 03 Apr 2023 11:29:46 PM UTC" -> {"date": "2023-04-03", "time": "23:29:46", "timezone": "+0000"}
         @param show_clock_output: the given show clock output
         @return: The splited output as a dict
         """
-        with allure_step('Split output of show clock'):
-            output_list = show_clock_output.split(' ')
-            date = ' '.join(output_list[0:4])
-            time = ' '.join(output_list[4:6])
-            timezone = ' '.join(output_list[6:])
-            logging.info(f'Splited output:\ndate: "{date}"\ntime: "{time}"\ntimezone: "{timezone}"')
+        with allure_step('Verify output of show clock'):
+            try:
+                timezone_str = show_clock_output.split()[-1].strip()
+                logging.info(f'Timezone str: "{timezone_str}"')
 
+                date_time_to_parse = show_clock_output.replace(timezone_str, '').strip()
+                logging.info(f'Time and date to parse: "{date_time_to_parse}"')
+
+                datetime_obj = dt.datetime.strptime(date_time_to_parse, '%a %d %b %Y %I:%M:%S %p')
+                logging.info(f'Datetime object: "{datetime_obj}"\t|\tType: {type(datetime_obj)}')
+            except ValueError:
+                logging.info(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
+                pytest.fail(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
+
+        with allure_step('Split output of show clock'):
             res = {
-                ClockConsts.DATE: date,
-                ClockConsts.TIME: time,
-                ClockConsts.TIMEZONE: timezone
+                ClockConsts.DATE: datetime_obj.strftime("%Y-%m-%d"),
+                ClockConsts.TIME: datetime_obj.strftime("%H:%M:%S"),
+                ClockConsts.TIMEZONE: timezone_str
             }
             logging.info(f'res dict: {res}')
 
@@ -120,36 +128,6 @@ class ClockUtils:
             return res_dict
 
     @staticmethod
-    def validate_date(date_str):
-        """
-        @summary:
-            Verify that given string is in a good date format: "Mon 03 Apr 2023"
-        @param date_str: the given string
-        """
-        with allure_step(f'Validate date for: "{date_str}"'):
-            try:
-                datetime.datetime.strptime(date_str, "%a %d %b %Y")
-                logging.info('Validate date success')
-            except ValueError:
-                logging.info('Validate date fail')
-                pytest_assert(False, f'Given string "{date_str}" is not a valid date')
-
-    @staticmethod
-    def validate_time(time_str):
-        """
-        @summary:
-            Verify that given string is in a good time format: "11:29:46 AM" (or PM)
-        @param time_str: the given string
-        """
-        with allure_step(f'Validate time for: "{time_str}"'):
-            try:
-                datetime.datetime.strptime(time_str, "%I:%M:%S %p")
-                logging.info('Validate time success')
-            except ValueError:
-                logging.info('Validate time fail')
-                pytest_assert(False, f'Given string "{time_str}" is not a valid time')
-
-    @staticmethod
     def get_valid_timezones(duthosts):
         """
         @summary:
@@ -159,33 +137,6 @@ class ClockUtils:
         """
         with allure_step('Get list of valid timezones from show clock timezones command'):
             return ClockUtils.run_cmd(duthosts=duthosts, cmd=ClockConsts.CMD_SHOW_CLOCK_TIMEZONES).split()
-
-    @staticmethod
-    def validate_timezone(timezone_str, duthosts):
-        """
-        @summary:
-            Verify that the given string is an abbreviation of a valid timezone
-        @param timezone_str: the given string
-        @param duthosts: duthosts
-        """
-        with allure_step(f'Verify that given string "{timezone_str}" is a valid timezone'):
-            with allure_step('Get timezone from timedatectl linux command'):
-                timedatectl_output = \
-                    ClockUtils.parse_linux_cmd_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_TIMEDATECTL))
-                timedatectl_timezone = timedatectl_output[ClockConsts.TIME_ZONE]
-                timedatectl_tz_name = timedatectl_timezone.split()[0]
-                timedatectl_tz_abbreviation = timedatectl_timezone.split(' ')[1].split(',')[0].replace('(', '')
-                logging.info(f'Timezone in timedatectl: "{timedatectl_timezone}"\nTimezone name: '
-                             f'"{timedatectl_tz_name}"\nTimezone abbreviation: "{timedatectl_tz_abbreviation}" ')
-
-            with allure_step(f'Verify timezone name "{timedatectl_tz_name}" from timedatectl is in valid timezones'):
-                valid_timezones = ClockUtils.get_valid_timezones(duthosts)
-                pytest_assert(timedatectl_tz_name in valid_timezones,
-                              f'Error: string "{timezone_str}" is not in the valid timezones list')
-
-            with allure_step(f'Verify that the given timezone "{timezone_str}" equals to timezone abbreviation in '
-                             f'timedatectl "{timedatectl_tz_abbreviation}"'):
-                ClockUtils.verify_value(expected=timedatectl_tz_abbreviation, actual=timezone_str)
 
     @staticmethod
     def verify_value(expected, actual, should_be_equal=True):
@@ -244,35 +195,32 @@ class ClockUtils:
                 ClockUtils.verify_substring(expected_substr=expected_err, whole_str=cmd_output)
 
     @staticmethod
-    def verify_timezone_value(duthosts, tz_name, tz_abbreviation):
+    def verify_timezone_value(duthosts, expected_tz_name):
         """
         @summary:
-            Verify that a given timezone abbreviation matches the expected timezone.
-            * Given timezone abbreviation from show clock command (ETC, IDT, etc.)
+            Verify that current system timezone is as expected.
             * Assume that expected timezone should be given as a complete timezone name (ETC/UTC, Asia/Jerusalem, etc.)
         @param duthosts: duthosts object
-        @param tz_name: The expected timezone
-        @param tz_abbreviation: The actual given timezone abbreviation
+        @param expected_tz_name: The expected timezone name
         """
-        with allure_step(f'Verify that given timezone abbreviation "{tz_abbreviation}" matches to '
-                         f'expected timezone "{tz_name}"'):
-            with allure_step('Get timezone details from timedatectl command'):
-                timedatectl_output = \
-                    ClockUtils.parse_linux_cmd_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_TIMEDATECTL))
-                timedatectl_timezone = timedatectl_output[ClockConsts.TIME_ZONE]
-                timedatectl_tz_name = timedatectl_timezone.split()[0]
-                timedatectl_tz_abbreviation = timedatectl_timezone.split(' ')[1].split(',')[0].replace('(', '')
-                logging.info(f'Timezone in timedatectl: "{timedatectl_timezone}"\n'
-                             f'Timezone name: "{timedatectl_tz_name}"\n'
-                             f'Timezone abbreviation: "{timedatectl_tz_abbreviation}"')
+        with allure_step(f'Verify that current system timezone is as expected ({expected_tz_name})'):
+            with allure_step('Get timezone details from show clock and timedatectl commands'):
+                show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
+                show_clock_tz_abbr = ClockUtils.verify_and_parse_show_clock_output(
+                    show_clock_output)[ClockConsts.TIMEZONE]
+                timedatectl_tz = ClockUtils.parse_linux_cmd_output(
+                    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_TIMEDATECTL))[ClockConsts.TIME_ZONE]
+                timedatectl_tz_split = timedatectl_tz.split(' ', 1)
+                timedatectl_tz_name = timedatectl_tz_split[0].strip()
+                timedatectl_tz_abbr = timedatectl_tz_split[1].split(',', 1)[0].replace('(', '').strip()
 
-            with allure_step(f'Check that given timezone "{tz_name}" equals to timezone in '
-                             f'timedatectl "{timedatectl_tz_name}"'):
-                ClockUtils.verify_value(expected=timedatectl_tz_name, actual=tz_name)
+            with allure_step(f'Compare timezone abbreviations of show clock ({show_clock_tz_abbr}) '
+                             f'and timedatectl ({timedatectl_tz_abbr})'):
+                ClockUtils.verify_value(timedatectl_tz_abbr, show_clock_tz_abbr)
 
-            with allure_step(f'Check that given timezone abbreviation "{tz_abbreviation}" '
-                             f'matches the expected timezone "{tz_name}"'):
-                ClockUtils.verify_value(expected=timedatectl_tz_abbreviation, actual=tz_abbreviation)
+            with allure_step(f'Compare timezone name from timedatectl ({timedatectl_tz_name}) '
+                             f'to the expected ({expected_tz_name})'):
+                ClockUtils.verify_value(expected=expected_tz_name, actual=timedatectl_tz_name)
 
     @staticmethod
     def select_random_date():
@@ -282,14 +230,14 @@ class ClockUtils:
         @return: a random date as string in the format "YYYY-MM-DD"
         """
         with allure_step('Select a random date'):
-            start_date = datetime.date.fromisoformat(ClockConsts.MIN_SYSTEM_DATE)
-            end_date = datetime.date.fromisoformat(ClockConsts.MAX_SYSTEM_DATE)
+            start_date = dt.date.fromisoformat(ClockConsts.MIN_SYSTEM_DATE)
+            end_date = dt.date.fromisoformat(ClockConsts.MAX_SYSTEM_DATE)
 
             diff_days = (end_date - start_date).days
 
             rand_num_of_days = random.randint(0, diff_days)
 
-            rand_date = start_date + datetime.timedelta(days=rand_num_of_days)
+            rand_date = start_date + dt.timedelta(days=rand_num_of_days)
 
             rand_date_str = rand_date.strftime('%Y-%m-%d')
 
@@ -314,55 +262,6 @@ class ClockUtils:
             return rand_time_str
 
     @staticmethod
-    def convert_show_clock_date(show_clock_date):
-        """
-        @summary:
-            Convert date from show clock to format "YYYY-MM-DD"
-            e.g. "Wed 12 Apr 2023" --> "2023-04-12"
-        @param show_clock_date: given date from show clock
-        @return: converted date
-        """
-        with allure_step(f'Convert date "{show_clock_date}" to format "YYYY-MM-DD"'):
-            converted_date = datetime.datetime.strptime(show_clock_date, "%a %d %b %Y").strftime("%Y-%m-%d")
-            logging.info(f'Converted date: "{converted_date}"')
-            return converted_date
-
-    @staticmethod
-    def convert_show_clock_time(show_clock_time):
-        """
-        @summary:
-            Convert time from show clock to format "hh:mm:ss"
-            e.g. "02:14:28 PM" --> "14:14:28"
-        @param show_clock_time: given time from show clock
-        @return: converted me
-        """
-        with allure_step(f'Convert time "{show_clock_time}" to format "hh:mm:ss"'):
-            converted_time = datetime.datetime.strptime(show_clock_time, "%I:%M:%S %p").strftime("%H:%M:%S")
-            logging.info(f'Converted time: "{converted_time}"')
-            return converted_time
-
-    @staticmethod
-    def verify_time(expected, actual, allowed_margin=ClockConsts.TIME_MARGIN):
-        """
-        @summary:
-            Asserts a given time value is as expected
-            * expected and actual time values are strings in the format "HH:MM:SS"
-        @param expected: expected time value
-        @param actual: actual given time value
-        @param allowed_margin: allowed margin between two times (in seconds)
-        """
-        with allure_step(f'Verify that diff between "{expected}" and "{actual}" (in seconds) '
-                         f'is no longer than {allowed_margin}'):
-            with allure_step(f'Calculate diff between "{expected}" and "{actual}" in seconds'):
-                time_obj1 = datetime.datetime.strptime(expected, "%H:%M:%S")
-                time_obj2 = datetime.datetime.strptime(actual, "%H:%M:%S")
-
-                diff_seconds = abs((time_obj2 - time_obj1).total_seconds())
-
-            with allure_step(f'Verify that actual diff {diff_seconds} is not larger than {allowed_margin}'):
-                ClockUtils.verify_value(True, diff_seconds <= allowed_margin)
-
-    @staticmethod
     def verify_datetime(expected, actual, allowed_margin=ClockConsts.TIME_MARGIN):
         """
         @summary:
@@ -375,8 +274,8 @@ class ClockUtils:
         with allure_step(f'Verify that diff between "{expected}" and "{actual}" (in seconds) '
                          f'is no longer than {allowed_margin}'):
             with allure_step(f'Calculate diff between "{expected}" and "{actual}" in seconds'):
-                datetime_obj1 = datetime.datetime.strptime(expected, "%Y-%m-%d %H:%M:%S")
-                datetime_obj2 = datetime.datetime.strptime(actual, "%Y-%m-%d %H:%M:%S")
+                datetime_obj1 = dt.datetime.strptime(expected, "%Y-%m-%d %H:%M:%S")
+                datetime_obj2 = dt.datetime.strptime(actual, "%Y-%m-%d %H:%M:%S")
 
                 diff_seconds = abs((datetime_obj2 - datetime_obj1).total_seconds())
 

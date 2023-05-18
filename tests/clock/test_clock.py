@@ -28,10 +28,7 @@ def test_show_clock(duthosts, init_timezone):
         show_clock_output = ClockUtils.run_cmd(duthosts=duthosts, cmd=ClockConsts.CMD_SHOW_CLOCK)
 
     with allure_step('Verify info is valid'):
-        output_dict = ClockUtils.parse_show_clock_output(show_clock_output)
-        ClockUtils.validate_date(output_dict[ClockConsts.DATE])
-        ClockUtils.validate_time(output_dict[ClockConsts.TIME])
-        ClockUtils.validate_timezone(output_dict[ClockConsts.TIMEZONE], duthosts)
+        ClockUtils.verify_and_parse_show_clock_output(show_clock_output)
 
 
 def test_config_clock_timezone(duthosts, init_timezone):
@@ -46,8 +43,8 @@ def test_config_clock_timezone(duthosts, init_timezone):
         4. Verify timezone hasn't changed
     """
     valid_timezones = ClockUtils.get_valid_timezones(duthosts)
-    orig_timezone = ClockUtils \
-        .parse_show_clock_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK))[ClockConsts.TIMEZONE]
+    orig_timezone = ClockUtils.verify_and_parse_show_clock_output(
+        ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK))[ClockConsts.TIMEZONE]
 
     with allure_step('Select a random new valid timezone'):
         new_timezone = random.choice(valid_timezones)
@@ -61,9 +58,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
         ClockUtils.verify_command(cmd_output=output, should_succeed=True)
 
     with allure_step(f'Verify timezone changed to "{new_timezone}"'):
-        cur_timezone = ClockUtils \
-            .parse_show_clock_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK))[ClockConsts.TIMEZONE]
-        ClockUtils.verify_timezone_value(duthosts, tz_name=new_timezone, tz_abbreviation=cur_timezone)
+        ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
     with allure_step('Select a random string as invalid timezone'):
         invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
@@ -79,9 +74,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
                                   .format(invalid_timezone))
 
     with allure_step('Verify timezone has not changed'):
-        cur_timezone = ClockUtils \
-            .parse_show_clock_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK))[ClockConsts.TIMEZONE]
-        ClockUtils.verify_timezone_value(duthosts, tz_name=new_timezone, tz_abbreviation=cur_timezone)
+        ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
 
 def test_config_clock_date(duthosts, init_timezone, restore_time):
@@ -109,22 +102,14 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
     with allure_step(f'Verify date and time changed to "{new_datetime}"'):
         with allure_step('Get datetime from show clock'):
             show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
-            show_clock_dict = ClockUtils.parse_show_clock_output(show_clock_output)
+            show_clock_dict = ClockUtils.verify_and_parse_show_clock_output(show_clock_output)
 
         with allure_step('Verify date-time'):
-            cur_date = ClockUtils.convert_show_clock_date(show_clock_dict[ClockConsts.DATE])
-            cur_time = ClockUtils.convert_show_clock_time(show_clock_dict[ClockConsts.TIME])
+            cur_date = show_clock_dict[ClockConsts.DATE]
+            cur_time = show_clock_dict[ClockConsts.TIME]
             cur_datetime = f'{cur_date} {cur_time}'
 
             ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime)
-
-        # with allure_step('Verify date'):
-        #     cur_date = ClockUtils.convert_show_clock_date(show_clock_dict[ClockConsts.DATE])
-        #     ClockUtils.verify_value(expected=new_date, actual=cur_date)
-        #
-        # with allure_step('Verify time'):
-        #     cur_time = ClockUtils.convert_show_clock_time(show_clock_dict[ClockConsts.TIME])
-        #     ClockUtils.verify_time(expected=new_time, actual=cur_time)
 
     with allure_step('Select random string as invalid input'):
         rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(ClockConsts.RANDOM_NUM))
@@ -156,25 +141,16 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
                 ClockUtils.verify_command(cmd_output=output, should_succeed=False, expected_err=err_msg)
 
             with allure_step(f'Verify date and time have not changed (still "{new_datetime}")'):
-                show_clock_dict_before = ClockUtils.parse_show_clock_output(show_clock_output_before)
-                show_clock_dict_after = ClockUtils.parse_show_clock_output(show_clock_output_after)
+                show_clock_dict_before = ClockUtils.verify_and_parse_show_clock_output(show_clock_output_before)
+                show_clock_dict_after = ClockUtils.verify_and_parse_show_clock_output(show_clock_output_after)
 
                 with allure_step('Verify date-time'):
-                    date_before = ClockUtils.convert_show_clock_date(show_clock_dict_before[ClockConsts.DATE])
-                    time_before = ClockUtils.convert_show_clock_time(show_clock_dict_before[ClockConsts.TIME])
+                    date_before = show_clock_dict_before[ClockConsts.DATE]
+                    time_before = show_clock_dict_before[ClockConsts.TIME]
                     datetime_before = f'{date_before} {time_before}'
 
-                    date_after = ClockUtils.convert_show_clock_date(show_clock_dict_after[ClockConsts.DATE])
-                    time_after = ClockUtils.convert_show_clock_time(show_clock_dict_after[ClockConsts.TIME])
+                    date_after = show_clock_dict_after[ClockConsts.DATE]
+                    time_after = show_clock_dict_after[ClockConsts.TIME]
                     datetime_after = f'{date_after} {time_after}'
 
                     ClockUtils.verify_datetime(expected=datetime_before, actual=datetime_after)
-
-                # with allure_step('Verify date'):
-                #     ClockUtils.verify_value(expected=show_clock_dict_before[ClockConsts.DATE],
-                #                             actual=show_clock_dict_after[ClockConsts.DATE])
-                #
-                # with allure_step('Verify time'):
-                #     time_before = ClockUtils.convert_show_clock_time(show_clock_dict_before[ClockConsts.TIME])
-                #     time_after = ClockUtils.convert_show_clock_time(show_clock_dict_after[ClockConsts.TIME])
-                #     ClockUtils.verify_time(expected=time_before, actual=time_after)
