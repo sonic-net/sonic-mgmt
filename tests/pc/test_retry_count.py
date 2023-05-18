@@ -258,6 +258,16 @@ class TestNeighborRetryCount:
                               "partner retry count is incorrect; expected 5, but is {}"
                               .format(status["runner"]["partner_retry_count"]))
 
+        # Wait 20 seconds (total of 155 seconds) to verify that the LAG did go down.
+        time.sleep(20)
+
+        cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+        port_channels = cfg_facts["PORTCHANNEL"].keys()
+        for port_channel in port_channels:
+            port_channel_status = duthost.get_port_channel_status(port_channel)
+            for _, status in list(port_channel_status["ports"].items()):
+                pytest_assert(not status["runner"]["selected"], "lag member is still up")
+
 
 def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peers, disable_retry_count_on_peer):
     """
@@ -322,6 +332,14 @@ class TestDutRetryCount:
                 pytest_assert(status["runner"]["partner_retry_count"] == 5,
                               "partner retry count is incorrect; expected 5, but is {}"
                               .format(status["runner"]["partner_retry_count"]))
+
+        # Wait 20 seconds (total of 155 seconds) to verify that the LAG did go down.
+        time.sleep(20)
+
+        for nbr in list(nbrhosts.keys()):
+            port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
+            for _, status in list(port_channel_status["ports"].items()):
+                pytest_assert(not status["runner"]["selected"], "lag member is still up")
 
 
 def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, disable_retry_count_on_dut):
