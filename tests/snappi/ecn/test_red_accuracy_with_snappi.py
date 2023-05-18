@@ -56,10 +56,10 @@ def test_red_accuracy(request,
     lossless_prio = int(lossless_prio)
 
     kmin = 500000
-    kmax = 800000
+    kmax = 2000000
     pmax = 5
     pkt_size = 1024
-    pkt_cnt = 910
+    pkt_cnt = 2100
     iters = 100
     result_file_name = 'result.txt'
 
