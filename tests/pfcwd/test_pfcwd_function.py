@@ -734,7 +734,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
@@ -745,7 +744,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             logger.info("")
             logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
             self.setup_test_params(port, setup_info['vlan'], init=not idx)
-            self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+            self.traffic_inst = SendVerifyTraffic(
+                self.ptf,
+                duthost.get_dut_iface_mac(port),
+                self.pfc_wd)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
@@ -813,7 +815,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.ports = {key: value}
         port = key
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
@@ -826,14 +827,20 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         try:
             for idx, mmu_action in enumerate(MMU_ACTIONS):
-                self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+                self.traffic_inst = SendVerifyTraffic(
+                    self.ptf,
+                    duthost.get_dut_iface_mac(port),
+                    self.pfc_wd)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
                 # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
                 self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
                 if idx:
                     self.update_queue(port)
                     self.storm_setup()
-                self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+                self.traffic_inst = SendVerifyTraffic(
+                    self.ptf,
+                    duthost.get_dut_iface_mac(port),
+                    self.pfc_wd)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
                 self.dut.command("pfcwd stop")
 
@@ -883,7 +890,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
@@ -895,7 +901,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             logger.info("")
             logger.info("--- Testing port toggling with PFCWD enabled on {} ---".format(port))
             self.setup_test_params(port, setup_info['vlan'], init=not idx)
-            self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+            self.traffic_inst = SendVerifyTraffic(
+                self.ptf,
+                duthost.get_dut_iface_mac(port),
+                self.pfc_wd)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
