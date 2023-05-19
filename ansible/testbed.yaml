@@ -2037,14 +2037,14 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw-can-720dt-3
-  group-name: bjw7-6
+  group-name: bjw16-3
   topo: m0
   ptf_image_name: docker-ptf
-  ptf: bjw7-6
+  ptf: bjw16-3
   ptf_ip: 10.150.23.66/23
   ptf_ipv6:
-  server: server_bjw_7
-  vm_base: VM57036
+  server: server_bjw_16
+  vm_base: VM73028
   dut:
     - bjw-can-720dt-3
   inv_name: bjw

@@ -48,7 +48,7 @@ all:
           ansible_host: 10.150.23.64
         bjw7-5:
           ansible_host: 10.150.23.65
-        bjw7-6:
+        bjw16-3:
           ansible_host: 10.150.23.66
         bjw7-7:
           ansible_host: 10.150.23.67
