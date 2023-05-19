@@ -807,62 +807,42 @@ slot4:
         ASIC0:
           asic_intfs:
           - Eth392-ASIC0
-          - Eth394-ASIC0
-          - Eth398-ASIC0
           - Eth396-ASIC0
         ASIC1:
           asic_intfs:
-          - Eth402-ASIC0
           - Eth400-ASIC0
           - Eth404-ASIC0
-          - Eth406-ASIC0
         ASIC4:
           asic_intfs:
           - Eth376-ASIC0
-          - Eth378-ASIC0
-          - Eth382-ASIC0
           - Eth380-ASIC0
         ASIC5:
           asic_intfs:
           - Eth384-ASIC0
-          - Eth386-ASIC0
-          - Eth390-ASIC0
           - Eth388-ASIC0
         ASIC8:
           asic_intfs:
           - Eth360-ASIC0
-          - Eth362-ASIC0
           - Eth364-ASIC0
-          - Eth366-ASIC0
         ASIC9:
           asic_intfs:
-          - Eth330-ASIC0
           - Eth328-ASIC0
-          - Eth334-ASIC0
           - Eth332-ASIC0
         ASIC10:
           asic_intfs:
-          - Eth338-ASIC0
           - Eth336-ASIC0
-          - Eth342-ASIC0
           - Eth340-ASIC0
         ASIC11:
           asic_intfs:
           - Eth312-ASIC0
-          - Eth314-ASIC0
           - Eth316-ASIC0
-          - Eth318-ASIC0
         ASIC12:
           asic_intfs:
           - Eth320-ASIC0
-          - Eth322-ASIC0
-          - Eth326-ASIC0
           - Eth324-ASIC0
         ASIC13:
           asic_intfs:
-          - Eth290-ASIC0
           - Eth288-ASIC0
-          - Eth294-ASIC0
           - Eth292-ASIC0
     configuration_properties:
       common:
@@ -945,63 +925,43 @@ slot4:
         ASIC0:
           asic_intfs:
           - Eth400-ASIC1
-          - Eth402-ASIC1
-          - Eth406-ASIC1
           - Eth404-ASIC1
         ASIC1:
           asic_intfs:
-          - Eth394-ASIC1
           - Eth392-ASIC1
           - Eth396-ASIC1
-          - Eth398-ASIC1
         ASIC4:
           asic_intfs:
           - Eth376-ASIC1
-          - Eth378-ASIC1
-          - Eth382-ASIC1
           - Eth380-ASIC1
         ASIC5:
           asic_intfs:
-          - Eth386-ASIC1
           - Eth384-ASIC1
           - Eth388-ASIC1
-          - Eth390-ASIC1
         ASIC8:
           asic_intfs:
           - Eth360-ASIC1
-          - Eth362-ASIC1
           - Eth364-ASIC1
-          - Eth366-ASIC1
         ASIC9:
           asic_intfs:
           - Eth328-ASIC1
-          - Eth330-ASIC1
           - Eth332-ASIC1
-          - Eth334-ASIC1
         ASIC10:
           asic_intfs:
           - Eth336-ASIC1
-          - Eth338-ASIC1
           - Eth340-ASIC1
-          - Eth342-ASIC1
         ASIC11:
           asic_intfs:
-          - Eth314-ASIC1
           - Eth312-ASIC1
-          - Eth318-ASIC1
           - Eth316-ASIC1
         ASIC12:
           asic_intfs:
-          - Eth322-ASIC1
           - Eth320-ASIC1
           - Eth324-ASIC1
-          - Eth326-ASIC1
         ASIC13:
           asic_intfs:
           - Eth288-ASIC1
-          - Eth290-ASIC1
           - Eth292-ASIC1
-          - Eth294-ASIC1
     configuration_properties:
       common:
         dut_asn: 65100
@@ -1083,63 +1043,43 @@ slot4:
         ASIC0:
           asic_intfs:
           - Eth392-ASIC2
-          - Eth394-ASIC2
           - Eth396-ASIC2
-          - Eth398-ASIC2
         ASIC1:
           asic_intfs:
           - Eth400-ASIC2
-          - Eth402-ASIC2
           - Eth404-ASIC2
-          - Eth406-ASIC2
         ASIC4:
           asic_intfs:
           - Eth376-ASIC2
-          - Eth378-ASIC2
           - Eth380-ASIC2
-          - Eth382-ASIC2
         ASIC5:
           asic_intfs:
           - Eth384-ASIC2
-          - Eth386-ASIC2
           - Eth388-ASIC2
-          - Eth390-ASIC2
         ASIC8:
           asic_intfs:
           - Eth360-ASIC2
-          - Eth362-ASIC2
           - Eth364-ASIC2
-          - Eth366-ASIC2
         ASIC9:
           asic_intfs:
           - Eth328-ASIC2
-          - Eth330-ASIC2
-          - Eth334-ASIC2
           - Eth332-ASIC2
         ASIC10:
           asic_intfs:
-          - Eth338-ASIC2
           - Eth336-ASIC2
           - Eth340-ASIC2
-          - Eth342-ASIC2
         ASIC11:
           asic_intfs:
           - Eth312-ASIC2
-          - Eth314-ASIC2
           - Eth316-ASIC2
-          - Eth318-ASIC2
         ASIC12:
           asic_intfs:
           - Eth320-ASIC2
-          - Eth322-ASIC2
           - Eth324-ASIC2
-          - Eth326-ASIC2
         ASIC13:
           asic_intfs:
           - Eth288-ASIC2
-          - Eth290-ASIC2
           - Eth292-ASIC2
-          - Eth294-ASIC2
     configuration_properties:
       common:
         dut_asn: 65100
