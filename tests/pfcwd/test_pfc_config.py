@@ -2,7 +2,6 @@ import json
 import os
 import pytest
 import logging
-import re
 import time
 
 from tests.common.helpers.assertions import pytest_assert
