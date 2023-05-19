@@ -229,9 +229,9 @@ class QosParamBroadcom(object):
             if xon_profile not in self.qos_params[self.speed_cable_len]:
                 self.create_default_xon_parameter(xon_profile)
 
-        for hdrm_profile in ['hdrm_pool_size']:
-            if hdrm_profile not in self.qos_params[self.speed_cable_len]:
-                self.create_default_headroom_pool_size_parameter(hdrm_profile)
+        # for hdrm_profile in ['hdrm_pool_size']:
+        #     if hdrm_profile not in self.qos_params[self.speed_cable_len]:
+        #         self.create_default_headroom_pool_size_parameter(hdrm_profile)
 
         for pg_profile in ["wm_pg_shared_lossless", "wm_pg_shared_lossy"]:
             if pg_profile not in self.qos_params[self.speed_cable_len]:
@@ -445,33 +445,33 @@ class QosParamBroadcom(object):
                     self.speed_cable_len, xon_profile, profile["pkts_num_dismiss_pfc"], pg_reset_offset_cells))
                 profile["pkts_num_dismiss_pfc"] = pg_reset_offset_cells
 
-        for hdrm_profile in ['hdrm_pool_size']:
-            if hdrm_profile not in self.qos_params[self.speed_cable_len]:
-                continue
+        # for hdrm_profile in ['hdrm_pool_size']:
+        #     if hdrm_profile not in self.qos_params[self.speed_cable_len]:
+        #         continue
 
-            profile = self.qos_params[self.speed_cable_len][hdrm_profile]
-            if 'pkts_num_trig_pfc' not in profile or profile['pkts_num_trig_pfc'] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells:
-                logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_trig_pfc", -1), ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells))
-                profile.update({"pkts_num_trig_pfc": ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells})
+        #     profile = self.qos_params[self.speed_cable_len][hdrm_profile]
+        #     if 'pkts_num_trig_pfc' not in profile or profile['pkts_num_trig_pfc'] != ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells:
+        #         logger.info('Update qos_params[{}][{}]["pkts_num_trig_pfc"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_trig_pfc", -1), ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells))
+        #         profile.update({"pkts_num_trig_pfc": ingress_pg_min_cells + ingress_avaiable_shared_buffer_cells})
 
-            if 'pkts_num_hdrm_full' not in profile or profile['pkts_num_hdrm_full'] != headroom_cells:
-                logger.info('Update qos_params[{}][{}]["pkts_num_hdrm_full"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_hdrm_full", -1), headroom_cells))
-                profile.update({"pkts_num_hdrm_full": headroom_cells})
+        #     if 'pkts_num_hdrm_full' not in profile or profile['pkts_num_hdrm_full'] != headroom_cells:
+        #         logger.info('Update qos_params[{}][{}]["pkts_num_hdrm_full"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_hdrm_full", -1), headroom_cells))
+        #         profile.update({"pkts_num_hdrm_full": headroom_cells})
 
-            headroom_margin = 4
-            if 'margin' not in profile or profile['margin'] < headroom_margin:
-                logger.info('Update qos_params[{}][{}]["margin"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("margin", -1), headroom_margin))
-                profile.update({"margin": headroom_margin})
-            else:
-                headroom_margin = profile['margin']
+        #     headroom_margin = 4
+        #     if 'margin' not in profile or profile['margin'] < headroom_margin:
+        #         logger.info('Update qos_params[{}][{}]["margin"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("margin", -1), headroom_margin))
+        #         profile.update({"margin": headroom_margin})
+        #     else:
+        #         headroom_margin = profile['margin']
 
-            if 'pkts_num_hdrm_partial' not in profile or profile['pkts_num_hdrm_partial'] != headroom_cells - headroom_margin * 2:
-                logger.info('Update qos_params[{}][{}]["pkts_num_hdrm_partial"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_hdrm_partial", -1), headroom_cells - headroom_margin * 2))
-                profile.update({"pkts_num_hdrm_partial": headroom_cells - headroom_margin * 2})
+        #     if 'pkts_num_hdrm_partial' not in profile or profile['pkts_num_hdrm_partial'] != headroom_cells - headroom_margin * 2:
+        #         logger.info('Update qos_params[{}][{}]["pkts_num_hdrm_partial"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("pkts_num_hdrm_partial", -1), headroom_cells - headroom_margin * 2))
+        #         profile.update({"pkts_num_hdrm_partial": headroom_cells - headroom_margin * 2})
 
-            if ingress_lossless_pool['mode'] == 'dynamic':
-                logger.info('Update qos_params[{}][{}]["dynamic_threshold"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("dynamic_threshold", False), True))
-                profile.update({"dynamic_threshold": True})
+        #     if ingress_lossless_pool['mode'] == 'dynamic':
+        #         logger.info('Update qos_params[{}][{}]["dynamic_threshold"] from {} to {}'.format(self.speed_cable_len, hdrm_profile, profile.get("dynamic_threshold", False), True))
+        #         profile.update({"dynamic_threshold": True})
 
 
         for pg_profile in ["wm_pg_shared_lossless"]:

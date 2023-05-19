@@ -1926,6 +1926,42 @@
     <DevicesL3Info Hostname="str3-8101-32fh-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.189/23"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="str3-dx010-acs-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.236/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str3-dx010-acs-1">
+      <InterfaceVlan mode="Trunk" portname="Ethernet124" vlanids="1669-1698"/>
+      <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1669"/>
+      <InterfaceVlan mode="Access" portname="Ethernet4" vlanids="1670"/>
+      <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="1671"/>
+      <InterfaceVlan mode="Access" portname="Ethernet12" vlanids="1672"/>
+      <InterfaceVlan mode="Access" portname="Ethernet16" vlanids="1673"/>
+      <InterfaceVlan mode="Access" portname="Ethernet20" vlanids="1674"/>
+      <InterfaceVlan mode="Access" portname="Ethernet24" vlanids="1675"/>
+      <InterfaceVlan mode="Access" portname="Ethernet28" vlanids="1676"/>
+      <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="1677"/>
+      <InterfaceVlan mode="Access" portname="Ethernet36" vlanids="1678"/>
+      <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="1679"/>
+      <InterfaceVlan mode="Access" portname="Ethernet44" vlanids="1680"/>
+      <InterfaceVlan mode="Access" portname="Ethernet48" vlanids="1681"/>
+      <InterfaceVlan mode="Access" portname="Ethernet52" vlanids="1682"/>
+      <InterfaceVlan mode="Access" portname="Ethernet56" vlanids="1683"/>
+      <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="1684"/>
+      <InterfaceVlan mode="Access" portname="Ethernet64" vlanids="1685"/>
+      <InterfaceVlan mode="Access" portname="Ethernet68" vlanids="1686"/>
+      <InterfaceVlan mode="Access" portname="Ethernet72" vlanids="1687"/>
+      <InterfaceVlan mode="Access" portname="Ethernet76" vlanids="1688"/>
+      <InterfaceVlan mode="Access" portname="Ethernet80" vlanids="1689"/>
+      <InterfaceVlan mode="Access" portname="Ethernet84" vlanids="1690"/>
+      <InterfaceVlan mode="Access" portname="Ethernet88" vlanids="1691"/>
+      <InterfaceVlan mode="Access" portname="Ethernet92" vlanids="1692"/>
+      <InterfaceVlan mode="Access" portname="Ethernet96" vlanids="1693"/>
+      <InterfaceVlan mode="Access" portname="Ethernet100" vlanids="1694"/>
+      <InterfaceVlan mode="Access" portname="Ethernet104" vlanids="1695"/>
+      <InterfaceVlan mode="Access" portname="Ethernet108" vlanids="1696"/>
+      <InterfaceVlan mode="Access" portname="Ethernet112" vlanids="1697"/>
+      <InterfaceVlan mode="Access" portname="Ethernet116" vlanids="1698"/>
+    </DevicesL2Info>
     <DevicesL3Info Hostname="str3-z9332f-04">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.230/23"/>
     </DevicesL3Info>
@@ -2135,42 +2171,6 @@
     <DevicesL3Info Hostname="str3-8111-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.237/23"/>
     </DevicesL3Info>
-    <DevicesL3Info Hostname="str3-dx010-acs-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.236/23"/>
-    </DevicesL3Info>
-    <DevicesL2Info Hostname="str3-dx010-acs-1">
-      <InterfaceVlan mode="Trunk" portname="Ethernet124" vlanids="1669-1698"/>
-      <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1669"/>
-      <InterfaceVlan mode="Access" portname="Ethernet4" vlanids="1670"/>
-      <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="1671"/>
-      <InterfaceVlan mode="Access" portname="Ethernet12" vlanids="1672"/>
-      <InterfaceVlan mode="Access" portname="Ethernet16" vlanids="1673"/>
-      <InterfaceVlan mode="Access" portname="Ethernet20" vlanids="1674"/>
-      <InterfaceVlan mode="Access" portname="Ethernet24" vlanids="1675"/>
-      <InterfaceVlan mode="Access" portname="Ethernet28" vlanids="1676"/>
-      <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="1677"/>
-      <InterfaceVlan mode="Access" portname="Ethernet36" vlanids="1678"/>
-      <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="1679"/>
-      <InterfaceVlan mode="Access" portname="Ethernet44" vlanids="1680"/>
-      <InterfaceVlan mode="Access" portname="Ethernet48" vlanids="1681"/>
-      <InterfaceVlan mode="Access" portname="Ethernet52" vlanids="1682"/>
-      <InterfaceVlan mode="Access" portname="Ethernet56" vlanids="1683"/>
-      <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="1684"/>
-      <InterfaceVlan mode="Access" portname="Ethernet64" vlanids="1685"/>
-      <InterfaceVlan mode="Access" portname="Ethernet68" vlanids="1686"/>
-      <InterfaceVlan mode="Access" portname="Ethernet72" vlanids="1687"/>
-      <InterfaceVlan mode="Access" portname="Ethernet76" vlanids="1688"/>
-      <InterfaceVlan mode="Access" portname="Ethernet80" vlanids="1689"/>
-      <InterfaceVlan mode="Access" portname="Ethernet84" vlanids="1690"/>
-      <InterfaceVlan mode="Access" portname="Ethernet88" vlanids="1691"/>
-      <InterfaceVlan mode="Access" portname="Ethernet92" vlanids="1692"/>
-      <InterfaceVlan mode="Access" portname="Ethernet96" vlanids="1693"/>
-      <InterfaceVlan mode="Access" portname="Ethernet100" vlanids="1694"/>
-      <InterfaceVlan mode="Access" portname="Ethernet104" vlanids="1695"/>
-      <InterfaceVlan mode="Access" portname="Ethernet108" vlanids="1696"/>
-      <InterfaceVlan mode="Access" portname="Ethernet112" vlanids="1697"/>
-      <InterfaceVlan mode="Access" portname="Ethernet116" vlanids="1698"/>
-    </DevicesL2Info>
     <DevicesL3Info Hostname="str3-8102-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.120/23"/>
     </DevicesL3Info>
@@ -2319,6 +2319,7 @@
       <DeviceConsoleInfo Hostname="console-182" HwSku="Cisco" ManagementIp="10.3.145.182" Os="" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-194" HwSku="Cisco" ManagementIp="10.3.145.194" Os="" Protocol="ssh" Type="ConsoleServer"/>
       <DeviceConsoleInfo Hostname="console-197" HwSku="Cisco" ManagementIp="10.3.145.197" Os="" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-212" HwSku="Cisco" ManagementIp="10.3.145.212" Os="" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8111-01" Proxy="admin" StartDevice="console-184" StartPort="9"/>
@@ -2357,9 +2358,6 @@
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
     <DevicesBmcInfo/>
-    <BmcLinksInfo>
-      <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
-    </BmcLinksInfo>
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
