@@ -18,6 +18,7 @@ TOLERANCE_THRESHOLD = 0.05
 
 logger = logging.getLogger(__name__)
 
+
 def run_pfcwd_runtime_traffic_test(api,
                                    testbed_config,
                                    port_config_list,
@@ -44,7 +45,8 @@ def run_pfcwd_runtime_traffic_test(api,
     Returns:
         N/A
     """
-    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(testbed_config is not None,
+                  'Fail to get L2/3 testbed config')
 
     stop_pfcwd(duthost)
 
@@ -66,8 +68,10 @@ def run_pfcwd_runtime_traffic_test(api,
                   port_config_list=port_config_list,
                   port_id=port_id,
                   data_flow_name_list=[WARM_UP_TRAFFIC_NAME, DATA_FLOW_NAME],
-                  data_flow_delay_sec_list=[warm_up_traffic_delay_sec, WARM_UP_TRAFFIC_DUR],
-                  data_flow_dur_sec_list=[warm_up_traffic_dur_sec, DATA_FLOW_DURATION_SEC],
+                  data_flow_delay_sec_list=[
+                      warm_up_traffic_delay_sec, WARM_UP_TRAFFIC_DUR],
+                  data_flow_dur_sec_list=[
+                      warm_up_traffic_dur_sec, DATA_FLOW_DURATION_SEC],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map)
@@ -129,8 +133,10 @@ def __gen_traffic(testbed_config,
                                 rx_port_id=rx_port_id)
     pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
 
-    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
-    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+    tx_port_config = next(
+        (x for x in port_config_list if x.id == tx_port_id), None)
+    rx_port_config = next(
+        (x for x in port_config_list if x.id == rx_port_id), None)
 
     tx_mac = tx_port_config.mac
     if tx_port_config.gateway == rx_port_config.gateway and \
@@ -261,13 +267,13 @@ def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, toleran
         tx_frames = row.frames_tx
         rx_frames = row.frames_rx
 
-        pytest_assert(tx_frames == rx_frames, "{} packets of {} are dropped".\
+        pytest_assert(tx_frames == rx_frames, "{} packets of {} are dropped".
                       format(tx_frames-rx_frames, flow_name))
 
-        exp_rx_pkts =  data_flow_rate_percent / 100.0 * speed_gbps \
+        exp_rx_pkts = data_flow_rate_percent / 100.0 * speed_gbps \
             * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
         deviation = (rx_frames - exp_rx_pkts) / float(exp_rx_pkts)
         pytest_assert(abs(deviation) < tolerance,
-                      "{} should receive {} packets (actual {})".\
+                      "{} should receive {} packets (actual {})".
                       format(flow_name, exp_rx_pkts, rx_frames))

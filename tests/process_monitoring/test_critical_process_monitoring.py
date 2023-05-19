@@ -10,6 +10,7 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common import config_reload
+from tests.common.constants import KVM_PLATFORM
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
@@ -84,7 +85,8 @@ def check_image_version(duthosts, rand_one_dut_hostname):
         None.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
+    pytest_require(("20191130" in duthost.os_version and
+                    parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
                    "Test is not supported for 20191130.72 and older image versions!")
 
@@ -154,7 +156,8 @@ def post_test_check(duthost, up_bgp_neighbors):
         This function will return True if all critical processes are running and
         all BGP sessions are established. Otherwise it will return False.
     """
-    return check_all_critical_processes_running(duthost) and duthost.check_bgp_session_state_all_asics(up_bgp_neighbors, "established")
+    return check_all_critical_processes_running(duthost) and \
+        duthost.check_bgp_session_state_all_asics(up_bgp_neighbors, "established")
 
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
@@ -267,7 +270,8 @@ def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
                     expected_alerting_messages.append(".*'{}' is not running.*in namespace.*{}"
                                                       .format(critical_process, namespace_name))
                 else:
-                    expected_alerting_messages.append(".*'{}' is not running.*in {}".format(critical_process, namespace_name))
+                    expected_alerting_messages.append(".*'{}' is not running.*in {}"
+                                                      .format(critical_process, namespace_name))
 
             logger.info("Generating the regex of expected alerting messages for container '{}' was done!"
                         .format(container_name_in_namespace))
@@ -299,7 +303,8 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
         if len(namespace_ids) > 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = \
+            duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
@@ -436,7 +441,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
         if len(namespace_ids) >= 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = \
+            duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
@@ -452,7 +458,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
                     continue
 
                 program_status, program_pid = get_program_info(duthost, container_name_in_namespace, critical_process)
-                check_and_kill_process(duthost, container_name_in_namespace, critical_process, program_status, program_pid)
+                check_and_kill_process(duthost, container_name_in_namespace,
+                                       critical_process, program_status, program_pid)
 
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
@@ -473,13 +480,16 @@ def ensure_process_is_running(duthost, container_name, critical_process):
     Returns:
         None.
     """
-    logger.info("Checking whether process '{}' in container '{}' is running...".format(critical_process, container_name))
+    logger.info("Checking whether process '{}' in container '{}' is running..."
+                .format(critical_process, container_name))
     program_status, program_pid = get_program_info(duthost, container_name, critical_process)
     if program_status == "RUNNING":
         logger.info("Process '{}' in container '{} is running.".format(critical_process, container_name))
     else:
-        logger.info("Process '{}' in container '{}' is not running and start it...".format(critical_process, container_name))
-        command_output = duthost.shell("docker exec {} supervisorctl start {}".format(container_name, critical_process))
+        logger.info("Process '{}' in container '{}' is not running and start it..."
+                    .format(critical_process, container_name))
+        command_output = duthost.shell("docker exec {} supervisorctl start {}"
+                                       .format(container_name, critical_process))
         if command_output["rc"] == 0:
             logger.info("Process '{}' in container '{}' is started.".format(critical_process, container_name))
         else:
@@ -506,7 +516,8 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
         if len(namespace_ids) >= 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = \
+            duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
@@ -553,7 +564,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     skip_containers = []
     skip_containers.append("database")
     skip_containers.append("gbsyncd")
-    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited, which will not trigger alarm message.
+    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
+    # which will not trigger alarm message.
     skip_containers.append("restapi")
     # Skip 'acms' container since 'acms' process is not running on lab devices and
     # another process `cert_converter.py' is set to auto-restart if exited.
@@ -575,9 +587,14 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     stop_critical_processes(duthost, containers_in_namespaces)
 
-    # Wait for 70 seconds such that Supervisord/Monit has a chance to write alerting message into syslog.
-    logger.info("Sleep 70 seconds to wait for the alerting messages in syslog...")
-    time.sleep(70)
+    wait_time = 70
+    # For KVM DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
+    if duthost.facts['platform'] == KVM_PLATFORM:
+        wait_time = 90
+
+    # Wait for sometime such that Supervisord/Monit has a chance to write alerting message into syslog.
+    logger.info("Sleep {} seconds to wait for the alerting messages in syslog...".format(wait_time))
+    time.sleep(wait_time)
 
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)

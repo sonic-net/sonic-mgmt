@@ -14,7 +14,8 @@ class ConterpollHelper:
         index = counterpoll_show.find(COMMANDS) + len(COMMANDS) + 1
         for line in counterpoll_show[index:].splitlines():
             available_option_list.append(line.split()[0])
-        return [option for option in available_option_list if option not in CounterpollConstants.EXCLUDE_COUNTER_SUB_COMMAND]
+        return [option for option in available_option_list
+                if option not in CounterpollConstants.EXCLUDE_COUNTER_SUB_COMMAND]
 
     @staticmethod
     def get_parsed_counterpoll_show(counterpoll_show):

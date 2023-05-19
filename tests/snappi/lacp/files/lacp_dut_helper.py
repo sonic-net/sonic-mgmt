@@ -8,16 +8,17 @@ TGEN_AS_NUM = 65200
 DUT_AS_NUM = 65100
 TIMEOUT = 30
 BGP_TYPE = 'ebgp'
-temp_tg_port=dict()
+temp_tg_port = dict()
 aspaths = [65002, 65003]
 
+
 def run_lacp_add_remove_link_from_dut(api,
-                                        duthost,
-                                        tgen_ports,
-                                        iteration,
-                                        port_count,
-                                        number_of_routes,
-                                        port_speed,):
+                                      duthost,
+                                      tgen_ports,
+                                      iteration,
+                                      port_count,
+                                      number_of_routes,
+                                      port_speed,):
     """
     Run Local link failover test
 
@@ -47,14 +48,15 @@ def run_lacp_add_remove_link_from_dut(api,
         links one by one and calculate the convergence values
     """
     get_lacp_add_remove_link_from_dut(api,
-                                        duthost,
-                                        tgen_bgp_config,
-                                        iteration,
-                                        port_count,
-                                        number_of_routes,)
+                                      duthost,
+                                      tgen_bgp_config,
+                                      iteration,
+                                      port_count,
+                                      number_of_routes,)
 
     """ Cleanup the dut configs after getting the convergence numbers """
     cleanup_config(duthost)
+
 
 def duthost_bgp_config(duthost,
                        tgen_ports,
@@ -68,7 +70,8 @@ def duthost_bgp_config(duthost,
         port_count: total number of ports used in test
     """
     duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
+    duthost.command("sudo cp {} {}".format(
+        "/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     global temp_tg_port
     temp_tg_port = tgen_ports
     for i in range(0, port_count):
@@ -76,46 +79,56 @@ def duthost_bgp_config(duthost,
             "sudo config interface ip remove %s %s/%s \n"
             "sudo config interface ip remove %s %s/%s \n"
         )
-        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
-        logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
+        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
+                        tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
+        logger.info('Removing configured IP and IPv6 Address from %s' %
+                    (tgen_ports[i]['peer_port']))
         duthost.shell(intf_config)
 
     tx_portchannel_config = (
-    "sudo config portchannel add PortChannel1 \n"
-    "sudo config portchannel member add PortChannel1 %s\n"
-    "sudo config interface ip add PortChannel1 %s/%s\n"
-    "sudo config interface ip add PortChannel1 %s/%s\n"
+        "sudo config portchannel add PortChannel1 \n"
+        "sudo config portchannel member add PortChannel1 %s\n"
+        "sudo config interface ip add PortChannel1 %s/%s\n"
+        "sudo config interface ip add PortChannel1 %s/%s\n"
     )
-    tx_portchannel_config %= (tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'], 64)
-    logger.info('Configuring %s to PortChannel1 with IPs %s,%s' % (tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['peer_ipv6']))
+    tx_portchannel_config %= (tgen_ports[0]['peer_port'], tgen_ports[0]
+                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'], 64)
+    logger.info('Configuring %s to PortChannel1 with IPs %s,%s' % (
+        tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['peer_ipv6']))
     duthost.shell(tx_portchannel_config)
     duthost.shell("sudo config portchannel add PortChannel2 \n")
     for i in range(1, port_count):
         rx_portchannel_config = (
-        "sudo config portchannel member add PortChannel2 %s\n"
+            "sudo config portchannel member add PortChannel2 %s\n"
         )
         rx_portchannel_config %= (tgen_ports[i]['peer_port'])
-        logger.info('Configuring %s to PortChannel2' % (tgen_ports[i]['peer_port']))
+        logger.info('Configuring %s to PortChannel2' %
+                    (tgen_ports[i]['peer_port']))
         duthost.shell(rx_portchannel_config)
-    duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n"%(tgen_ports[1]['peer_ip'], tgen_ports[1]['prefix']))
-    duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n"%(tgen_ports[1]['peer_ipv6'], 64))
+    duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
+                  (tgen_ports[1]['peer_ip'], tgen_ports[1]['prefix']))
+    duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
+                  (tgen_ports[1]['peer_ipv6'], 64))
     bgp_config = (
-    "vtysh "
-    "-c 'configure terminal' "
-    "-c 'router bgp %s' "
-    "-c 'no bgp ebgp-requires-policy' "
-    "-c 'bgp bestpath as-path multipath-relax' "
-    "-c 'neighbor %s remote-as %s' "
-    "-c 'neighbor %s remote-as %s' "
-    "-c 'address-family ipv4 unicast' "
-    "-c 'neighbor %s activate' "
-    "-c 'address-family ipv6 unicast' "
-    "-c 'neighbor %s activate' "
-    "-c 'exit' "
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp %s' "
+        "-c 'no bgp ebgp-requires-policy' "
+        "-c 'bgp bestpath as-path multipath-relax' "
+        "-c 'neighbor %s remote-as %s' "
+        "-c 'neighbor %s remote-as %s' "
+        "-c 'address-family ipv4 unicast' "
+        "-c 'neighbor %s activate' "
+        "-c 'address-family ipv6 unicast' "
+        "-c 'neighbor %s activate' "
+        "-c 'exit' "
     )
-    bgp_config %= (DUT_AS_NUM, tgen_ports[1]['ip'], TGEN_AS_NUM, tgen_ports[1]['ipv6'], TGEN_AS_NUM, tgen_ports[1]['ip'],tgen_ports[1]['ipv6'])
-    logger.info('Configuring BGP v4 and v6 Neighbor %s, %s' %(tgen_ports[i]['ip'],tgen_ports[i]['ipv6']))
+    bgp_config %= (DUT_AS_NUM, tgen_ports[1]['ip'], TGEN_AS_NUM, tgen_ports[1]
+                   ['ipv6'], TGEN_AS_NUM, tgen_ports[1]['ip'], tgen_ports[1]['ipv6'])
+    logger.info('Configuring BGP v4 and v6 Neighbor %s, %s' %
+                (tgen_ports[i]['ip'], tgen_ports[i]['ipv6']))
     duthost.shell(bgp_config)
+
 
 def __tgen_bgp_config(api,
                       port_count,
@@ -132,22 +145,23 @@ def __tgen_bgp_config(api,
     """
     config = api.config()
     for i in range(1, port_count+1):
-        config.ports.port(name='Test_Port_%d' % i, location=temp_tg_port[i-1]['location'])
+        config.ports.port(name='Test_Port_%d' %
+                          i, location=temp_tg_port[i-1]['location'])
 
     lag0 = config.lags.lag(name="lag0")[-1]
     lp = lag0.ports.port(port_name='Test_Port_1')[-1]
     lp.protocol.lacp.actor_system_id = "00:10:00:00:11:11"
-    lp.ethernet.name= "eth0"
+    lp.ethernet.name = "eth0"
     lp.ethernet.mac = "00:11:02:00:10:01"
     lag1 = config.lags.lag(name="lag1")[-1]
-    for i in range(2,port_count+1):
+    for i in range(2, port_count+1):
         lagport = lag1.ports.port(port_name='Test_Port_%d' % i)[-1]
         if len(str(hex(i).split('0x')[1])) == 1:
             m = '0'+hex(i).split('0x')[1]
         else:
             m = hex(i).split('0x')[1]
         lagport.protocol.lacp.actor_system_id = "00:10:00:00:00:11"
-        lagport.ethernet.name = "eth%d"%i
+        lagport.ethernet.name = "eth%d" % i
         lagport.ethernet.mac = "00:10:04:00:00:%s" % m
 
     config.options.port_options.location_preemption = True
@@ -160,7 +174,7 @@ def __tgen_bgp_config(api,
     layer1.speed = port_speed
     layer1.auto_negotiate = False
 
-    #Source
+    # Source
     config.devices.device(name='Tx')
     eth_1 = config.devices[0].ethernets.add()
     eth_1.port_name = lag0.name
@@ -177,7 +191,7 @@ def __tgen_bgp_config(api,
     ipv6_1.gateway = temp_tg_port[0]['peer_ipv6']
     ipv6_1.prefix = int(temp_tg_port[0]['ipv6_prefix'])
 
-    #Destination
+    # Destination
     config.devices.device(name="Rx")
     eth_2 = config.devices[1].ethernets.add()
     eth_2.port_name = lag1.name
@@ -204,7 +218,8 @@ def __tgen_bgp_config(api,
     bgpv4_peer.peer_address = temp_tg_port[1]['peer_ip']
     bgpv4_peer.as_number = int(TGEN_AS_NUM)
     route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes")
-    route_range1.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
+    route_range1.addresses.add(
+        address='200.1.0.1', prefix=32, count=number_of_routes)
     as_path = route_range1.as_path
     as_path_segment = as_path.segments.add()
     as_path_segment.type = as_path_segment.AS_SEQ
@@ -214,12 +229,13 @@ def __tgen_bgp_config(api,
     bgpv6_int = bgpv6.ipv6_interfaces.add()
     bgpv6_int.ipv6_name = ipv6_2.name
     bgpv6_peer = bgpv6_int.peers.add()
-    bgpv6_peer.name  = r'BGP+_2'
+    bgpv6_peer.name = r'BGP+_2'
     bgpv6_peer.as_type = BGP_TYPE
     bgpv6_peer.peer_address = temp_tg_port[1]['peer_ipv6']
     bgpv6_peer.as_number = int(TGEN_AS_NUM)
     route_range2 = bgpv6_peer.v6_routes.add(name="IPv6_Routes")
-    route_range2.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
+    route_range2.addresses.add(
+        address='3000::1', prefix=64, count=number_of_routes)
     as_path = route_range2.as_path
     as_path_segment = as_path.segments.add()
     as_path_segment.type = as_path_segment.AS_SEQ
@@ -248,7 +264,7 @@ def get_flow_stats(api):
     return api.get_metrics(request).flow_metrics
 
 
-def get_port_stats(api,port_name):
+def get_port_stats(api, port_name):
     """
     Args:
         api (pytest fixture): Snappi API
@@ -257,11 +273,12 @@ def get_port_stats(api,port_name):
     request.port.port_names = [port_name]
     return api.get_metrics(request).port_metrics
 
-def print_port_stats(api,port_names):
+
+def print_port_stats(api, port_names):
     table1 = []
-    for i,j in enumerate(port_names):
-        port_table=[]
-        port_stats = get_port_stats(api,j)
+    for i, j in enumerate(port_names):
+        port_table = []
+        port_stats = get_port_stats(api, j)
         port_table.append(temp_tg_port[i]['peer_port'])
         port_table.append(j)
         port_table.append(port_stats[0].frames_tx_rate)
@@ -269,15 +286,15 @@ def print_port_stats(api,port_names):
         table1.append(port_table)
     columns = ['Dut Port', 'Tgen Port', 'Tx. Frame Rate', 'Rx. Frame Rate']
     logger.info("\n%s" %
-    tabulate(table1, headers=columns, tablefmt="psql"))
+                tabulate(table1, headers=columns, tablefmt="psql"))
 
 
 def get_lacp_add_remove_link_from_dut(api,
-                                    duthost,
-                                    bgp_config,
-                                    iteration,
-                                    port_count,
-                                    number_of_routes,):
+                                      duthost,
+                                      bgp_config,
+                                      iteration,
+                                      port_count,
+                                      number_of_routes,):
     """
     Args:
         api (pytest fixture): snappi API
@@ -287,15 +304,15 @@ def get_lacp_add_remove_link_from_dut(api,
         number_of_routes:  Number of Routes
     """
 
-    rx_port_names,dut = [],[]
+    rx_port_names, dut = [], []
     for i in range(1, len(bgp_config.ports)):
         rx_port_names.append(bgp_config.ports[i].name)
         dut.append(temp_tg_port[i]['peer_port'])
     port_names = rx_port_names
-    port_names.insert(0,'Test_Port_1')
+    port_names.insert(0, 'Test_Port_1')
     api.set_config(bgp_config)
 
-    def get_avg_cpdp_convergence_time(port_name,dut_port_name):
+    def get_avg_cpdp_convergence_time(port_name, dut_port_name):
         """
         Args:
             port_name: Name of the port
@@ -307,7 +324,8 @@ def get_lacp_add_remove_link_from_dut(api,
         api.set_protocol_state(ps)
         wait(TIMEOUT, "For Protocols To start")
         for i in range(0, iteration):
-            logger.info('|---- {} Link Flap Iteration : {} ----|'.format(dut_port_name, i+1))
+            logger.info(
+                '|---- {} Link Flap Iteration : {} ----|'.format(dut_port_name, i+1))
             """ Starting Traffic """
             logger.info('Starting Traffic')
             ts = api.transmit_state()
@@ -319,22 +337,28 @@ def get_lacp_add_remove_link_from_dut(api,
             assert tx_frame_rate != 0, "Traffic has not started"
             logger.info('Traffic has started')
             logger.info('Port Stats before {} failover'.format(dut_port_name))
-            print_port_stats(api,port_names)
+            print_port_stats(api, port_names)
             """ Flapping Link """
-            logger.info('Simulating Link Failure on {} from dut side '.format(port_name))
-            duthost.shell("sudo config portchannel member del PortChannel2 %s\n"%(dut_port_name))
+            logger.info(
+                'Simulating Link Failure on {} from dut side '.format(port_name))
+            duthost.shell(
+                "sudo config portchannel member del PortChannel2 %s\n" % (dut_port_name))
             wait(TIMEOUT-20, "For Link to go down and traffic to stabilize")
             flows = get_flow_stats(api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_tx_rate)
-            assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            assert sum(tx_frate) == sum(rx_frate),\
+                "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}"\
+                .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap with no loss")
             logger.info('Port Stats after {} failover'.format(dut_port_name))
-            print_port_stats(api,port_names)
+            print_port_stats(api, port_names)
             """ Performing link up at the end of iteration """
-            logger.info('Simulating Link Up on {} from dut side at the end of iteration {}'.format(dut_port_name, i+1))
-            duthost.shell("sudo config portchannel member add PortChannel2 %s\n"%(dut_port_name))
+            logger.info('Simulating Link Up on {} from dut side at the end of iteration {}'.format(
+                dut_port_name, i+1))
+            duthost.shell(
+                "sudo config portchannel member add PortChannel2 %s\n" % (dut_port_name))
 
         table.append('%s Link Failure' % dut_port_name)
         table.append(number_of_routes)
@@ -343,10 +367,12 @@ def get_lacp_add_remove_link_from_dut(api,
         return table
     table = []
     """ Iterating link flap test on all the rx ports """
-    for tgen_port_name,dut_port_name in zip(rx_port_names,dut):
-        table.append(get_avg_cpdp_convergence_time(tgen_port_name,dut_port_name))
+    for tgen_port_name, dut_port_name in zip(rx_port_names, dut):
+        table.append(get_avg_cpdp_convergence_time(
+            tgen_port_name, dut_port_name))
     columns = ['Event Name', 'No. of Routes', 'Iterations', 'Loss%']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
+
 
 def cleanup_config(duthost):
     """
@@ -356,7 +382,9 @@ def cleanup_config(duthost):
         duthost (pytest fixture): duthost fixture
     """
     logger.info('Cleaning up config')
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json","/etc/sonic/config_db.json"))
+    duthost.command("sudo cp {} {}".format(
+        "/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
     duthost.shell("sudo config reload -y \n")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
+    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
     logger.info('Convergence Test Completed')

@@ -80,8 +80,10 @@ def stop_platform_api_service(duthosts):
                 duthost.command('docker exec -i pmon supervisorctl reread')
                 duthost.command('docker exec -i pmon supervisorctl update')
 
-                # Delete the iptables rule we added
-                duthost.command(IPTABLES_DELETE_RULE_CMD)
+                # We ignore errors here because after a reboot test, the DUT will have power-cycled and will
+                # no longer have the rule we added in the start_platform_api_service fixture, even if the
+                # platform_api_server is running.
+                duthost.command(IPTABLES_DELETE_RULE_CMD, module_ignore_errors=True)
 
 
 @pytest.fixture(scope='function')
@@ -105,7 +107,7 @@ def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     yield
     loganalyzer.match_regex.extend(['WARNING pmon#platform_api_server.py: API.+not implemented'])
     loganalyzer.analyze(marker)
-    
+
 
 def pytest_addoption(parser):
     parser.addoption("--unresettable_xcvr_types", action="append", default=[], help="unsupported resettable xcvr types")

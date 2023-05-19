@@ -504,7 +504,10 @@ def dump_scapy_packet_show_output(packet):
     """Dump packet show output to string."""
     _stdout, sys.stdout = sys.stdout, StringIO()
     try:
-        packet.show()
+        if six.PY2:
+            packet.show()
+        else:
+            packet.show2()
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
@@ -814,3 +817,16 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
         return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+
+def convert_scapy_packet_to_bytes(packet):
+    """Convert scapy packet to bytes for python2 and python3 compatibility
+    Args:
+        packet: scapy packet
+    Returns:
+        str or bytes: packet in bytes
+    """
+    if six.PY2:
+        return str(packet)
+    else:
+        return bytes(packet)

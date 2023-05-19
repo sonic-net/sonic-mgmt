@@ -152,7 +152,7 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
     po = config_facts.get('PORTCHANNEL_MEMBER', {})
     ports = config_facts.get('PORT', {})
 
-    tmp_fib_info = tempfile.NamedTemporaryFile()
+    tmp_fib_info = tempfile.NamedTemporaryFile(mode="w+")
     with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
         fib = json.load(fp)
         for k, v in list(fib.items()):

@@ -6,7 +6,7 @@ import yaml
 from tests.vxlan.vnet_utils import (
     safe_open_template,
     combine_dicts
-    )
+)
 from tests.vxlan.vnet_constants import (
     NUM_VNET_KEY,
     NUM_ROUTES_KEY,
