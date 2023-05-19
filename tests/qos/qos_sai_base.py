@@ -1847,7 +1847,6 @@ class QosSaiBase(QosBase):
         if src_asic == dst_asic:
             yield
             return
-        dst_ip = dutConfig["testPorts"]["dst_port_ip"]
         portchannels = dst_asic.command(
             "show interface portchannel -n asic{} -d all".format(
                 dst_asic.asic_index))['stdout']
