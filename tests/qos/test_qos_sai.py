@@ -178,7 +178,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, duthosts, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile
+        ingressLosslessProfile, egressLosslessProfile, set_static_route
     ):
         """
             Test QoS SAI XOFF limits
@@ -192,6 +192,8 @@ class TestQosSai(QosSaiBase):
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
                 ingressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
                 egressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
+                set_static_route (Fixture): Setup the static route if the src
+                                            and dst ASICs are different.
 
             Returns:
                 None
