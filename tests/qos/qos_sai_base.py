@@ -1842,7 +1842,7 @@ class QosSaiBase(QosBase):
         for k in dst_keys:
             dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
                 dst_asic.asic_index,
-                dutConfig["testPorts"][k]))
+                dutConfig["testPorts"][k]), module_ignore_errors=True)
 
         if src_asic == dst_asic:
             yield
