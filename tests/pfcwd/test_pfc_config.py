@@ -8,6 +8,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.config_reload import config_reload
+from tests.common.utilities import update_pfcwd_default_state
 
 logger = logging.getLogger(__name__)
 
@@ -119,34 +120,6 @@ def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     logger.info("--- Clean up config dir from DUT ---")
     cfg_teardown(duthost)
-
-
-def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
-    """
-    Set default_pfcwd_status in the specified file with parameter default_pfcwd_value
-    The path is expected to be one of:
-    - /etc/sonic/init_cfg.json
-    - /etc/sonic/config_db.json
-
-    Args:
-        duthost (AnsibleHost): instance
-        default_pfcwd_value: value of default_pfcwd_status, enable or disable
-
-    Returns:
-        original value of default_pfcwd_status
-    """
-    output = duthost.shell("cat {} | grep default_pfcwd_status".format(filepath))['stdout']
-    matched = re.search('"default_pfcwd_status": "(.*)"', output)
-    if matched:
-        original_value = matched.group(1)
-    else:
-        pytest.fail("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
-
-    sed_command = ("sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' {}"
-                   .format(original_value, default_pfcwd_value, filepath))
-    duthost.shell(sed_command)
-
-    return original_value
 
 
 @pytest.fixture(scope='class')
