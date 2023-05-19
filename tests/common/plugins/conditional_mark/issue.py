@@ -19,8 +19,9 @@ class IssueCheckerBase(six.with_metaclass(ABCMeta, object)):
     """Base class for issue checker
     """
 
-    def __init__(self, url):
+    def __init__(self, url, inv_name):
         self.url = url
+        self.inv_name = inv_name
 
     @abstractmethod
     def is_active(self):
@@ -36,11 +37,12 @@ class GitHubIssueChecker(IssueCheckerBase):
 
     NAME = 'GitHub'
 
-    def __init__(self, url):
-        super(GitHubIssueChecker, self).__init__(url)
+    def __init__(self, url, inv_name):
+        super(GitHubIssueChecker, self).__init__(url, inv_name)
         self.user = ''
         self.api_token = ''
         self.api_url = url.replace('github.com', 'api.github.com/repos')
+        self.inv_name = inv_name
         self.get_cred()
 
     def get_cred(self):
@@ -69,8 +71,29 @@ class GitHubIssueChecker(IssueCheckerBase):
         Returns:
             bool: False if the issue is closed else True.
         """
+        INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(self.inv_name)
+        PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
+        base_path = os.path.dirname(__file__)
+        if os.path.exists(INV_ENV_FILE):
+            env_file_path = os.path.join(base_path, INV_ENV_FILE)
+        else:
+            env_file_path = os.path.join(base_path, PUBLIC_ENV_FILE)
+
         try:
-            response = requests.get(self.api_url, auth=(self.user, self.api_token))
+            with open(env_file_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    https_proxy = proxy.get('https_proxy', '')
+                    proxies = {'http_proxy': http_proxy, 'https_proxy': https_proxy}
+                else:
+                    proxies = {'http_proxy': '', 'https_proxy': ''}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(env_file_path, repr(e)))
+
+        try:
+            response = requests.get(self.api_url, auth=(self.user, self.api_token), proxies=proxies)
             response.raise_for_status()
             issue_data = response.json()
             if issue_data.get('state', '') == 'closed':
@@ -87,7 +110,7 @@ class GitHubIssueChecker(IssueCheckerBase):
         return True
 
 
-def issue_checker_factory(url):
+def issue_checker_factory(url, inv_name):
     """Factory function for creating issue checker object based on the domain name in the issue URL.
 
     Args:
@@ -100,14 +123,14 @@ def issue_checker_factory(url):
     if m and len(m.groups()) > 0:
         domain_name = m.groups()[0].lower()
         if 'github' in domain_name:
-            return GitHubIssueChecker(url)
+            return GitHubIssueChecker(url, inv_name)
         else:
             logger.error('Unknown issue website: {}'.format(domain_name))
     logger.error('Creating issue checker failed. Bad issue url {}'.format(url))
     return None
 
 
-def check_issues(issues):
+def check_issues(issues, inv_name):
     """Check state of the specified issues.
 
     Because issue state checking may involve sending HTTP request. This function uses parallel run to speed up
@@ -119,7 +142,7 @@ def check_issues(issues):
     Returns:
         dict: Issue state check result. Key is issue URL, value is either True or False based on issue state.
     """
-    checkers = [c for c in [issue_checker_factory(issue) for issue in issues] if c is not None]
+    checkers = [c for c in [issue_checker_factory(issue, inv_name) for issue in issues] if c is not None]
     if not checkers:
         logger.error('No checker created for issues: {}'.format(issues))
         return {}

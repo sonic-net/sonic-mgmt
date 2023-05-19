@@ -331,6 +331,8 @@ def load_basic_facts(session):
         inv_name = tbinfo['inv_name']
     else:
         inv_name = 'lab'
+    session.config.cache.set('INV_NAME', inv_name)
+
     # Since internal repo add vendor test support, add check to see if it's sonic-os, other wise skip load facts.
     vendor = session.config.getoption("--dut_vendor", "sonic")
     if vendor == "sonic":
@@ -412,10 +414,11 @@ def update_issue_status(condition_str, session):
         return condition_str
 
     issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+    inv_name = session.config.cache.get('INV_NAME', {})
 
     unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
     if unknown_issues:
-        results = check_issues(unknown_issues)
+        results = check_issues(unknown_issues, inv_name)
         issue_status_cache.update(results)
         session.config.cache.set('ISSUE_STATUS', issue_status_cache)
 
