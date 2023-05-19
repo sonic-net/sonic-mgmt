@@ -1694,7 +1694,7 @@ class QosSaiBase(QosBase):
             if "-BP" in line:
                 match = regx.search(line)
                 if match:
-                    bp_portchannels.append(match.group(1ine))
+                    bp_portchannels.append(match.group(line))
         if not bp_portchannels:
             raise RuntimeError(
                 "Couldn't find the backplane porchannels from {}".format(
