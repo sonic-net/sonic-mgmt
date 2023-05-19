@@ -5,6 +5,8 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.utilities import skip_release
+from tests.common.utilities import update_pfcwd_default_state
+
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -64,13 +66,16 @@ def reload_minigraph_with_golden_config(duthost, json_data):
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthost, golden_config_exists_on_dut):
+def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
     """
     Setup/teardown
     Args:
         duthost: DUT.
         golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
+    topo_type = tbinfo["topo"]["type"]
+    if topo_type in ["m0", "mx"]:
+        original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
@@ -83,6 +88,8 @@ def setup_env(duthost, golden_config_exists_on_dut):
 
     yield running_config
 
+    if topo_type in ["m0", "mx"]:
+        update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Restore Golden Config after test, else cleanup test file.
