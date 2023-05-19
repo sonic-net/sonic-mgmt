@@ -86,13 +86,10 @@ def test_show_chassis_module_midplane_status(duthosts, enum_rand_one_per_hwsku_h
                                                                                                  mod_mid_status))
         else:
             # There are cases where the chassis is logically divided where some LCs belongs to another chassis
-            # and needs to be skipped and for those cases we should not assume if skipped means it must be 
+            # and needs to be skipped and for those cases we should not assume if skipped means it must be
             # offline.
             if "LINE-CARD" in mod_idx:
                 logger.info("skip checking midplane status for {} since it is on skip_mod_list".format(mod_idx))
             else:
                 pytest_assert(mod_mid_status == "False",
                               "reachability of {} expected false but is {}".format(mod_idx, mod_mid_status))
-
-
-

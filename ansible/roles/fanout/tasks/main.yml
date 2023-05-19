@@ -13,10 +13,10 @@
 
 - set_fact: sw_type="{{ device_info[inventory_hostname]['Type'] }}"
 
-# fanout_tacacs_user can override fanout_tacacs_sonic_user, 
+# fanout_tacacs_user can override fanout_tacacs_sonic_user,
 # fanout_tacacs_sonic_user can override fanout_sonic_user
 - name: set login info if fanout_tacacs_user and fanout_tacacs_password is defined
-  set_fact: ansible_ssh_user={{ fanout_tacacs_user }} ansible_ssh_password={{ fanout_tacacs_password }}
+  set_fact: ansible_ssh_user={{ fanout_tacacs_user }} ansible_ssh_pass={{ fanout_tacacs_password }}
   when: fanout_tacacs_user is defined and fanout_tacacs_password is defined
   tags: always
 

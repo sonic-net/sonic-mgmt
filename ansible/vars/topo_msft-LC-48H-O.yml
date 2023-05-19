@@ -16,7 +16,7 @@ slot1:
       configuration_properties:
         common:
           dut_asn: 65100
-          asic_type: FrontEnd 
+          asic_type: FrontEnd
       configuration:
         ASIC0:
           bgp:
@@ -49,7 +49,7 @@ slot1:
       configuration_properties:
         common:
           dut_asn: 65100
-          asic_type: FrontEnd 
+          asic_type: FrontEnd
       configuration:
         ASIC0:
           bgp:
@@ -83,7 +83,7 @@ slot2:
       configuration_properties:
         common:
           dut_asn: 65100
-          asic_type: FrontEnd 
+          asic_type: FrontEnd
       configuration:
         ASIC0:
           bgp:
@@ -116,7 +116,7 @@ slot2:
       configuration_properties:
         common:
           dut_asn: 65100
-          asic_type: FrontEnd 
+          asic_type: FrontEnd
       configuration:
         ASIC0:
           bgp:

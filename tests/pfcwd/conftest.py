@@ -1,10 +1,10 @@
 import logging
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 from tests.common.utilities import str2bool
@@ -31,6 +31,7 @@ def pytest_addoption(parser):
                      help='Fake storm for most ports instead of using pfc gen')
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
+
 
 @pytest.fixture(scope="module")
 def two_queues(request):
@@ -89,7 +90,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
     enum_frontend_asic_index
 ):
     """
@@ -107,7 +108,6 @@ def setup_pfc_test(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = list(mg_facts['minigraph_ports'].keys())
-    ports = (' ').join(port_list)
     neighbors = conn_graph_facts['device_conn'][duthost.hostname]
     dut_eth0_ip = duthost.mgmt_ip
     vlan_nw = None
@@ -117,7 +117,7 @@ def setup_pfc_test(
         unexpected_vlans = []
         for vlan, vlan_data in list(mg_facts['minigraph_vlans'].items()):
             if len(vlan_data['members']) < 2:
-               unexpected_vlans.append(vlan)
+                unexpected_vlans.append(vlan)
 
         # Update minigraph_vlan_interfaces with only expected VLAN interfaces
         expected_vlan_ifaces = []
@@ -132,7 +132,9 @@ def setup_pfc_test(
         vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
         vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
         vlan_dev = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
-        vlan_ips = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix), exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
+        vlan_ips = duthost.get_ip_in_range(
+            num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
+            exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
 
     # build the port list for the test
@@ -149,19 +151,19 @@ def setup_pfc_test(
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
-    setup_info = { 'test_ports': test_ports,
-                   'port_list': port_list,
-                   'selected_test_ports': selected_ports,
-                   'pfc_timers' : set_pfc_timers(),
-                   'neighbors': neighbors,
-                   'eth0_ip': dut_eth0_ip
+    setup_info = {'test_ports': test_ports,
+                  'port_list': port_list,
+                  'selected_test_ports': selected_ports,
+                  'pfc_timers': set_pfc_timers(),
+                  'neighbors': neighbors,
+                  'eth0_ip': dut_eth0_ip
                   }
 
     if mg_facts['minigraph_vlans']:
         setup_info['vlan'] = {'addr': vlan_addr,
                               'prefix': vlan_prefix,
                               'dev': vlan_dev
-                             }
+                              }
     else:
         setup_info['vlan'] = None
 

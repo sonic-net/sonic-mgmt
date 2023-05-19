@@ -1,6 +1,5 @@
 import logging
 import paramiko
-import time
 import pytest
 from _pytest.outcomes import Failed
 

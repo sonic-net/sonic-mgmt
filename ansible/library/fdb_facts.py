@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from ansible.module_utils.basic import AnsibleModule
 DOCUMENTATION = '''
 module:         fdb_facts
 version_added:  "1.0"
@@ -17,14 +18,14 @@ EXAMPLES = '''
 # Example of the output
 '''
 The input:
-$ fdbshow 
+$ fdbshow
   No.    Vlan  MacAddress         Port        Type
 -----  ------  -----------------  ----------  -------
     1    1000  24:8A:07:4C:F5:06  Ethernet24  Dynamic
 
 The output:
 {
-    '24:8A:07:4C:F5:06': 
+    '24:8A:07:4C:F5:06':
         [
             {
                 'vlan': '1000',
@@ -36,6 +37,7 @@ The output:
 
 '''
 
+
 class FdbModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict())
@@ -46,7 +48,8 @@ class FdbModule(object):
         """
         cmd = 'show mac'
         try:
-            rc, out, err = self.module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
+            rc, out, err = self.module.run_command(
+                cmd, executable='/bin/bash', use_unsafe_shell=True)
         except Exception as e:
             self.module.fail_json(msg=str(e))
 
@@ -64,20 +67,20 @@ class FdbModule(object):
                 continue
             mac = d[2].strip()
             val = {
-                    'vlan': int(d[1].strip()) if d[1] != "" else 0,
-                    'port': d[3].strip(),
-                    'type': d[4].strip()
-                }
+                'vlan': int(d[1].strip()) if d[1] != "" else 0,
+                'port': d[3].strip(),
+                'type': d[4].strip()
+            }
             ret[mac] = ret.get(mac, [])
             ret[mac].append(val)
 
         self.module.exit_json(ansible_facts=ret)
 
+
 def main():
     bgp = FdbModule()
     bgp.run()
 
-from ansible.module_utils.basic import *
+
 if __name__ == "__main__":
     main()
-

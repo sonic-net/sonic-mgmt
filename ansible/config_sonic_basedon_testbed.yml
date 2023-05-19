@@ -643,7 +643,7 @@
 
           when: stat_result.stat.exists
 
-        when: "'dualtor-mixed' in topo"
+        when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true

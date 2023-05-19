@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from ansible.module_utils.basic import AnsibleModule
 import calendar
 import os
 import sys
-import socket
-import struct
 import traceback
 import json
-import copy
+import time
 import ipaddr as ipaddress
 from collections import defaultdict
 from natsort import natsorted
@@ -100,13 +99,15 @@ def parse_asic_external_link(link, asic_name, hostname):
     if (enddevice.lower() == hostname.lower()):
         if endport in port_alias_to_port_asic_alias_map:
             endport = port_alias_to_port_asic_alias_map[endport]
-            neighbors[port_alias_asic_map[endport]] = {'name': startdevice, 'port': startport}
+            neighbors[port_alias_asic_map[endport]] = {
+                'name': startdevice, 'port': startport}
             if bandwidth:
-                port_speeds[port_alias_map[endport]] = bandwidth
+                port_speeds[port_alias_asic_map[endport]] = bandwidth
     elif (startdevice.lower() == hostname.lower()):
         if startport in port_alias_to_port_asic_alias_map:
             startport = port_alias_to_port_asic_alias_map[startport]
-            neighbors[port_alias_asic_map[startport]] = {'name': enddevice, 'port': endport}
+            neighbors[port_alias_asic_map[startport]] = {
+                'name': enddevice, 'port': endport}
             if bandwidth:
                 port_speeds[port_alias_asic_map[startport]] = bandwidth
 
@@ -124,17 +125,20 @@ def parse_asic_png(png, asic_name, hostname):
                 # where the minigraph will contain the internal asic connectivity and
                 # external neighbor information. The ChassisInternal node will be used to
                 # determine if the link is internal to the device or chassis.
-                chassis_internal_node = link.find(str(QName(ns, "ChassisInternal")))
+                chassis_internal_node = link.find(
+                    str(QName(ns, "ChassisInternal")))
                 chassis_internal = chassis_internal_node.text if chassis_internal_node is not None else "false"
 
                 # If the link is an external link include the external neighbor
                 # information in ASIC ports table
                 if chassis_internal.lower() == "false":
-                    ext_neighbors, ext_port_speeds = parse_asic_external_link(link, asic_name, hostname)
+                    ext_neighbors, ext_port_speeds = parse_asic_external_link(
+                        link, asic_name, hostname)
                     neighbors.update(ext_neighbors)
                     port_speeds.update(ext_port_speeds)
                 else:
-                    int_neighbors, int_port_speeds = parse_asic_internal_link(link, asic_name, hostname)
+                    int_neighbors, int_port_speeds = parse_asic_internal_link(
+                        link, asic_name, hostname)
                     neighbors.update(int_neighbors)
                     port_speeds.update(int_port_speeds)
 
@@ -150,18 +154,21 @@ def parse_asic_png(png, asic_name, hostname):
 
                 for node in device:
                     if node.tag == str(QName(ns, "Address")):
-                        lo_addr = node.find(str(QName(ns2, "IPPrefix"))).text.split('/')[0]
+                        lo_addr = node.find(
+                            str(QName(ns2, "IPPrefix"))).text.split('/')[0]
                     elif node.tag == str(QName(ns, "ManagementAddress")):
-                        mgmt_addr = node.find(str(QName(ns2, "IPPrefix"))).text.split('/')[0]
+                        mgmt_addr = node.find(
+                            str(QName(ns2, "IPPrefix"))).text.split('/')[0]
                     elif node.tag == str(QName(ns, "Hostname")):
                         name = node.text
                     elif node.tag == str(QName(ns, "HwSku")):
                         hwsku = node.text
 
-                devices[name] = {'lo_addr': lo_addr, 'type': d_type, 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
+                devices[name] = {'lo_addr': lo_addr, 'type': d_type,
+                                 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
 
     for k, v in neighbors.items():
-         v['namespace'] = asic_name
+        v['namespace'] = asic_name
 
     return (neighbors, devices, port_speeds)
 
@@ -198,14 +205,16 @@ def parse_png(png, hname):
                     if startdevice.lower() in namespace_list:
                         neighbors_namespace[endport] = startdevice.lower()
                     else:
-                        neighbors[endport] = {'name': startdevice, 'port': startport, 'namespace':''}
+                        neighbors[endport] = {
+                            'name': startdevice, 'port': startport, 'namespace': ''}
                 elif startdevice == hname:
                     if startport in port_alias_to_name_map:
                         startport = port_alias_to_name_map[startport]
                     if enddevice.lower() in namespace_list:
                         neighbors_namespace[startport] = enddevice.lower()
                     else:
-                        neighbors[startport] = {'name': enddevice, 'port': endport, 'namespace':''}
+                        neighbors[startport] = {
+                            'name': enddevice, 'port': endport, 'namespace': ''}
 
         if child.tag == str(QName(ns, "Devices")):
             for device in child.findall(str(QName(ns, "Device"))):
@@ -217,9 +226,11 @@ def parse_png(png, hname):
 
                 for node in device:
                     if node.tag == str(QName(ns, "Address")):
-                        lo_addr = node.find(str(QName(ns2, "IPPrefix"))).text.split('/')[0]
+                        lo_addr = node.find(
+                            str(QName(ns2, "IPPrefix"))).text.split('/')[0]
                     elif node.tag == str(QName(ns, "ManagementAddress")):
-                        mgmt_addr = node.find(str(QName(ns2, "IPPrefix"))).text.split('/')[0]
+                        mgmt_addr = node.find(
+                            str(QName(ns2, "IPPrefix"))).text.split('/')[0]
                     elif node.tag == str(QName(ns, "Hostname")):
                         name = node.text
                     elif node.tag == str(QName(ns, "HwSku")):
@@ -233,7 +244,8 @@ def parse_png(png, hname):
                 if d_type is None and str(QName(ns3, "type")) in device.attrib:
                     d_type = device.attrib[str(QName(ns3, "type"))]
 
-                devices[name] = {'lo_addr': lo_addr, 'type': d_type, 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
+                devices[name] = {'lo_addr': lo_addr, 'type': d_type,
+                                 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
 
         if child.tag == str(QName(ns, "DeviceInterfaceLinks")):
             for if_link in child.findall(str(QName(ns, 'DeviceLinkBase'))):
@@ -253,7 +265,7 @@ def parse_png(png, hname):
                                 mgmt_dev = node.text
 
     for k, v in neighbors.items():
-         v['namespace'] = neighbors_namespace[k]
+        v['namespace'] = neighbors_namespace[k]
 
     return (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port)
 
@@ -294,7 +306,8 @@ def parse_dpg(dpg, hname):
         subnet = ipaddress.IPNetwork(str(ipn.network) + '/' + str(prefix_len))
         ipmask = ipn.netmask
 
-        intf = {'addr': ipaddr, 'subnet': subnet, 'attachto': intfname, 'prefixlen': int(prefix_len)}
+        intf = {'addr': ipaddr, 'subnet': subnet,
+                'attachto': intfname, 'prefixlen': int(prefix_len)}
         if isinstance(ipn, ipaddress.IPv4Network):
             intf['mask'] = ipmask
         else:
@@ -364,7 +377,8 @@ def parse_dpg(dpg, hname):
             prefix_len = str(mgmtipn.prefixlen)
             ipmask = mgmtipn.netmask
             gwaddr = ipaddress.IPAddress(int(mgmtipn.network) + 1)
-            mgmt_intf = {'addr': ipaddr, 'alias': intfname, 'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
+            mgmt_intf = {'addr': ipaddr, 'alias': intfname,
+                         'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
 
         pcintfs = child.find(str(QName(ns, "PortChannelInterfaces")))
         pcs = {}
@@ -373,15 +387,19 @@ def parse_dpg(dpg, hname):
             pcintfmbr = pcintf.find(str(QName(ns, "AttachTo"))).text
             pcmbr_list = pcintfmbr.split(';')
             for i, member in enumerate(pcmbr_list):
-                if member in  port_alias_to_name_map:
+                if member in port_alias_to_name_map:
                     pcmbr_list[i] = port_alias_to_name_map[member]
-                    ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
+                    ports[port_alias_to_name_map[member]] = {
+                        'name': port_alias_to_name_map[member], 'alias': member}
                 elif member in port_alias_asic_map:
                     pcmbr_list[i] = port_alias_asic_map[member]
-                    ports[port_alias_asic_map[member]] = {'name': port_alias_asic_map[member], 'alias': port_name_to_alias_map[port_alias_asic_map[member]]}
+                    ports[port_alias_asic_map[member]] = {
+                        'name': port_alias_asic_map[member],
+                        'alias': port_name_to_alias_map[port_alias_asic_map[member]]}
 
             pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list}
-            pcs[pcintfname] = {'name': pcintfname, 'members': pcmbr_list, 'namespace': ''}
+            pcs[pcintfname] = {'name': pcintfname,
+                               'members': pcmbr_list, 'namespace': ''}
             fallback_node = pcintf.find(str(QName(ns, "Fallback")))
             if fallback_node is not None:
                 pcs[pcintfname]['fallback'] = fallback_node.text
@@ -414,8 +432,10 @@ def parse_dpg(dpg, hname):
                 if member in pcs:
                     continue
                 vmbr_list[i] = port_alias_to_name_map[member]
-                ports[port_alias_to_name_map[member]] = {'name': port_alias_to_name_map[member], 'alias': member}
-            vlan_attributes = {'name': vintfname, 'members': vmbr_list, 'vlanid': vlanid}
+                ports[port_alias_to_name_map[member]] = {
+                    'name': port_alias_to_name_map[member], 'alias': member}
+            vlan_attributes = {'name': vintfname,
+                               'members': vmbr_list, 'vlanid': vlanid}
             if vintftype is not None:
                 vlan_attributes['type'] = vintftype.text
             vlans[vintfname] = vlan_attributes
@@ -425,14 +445,17 @@ def parse_dpg(dpg, hname):
         acls = {}
         for aclintf in aclintfs.findall(str(QName(ns, "AclInterface"))):
             aclname = aclintf.find(str(QName(ns, "InAcl"))).text
-            aclattach = aclintf.find(str(QName(ns, "AttachTo"))).text.split(';')
+            aclattach = aclintf.find(
+                str(QName(ns, "AttachTo"))).text.split(';')
             acl_intfs = []
             for member in aclattach:
                 member = member.strip()
                 if member in pcs:
-                    acl_intfs.extend(pcs[member]['members'])  # For ACL attaching to port channels, we break them into port channel members
+                    # For ACL attaching to port channels, we break them into port channel members
+                    acl_intfs.extend(pcs[member]['members'])
                 elif member in vlans:
-                    print("Warning: ACL " + aclname + " is attached to a Vlan interface, which is currently not supported", file=sys.stderr)
+                    print("Warning: ACL " + aclname +
+                          " is attached to a Vlan interface, which is currently not supported", file=sys.stderr)
                 elif member in port_alias_to_name_map:
                     acl_intfs.append(port_alias_to_name_map[member])
             if acl_intfs:
@@ -440,6 +463,7 @@ def parse_dpg(dpg, hname):
 
         return intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers
     return None, None, None, None, None, None, None
+
 
 def parse_cpg(cpg, hname):
     bgp_sessions = []
@@ -473,11 +497,12 @@ def parse_cpg(cpg, hname):
                     myasn = int(asn)
                     peers = router.find(str(QName(ns1, "Peers")))
                     for bgpPeer in peers.findall(str(QName(ns, "BGPPeer"))):
-                        addr = bgpPeer.find(str(QName(ns, "Address"))).text
                         if bgpPeer.find(str(QName(ns1, "PeersRange"))) is not None:
                             name = bgpPeer.find(str(QName(ns1, "Name"))).text
-                            ip_range = bgpPeer.find(str(QName(ns1, "PeersRange"))).text
-                            ip_range_group = ip_range.split(';') if ip_range and ip_range != "" else []
+                            ip_range = bgpPeer.find(
+                                str(QName(ns1, "PeersRange"))).text
+                            ip_range_group = ip_range.split(
+                                ';') if ip_range and ip_range != "" else []
                             bgp_peers_with_range.append({
                                 'name': name,
                                 'ip_range': ip_range_group
@@ -583,18 +608,23 @@ def reconcile_mini_graph_locations(filename, hostname):
     root = ET.parse(mini_graph_path).getroot()
     return mini_graph_path, root
 
+
 def port_alias_to_name_map_50G(all_ports, s100G_ports):
     # 50G ports
     s50G_ports = list(set(all_ports) - set(s100G_ports))
 
     for i in s50G_ports:
-        port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
-        port_alias_to_name_map["Ethernet%d/3" % i] = "Ethernet%d" % ((i - 1) * 4 + 2)
+        port_alias_to_name_map["Ethernet%d/1" %
+                               i] = "Ethernet%d" % ((i - 1) * 4)
+        port_alias_to_name_map["Ethernet%d/3" %
+                               i] = "Ethernet%d" % ((i - 1) * 4 + 2)
 
     for i in s100G_ports:
-        port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        port_alias_to_name_map["Ethernet%d/1" %
+                               i] = "Ethernet%d" % ((i - 1) * 4)
 
     return port_alias_to_name_map
+
 
 def parse_xml(filename, hostname, asic_name=None):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
@@ -644,7 +674,8 @@ def parse_xml(filename, hostname, asic_name=None):
     global port_alias_to_port_asic_alias_map
     global port_name_to_index_map
 
-    port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map = get_port_alias_to_name_map(hwsku, asic_name)
+    port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map = get_port_alias_to_name_map(
+        hwsku, asic_name)
 
     # Create inverse mapping between port name and alias
     port_name_to_alias_map = {v: k for k, v in port_alias_to_name_map.items()}
@@ -657,33 +688,42 @@ def parse_xml(filename, hostname, asic_name=None):
     for child in root:
         if asic_name is None:
             if child.tag == str(QName(ns, "DpgDec")):
-                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers) = parse_dpg(child, hostname)
+                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls,
+                 dhcp_servers, dhcpv6_servers) = parse_dpg(child, hostname)
             elif child.tag == str(QName(ns, "CpgDec")):
-                (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, hostname)
+                (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(
+                    child, hostname)
             elif child.tag == str(QName(ns, "PngDec")):
-                (neighbors, devices, console_dev, console_port, mgmt_dev, mgmt_port) = parse_png(child, hostname)
+                (neighbors, devices, console_dev, console_port,
+                 mgmt_dev, mgmt_port) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "UngDec")):
                 (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "MetadataDeclaration")):
-                (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type) = parse_meta(child, hostname)
+                (syslog_servers, ntp_servers, mgmt_routes, deployment_id,
+                 resource_type) = parse_meta(child, hostname)
         else:
             if child.tag == str(QName(ns, "DpgDec")):
-                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls, dhcp_servers, dhcpv6_servers) = parse_dpg(child, asic_name)
+                (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls,
+                 dhcp_servers, dhcpv6_servers) = parse_dpg(child, asic_name)
                 host_lo_intfs = parse_host_loopback(child, hostname)
             elif child.tag == str(QName(ns, "CpgDec")):
-                (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(child, asic_name)
+                (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(
+                    child, asic_name)
             elif child.tag == str(QName(ns, "PngDec")):
-                (neighbors, devices, _) = parse_asic_png(child, asic_name, hostname)
+                (neighbors, devices, _) = parse_asic_png(
+                    child, asic_name, hostname)
 
-    current_device = [devices[key] for key in devices if key.lower() == hostname.lower()][0]
+    current_device = [devices[key]
+                      for key in devices if key.lower() == hostname.lower()][0]
     device_type = current_device['type']
 
     # Associate Port Channel to namespace
     try:
         for pckey, pcval in pcs.items():
             pcval['namespace'] = neighbors[pcval['members'][0]]['namespace']
-    except Exception as e:
-        print("Warning: PortChannel " + pckey + " has no member ports.", file=sys.stderr)
+    except Exception:
+        print("Warning: PortChannel " + pckey +
+              " has no member ports.", file=sys.stderr)
 
     # TODO: Move all alias-related code out of minigraph_facts.py and into
     # its own module to be used as another layer after parsing the minigraph.
@@ -697,10 +737,11 @@ def parse_xml(filename, hostname, asic_name=None):
     port_name_list_sorted = natsorted(port_name_list)
 
     # Create mapping between port alias and physical index
-    port_index_map = port_name_to_index_map if port_name_to_index_map else get_port_indices_for_asic(asic_id, port_name_list_sorted)
+    port_index_map = port_name_to_index_map if port_name_to_index_map else get_port_indices_for_asic(
+        asic_id, port_name_list_sorted)
 
     # Generate results
-    Tree = lambda: defaultdict(Tree)
+    def Tree(): return defaultdict(Tree)
 
     results = Tree()
     results['minigraph_hwsku'] = hwsku
@@ -739,9 +780,12 @@ def parse_xml(filename, hostname, asic_name=None):
     }
     if resource_type is not None:
         results['minigraph_device_metadata']['resource_type'] = resource_type
-    results['minigraph_interfaces'] = sorted(phyport_intfs, key=lambda x: x['attachto'])
-    results['minigraph_vlan_interfaces'] = sorted(vlan_intfs, key=lambda x: x['attachto'])
-    results['minigraph_portchannel_interfaces'] = sorted(pc_intfs, key=lambda x: x['attachto'])
+    results['minigraph_interfaces'] = sorted(
+        phyport_intfs, key=lambda x: x['attachto'])
+    results['minigraph_vlan_interfaces'] = sorted(
+        vlan_intfs, key=lambda x: x['attachto'])
+    results['minigraph_portchannel_interfaces'] = sorted(
+        pc_intfs, key=lambda x: x['attachto'])
     results['minigraph_ports'] = ports
     results['minigraph_vlans'] = vlans
     results['minigraph_portchannels'] = pcs
@@ -760,8 +804,10 @@ def parse_xml(filename, hostname, asic_name=None):
     results['inventory_hostname'] = hostname
     if asic_name is None:
         if devices is not None:
-            results['minigraph_console'] = get_console_info(devices, console_dev, console_port)
-            results['minigraph_mgmt'] = get_mgmt_info(devices, mgmt_dev, mgmt_port)
+            results['minigraph_console'] = get_console_info(
+                devices, console_dev, console_port)
+            results['minigraph_mgmt'] = get_mgmt_info(
+                devices, mgmt_dev, mgmt_port)
     results['syslog_servers'] = syslog_servers
     results['dhcp_servers'] = dhcp_servers
     results['dhcpv6_servers'] = dhcpv6_servers
@@ -773,22 +819,26 @@ def parse_xml(filename, hostname, asic_name=None):
         results['minigraph_interfaces'] = []
         results['minigraph_portchannel_interfaces'] = []
         is_storage_device = True
-        results['minigraph_vlan_sub_interfaces'] = sorted(vlan_sub_intfs, key=lambda x: x['attachto'])
+        results['minigraph_vlan_sub_interfaces'] = sorted(
+            vlan_sub_intfs, key=lambda x: x['attachto'])
     elif device_type in backend_device_types and (resource_type is None or 'Storage' in resource_type):
         results['minigraph_interfaces'] = []
         results['minigraph_portchannel_interfaces'] = []
         is_storage_device = True
 
         for intf in phyport_intfs:
-            intf['attachto'] = intf['attachto'] + VLAN_SUB_INTERFACE_SEPARATOR + VLAN_SUB_INTERFACE_VLAN_ID
+            intf['attachto'] = intf['attachto'] + \
+                VLAN_SUB_INTERFACE_SEPARATOR + VLAN_SUB_INTERFACE_VLAN_ID
             intf['vlan'] = VLAN_SUB_INTERFACE_VLAN_ID
             vlan_sub_intfs.append(intf)
 
         for pc_intf in pc_intfs:
-            pc_intf['attachto'] = pc_intf['attachto'] + VLAN_SUB_INTERFACE_SEPARATOR + VLAN_SUB_INTERFACE_VLAN_ID
+            pc_intf['attachto'] = pc_intf['attachto'] + \
+                VLAN_SUB_INTERFACE_SEPARATOR + VLAN_SUB_INTERFACE_VLAN_ID
             pc_intf['vlan'] = VLAN_SUB_INTERFACE_VLAN_ID
             vlan_sub_intfs.append(pc_intf)
-        results['minigraph_vlan_sub_interfaces'] = sorted(vlan_sub_intfs, key=lambda x: x['attachto'])
+        results['minigraph_vlan_sub_interfaces'] = sorted(
+            vlan_sub_intfs, key=lambda x: x['attachto'])
     elif resource_type is not None and 'Storage' in resource_type:
         is_storage_device = True
 
@@ -804,6 +854,7 @@ port_name_to_alias_map = {}
 port_alias_asic_map = {}
 port_name_to_index_map = {}
 port_alias_to_port_asic_alias_map = {}
+
 
 def main():
     module = AnsibleModule(
@@ -821,7 +872,8 @@ def main():
     except OSError:
         if not os.path.isdir(ANSIBLE_USER_MINIGRAPH_PATH):
             # file conflict, report the error and exit.
-            module.fail_json(msg="Cannot create dir: {}".format(ANSIBLE_USER_MINIGRAPH_PATH))
+            module.fail_json(msg="Cannot create dir: {}".format(
+                ANSIBLE_USER_MINIGRAPH_PATH))
 
     m_args = module.params
     local_file_path = ANSIBLE_LOCAL_MINIGRAPH_PATH.format(m_args['host'])
@@ -852,7 +904,6 @@ def print_parse_xml(hostname):
     results = parse_xml(filename, hostname)
     print(json.dumps(results, indent=3, cls=minigraph_encoder))
 
-from ansible.module_utils.basic import *
 
 if __name__ == "__main__":
     main()

@@ -6,9 +6,11 @@ from tests.common.reboot import reboot
 def is_cisco_device(dut):
     return dut.facts["asic_type"] == "cisco-8000"
 
+
 def is_model_json_format(duthost):
     model_json_platforms = ['x86_64-8102_64h_o-r0']
     return duthost.facts['platform'] in model_json_platforms
+
 
 def get_markings_config_file(duthost):
     """
@@ -61,7 +63,7 @@ def setup_markings_dut(duthost, localhost, **kwargs):
         json_contents = json.load(fd)
     reboot_required = False
     for device in json_contents['devices']:
-        for k,v in list(kwargs.items()):
+        for k, v in list(kwargs.items()):
             if device['device_property'][k] != v:
                 reboot_required = True
                 device['device_property'][k] = v

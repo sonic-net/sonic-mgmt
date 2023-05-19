@@ -11,13 +11,15 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 def test_jit_user(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     """check jit user. netuser -> netadmin -> netuser"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
-    res = ssh_remote_run(localhost, dutip, tacacs_creds['tacacs_jit_user'], tacacs_creds['tacacs_jit_user_passwd'], 'cat /etc/passwd')
+    res = ssh_remote_run(localhost, dutip, tacacs_creds['tacacs_jit_user'],
+                         tacacs_creds['tacacs_jit_user_passwd'], 'cat /etc/passwd')
 
     check_output(res, 'test', 'remote_user')
 

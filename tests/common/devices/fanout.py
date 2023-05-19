@@ -16,7 +16,8 @@ class FanoutHost(object):
     For running ansible module on the Fanout switch
     """
 
-    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd, eos_shell_user=None, eos_shell_passwd=None):
+    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd,
+                 eos_shell_user=None, eos_shell_passwd=None):
         self.hostname = hostname
         self.type = device_type
         self.host_to_fanout_port_map = {}
@@ -40,7 +41,8 @@ class FanoutHost(object):
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'
-            self.host = EosHost(ansible_adhoc, hostname, user, passwd, shell_user=eos_shell_user, shell_passwd=eos_shell_passwd)
+            self.host = EosHost(ansible_adhoc, hostname, user, passwd,
+                                shell_user=eos_shell_user, shell_passwd=eos_shell_passwd)
 
     def __getattr__(self, module_name):
         return getattr(self.host, module_name)

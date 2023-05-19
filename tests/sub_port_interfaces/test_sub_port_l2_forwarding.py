@@ -110,9 +110,9 @@ def test_sub_port_l2_forwarding(apply_config_on_the_dut, duthosts, rand_one_dut_
     def verify_no_packet_received(ptfadapter, ports, packet_fingerprint):
         for port in ports:
             for packet, _ in ptfadapter.dataplane.packet_queues[(0, port)]:
-                if packet_fingerprint in packet:
+                if packet_fingerprint in str(packet):
                     logging.error("Received packet with fingerprint '%s' on port %s: %s\n", port, packet_fingerprint,
-                                  packet)
+                                  str(packet))
                     pytest.fail("Received packet on port %s" % port)
 
     duthost = duthosts[rand_one_dut_hostname]
