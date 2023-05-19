@@ -23,8 +23,8 @@
   shell: >
           sonic-cfggen -H -k Force10-S6000 --preset empty
           | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'
-          | jq '.DEVICE_METADATA.localhost += {docker_routing_config_mode:"split"}'
           | jq '.DEVICE_METADATA.localhost.bgp_asn="{{ configuration[hostname]['bgp']['asn'] }}"'
+          | jq '.DEVICE_METADATA.localhost.deployment_id="1"'
           > config-metadata.json
   when: hostname in configuration
 
@@ -42,6 +42,7 @@
 
 - name: create config db json
   shell: |
+          set -e
           sonic-cfggen -j config-mgmt.json -j config-metadata.json -j config-port.json -j config-topo.json --print-data > /etc/sonic/config_db.json
           rm -f config-mgmt.json config-metadata.json config-port.json config-topo.json
   become: yes
@@ -49,22 +50,6 @@
   notify:
     - Update config db
     - wait for SONiC update config db to finish
-
-- name: create frr config
-  template: src="frr-{{ base_topo }}-{{ props.swrole }}.j2"
-            dest=/etc/sonic/frr/bgpd.conf
-  become: yes
-  when: hostname in configuration
-  notify:
-    - Restart BGP service
-
-- name: create zebra config
-  template: src="zebra-{{ base_topo }}-{{ props.swrole }}.j2"
-            dest=/etc/sonic/frr/zebra.conf
-  become: yes
-  when: hostname in configuration
-  notify:
-    - Restart BGP service
 
 - name: Load PTF image
   block:
