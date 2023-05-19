@@ -394,12 +394,22 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "nat_cmds": cmds.nat_cmds,
         "bfd_cmds": add_asic_arg(" -n {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
-        "docker_cmds":
-            add_asic_arg("{}", cmds.docker_cmds_201911 if '201911' in duthost.os_version else cmds.docker_cmds, num),
         "misc_show_cmds": add_asic_arg("asic{} ", cmds.misc_show_cmds, num),
         "misc_cmds": cmds.misc_cmds,
     }
 
+    if '201911' in duthost.os_version:
+        docker_cmds = cmds.docker_cmds_201911
+    elif duthost.facts['router_type'] == 'spinerouter':
+        docker_cmds = cmds.docker_cmds_t2
+    else:
+        docker_cmds = cmds.docker_cmds
+
+    cmds_to_check.update(
+        {
+            "docker_cmds":
+                add_asic_arg("{}", docker_cmds, num)}
+    )
     if duthost.facts["asic_type"] == "broadcom":
         if duthost.facts.get("platform_asic") == "broadcom-dnx":
             asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx
