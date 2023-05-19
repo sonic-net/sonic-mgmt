@@ -6192,6 +6192,7 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8102-02" Proxy="admin" StartDevice="console-199" StartPort="26"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8102-03" Proxy="admin" StartDevice="console-199" StartPort="30"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-8102-04" Proxy="admin" StartDevice="console-199" StartPort="29"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str2-7804-sup-1" Proxy="admin" StartDevice="console-199" StartPort="49"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
