@@ -37,7 +37,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from qos_sai_base import QosSaiBase
-from tests.common.cisco_data import get_markings_dut, setup_markings_dut
 
 logger = logging.getLogger(__name__)
 
@@ -1044,9 +1043,6 @@ class TestQosSai(QosSaiBase):
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
         assert flow_config in ["shared", "separate"], "Invalid flow config '{}'".format(flow_config)
-        if flow_config == "shared":
-            original_voq_markings = get_markings_dut(duthost)
-            setup_markings_dut(duthost, localhost, voq_allocation_mode="default")
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LossyVoq])
 
