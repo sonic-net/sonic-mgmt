@@ -123,6 +123,7 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
+    time.sleep(10)
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
