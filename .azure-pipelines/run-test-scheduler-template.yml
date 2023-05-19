@@ -92,15 +92,18 @@ parameters:
 
 - name: DUMP_KVM_IF_FAIL
   type: string
-  default: ""
+  default: "True"
+  values:
+  - "True"
+  - "False"
 
 - name: REQUESTER
   type: string
   default: ""
 
-- name: MAX_EXECUTE_SECONDS
-  type: string
-  default: ""
+- name: MAX_RUN_TEST_MINUTES
+  type: number
+  default: 480
 
 - name: SPECIFIED_PARAMS
   type: string
@@ -135,7 +138,7 @@ steps:
       --retry-times ${{ parameters.RETRY_TIMES }} \
       --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
       --requester "${{ parameters.REQUESTER }}" \
-      --max-execute-seconds ${{ parameters.MAX_EXECUTE_SECONDS }}
+      --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60))
 
       TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
@@ -183,18 +186,20 @@ steps:
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Run test
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
 
-  - script: |
-      set -e
-      echo "KVM dump"
-      echo "TestbedV2 is just online and might not be stable enough, for any issue, please send email to sonictestbedtools@microsoft.com"
-      echo "Runtime detailed progress at https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID "
-      # When "KVMDUMP" finish, it changes into "FAILED", "CANCELLED" or "FINISHED"
-      python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state KVMDUMP
-    condition: succeededOrFailed()
-    env:
-      TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
-    displayName: KVM dump
+  - ${{ if eq(parameters.DUMP_KVM_IF_FAIL, 'True') }}:
+    - script: |
+        set -e
+        echo "KVM dump"
+        echo "TestbedV2 is just online and might not be stable enough, for any issue, please send email to sonictestbedtools@microsoft.com"
+        echo "Runtime detailed progress at https://www.testbed-tools.org/scheduler/testplan/$TEST_PLAN_ID "
+        # When "KVMDUMP" finish, it changes into "FAILED", "CANCELLED" or "FINISHED"
+        python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state KVMDUMP
+      condition: succeededOrFailed()
+      env:
+        TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
+      displayName: KVM dump
 
   - script: |
       set -e

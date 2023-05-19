@@ -24,15 +24,14 @@ def is_sonic_console(conn_graph_facts, dut_hostname):
 
 
 def test_console_baud_rate_config(duthost):
-    global pass_config_test
-    pass_config_test = False
     platform = duthost.facts["platform"]
     expected_baud_rate = BAUD_RATE_MAP[platform] if platform in BAUD_RATE_MAP else BAUD_RATE_MAP["default"]
-    res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2",
-                        module_ignore_errors=True)
-    pytest_assert(res["rc"] == 0 and res["stdout"] == expected_baud_rate, "Baud rate {} is unexpected!"
-                  .format(res["stdout"]))
-    pass_config_test = True
+    res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
+    pytest_require(res["stdout"] != "", "Cannot get baud rate")
+    if res["stdout"] != expected_baud_rate:
+        global pass_config_test
+        pass_config_test = False
+        pytest.fail("Baud rate {} is unexpected!".format(res["stdout"]))
 
 
 @pytest.fixture(scope="module")
