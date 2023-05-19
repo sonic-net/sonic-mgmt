@@ -1689,12 +1689,12 @@ class QosSaiBase(QosBase):
             "show interface portchannel -n asic{} -d all".format(
                 dst_asic.asic_index))['stdout']
         regx = re.compile("(PortChannel[0-9]+)")
-        bp_portchannels= []
-        for l in portchannels.split("\n"):
-            if "-BP" in l:
-                match = regx.search(l)
+        bp_portchannels = []
+        for line in portchannels.split("\n"):
+            if "-BP" in line:
+                match = regx.search(line)
                 if match:
-                    bp_portchannels.append(match.group(1))
+                    bp_portchannels.append(match.group(1ine))
         if not bp_portchannels:
             raise RuntimeError(
                 "Couldn't find the backplane porchannels from {}".format(
@@ -1725,7 +1725,7 @@ class QosSaiBase(QosBase):
         mapping = {}
         ip_address_out = dut_asic.command("show ip interface -n asic{}".format(
             dut_asic.asic_index))['stdout']
-        re_pattern = re.compile("^([^ ]*) [ ]*([0-9\.]*)\/")
+        re_pattern = re.compile(r"^([^ ]*) [ ]*([0-9\.]*)\/")
         for line in ip_address_out.split("\n"):
             match = re_pattern.search(line)
             if match:
