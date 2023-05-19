@@ -1840,8 +1840,8 @@ class QosSaiBase(QosBase):
                 dst_keys.append(k)
 
         for k in dst_keys:
-            dst_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
-                src_asic.asic_index,
+            dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
+                dst_asic.asic_index,
                 dutConfig["testPorts"][k]))
 
         if src_asic == dst_asic:
