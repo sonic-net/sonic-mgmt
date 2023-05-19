@@ -211,9 +211,8 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "-i", "--inventory",
-        type=str,
+        nargs="+",
         dest="inventory",
-        required=True,
         help="Ansible inventory file")
 
     parser.add_argument(
