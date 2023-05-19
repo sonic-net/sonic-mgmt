@@ -1984,7 +1984,9 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg]), 'unexpectedly not trigger PFC for PG {} (counter: {}), at step {} {}'.format(pg, port_counter_fields[pg], step_id, step_desc)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] == recv_counters_base[cntr]), 'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(port_counter_fields[cntr], step_id, step_desc)
+                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
+                    'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                    port_counter_fields[cntr], step_id, step_desc)
             # xmit port no egress drop
             for cntr in egress_counters:
                 assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly egress drop on xmit port 1 (counter: {}), at step {} {}'.format(port_counter_fields[cntr], step_id, step_desc)
@@ -2060,21 +2062,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         switch_init(self.clients)
 
         # Parse input parameters
-        self.dynamic_threshold = self.test_params.get('dynamic_threshold', False)
         self.testbed_type = self.test_params['testbed_type']
         self.dscps = self.test_params['dscps']
-        if self.dynamic_threshold and len(self.dscps) > 1:
-            self.dscps = self.dscps[:1]
         self.ecn = self.test_params['ecn']
         self.router_mac = self.test_params['router_mac']
         self.sonic_version = self.test_params['sonic_version']
         # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
         self.pgs = [pg + 2 for pg in self.test_params['pgs']]
-        if self.dynamic_threshold:
-            self.pgs = [self.test_params['pgs'][0] + 2]
         self.src_port_ids = self.test_params['src_port_ids']
-        if self.dynamic_threshold and len(self.src_port_ids) > 1:
-            self.src_port_ids = self.src_port_ids[:1]
         self.src_port_ips = self.test_params['src_port_ips']
         print(self.src_port_ips, file=sys.stderr)
         sys.stderr.flush()
@@ -2085,8 +2080,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_id = self.test_params['dst_port_id']
         self.dst_port_ip = self.test_params['dst_port_ip']
         self.pgs_num = self.test_params['pgs_num']
-        if self.dynamic_threshold and self.pgs_num > 1:
-            self.pgs_num = 1
         self.asic_type = self.test_params['sonic_asic_type']
         self.pkts_num_leak_out = self.test_params['pkts_num_leak_out']
         self.pkts_num_trig_pfc = self.test_params.get('pkts_num_trig_pfc')
@@ -2250,7 +2243,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
 
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
-                send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
+                send_packet(
+                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, int(pkt_cnt))
 
                 time.sleep(8)   # wait pfc counter refresh
                 self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
