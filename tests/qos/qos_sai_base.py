@@ -1589,10 +1589,20 @@ class QosSaiBase(QosBase):
             return
         src_asic = get_src_dst_asic_and_duts['src_asic']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dst_keys = []
+        for k in dutConfig["testPorts"].keys():
+            if re.search("dst_port.*ip", k):
+                dst_keys.append(k)
+
+        for k in dst_keys:
+            dst_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
+                src_asic.asic_index,
+                dutConfig["testPorts"][k]))
+
         if src_asic == dst_asic:
             yield
             return
-        dst_ip = dutConfig["testPorts"]["dst_port_ip"]
+
         portchannels = dst_asic.command(
             "show interface portchannel -n asic{} -d all".format(
                 dst_asic.asic_index))['stdout']
@@ -1609,10 +1619,6 @@ class QosSaiBase(QosBase):
                     bp_portchannels))
 
         ip_address_mapping = self.get_interface_ip(dst_asic)
-        dst_keys = []
-        for k in dutConfig["testPorts"].keys():
-            if re.search("dst_port.*ip", k):
-                dst_keys.append(k)
 
         for dst_index in range(len(dst_keys)):
             src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
