@@ -17,7 +17,7 @@ SONIC_MGMT_DIR = os.path.dirname(ANSIBLE_DIR)
 TESTBED_FILE = 'testbed.yaml'
 SONIC_TESTBED_HEALTH_FILE = 'testbed_ping.json'
 SERVER_INVENTORY = "veos"
-GROUPS = ['str', 'str2', 'strsvc']
+GROUPS = ['str', 'str2', 'strsvc', 'strsvc2']
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)

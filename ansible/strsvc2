@@ -13,9 +13,8 @@ all:
         ansible_ssh_user: root
         ansible_ssh_pass: root
       hosts:
-       svc2-1:
-         ansible_host: 10.206.144.253
-
+        svc5-1:
+          ansible_host: 10.206.144.253
 fanout:
   hosts:
     svcstr2-7260cx3-acs-2:
@@ -47,7 +46,62 @@ sonic_cisco_sup:
       ansible_host: 10.206.144.119
       num_asics: 16
       asic_name: Q200
+      serial: FOC2545N2CA
+      base_mac: D4:77:98:D4:37:30
+      syseeprom_info:
+        "0x21": "8800-RP"
+        "0x22": "1A4841"
+        "0x23": "FOC2545N2CA"
+        "0x24": "D4:77:98:D4:37:30"
+        "0x26": "1"
+        "0x28": "x86_64-8800_rp-r0"
+        "0x2A": "8"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x7B911756"
+      skip_logical_modules:
+          'supervisor':
+            - SUPERVISOR1
+          'line-cards':
+            - LINE-CARD0
+      skip_modules:
+          'line-cards':
+            - LINE-CARD0
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'fabric-cards':
+            - FABRIC-CARD1
+            - FABRIC-CARD3
+            - FABRIC-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - psu3.0
+            - psu3.1
+            - psu3.2
+            - psu4.0
+            - psu4.1
+            - psu4.2
+            - psu5.0
+            - psu5.1
+            - psu5.2
       asics_present: [0,1,4,5,8,9,10,11,12,13]
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 
 sonic_cisco_lc_400G:
   vars:
@@ -64,6 +118,31 @@ sonic_cisco_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
       ansible_host: 10.206.144.120
       model: 'Cisco-88-LC0-36FH-M-O36'
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+      syseeprom_info:
+        "0x21": "88-LC0-36FH-M"
+        "0x22": "1B0150"
+        "0x23": "FOC2543P5E2"
+        "0x24": "C4:4D:84:E0:D6:20"
+        "0x26": "4"
+        "0x28": "x86_64-88_lc0_36fh_m-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x91966E8F"
     svcstr2-8800-lc4-1:
       hwsku: Cisco-88-LC0-36FH-M-O36
       sonic_hwsku: Cisco-88-LC0-36FH-M-O36
@@ -73,6 +152,31 @@ sonic_cisco_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::c/128,2603:10e2:400::d/128,2603:10e2:400::e/128]
       ansible_host: 10.206.144.123
       model: 'Cisco-88-LC0-36FH-M-O36'
+      syseeprom_info:
+        "0x21": "88-LC0-36FH-M"
+        "0x22": "1B0150"
+        "0x23": "FOC2548N36J"
+        "0x24": "CC:ED:4D:C6:E3:58"
+        "0x26": "4"
+        "0x28": "x86_64-88_lc0_36fh_m-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xB4685CD5"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
     svcstr2-8800-lc2-1:
       hwsku: Cisco-88-LC0-36FH-O36
       sonic_hwsku: Cisco-88-LC0-36FH-O36
@@ -82,6 +186,31 @@ sonic_cisco_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.206.144.121
       model: 'Cisco-88-LC0-36FH-O36'
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+      syseeprom_info:
+        "0x21": "88-LC0-36FH"
+        "0x22": "1B1431"
+        "0x23": "FOC2624KGVU"
+        "0x24": "50:49:21:63:17:80"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xD876433B"
     svcstr2-8800-lc3-1:
       hwsku: Cisco-88-LC0-36FH-O36
       sonic_hwsku: Cisco-88-LC0-36FH-O36
@@ -91,6 +220,31 @@ sonic_cisco_lc_400G:
       loopback4096_ipv6: [2603:10e2:400::9/128,2603:10e2:400::a/128,2603:10e2:400::b/128]
       ansible_host: 10.206.144.122
       model: 'Cisco-88-LC0-36FH-O36'
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+      syseeprom_info:
+        "0x21": "88-LC0-36FH"
+        "0x22": "1B1431"
+        "0x23": "FOC2629NXK2"
+        "0x24": "50:49:21:3B:27:F0"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh-r0"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xCFEC3D7B"
 server:
   hosts:
     svcstr2-server-5:

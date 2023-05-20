@@ -47,7 +47,7 @@ stages:
                 set -x
 
                 cd ansible
-                INVS='str str2 strsvc'
+                INVS='str str2 strsvc strsvc2'
                 GRPS='sonic fanout server'
 
                 for inv in ${INVS}; do
