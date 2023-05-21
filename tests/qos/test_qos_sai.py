@@ -1010,7 +1010,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute, get_src_dst_asic_and_duts
+            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1039,7 +1039,6 @@ class TestQosSai(QosSaiBase):
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LossyVoq])
 
         try:
-            dst_port_id, dst_port_ip = singleMemberPortStaticRoute
             testParams = dict()
             testParams.update(dutTestParams["basicParams"])
             testParams.update({
@@ -1048,8 +1047,8 @@ class TestQosSai(QosSaiBase):
                 "pg": qosConfig[LossyVoq]["pg"],
                 "src_port_id": dutConfig["testPorts"]["src_port_id"],
                 "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-                "dst_port_id": dst_port_id,
-                "dst_port_ip": dst_port_ip,
+                "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+                "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
                 "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
                 "flow_config": flow_config,
                 "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
