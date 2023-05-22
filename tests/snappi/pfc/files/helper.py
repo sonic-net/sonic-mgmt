@@ -427,7 +427,7 @@ def __verify_results(rows,
         speed_gbps (int): link speed in Gbps
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
-        pfc_pause_zero_src_mac (bool): if pause frames are expected to have zero source MAC
+        pfc_pause_zero_src_mac (bool): if pause frames have zero source MAC
         headroom_test_params (array): 2 element array if the associated pfc pause quanta
             results in no packet drop [pfc_delay, headroom_result]
     Returns:
