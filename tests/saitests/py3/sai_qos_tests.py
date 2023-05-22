@@ -108,19 +108,19 @@ def get_ip_addr():
         yield "192.0.0.{}".format(val)
 
 
-def get_udp_port():
+def get_tcp_port():
     val = 1234
     while True:
         if val == 65535:
-            raise RuntimeError("We ran out of udp ports!")
+            raise RuntimeError("We ran out of tcp ports!")
         val = max(val, (val+10)%65535)
         yield val
 
 
-UDP_PORT_GEN = get_udp_port()
+TCP_PORT_GEN = get_tcp_port()
 IP_ADDR = get_ip_addr()
 
-def construct_udp_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, udp_sport, udp_dport, **kwargs):
+def construct_tcp_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, tcp_sport, tcp_dport, **kwargs):
     ecn = kwargs.get('ecn', 1)
     ip_id = kwargs.get('ip_id', None)
     ttl = kwargs.get('ttl', None)
@@ -134,8 +134,8 @@ def construct_udp_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan,
         'ip_src': src_ip,
         'ip_dst': dst_ip,
         'ip_tos': tos,
-        'udp_sport':udp_sport,
-        'udp_dport':udp_dport
+        'tcp_sport':tcp_sport,
+        'tcp_dport':tcp_dport
     }
     if ip_id is not None:
         pkt_args['ip_id'] = ip_id
@@ -148,7 +148,7 @@ def construct_udp_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan,
         pkt_args['vlan_vid'] = int(src_vlan)
         pkt_args['vlan_pcp'] = dscp
 
-    pkt = simple_udp_packet(**pkt_args)
+    pkt = simple_tcp_packet(**pkt_args)
 
     if exp_pkt:
         masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
@@ -165,13 +165,13 @@ def construct_udp_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan,
         return pkt
 
 
-def get_multiple_flows_udp(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pkt_len, src_details, packets_per_port=1):
+def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pkt_len, src_details, packets_per_port=1):
     '''
         Returns a dict of format:
         src_id : [list of (pkt, exp_pkt) pairs that go to the given dst_id]
     '''
 
-    def get_rx_port_udp(dp, src_port_id, pkt, exp_pkt):
+    def get_rx_port_pkt(dp, src_port_id, pkt, exp_pkt):
         send_packet(dp, src_port_id, pkt, 1)
 
         result = dp.dataplane.poll(
@@ -187,32 +187,40 @@ def get_multiple_flows_udp(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl
     for src_tuple in src_details:
         num_of_pkts = 0
         while (num_of_pkts < packets_per_port):
-            pkt_args = {
-                'ip_ecn':ecn,
-                'ip_ttl':ttl}
             ip_Addr = next(IP_ADDR)
             print("Trying {} => {}, src_ip:{} dstip:{}".format(src_tuple[0], dst_id, ip_Addr, dst_ip), file=sys.stderr)
-            pkt_args = [
-                pkt_len,
-                dst_mac or dp.dataplane.get_mac(0, dst_id),
-                dp.dataplane.get_mac(0, src_tuple[0]),
-                ip_Addr,
-                #src_tuple[1],
-                dst_ip,
-                dscp,
-                src_vlan,
-                1234,
-                next(UDP_PORT_GEN)]
-            pkt = construct_udp_pkt(*pkt_args, ip_ecn=ecn, ip_ttl=ttl)
-            exp_pkt = construct_udp_pkt(*pkt_args, ip_ecn=ecn, ip_ttl=ttl-1, exp_pkt=True)
+            pkt_args = {
+                'ip_ecn':ecn,
+                'ip_ttl':ttl,
+                'pktlen':pkt_len,
+                'eth_dst':dst_mac or dp.dataplane.get_mac(0, dst_id),
+                'eth_src':dp.dataplane.get_mac(0, src_tuple[0]),
+                'ip_src':ip_Addr,
+                'ip_dst':dst_ip,
+                'ip_dscp':dscp,
+                'tcp_sport':1234,
+                'tcp_dport':next(TCP_PORT_GEN)}
+            if src_vlan:
+                pkt_args.update({dl_vlan_enable:True})
+                pkt_args.update({vlan_vid:src_vlan})
+            pkt = simple_tcp_packet(**pkt_args)
 
-            if get_rx_port_udp(dp, src_tuple[0], pkt, exp_pkt) == dst_id:
+            masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
+            if src_vlan is not None:
+                masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
+            if get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt) == dst_id:
                 try:
-                    all_pkts[src_tuple[0]].append((pkt, exp_pkt))
+                    all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt))
                     num_of_pkts+=1
                 except KeyError:
                     all_pkts[src_tuple[0]] = []
-                    all_pkts[src_tuple[0]].append((pkt, exp_pkt))
+                    all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt.exp_pkt))
                     num_of_pkts+=1
     return all_pkts
 
@@ -269,7 +277,7 @@ def construct_ip_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, 
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
         if src_vlan is not None:
             masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
         return masked_exp_pkt
@@ -530,7 +538,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                         continue
 
             # Read Counters
-            time.sleep(10)
+            time.sleep(3)
             port_results, queue_results = sai_thrift_read_port_counters(self.dst_client, asic_type, sai_dst_port_id)
 
             print(list(map(operator.sub, queue_results,
@@ -1368,7 +1376,7 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
             self.test_params['src_port_2_ip'],
             self.dataplane.get_mac(0, int(self.test_params['src_port_2_id']))))
 
-        all_pkts = get_multiple_flows_udp(
+        all_pkts = get_multiple_flows(
                 self,
                 pkt_dst_mac,
                 dst_port_id,
@@ -4184,13 +4192,17 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt=simple_tcp_packet(pktlen=packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = get_multiple_flows(self,
+                                router_mac if router_mac != '' else dst_port_mac,
+                                dst_port_id,
+                                dst_port_ip,
+                                None,
+                                dscp,
+                                ecn,
+                                ttl,
+                                packet_length,
+                                [(src_port_id, src_port_ip)],
+                                )[src_port_id][0][0]
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -4274,12 +4286,13 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
                     self.src_client, buf_pool_roid) - buffer_pool_wm_base
-                print("lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
-                      * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size), file=sys.stderr)
-                assert(buffer_pool_wm <= (expected_wm + \
-                       upper_bound_margin) * cell_size)
-                assert((expected_wm - lower_bound_margin)
-                       * cell_size <= buffer_pool_wm)
+                msg = "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
+                      * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size)
+                print(msg, file=sys.stderr)
+                assert buffer_pool_wm <= (expected_wm + \
+                       upper_bound_margin) * cell_size, msg
+                assert (expected_wm - lower_bound_margin)\
+                       * cell_size <= buffer_pool_wm, msg
 
                 pkts_num=pkts_inc
 
@@ -4481,7 +4494,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
 
     def runTest(self):
         time.sleep(5)
-        switch_init(self.client)
+        switch_init(self.clients)
         # Parse input parameters
         ingress_counters, egress_counters = get_counter_names(self.test_params['sonic_version'])
         ecn = int(self.test_params['ecn'])
@@ -4506,73 +4519,67 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = 64
 
         cell_occupancy = (packet_length + cell_size - 1) // cell_size
-        dst_port_ids.remove(src_port_id)
-        dst_port_ips.remove(src_port_ip)
-        dst_port_macs.remove(src_port_mac)
         ttl = 64
         assert(router_mac != '')
         pkt_dst_mac = router_mac
 
         # Correct any destination ports that may be in a lag
+        pkts = {}
         for i in range(len(dst_port_ids)):
-            dst_port_id = dst_port_ids[i]
-            dst_port_ip = dst_port_ips[i]
-            real_dst_port_id = get_rx_port(
-                self,
-                0,
-                src_port_id,
-                router_mac,
-                dst_port_ip, src_port_ip
-            )
-            if real_dst_port_id != dst_port_id:
-                dst_port_ids[i] = real_dst_port_id
+            pkts[dst_port_ids[i]] = []
+            for pri in prio_list:
+                pkts[dst_port_ids[i]].append(get_multiple_flows(self,
+                    router_mac,
+                    dst_port_ids[i],
+                    dst_port_ips[i],
+                    src_port_vlan,
+                    pri,
+                    ecn,
+                    ttl,
+                    packet_length,
+                    [(src_port_id, src_port_ip)],
+                    packets_per_port=1)[src_port_id][0][0])
 
         margin = int(self.test_params['pkts_num_margin']) if self.test_params.get(
             'pkts_num_margin') else 8
 
-        recv_counters_base, _ = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
-        dst_q_wm_res_bases = [sai_thrift_read_port_watermarks(self.client, port_list[sid])[0] for sid in dst_port_ids]
+        recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
+        dst_q_wm_res_bases = [sai_thrift_read_port_watermarks(self.dst_client, port_list['dst'][sid])[0] for sid in dst_port_ids]
         print("queue watermark base for all port is {}".format(dst_q_wm_res_bases), file=sys.stderr)
 
         try:
             for i in range(len(prio_list)):
                 dscp = prio_list[i]
                 queue = queue_list[i]
-                for j in range(len(dst_port_ids)):
-                    dst_port_id = dst_port_ids[j]
-                    dst_port_ip = dst_port_ips[j]
-                    self.sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
-                    pkt = construct_ip_pkt(packet_length,
-                                           pkt_dst_mac,
-                                           src_port_mac,
-                                           src_port_ip,
-                                           dst_port_ip,
-                                           dscp,
-                                           src_port_vlan,
-                                           ecn=ecn,
-                                           ttl=ttl)
+                for p_cnt in range(len(dst_port_ids)):
+                    dst_port = dst_port_ids[p_cnt]
+                    self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port])
 
                     # leakout
                     if 'cisco-8000' in asic_type:
-                        assert fill_leakout_plus_one(self, src_port_id,
-                               dst_port_id, pkt, queue, asic_type), \
-                               "Failed to fill leakout on dest port {}".format(dst_port_id)
+                        fill_leakout_plus_one(self, src_port_id,
+                               dst_port, pkts[dst_port][i], queue, asic_type)
 
                     # send packet
-                    send_packet(self, src_port_id, pkt, pkt_count)
-                    self.sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+                    send_packet(self, src_port_id, pkts[dst_port][i], pkt_count)
+                    self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port])
 
             time.sleep(2)
             # get all q_wm values for all port
-            dst_q_wm_res_all_port = [sai_thrift_read_port_watermarks(self.client, port_list[sid])[0]
+            dst_q_wm_res_all_port = [sai_thrift_read_port_watermarks(self.dst_client, port_list['dst'][sid])[0]
                                      for sid in dst_port_ids]
             print("queue watermark for all port is {}".format(dst_q_wm_res_all_port), file=sys.stderr)
             expected_wm = pkt_count * cell_occupancy
             # verification of queue watermark for all ports
             for qwms in dst_q_wm_res_all_port:
                 for qwm in qwms[:-1]:
-                    print("queue_wm value is {}".format(qwm), file=sys.stderr)
-                    assert((expected_wm - margin) * cell_size <= qwm <= (expected_wm + margin) * cell_size)
+                    msg = "queue_wm value is {}, lower limit:{}, upper limit:{}".format(
+                            qwm,
+                            (expected_wm - margin) * cell_size,
+                            (expected_wm + margin) * cell_size)
+
+                    assert (expected_wm - margin) * cell_size <= qwm\
+                            <= (expected_wm + margin) * cell_size, msg
 
         finally:
-            self.sai_thrift_port_tx_enable(self.client, asic_type, dst_port_ids)
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, dst_port_ids)
