@@ -1461,6 +1461,11 @@ class QosSaiBase(QosBase):
         dut_asic = get_src_dst_asic_and_duts['src_asic']
         duthost = get_src_dst_asic_and_duts['src_dut']
 
+        # This is not needed in T2.
+        if dutTestParams["topo"] in ['t2']:
+            yield
+            return
+
         dut_asic.command('sonic-clear fdb all')
         dut_asic.command('sonic-clear arp')
 

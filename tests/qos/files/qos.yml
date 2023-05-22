@@ -2938,7 +2938,7 @@ qos_params:
                     q4_num_of_pkts: 75
                     q5_num_of_pkts: 70
                     q6_num_of_pkts: 70
-                    limit: 40
+                    limit: 80
                 wrr_chg:
                     ecn: 1
                     q0_num_of_pkts: 40
@@ -2948,7 +2948,7 @@ qos_params:
                     q4_num_of_pkts: 150
                     q5_num_of_pkts: 40
                     q6_num_of_pkts: 40
-                    limit: 40
+                    limit: 80
                     lossy_weight: 8
                     lossless_weight: 30
             400000_40m:
@@ -3102,7 +3102,7 @@ qos_params:
                     q4_num_of_pkts: 75
                     q5_num_of_pkts: 70
                     q6_num_of_pkts: 70
-                    limit: 40
+                    limit: 80
                 wrr_chg:
                     ecn: 1
                     q0_num_of_pkts: 40
@@ -3112,7 +3112,7 @@ qos_params:
                     q4_num_of_pkts: 150
                     q5_num_of_pkts: 40
                     q6_num_of_pkts: 40
-                    limit: 40
+                    limit: 80
                     lossy_weight: 8
                     lossless_weight: 30
             400000_300m:
@@ -3430,7 +3430,7 @@ qos_params:
                     q4_num_of_pkts: 75
                     q5_num_of_pkts: 70
                     q6_num_of_pkts: 70
-                    limit: 40
+                    limit: 80
                 wrr_chg:
                     ecn: 1
                     q0_num_of_pkts: 40
@@ -3440,28 +3440,28 @@ qos_params:
                     q4_num_of_pkts: 150
                     q5_num_of_pkts: 40
                     q6_num_of_pkts: 40
-                    limit: 40
+                    limit: 80
                     lossy_weight: 8
                     lossless_weight: 30
             wrr:
                 ecn: 1
-                q0_num_of_pkts: 140
-                q1_num_of_pkts: 140
-                q2_num_of_pkts: 140
-                q3_num_of_pkts: 150
-                q4_num_of_pkts: 150
-                q5_num_of_pkts: 140
-                q6_num_of_pkts: 140
+                q0_num_of_pkts: 70
+                q1_num_of_pkts: 70
+                q2_num_of_pkts: 70
+                q3_num_of_pkts: 75
+                q4_num_of_pkts: 75
+                q5_num_of_pkts: 70
+                q6_num_of_pkts: 70
                 limit: 80
             wrr_chg:
                 ecn: 1
-                q0_num_of_pkts: 80
-                q1_num_of_pkts: 80
-                q2_num_of_pkts: 80
-                q3_num_of_pkts: 300
-                q4_num_of_pkts: 300
-                q5_num_of_pkts: 80
-                q6_num_of_pkts: 80
+                q0_num_of_pkts: 40
+                q1_num_of_pkts: 40
+                q2_num_of_pkts: 40
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 40
+                q6_num_of_pkts: 40
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
