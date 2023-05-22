@@ -89,7 +89,6 @@ class Sonic(host_device.HostDevice):
     def run(self):
         data = {}
         debug_data = {}
-        log_first_line = None
         quit_enabled = False
         v4_routing_ok = False
         v6_routing_ok = False
