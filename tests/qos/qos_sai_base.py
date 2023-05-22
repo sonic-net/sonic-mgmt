@@ -1836,7 +1836,7 @@ class QosSaiBase(QosBase):
 
         return dualtor_ports_set
 
-    @pytest.fixture(scope='function', autouse=False)
+    @pytest.fixture(scope='function', autouse=True)
     def set_static_route(
             self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
         # Get portchannels.
