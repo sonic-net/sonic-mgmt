@@ -1081,30 +1081,30 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms62-t1-8111-01
-  group-name: vms62-3
+- conf-name: vms63-t1-8111-01
+  group-name: vms63-5
   topo: t1-lag
   ptf_image_name: docker-ptf
-  ptf: vms62-3
+  ptf: vms63-5
   ptf_ip: 10.64.247.50/23
   ptf_ipv6:
-  server: server_62
-  vm_base: VM62212
+  server: server_63
+  vm_base: VM63056
   dut:
     - str3-8111-01
   inv_name: str3
   auto_recover: 'True'
   comment: jcai
 
-- conf-name: vms62-t1-8111-02
-  group-name: vms62-4
+- conf-name: vms63-t1-8111-02
+  group-name: vms63-6
   topo: t1-lag
   ptf_image_name: docker-ptf
-  ptf: vms62-4
+  ptf: vms63-6
   ptf_ip: 10.64.247.51/23
   ptf_ipv6:
-  server: server_62
-  vm_base: VM62236
+  server: server_63
+  vm_base: VM63080
   dut:
     - str3-8111-02
   inv_name: str3
