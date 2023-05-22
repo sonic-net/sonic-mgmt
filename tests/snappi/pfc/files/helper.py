@@ -135,8 +135,6 @@ def run_pfc_test(api,
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
 
-    pfc_pause_zero_src_mac = True if pfc_pause_src_mac == "00:00:00:00:00:00" else False
-
     """ Verify experiment results """
     __verify_results(rows=flow_stats,
                      duthost=duthost,
@@ -150,7 +148,6 @@ def run_pfc_test(api,
                      speed_gbps=speed_gbps,
                      test_flow_pause=test_traffic_pause,
                      tolerance=TOLERANCE_THRESHOLD,
-                     pfc_pause_zero_src_mac=pfc_pause_zero_src_mac,
                      headroom_test_params=headroom_test_params)
 
 
@@ -411,7 +408,6 @@ def __verify_results(rows,
                      speed_gbps,
                      test_flow_pause,
                      tolerance,
-                     pfc_pause_zero_src_mac,
                      headroom_test_params=None):
     """
     Verify if we get expected experiment results
@@ -427,7 +423,6 @@ def __verify_results(rows,
         speed_gbps (int): link speed in Gbps
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
-        pfc_pause_zero_src_mac (bool): if pause frames have zero source MAC
         headroom_test_params (array): 2 element array if the associated pfc pause quanta
             results in no packet drop [pfc_delay, headroom_result]
     Returns:
@@ -524,8 +519,7 @@ def __verify_results(rows,
                                   'Total TX dropped packets {} should be 0'.
                                   format(dropped_packets))
 
-    # Check if pause frames with zero source MAC are counted in the PFC counters
-    if pfc_pause_zero_src_mac:
+        # Check if pause frames are counted in the PFC counters
         for peer_port, prios in flow_port_config[1].items():
             for prio in prios:
                 pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio)
