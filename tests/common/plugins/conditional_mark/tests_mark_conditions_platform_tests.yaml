@@ -669,9 +669,11 @@ platform_tests/test_reboot.py::test_warm_reboot:
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
-    reason: "Skip watchdog reboot test for Nokia 7215"
+    reason: "Skip watchdog reboot test for Wistron / Nokia 7215 / cisco platform x86_64-8102_64h_o-r0"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "'t1' in topo_type and platform in ['x86_64-8102_64h_o-r0']"
 
 #######################################
 ##### test_sequential_restart.py  #####
