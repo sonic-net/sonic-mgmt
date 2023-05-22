@@ -375,6 +375,8 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_3_ip = self.test_params['dst_port_3_ip']
         self.dst_port_3_mac = self.dataplane.get_mac(0, self.dst_port_3_id)
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
+        self.test_port_ids = self.test_params.get("testPortIds", None)
+        self.test_port_ips = self.test_params.get("testPortIps", None)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -394,6 +396,13 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
                                        self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
+
+        # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
+        if self.test_port_ids and self.test_port_ips:
+            for portid in self.test_port_ids:
+                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
+                                     'ping -q -c 3 {}'.format(self.test_port_ips[portid]['peer_addr']))
+
         time.sleep(8)
 
 
