@@ -70,6 +70,7 @@ class Sonic(host_device.HostDevice):
                 # Disconnect and reconnect as a possible workaround?
                 self.disconnect()
                 self.connect()
+        self.log("Unable to get the output of '{}' after {} attempts".format(cmd, attempts))
         return ""
 
     def disconnect(self):
@@ -88,7 +89,6 @@ class Sonic(host_device.HostDevice):
     def run(self):
         data = {}
         debug_data = {}
-        run_once = False
         log_first_line = None
         quit_enabled = False
         v4_routing_ok = False
@@ -139,13 +139,8 @@ class Sonic(host_device.HostDevice):
                 self.log('BGP routing for ipv6 OK: %s' % (v6_routing_ok))
             info["bgp_route_v6"] = v6_routing_ok
 
-            if not run_once:
-                self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = \
-                    self.parse_bgp_neighbor_once(bgp_neig_output)
-                if self.gr_timeout is not None:
-                    log_first_line = "session_begins_%f" % cur_time
-                    self.do_cmd("send log message %s" % log_first_line)
-                    run_once = True
+            self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = \
+                self.parse_bgp_neighbor_once(bgp_neig_output)
 
             data[cur_time] = info
             if self.DEBUG:
