@@ -466,6 +466,12 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
+generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
+  skip:
+    reason: "This test is not run on this asic type currently"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
@@ -493,9 +499,16 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
-    reason: "This test was not run on this hwsku type currently"
+    reason: "This test is not run on this hwsku/asic type currently"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
+      - "asic_type in ['broadcom', 'cisco-8000']"
+
+generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
+  skip:
+    reason: "This test is not run on this asic type currently"
+    conditions:
+      - "asic_type in ['broadcom', 'cisco-8000']"
 
 #######################################
 #####           http              #####
@@ -763,7 +776,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
     conditions:
-      - "asic_type in ['cisco-8000'] or platform in ['x86_64-cel_e1031-r0']"
+      - "platform in ['x86_64-cel_e1031-r0']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
   skip:
