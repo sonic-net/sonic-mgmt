@@ -464,42 +464,46 @@ def _check_single_intf_status(intf_status, expected_side):
     return failed, failed_reason
 
 
-def _check_dut_mux_status(duthosts, duts_minigraph_facts):
+def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 
-    def _verify_show_mux_status():
-        duts_mux_status = duthosts.show_and_parse("show mux status")
+    def _verify_show_mux_status(**kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        dut_mux_status = dut.show_and_parse("show mux status")
 
-        duts_parsed_mux_status.clear()
+        dut_parsed_mux_status = {}
         dut_wrong_mux_status_ports = []
-        for dut_hostname, dut_mux_status in list(duts_mux_status.items()):
-            logger.info('Verify that "show mux status" has output ON {}'.format(dut_hostname))
-            if len(dut_mux_status) != len(port_cable_types):
-                err_msg_from_mux_status.append("Some ports doesn't have 'show mux status' output")
-                return False
+        check_result = {"failed": False, "check_item": "check_mux_simulator", "host": dut.hostname, "error_msg": []}
+        logger.info('Verify that "show mux status" has output ON {}'.format(dut.hostname))
+        if len(dut_mux_status) != len(port_cable_types):
+            check_result["error_msg"] = "Some ports doesn't have 'show mux status' output"
+            check_result["failed"] = True
 
-            dut_parsed_mux_status = {}
-            for row in dut_mux_status:
-                if row["status"] not in ("active", "standby"):
-                    err_msg_from_mux_status.append('Unexpected mux status "{}", \
-                                                   please check output of "show mux status"'
-                                                   .format(row['status']))
-                    dut_wrong_mux_status_ports.append(row['port'])
+        dut_parsed_mux_status = {}
+        for row in dut_mux_status:
+            if row["status"] not in ("active", "standby"):
+                check_result["error_msg"].append('Unexpected mux status "{}", please check output of "show mux status"'
+                                                 .format(row['status']))
+                dut_wrong_mux_status_ports.append(row['port'])
 
-                port_name = row['port']
-                port_idx = str(duts_minigraph_facts[dut_hostname][0][1]['minigraph_port_indices'][port_name])
-                mux_status = 0 if row["status"] == "standby" else 1
-                dut_parsed_mux_status[port_idx] = {"status": mux_status, "cable_type": port_cable_types[port_idx]}
-                if "hwstatus" in row:
-                    dut_parsed_mux_status[port_idx]["hwstatus"] = row["hwstatus"]
+            port_name = row['port']
+            port_idx = str(duts_minigraph_facts[dut.hostname][0][1]['minigraph_port_indices'][port_name])
+            mux_status = 0 if row["status"] == "standby" else 1
+            dut_parsed_mux_status[port_idx] = {"status": mux_status, "cable_type": port_cable_types[port_idx]}
+            if "hwstatus" in row:
+                dut_parsed_mux_status[port_idx]["hwstatus"] = row["hwstatus"]
 
-            duts_parsed_mux_status[dut_hostname] = dut_parsed_mux_status
+        check_result["parsed_mux_status"] = dut_parsed_mux_status
 
-            if len(dut_wrong_mux_status_ports) != 0:
-                return False
+        if len(dut_wrong_mux_status_ports) != 0:
+            check_result["failed"] = True
 
+        results[dut.hostname] = check_result
+
+    def _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
         logger.info('Verify that the mux status on both ToRs are consistent')
-        upper_tor_mux_status = duts_parsed_mux_status[duthosts[0].hostname]
-        lower_tor_mux_status = duts_parsed_mux_status[duthosts[1].hostname]
+        upper_tor_mux_status = duts_parsed_mux_status[dut_upper_tor.hostname]
+        lower_tor_mux_status = duts_parsed_mux_status[dut_lower_tor.hostname]
 
         logger.info('Verify that mux status is consistent on both ToRs.')
         for port_idx, cable_type in list(port_cable_types.items()):
@@ -550,10 +554,23 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
     duts_parsed_mux_status = {}
     err_msg_from_mux_status = []
     dut_wrong_mux_status_ports = []
-    if not _verify_show_mux_status():
+
+    init_result = {"failed": False, "check_item": "check_mux_simulator"}
+    run_result = parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+
+    for result in run_result.values():
+        if result['failed'] is True:
+            err_msg = result["error_msg"][-1]
+            return False, err_msg, {}
+
+    duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
+    duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
+
+    if not _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
         if len(dut_wrong_mux_status_ports) != 0:
             _probe_mux_ports(duthosts, dut_wrong_mux_status_ports)
-        if not wait_until(30, 5, 0, _verify_show_mux_status):
+        if not wait_until(30, 5, 0, _verify_inconsistent_mux_status,
+                          duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
             if err_msg_from_mux_status:
                 err_msg = err_msg_from_mux_status[-1]
             else:
@@ -601,7 +618,7 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
         failed = False
         reason = ''
 
-        check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts)
+        check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
         if not check_passed:
             logger.warning(err_msg)
             results['failed'] = True
