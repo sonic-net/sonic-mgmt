@@ -424,6 +424,7 @@ def test_stop_request_next_server_after_reject(
         tacacs_creds, ptfhost, check_tacacs, remote_user_client, local_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    # not ignore on version >= 202305
     skip_versions = ["201811", "201911", "202012", "202106", "202111", "202205", "202211"]
     skip_release(duthost, skip_versions)
 
