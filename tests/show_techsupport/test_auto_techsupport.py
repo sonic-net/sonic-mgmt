@@ -637,7 +637,7 @@ def is_techsupport_generation_in_expected_state(duthost, expected_in_progress=Tr
         num_of_process = len(duthost.shell(get_running_tech_procs_cmd)['stdout_lines']) - processes_to_be_ignored
         logger.info('Number of running autotechsupport processes: {}'.format(num_of_process))
 
-        if num_of_process == 1:
+        if num_of_process >= 1:
             techsupport_in_progress = True
 
         is_in_expected_state = False
