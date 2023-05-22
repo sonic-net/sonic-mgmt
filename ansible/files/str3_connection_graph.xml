@@ -78,6 +78,8 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7060-acs-fan-01" EndPort="Ethernet25/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet22/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-dx010-acs-1" EndPort="Ethernet124" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet24/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-acs-serv-63" EndPort="ens4f0" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet25/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-05" EndPort="etp31" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet26/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-06" EndPort="etp31" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet27/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet252" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet32/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-04" EndPort="Ethernet1/1" StartDevice="str3-8102-01" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-04" EndPort="Ethernet2/1" StartDevice="str3-8102-01" StartPort="Ethernet4"/>
@@ -1703,7 +1705,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet13/1" vlanids="577-608"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet5/1" vlanids="673-736"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet7/1" vlanids="737-800"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet6/1" vlanids="801-864,1861-1864"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet6/1" vlanids="801-864,1763,1796,1861-1864"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet14/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet15/1" vlanids="865-928"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet16/1" vlanids="929-992"/>
@@ -1712,14 +1714,16 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet19/1" vlanids="1121-1156"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet22/1" vlanids="1157-1598,1601-1612"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet24/1" vlanids="1669-1698"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids="1157-1700,1801-1864"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids="1157-1796,1801-1864"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids="1701-1764"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet27/1" vlanids="1765-1796"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1801-1863"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str3-8101-fanout-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.195/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-8101-fanout-01">
-      <InterfaceVlan mode="Trunk" portname="etp62" vlanids="801-864,1861-1864"/>
+      <InterfaceVlan mode="Trunk" portname="etp62" vlanids="801-864,1763,1796,1861-1864"/>
       <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="801"/>
       <InterfaceVlan mode="Access" portname="Ethernet4" vlanids="802"/>
       <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="809"/>
@@ -1737,6 +1741,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.178/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-8101-fanout-06">
+      <InterfaceVlan mode="Trunk" portname="etp31" vlanids="1765-1796"/>
       <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1765"/>
       <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="1766"/>
       <InterfaceVlan mode="Access" portname="Ethernet16" vlanids="1767"/>
@@ -1773,6 +1778,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.177/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-8101-fanout-05">
+      <InterfaceVlan mode="Trunk" portname="etp31" vlanids="1701-1764"/>
       <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1701"/>
       <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="1702"/>
       <InterfaceVlan mode="Access" portname="Ethernet16" vlanids="1703"/>
@@ -2322,8 +2328,8 @@
       <DeviceConsoleInfo Hostname="console-212" HwSku="Cisco" ManagementIp="10.3.145.212" Os="" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8111-01" Proxy="admin" StartDevice="console-184" StartPort="9"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8111-02" Proxy="admin" StartDevice="console-184" StartPort="10"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8111-01" Proxy="admin" StartDevice="console-184" StartPort="11"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8111-02" Proxy="admin" StartDevice="console-184" StartPort="12"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-fanout-05" Proxy="admin" StartDevice="console-184" StartPort="33"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-fanout-06" Proxy="admin" StartDevice="console-184" StartPort="34"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-01" Proxy="admin" StartDevice="console-197" StartPort="28"/>

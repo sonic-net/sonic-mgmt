@@ -1,0 +1,153 @@
+# Example usage:
+#
+# upgrade container by docker pull:
+#   ansible-playbook upgrade_sonic_container.yml -i lab -l devicename -e "acr_name='sonick8scue.azurecr.io'" -e "container_name_to_upgrade='docker-sonic-telemetry' -e "container_version_to_upgrade='latest'" -e "feature_name='telemetry'
+- hosts: all
+  gather_facts: no
+  tasks:
+
+    - name: Add DUTs defined in testbed
+      block:
+        - name: Set default testbed file
+          set_fact:
+            testbed_file: testbed.yaml
+          when: testbed_file is not defined
+
+        - name: Gather testbed information
+          test_facts:
+            testbed_name: "{{ testbed_name }}"
+            testbed_file: "{{ testbed_file }}"
+
+        - name: Stop upgrade if the target DUT doesn't belong to the testbed
+          fail: msg="The upgrade target doesn't belong to the testbed {{ testbed_name }}"
+          when: ansible_play_hosts | length == 1 and inventory_hostname not in testbed_facts['duts']
+
+        - name: Create upgrade targets group
+          add_host:
+            name: "{{ item }}"
+            groups: upgrade_targets
+          loop: "{{ testbed_facts['duts'] }}"
+      delegate_to: localhost
+      run_once: True
+      when:
+        - testbed_name is defined
+
+    - name: Add DUTs if no testbed present
+      add_host:
+        name: "{{ item }}"
+        groups: upgrade_targets
+      loop: "{{ ansible_play_hosts }}"
+      delegate_to: localhost
+      run_once: True
+      when:
+        - testbed_name is not defined
+
+- hosts: upgrade_targets
+  gather_facts: no
+  vars_files:
+    - vars/k8s_acr.yml
+  environment:
+    http_proxy: "{{ proxy_env['http_proxy'] | default({}) }}"
+    https_proxy: "{{ proxy_env['https_proxy'] | default({}) }}"
+    no_proxy: "{{ proxy_env['no_proxy'] | default({}) }}"
+  tasks:
+    - set_fact:
+        real_ansible_host: "{{ ansible_ssh_host }}"
+
+    - name: Install docker python library
+      become: true
+      pip:
+        name: docker
+        state: present
+
+    # Set http proxy for docker
+    - block:
+      - name: Copy http-proxy.conf
+        become: true
+        template:
+          src="roles/sonic-common/templates/etc/systemd/system/docker.service.d/http-proxy.conf.j2"
+          dest="/etc/systemd/system/docker.service.d/http-proxy.conf"
+          owner=root
+          group=root
+          mode=0644
+        register: configfile_result
+        vars:
+          docker_proxy_list:
+            - "HTTP_PROXY={{ proxy_env['http_proxy'] }}"
+            - "HTTPS_PROXY={{ proxy_env['https_proxy'] }}"
+            - "NO_PROXY={{ proxy_env['no_proxy'] }}"
+
+      - name: Reload systemd
+        command: systemctl daemon-reload
+        become: true
+        when: configfile_result.changed
+
+      - name: Restart docker service
+        become: true
+        service:
+          name: docker
+          state: restarted
+          enabled: yes
+        when: configfile_result.changed
+
+      - name: Ensure docker service started and enabled
+        become: true
+        service:
+          name: docker
+          state: started
+          enabled: yes
+      when: proxy_env is defined
+
+    - name: Docker login
+      become: true
+      docker_login:
+        registry: "{{ acr_name }}"
+        username: "{{ acr_user }}"
+        password: "{{ acr_passwd }}"
+      register: login_result
+      retries: 10
+      delay: 5
+      until: login_result is succeeded
+
+    - name: "Pull the target container {{ acr_name }}/{{ container_name_to_upgrade }}:{{ container_version_to_upgrade }}"
+      become: true
+      docker_image:
+        name: "{{ acr_name }}/{{ container_name_to_upgrade }}:{{ container_version_to_upgrade }}"
+        source: pull
+      register: pull_result
+      until: pull_result is succeeded
+      retries: 10
+      delay: 5
+
+    # Logout docker with retry
+    - name: Docker logout
+      become: true
+      docker_login:
+        registry_url: "{{ acr_name }}"
+        state: absent
+      register: logout_result
+      retries: 10
+      delay: 5
+      until: logout_result is succeeded
+      ignore_errors: yes
+
+    - name: "Stop service {{ feature_name }}"
+      become: true
+      systemd:
+        name: "{{ feature_name }}"
+        state: stopped
+
+    - name: Delete the old container
+      become: true
+      shell: docker ps  -a | grep "{{ feature_name }}" | cut -d' ' -f1| xargs -i sudo docker rm {}
+
+    - name: Update container tag
+      become: true
+      shell: docker tag "{{ acr_name }}/{{ container_name_to_upgrade }}:{{ container_version_to_upgrade }}" "{{ container_name_to_upgrade }}:{{ container_version_to_upgrade }}"
+
+    - name: "Restart service {{ feature_name }}"
+      become: true
+      systemd:
+        name: "{{ feature_name }}"
+        state: restarted
+

@@ -1,0 +1,79 @@
+name: NightlyTest_Container_Upgrade_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+# schedules:
+#   - cron: "0 4 * * 0,2,4"
+#     displayName: Nightly Scheduler
+#     branches:
+#       include:
+#         - internal-202205
+#     always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: vms24-dual-t0-7050-1
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_ABOOT_202205)
+    displayName: "Image URL"
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202205)
+    displayName: "py_saithrift URL"
+
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "dualtor_io platform_tests"'
+    displayName: Testbed specific
+
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "platform_tests/test_cont_warm_reboot.py"
+    displayName: "Skip Scripts"
+
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
+  # Container name to upgrade
+  - name: CONTAINER_NAME_TO_UPGRADE
+    type: string
+    default: "docker-sonic-telemetry"
+
+  # Container version to upgrade to
+  - name: CONTAINER_VERSION_TO_UPGRADE
+    type: string
+    default: "latest"
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+      CONTAINER_NAME_TO_UPGRADE: ${{ parameters.CONTAINER_NAME_TO_UPGRADE }}
+      CONTAINER_VERSION_TO_UPGRADE: ${{ parameters.CONTAINER_VERSION_TO_UPGRADE }}

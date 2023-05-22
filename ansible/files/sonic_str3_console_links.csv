@@ -1,6 +1,6 @@
 StartDevice,StartPort,EndDevice,Console_type,Proxy
-console-184,9,str3-8111-01,ssh,admin
-console-184,10,str3-8111-02,ssh,admin
+console-184,11,str3-8111-01,ssh,admin
+console-184,12,str3-8111-02,ssh,admin
 console-184,33,str3-8101-fanout-05,ssh,admin
 console-184,34,str3-8101-fanout-06,ssh,admin
 console-197,28,str3-7260cx3-acs-fan-01,ssh,admin

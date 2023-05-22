@@ -68,8 +68,8 @@ vms21-t1-2700-2,vms21-2,t1-lag,docker-ptf,vms21-2,10.64.246.146/23,,server_21,VM
 vms21-dual-t0-7050-3,vms21-3,dualtor-56,docker-ptf,vms21-3,10.64.246.147/23,,server_21,VM21028,[str2-7050cx3-acs-10;str2-7050cx3-acs-11],str2,True,v-saidia
 vms21-t1-8101-01,vms61-3,t1-lag,docker-ptf,vms61-3,10.64.246.148/23,,server_61,VM61032,str3-8101-32fh-01,str3,True,v-saidia
 vms21-t1-8101-02,vms21-5,t1-lag,docker-ptf,vms21-5,10.64.246.149/23,,server_21,VM21056,str2-8101-32fh-02,str2,True,v-saidia
-vms62-t1-8111-01,vms62-3,t1-lag,docker-ptf,vms62-3,10.64.247.50/23,,server_62,VM62212,str3-8111-01,str3,True,topo_with_24_vms
-vms62-t1-8111-02,vms62-4,t1-lag,docker-ptf,vms62-4,10.64.247.51/23,,server_62,VM62236,str3-8111-02,str3,True,topo_with_24_vms
+vms63-t1-8111-01,vms63-5,t1-lag,docker-ptf,vms63-5,10.64.247.50/23,,server_63,VM63056,str3-8111-01,str3,True,topo_with_24_vms
+vms63-t1-8111-02,vms63-6,t1-lag,docker-ptf,vms63-6,10.64.247.51/23,,server_63,VM63080,str3-8111-02,str3,True,topo_with_24_vms
 vms63-t0-7060-1,vms63-1,t0,docker-ptf,vms63-1,10.64.247.42/23,,server_63,VM63000,str3-7060-acs-1,str3,True,zhaohuisun
 vms63-t0-7060-2,vms63-2,t0,docker-ptf,vms63-2,10.64.247.43/23,,server_63,VM63004,str3-7060-acs-2,str3,True,zhaohuisun
 vms63-t1-7060-3,vms63-3,t1-lag,docker-ptf,vms63-3,10.64.247.44/23,,server_63,VM63008,str3-7060-acs-3,str3,True,lipingxu

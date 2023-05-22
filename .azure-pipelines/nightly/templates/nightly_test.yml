@@ -119,6 +119,16 @@ parameters:
     type: boolean
     default: false
 
+  # Container name to upgrade
+  - name: CONTAINER_NAME_TO_UPGRADE
+    type: string
+    default: ""
+
+  # Container version to upgrade to
+  - name: CONTAINER_VERSION_TO_UPGRADE
+    type: string
+    default: ""
+
 stages:
 
   - stage: Test
@@ -134,6 +144,7 @@ stages:
           - group: KUSTO_SECRETS
           - group: GIT_SECRETS
           - group: SECRETS_JSON
+          - group: SONIC_K8S_SECRETS
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -299,6 +310,39 @@ stages:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
               PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
               SKIP_PREV_IMAGE: false
+
+          - task: Bash@3
+            displayName: "Upgrade container"
+            timeoutInMinutes: 90
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -ex
+                cd ansible
+                # Check if CONTAINER_NAME_TO_UPGRADE is not empty
+                if [[ ! -z "${CONTAINER_NAME_TO_UPGRADE}" ]]; then
+                    FEATURE_NAME=${CONTAINER_NAME_TO_UPGRADE//docker-sonic-/}
+                    echo "acr_name: ${SONIC_K8S_ACR_NAME}" > vars/k8s_acr.yml
+                    echo "acr_user: ${SONIC_K8S_ACR_USER}" >> vars/k8s_acr.yml
+                    echo "acr_passwd: ${SONIC_K8S_ACR_PASSWD}" >> vars/k8s_acr.yml
+                    echo "Upgrading container ${CONTAINER_NAME_TO_UPGRADE} to ${CONTAINER_VERSION_TO_UPGRADE} ..."
+                    ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic_container.yml \
+                        -i $(INVENTORY_NAME) \
+                        --vault-password-file password.txt \
+                        -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                        -e feature_name=${FEATURE_NAME} \
+                        -e container_name_to_upgrade=${CONTAINER_NAME_TO_UPGRADE} \
+                        -e container_version_to_upgrade=${CONTAINER_VERSION_TO_UPGRADE} -vv
+                    rm -f vars/k8s_acr.yml
+                else
+                    echo "CONTAINER_NAME_TO_UPGRADE is empty, skip container upgrade"
+                fi
+            env:
+              CONTAINER_NAME_TO_UPGRADE: ${{ parameters.CONTAINER_NAME_TO_UPGRADE }}
+              CONTAINER_VERSION_TO_UPGRADE: ${{ parameters.CONTAINER_VERSION_TO_UPGRADE }}
+              SONIC_K8S_ACR_NAME: $(SONIC_K8S_ACR_NAME)
+              SONIC_K8S_ACR_USER: $(SONIC_K8S_ACR_USER)
+              SONIC_K8S_ACR_PASSWD: $(SONIC_K8S_ACR_PASSWD)
 
           - task: Bash@3
             displayName: Deploy Minigraph
