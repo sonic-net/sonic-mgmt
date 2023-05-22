@@ -1376,7 +1376,7 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
             self.test_params['src_port_2_ip'],
             self.dataplane.get_mac(0, int(self.test_params['src_port_2_id']))))
 
-        all_pkts = get_multiple_flows(
+        all_pkts = get_multiple_flows_udp(
                 self,
                 pkt_dst_mac,
                 dst_port_id,
@@ -4192,17 +4192,13 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt = get_multiple_flows(self,
-                                router_mac if router_mac != '' else dst_port_mac,
-                                dst_port_id,
-                                dst_port_ip,
-                                None,
-                                dscp,
-                                ecn,
-                                ttl,
-                                packet_length,
-                                [(src_port_id, src_port_ip)],
-                                )[src_port_id][0][0]
+        pkt=simple_tcp_packet(pktlen=packet_length,
+                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                eth_src=src_port_mac,
+                                ip_src=src_port_ip,
+                                ip_dst=dst_port_ip,
+                                ip_tos=tos,
+                                ip_ttl=ttl)
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -4286,13 +4282,12 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
                     self.src_client, buf_pool_roid) - buffer_pool_wm_base
-                msg = "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
-                      * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size)
-                print(msg, file=sys.stderr)
-                assert buffer_pool_wm <= (expected_wm + \
-                       upper_bound_margin) * cell_size, msg
-                assert (expected_wm - lower_bound_margin)\
-                       * cell_size <= buffer_pool_wm, msg
+                print("lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
+                      * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size), file=sys.stderr)
+                assert(buffer_pool_wm <= (expected_wm + \
+                       upper_bound_margin) * cell_size)
+                assert((expected_wm - lower_bound_margin)
+                       * cell_size <= buffer_pool_wm)
 
                 pkts_num=pkts_inc
 
