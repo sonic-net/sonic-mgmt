@@ -36,7 +36,7 @@ def test_orchagent_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, pause_or
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     result = duthost.shell(
-                        r"docker exec -i swss sh -c 'test -f /usr/bin/supervisor-proc-watchdog-listener && echo exist'",
+                        r"docker exec -i swss sh -c 'test -f /etc/supervisor/watchdog_processes && echo exist'",
                         module_ignore_errors=True)['stdout']
     logger.info('Check watchdog exist: {}'.format(result))
     if result != 'exist':
