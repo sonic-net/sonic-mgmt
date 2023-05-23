@@ -7,7 +7,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
-    stop_pfcwd, disable_packet_aging
+    stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
+    get_pfc_frame_count
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -39,7 +40,8 @@ def run_pfc_test(api,
                  bg_prio_list,
                  prio_dscp_map,
                  test_traffic_pause,
-                 headroom_test_params=None):
+                 headroom_test_params=None,
+                 pfc_pause_src_mac=None):
     """
     Run a PFC test
     Args:
@@ -56,8 +58,9 @@ def run_pfc_test(api,
         bg_prio_list (list): priorities of background flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         test_traffic_pause (bool): if test flows are expected to be paused
-        headroom_test_params (array): 2 element array if the associated pfc pause quanta 
+        headroom_test_params (array): 2 element array if the associated pfc pause quanta
                                     results in no packet drop [pfc_delay, headroom_result]
+        pfc_pause_src_mac (string): source MAC address of PFC Pause frames
     Returns:
         N/A
     """
@@ -108,19 +111,23 @@ def run_pfc_test(api,
                   data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                   data_flow_delay_sec=DATA_FLOW_DELAY_SEC,
                   data_pkt_size=DATA_PKT_SIZE,
-                  prio_dscp_map=prio_dscp_map)
+                  prio_dscp_map=prio_dscp_map,
+                  pfc_pause_src_mac=pfc_pause_src_mac)
 
     flows = testbed_config.flows
 
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
+    # Clear PFC counters before traffic run
+    duthost.command("pfcstat -c")
+
     """ Run traffic """
     flow_stats = __run_traffic(api=api,
                                config=testbed_config,
                                data_flow_names=data_flow_names,
                                all_flow_names=all_flow_names,
-                               exp_dur_sec=DATA_FLOW_DURATION_SEC+DATA_FLOW_DELAY_SEC)
+                               exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC)
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
@@ -145,10 +152,6 @@ def run_pfc_test(api,
                      headroom_test_params=headroom_test_params)
 
 
-def sec_to_nanosec(sec):
-    return sec * 1e9
-
-
 def __gen_traffic(testbed_config,
                   port_config_list,
                   port_id,
@@ -164,7 +167,8 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec,
                   data_flow_delay_sec,
                   data_pkt_size,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  pfc_pause_src_mac):
     """
     Generate configurations of flows, including test flows, background flows and
     pause storm. Test flows and background flows are also known as data flows.
@@ -185,6 +189,7 @@ def __gen_traffic(testbed_config,
         data_flow_delay_sec (int): start delay of data flows in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        pfc_pause_src_mac (string): source MAC address of PFC Pause frames
     Returns:
         flows configurations (list): the list should have configurations of
         len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
@@ -205,7 +210,7 @@ def __gen_traffic(testbed_config,
     rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
 
     """ Instantiate peer ports in flow_port_config
-    flow_port_config: a list of two dictionaries of tx and rx ports on the peer (switch) side, 
+    flow_port_config: a list of two dictionaries of tx and rx ports on the peer (switch) side,
     and the associated test priorities ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
     """
     global flow_port_config
@@ -222,7 +227,7 @@ def __gen_traffic(testbed_config,
         rx_mac = rx_port_config.mac
     else:
         rx_mac = tx_port_config.gateway_mac
-    
+
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
     data_flow_delay_nanosec = sec_to_nanosec(data_flow_delay_sec)
@@ -290,9 +295,8 @@ def __gen_traffic(testbed_config,
 
     if global_pause:
         pause_pkt = pause_flow.packet.ethernetpause()[-1]
-        pause_pkt.src.value = '00:00:fa:ce:fa:ce'
         pause_pkt.dst.value = '01:80:C2:00:00:01'
-
+        pause_pkt.src.value = pfc_pause_src_mac if pfc_pause_src_mac else '00:00:fa:ce:fa:ce'
     else:
         pause_time = []
         for x in range(8):
@@ -303,7 +307,7 @@ def __gen_traffic(testbed_config,
 
         vector = pfc_class_enable_vector(pause_prio_list)
         pause_pkt = pause_flow.packet.pfcpause()[-1]
-        pause_pkt.src.value = '00:00:fa:ce:fa:ce'
+        pause_pkt.src.value = pfc_pause_src_mac if pfc_pause_src_mac else '00:00:fa:ce:fa:ce'
         pause_pkt.dst.value = '01:80:C2:00:00:01'
         pause_pkt.class_enable_vector.value = vector
         pause_pkt.pause_class_0.value = pause_time[0]
@@ -421,19 +425,18 @@ def __verify_results(rows,
         speed_gbps (int): link speed in Gbps
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
-        headroom_test_params (array): 2 element array if the associated pfc pause quanta 
+        headroom_test_params (array): 2 element array if the associated pfc pause quanta
             results in no packet drop [pfc_delay, headroom_result]
-        
     Returns:
         N/A
     """
 
     """ All the pause frames should be dropped """
     pause_flow_row = next(row for row in rows if row.name == pause_flow_name)
-    tx_frames = pause_flow_row.frames_tx
-    rx_frames = pause_flow_row.frames_rx
-    pytest_assert(tx_frames > 0 and rx_frames == 0,
-                'All the pause frames should be dropped')
+    pause_flow_tx_frames = pause_flow_row.frames_tx
+    pause_flow_rx_frames = pause_flow_row.frames_rx
+    pytest_assert(pause_flow_tx_frames > 0 and pause_flow_rx_frames == 0,
+                  'All the pause frames should be dropped')
 
     """ Check background flows """
     for row in rows:
@@ -443,8 +446,8 @@ def __verify_results(rows,
         tx_frames = row.frames_tx
         rx_frames = row.frames_rx
 
-        exp_bg_flow_rx_pkts =  bg_flow_rate_percent / 100.0 * speed_gbps \
-                * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
+        exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
+            * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
 
         if headroom_test_params is None:
@@ -457,7 +460,7 @@ def __verify_results(rows,
         else:
             pytest_assert(tx_frames >= rx_frames,
                         '{} should drop some packets due to congestion'.format(row.name))
-    
+
 
     """ Check test flows """
     for row in rows:
@@ -481,6 +484,8 @@ def __verify_results(rows,
                           '{} should receive {} packets (actual {})'.
                           format(test_flow_name, exp_test_flow_rx_pkts, rx_frames))
 
+    global flow_port_config
+
     if test_flow_pause:
         """ In-flight TX bytes of test flows should be held by switch buffer """
         tx_frames_total = sum(row.frames_tx for row in rows if test_flow_name in row.name)
@@ -494,13 +499,11 @@ def __verify_results(rows,
         else:
             exceeds_headroom = True
 
-        global flow_port_config
-
         if exceeds_headroom:
             pytest_assert(tx_bytes_total > dut_buffer_size,
-                        'Total TX bytes {} should exceed DUT buffer size {}'.\
-                        format(tx_bytes_total, dut_buffer_size))
-            
+                          'Total TX bytes {} should exceed DUT buffer size {}'.
+                          format(tx_bytes_total, dut_buffer_size))
+
             for peer_port, prios in flow_port_config[0].items():
                 for prio in prios:
                     dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
@@ -509,12 +512,19 @@ def __verify_results(rows,
                         format(dropped_packets))
         else:
             pytest_assert(tx_bytes_total < dut_buffer_size,
-                        'Total TX bytes {} should be smaller than DUT buffer size {}'.\
-                        format(tx_bytes_total, dut_buffer_size))
-            
+                          'Total TX bytes {} should be smaller than DUT buffer size {}'.
+                          format(tx_bytes_total, dut_buffer_size))
+
             for peer_port, prios in flow_port_config[0].items():
                 for prio in prios:
                     dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
                     pytest_assert(dropped_packets == 0,
-                        'Total TX dropped packets {} should be 0'.\
-                        format(dropped_packets))
+                                  'Total TX dropped packets {} should be 0'.
+                                  format(dropped_packets))
+
+        # Check if pause frames are counted in the PFC counters
+        for peer_port, prios in flow_port_config[1].items():
+            for prio in prios:
+                pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio)
+                pytest_assert(pfc_pause_rx_frames > 0,
+                              "PFC pause frames with zero source MAC are not counted in the PFC counters")

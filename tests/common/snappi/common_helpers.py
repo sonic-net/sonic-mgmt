@@ -683,3 +683,24 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
 def sec_to_nanosec(secs):
     """ Convert seconds to nanoseconds """
     return secs * 1e9
+
+
+def get_pfc_frame_count(duthost, port, priority, is_tx=False):
+    """
+    Get the PFC frame count for a given port and priority from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        priority (int): priority of flow
+        is_tx (bool): if the PFC pause frame count is for Tx or Rx
+    Returns:
+        int: PFC pause frame count
+    """
+    if is_tx:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {}".format(port))['stdout']
+    else:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep {}".format(port))['stdout']
+
+    pause_frame_count = raw_out.split()[priority + 1]
+
+    return int(pause_frame_count.replace(',', ''))
