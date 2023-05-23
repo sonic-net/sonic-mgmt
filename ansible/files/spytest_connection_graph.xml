@@ -6197,9 +6197,6 @@
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
     <DevicesBmcInfo/>
-    <BmcLinksInfo>
-      <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
-    </BmcLinksInfo>
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
@@ -6235,6 +6232,8 @@
       <DevicePowerControlInfo Hostname="pdu-121" HwSku="Sentry4" ManagementIp="10.3.155.121" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-122" HwSku="Sentry4" ManagementIp="10.3.155.122" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-123" HwSku="Sentry4" ManagementIp="10.3.155.123" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-124" HwSku="Sentry4" ManagementIp="10.3.155.124" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-125" HwSku="Sentry4" ManagementIp="10.3.155.125" Os="" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
       <PowerControlLinkInfo EndDevice="str2-7050cx3-acs-01" EndPort="PSU1" StartDevice="pdu-122" StartPort="48"/>
@@ -6365,12 +6364,12 @@
       <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-22" EndPort="PSU2" StartDevice="pdu-121" StartPort="15"/>
       <PowerControlLinkInfo EndDevice="str2-7804-sup-1" EndPort="PSU1" StartDevice="pdu-125" StartPort="18"/>
       <PowerControlLinkInfo EndDevice="str2-7804-sup-1" EndPort="PSU2" StartDevice="pdu-124" StartPort="18"/>
-      <PowerControlLinkInfo EndDevice="str2-7804-lc3-1" EndPort="PSU1" StartDevice="pdu-125" StartPort="47"/>
-      <PowerControlLinkInfo EndDevice="str2-7804-lc3-1" EndPort="PSU2" StartDevice="pdu-124" StartPort="47"/>
-      <PowerControlLinkInfo EndDevice="str2-7804-lc6-1" EndPort="PSU1" StartDevice="pdu-125" StartPort="46"/>
-      <PowerControlLinkInfo EndDevice="str2-7804-lc6-1" EndPort="PSU2" StartDevice="pdu-124" StartPort="46"/>
-      <PowerControlLinkInfo EndDevice="str2-7804-lc7-1" EndPort="PSU1" StartDevice="pdu-125" StartPort="20"/>
-      <PowerControlLinkInfo EndDevice="str2-7804-lc7-1" EndPort="PSU2" StartDevice="pdu-124" StartPort="20"/>
+      <PowerControlLinkInfo EndDevice="str2-7804-sup-1" EndPort="PSU3" StartDevice="pdu-125" StartPort="47"/>
+      <PowerControlLinkInfo EndDevice="str2-7804-sup-1" EndPort="PSU4" StartDevice="pdu-124" StartPort="47"/>
+      <PowerControlLinkInfo EndDevice="str2-7804-sup-1" EndPort="PSU5" StartDevice="pdu-125" StartPort="46"/>
+      <PowerControlLinkInfo EndDevice="str2-7804-sup-1" EndPort="PSU6" StartDevice="pdu-124" StartPort="46"/>
+      <PowerControlLinkInfo EndDevice="str2-7804-sup-1" EndPort="PSU7" StartDevice="pdu-125" StartPort="20"/>
+      <PowerControlLinkInfo EndDevice="str2-7804-sup-1" EndPort="PSU8" StartDevice="pdu-124" StartPort="20"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-23" EndPort="PSU1" StartDevice="pdu-122" StartPort="8"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-23" EndPort="PSU2" StartDevice="pdu-121" StartPort="8"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-acs-fan-35" EndPort="PSU1" StartDevice="pdu-124" StartPort="25"/>
