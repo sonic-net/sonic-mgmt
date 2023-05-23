@@ -32,6 +32,14 @@ stages:
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
+  - job: collect_only
+    displayName: "collect_only"
+    timeoutInMinutes: 20
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+    - template: .azure-pipelines/pytest-collect-only.yml
+
 - stage: Test
   dependsOn: Pre_test
   condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
