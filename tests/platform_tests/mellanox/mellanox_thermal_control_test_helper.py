@@ -7,7 +7,7 @@ from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import mocker, FanStatusMocker, ThermalStatusMocker, \
     SingleFanMocker
 from tests.common.mellanox_data import get_platform_data
-from minimum_table import get_min_table
+from .minimum_table import get_min_table
 
 
 NOT_AVAILABLE = 'N/A'
@@ -162,14 +162,16 @@ class MockerHelper:
             return
 
         MockerHelper.INIT_FAN_NUM = True
-        get_drawer_num_cmd = 'ls {}fan*_status | wc -l'.format(MockerHelper.THERMAL_PATH)
+        get_drawer_num_cmd = 'ls {}fan*_status | wc -l'.format(
+            MockerHelper.THERMAL_PATH)
         output = self.dut.shell(get_drawer_num_cmd)
         content = output['stdout'].strip()
         if not content:
             return
         fan_drawer_num = int(content)
 
-        get_fan_num_cmd = 'ls {}fan*_speed_get | wc -l'.format(MockerHelper.THERMAL_PATH)
+        get_fan_num_cmd = 'ls {}fan*_speed_get | wc -l'.format(
+            MockerHelper.THERMAL_PATH)
         output = self.dut.shell(get_fan_num_cmd)
         content = output['stdout'].strip()
         if not content:
@@ -261,7 +263,8 @@ class MockerHelper:
             value = output["stdout"]
             return value.strip()
         except Exception as e:
-            assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
+            assert 0, "Get content from %s failed, exception: %s" % (
+                file_path, repr(e))
 
     def _cache_file_value(self, file_path, may_nexist=False):
         """
@@ -277,7 +280,8 @@ class MockerHelper:
             if may_nexist:
                 self.regular_file_list[file_path] = None
             else:
-                assert 0, "Get content from %s failed, exception: %s" % (file_path, repr(e))
+                assert 0, "Get content from %s failed, exception: %s" % (
+                    file_path, repr(e))
 
     def _unlink(self, file_path):
         """
@@ -297,15 +301,16 @@ class MockerHelper:
         :return:
         """
         failed_recover_links = {}
-        for file_path, link_target in self.unlink_file_list.items():
+        for file_path, link_target in list(self.unlink_file_list.items()):
             try:
-                self.dut.command('ln -f -s {} {}'.format(link_target, file_path))
+                self.dut.command(
+                    'ln -f -s {} {}'.format(link_target, file_path))
             except Exception:
                 # Catch any exception for later retry
                 failed_recover_links[file_path] = link_target
 
         failed_recover_files = {}
-        for file_path, value in self.regular_file_list.items():
+        for file_path, value in list(self.regular_file_list.items()):
             try:
                 if value is None:
                     self.dut.shell('rm -f {}'.format(file_path))
@@ -333,7 +338,8 @@ class MockerHelper:
                 # means there is probably an issue with our sysfs, we need
                 # mark it fail here
                 failed_recover_files.update(failed_recover_links)
-                error_message = "Failed to recover all files, failed files: {}".format(failed_recover_files)
+                error_message = "Failed to recover all files, failed files: {}".format(
+                    failed_recover_files)
                 logging.error(error_message)
                 raise RuntimeError(error_message)
 
@@ -358,6 +364,8 @@ class FanDrawerData:
 
     # FAN direction sys fs path available in 202012 and later
     FAN_DIR_PATH_PER_FAN = '/run/hw-management/thermal/fan{}_dir'
+
+    FAN_EXPECT_DIRECTION = None
 
     def __init__(self, mock_helper, naming_rule, index):
         """
@@ -386,7 +394,8 @@ class FanDrawerData:
             self.presence_file = None
 
         if 'led_capability' in naming_rule:
-            self.led_capability_file = naming_rule['led_capability'].format(index)
+            self.led_capability_file = naming_rule['led_capability'].format(
+                index)
         else:
             self.led_capability_file = None
 
@@ -427,7 +436,8 @@ class FanDrawerData:
         :return:
         """
         try:
-            _ = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH_PER_FAN.format(self.index)))
+            _ = int(self.helper.read_value(
+                FanDrawerData.FAN_DIR_PATH_PER_FAN.format(self.index)))
         except SysfsNotExistError:
             self.mocked_direction = NOT_AVAILABLE
             return
@@ -439,7 +449,8 @@ class FanDrawerData:
             fan_dir_value = 0
             self.mocked_direction = 'exhaust'
 
-        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH_PER_FAN.format(self.index), fan_dir_value)
+        self.helper.mock_value(
+            FanDrawerData.FAN_DIR_PATH_PER_FAN.format(self.index), fan_dir_value)
 
     def mock_fan_direction_fan_dir_for_all_fans(self, direction):
         """
@@ -448,7 +459,8 @@ class FanDrawerData:
         :return:
         """
         try:
-            fan_dir_bits = int(self.helper.read_value(FanDrawerData.FAN_DIR_PATH_ALL_FANS))
+            fan_dir_bits = int(self.helper.read_value(
+                FanDrawerData.FAN_DIR_PATH_ALL_FANS))
         except SysfsNotExistError:
             self.mocked_direction = NOT_AVAILABLE
             return
@@ -460,7 +472,8 @@ class FanDrawerData:
             fan_dir_bits = fan_dir_bits & ~(1 << (self.index - 1))
             self.mocked_direction = 'exhaust'
 
-        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH_ALL_FANS, fan_dir_bits)
+        self.helper.mock_value(
+            FanDrawerData.FAN_DIR_PATH_ALL_FANS, fan_dir_bits)
 
     def get_status_led(self):
         """
@@ -489,6 +502,26 @@ class FanDrawerData:
                 return 'red'
 
         return 'green'
+
+    def mock_fan_direction_status(self, good, drawer_num):
+        if FanDrawerData.FAN_EXPECT_DIRECTION is None:
+            try:
+                FanDrawerData.FAN_EXPECT_DIRECTION = int(self.helper.read_value(
+                    FanDrawerData.FAN_DIR_PATH_PER_FAN.format(1)))
+            except SysfsNotExistError:
+                return None
+
+        if good:
+            target_dir = FanDrawerData.FAN_EXPECT_DIRECTION
+        else:
+            target_dir = 1 if FanDrawerData.FAN_EXPECT_DIRECTION == 0 else 0
+
+        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH_PER_FAN.format(drawer_num), str(target_dir))
+        platform_data = get_platform_data(self.helper.dut)
+        if platform_data['fans']['hot_swappable']:
+            return FAN_NAMING_RULE['fan']['name'].format(drawer_num * MockerHelper.FAN_NUM_PER_DRAWER)
+        else:
+            return FAN_NAMING_RULE['fan']['name'].format(drawer_num)
 
 
 class FanData:
@@ -560,7 +593,8 @@ class FanData:
             self.helper.mock_thermal_value(self.target_speed_file, str(pwm))
             self.mocked_target_speed = str(target_speed)
         else:
-            self.mocked_target_speed = self.helper.read_thermal_value(self.speed_file)
+            self.mocked_target_speed = self.helper.read_thermal_value(
+                self.speed_file)
 
     def mock_status(self, status):
         """
@@ -649,9 +683,11 @@ class TemperatureData:
             self.name = self.name.format(index)
             self.temperature_file = self.temperature_file.format(index)
             if self.high_threshold_file:
-                self.high_threshold_file = self.high_threshold_file.format(index)
+                self.high_threshold_file = self.high_threshold_file.format(
+                    index)
             if self.high_critical_threshold_file:
-                self.high_critical_threshold_file = self.high_critical_threshold_file.format(index)
+                self.high_critical_threshold_file = self.high_critical_threshold_file.format(
+                    index)
         self.mocked_temperature = None
         self.mocked_high_threshold = None
         self.mocked_high_critical_threshold = None
@@ -672,7 +708,8 @@ class TemperatureData:
         :return: High threshold value of this thermal.
         """
         if self.high_threshold_file:
-            high_threshold = self.helper.read_thermal_value(self.high_threshold_file)
+            high_threshold = self.helper.read_thermal_value(
+                self.high_threshold_file)
             return int(high_threshold) / float(1000)
         else:
             return TemperatureData.DEFAULT_HIGH_THRESHOLD
@@ -684,7 +721,8 @@ class TemperatureData:
         :return:
         """
         if self.high_threshold_file:
-            self.helper.mock_thermal_value(self.high_threshold_file, str(high_threshold))
+            self.helper.mock_thermal_value(
+                self.high_threshold_file, str(high_threshold))
             self.mocked_high_threshold = str(high_threshold / float(1000))
         else:
             self.mocked_high_threshold = NOT_AVAILABLE
@@ -696,8 +734,10 @@ class TemperatureData:
         :return:
         """
         if self.high_critical_threshold_file:
-            self.helper.mock_thermal_value(self.high_critical_threshold_file, str(high_critical_threshold))
-            self.mocked_high_critical_threshold = str(high_critical_threshold / float(1000))
+            self.helper.mock_thermal_value(
+                self.high_critical_threshold_file, str(high_critical_threshold))
+            self.mocked_high_critical_threshold = str(
+                high_critical_threshold / float(1000))
         else:
             self.mocked_high_critical_threshold = NOT_AVAILABLE
 
@@ -712,7 +752,7 @@ class CheckMockerResultMixin(object):
         :return: True if match else False.
         """
         expected = {}
-        for name, fields in self.expected_data.items():
+        for name, fields in list(self.expected_data.items()):
             data = {}
             for idx, header in enumerate(self.expected_data_headers):
                 data[header] = fields[idx]
@@ -728,7 +768,7 @@ class CheckMockerResultMixin(object):
             if primary not in expected:
                 extra_in_actual_data.append(actual_data_item)
             else:
-                for field in actual_data_item.keys():
+                for field in list(actual_data_item.keys()):
                     if field in self.excluded_fields:
                         continue
                     if actual_data_item[field] != expected[primary][field]:
@@ -745,7 +785,7 @@ class CheckMockerResultMixin(object):
             logging.error('Found mismatch data in actual_data: {}'
                           .format(json.dumps(mismatch_in_actual_data, indent=2)))
             result = False
-        if len(expected.keys()) > 0:
+        if len(list(expected.keys())) > 0:
             logging.error('Expected data not found in actual_data: {}'
                           .format(json.dumps(expected, indent=2)))
             result = False
@@ -771,7 +811,8 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         self.mock_helper = MockerHelper(dut)
         self.drawer_list = []
         self.expected_data = {}
-        self.expected_data_headers = ['drawer', 'led', 'fan', 'speed', 'direction', 'presence', 'status']
+        self.expected_data_headers = [
+            'drawer', 'led', 'fan', 'speed', 'direction', 'presence', 'status']
         self.primary_field = 'fan'
         self.excluded_fields = ['timestamp', ]
 
@@ -799,7 +840,8 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
-                    drawer_data = FanDrawerData(self.mock_helper, naming_rule, drawer_index)
+                    drawer_data = FanDrawerData(
+                        self.mock_helper, naming_rule, drawer_index)
                     self.drawer_list.append(drawer_data)
                     drawer_index += 1
                     presence = random.randint(0, 1)
@@ -868,7 +910,8 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                     'OK'
                 ]
             except SysfsNotExistError as e:
-                logging.info('Failed to mock fan data for {} - {}'.format(fan_data.name, e))
+                logging.info(
+                    'Failed to mock fan data for {} - {}'.format(fan_data.name, e))
                 continue
 
     def check_all_fan_speed(self, expected_speed):
@@ -924,16 +967,18 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
         """
         platform_data = get_platform_data(self.mock_helper.dut)
         thermal_dict = platform_data["thermals"]
-        for category, content in thermal_dict.items():
+        for category, content in list(thermal_dict.items()):
             number = int(content['number'])
             naming_rule = THERMAL_NAMING_RULE[category]
             if 'start' in content:
                 start = int(content['start'])
                 for index in range(start, start + number):
-                    mock_data = TemperatureData(self.mock_helper, naming_rule, index)
+                    mock_data = TemperatureData(
+                        self.mock_helper, naming_rule, index)
                     self._do_mock(mock_data)
             else:  # non index-able thermal
-                mock_data = TemperatureData(self.mock_helper, naming_rule, None)
+                mock_data = TemperatureData(
+                    self.mock_helper, naming_rule, None)
                 self._do_mock(mock_data)
 
     def _do_mock(self, mock_data):
@@ -945,13 +990,15 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
         try:
             high_threshold = mock_data.get_high_threshold()
             if high_threshold != 0:
-                temperature = random.randint(1, high_threshold - RandomThermalStatusMocker.DEFAULT_THRESHOLD_DIFF)
+                temperature = random.randint(
+                    1, high_threshold - RandomThermalStatusMocker.DEFAULT_THRESHOLD_DIFF)
                 mock_data.mock_temperature(temperature)
 
                 high_threshold = temperature + RandomThermalStatusMocker.DEFAULT_THRESHOLD_DIFF
                 mock_data.mock_high_threshold(high_threshold)
 
-                high_critical_threshold = high_threshold + RandomThermalStatusMocker.DEFAULT_THRESHOLD_DIFF
+                high_critical_threshold = high_threshold + \
+                    RandomThermalStatusMocker.DEFAULT_THRESHOLD_DIFF
                 mock_data.mock_high_critical_threshold(high_critical_threshold)
             else:
                 mock_data.mocked_temperature = NOT_AVAILABLE
@@ -968,7 +1015,8 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
                 'False'
             ]
         except SysfsNotExistError as e:
-            logging.info('Failed to mock thermal data for {} - {}'.format(mock_data.name, e))
+            logging.info(
+                'Failed to mock thermal data for {} - {}'.format(mock_data.name, e))
 
     def check_thermal_algorithm_status(self, expected_status):
         """
@@ -1006,9 +1054,11 @@ class AbnormalFanMocker(SingleFanMocker):
         drawer_index = 1
         while fan_index <= MockerHelper.FAN_NUM:
             if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
-                self.fan_drawer_data_list.append(FanDrawerData(self.mock_helper, naming_rule, drawer_index))
+                self.fan_drawer_data_list.append(FanDrawerData(
+                    self.mock_helper, naming_rule, drawer_index))
                 drawer_index += 1
-            self.fan_data_list.append(FanData(self.mock_helper, naming_rule, fan_index))
+            self.fan_data_list.append(
+                FanData(self.mock_helper, naming_rule, fan_index))
             fan_index += 1
         self.fan_data = self.fan_data_list[0]
         self.fan_drawer_data = self.fan_drawer_data_list[0]
@@ -1038,7 +1088,8 @@ class AbnormalFanMocker(SingleFanMocker):
                                                                               self.expect_led_color))
                         return False
                 except SysfsNotExistError as e:
-                    logging.info('LED check only support on SPC2 and SPC3: {}'.format(e))
+                    logging.info(
+                        'LED check only support on SPC2 and SPC3: {}'.format(e))
                 return True
 
         logging.error('Expected data not found')
@@ -1066,7 +1117,8 @@ class AbnormalFanMocker(SingleFanMocker):
             try:
                 fan_data.mock_status(0)
                 fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
-                fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
+                fan_data.mock_target_speed(
+                    AbnormalFanMocker.TARGET_SPEED_VALUE)
             except SysfsNotExistError as e:
                 logging.info('Failed to mock fan data: {}'.format(e))
 
@@ -1147,9 +1199,10 @@ class MinTableMocker(object):
 
     def get_expect_cooling_level(self, temperature, trust_state):
         minimum_table = get_min_table(self.mock_helper.dut)
-        row = minimum_table['unk_{}'.format('trust' if trust_state else 'untrust')]
+        row = minimum_table['unk_{}'.format(
+            'trust' if trust_state else 'untrust')]
         temperature = temperature / 1000
-        for range_str, cooling_level in row.items():
+        for range_str, cooling_level in list(row.items()):
             range_str_list = range_str.split(':')
             min_temp = int(range_str_list[0])
             max_temp = int(range_str_list[1])
@@ -1168,10 +1221,12 @@ class MinTableMocker(object):
         self.mock_helper.mock_thermal_value(self.TRUST_PATH, str(trust_value))
 
     def mock_normal_temperature(self):
-        output = self.mock_helper.dut.shell(self.LIST_THERMAL_ZONE_TEMPERATURE_FILE)
+        output = self.mock_helper.dut.shell(
+            self.LIST_THERMAL_ZONE_TEMPERATURE_FILE)
         for thermal_file in output['stdout_lines']:
             if self.mock_helper.read_value(thermal_file) != '0':
-                self.mock_helper.mock_value(thermal_file, self.NORMAL_TEMPERATURE)
+                self.mock_helper.mock_value(
+                    thermal_file, self.NORMAL_TEMPERATURE)
 
     def deinit(self):
         """
@@ -1196,7 +1251,8 @@ class PsuMocker(object):
         self.mock_helper.deinit()
 
     def mock_psu_status(self, psu_index, status):
-        self.mock_helper.mock_thermal_value(self.PSU_PRESENCE.format(psu_index), '1' if status else '0')
+        self.mock_helper.mock_thermal_value(
+            self.PSU_PRESENCE.format(psu_index), '1' if status else '0')
 
 
 @mocker('CpuThermalMocker')
@@ -1242,21 +1298,28 @@ class PsuPowerThresholdMocker(object):
         self.mock_helper.deinit()
 
     def mock_power_threshold(self, number_psus):
-        self.mock_helper.mock_value(self.AMBIENT_TEMP_WARNING_THRESHOLD, 65000, True)
-        self.mock_helper.mock_value(self.AMBIENT_TEMP_CRITICAL_THRESHOLD, 75000, True)
+        self.mock_helper.mock_value(
+            self.AMBIENT_TEMP_WARNING_THRESHOLD, 65000, True)
+        self.mock_helper.mock_value(
+            self.AMBIENT_TEMP_CRITICAL_THRESHOLD, 75000, True)
 
         max_power = None
         for i in range(number_psus):
             if not max_power:
-                power = int(self.mock_helper.read_value(self.PSU_POWER.format(i + 1)))
+                power = int(self.mock_helper.read_value(
+                    self.PSU_POWER.format(i + 1)))
                 # Round up to 100 watt and then double it to avoid noise when power fluctuate
                 max_power = int(round(power / 100000000.0)) * 100000000 * 2
-            self.mock_helper.mock_value(self.PSU_POWER_CAPACITY.format(i + 1), max_power, True)
-            self.mock_helper.mock_value(self.PSU_POWER_SLOPE.format(i + 1), 2000, True)
+            self.mock_helper.mock_value(
+                self.PSU_POWER_CAPACITY.format(i + 1), max_power, True)
+            self.mock_helper.mock_value(
+                self.PSU_POWER_SLOPE.format(i + 1), 2000, True)
 
         # Also mock ambient temperatures
-        self.mock_helper.mock_value(self.PORT_AMBIENT_TEMP, self.read_port_ambient_thermal())
-        self.mock_helper.mock_value(self.FAN_AMBIENT_TEMP, self.read_fan_ambient_thermal())
+        self.mock_helper.mock_value(
+            self.PORT_AMBIENT_TEMP, self.read_port_ambient_thermal())
+        self.mock_helper.mock_value(
+            self.FAN_AMBIENT_TEMP, self.read_fan_ambient_thermal())
 
     def mock_psu_power(self, psu, power):
         self.mock_helper.mock_value(self.PSU_POWER.format(psu), int(power))

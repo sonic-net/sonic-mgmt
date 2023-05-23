@@ -9,7 +9,9 @@ import requests
 from tests.common import utilities
 from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
 from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, \
                                            OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
@@ -242,7 +244,7 @@ def toggle_simulator_port_to_upper_tor(url, tbinfo):
             target: "upper_tor" or "lower_tor"
         """
         # Skip on non dualtor testbed
-        if 'dualtor' not in tbinfo['topo']['name']:
+        if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
             return
         server_url = url(interface_name)
         data = {"active_side": UPPER_TOR}
@@ -405,7 +407,8 @@ def _get_mux_ports(duthost, target_status=None, exclude_status=None):
 
     muxcables = json.loads(duthost.shell("show muxcable status --json")['stdout'])
     return {
-        port: mux_status for port, mux_status in muxcables['MUX_CABLE'].items() if _check_status(mux_status["STATUS"])
+        port: mux_status for port, mux_status in list(muxcables['MUX_CABLE'].items())
+        if _check_status(mux_status["STATUS"])
     }
 
 
@@ -505,8 +508,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
     Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
     """
-    # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    # Skip on non dualtor testbed or dualtor testbed without active-standby ports
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         yield
         return
 
@@ -577,7 +580,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
             return False
 
         # get mapping from port indices to mux status
-        simulator_port_mux_status = {int(k.split('-')[-1]): v for k, v in simulator_mux_status.items()}
+        simulator_port_mux_status = {int(k.split('-')[-1]): v for k, v in list(simulator_mux_status.items())}
         inconsistent_intfs = []
         for intf in upper_tor_mux_status['MUX_CABLE']:
 
@@ -639,7 +642,9 @@ def simulator_server_down(set_drop, set_output):
         set_drop(interface_name, [UPPER_TOR, LOWER_TOR])
 
     yield _drop_helper
-    set_output(tmp_list[0], [UPPER_TOR, LOWER_TOR])
+
+    for port in tmp_list:
+        set_output(port, [UPPER_TOR, LOWER_TOR])
 
 
 @pytest.fixture
@@ -737,21 +742,21 @@ def check_mux_status(duthosts, active_side):
         mux_standby_dut = duthosts[0]
 
     dualtor_intf_config = json.loads(mux_active_dut.shell("show muxcable config --json")['stdout'])
-    active_standby_ports = [intf for intf, muxcable_config in dualtor_intf_config['MUX_CABLE']['PORTS'].items()
+    active_standby_ports = [intf for intf, muxcable_config in list(dualtor_intf_config['MUX_CABLE']['PORTS'].items())
                             if 'cable_type' not in muxcable_config['SERVER']
                             or muxcable_config['SERVER']['cable_type'] == 'active-standby']
 
     active_side_muxstatus = json.loads(mux_active_dut.shell("show muxcable status --json")['stdout'])
     standby_side_muxstatus = json.loads(mux_standby_dut.shell("show muxcable status --json")['stdout'])
 
-    active_side_active_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items()
+    active_side_active_muxcables = [intf for intf, muxcable in list(active_side_muxstatus['MUX_CABLE'].items())
                                     if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
-    active_side_standby_muxcables = [intf for intf, muxcable in active_side_muxstatus['MUX_CABLE'].items()
+    active_side_standby_muxcables = [intf for intf, muxcable in list(active_side_muxstatus['MUX_CABLE'].items())
                                      if muxcable['STATUS'] == 'standby' and intf in active_standby_ports]
 
-    standby_side_active_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items()
+    standby_side_active_muxcables = [intf for intf, muxcable in list(standby_side_muxstatus['MUX_CABLE'].items())
                                      if muxcable['STATUS'] == 'active' and intf in active_standby_ports]
-    standby_side_standby_muxcables = [intf for intf, muxcable in standby_side_muxstatus['MUX_CABLE'].items()
+    standby_side_standby_muxcables = [intf for intf, muxcable in list(standby_side_muxstatus['MUX_CABLE'].items())
                                       if muxcable['STATUS'] == 'standby' and intf in active_standby_ports]
 
     if len(active_side_active_muxcables) > 0 and \

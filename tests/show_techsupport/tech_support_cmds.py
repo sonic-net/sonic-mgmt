@@ -80,10 +80,10 @@ bgp_cmds = [
     "vtysh{} -c 'show bgp ipv6 summary'",
     "vtysh{} -c 'show bgp ipv6 neighbors'",
     "vtysh{} -c 'show bgp ipv6'",
-    re.compile('vtysh{}\s+-c "show ip bgp neighbors .* advertised-routes"'),
-    re.compile('vtysh{}\s+-c "show ip bgp neighbors .* routes"'),
-    re.compile('vtysh{}\s+-c "show bgp ipv6 neighbors .* advertised-routes"'),
-    re.compile('vtysh{}\s+-c "show bgp ipv6 neighbors .* routes"'),
+    re.compile(r'vtysh{}\s+-c "show ip bgp neighbors .* advertised-routes"'),
+    re.compile(r'vtysh{}\s+-c "show ip bgp neighbors .* routes"'),
+    re.compile(r'vtysh{}\s+-c "show bgp ipv6 neighbors .* advertised-routes"'),
+    re.compile(r'vtysh{}\s+-c "show bgp ipv6 neighbors .* routes"'),
 ]
 
 nat_cmds = [
@@ -123,11 +123,20 @@ docker_cmds = [
 ]
 
 docker_cmds_201911 = [
-    "docker exec -it syncd{} saidump",
+    "docker exec -t syncd{} saidump",
     "docker stats --no-stream",
     "docker ps -a",
     "docker top pmon",
-    "docker exec -it lldp{} lldpcli show statistics",
+    "docker exec -t lldp{} lldpcli show statistics",
+    "docker logs bgp{}",
+    "docker logs swss{}",
+]
+
+docker_cmds_t2 = [
+    "docker stats --no-stream",
+    "docker ps -a",
+    "docker top pmon",
+    "docker exec lldp{} lldpcli show statistics",
     "docker logs bgp{}",
     "docker logs swss{}",
 ]
@@ -183,7 +192,7 @@ copy_config_cmds_no_qos = [
     "cp .{}/sai.profile",
 ]
 
-broadcom_cmd_bcmcmd = [
+broadcom_cmd_bcmcmd_xgs = [
     'bcmcmd{} -t5 version',
     'bcmcmd{} -t5 soc',
     'bcmcmd{} -t5 ps',
@@ -209,6 +218,75 @@ broadcom_cmd_bcmcmd = [
     'bcmcmd{} "mirror dest show"',
     'bcmcmd{} "port *"',
     'bcmcmd{} "d chg my_station_tcam"',
+]
+
+broadcom_cmd_bcmcmd_dnx = [
+    'bcmcmd{} "l2 show"',
+    'bcmcmd{} "field group list"',
+    'bcmcmd{} "field group info group=0"',
+    'bcmcmd{} "field group info group=1"',
+    'bcmcmd{} "field group info group=2"',
+    'bcmcmd{} "field group info group=3"',
+    'bcmcmd{} "field group info group=4"',
+    'bcmcmd{} "field group info group=5"',
+    'bcmcmd{} "field group info group=6"',
+    'bcmcmd{} "field group info group=7"',
+    'bcmcmd{} "field group info group=8"',
+    'bcmcmd{} "field group info group=9"',
+    'bcmcmd{} "field group info group=10"',
+    'bcmcmd{} "field group info group=11"',
+    'bcmcmd{} "field group info group=12"',
+    'bcmcmd{} "field group info group=13"',
+    'bcmcmd{} "field group info group=14"',
+    'bcmcmd{} "field group info group=15"',
+    'bcmcmd{} "field group info group=16"',
+    'bcmcmd{} "field group info group=17"',
+    'bcmcmd{} "field group info group=18"',
+    'bcmcmd{} "field group info group=19"',
+    'bcmcmd{} "field group info group=20"',
+    'bcmcmd{} "field group info group=21"',
+    'bcmcmd{} "field group info group=22"',
+    'bcmcmd{} "field group info group=23"',
+    'bcmcmd{} "field group info group=24"',
+    'bcmcmd{} "field group info group=25"',
+    'bcmcmd{} "field group info group=26"',
+    'bcmcmd{} "field group info group=27"',
+    'bcmcmd{} "field group info group=28"',
+    'bcmcmd{} "field group info group=29"',
+    'bcmcmd{} "field group info group=30"',
+    'bcmcmd{} "field group info group=31"',
+    'bcmcmd{} "field group info group=32"',
+    'bcmcmd{} "field group info group=33"',
+    'bcmcmd{} "dbal table dump table=IPV4_UNICAST_PRIVATE_LPM_FORWARD"',
+    'bcmcmd{} "dbal table dump table=IPV6_UNICAST_PRIVATE_LPM_FORWARD"',
+    'bcmcmd{} "dbal table dump table=IPV4_UNICAST_PRIVATE_HOST"',
+    'bcmcmd{} "dbal table dump table=IPV6_UNICAST_PRIVATE_HOST"',
+    'bcmcmd{} "dbal table dump table=SUPER_FEC_1ST_HIERARCHY"',
+    'bcmcmd{} "dbal table dump table=ECMP_TABLE"',
+    'bcmcmd{} "dbal table dump table=ECMP_GROUP_PROFILE_TABLE"',
+    'bcmcmd{} "dbal table dump table=ING_VSI_INFO_DB"',
+    'bcmcmd{} "dbal table dump table=L3_MY_MAC_DA_PREFIXES"',
+    'bcmcmd{} "dbal table dump table=INGRESS_VLAN_MEMBERSHIP"',
+    'bcmcmd{} "dbal table dump table=LOCAL_SBC_IN_LIF_MATCH_INFO_SW"',
+    'bcmcmd{} "dbal table dump table=SNIF_COMMAND_TABLE"',
+    'bcmcmd{} "port mgmt dump full"',
+    'bcmcmd{} "tm lag"',
+    'bcmcmd{} "pp info fec"',
+    'bcmcmd{} "nif sts"',
+    'bcmcmd{} "port pm info"',
+    'bcmcmd{} "conf show"',
+    'bcmcmd{} "show counters"',
+    'bcmcmd{} "diag counter g"',
+    'bcmcmd{} "tm ing q map"',
+    'bcmcmd{} "tm ing vsq resources"',
+    'bcmcmd{} "tm ing vsq non g=a"',
+    'bcmcmd{} "tm ing vsq non g=b"',
+    'bcmcmd{} "tm ing vsq non g=c"',
+    'bcmcmd{} "tm ing vsq non g=d"',
+    'bcmcmd{} "tm ing vsq non g=e"',
+    'bcmcmd{} "tm ing vsq non g=f"',
+    'bcmcmd{} "fabric connectivity"',
+    'bcmcmd{} "port status"',
 ]
 
 broadcom_cmd_misc = [

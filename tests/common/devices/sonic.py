@@ -6,6 +6,7 @@ import os
 import re
 import socket
 import time
+import sys
 
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -36,6 +37,9 @@ class SonicHost(AnsibleHostBase):
     """
     DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
+    """
+    setting either one of shell_user/shell_pw or ssh_user/ssh_passwd pair should yield the same result.
+    """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
                  ssh_user=None, ssh_passwd=None):
@@ -308,7 +312,7 @@ class SonicHost(AnsibleHostBase):
             try:
                 out = self.command("cat {}".format(platform_file_path))
                 platform_info = json.loads(out["stdout"])
-                for key, value in platform_info.items():
+                for key, value in list(platform_info.items()):
                     result[key] = value
 
             except Exception:
@@ -973,12 +977,25 @@ class SonicHost(AnsibleHostBase):
 
         return namespace_ids, True
 
-    def get_up_time(self):
-        up_time_text = self.command("uptime -s")["stdout"]
-        return datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+    def get_up_time(self, utc_timezone=False):
 
-    def get_now_time(self):
-        now_time_text = self.command('date +"%Y-%m-%d %H:%M:%S"')["stdout"]
+        if utc_timezone:
+            current_time = self.get_now_time(utc_timezone=True)
+            uptime_seconds = self.get_uptime()
+            uptime_since = current_time - uptime_seconds
+        else:
+            up_time_text = self.command("uptime -s")["stdout"]
+            uptime_since = datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+
+        return uptime_since
+
+    def get_now_time(self, utc_timezone=False):
+
+        command = 'date +"%Y-%m-%d %H:%M:%S"'
+        if utc_timezone:
+            command += ' -u'
+        now_time_text = self.command(command)["stdout"]
+
         return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
 
     def get_uptime(self):
@@ -1078,13 +1095,8 @@ class SonicHost(AnsibleHostBase):
         @param dstip: destination. either ip_address or ip_network
 
         Please beware: if dstip is an ip network, you will receive all ECMP nexthops
-<<<<<<< HEAD
         But if dstip is an ip address, only one nexthop will be returned,
         the one which is going to be used to send a packet to the destination.
-=======
-        But if dstip is an ip address, only one nexthop will be returned, the one which is going to be used to
-        send a packet to the destination.
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
         Exanples:
 ----------------
@@ -1097,14 +1109,9 @@ raw data
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("192.168.8.0/25")))
 returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'),
-<<<<<<< HEAD
                                                             (IPv4Address(u'10.0.0.5'), u'PortChannel0002'),
                                                             (IPv4Address(u'10.0.0.9'), u'PortChannel0003'),
                                                             (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
-=======
-(IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'),
-(IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
 raw data
 192.168.8.0/25 proto 186 src 10.1.0.32 metric 20
@@ -1128,14 +1135,9 @@ raw data
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("20c0:a818::/64")))
 returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'),
-<<<<<<< HEAD
                                                              (IPv6Address(u'fc00::a'), u'PortChannel0002'),
                                                              (IPv6Address(u'fc00::12'), u'PortChannel0003'),
                                                              (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
-=======
-(IPv6Address(u'fc00::a'), u'PortChannel0002'), (IPv6Address(u'fc00::12'), u'PortChannel0003'),
-(IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
 raw data
 20c0:a818::/64 via fc00::2 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
@@ -1152,14 +1154,9 @@ raw data (starting from Bullseye)
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("0.0.0.0/0")))
 returns {'set_src': IPv4Address(u'10.1.0.32'), 'nexthops': [(IPv4Address(u'10.0.0.1'), u'PortChannel0001'),
-<<<<<<< HEAD
                                                             (IPv4Address(u'10.0.0.5'), u'PortChannel0002'),
                                                             (IPv4Address(u'10.0.0.9'), u'PortChannel0003'),
                                                             (IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
-=======
-(IPv4Address(u'10.0.0.5'), u'PortChannel0002'), (IPv4Address(u'10.0.0.9'), u'PortChannel0003'),
-(IPv4Address(u'10.0.0.13'), u'PortChannel0004')]}
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
 raw data
 default proto 186 src 10.1.0.32 metric 20
@@ -1176,18 +1173,10 @@ default nhid 296 proto bgp src 10.1.0.32 metric 20
         nexthop via 10.0.0.63 dev PortChannel0004 weight 1
 ----------------
 get_ip_route_info(ipaddress.ip_network(unicode("::/0")))
-<<<<<<< HEAD
 returns {'set_src': IPv6Address(u'fc00:1::32'), 'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'),
                                                              (IPv6Address(u'fc00::a'), u'PortChannel0002'),
                                                              (IPv6Address(u'fc00::12'), u'PortChannel0003'),
                                                              (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
-=======
-returns {'set_src': IPv6Address(u'fc00:1::32'),
-'nexthops': [(IPv6Address(u'fc00::2'), u'PortChannel0001'),
-(IPv6Address(u'fc00::a'), u'PortChannel0002'),
-(IPv6Address(u'fc00::12'), u'PortChannel0003'),
- (IPv6Address(u'fc00::1a'), u'PortChannel0004')]}
->>>>>>> 090bc7a72 (Add loopback action test cases)
 
 raw data
 default via fc00::2 dev PortChannel0001 proto 186 src fc00:1::32 metric 20  pref medium
@@ -1267,12 +1256,12 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         @param ipv6: check ipv6 default
         """
         if ipv4:
-            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
+            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
             if len(rtinfo_v4['nexthops']) == 0:
                 return False
 
         if ipv6:
-            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network(u'::/0'))
+            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
             if len(rtinfo_v6['nexthops']) == 0:
                 return False
 
@@ -1451,7 +1440,10 @@ Totals               6450                 6449
         features_stdout = command_output['stdout_lines']
         lines = features_stdout[2:]
         for x in lines:
-            result = x.encode('UTF-8')
+            if sys.version_info.major < 3:
+                result = x.encode('UTF-8')
+            else:
+                result = x
             r = result.split()
             feature_status[r[0]] = r[1]
         return feature_status, True
@@ -1614,7 +1606,7 @@ Totals               6450                 6449
             dut_index = tbinfo['duts'].index(self.hostname)
             map = tbinfo['topo']['ptf_map'][str(dut_index)]
             if map:
-                for port, index in mg_facts['minigraph_port_indices'].items():
+                for port, index in list(mg_facts['minigraph_port_indices'].items()):
                     if str(index) in map:
                         mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
         except (ValueError, KeyError):
@@ -1633,7 +1625,7 @@ Totals               6450                 6449
     def assert_topo_is_backend(self, tbinfo):
         topo_key = constants.TOPO_KEY
         name_key = constants.NAME_KEY
-        if topo_key in tbinfo.keys() and name_key in tbinfo[topo_key].keys():
+        if topo_key in list(tbinfo.keys()) and name_key in list(tbinfo[topo_key].keys()):
             topo_name = tbinfo[topo_key][name_key]
             if constants.BACKEND_TOPOLOGY_IND in topo_name:
                 return True
@@ -1663,6 +1655,8 @@ Totals               6450                 6449
             asic = "td3"
         elif "Broadcom Limited Device b980" in output:
             asic = "th3"
+        elif "Cisco Systems Inc Device a001" in output:
+            asic = "gb"
 
         return asic
 
@@ -1822,7 +1816,7 @@ Totals               6450                 6449
             #   section 1: resources usage
             #   section 2: ACL group
             #   section 3: ACL table
-            if 1 in sections.keys():
+            if 1 in list(sections.keys()):
                 crm_facts['resources'] = {}
                 resources = self._parse_show(sections[1])
                 for resource in resources:
@@ -1831,10 +1825,10 @@ Totals               6450                 6449
                         'available': int(resource['available count'])
                     }
 
-            if 2 in sections.keys():
+            if 2 in list(sections.keys()):
                 crm_facts['acl_group'] = self._parse_show(sections[2])
 
-            if 3 in sections.keys():
+            if 3 in list(sections.keys()):
                 crm_facts['acl_table'] = self._parse_show(sections[3])
             return True
         # Retry until crm resources are ready
@@ -2102,7 +2096,7 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -2110,9 +2104,10 @@ Totals               6450                 6449
         Returns:
             Dict of Interfaces and their IPv4 address
         """
+        active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
-        for k, v in ip_ifs.items():
+        for k, v in list(ip_ifs.items()):
             if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
                self.is_backend_portchannel(k, mg_facts))):
@@ -2125,6 +2120,10 @@ Totals               6450                 6449
                         "peer_ipv4": v["peer_ipv4"],
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
+                    active_ip_intf_cnt += 1
+
+                if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
+                    break
 
         return ip_ifaces
 
@@ -2305,7 +2304,10 @@ Totals               6450                 6449
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
-        return out["stdout_lines"][0]
+        if out["stdout_lines"]:
+            return out["stdout_lines"][0]
+        else:
+            return None
 
     def set_port_fec(self, portname, state):
         if not state:

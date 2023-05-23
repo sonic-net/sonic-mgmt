@@ -4,11 +4,11 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts          # noqa F401
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
-    enable_packet_aging, start_pfcwd
+    enable_packet_aging, start_pfcwd, sec_to_nanosec
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -22,6 +22,7 @@ WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.25
+
 
 def run_pfcwd_basic_test(api,
                          testbed_config,
@@ -52,7 +53,8 @@ def run_pfcwd_basic_test(api,
         N/A
     """
 
-    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    pytest_assert(testbed_config is not None,
+                  'Fail to get L2/3 testbed config')
 
     start_pfcwd(duthost)
     enable_packet_aging(duthost)
@@ -67,11 +69,13 @@ def run_pfcwd_basic_test(api,
                   'Fail to get ID for port {}'.format(dut_port))
 
     poll_interval_sec = get_pfcwd_poll_interval(duthost) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost, intf=dut_port) / 1000.0
-    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost, intf=dut_port) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(
+        host_ans=duthost, intf=dut_port) / 1000.0
+    restore_time_sec = get_pfcwd_restore_time(
+        host_ans=duthost, intf=dut_port) / 1000.0
 
-    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd 
-    fake alerts caused by non-incremented packet counters during pfcwd detection periods"""
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
     warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
     warm_up_traffic_delay_sec = 0
 
@@ -83,11 +87,12 @@ def run_pfcwd_basic_test(api,
         flow1_dur_sec = pfc_storm_dur_sec
 
         """ Start data traffic 2 after PFC is restored """
-        flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + poll_interval_sec + WARM_UP_TRAFFIC_DUR
+        flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + \
+            poll_interval_sec + WARM_UP_TRAFFIC_DUR
         flow2_dur_sec = 1
 
         flow1_max_loss_rate = 1
-        flow1_min_loss_rate = 1- DEVIATION
+        flow1_min_loss_rate = 1 - DEVIATION
 
     else:
         pfc_storm_dur_sec = detect_time_sec * 0.5
@@ -109,9 +114,12 @@ def run_pfcwd_basic_test(api,
                   port_id=port_id,
                   pause_flow_name=PAUSE_FLOW_NAME,
                   pause_flow_dur_sec=pfc_storm_dur_sec,
-                  data_flow_name_list=[WARM_UP_TRAFFIC_NAME, DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                  data_flow_delay_sec_list=[warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
-                  data_flow_dur_sec_list=[warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
+                  data_flow_name_list=[WARM_UP_TRAFFIC_NAME,
+                                       DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                  data_flow_delay_sec_list=[
+                      warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
+                  data_flow_dur_sec_list=[
+                      warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map)
@@ -129,11 +137,6 @@ def run_pfcwd_basic_test(api,
                      data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
                      data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
                      data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
-
-
-def sec_to_nanosec(secs):
-    """ Convert seconds to nanoseconds """
-    return secs * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -176,8 +179,10 @@ def __gen_traffic(testbed_config,
                                 rx_port_id=rx_port_id)
     pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
 
-    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
-    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+    tx_port_config = next(
+        (x for x in port_config_list if x.id == tx_port_id), None)
+    rx_port_config = next(
+        (x for x in port_config_list if x.id == rx_port_id), None)
 
     tx_mac = tx_port_config.mac
     if tx_port_config.gateway == rx_port_config.gateway and \
@@ -224,7 +229,8 @@ def __gen_traffic(testbed_config,
     pause_flow.rate.pps = pps
     pause_flow.size.fixed = 64
     pause_flow.duration.fixed_packets.packets = int(pause_pkt_cnt)
-    pause_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec(WARM_UP_TRAFFIC_DUR))
+    pause_flow.duration.fixed_packets.delay.nanoseconds = int(
+        sec_to_nanosec(WARM_UP_TRAFFIC_DUR))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
@@ -283,7 +289,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
 
     logger.info('Wait for Arp to Resolve ...')
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
-    
+
     logger.info('Starting transmit on all flows ...')
     ts = api.transmit_state()
     ts.state = ts.START
@@ -355,10 +361,11 @@ def __verify_results(rows,
                 data_flow_rx_frames_list[i] += rx_frames
 
     for i in range(num_data_flows):
-        loss_rate = 1 - float(data_flow_rx_frames_list[i]) / data_flow_tx_frames_list[i]
+        loss_rate = 1 - \
+            float(data_flow_rx_frames_list[i]) / data_flow_tx_frames_list[i]
         min_loss_rate = data_flow_min_loss_rate_list[i]
         max_loss_rate = data_flow_max_loss_rate_list[i]
 
         pytest_assert(loss_rate <= max_loss_rate and loss_rate >= min_loss_rate,
                       'Loss rate of {} ({}) should be in [{}, {}]'.format(
-                      data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))
+                          data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))

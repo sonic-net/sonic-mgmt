@@ -241,7 +241,7 @@ def crud_operations_basic(duthost, crud_operation):
     :return : dict with rule parameters
     """
     nat_type = "static_nat"
-    for key in crud_operation.keys():
+    for key in list(crud_operation.keys()):
         output = configure_nat_over_cli(duthost, crud_operation[key]["action"], nat_type,
                                         crud_operation[key]["global_ip"], crud_operation[key]["local_ip"])
     return output
@@ -255,7 +255,7 @@ def crud_operations_napt(duthost, crud_operation):
     :return : dict with rule parameters
     """
     nat_type = 'static_napt'
-    for key in crud_operation.keys():
+    for key in list(crud_operation.keys()):
         output = configure_nat_over_cli(duthost, crud_operation[key]["action"], nat_type,
                                         crud_operation[key]["global_ip"], crud_operation[key]["local_ip"],
                                         proto=crud_operation[key]["proto"],
@@ -481,7 +481,7 @@ def setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, 
     ptfhost.shell("ip rule add iif {} table {}".format(vrf_name, vrf_id))
     ptfhost.shell("ip rule add oif {} table {}".format(vrf_name, vrf_id))
     ptfhost.shell("ip route add 0.0.0.0/0 via {} table {}".format(gw_ip, vrf_id))
-    if "dut_iface" in setup_info[interface_type]["vrf_conf"][key].keys():
+    if "dut_iface" in list(setup_info[interface_type]["vrf_conf"][key].keys()):
         dut_iface = setup_info[interface_type]["vrf_conf"][key]["dut_iface"]
         pch_ip = setup_info["pch_ips"][dut_iface]
         pch_mask = setup_info["pch_masks"][dut_iface]

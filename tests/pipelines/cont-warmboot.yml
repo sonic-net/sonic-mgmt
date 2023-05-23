@@ -150,4 +150,3 @@ stages:
         testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
         testRunTitle: kvmtest
       condition: succeededOrFailed()
-

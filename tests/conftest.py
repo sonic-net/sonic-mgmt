@@ -57,6 +57,7 @@ from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_a
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
+from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -332,6 +333,11 @@ def duthost(duthosts, request):
     return duthost
 
 
+@pytest.fixture(scope="session")
+def mg_facts(duthost):
+    return duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
@@ -349,6 +355,25 @@ def rand_selected_dut(duthosts, rand_one_dut_hostname):
     Return the randomly selected duthost
     """
     return duthosts[rand_one_dut_hostname]
+
+
+@pytest.fixture(scope="module")
+def rand_one_dut_front_end_hostname(request):
+    """
+    """
+    dut_hostnames = generate_params_frontend_hostname(request)
+    if len(dut_hostnames) > 1:
+        dut_hostnames = random.sample(dut_hostnames, 1)
+    logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
+    return dut_hostnames[0]
+
+
+@pytest.fixture(scope="module")
+def rand_selected_front_end_dut(duthosts, rand_one_dut_front_end_hostname):
+    """
+    Return the randomly selected duthost
+    """
+    return duthosts[rand_one_dut_front_end_hostname]
 
 
 @pytest.fixture(scope="module")
@@ -438,7 +463,7 @@ def k8smasters(ansible_adhoc, request):
         pytest.skip("k8s inventory not found, skipping tests")
     with open('../ansible/{}'.format(k8s_inv_file), 'r') as kinv:
         k8sinventory = yaml.safe_load(kinv)
-        for hostname, attributes in k8sinventory[k8s_master_ansible_group]['hosts'].items():
+        for hostname, attributes in list(k8sinventory[k8s_master_ansible_group]['hosts'].items()):
             if 'haproxy' in attributes:
                 is_haproxy = True
             else:
@@ -474,7 +499,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    for k, v in tbinfo['topo']['properties']['topology']['VMs'].items():
+    for k, v in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
         vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
         if neighbor_type == "eos":
             device = NeighborDevice(
@@ -529,51 +554,60 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
-    for dut_host, value in dev_conn.items():
+    for dut_host, value in list(dev_conn.items()):
         duthost = duthosts[dut_host]
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             continue  # skip for kvm platform which has no fanout
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        for dut_port in value.keys():
+        for dut_port in list(value.keys()):
             fanout_rec = value[dut_port]
             fanout_host = str(fanout_rec['peerdevice'])
             fanout_port = str(fanout_rec['peerport'])
 
-            if fanout_host in fanout_hosts.keys():
+            if fanout_host in list(fanout_hosts.keys()):
                 fanout = fanout_hosts[fanout_host]
             else:
                 host_vars = ansible_adhoc().options[
                     'inventory_manager'].get_host(fanout_host).vars
                 os_type = host_vars.get('os', 'eos')
-                admin_user = creds['fanout_admin_user']
-                admin_password = creds['fanout_admin_password']
-                # `fanout_network_user` and `fanout_network_password` are for
-                # accessing the non-shell CLI of fanout.
-                # Ansible will use this set of credentail for establishing
-                # `network_cli` connection with device when applicable.
-                network_user = creds.get('fanout_network_user', admin_user)
-                network_password = creds.get('fanout_network_password',
-                                             admin_password)
-                shell_user = creds.get('fanout_shell_user', admin_user)
-                shell_password = creds.get('fanout_shell_pass', admin_password)
-                if os_type == 'sonic':
-                    shell_user = creds.get('fanout_sonic_user', None)
-                    shell_password = creds.get('fanout_sonic_password', None)
+                if 'fanout_tacacs_user' in creds:
+                    fanout_user = creds['fanout_tacacs_user']
+                    fanout_password = creds['fanout_tacacs_password']
+                elif 'fanout_tacacs_{}_user'.format(os_type) in creds:
+                    fanout_user = creds['fanout_tacacs_{}_user'.format(os_type)]
+                    fanout_password = creds['fanout_tacacs_{}_password'.format(os_type)]
+                elif os_type == 'sonic':
+                    fanout_user = creds.get('fanout_sonic_user', None)
+                    fanout_password = creds.get('fanout_sonic_password', None)
+                elif os_type == 'eos':
+                    fanout_user = creds.get('fanout_network_user', None)
+                    fanout_password = creds.get('fanout_network_password', None)
+                else:
+                    # when os is mellanox, not supported
+                    pytest.fail("os other than sonic and eos not supported")
+
+                eos_shell_user = None
+                eos_shell_password = None
+                if os_type == "eos":
+                    admin_user = creds['fanout_admin_user']
+                    admin_password = creds['fanout_admin_password']
+                    eos_shell_user = creds.get('fanout_shell_user', admin_user)
+                    eos_shell_password = creds.get('fanout_shell_password', admin_password)
 
                 fanout = FanoutHost(ansible_adhoc,
                                     os_type,
                                     fanout_host,
                                     'FanoutLeaf',
-                                    network_user,
-                                    network_password,
-                                    shell_user=shell_user,
-                                    shell_passwd=shell_password)
+                                    fanout_user,
+                                    fanout_password,
+                                    eos_shell_user=eos_shell_user,
+                                    eos_shell_passwd=eos_shell_password)
                 fanout.dut_hostnames = [dut_host]
                 fanout_hosts[fanout_host] = fanout
 
                 if fanout.os == 'sonic':
                     ifs_status = fanout.host.get_interfaces_status()
-                    for key, interface_info in ifs_status.items():
+                    for key, interface_info in list(ifs_status.items()):
                         fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
                     logging.info("fanout {} fanout_port_alias_to_name {}"
                                  .format(fanout_host, fanout.fanout_port_alias_to_name))
@@ -589,7 +623,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                 # --------------------
                 # Ethernet108   Ethernet32
                 # Ethernet32    Ethernet13/1
-                if mapped_port not in value.keys():
+                if mapped_port not in list(value.keys()):
                     fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
 
             if dut_host not in fanout.dut_hostnames:
@@ -673,14 +707,14 @@ def creds_on_dut(duthost):
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
     # load creds for console
-    if "console_login" not in hostvars.keys():
+    if "console_login" not in list(hostvars.keys()):
         console_login_creds = {}
     else:
         console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
 
-    for k, v in console_login_creds.items():
+    for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
 
@@ -709,7 +743,7 @@ def pytest_runtest_makereport(item, call):
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
-    item._report_sections = list(filter(lambda report: report[1] not in ("stdout", "stderr"), item._report_sections))
+    item._report_sections = list([report for report in item._report_sections if report[1] not in ("stdout", "stderr")])
 
     # execute all other hooks to obtain the report object
     outcome = yield
@@ -845,7 +879,7 @@ def disable_container_autorestart():
         logging.info("Disable container autorestart")
         cmd_disable = "config feature autorestart {} disabled"
         cmds_disable = []
-        for name, state in container_autorestart_states.items():
+        for name, state in list(container_autorestart_states.items()):
             if state == "enabled" and (feature_list is None or name in feature_list):
                 cmds_disable.append(cmd_disable.format(name))
         # Write into config_db
@@ -877,7 +911,7 @@ def enable_container_autorestart():
         logging.info("Recover container autorestart")
         cmd_enable = "config feature autorestart {} enabled"
         cmds_enable = []
-        for name, state in container_autorestart_states.items():
+        for name, state in list(container_autorestart_states.items()):
             if state == "disabled" and (feature_list is None or name in feature_list) \
                     and name in stored_autorestart_states \
                     and stored_autorestart_states[name] == "enabled":
@@ -973,7 +1007,7 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
                         .format(a_host))
 
     hosts_per_hwsku = []
-    for hosts in host_hwskus.values():
+    for hosts in list(host_hwskus.values()):
         if len(hosts) == 1:
             hosts_per_hwsku.append(hosts[0])
         else:
@@ -1015,7 +1049,7 @@ def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=Fa
                     if ASICS_PRESENT in inv_data:
                         dut_asic_params = inv_data[ASICS_PRESENT]
                     else:
-                        dut_asic_params = range(int(inv_data[ASIC_PARAM_TYPE_ALL]))
+                        dut_asic_params = list(range(int(inv_data[ASIC_PARAM_TYPE_ALL])))
             elif param_type == ASIC_PARAM_TYPE_FRONTEND and ASIC_PARAM_TYPE_FRONTEND in inv_data:
                 dut_asic_params = inv_data[ASIC_PARAM_TYPE_FRONTEND]
             logging.info("dut name {}  asics params = {}".format(dut, dut_asic_params))
@@ -1032,7 +1066,7 @@ def generate_params_dut_index(request):
     num_duts = len(get_specified_duts(request))
     logging.info("Using {} duts from testbed '{}'".format(num_duts, tbname))
 
-    return range(num_duts)
+    return list(range(num_duts))
 
 
 def generate_params_dut_hostname(request):
@@ -1099,11 +1133,11 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
         return empty
 
     dut_port_map = {}
-    for dut, val in dut_ports.items():
+    for dut, val in list(dut_ports.items()):
         dut_port_pairs = []
         if 'intf_status' not in val:
             continue
-        for intf, status in val['intf_status'].items():
+        for intf, status in list(val['intf_status'].items()):
             if scope in intf and (not state or status[state] == 'up'):
                 dut_port_pairs.append(encode_dut_port_name(dut, intf))
         dut_port_map[dut] = dut_port_pairs
@@ -1118,18 +1152,18 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
             if len(dut_port_list) <= target_len:
                 return dut_port_list
             # for diversity, fetch the ports from both the start and the end of the original list
-            pos_1 = target_len / 2
+            pos_1 = target_len // 2
             pos_2 = target_len - pos_1
             return dut_ports[:pos_1] + dut_ports[-pos_2:]
 
         if completeness_level in ["debug"]:
-            for dut, dut_ports in dut_port_map.items():
+            for dut, dut_ports in list(dut_port_map.items()):
                 dut_port_map[dut] = trim_dut_port_lists(dut_ports, 1)
         elif completeness_level in ["basic", "confident"]:
-            for dut, dut_ports in dut_port_map.items():
+            for dut, dut_ports in list(dut_port_map.items()):
                 dut_port_map[dut] = trim_dut_port_lists(dut_ports, 4)
 
-    ret = sum(dut_port_map.values(), [])
+    ret = sum(list(dut_port_map.values()), [])
     logger.info("Generate port_list: {}".format(ret))
     return ret if ret else empty
 
@@ -1149,10 +1183,10 @@ def generate_dut_feature_container_list(request):
 
     container_list = []
 
-    for dut, val in meta.items():
+    for dut, val in list(meta.items()):
         if "features" not in val:
             continue
-        for feature in val["features"].keys():
+        for feature in list(val["features"].keys()):
             if "disabled" in val["features"][feature]:
                 continue
 
@@ -1188,14 +1222,14 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
             for a_asic in asics_selected[a_dut_index]:
                 # Create tuple of dut and asic index
                 if "features" in meta[a_dut]:
-                    for a_feature in meta[a_dut]["features"].keys():
+                    for a_feature in list(meta[a_dut]["features"].keys()):
                         if a_feature not in skip_feature_list:
                             tuple_list.append((a_dut, a_asic, a_feature))
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
             if "features" in meta[a_dut]:
-                for a_feature in meta[a_dut]["features"].keys():
+                for a_feature in list(meta[a_dut]["features"].keys()):
                     if a_feature not in skip_feature_list:
                         tuple_list.append((a_dut, None, a_feature))
             else:
@@ -1242,7 +1276,7 @@ def generate_priority_lists(request, prio_scope):
     dut_prio = info[tbname]
     ret = []
 
-    for dut, priorities in dut_prio.items():
+    for dut, priorities in list(dut_prio.items()):
         for p in priorities:
             ret.append('{}|{}'.format(dut, p))
 
@@ -1271,8 +1305,8 @@ def pfc_pause_delay_test_params(request):
     dut_pfc_delay_params = info[tbname]
     ret = []
 
-    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
-        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+    for dut, pfc_pause_delay_params in list(dut_pfc_delay_params.items()):
+        for pfc_delay, headroom_result in list(pfc_pause_delay_params.items()):
             ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
 
     return ret if ret else empty
@@ -1411,6 +1445,8 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize(
             "enum_dut_feature_container", generate_dut_feature_container_list(metafunc)
         )
+    if 'enum_dut_all_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_all_prio", generate_priority_lists(metafunc, 'all'))
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
@@ -1438,8 +1474,8 @@ def get_autoneg_tests_data():
 
     return [
         {'dutname': dutname, 'port': dutport, 'speeds': portinfo['common_port_speeds']}
-        for dutname, ports in data.items()
-        for dutport, portinfo in ports.items()
+        for dutname, ports in list(data.items())
+        for dutport, portinfo in list(ports.items())
     ]
 
 
@@ -1561,7 +1597,7 @@ def get_l2_info(dut):
     mgmt_intf_table = config_facts['MGMT_INTERFACE']
     metadata_table = config_facts['DEVICE_METADATA']['localhost']
     mgmt_ip = None
-    for ip in mgmt_intf_table['eth0'].keys():
+    for ip in list(mgmt_intf_table['eth0'].keys()):
         if type(ip_interface(ip)) is IPv4Interface:
             mgmt_ip = ip
     mgmt_gw = mgmt_intf_table['eth0'][mgmt_ip]['gwaddr']
@@ -1614,9 +1650,9 @@ def enable_l2_mode(duthosts, tbinfo, backup_and_restore_config_db_session):     
         # step 4
         if is_dualtor:
             mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-            all_ports = mg_facts['minigraph_ports'].keys()
+            all_ports = list(mg_facts['minigraph_ports'].keys())
             downlinks = []
-            for vlan_info in mg_facts['minigraph_vlans'].values():
+            for vlan_info in list(mg_facts['minigraph_vlans'].values()):
                 downlinks.extend(vlan_info['members'])
             uplinks = [intf for intf in all_ports if intf not in downlinks]
             extra_args = {
@@ -1838,7 +1874,7 @@ def __dut_reload(duts_data, node=None, results=None):
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
             os.remove(asic_cfg_file)
 
-    config_reload(node)
+    config_reload(node, wait_before_force_reload=300)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -1992,7 +2028,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                 for key in common_config_keys:
                     # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
                     if key == "FLEX_COUNTER_TABLE":
-                        for sub_key, sub_value in pre_running_config[key].items():
+                        for sub_key, sub_value in list(pre_running_config[key].items()):
                             try:
                                 pre_value = pre_running_config[key][sub_key]
                                 cur_value = cur_running_config[key][sub_key]
@@ -2043,7 +2079,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             }
             logger.warning("Core dump or config check failed for {}, results: {}"
                            .format(module_name, json.dumps(check_result)))
-            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=300)
+            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
@@ -2115,3 +2151,7 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
 # HACK: testutils.verify_packets_any to workaround code bug
 # TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
 testutils.verify_packets_any = verify_packets_any_fixed
+
+# HACK: We are using set_do_not_care_scapy but it will be deprecated.
+if not hasattr(Mask, "set_do_not_care_scapy"):
+    Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet

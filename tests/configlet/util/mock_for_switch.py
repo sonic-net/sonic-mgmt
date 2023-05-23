@@ -89,7 +89,7 @@ class DutHost:
             for i in expected:
                 if i not in ctrs:
                     missing.add(i)
-            print("Missing services: {}".format(str(missing)))
+            print(("Missing services: {}".format(str(missing))))
             return False
 
         return True

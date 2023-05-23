@@ -1,6 +1,4 @@
-import os
 import pytest
-import sys
 
 
 class DeviceMocker:
@@ -29,6 +27,9 @@ class DeviceMocker:
         return False, None
 
     def mock_psu_voltage(self, good):
+        return False, None
+
+    def mock_fan_direction(self, good):
         return False, None
 
 

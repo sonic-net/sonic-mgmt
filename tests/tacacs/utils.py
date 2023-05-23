@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 
-# per-command authorization and accounting feature not avaliable in following versions
+# per-command authorization and accounting feature not available in following versions
 per_command_check_skip_versions = ["201811", "201911", "202012", "202106"]
 
 
@@ -27,13 +27,20 @@ def check_all_services_status(ptfhost):
 
 
 def start_tacacs_server(ptfhost):
+    def tacacs_running(ptfhost):
+        out = ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout"]
+        return "tacacs+ running" in out
+
     ptfhost.command("service tacacs_plus restart", module_ignore_errors=True)
-    return "tacacs+ running" in ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout_lines"]
+    return wait_until(5, 1, 0, tacacs_running, ptfhost)
 
 
 def stop_tacacs_server(ptfhost):
-    ptfhost.service(name="tacacs_plus", state="stopped")
-    check_all_services_status(ptfhost)
+    def tacacs_not_running(ptfhost):
+        out = ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout"]
+        return "tacacs+ apparently not running" in out
+    ptfhost.shell("service tacacs_plus stop")
+    return wait_until(5, 1, 0, tacacs_not_running, ptfhost)
 
 
 def setup_local_user(duthost, tacacs_creds):
@@ -186,9 +193,10 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     # Find ld lib symbolic link target, and fix the tac_plus config file
     fix_ld_path_in_config(duthost, ptfhost)
 
+    # config TACACS+ to use debug flag: '-d 2058', so received data will write to /var/log/tac_plus.log
     ptfhost.lineinfile(
         path="/etc/default/tacacs+",
-        line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"",
+        line="DAEMON_OPTS=\"-d 2058 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"",
         regexp='^DAEMON_OPTS=.*'
     )
     check_all_services_status(ptfhost)

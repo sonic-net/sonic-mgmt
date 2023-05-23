@@ -32,6 +32,7 @@ DEFAULT_MAX_TECHSUPPORT_LIMIT = 10
 DEFAULT_MAX_CORE_LIMIT = 5
 DEFAULT_SINCE = '2 days ago'
 
+KB_SIZE = 1000  # We use 1000 to have the same value as in shutil.disk_usage() method which used in SONiC code
 CMD_GET_AUTO_TECH_SUPPORT_HISTORY_REDIS_KEYS = 'sudo redis-cli --raw -n 6  KEYS AUTO_TECHSUPPORT*'
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
 SAI_CALL_TEMPLATE_FILE_PATH = os.path.join(TEMPLATES_DIR, 'sai_call_fail_config.j2')
@@ -67,7 +68,8 @@ class TestAutoTechSupport:
 
     def set_test_dockers_list(self):
         self.dockers_list = []
-        auto_tech_support_features_list = self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys()
+        auto_tech_support_features_list = list(
+            self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys())
         system_features_status = self.duthost.get_feature_status()
         for feature in auto_tech_support_features_list:
             if is_docker_enabled(system_features_status, feature):
@@ -635,7 +637,7 @@ def is_techsupport_generation_in_expected_state(duthost, expected_in_progress=Tr
         num_of_process = len(duthost.shell(get_running_tech_procs_cmd)['stdout_lines']) - processes_to_be_ignored
         logger.info('Number of running autotechsupport processes: {}'.format(num_of_process))
 
-        if num_of_process == 1:
+        if num_of_process >= 1:
             techsupport_in_progress = True
 
         is_in_expected_state = False
@@ -826,7 +828,7 @@ def validate_auto_techsupport_feature_config(dut_cli, expected_status_dict=None)
     """
     auto_techsupport_feature_dict = dut_cli.auto_techsupport.parse_show_auto_techsupport_feature()
 
-    for feature, configuration in auto_techsupport_feature_dict.items():
+    for feature, configuration in list(auto_techsupport_feature_dict.items()):
         if expected_status_dict:
             if feature not in expected_status_dict:
                 continue
@@ -949,6 +951,7 @@ def get_new_techsupport_files_list(duthost, available_tech_support_files):
     :return: list of new techsupport files
     """
     try:
+        duthost.shell('ls -lh /var/dump/')  # print into logs full folder content(for debug purpose)
         new_available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
     except RunAnsibleModuleFail:
         new_available_tech_support_files = []
@@ -981,7 +984,7 @@ def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
             syslogs_creation_date_dict[file_timestamp] = [syslog_file_name]
 
     # Sorted from new to old
-    syslogs_sorted = sorted(syslogs_creation_date_dict.keys(), reverse=True)
+    syslogs_sorted = sorted(list(syslogs_creation_date_dict.keys()), reverse=True)
     expected_files_in_techsupport_list = []
     for date in syslogs_sorted:
         expected_files_in_techsupport_list.extend(syslogs_creation_date_dict[date])
@@ -1055,11 +1058,10 @@ def get_partition_usage_info(duthost, partition='/'):
     """
     with allure.step('Getting HDD partition {} usage'.format(partition)):
         output = duthost.shell('sudo df {}'.format(partition))['stdout_lines']
-        kb = 1024
         _, total, used, avail, used_percent, _ = output[-1].split()
-        total_mb = int(total) / kb
-        used_mb = int(used) / kb
-        avail_mb = int(avail) / kb
+        total_mb = int(total) / KB_SIZE
+        used_mb = int(used) / KB_SIZE
+        avail_mb = int(avail) / KB_SIZE
         used_percent = int(used_percent.strip('%'))
 
     return total_mb, used_mb, avail_mb, used_percent
@@ -1077,8 +1079,7 @@ def get_used_space(duthost, path_to_file_folder):
         directory_usage_line = -1
         memory_usage_line = 0
         used_by_folder = du_output[directory_usage_line].split()[memory_usage_line]
-        kb = 1024
-        used_by_folder_mb = int(used_by_folder) / kb
+        used_by_folder_mb = int(used_by_folder) / KB_SIZE
 
     return used_by_folder_mb
 
@@ -1110,7 +1111,7 @@ def create_core_stub_file(duthost, size_in_mb):
     """
     with allure.step('Create stub .core file'):
         current_time = int(time.time())
-        random_pid = random.choice(range(100, 20000))  # Get random PID
+        random_pid = random.choice(list(range(100, 20000)))  # Get random PID
         file_name = 'bash.{}.{}.core.gz'.format(current_time, random_pid)
         core_folder_path = '/var/core/'
         full_path_to_file = '{}{}'.format(core_folder_path, file_name)
@@ -1126,7 +1127,7 @@ def create_stub_file(duthost, path_to_file, size_in_mb):
     :param path_to_file: full path to file which should be created
     :param size_in_mb: size of file in mb
     """
-    cmd = 'sudo dd if=/dev/zero of={} bs=1M count={}'.format(path_to_file, size_in_mb)
+    cmd = 'sudo dd if=/dev/zero of={} bs=1M count={}'.format(path_to_file, int(size_in_mb))
     duthost.shell(cmd)
 
 
@@ -1232,6 +1233,10 @@ def clear_folders(duthost):
     Clear auto-techsupport related folders
     :param duthost: duthost object
     """
+    # print into logs folders content(for debug purpose) before remove
+    duthost.shell('sudo ls -lh /var/core/')
+    duthost.shell('sudo ls -lh /var/dump/')
+
     duthost.shell('sudo rm -rf /var/core/*')
     duthost.shell('sudo rm -rf /var/dump/*')
 
@@ -1265,11 +1270,13 @@ def get_random_physical_port_non_po_member(minigraph_facts):
     :return: string, port name
     """
     po_members = []
-    for po_iface, po_data in minigraph_facts['minigraph_portchannels'].items():
+    test_port = None
+    for po_iface, po_data in list(minigraph_facts['minigraph_portchannels'].items()):
         po_members += po_data['members']
-    all_ports = list(minigraph_facts[u'minigraph_ports'].keys())
+    all_ports = list(minigraph_facts['minigraph_ports'].keys())
     non_po_ports = [port for port in all_ports if port not in po_members]
-    test_port = random.choice(non_po_ports)
+    if non_po_ports:
+        test_port = random.choice(non_po_ports)
     return test_port
 
 
@@ -1281,7 +1288,7 @@ def get_port_vlan(minigraph_facts, port):
     :return: string with Vlan ID, or None
     """
     test_port_vlan = None
-    for vlan in minigraph_facts['minigraph_vlans']:
+    for vlan in minigraph_facts.get('minigraph_vlans', []):
         if port in minigraph_facts['minigraph_vlans'][vlan]['members']:
             test_port_vlan = vlan.split('Vlan')[1]  # Get string '1000' from 'Vlan1000
             break
@@ -1297,7 +1304,7 @@ def get_port_ips(minigraph_facts, port):
     :return: list, example: [(ip, mask), (ip, mask)]
     """
     iface_ips_data = []
-    for iface_data in minigraph_facts['minigraph_interfaces']:
+    for iface_data in minigraph_facts.get('minigraph_interfaces', []):
         if iface_data['attachto'] == port:
             ip_addr = iface_data['addr']
             ip_mask = iface_data['prefixlen']
