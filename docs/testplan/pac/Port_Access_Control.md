@@ -27,13 +27,16 @@
 
 ## Introduction
 
-### Objective 
+### Objective
 
 The main objective of this document is to cover the test cases that will be executed for Port authentication methods 802.1x and MAB. Topologies and test cases for testing the feature will be discussed as part of this document.
 
 ### Scope
 
-- PAC authentication of hosts on access port 
+- PAC authentication of hosts on access port
+- This functionality has been tested using the SPyTest framework. In order to emulate 802.1x and MAB clients, traffic generators like Ixia and Spirent will be used. FreeRADIUS is using for User Authentication.
+- Currently, The PAC functionality scoping on platforms AS4630-54PE, Dell N3248TE and Dell N3248PXE.
+- To test the maximum 128 client scalability, the device must have 8GB SSD flash and 4GB DDR4 RAM as minimum requirements.
 
 ### Out of scope
 
@@ -53,13 +56,15 @@ MAC Authentication Bypass(MAB):
 
 Simple devices like camera or printers which do not support 802.1x authentication can make use of MAB feature where the device gets authenticated based on the device MAC address.
 
+## Test Framework
+Using SPyTest framework to test this feature. Traffic generators like Ixia and Spirent will be using to simulate 802.1x and MAB clients. FreeRADIUS is using for User Authentication and Authorization.
+
 ## 1 Test Focus Areas
 
 ### 1.1 CLI Testing
 
 	- Verify port authentication can be enabled only on physical interfaces and gets denied on VLAN, Portchannel, PO member ports and sub interfaces.
 	- Verify configured CLI fields are updated properly in respective show commands
-	- Verify PAC configurations/show outputs via REST URI
 
 ### 1.2 Functional Testing
 
@@ -128,15 +133,6 @@ Simple devices like camera or printers which do not support 802.1x authenticatio
 | **Type**       | **CLI**                                  |
 | **Steps**      | 1. Enable 802.1x globally using command "config dot1x system-auth-control enable" and verify administrative mode as enabled in "show dot1x" command<br/>2. Disable 802.1x globally using command "config dot1x system-auth-control disable" and verify administrative mode as disabled in "show dot1x" command<br/> 3. Configure port-control mode to auto using command "config authentication port-control interface auto Ethernet0" and verify port control mode is changed to auto from force-authorized in "show authentication interface Ethernet0"<br/>4. Configure port-control mode to force-unauthorized using command "config authentication port-control interface force-unauthorized Ethernet0" and verify port control mode is changed to force-unauthorized<br/>5. Enable pae role as authenticator on interface using command "config dot1x pae interface authenticator Ethernet0" and verify pae mode is changed to authenticator in "show dot1x detail Ethernet0" and "show dot1x detail all"<br/>6. Disable pae role on interface using command "config dot1x pae interface none Ethernet0" and verify pae mode is changed to none in "show dot1x detail Ethernet0" and "show dot1x detail all"<br/>7. Configure host-mode to multi-auth using command "config authentication host-mode interface multi-auth Ethernet0" and verify host mode is changed to multi-auth from multi-host in "show authentication interface Ethernet0"<br/>8. Configure host-mode to single-host using command "config authentication host-mode interface single-host Ethernet0" and verify host mode is changed to single-host from multi-host in "show authentication interface Ethernet0"<br/>9. Configure max-users to non-default value using command "config authentication max-users interface 8 Ethernet0" and verify max-users field is changed to 8 from 16 in "show authentication interface Ethernet0"<br/>10. Enable authentication periodic using command "config authentication periodic interface enable Ethernet0" and verify re-authentication periodic is enabled in "show authentication interface Ethernet0"<br/>11. Disable authentication periodic command "config authentication periodic interface disable Ethernet0" and verify re-authentication periodic is disabled in "show authentication interface Ethernet0"<br/>12. Configure authentication timer command "config authentication timer re-authenticate 100 Ethernet0" and verify re-authentication period is updated properly in "show authentication interface Ethernet0"<br/>13. Configure authentication order to 802.1x using command "config authentication order interface dot1x Ethernet0" and verify configured method order is updated to 802.1x in "show authentication interface Ethernet0"<br/>14. Configure authentication priority to 802.1x using command "config authentication priority interface dot1x Ethernet0" and verify configured method priority is updated to 802.1x in "show authentication interface Ethernet0"<br/>15. Enable MAB with auth-type pap on interface using command "config MAB interface enable auth-type pap Ethernet0" and verify MAB admin mode is enabled with auth-type pap in "show mab Ethernet0" or "show mab"<br/>16. Disable MAB on interface using command "config mab interface disable Ethernet0" and verify MAB admin mode is disabled and auth-type is set to eap-md5 in "show mab Ethernet0" and "show mab"<br/> |
 
-
-### 3.1.3 Verify PAC configurations/show outputs via REST URI
-
-| **Test ID**    | **PAC_CLI_003**                          |
-| -------------- | :--------------------------------------- |
-| **Test Name**  | **Verify PAC configurations/show outputs via REST URI** |
-| **Test Setup** | **Topology1**                            |
-| **Type**       | **CLI**                                  |
-| **Steps**      | 1. Configure-authentication global and interface configurations using REST methods POST, PUT and PATCH<br/>2. Verify 802.1x and MAB session information using GET method<br/>3. Delete authentication params globally and interface configurations using DELETE method<br/> |
 
 ### **3.2 Functional Test Cases**
 
@@ -386,7 +382,7 @@ Simple devices like camera or printers which do not support 802.1x authenticatio
 
 | **Test ID**    | **PAC_FUNC_TRIGGER_001**                 |
 | -------------- | :--------------------------------------- |
-| **Test Name**  | **Verify Client authentication after reboot** |
+| **Test Name**  | **Verify Client authentication after reboot**|
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
 | **Steps**      | 1. Define RADIUS server<br/>2. Enable 802.1x/MAB globally and at interface level<br/>3. Authenticate to the DUT with multiple 802.1x clients and MAB clients<br/>4. Do config save and "reboot"<br/>5. 802.1x/MAB clients are removed and authenticated again.<br/>6. Verify that 802.1x/MAB clients authentication is successful<br/> |
@@ -396,7 +392,7 @@ Simple devices like camera or printers which do not support 802.1x authenticatio
 
 | **Test ID**    | **PAC_FUNC_TRIGGER_002**                 |
 | -------------- | :--------------------------------------- |
-| **Test Name**  | **Verify Client authentication after warmboot** |
+| **Test Name**  | **Verify Client authentication after warmboot**|
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
 | **Steps**      | 1. Define RADIUS server<br/>2. Enable 802.1x/MAB globally and at interface level<br/>3. Authenticate to the DUT with multiple 802.1x clients and MAB clients<br/>4. Do config save and warmboot<br/>5. 802.1x/MAB clients are removed and authenticated again.<br/>6. Verify that 802.1x/MAB clients authentication is successful<br/> |
@@ -404,11 +400,11 @@ Simple devices like camera or printers which do not support 802.1x authenticatio
 
 ### **3.4 Scale Test Cases**
 
-### 3.4.1 Verify 128 max supported 802.1x clients on DUT. 
+### 3.4.1 Verify 128 max supported 802.1x clients on DUT.
 
 | **Test ID**    | **PAC_SCAL_001**                         |
 | -------------- | :--------------------------------------- |
-| **Test Name**  | **Verify 128 max supported 802.1x clients on DUT.** |
+| **Test Name**  | **Verify 128 max supported 802.1x clients on DUT.**|
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
 | **Steps**      | 1. Enable 802.1x authentication globally and at interface level on multiple ports<br/>2. configure-authentication in multi-auth mode<br/>3. Try authentication 128 clients across multiple interfaces(at least 16 clients from one or two interfaces to cover max clients per port) and verify 128 802.1x authenticated clients<br/>4. Verify FDB entries for all 128 clients<br/>5. Verify all client traffic gets allowed after authentication<br/>6. Logoff all the 128 clients and verify clients move to unauthorized state and gets blocked from accessing the server.<br/>7. Reinitiate the clients and check all are authenticated successfully.<br/>8. Log off the clients again and check all are cleared.<br/> |
@@ -418,7 +414,7 @@ Simple devices like camera or printers which do not support 802.1x authenticatio
 
 | **Test ID**    | **PAC_SCAL_002**                         |
 | -------------- | :--------------------------------------- |
-| **Test Name**  | **Verify 128 max supported MAB clients on DUT.** |
+| **Test Name**  | **Verify 128 max supported MAB clients on DUT.**|
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
 | **Steps**      | 1. Enable 802.1x authentication globally and at interface level on multiple ports<br/>2. configure-authentication in multi-auth mode<br/>3.Try authentication 128 clients across multiple interfaces and verify 128 MAB authenticated clients <br/>4. Verify FDB entries for all 128 clients<br/>5. Verify all client traffic gets allowed after authentication<br/>6. Logoff all the 128 clients and verify clients move to unauthorized state and gets blocked from accessing the server<br/>7. Reinitiate the clients and check all are authenticated successfully.<br/>8. With max clients authenticated, perform save and reload.<br/>9. Check that after DUT comes up, all clients are authenticated successfully.<br/> |
@@ -449,7 +445,7 @@ sonic-clear authentication sessions <interface <all | <interface\>\>\> | <mac <m
 ### 4.3 Sample show outputs
 ```
 admin@sonic:~$ show authentication clients all
- 
+
 ---------------------------------------------------------------------------------------------------------------------------------------------
 Interface      User Name                          MAC-Address            Method       Host Mode      Control Mode      VLAN Assigned Reason
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -458,7 +454,7 @@ Ethernet1      Userv21                            00:00:00:42:22:33      802.1x 
 
 
 admin@sonic:~$ show authentication clients Ethernet1
-        
+
 Mac Address ........................................ 00:00:00:42:22:33
 User Name .......................................... Userv21
 VLAN Assigned Reason ............................... Radius (30)
@@ -471,7 +467,7 @@ Session Termination Action ......................... Default
 
 
 admin@sonic:~$ show authentication interface Ethernet0
- 
+
 Interface ..................................... Eth1/46
 Port Control Mode.............................. auto
 Host Mode...................................... single-host
@@ -486,7 +482,7 @@ PAE role ...................................... Authenticator
 
 
 admin@sonic:~$ show mab interface Ethernet0
-                      
+
 Interface  ..................................... Ethernet0
 Admin mode ..................................... Enabled
 mab_auth_type .................................. EAP_MD5
@@ -494,7 +490,7 @@ Server Timeout(secs) ........................... 30
 
 
 admin@sonic:~$ show mab
-                      
+
 Interface  ..................................... Ethernet0
 Admin mode ..................................... Disabled
 mab_auth_type .................................. EAP_MD5
@@ -527,8 +523,8 @@ Server Timeout(secs) ........................... 30
 
 
 admin@sonic:~$ show dot1x detail Ethernet0
-                    
-Interface ..................................... Ethernet0 
+
+Interface ..................................... Ethernet0
 PAE Capabilities .............................. authenticator
 Server Timeout(secs) .......................... 30
 Quiet Period(secs)............................. 30
