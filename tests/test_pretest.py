@@ -8,6 +8,8 @@ import time
 from collections import defaultdict
 
 from jinja2 import Template
+
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
@@ -298,18 +300,39 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def test_update_saithrift_ptf(request, ptfhost):
+def test_update_saithrift_ptf(request, ptfhost, duthosts, localhost):
     '''
     Install the correct python saithrift package on the ptf
     '''
     py_saithrift_url = request.config.getoption("--py_saithrift_url")
     if not py_saithrift_url:
-        pytest.skip("No URL specified for python saithrift package")
+        for duthost in duthosts:
+            if duthost in duthosts.supervisor_nodes:
+                if "Nokia" in duthost.facts.get("hwsku"):
+                    py_saithrift_url = "http://sonic-pluto.ipd.us.alcatel-lucent.com/files/sonic/pub/saithrift_pkg/python-saithrift_0.9.4_amd64.deb"
+                else:
+                    pytest.skip("No URL specified for python saithrift package")
+
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
-    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
-    if result["failed"] or "OK" not in result["msg"]:
-        pytest.skip("Download failed/error while installing python saithrift package")
+    '''
+    Added change here to make sure we have the right saithrift pakcage
+    to the ptf. Grabbing the package from pluto server pub directory.
+    '''
+    if "Nokia" in duthost.facts.get("hwsku"):
+        try:
+            rslt = localhost.shell('curl -O {}'.format(py_saithrift_url))['rc']
+            if rslt == 0:
+                ptfhost.copy(src='/data/tests/python-saithrift_0.9.4_amd64.deb', dest='/root')
+        except RunAnsibleModuleFail as e:
+            error_message = ("Unable to load the image.Please verify that your test server is reachable.")
+            logger.error(error_message)
+            logger.error("Error detail:\n{}".format(repr(e)))
+            raise RuntimeError(error_message)
+    else:
+        result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+        if result["failed"] or "OK" not in result["msg"]:
+            pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
 
