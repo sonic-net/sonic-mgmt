@@ -3,15 +3,16 @@ import logging
 import os
 import pytest
 import time
+import six
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
 from tests.common import config_reload
-from tests.common.dualtor.dual_tor_utils import tor_mux_intfs
-from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.processes_utils import wait_critical_processes
 
 __all__ = [
-    'require_mocked_dualtor',
     'apply_active_state_to_orchagent',
     'apply_dual_tor_neigh_entries',
     'apply_dual_tor_peer_switch_route',
@@ -44,6 +45,7 @@ Test functions wishing to apply the full mock config must use the following fixt
     - apply_active_state_to_orchagent OR apply_standby_state_to_orchagent
 '''
 
+
 def _apply_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'):
     '''
     Applies a given configuration string to the SWSS container
@@ -54,14 +56,14 @@ def _apply_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'
         swss_filename: The filename to use for copying the config file around (default='swss_config_file')
     '''
 
-    dut_filename = os.path.join('/tmp',swss_filename)
+    dut_filename = os.path.join('/tmp', swss_filename)
 
     dut.shell('echo "{}" > {}'.format(swss_config_str, dut_filename))
     dut.shell('docker cp {} swss:{}'.format(dut_filename, swss_filename))
     dut.shell('docker exec swss sh -c "swssconfig {}"'.format(swss_filename))
 
 
-def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
+def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa F811
     """
     Helper function for setting active/standby state to orchagent
     """
@@ -97,7 +99,7 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
 
-def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):
+def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):       # noqa F811
     """
     Helper function for deleting active/standby state to orchagent
     """
@@ -120,7 +122,7 @@ def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
 
-def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):
+def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):      # noqa F811
     '''
     Helper function to configure active/standby state in orchagent
 
@@ -138,12 +140,6 @@ def is_mocked_dualtor(tbinfo):
     return 'dualtor' not in tbinfo['topo']['name']
 
 
-@pytest.fixture
-def require_mocked_dualtor(tbinfo):
-    pytest_require(is_t0_mocked_dualtor(tbinfo), "This testcase is designed for "
-        "single tor testbed with mock dualtor config. Skip this testcase on real dualtor testbed")
-
-
 def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
     if is_mocked_dualtor(tbinfo):
         set_dual_tor_state_to_orchagent(dut, state, itfs)
@@ -157,7 +153,7 @@ def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
 
 
 @pytest.fixture(scope='module')
-def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):
+def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):      # noqa F811
     dut = rand_selected_dut
 
     for func in _apply_dual_tor_state_to_orchagent(dut, 'active', tor_mux_intfs):
@@ -165,7 +161,7 @@ def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):
 
 
 @pytest.fixture(scope='module')
-def apply_standby_state_to_orchagent(rand_selected_dut, tor_mux_intfs):
+def apply_standby_state_to_orchagent(rand_selected_dut, tor_mux_intfs):     # noqa F811
     dut = rand_selected_dut
 
     for func in _apply_dual_tor_state_to_orchagent(dut, 'standby', tor_mux_intfs):
@@ -228,7 +224,8 @@ def mock_server_base_ip_addr(rand_selected_dut, tbinfo):
 
 
 @pytest.fixture(scope='module')
-def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_base_ip_addr, tor_mux_intfs):
+def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter,
+                           mock_server_base_ip_addr, tor_mux_intfs):     # noqa F811
     dut = rand_selected_dut
 
     server_ipv4_base_addr, _ = mock_server_base_ip_addr
@@ -242,19 +239,20 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_ba
         ptf_port_index = dut_ptf_intf_map[intf]
         for retry in range(10):
             ptf_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index)
-            if ptf_mac != None:
+            if ptf_mac is not None:
                 break
             else:
                 time.sleep(2)
-        pytest_assert(ptf_mac != None, "fail to get mac address of interface {}".format(ptf_port_index))
+        pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
+        server_ip_mac_map[server_ipv4_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ip_mac_map
 
 
 @pytest.fixture(scope='module')
-def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_base_ip_addr, tor_mux_intfs):
+def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter,
+                             mock_server_base_ip_addr, tor_mux_intfs):      # noqa F811
     dut = rand_selected_dut
     _, server_ipv6_base_addr = mock_server_base_ip_addr
     server_ipv6_mac_map = {}
@@ -265,19 +263,20 @@ def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter, mock_server_
         ptf_port_index = dut_ptf_intf_map[intf]
         for retry in range(10):
             ptf_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index)
-            if ptf_mac != None:
+            if ptf_mac is not None:
                 break
             else:
                 time.sleep(2)
-        pytest_assert(ptf_mac != None, "fail to get mac address of interface {}".format(ptf_port_index))
+        pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = ptf_mac
+        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ipv6_mac_map
 
 
 @pytest.fixture(scope='module')
-def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbinfo, mock_server_ip_mac_map, mock_server_ipv6_mac_map):
+def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbinfo,
+                                 mock_server_ip_mac_map, mock_server_ipv6_mac_map):
     '''
     Apply neighbor table entries for servers
     '''
@@ -285,15 +284,15 @@ def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbin
 
     dut = rand_selected_dut
 
-    vlan = dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys()[0]
+    vlan = list(dut.get_extended_minigraph_facts(tbinfo)['minigraph_vlans'].keys())[0]
 
     cmds = []
-    for ip, mac in mock_server_ip_mac_map.items():
+    for ip, mac in list(mock_server_ip_mac_map.items()):
         # Use `ip neigh replace` in case entries already exist for the target IP
         # If there are no pre-existing entries, equivalent to `ip neigh add`
         cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
 
-    for ipv6, mac in mock_server_ipv6_mac_map.items():
+    for ipv6, mac in list(mock_server_ipv6_mac_map.items()):
         cmds.append('ip -6 neigh replace {} lladdr {} dev {}'.format(ipv6, mac, vlan))
     dut.shell_cmds(cmds=cmds)
 
@@ -307,7 +306,7 @@ def apply_dual_tor_peer_switch_route(cleanup_mocked_configs, rand_selected_dut, 
     '''
     logger.info("Applying dual ToR peer switch loopback route")
     dut = rand_selected_dut
-    bgp_neighbors = dut.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
+    bgp_neighbors = list(dut.bgp_facts()['ansible_facts']['bgp_neighbors'].keys())
 
     ipv4_neighbors = []
 
@@ -339,31 +338,27 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     peer_switch_hostname = 'switch_hostname'
     peer_switch_key = 'PEER_SWITCH|{}'.format(peer_switch_hostname)
     device_meta_key = 'DEVICE_METADATA|localhost'
+    restart_swss = False
+    if dut.get_asic_name() in ['th2', 'td3', 'gb']:
+        restart_swss = True
+    cmd = 'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
+    dut.shell(cmd=cmd)
+    if restart_swss:
+        # Restart swss on TH2 or TD3 platform to trigger syncd restart to regenerate config.bcm
+        # We actually need to restart syncd only, but restarting syncd will also trigger swss
+        # being restarted, and it costs more time than restarting swss
+        logger.info("Restarting swss service to regenerate config.bcm")
+        dut.shell('systemctl reset-failed swss; systemctl restart swss')
+        wait_critical_processes(dut)
 
     cmds = ['redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip),
-            'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR'),
             'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
     dut.shell_cmds(cmds=cmds)
-    if dut.get_asic_name() == 'th2':
-        # Restart swss on TH2 platform
+    if restart_swss:
+        # Restart swss on TH2 or TD3 platform to apply changes
         logger.info("Restarting swss service")
-        dut.shell('systemctl restart swss')
-        time.sleep(120)
-
-    yield
-    logger.info("Removing peer switch table")
-
-    cmds=['redis-cli -n 4 DEL "{}"'.format(peer_switch_key),
-          'redis-cli -n 4 HDEL"{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR'),
-          'redis-cli -n 4 HDEL "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
-    dut.shell_cmds(cmds=cmds)
-    if dut.get_asic_name() == 'th2':
-        # Restart swss on TH2 platform
-        logger.info("Restarting swss service")
-        dut.shell('systemctl restart swss')
-        time.sleep(120)
-        
-    return
+        dut.shell('systemctl reset-failed swss; systemctl restart swss')
+        wait_critical_processes(dut)
 
 
 @pytest.fixture(scope='module')
@@ -396,7 +391,8 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
 
 
 @pytest.fixture(scope='module')
-def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_server_base_ip_addr, tor_mux_intfs):
+def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
+                                 mock_server_base_ip_addr, tor_mux_intfs):      # noqa F811
     '''
     Adds the MUX_CABLE table to config DB
     '''
@@ -410,10 +406,11 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock
         server_ipv4 = str(server_ipv4_base_addr + i)
         server_ipv6 = str(server_ipv6_base_addr + i)
         mux_cable_params.update(
-            {intf: {
-                'server_ipv4':server_ipv4,
-                'server_ipv6':server_ipv6,
-                'state': 'auto'
+            {
+                intf: {
+                    'server_ipv4': server_ipv4,
+                    'server_ipv6': server_ipv6,
+                    'state': 'auto'
                 }
             })
 
@@ -458,4 +455,4 @@ def cleanup_mocked_configs(duthost, tbinfo):
 
     if is_t0_mocked_dualtor(tbinfo):
         logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
-        config_reload(duthost, config_source="minigraph")
+        config_reload(duthost, config_source="minigraph", safe_reload=True)

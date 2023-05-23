@@ -1,7 +1,7 @@
 import json
 import logging
-
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.helpers.drop_counters.fanout_drop_counter import FanoutOnyxDropCounter
 
 logger = logging.getLogger(__name__)
 
@@ -15,17 +15,18 @@ class OnyxHost(AnsibleHostBase):
 
     def __init__(self, ansible_adhoc, hostname, user, passwd, gather_facts=False):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname, connection="network_cli")
-        evars = {'ansible_connection':'network_cli',
-                'ansible_network_os':'onyx',
-                'ansible_user': user,
-                'ansible_password': passwd,
-                'ansible_ssh_user': user,
-                'ansible_ssh_pass': passwd,
-                'ansible_become_method': 'enable'
-                }
+        evars = {'ansible_connection': 'network_cli',
+                 'ansible_network_os': 'onyx',
+                 'ansible_user': user,
+                 'ansible_password': passwd,
+                 'ansible_ssh_user': user,
+                 'ansible_ssh_pass': passwd,
+                 'ansible_become_method': 'enable'
+                 }
 
         self.host.options['variable_manager'].extra_vars.update(evars)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
+        self.fanout_helper = FanoutOnyxDropCounter(self)
 
     def __str__(self):
         return '<OnyxHost {}>'.format(self.hostname)
@@ -40,6 +41,11 @@ class OnyxHost(AnsibleHostBase):
         logging.info('Shut interface [%s]' % interface_name)
         return out
 
+    def shutdown_multiple(self, interfaces):
+        for interface in interfaces:
+            out = self.shutdown(interface)
+        return out
+
     def no_shutdown(self, interface_name):
         out = self.host.onyx_config(
             lines=['no shutdown'],
@@ -47,13 +53,23 @@ class OnyxHost(AnsibleHostBase):
         logging.info('No shut interface [%s]' % interface_name)
         return out
 
+    def no_shutdown_multiple(self, interfaces):
+        for interface in interfaces:
+            out = self.no_shutdown(interface)
+        return out
+
     def check_intf_link_state(self, interface_name):
         show_int_result = self.host.onyx_command(
-            commands=['show interfaces ethernet {} | include "Operational state"'.format(interface_name)])[self.hostname]
+            commands=['show interfaces ethernet {} | include "Operational state"'
+                      .format(interface_name)])[self.hostname]
         return 'Up' in show_int_result['stdout'][0]
 
     def command(self, cmd):
         out = self.host.onyx_command(commands=[cmd])
+        return out
+
+    def config(self, cmd):
+        out = self.host.onyx_config(commands=[cmd])
         return out
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
@@ -67,9 +83,10 @@ class OnyxHost(AnsibleHostBase):
         """
         Execute ansible playbook with specified parameters
         """
-        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} \
+                            -l {fanout_host} --extra-vars \'{extra_vars}\' -vvvvv'
         cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
-            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
+                                           fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
@@ -187,6 +204,56 @@ class OnyxHost(AnsibleHostBase):
             logger.debug('Set force speed for port {} from onyx: {}'.format(interface_name, out))
             return True
 
+    def get_port_fec(self, interface_name):
+        """Get interface FEC
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            str: E.g, rs, fc, no
+        """
+        show_int_result = self.host.onyx_command(
+            commands=['show interfaces {} | include "Fec"'.format(interface_name)])[self.hostname]
+
+        if 'failed' in show_int_result and show_int_result['failed']:
+            logger.error('Failed to get FEC mode for port {} - {}'.format(interface_name, show_int_result['msg']))
+            return None
+
+        out = show_int_result['stdout'][0].strip()
+        logger.debug('Get FEC mode for port {} from onyx: {}'.format(interface_name, out))
+        if not out:
+            return None
+
+        if 'rs' in out[0]:
+            fec = 'rs'
+        elif 'fc' in out[0]:
+            fec = 'fc'
+        else:
+            fec = 'no'
+
+        return fec
+
+    def set_port_fec(self, interface_name, mode):
+        """Set interface FEC
+
+        Args:
+            interface_name (str): Interface name
+        """
+        # reset FEC
+        out = self.host.onyx_config(
+            lines=['shutdown', 'fec-override no-fec', 'no shutdown'],
+            parents='interface %s' % interface_name)[self.hostname]
+        if 'failed' in out and out['failed']:
+            logger.error('Failed to set FEC for port {} - {}'.format(interface_name, out['msg']))
+
+        if mode:
+            out = self.host.onyx_config(
+                lines=['shutdown', 'fec-override {}-fec'.format(mode), 'no shutdown'],
+                parents='interface %s' % interface_name)[self.hostname]
+            if 'failed' in out and out['failed']:
+                logger.error('Failed to set FEC for port {} - {}'.format(interface_name, out['msg']))
+
     def get_speed(self, interface_name):
         """Get interface speed
 
@@ -212,3 +279,29 @@ class OnyxHost(AnsibleHostBase):
         speed = out.split(':')[-1].strip()
         pos = speed.find('G')
         return speed[:pos] + '000'
+
+    def prepare_drop_counter_config(self, fanout_graph_facts, match_mac, set_mac, eth_field):
+        """Set configuration for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Args:
+            fanout_graph_facts (dict): fixture fanout_graph_facts
+            match_mac (str): mac address to match in openflow rule
+            set_mac (str): mac address to which match mac should be changed
+            eth_field (str): place in which replace match mac to set_mac, usually 'eth_src'
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        return self.fanout_helper.prepare_config(fanout_graph_facts, match_mac, set_mac, eth_field)
+
+    def restore_drop_counter_config(self):
+        """Delete configuraion for drop_packets tests if fanout has onyx OS
+        Affected tests:test_equal_smac_dmac_drop, test_multicast_smac_drop
+
+        Returns:
+            boolean: True if success. Usually, the method return False only if the operation
+            is not supported or failed.
+        """
+        return self.fanout_helper.restore_drop_counter_config()

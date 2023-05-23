@@ -1,0 +1,86 @@
+---
+- name: Start nic simulator
+  block:
+
+    - name: Get absolute path of {{ root_path }}
+      command: "realpath {{ root_path }}"
+      register: real_root_path
+
+    - name: Set variable abs_root_path
+      set_fact:
+        abs_root_path: "{{ real_root_path.stdout }}"
+
+    - name: Set nic simulator binding port
+      set_fact:
+        nic_simulator_port: "{{ nic_simulator_grpc_port[testbed_name] }}"
+
+    - name: Set network namespace path
+      set_fact:
+        netns_name: "{{ 'ns-' + vm_set_name }}"
+
+    - name: Find ip command absolute path
+      shell: which ip
+      register: which_ip_output
+
+    - name: Set ip command absolute path
+      set_fact:
+        ip_command_path: "{{ which_ip_output.stdout }}"
+
+    - name: Install pip3
+      apt:
+        name: python3-pip
+        state: present
+      become: yes
+      when: host_distribution_version.stdout == "18.04"
+
+    - name: Set Python version
+      set_fact:
+        python_command: "python3"
+        pip_command: "pip3"
+
+    - name: Install gRPC library
+      pip:
+        name:
+          - grpcio
+          - grpcio-tools
+        executable: "{{ pip_command }}"
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
+    - name: Set nic simulator source directory
+      set_fact:
+        nic_simulator_dir: "{{ (playbook_dir, 'dualtor', 'nic_simulator') | path_join }}"
+
+    - name: Copy nic simulator to test server
+      copy:
+        src: "{{ nic_simulator_dir }}"
+        dest: "{{ abs_root_path }}"
+        force: yes
+
+    - name: Generate nic simulator systemd service file
+      template:
+        src: nic-simulator.service.j2
+        dest: /etc/systemd/system/nic-simulator-{{ vm_set_name }}.service
+      become: yes
+
+    - name: Start the nic-simulator service for testbed {{ testbed_name }}
+      systemd:
+        name: nic-simulator-{{ vm_set_name }}
+        state: started
+        daemon_reload: yes
+      become: yes
+
+  when: nic_simulator_action == "start"
+
+- name: Stop nic simulator
+  block:
+
+    - name: Stop the nic-simulator service for testbed {{ testbed_name }}
+      systemd:
+        name: nic-simulator-{{ vm_set_name }}
+        state: stopped
+      become: yes
+      ignore_errors: yes
+
+
+  when: nic_simulator_action == "stop"

@@ -5,10 +5,12 @@ import ipaddress
 
 from tests.common import config_reload
 
-from test_voq_init import check_voq_interfaces
+from .test_voq_init import check_voq_interfaces
 
-from tests.common.helpers.redis import VoqDbCli, RedisKeyNotFound
-
+from tests.common.helpers.sonic_db import VoqDbCli, SonicDbKeyNotFound
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from .test_voq_disrupts import check_bgp_neighbors
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -39,8 +41,14 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     intf_asic = duthost.asics[0]
     intf_config_facts = duthost.config_facts(source='persistent',
                                              asic_index=intf_asic.asic_index)['ansible_facts']
-    portchannel = intf_config_facts['PORTCHANNEL'].keys()[0]
-    portchannel_members = intf_config_facts['PORTCHANNEL'][portchannel].get('members')
+    portchannel = list(intf_config_facts['PORTCHANNEL'].keys())[0]
+    portchannel_members = list(intf_config_facts['PORTCHANNEL_MEMBER'][portchannel].keys())
+    portchannel_ips = [x.split("/")[0].lower() for x in
+                       list(intf_config_facts['PORTCHANNEL_INTERFACE'][portchannel].keys())]
+    bgp_nbrs_to_portchannel = []
+    for a_bgp_neighbor in intf_config_facts['BGP_NEIGHBOR']:
+        if intf_config_facts['BGP_NEIGHBOR'][a_bgp_neighbor]['local_addr'] in portchannel_ips:
+            bgp_nbrs_to_portchannel.append(a_bgp_neighbor.lower())
 
     try:
         logger.info("remove ethernet from a portchannel to use for interface create")
@@ -59,11 +67,13 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
         logger.info("Save and reload config")
 
         duthost.shell_cmds(cmds=["config save -y"])
-        config_reload(duthost, config_source='config_db', wait=600)
-
+        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+        pytest_assert(wait_until(300, 10, 0, check_bgp_neighbors, duthosts, bgp_nbrs_to_portchannel),
+                      "All BGP's are not established after ports removed from LAG and IP added to one of them")
         logger.info("Check interfaces after add.")
         for asic in duthost.asics:
-            new_cfgfacts = duthost.config_facts(source='persistent', asic_index='all')[asic.asic_index]['ansible_facts']
+            new_cfgfacts = duthost.config_facts(
+                source='persistent', asic_index='all')[asic.asic_index]['ansible_facts']
             check_voq_interfaces(duthosts, duthost, asic, new_cfgfacts)
 
         logger.info("Check interface on supervisor - should be present from chassis db.")
@@ -87,22 +97,25 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
         logger.info("Save and reload config")
 
         duthost.shell_cmds(cmds=["config save -y"])
-        config_reload(duthost, config_source='config_db', wait=600)
-
+        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+        pytest_assert(wait_until(300, 10, 0, check_bgp_neighbors, duthosts, bgp_nbrs_to_portchannel),
+                      "All BGP's are not established after added IP removed from a LAG member")
         logger.info("check interface is gone after config reload")
 
         for asic in duthost.asics:
             new_cfgfacts = duthost.config_facts(source='persistent', asic_index='all')[asic.asic_index]['ansible_facts']
             check_voq_interfaces(duthosts, duthost, asic, new_cfgfacts)
 
-        with pytest.raises(RedisKeyNotFound):
+        with pytest.raises(SonicDbKeyNotFound):
             voqdb.get_keys(key)
         logger.info("-- Interface {} deleted from chassisdb on supervisor card".format(key))
 
     finally:
         # restore interface from minigraph
         logger.info("Restore config from minigraph.")
-        config_reload(duthost, config_source='minigraph', wait=600)
+        config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
+        pytest_assert(wait_until(300, 10, 0, check_bgp_neighbors, duthosts),
+                      "All BGP's are not established after config reload from original minigraph")
         duthost.shell_cmds(cmds=["config save -y"])
 
         for asic in duthost.asics:

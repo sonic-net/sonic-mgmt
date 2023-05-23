@@ -4,11 +4,11 @@ import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 
-from tests.common.helpers.redis import AsicDbCli, VoqDbCli
-from voq_helpers import check_voq_remote_neighbor, get_sonic_mac
-from voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
-from voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
-from voq_helpers import dump_and_verify_neighbors_on_asic
+from tests.common.helpers.sonic_db import AsicDbCli, VoqDbCli
+from .voq_helpers import check_voq_remote_neighbor, get_sonic_mac
+from .voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
+from .voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
+from .voq_helpers import dump_and_verify_neighbors_on_asic
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +63,12 @@ def test_voq_system_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
     dev_ports = get_device_system_ports(cfg_facts)
     asicdb = AsicDbCli(asic)
     sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
-    keylist = sys_port_table.keys()
-    pytest_assert(len(keylist) == len(dev_ports.keys()),
+    keylist = list(sys_port_table.keys())
+    pytest_assert(len(keylist) == len(list(dev_ports.keys())),
                   "Found %d system port keys, %d entries in cfg_facts, not matching" % (
-                      len(keylist), len(dev_ports.keys())))
+                      len(keylist), len(list(dev_ports.keys()))))
     logger.info("Found %d system port keys, %d entries in cfg_facts, checking each.",
-                len(keylist), len(dev_ports.keys()))
+                len(keylist), len(list(dev_ports.keys())))
     for portkey in keylist:
         try:
             port_config_info = sys_port_table[portkey]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
@@ -116,10 +116,10 @@ def test_voq_local_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_i
     asicdb = AsicDbCli(asic)
     hostif_table = asicdb.get_hostif_table(refresh=True)
 
-    keylist = hostif_table.keys()
-    pytest_assert(len(keylist) == len(dev_ports.keys()),
-                  "Found %d hostif keys, %d entries in cfg_facts" % (len(keylist), len(dev_ports.keys())))
-    logger.info("Found %s ports to check on host:%s, asic: %s.", len(dev_ports.keys()), per_host.hostname,
+    keylist = list(hostif_table.keys())
+    pytest_assert(len(keylist) == len(list(dev_ports.keys())),
+                  "Found %d hostif keys, %d entries in cfg_facts" % (len(keylist), len(list(dev_ports.keys()))))
+    logger.info("Found %s ports to check on host:%s, asic: %s.", len(list(dev_ports.keys())), per_host.hostname,
                 asic.asic_index)
 
     show_intf = asic.show_interface(command="status", include_internal_intfs=True)['ansible_facts']
@@ -179,11 +179,20 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
     asicdb = AsicDbCli(asic)
     asicdb_rif_table = asicdb.dump(asicdb.ASIC_ROUTERINTF_TABLE)
     sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
+    asicdb_lag_table = asicdb.dump(asicdb.ASIC_LAG_TABLE + ":")
+
+    if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
+        voqdb = VoqDbCli(per_host)
+    else:
+        voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+
+    systemlagtable = voqdb.dump("SYSTEM_LAG_ID_TABLE")
+    systemintftable = voqdb.dump("SYSTEM_INTERFACE")
 
     # asicdb_intf_key_list = asicdb.get_router_if_list()
     # Check each rif in the asicdb, if it is local port, check VOQ DB for correct RIF.
     # If it is on system port, verify slot/asic/port and OID match a RIF in VoQDB
-    for rif in asicdb_rif_table.keys():
+    for rif in list(asicdb_rif_table.keys()):
         rif_type = asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_TYPE"]
         if rif_type != "SAI_ROUTER_INTERFACE_TYPE_PORT":
             logger.info("Skip this rif: %s, it is not on a port: %s", rif, rif_type)
@@ -197,31 +206,31 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
         if porttype == 'hostif':
             # find the hostif entry to get the physical port the router interface is on.
             hostifkey = asicdb.find_hostif_by_portid(portid)
-            hostif = asicdb.hget_key_value(hostifkey, 'SAI_HOSTIF_ATTR_NAME')
+            hostif = asicdb.get_hostif_table(refresh=False)[hostifkey][
+                'value']['SAI_HOSTIF_ATTR_NAME'].decode('unicode-escape')
             logger.info("RIF: %s is on local port: %s", rif, hostif)
             rif_ports_in_asicdb.append(hostif)
             if hostif not in dev_intfs and hostif not in voq_intfs:
                 pytest.fail("Port: %s has a router interface, but it isn't in configdb." % portid)
 
             # check MTU and ethernet address
-            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][hostif]['mtu'],
-                          "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][hostif]['mtu']))
+            pytest_assert(asicdb_rif_table[rif]['value'][
+                "SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][hostif]['mtu'],
+                "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][hostif]['mtu']))
             intf_mac = get_sonic_mac(per_host, asic.asic_index, hostif)
-            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
-                          "MAC for rif %s is not %s" % (rif, intf_mac))
+            pytest_assert(asicdb_rif_table[rif]['value'][
+                "SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
+                "MAC for rif %s is not %s" % (rif, intf_mac))
 
             sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
                             'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
 
-            if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
-                check_rif_on_sup(per_host, sysport_info['slot'], sysport_info['asic'], hostif)
-            else:
-                for sup in duthosts.supervisor_nodes:
-                    check_rif_on_sup(sup, sysport_info['slot'], sysport_info['asic'], hostif)
+            check_rif_on_sup(systemintftable, sysport_info['slot'], sysport_info['asic'], hostif)
 
         elif porttype == 'sysport':
             try:
-                port_output = sys_port_table["ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT:" + portid]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
+                port_output = sys_port_table[
+                    "ASIC_STATE:SAI_OBJECT_TYPE_SYSTEM_PORT:" + portid]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
             except KeyError:
                 # not a hostif or system port, log error and continue
                 logger.error("Did not find OID %s in local or system tables" % portid)
@@ -235,11 +244,7 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
                 raise AssertionError("Did not find OID %s in local or system tables" % portid)
 
             sys_slot, sys_asic, sys_port = cfg_port.split("|")
-            if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
-                check_rif_on_sup(per_host, sys_slot, sys_asic, sys_port)
-            else:
-                for sup in duthosts.supervisor_nodes:
-                    check_rif_on_sup(sup, sys_slot, sys_asic, sys_port)
+            check_rif_on_sup(systemintftable, sys_slot, sys_asic, sys_port)
 
         elif porttype == 'port':
             # this is the RIF on the inband port.
@@ -247,33 +252,28 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
             logger.info("RIF: %s is on local port: %s", rif, inband['port'])
 
             # check MTU and ethernet address
-            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][inband['port']]['mtu'],
-                          "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][inband['port']]['mtu']))
+            pytest_assert(asicdb_rif_table[rif]['value'][
+                "SAI_ROUTER_INTERFACE_ATTR_MTU"] == cfg_facts['PORT'][inband['port']]['mtu'],
+                "MTU for rif %s is not %s" % (rif, cfg_facts['PORT'][inband['port']]['mtu']))
             intf_mac = get_sonic_mac(per_host, asic.asic_index, inband['port'])
-            pytest_assert(asicdb_rif_table[rif]['value']["SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
-                          "MAC for rif %s is not %s" % (rif, intf_mac))
+            pytest_assert(asicdb_rif_table[rif]['value'][
+                "SAI_ROUTER_INTERFACE_ATTR_SRC_MAC_ADDRESS"].lower() == intf_mac.lower(),
+                "MAC for rif %s is not %s" % (rif, intf_mac))
 
             sysport_info = {'slot': cfg_facts['DEVICE_METADATA']['localhost']['hostname'],
                             'asic': cfg_facts['DEVICE_METADATA']['localhost']['asic_name']}
 
-            if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
-                check_rif_on_sup(per_host, sysport_info['slot'], sysport_info['asic'], inband['port'])
-            else:
-                for sup in duthosts.supervisor_nodes:
-                    check_rif_on_sup(sup, sysport_info['slot'], sysport_info['asic'], inband['port'])
+            check_rif_on_sup(systemintftable, sysport_info['slot'], sysport_info['asic'], inband['port'])
 
         # TODO: Could be on a LAG
         elif porttype == 'lag':
-            lagid = asicdb.hget_key_value("%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid), 'SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID')
+            # lagid = asicdb.hget_key_value("%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid),
+            #                               'SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID')
+            lagid = asicdb_lag_table["%s:%s" % (AsicDbCli.ASIC_LAG_TABLE, portid)][
+                'value']['SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID']
             logger.info("RIF: %s is on system LAG: %s", rif, lagid)
 
-            if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
-                voqdb = VoqDbCli(per_host)
-            else:
-                voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
-
-            systemlagtable = voqdb.dump("SYSTEM_LAG_ID_TABLE")
-            for lag, sysid in systemlagtable['SYSTEM_LAG_ID_TABLE']['value'].iteritems():
+            for lag, sysid in list(systemlagtable['SYSTEM_LAG_ID_TABLE']['value'].items()):
                 if sysid == lagid:
                     logger.info("System LAG ID %s is portchannel: %s", lagid, lag)
                     break
@@ -283,13 +283,10 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
             if lag.startswith("%s|%s" % (myslot, myasic)):
                 logger.info("Lag: %s is a local portchannel with a router interface.", lag)
                 (s, a, lagname) = lag.split("|")
-                pytest_assert(lagname in cfg_facts['PORTCHANNEL_INTERFACE'], "RIF Interface %s is in configdb.json but not in asicdb" % rif)
+                pytest_assert(lagname in cfg_facts['PORTCHANNEL_INTERFACE'],
+                              "RIF Interface %s is in configdb.json but not in asicdb" % rif)
 
-                if per_host.is_multi_asic and len(duthosts.supervisor_nodes) == 0:
-                    check_rif_on_sup(per_host, myslot, myasic, lagname)
-                else:
-                    for sup in duthosts.supervisor_nodes:
-                        check_rif_on_sup(sup, myslot, myasic, lagname)
+                check_rif_on_sup(systemintftable, myslot, myasic, lagname)
 
             else:
                 logger.info("Lag: %s is a remote portchannel with a router interface.", lag)
@@ -299,7 +296,7 @@ def check_voq_interfaces(duthosts, per_host, asic, cfg_facts):
         if rif not in rif_ports_in_asicdb:
             raise AssertionError("Interface %s is in configdb.json but not in asicdb" % rif)
 
-    logger.info("Interfaces %s are present in configdb.json and asicdb" % str(dev_intfs.keys()))
+    logger.info("Interfaces %s are present in configdb.json and asicdb" % str(list(dev_intfs.keys())))
 
 
 def test_voq_interface_create(duthosts, enum_frontend_dut_hostname, enum_asic_index, all_cfg_facts):

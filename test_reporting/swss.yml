@@ -1,0 +1,22 @@
+ngsdevice_type: ToRRouter
+# clone the sai repo to local disk and change sai_path
+sai_path: /data/sonic-mgmt/SAI/inc/
+# the place we store the json
+json_log_path: /data/sonic-mgmt/test_reporting/test2
+operation_map:
+  r: remove
+  c: create
+  g: get
+  s: set
+  q: query
+  C: bulk_create
+  R: bulk_reomve
+  S: bulk_set
+# device log item list
+swss_device_log_items:
+  -
+    log_path: /data/sonic-mgmt/test_reporting/
+    os_version: '20181130.101'
+    deployment_type:  "example_deployment_type"
+    deployment_subtype: "example_deployment_subtype"
+    device: "example_device_name"

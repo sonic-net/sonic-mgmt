@@ -29,4 +29,3 @@ The test will configure BGPMON session and then check that FRR sends TCP SYN pac
 2. Generate BGPMON configuration and apply it to the DUT
 3. Listen the expected BGP TCP SYN packet to the BGPMON on all ports. No packets are expected for 121 seconds
 4. Restore "ip nht resolve-via-default" back to the DUT
-

@@ -71,6 +71,7 @@ interface {{ name }}
  no shutdown
 {% else %}
 {% set is_loopback = false %}
+ mtu 9214
  no switchport
  no shutdown
 {% endif %}

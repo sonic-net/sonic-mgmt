@@ -15,7 +15,8 @@ def component_api(conn, index, name, args=None):
     conn.request('POST', '/platform/chassis/component/{}/{}'.format(index, name), json.dumps({'args': args}))
     resp = conn.getresponse()
     res = json.loads(resp.read())['res']
-    logger.info('Executing component API: "{}", index: {}, arguments: "{}", result: "{}"'.format(name, index, args, res))
+    logger.info('Executing component API: "{}", index: {}, arguments: "{}", result: "{}"'
+                .format(name, index, args, res))
     return res
 
 

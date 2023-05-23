@@ -2219,7 +2219,7 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
         sla_type = 'icmp' if 'icmp' in sla_type.lower() else 'tcp'
         ocdata[key] = {}
         if config == 'yes':
-            ocdata[key]['enabled'] = True;
+            ocdata[key]['enabled'] = True
             ocdata[key]['ip-sla-id'] = int(sla_num)
             ocdata[key]['{}-dst-ip'.format(sla_type)] = dst_ip
             if "tcp_port" in kwargs:

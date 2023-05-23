@@ -1,9 +1,8 @@
 import pytest
-import time
 import logging
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
@@ -12,18 +11,13 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-@pytest.mark.parametrize("mtu", [1514,9114])
-def test_mtu(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, mtu, gather_facts):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    topo_type = tbinfo['topo']['type']
-    if topo_type not in ('t1', 't2'):
-        pytest.skip("Unsupported topology")
+@pytest.mark.parametrize("mtu", [1514, 9114])
+def test_mtu(tbinfo, ptfhost, mtu, gather_facts):
 
     testbed_type = tbinfo['topo']['name']
-    router_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0].decode("utf-8")
 
-    log_file = "/tmp/mtu_test.{}-{}.log".format(mtu,datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+    log_file = "/tmp/mtu_test.{}-{}.log".format(mtu, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
 
     logging.info("Starting MTU test. PTF log file: %s" % log_file)
 
@@ -32,7 +26,7 @@ def test_mtu(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                "mtu_test.MtuTest",
                platform_dir="ptftests",
                params={"testbed_type": testbed_type,
-                       "router_mac": router_mac,
+                       "router_mac": gather_facts['src_router_mac'],
                        "testbed_mtu": mtu,
                        "src_host_ip": gather_facts['src_host_ipv4'],
                        "src_router_ip": gather_facts['src_router_ipv4'],

@@ -3,7 +3,7 @@ Test SNMPv2MIB in SONiC.
 """
 
 import pytest
-from tests.common.helpers.assertions import pytest_assert # pylint: disable=import-error
+from tests.common.helpers.assertions import pytest_assert  # pylint: disable=import-error
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
@@ -16,21 +16,24 @@ def test_snmp_v2mib(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds
     Verify SNMPv2-MIB objects are functioning properly
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(localhost, host=host_ip, version="v2c",
-                                community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    host_ip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
+    snmp_facts = get_snmp_facts(
+        localhost, host=host_ip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     dut_facts = duthost.setup()['ansible_facts']
     debian_ver = duthost.shell('cat /etc/debian_version')['stdout']
     cmd = 'docker exec snmp grep "sysContact" /etc/snmp/snmpd.conf'
     sys_contact = " ".join(duthost.shell(cmd)['stdout'].split()[1:])
-    sys_location = duthost.shell("grep 'snmp_location' /etc/sonic/snmp.yml")['stdout'].split()[-1]
+    sys_location = duthost.shell(
+        "grep 'snmp_location' /etc/sonic/snmp.yml")['stdout'].split()[-1]
 
     expected_res = {'kernel_version': dut_facts['ansible_kernel'],
                     'hwsku': duthost.facts['hwsku'],
                     'os_version': 'SONiC.{}'.format(duthost.os_version),
                     'debian_version': '{} {}'.format(dut_facts['ansible_distribution'], debian_ver)}
 
-    #Verify that sysName, sysLocation and sysContact MIB objects functions properly
+    # Verify that sysName, sysLocation and sysContact MIB objects functions properly
     pytest_assert(snmp_facts['ansible_sysname'] == duthost.hostname,
                   "Unexpected MIB result {}".format(snmp_facts['ansible_sysname']))
     pytest_assert(snmp_facts['ansible_syslocation'] == sys_location,
@@ -38,7 +41,7 @@ def test_snmp_v2mib(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds
     pytest_assert(snmp_facts['ansible_syscontact'] == sys_contact,
                   "Unexpected MIB result {}".format(snmp_facts['ansible_syscontact']))
 
-    #Verify that sysDescr MIB object functions properly
+    # Verify that sysDescr MIB object functions properly
     missed_values = []
     for system_value in expected_res:
         if expected_res[system_value] not in snmp_facts['ansible_sysdescr']:

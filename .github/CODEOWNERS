@@ -21,13 +21,13 @@ spytest @ramakristipati @lolyu @yxieca
 test_reporting  @wangxin
 
 # tests
-tests/platform_tests    @sujinmkang
+tests/platform_tests    @prgeor
 tests/platform_tests/mellanox @keboliu @Junchao-Mellanox
-tests/platform_tests/fwutil @sujinmkang @alexrallen
-tests/platform_tests/files @sujinmkang @Junchao-Mellanox
-tests/platform_tests/test_auto_negotiation.py @sujinmkang @Junchao-Mellanox
-tests/platform_tests/thermal_control_test_helper.py @sujinmkang @Junchao-Mellanox
-tests/system_health @sujinmkang @Junchao-Mellanox
+tests/platform_tests/fwutil @prgeor @alexrallen
+tests/platform_tests/files @prgeor @Junchao-Mellanox
+tests/platform_tests/test_auto_negotiation.py @prgeor @Junchao-Mellanox
+tests/platform_tests/thermal_control_test_helper.py @prgeor @Junchao-Mellanox
+tests/system_health @prgeor @Junchao-Mellanox
 tests/show_techsupport @yxieca @noaOrMlnx
 tests/qos/test_buffer.py @neethajohn @stephenxs
 tests/qos/test_buffer_traditional.py @neethajohn @stephenxs
@@ -35,4 +35,3 @@ tests/qos/files/dynamic_buffer_param.json @neethajohn @stephenxs
 tests/qos/files/mellanox @stephenxs @keboliu
 tests/qos/args @neethajohn @stephenxs
 tests/common/mellanox_data.py @keboliu @Junchao-Mellanox
-

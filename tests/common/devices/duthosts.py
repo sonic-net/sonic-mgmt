@@ -8,8 +8,10 @@ logger = logging.getLogger(__name__)
 
 class DutHosts(object):
     """ Represents all the DUTs (nodes) in a testbed. class has 3 important attributes:
-    nodes: List of all the MultiAsicSonicHost instances for all the SONiC nodes (or cards for chassis) in a multi-dut testbed
-    frontend_nodes: subset of nodes and holds list of MultiAsicSonicHost instances for DUTs with front-panel ports (like linecards in chassis
+    nodes: List of all the MultiAsicSonicHost instances for all the SONiC nodes (or cards for chassis)
+           in a multi-dut testbed
+    frontend_nodes: subset of nodes and holds list of MultiAsicSonicHost instances for DUTs with
+                    front-panel ports (like linecards in chassis)
     supervisor_nodes: subset of nodes and holds list of MultiAsicSonicHost instances for supervisor cards.
     """
     class _Nodes(list):
@@ -24,8 +26,8 @@ class DutHosts(object):
                 attr: attribute to get
 
             Returns:
-               a dictionary with key being the MultiAsicSonicHost's hostname, and value being the output of ansible module
-               on that MultiAsicSonicHost
+               a dictionary with key being the MultiAsicSonicHost's hostname,
+               and value being the output of ansible module on that MultiAsicSonicHost
             """
             self.attr = attr
             return self._run_on_nodes
@@ -48,12 +50,13 @@ class DutHosts(object):
         Args:
             ansible_adhoc: The pytest-ansible fixture
             tbinfo - Testbed info whose "duts" holds the hostnames for the DUT's in the multi-dut testbed.
-            duts - list of DUT hostnames from the `--host-pattern` CLI option. Can be specified if only a subset of 
+            duts - list of DUT hostnames from the `--host-pattern` CLI option. Can be specified if only a subset of
                    DUTs in the testbed should be used
 
         """
         # TODO: Initialize the nodes in parallel using multi-threads?
-        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname) for hostname in tbinfo["duts"] if hostname in duts])
+        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname, self, tbinfo['topo']['type'])
+                                  for hostname in tbinfo["duts"] if hostname in duts])
         self.supervisor_nodes = self._Nodes([node for node in self.nodes if node.is_supervisor_node()])
         self.frontend_nodes = self._Nodes([node for node in self.nodes if node.is_frontend_node()])
 
@@ -70,10 +73,10 @@ class DutHosts(object):
         Returns:
             [MultiAsicSonicHost]: Returns the specified duthost in duthosts. It is an instance of MultiAsicSonicHost.
         """
-        unicode_type = str if sys.version_info.major == 3 else unicode
+        unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa F821
         if type(index) == int:
             return self.nodes[index]
-        elif type(index) in [ str, unicode_type ]:
+        elif type(index) in [str, unicode_type]:
             for node in self.nodes:
                 if node.hostname == index:
                     return node

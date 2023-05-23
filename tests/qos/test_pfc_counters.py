@@ -1,6 +1,6 @@
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from qos_fixtures import leaf_fanouts
-from qos_helpers import eos_to_linux_intf
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from .qos_fixtures import leaf_fanouts      # noqa F401
+from .qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 import os
 import time
 import pytest
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 PFC_GEN_FILE_RELATIVE_PATH = r'../../ansible/roles/test/files/helpers/pfc_gen.py'
 """ Expected PFC generator path at the leaf fanout switch """
 PFC_GEN_FILE_DEST = r'~/pfc_gen.py'
+PFC_GEN_FILE_ABSULOTE_PATH = r'/root/pfc_gen.py'
 """ Number of generated packets for each test case """
 PKT_COUNT = 10
 """ Number of switch priorities """
@@ -45,22 +46,26 @@ def enable_flex_port_counter(rand_selected_dut):
     rand_selected_dut.shell(set_cmd.format('disable'))
 
 
-def setup_testbed(fanouthosts, duthost, leaf_fanouts):
+def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa F811
     """
-    @Summary: Set up the duthost, including clearing counters, and copying the PFC generator to the leaf fanout switches.
+    @Summary: Set up the duthost, including clearing counters,
+              and copying the PFC generator to the leaf fanout switches.
     @param duthost: dut host information
     @param leaf_fanouts: Leaf fanout switches
     """
     """ Clear PFC counters """
-    duthost.sonic_pfc_counters(method = "clear")
+    duthost.sonic_pfc_counters(method="clear")
 
     """ Copy the PFC generator to all the leaf fanout switches """
     for peer_device in leaf_fanouts:
         peerdev_ans = fanouthosts[peer_device]
-        file_src = os.path.join(os.path.dirname(__file__), PFC_GEN_FILE_RELATIVE_PATH)
-        peerdev_ans.host.copy(src = file_src, dest = PFC_GEN_FILE_DEST, force = True)
+        file_src = os.path.join(os.path.dirname(
+            __file__), PFC_GEN_FILE_RELATIVE_PATH)
+        peerdev_ans.host.copy(src=file_src, dest=PFC_GEN_FILE_DEST, force=True)
 
-def run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=True, pause_time=65535, check_continous_pfc=False):
+
+def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fanouts,       # noqa F811
+             is_pfc=True, pause_time=65535, check_continous_pfc=False):
     """
     @Summary: Run test for Ethernet flow control (FC) or priority-based flow control (PFC)
     @param duthost: The object for interacting with DUT through ansible
@@ -71,39 +76,63 @@ def run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=True, 
     """
     setup_testbed(fanouthosts, duthost, leaf_fanouts)
     conn_facts = conn_graph_facts['device_conn'][duthost.hostname]
-
-    int_status = duthost.show_interface(command = "status")['ansible_facts']['int_status']
+    onyx_pfc_container_name = 'storm'
+    int_status = duthost.show_interface(command="status")[
+        'ansible_facts']['int_status']
 
     """ We only test active physical interfaces """
-    active_phy_intfs = [intf for intf in int_status if \
-        intf.startswith('Ethernet') and \
-        int_status[intf]['admin_state'] == 'up' and \
-        int_status[intf]['oper_state'] == 'up']
+    active_phy_intfs = [intf for intf in int_status if
+                        intf.startswith('Ethernet') and
+                        int_status[intf]['admin_state'] == 'up' and
+                        int_status[intf]['oper_state'] == 'up']
     if not check_continous_pfc:
         """ Generate PFC or FC packets for active physical interfaces """
         for intf in active_phy_intfs:
             peer_device = conn_facts[intf]['peerdevice']
             peer_port = conn_facts[intf]['peerport']
-            peer_port_name = eos_to_linux_intf(peer_port)
-
             peerdev_ans = fanouthosts[peer_device]
+            fanout_os = peerdev_ans.get_fanout_os()
+            fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
+            if fanout_os == "nxos":
+                peer_port_name = nxos_to_linux_intf(peer_port)
+            elif fanout_os == "sonic":
+                peer_port_name = sonic_to_linux_intf(peer_port)
+            else:
+                peer_port_name = eos_to_linux_intf(
+                    peer_port, hwsku=fanout_hwsku)
+
             if is_pfc:
                 for priority in range(PRIO_COUNT):
-                    cmd = "sudo python %s -i %s -p %d -t %d -n %d" % (PFC_GEN_FILE_DEST, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
-                    peerdev_ans.host.command(cmd)
+                    if fanout_hwsku == "MLNX-OS":
+                        cmd = 'docker exec %s "python %s -i %s -p %d -t %d -n %d"' % (
+                            onyx_pfc_container_name, PFC_GEN_FILE_ABSULOTE_PATH,
+                            peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
+                        peerdev_ans.host.config(cmd)
+                    else:
+                        cmd = "sudo python %s -i %s -p %d -t %d -n %d" % (
+                            PFC_GEN_FILE_DEST, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
+                        peerdev_ans.host.command(cmd)
             else:
-                cmd = "sudo python %s -i %s -g -t %d -n %d" % (PFC_GEN_FILE_DEST, peer_port_name, pause_time, PKT_COUNT)
-                peerdev_ans.host.command(cmd)
+                if fanout_hwsku == "MLNX-OS":
+                    cmd = 'docker exec %s "python %s -i %s -g -t %d -n %d"' % (
+                        onyx_pfc_container_name, PFC_GEN_FILE_ABSULOTE_PATH, peer_port_name, pause_time, PKT_COUNT)
+                    peerdev_ans.host.config(cmd)
+                else:
+                    cmd = "sudo python %s -i %s -g -t %d -n %d" % (
+                        PFC_GEN_FILE_DEST, peer_port_name, pause_time, PKT_COUNT)
+                    peerdev_ans.host.command(cmd)
 
         """ SONiC takes some time to update counters in database """
         time.sleep(5)
 
         """ Check results """
-        counter_facts = duthost.sonic_pfc_counters(method = "get")['ansible_facts']
+        counter_facts = duthost.sonic_pfc_counters(method="get")[
+            'ansible_facts']
 
         for intf in active_phy_intfs:
             if is_pfc:
-                assert counter_facts[intf]['Rx'] == [str(PKT_COUNT)] * PRIO_COUNT
+                assert counter_facts[intf]['Rx'] == [
+                    str(PKT_COUNT)] * PRIO_COUNT
             else:
                 assert counter_facts[intf]['Rx'] == ['0'] * PRIO_COUNT
 
@@ -112,18 +141,35 @@ def run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=True, 
             """only check priority 3 and 4: lossless priorities"""
             for priority in range(3, 5):
                 """ Clear PFC counters """
-                duthost.sonic_pfc_counters(method = "clear")
+                duthost.sonic_pfc_counters(method="clear")
 
                 peer_device = conn_facts[intf]['peerdevice']
                 peer_port = conn_facts[intf]['peerport']
-                peer_port_name = eos_to_linux_intf(peer_port)
                 peerdev_ans = fanouthosts[peer_device]
-                cmd = "sudo python %s -i %s -p %d -t %d -n %d" % (PFC_GEN_FILE_DEST, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
-                peerdev_ans.host.command(cmd)
-                
+                fanout_os = peerdev_ans.get_fanout_os()
+                fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
+                if fanout_os == "nxos":
+                    peer_port_name = nxos_to_linux_intf(peer_port)
+                elif fanout_os == "sonic":
+                    peer_port_name = sonic_to_linux_intf(peer_port)
+                else:
+                    peer_port_name = eos_to_linux_intf(
+                        peer_port, hwsku=fanout_hwsku)
+
+                if fanout_hwsku == "MLNX-OS":
+                    cmd = 'docker exec %s "python %s -i %s -p %d -t %d -n %d"' % (
+                        onyx_pfc_container_name, PFC_GEN_FILE_ABSULOTE_PATH,
+                        peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
+                    peerdev_ans.host.config(cmd)
+                else:
+                    cmd = "sudo python %s -i %s -p %d -t %d -n %d" % (
+                        PFC_GEN_FILE_DEST, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
+                    peerdev_ans.host.command(cmd)
+
                 time.sleep(5)
 
-                pfc_rx = duthost.sonic_pfc_counters(method = "get")['ansible_facts']
+                pfc_rx = duthost.sonic_pfc_counters(
+                    method="get")['ansible_facts']
                 """check pfc Rx frame count on particular priority are increased"""
                 assert pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT)
                 """check LHS priorities are 0 count"""
@@ -133,27 +179,41 @@ def run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=True, 
                 for i in range(priority+1, PRIO_COUNT):
                     assert pfc_rx[intf]['Rx'][i] == '0'
 
-def test_pfc_pause(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
+
+def test_pfc_pause(fanouthosts, duthosts, rand_one_dut_hostname,
+                   conn_graph_facts, fanout_graph_facts, leaf_fanouts):          # noqa F811
     """ @Summary: Run PFC pause frame (pause time quanta > 0) tests """
     duthost = duthosts[rand_one_dut_hostname]
-    run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts)
+    run_test(fanouthosts, duthost, conn_graph_facts,
+             fanout_graph_facts, leaf_fanouts)
 
-def test_pfc_unpause(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
+
+def test_pfc_unpause(fanouthosts, duthosts, rand_one_dut_hostname,
+                     conn_graph_facts, fanout_graph_facts, leaf_fanouts):        # noqa F811
     """ @Summary: Run PFC unpause frame (pause time quanta = 0) tests """
     duthost = duthosts[rand_one_dut_hostname]
-    run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, pause_time=0)
+    run_test(fanouthosts, duthost, conn_graph_facts,
+             fanout_graph_facts, leaf_fanouts, pause_time=0)
 
-def test_fc_pause(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
+
+def test_fc_pause(fanouthosts, duthosts, rand_one_dut_hostname,
+                  conn_graph_facts, fanout_graph_facts, leaf_fanouts):           # noqa F811
     """ @Summary: Run FC pause frame (pause time quanta > 0) tests """
     duthost = duthosts[rand_one_dut_hostname]
-    run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=False)
+    run_test(fanouthosts, duthost, conn_graph_facts,
+             fanout_graph_facts, leaf_fanouts, is_pfc=False)
 
-def test_fc_unpause(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
+
+def test_fc_unpause(fanouthosts, duthosts, rand_one_dut_hostname,
+                    conn_graph_facts, fanout_graph_facts, leaf_fanouts):         # noqa F811
     """ @Summary: Run FC pause frame (pause time quanta = 0) tests """
     duthost = duthosts[rand_one_dut_hostname]
-    run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, is_pfc=False, pause_time=0)
+    run_test(fanouthosts, duthost, conn_graph_facts,
+             fanout_graph_facts, leaf_fanouts, is_pfc=False, pause_time=0)
 
-def test_continous_pfc(fanouthosts, duthosts, rand_one_dut_hostname, conn_graph_facts, leaf_fanouts):
+
+def test_continous_pfc(fanouthosts, duthosts, rand_one_dut_hostname,
+                       conn_graph_facts, fanout_graph_facts, leaf_fanouts):     # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
-    run_test(fanouthosts, duthost, conn_graph_facts, leaf_fanouts, check_continous_pfc=True)
-
+    run_test(fanouthosts, duthost, conn_graph_facts,
+             fanout_graph_facts, leaf_fanouts, check_continous_pfc=True)

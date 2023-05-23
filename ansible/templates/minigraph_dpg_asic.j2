@@ -1,6 +1,7 @@
-{# Note max of 10 Backend Portchannel from one asic #}
+{# Note max of 16 Backend Portchannel from one asic #}
 {% macro port_channel_id(asic_idx, neigh_asic_idx) -%}
-{{ ((40 + 10 * asic_idx + neigh_asic_idx)|string) }}
+{# Note avoid PortChannel00 #}
+{{ ((1 + 16 * asic_idx + neigh_asic_idx)|string) }}
 {%- endmacro -%}
 {% if num_asics > 1 %}
 {% if (asic_topo_config and slot_num is defined and slot_num in asic_topo_config) or (asic_topo_config and slot_num is not defined) %}
@@ -91,7 +92,7 @@
       <PortChannelInterfaces>
 {% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(vm_asic_ifnames[vms[index]])  %}
         <PortChannel>
@@ -108,7 +109,7 @@
 {%- set pc_intfs = [] -%}
 {# Assumption - Backed ASIC always have port-channel connectivity #}
 {%- for intf in asic_config['neigh_asic'][neigh_asic]['asic_intfs'][0] %}
-{{- pc_intfs.append(intf) }} 
+{{- pc_intfs.append(intf) }}
 {%- endfor -%}
 {%- set port_channel_intf=pc_intfs|join(';') -%}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
@@ -137,7 +138,7 @@
       <IPInterfaces>
 {% if card_type is not defined or card_type != 'supervisor' %}
 {% for index in range(vms_number) %}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
         <IPInterface>
           <Name i:nil="true"/>
@@ -185,16 +186,13 @@
 {%- set nexthop_intfs = [] -%}
 {%- set nexthop_v6_intfs = [] -%}
 {%- set internal_po_channel_intfs = [] -%}
-{% for asic,asic_config in asic_topo_config[all_slots[a_linecard]].items() %}
-{% if (a_linecard != inventory_hostname and asic == remote_asic_name) or (a_linecard == inventory_hostname and asic != asic_name) %}
+{% set asic_config =  asic_topo_config[all_slots[a_linecard]][remote_asic_name] %}
 {% for neigh_asic in  asic_config['neigh_asic'] %}
 {% set _ = nexthop_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]) %}
 {% set _ = nexthop_v6_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0]) %}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
 {% set po_intf = 'PortChannel' + port_channel_id(asic_index, neigh_asic_index).zfill(2) %}
 {{- internal_po_channel_intfs.append(po_intf) -}}
-{% endfor %}
-{% endif %}
 {% endfor %}
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
@@ -221,7 +219,7 @@
          <Address>
 {{- nexthop_v6_intfs|join(',') -}}
          </Address>
-      </IPNextHop> 
+      </IPNextHop>
 {% endif %}
 {% endfor %}
 {% endfor %}
@@ -268,12 +266,12 @@
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
+{% if card_type is not defined or card_type != 'supervisor' %}
         <AclInterface>
           <AttachTo>
 {%- set acl_intfs = [] -%}
-{% if card_type is not defined or card_type != 'supervisor' %}
 {%- for index in range(vms_number) %}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
 {% set a_intf = 'PortChannel' + '10' + ((index+1)|string) %}
 {{- acl_intfs.append(a_intf) -}}
@@ -286,7 +284,7 @@
 {{- acl_intfs.append(a_intf) -}}
 {% endfor %}
 {%- for index in range(vms_number) -%}
-{% if vms[index] in vm_asic_ifnames and vm_asic_ifnames[vms[index]][0].split('-')[1] == asic_name %}
+{% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
 {% set a_intf = front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
 {{- acl_intfs.append(a_intf) -}}
@@ -299,12 +297,12 @@
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endfor %}
-{% endif %}
 {{- acl_intfs|join(';') -}}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif %}
       </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>

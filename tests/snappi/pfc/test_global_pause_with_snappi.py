@@ -2,27 +2,27 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts                      # noqa F401
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config
+    snappi_api, snappi_testbed_config       # noqa F401
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list
+    lossy_prio_list                         # noqa F401
 
-from files.helper import run_pfc_test
+from .files.helper import run_pfc_test
 
-pytestmark = [ pytest.mark.topology('snappi') ]
+pytestmark = [pytest.mark.topology('tgen')]
 
 
-def test_global_pause(snappi_api,
-                      snappi_testbed_config,
-                      conn_graph_facts,
-                      fanout_graph_facts,
+def test_global_pause(snappi_api,                   # noqa F811
+                      snappi_testbed_config,        # noqa F811
+                      conn_graph_facts,             # noqa F811
+                      fanout_graph_facts,           # noqa F811
                       duthosts,
                       rand_one_dut_hostname,
                       rand_one_dut_portname_oper_up,
-                      lossless_prio_list,
-                      lossy_prio_list,
-                      prio_dscp_map):
+                      lossless_prio_list,           # noqa F811
+                      lossy_prio_list,              # noqa F811
+                      prio_dscp_map):               # noqa F811
     """
     Test if IEEE 802.3X pause (a.k.a., global pause) will impact any priority
 

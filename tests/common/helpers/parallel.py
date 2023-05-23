@@ -6,20 +6,24 @@ import shutil
 import tempfile
 import signal
 import traceback
+import time
 
-from multiprocessing import Process, Manager, Pipe
+from multiprocessing import Process, Manager, Pipe, TimeoutError
+from multiprocessing.pool import ThreadPool
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
+
 class SonicProcess(Process):
     """
     Wrapper class around multiprocessing.Process that would capture the exception thrown if the Process throws
     an exception when run.
 
-    This exception (including backtrace) can be logged in test log to provide better info of why a particular Process failed.
+    This exception (including backtrace) can be logged in test log
+    to provide better info of why a particular Process failed.
     """
     def __init__(self, *args, **kwargs):
         Process.__init__(self, *args, **kwargs)
@@ -51,7 +55,7 @@ class SonicProcess(Process):
 
 
 def parallel_run(
-    target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24
+    target, args, kwargs, nodes_list, timeout=None, concurrent_tasks=24, init_result=None
 ):
     """Run target function on nodes in parallel
 
@@ -75,36 +79,40 @@ def parallel_run(
             spawned processes.
     """
     nodes = [node for node in nodes_list]
+
     # Callback API for wait_procs
     def on_terminate(worker):
         logger.info("process {} terminated with exit code {}".format(
             worker.name, worker.returncode)
         )
 
-    def force_terminate(workers):
+    def force_terminate(workers, init_result):
         # Some processes cannot be terminated. Try to kill them and raise flag.
         running_processes = [worker for worker in workers if worker.is_alive()]
         if len(running_processes) > 0:
             logger.info(
-                'Found processes still running: {}. Try to kill them.'.format( #lgtm [py/clear-text-logging-sensitive-data]
-                    str(running_processes)
-                )
+                'Found processes still running: {}. Try to kill them.'.format(str(running_processes))
             )
             for p in running_processes:
-                results[p.name] = [{'failed': True}]
+                # If sanity check process is killed, it still has init results.
+                # set its failed to True.
+                if init_result:
+                    init_result['failed'] = True
+                    results[list(results.keys())[0]] = init_result
+                else:
+                    results[p.name] = {'failed': True}
                 try:
                     os.kill(p.pid, signal.SIGKILL)
                 except OSError as err:
-                    logger.debug("Unable to kill {}:{}, error:{}".format(
+                    logger.error("Unable to kill {}:{}, error:{}".format(
                         p.pid, p.name, err
                     ))
 
-            pt_assert(
-                False,
-                """Processes running target "{}" could not be terminated.
-                Tried killing them. But please check""".format(target.__name__)
-            )
-
+                    pt_assert(
+                        False,
+                        """Processes running target "{}" could not be terminated.
+                        Unable to kill {}:{}, error:{}""".format(target.__name__, p.pid, p.name, err)
+                    )
 
     workers = []
     results = Manager().dict()
@@ -129,6 +137,10 @@ def parallel_run(
 
         while len(nodes) and tasks_running < concurrent_tasks:
             node = nodes.pop(0)
+            # For sanity check process, initial results in case of timeout.
+            if init_result:
+                init_result["host"] = node.hostname
+                results[node.hostname] = init_result
             kwargs['node'] = node
             kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
@@ -154,7 +166,7 @@ def parallel_run(
             logger.debug("all processes have timedout")
             tasks_running -= len(workers)
             tasks_done += len(workers)
-            force_terminate(workers)
+            force_terminate(workers, init_result)
             del workers[:]
         else:
             tasks_running -= len(gone)
@@ -174,31 +186,35 @@ def parallel_run(
                 worker.name
             ))
             worker.terminate()
-            results[worker.name] = [{'failed': True}]
+            # If sanity check process is killed, it still has init results.
+            # set its failed to True.
+            if init_result:
+                init_result['failed'] = True
+                results[list(results.keys())[0]] = init_result
+            else:
+                results[worker.name] = {'failed': True}
 
     end_time = datetime.datetime.now()
     delta_time = end_time - start_time
 
     # force terminate any workers still running
-    force_terminate(workers)
+    force_terminate(workers, init_result)
 
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
-    if len(failed_processes.keys()):
-        for process_name, process in failed_processes.items():
+    if len(list(failed_processes.keys())):
+        for process_name, process in list(failed_processes.items()):
+            p_exitcode = ""
+            p_exception = ""
+            p_traceback = ""
             if 'exception' in process and process['exception']:
                 p_exception = process['exception'][0]
                 p_traceback = process['exception'][1]
                 p_exitcode = process['exit_code']
-                logger.error("""Process {} had exit code {} and exception {}
-                    and traceback {}""".format(
-                        process_name, p_exitcode, p_exception, p_traceback
-                    )
-                )
             pt_assert(
                 False,
-                'Processes "{}" had failures. Please check the logs'.format(
-                    list(failed_processes.keys())
+                'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
+                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback
                 )
             )
 
@@ -208,7 +224,7 @@ def parallel_run(
         )
     )
 
-    return results
+    return dict(results)
 
 
 def reset_ansible_local_tmp(target):
@@ -234,3 +250,37 @@ def reset_ansible_local_tmp(target):
     wrapper.__name__ = target.__name__
 
     return wrapper
+
+
+def parallel_run_threaded(target_functions, timeout=10, thread_count=2):
+    """
+    Run target functions with a thread pool.
+
+    @param target_functions: list of target functions to execute
+    @param timeout: timeout seconds, default 10
+    @param thread_count: thread count, default 2
+    """
+    pool = ThreadPool(thread_count)
+    results = [pool.apply_async(func) for func in target_functions]
+
+    start_time = time.time()
+    while time.time() - start_time <= timeout:
+        alive_functions = [func for func, result in zip(target_functions, results) if not result.ready()]
+        if alive_functions:
+            time.sleep(0.2)
+        else:
+            pool.close()
+            pool.join()
+            break
+    else:
+        raise TimeoutError("%s seconds timeout waiting for %r to finish" % (timeout, alive_functions))
+
+    outputs = []
+    for func, result in zip(target_functions, results):
+        try:
+            output = result.get()
+        except Exception as error:
+            logging.error("Target function %r errored:\n%s", func, traceback.format_exc())
+            raise error
+        outputs.append(output)
+    return outputs

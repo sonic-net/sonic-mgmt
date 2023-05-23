@@ -51,6 +51,16 @@ x86_64-mlnx_msn2700-r0:
     greater_timeout: 100
     too_big_timeout: 66000
 
+x86_64-nvidia_sn2201-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 66000
+
+x86_64-nvidia_sn5600-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 66000
+
 # Dell watchdog
 x86_64-dell.*:
   default:
@@ -86,6 +96,31 @@ armhf-nokia_ixs7215_52x-r0:
 
 # Cisco-8000 watchdog
 x86_64-8102_64h_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8800_rp_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-88_lc0_36fh_mo-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8800_lc_48h_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+# Cisco-Churchill-Mono watchdog
+x86_64-8101_32fh_o-r0:
   default:
     valid_timeout: 10
     greater_timeout: 6553

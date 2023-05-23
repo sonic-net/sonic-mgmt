@@ -10,6 +10,7 @@ pytestmark = [
 
 LOG_EXPECT_PO_CLEANUP_RE = "cleanTeamProcesses: Sent SIGTERM to port channel.*{}.*"
 
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
@@ -34,19 +35,13 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
         ]
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex.extend(expectRegex)
 
+
 def check_kernel_po_interface_cleaned(duthost, asic_index):
     namespace = duthost.get_namespace_from_asic_id(asic_index)
-    res = duthost.shell(duthost.get_linux_ip_cmd_for_namespace("ip link show | grep -c PortChannel", namespace),module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+    res = duthost.shell(duthost.get_linux_ip_cmd_for_namespace("ip link show | grep -c PortChannel", namespace),
+                        module_ignore_errors=True)["stdout_lines"][0]
     return res == '0'
 
-@pytest.fixture(scope="module", autouse=True)
-def check_topo_and_restore(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
-
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-
-    if len(mg_facts['minigraph_portchannels'].keys()) == 0 and not duthost.is_multi_asic:
-        pytest.skip("Skip test due to there is no portchannel exists in current topology.")
 
 def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_asic_index, tbinfo):
     """
@@ -54,16 +49,17 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
     handle  SIGTERM gracefully
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    logging.info("Disable swss/teamd Feature")
-    duthost.asic_instance(enum_asic_index).stop_service("swss")
+    logging.info("Disable swss/teamd Feature in all asics")
+    # Following will call "sudo systemctl stop swss@0", same for swss@1 ..
+    duthost.stop_service("swss")
     # Check if Linux Kernel Portchannel Interface teamdev are clean up
-    if not wait_until(10, 1, 0, check_kernel_po_interface_cleaned, duthost, enum_asic_index):
-        fail_msg = "PortChannel interface still exists in kernel"
-        pytest.fail(fail_msg)
-    # Restore swss service.
-    duthost.asic_instance(enum_asic_index).start_service("swss")
-    assert wait_until(300, 20, 0, duthost.critical_services_fully_started),\
-        "Not all critical services are fully started"
+    for asic_id in duthost.get_asic_ids():
+        if not wait_until(10, 1, 0, check_kernel_po_interface_cleaned, duthost, asic_id):
+            fail_msg = "PortChannel interface still exists in kernel"
+            pytest.fail(fail_msg)
+    # Restore config services
+    config_reload(duthost)
+
 
 def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
@@ -73,7 +69,7 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     host_facts = duthost.setup()['ansible_facts']
 
     # Get the cpu information.
-    if host_facts.has_key("ansible_processor_vcpus"):
+    if "ansible_processor_vcpus" in host_facts:
         host_vcpus = int(host_facts['ansible_processor_vcpus'])
     else:
         res = duthost.shell("nproc")
@@ -82,8 +78,8 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     logging.info("found {} cpu on the dut".format(host_vcpus))
 
     # Get portchannel facts and interfaces.
-    lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-    port_channel_intfs = lag_facts['names'].keys()
+    lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+    port_channel_intfs = list(lag_facts['names'].keys())
 
     # Add start marker to the DUT syslog
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='port_channel_cleanup')
@@ -101,6 +97,6 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
             config_reload(duthost)
 
         duthost.shell("killall yes")
-    except:
+    except Exception:
         duthost.shell("killall yes")
         raise

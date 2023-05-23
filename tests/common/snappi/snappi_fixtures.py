@@ -3,11 +3,10 @@ This module contains the snappi fixture
 """
 import pytest
 import snappi
+import snappi_convergence
 from ipaddress import ip_address, IPv4Address
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
-from tests.common.snappi.common_helpers import get_addrs_in_subnet,\
-    get_peer_snappi_chassis
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.snappi.common_helpers import get_addrs_in_subnet, get_ipv6_addrs_in_subnet, get_peer_snappi_chassis
 from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
@@ -38,8 +37,7 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     return (duthost.host.options['variable_manager'].
-            _hostvars[duthost.hostname]['secret_group_vars']
-            ['snappi_api_server']['rest_port'])
+            _hostvars[duthost.hostname]['snappi_api_server']['rest_port'])
 
 
 @pytest.fixture(scope='module')
@@ -74,6 +72,7 @@ def __gen_mac(id):
     """
     return '00:11:22:33:44:{:02d}'.format(id)
 
+
 def __gen_pc_mac(id):
     """
     Generate a MAC address for a portchannel interface
@@ -84,6 +83,7 @@ def __gen_pc_mac(id):
         MAC address (string)
     """
     return '11:22:33:44:55:{:02d}'.format(id)
+
 
 def __valid_ipv4_addr(ip):
     """
@@ -126,13 +126,13 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
 
     dut_mac = str(duthost.facts['router_mac'])
 
-    for k, v in l3_intf.items():
+    for k, v in list(l3_intf.items()):
         intf = str(k)
         gw_addr = str(v['addr'])
         prefix = str(v['prefixlen'])
         ip = str(v['peer_addr'])
 
-        port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
+        port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                     if snappi_port['peer_port'] == intf]
         if len(port_ids) != 1:
             return False
@@ -189,7 +189,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
         return True
 
     vlan_member = {}
-    for k, v in vlan_facts.items():
+    for k, v in list(vlan_facts.items()):
         vlan_member[k] = v['members']
 
     vlan_intf_facts = mg_facts['minigraph_vlan_interfaces']
@@ -213,7 +213,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             phy_intf = phy_intfs[i]
             vlan_ip_addr = vlan_ip_addrs[i]
 
-            port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
+            port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
@@ -269,7 +269,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         return True
 
     pc_member = {}
-    for k, v in pc_facts.items():
+    for k, v in list(pc_facts.items()):
         pc_member[k] = v['members']
 
     pc_intf_facts = mg_facts['minigraph_portchannel_interfaces']
@@ -292,7 +292,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         for i in range(len(phy_intfs)):
             phy_intf = phy_intfs[i]
 
-            port_ids = [id for id, snappi_port in enumerate(snappi_ports) \
+            port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
                 return False
@@ -340,11 +340,8 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
 
 
 @pytest.fixture(scope="function")
-def snappi_testbed_config(conn_graph_facts,
-                          fanout_graph_facts,
-                          duthosts,
-                          rand_one_dut_hostname,
-                          snappi_api):
+def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
+                          duthosts, rand_one_dut_hostname, snappi_api):
     """
     Geenrate snappi API config and port config information for the testbed
     Args:
@@ -429,3 +426,94 @@ def snappi_testbed_config(conn_graph_facts,
     pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
     return config, port_config_list
+
+
+@pytest.fixture(scope="module")
+def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
+
+    """
+    Populate tgen ports info of T0 testbed and returns as a list
+    Args:
+        duthost (pytest fixture): duthost fixture
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts (pytest fixture): fanout graph
+    Return:
+        [{'card_id': '1',
+        'ip': '22.1.1.2',
+        'ipv6': '3001::2',
+        'ipv6_prefix': u'64',
+        'location': '10.36.78.238;1;2',
+        'peer_device': 'sonic-s6100-dut',
+        'peer_ip': u'22.1.1.1',
+        'peer_ipv6': u'3001::1',
+        'peer_port': 'Ethernet8',
+        'port_id': '2',
+        'prefix': u'24',
+        'speed': 'speed_400_gbps'},
+        {'card_id': '1',
+        'ip': '21.1.1.2',
+        'ipv6': '2001::2',
+        'ipv6_prefix': u'64',
+        'location': '10.36.78.238;1;1',
+        'peer_device': 'sonic-s6100-dut',
+        'peer_ip': u'21.1.1.1',
+        'peer_ipv6': u'2001::1',
+        'peer_port': 'Ethernet0',
+        'port_id': '1',
+        'prefix': u'24',
+        'speed': 'speed_400_gbps'}]
+    """
+
+    speed_type = {'50000': 'speed_50_gbps',
+                  '100000': 'speed_100_gbps',
+                  '200000': 'speed_200_gbps',
+                  '400000': 'speed_400_gbps'}
+
+    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                            dut_hostname=duthost.hostname)
+    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+    port_speed = None
+
+    for i in range(len(snappi_ports)):
+        if port_speed is None:
+            port_speed = int(snappi_ports[i]['speed'])
+
+        elif port_speed != int(snappi_ports[i]['speed']):
+            """ All the ports should have the same bandwidth """
+            return None
+
+    config_facts = duthost.config_facts(host=duthost.hostname,
+                                        source="running")['ansible_facts']
+    for port in snappi_ports:
+        port['location'] = get_snappi_port_location(port)
+        port['speed'] = speed_type[port['speed']]
+    try:
+        for port in snappi_ports:
+            peer_port = port['peer_port']
+            int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+            ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
+            if not ipv4_subnet:
+                raise Exception("IPv4 is not configured on the interface {}".format(peer_port))
+            port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
+            port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
+            ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
+            if not ipv6_subnet:
+                raise Exception("IPv6 is not configured on the interface {}".format(peer_port))
+            port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
+            port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
+    except Exception:
+        raise Exception('Configure IPv4 and IPv6 on DUT interfaces')
+
+    return snappi_ports
+
+
+@pytest.fixture(scope='module')
+def cvg_api(snappi_api_serv_ip,
+            snappi_api_serv_port):
+    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port), ext='ixnetwork')
+    yield api
+    if getattr(api, 'assistant', None) is not None:
+        api.assistant.Session.remove()

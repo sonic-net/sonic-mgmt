@@ -40,14 +40,35 @@
         Runtime = todouble(cases["time"]),
         Result = tostring(cases["result"]),
         ReportId = tostring(cases["id"]),
-	    Error = tobool(cases["error"])
+	    Error = tobool(cases["error"]),
+        Summary = tostring(cases["summary"]),
+        StartTime = todatetime(cases["start"]),
+        EndTime = todatetime(cases["end"]),
+        CustomMsg = tostring(cases["CustomMsg"])
 }
 
 .create table TestCases (Feature: string, TestCase: string, ModulePath: string,
                          FilePath: string, StartLine: int, Runtime: double, Result: string,
-                         ReportId: string, Error: bool)
+                         ReportId: string, Error: bool, Summary: string, StartTime: datetime, EndTime: datetime,
+                         CustomMsg: string)
 
 .alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
+
+.create table TestCases ingestion json mapping 'TestCasesMappingV1' @'['
+                                                                     '{"column":"Feature","Properties":{"path":"$.feature"}},'
+                                                                     '{"column":"TestCase","Properties":{"path":"$.name"}},'
+                                                                     '{"column":"ModulePath","Properties":{"path":"$.classname"}},'
+                                                                     '{"column":"FilePath","Properties":{"path":"$.file"}},'
+                                                                     '{"column":"StartLine","Properties":{"path":"$.line"}},'
+                                                                     '{"column":"Runtime","Properties":{"path":"$.time"}},'
+                                                                     '{"column":"Result","Properties":{"path":"$.result"}},'
+                                                                     '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                     '{"column":"Error","Properties":{"path":"$.error"}},'
+                                                                     '{"column":"Summary","Properties":{"path":"$.summary"}},'
+                                                                     '{"column":"StartTime","Properties":{"path":"$.start"}},'
+                                                                     '{"column":"EndTime","Properties":{"path":"$.end"}},'
+                                                                     '{"column":"CustomMsg","Properties":{"path":"$.CustomMsg"}},'
+                                                                     ']'
 
 ###############################################################################
 # SUMMARY TABLE SETUP                                                         #
@@ -57,13 +78,13 @@
 .create table TestReportSummary (ReportId: string, TotalCasesRun: int, Failures: int,
                                  Errors: int, Skipped: int, Xfails: int, TotalRuntime: double)
 
-.create table TestReportSummary ingestion json mapping 'FlatSummaryMappingV1' '[{"column":"ReportId","Properties":{"path":"$.id"}},
-                                                                                {"column":"TotalCasesRun","Properties":{"path":"$.tests"}},
-                                                                                {"column":"Failures","Properties":{"path":"$.failures"}},
-                                                                                {"column":"Errors","Properties":{"path":"$.errors"}},
-                                                                                {"column":"Skipped","Properties":{"path":"$.skipped"}},
-                                                                                {"column":"Xfails","Properties":{"path":"$.xfails"}},
-                                                                                {"column":"TotalRuntime","Properties":{"path":"$.time"}}]'
+.create table TestReportSummary ingestion json mapping 'FlatSummaryMappingV1' @'[{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                                '{"column":"TotalCasesRun","Properties":{"path":"$.tests"}},'
+                                                                                '{"column":"Failures","Properties":{"path":"$.failures"}},'
+                                                                                '{"column":"Errors","Properties":{"path":"$.errors"}},'
+                                                                                '{"column":"Skipped","Properties":{"path":"$.skipped"}},'
+                                                                                '{"column":"Xfails","Properties":{"path":"$.xfails"}},'
+                                                                                '{"column":"TotalRuntime","Properties":{"path":"$.time"}}]'
 
 ###############################################################################
 # METADATA TABLE SETUP                                                        #
@@ -74,18 +95,41 @@
                                   HardwareSku: string, OSVersion: string,
                                   Platform: string, Topology: string,
                                   TrackingId: string, ReportId: string,
-                                  TestbedName: string, UploadTimestamp: datetime)
+                                  TestbedName: string, UploadTimestamp: datetime,
+                                  sai_origin_version: string, sai_upgrade_version: string)
 
-.create table TestReportMetadata ingestion json mapping 'FlatMetadataMappingV1' '[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},
-                                                                                  {"column":"AsicType","Properties":{"path":"$.asic"}},
-                                                                                  {"column":"HardwareSku","Properties":{"path":"$.hwsku"}},
-                                                                                  {"column":"OSVersion","Properties":{"path":"$.os_version"}},
-                                                                                  {"column":"Platform","Properties":{"path":"$.platform"}},
-                                                                                  {"column":"Topology","Properties":{"path":"$.topology"}},
-                                                                                  {"column":"TrackingId","Properties":{"path":"$.tracking_id"}},
-                                                                                  {"column":"ReportId","Properties":{"path":"$.id"}},
-                                                                                  {"column":"TestbedName","Properties":{"path":"$.testbed"}},
-                                                                                  {"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
+.create table TestReportMetadata ingestion json mapping 'FlatMetadataMappingV1' @'[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},'
+                                                                                  '{"column":"AsicType","Properties":{"path":"$.asic"}},'
+                                                                                  '{"column":"HardwareSku","Properties":{"path":"$.hwsku"}},'
+                                                                                  '{"column":"OSVersion","Properties":{"path":"$.os_version"}},'
+                                                                                  '{"column":"Platform","Properties":{"path":"$.platform"}},'
+                                                                                  '{"column":"Topology","Properties":{"path":"$.topology"}},'
+                                                                                  '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
+                                                                                  '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                                  '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
+                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}},'
+                                                                                  '{"column":"sai_origin_version","Properties":{"path":"$.sai_origin_version"}},'
+                                                                                  '{"column":"sai_upgrade_version","Properties":{"path":"$.sai_upgrade_version"}}]'
+
+###############################################################################
+# PIPELINE TABLE SETUP                                                        #
+# 1. Create a TestReportPipeline table to store pipeline task results         #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportPipeline (StartTimestamp: datetime, UploadTimestamp: datetime, TrackingId: string,
+                                  ReportId: string, TestbedName: string,
+                                  OSVersion: string, SuccessTasks: string,
+                                  FailedTasks: string, CancelledTasks: string)
+
+.create table TestReportPipeline ingestion json mapping 'FlatPipelineMappingV1' @'[{"column":"StartTimestamp","Properties":{"path":"$.start_time"}},'
+                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}},'
+                                                                                  '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
+                                                                                  '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                                  '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
+                                                                                  '{"column":"OSVersion","Properties":{"path":"$.os_version"}},'
+                                                                                  '{"column":"SuccessTasks","Properties":{"path":"$.success_tasks"}},'
+                                                                                  '{"column":"FailedTasks","Properties":{"path":"$.failed_tasks"}},'
+                                                                                  '{"column":"CancelledTasks","Properties":{"path":"$.cancelled_tasks"}}]'
 
 ###############################################################################
 # EXPECTED TEST RUNS TABLE SETUP                                              #
@@ -96,8 +140,8 @@
 .create table ExpectedTestRuns (Timestamp: datetime,
                                 TestbedName: string)
 
-.create table ExpectedTestRuns ingestion json mapping 'ExpectedTestRunsV1' '[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},
-                                                                             {"column":"TestbedName","Properties":{"path":"$.testbed"}}]'
+.create table ExpectedTestRuns ingestion json mapping 'ExpectedTestRunsV1' @'[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},'
+                                                                             '{"column":"TestbedName","Properties":{"path":"$.testbed"}}]'
 
 ###############################################################################
 # RAW REBOOT REPORT TABLE SETUP                                               #
@@ -112,13 +156,13 @@
 
 // Create mapping command
 ////////////////////////////////////////////////////////////
-.create table ['RawRebootTimingData'] ingestion json mapping 'RawRebootTimingDataMapping' '[
-                                                            {"column":"ReportId","Properties":{"path":"$.id"}},
-                                                            {"column":"OffsetFromKexec", "Properties":{"Path":"$[\'offset_from_kexec\']"}},
-                                                            {"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},
-                                                            {"column":"Controlplane", "Properties":{"Path":"$[\'controlplane\']"}},
-                                                            {"column":"Dataplane", "Properties":{"Path":"$[\'dataplane\']"}},
-                                                            {"column":"TimeSpan", "Properties":{"Path":"$[\'time_span\']"}}]'
+.create table ['RawRebootTimingData'] ingestion json mapping 'RawRebootTimingDataMapping' @'['
+                                                            '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                            '{"column":"OffsetFromKexec", "Properties":{"Path":"$[\'offset_from_kexec\']"}},'
+                                                            '{"column":"RebootTime", "Properties":{"Path":"$[\'reboot_time\']"}},'
+                                                            '{"column":"Controlplane", "Properties":{"Path":"$[\'controlplane\']"}},'
+                                                            '{"column":"Dataplane", "Properties":{"Path":"$[\'dataplane\']"}},'
+                                                            '{"column":"TimeSpan", "Properties":{"Path":"$[\'time_span\']"}}]'
 
 
 ###############################################################################
@@ -139,36 +183,63 @@
 
 // Create mapping command
 ////////////////////////////////////////////////////////////
-.create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDataMapping' '[
-                                                            {"column":"ReportId","Properties":{"path":"$.id"}},
-                                                            {"column":"OffsetFromKexecDatabase", "Properties":{"Path":"$[\'offset_from_kexec\'][\'database\']"}},
-                                                            {"column":"OffsetFromKexecFinalizer", "Properties":{"Path":"$[\'offset_from_kexec\'][\'finalizer\']"}},
-                                                            {"column":"OffsetFromKexecPortInit", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_init\']"}},
-                                                            {"column":"OffsetFromKexecInitView", "Properties":{"Path":"$[\'offset_from_kexec\'][\'init_view\']"}},
-                                                            {"column":"OffsetFromKexecSyncdCreateSwitch", "Properties":{"Path":"$[\'offset_from_kexec\'][\'syncd_create_switch\']"}},
-                                                            {"column":"OffsetFromKexecDefaultRouteSet", "Properties":{"Path":"$[\'offset_from_kexec\'][\'default_route_set\']"}},
-                                                            {"column":"OffsetFromKexecLagReady", "Properties":{"Path":"$[\'offset_from_kexec\'][\'lag_ready\']"}},
-                                                            {"column":"OffsetFromKexecPortReady", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_ready\']"}},
-                                                            {"column":"OffsetFromKexecSaiCreateSwitch", "Properties":{"Path":"$[\'offset_from_kexec\'][\'sai_create_switch\']"}},
-                                                            {"column":"OffsetFromKexecNeighborEntry", "Properties":{"Path":"$[\'offset_from_kexec\'][\'neighbor_entry\']"}},
-                                                            {"column":"OffsetFromKexecApplyView", "Properties":{"Path":"$[\'offset_from_kexec\'][\'apply_view\']"}},
-                                                            {"column":"ControlplaneArpPing", "Properties":{"Path":"$[\'controlplane\'][\'arp_ping\']"}},
-                                                            {"column":"ControlplaneDowntime", "Properties":{"Path":"$[\'controlplane\'][\'downtime\']"}},
-                                                            {"column":"TimeSpanRadv", "Properties":{"Path":"$[\'time_span\'][\'radv\']"}},
-                                                            {"column":"TimeSpanSyncd", "Properties":{"Path":"$[\'time_span\'][\'syncd\']"}},
-                                                            {"column":"TimeSpanBgp", "Properties":{"Path":"$[\'time_span\'][\'bgp\']"}},
-                                                            {"column":"TimeSpanPortInit", "Properties":{"Path":"$[\'time_span\'][\'port_init\']"}},
-                                                            {"column":"TimeSpanSwss", "Properties":{"Path":"$[\'time_span\'][\'swss\']"}},
-                                                            {"column":"TimeSpanTeamd", "Properties":{"Path":"$[\'time_span\'][\'teamd\']"}},
-                                                            {"column":"TimeSpanDatabase", "Properties":{"Path":"$[\'time_span\'][\'database\']"}},
-                                                            {"column":"TimeSpanSyncdCreateSwitch", "Properties":{"Path":"$[\'time_span\'][\'syncd_create_switch\']"}},
-                                                            {"column":"TimeSpanSaiCreateSwitch", "Properties":{"Path":"$[\'time_span\'][\'sai_create_switch\']"}},
-                                                            {"column":"TimeSpanApplyView", "Properties":{"Path":"$[\'time_span\'][\'apply_view\']"}},
-                                                            {"column":"TimeSpanInitView", "Properties":{"Path":"$[\'time_span\'][\'init_view\']"}},
-                                                            {"column":"TimeSpanNeighborEntry", "Properties":{"Path":"$[\'time_span\'][\'neighbor_entry\']"}},
-                                                            {"column":"TimeSpanPortReady", "Properties":{"Path":"$[\'time_span\'][\'port_ready\']"}},
-                                                            {"column":"TimeSpanFinalizer", "Properties":{"Path":"$[\'time_span\'][\'finalizer\']"}},
-                                                            {"column":"TimeSpanLagReady", "Properties":{"Path":"$[\'time_span\'][\'lag_ready\']"}},
-                                                            {"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},
-                                                            {"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},
-                                                            {"column":"DataplaneDowntime", "Properties":{"Path":"$[\'dataplane\'][\'downtime\']"}}]'
+.create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDataMapping' @'['
+                                                            '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                            '{"column":"OffsetFromKexecDatabase", "Properties":{"Path":"$[\'offset_from_kexec\'][\'database\']"}},'
+                                                            '{"column":"OffsetFromKexecFinalizer", "Properties":{"Path":"$[\'offset_from_kexec\'][\'finalizer\']"}},'
+                                                            '{"column":"OffsetFromKexecPortInit", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_init\']"}},'
+                                                            '{"column":"OffsetFromKexecInitView", "Properties":{"Path":"$[\'offset_from_kexec\'][\'init_view\']"}},'
+                                                            '{"column":"OffsetFromKexecSyncdCreateSwitch", "Properties":{"Path":"$[\'offset_from_kexec\'][\'syncd_create_switch\']"}},'
+                                                            '{"column":"OffsetFromKexecDefaultRouteSet", "Properties":{"Path":"$[\'offset_from_kexec\'][\'default_route_set\']"}},'
+                                                            '{"column":"OffsetFromKexecLagReady", "Properties":{"Path":"$[\'offset_from_kexec\'][\'lag_ready\']"}},'
+                                                            '{"column":"OffsetFromKexecPortReady", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_ready\']"}},'
+                                                            '{"column":"OffsetFromKexecSaiCreateSwitch", "Properties":{"Path":"$[\'offset_from_kexec\'][\'sai_create_switch\']"}},'
+                                                            '{"column":"OffsetFromKexecNeighborEntry", "Properties":{"Path":"$[\'offset_from_kexec\'][\'neighbor_entry\']"}},'
+                                                            '{"column":"OffsetFromKexecApplyView", "Properties":{"Path":"$[\'offset_from_kexec\'][\'apply_view\']"}},'
+                                                            '{"column":"ControlplaneArpPing", "Properties":{"Path":"$[\'controlplane\'][\'arp_ping\']"}},'
+                                                            '{"column":"ControlplaneDowntime", "Properties":{"Path":"$[\'controlplane\'][\'downtime\']"}},'
+                                                            '{"column":"TimeSpanRadv", "Properties":{"Path":"$[\'time_span\'][\'radv\']"}},'
+                                                            '{"column":"TimeSpanSyncd", "Properties":{"Path":"$[\'time_span\'][\'syncd\']"}},'
+                                                            '{"column":"TimeSpanBgp", "Properties":{"Path":"$[\'time_span\'][\'bgp\']"}},'
+                                                            '{"column":"TimeSpanPortInit", "Properties":{"Path":"$[\'time_span\'][\'port_init\']"}},'
+                                                            '{"column":"TimeSpanSwss", "Properties":{"Path":"$[\'time_span\'][\'swss\']"}},'
+                                                            '{"column":"TimeSpanTeamd", "Properties":{"Path":"$[\'time_span\'][\'teamd\']"}},'
+                                                            '{"column":"TimeSpanDatabase", "Properties":{"Path":"$[\'time_span\'][\'database\']"}},'
+                                                            '{"column":"TimeSpanSyncdCreateSwitch", "Properties":{"Path":"$[\'time_span\'][\'syncd_create_switch\']"}},'
+                                                            '{"column":"TimeSpanSaiCreateSwitch", "Properties":{"Path":"$[\'time_span\'][\'sai_create_switch\']"}},'
+                                                            '{"column":"TimeSpanApplyView", "Properties":{"Path":"$[\'time_span\'][\'apply_view\']"}},'
+                                                            '{"column":"TimeSpanInitView", "Properties":{"Path":"$[\'time_span\'][\'init_view\']"}},'
+                                                            '{"column":"TimeSpanNeighborEntry", "Properties":{"Path":"$[\'time_span\'][\'neighbor_entry\']"}},'
+                                                            '{"column":"TimeSpanPortReady", "Properties":{"Path":"$[\'time_span\'][\'port_ready\']"}},'
+                                                            '{"column":"TimeSpanFinalizer", "Properties":{"Path":"$[\'time_span\'][\'finalizer\']"}},'
+                                                            '{"column":"TimeSpanLagReady", "Properties":{"Path":"$[\'time_span\'][\'lag_ready\']"}},'
+                                                            '{"column":"RebootType", "Properties":{"Path":"$[\'reboot_type\']"}},'
+                                                            '{"column":"DataplaneLostPackets", "Properties":{"Path":"$[\'dataplane\'][\'lost_packets\']"}},'
+                                                            '{"column":"DataplaneDowntime", "Properties":{"Path":"$[\'dataplane\'][\'downtime\']"}}]'
+
+###############################################################################
+# TESTBEDREACHABILITY TABLE SETUP                                             #
+# 1. Create a TestbedReachability table to store testbed health info          #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestbedReachability (UTCTimestamp: datetime, TestbedName: string,
+                                  DutName: string, DutIP: string,
+                                  DutIcmpReachability: bool, ServerName: string,
+                                  ServerIP: string, ServerIcmpReachability: bool,
+                                  PtfName: string, PtfIP: string, PtfIcmpReachability: bool,
+                                  DutConsoleReachability: bool, DutSshReachability: bool)
+
+.create table TestbedReachability ingestion json mapping 'TestbedReachabilityMapping' @'[{"column":"UTCTimestamp","Properties":{"path":"$.UTCTimestamp"}},'
+                                                                     '{"column":"TestbedName","Properties":{"path":"$.TestbedName"}},'
+                                                                     '{"column":"DutName","Properties":{"path":"$.DutName"}},'
+                                                                     '{"column":"DutIP","Properties":{"path":"$.DutIP"}},'
+                                                                     '{"column":"DutIcmpReachability","Properties":{"path":"$.DutIcmpReachability"}},'
+                                                                     '{"column":"ServerName","Properties":{"path":"$.ServerName"}},'
+                                                                     '{"column":"ServerIP","Properties":{"path":"$.ServerIP"}},'
+                                                                     '{"column":"ServerIcmpReachability","Properties":{"path":"$.ServerIcmpReachability"}},'
+                                                                     '{"column":"PtfName","Properties":{"path":"$.PtfName"}},'
+                                                                     '{"column":"PtfIP","Properties":{"path":"$.PtfIP"}},'
+                                                                     '{"column":"PtfIcmpReachability","Properties":{"path":"$.PtfIcmpReachability"}},'
+                                                                     '{"column":"DutConsoleReachability","Properties":{"path":"$.DutConsoleReachability"}},'
+                                                                     '{"column":"DutSshReachability","Properties":{"path":"$.DutSshReachability"}},'
+                                                                     ']'

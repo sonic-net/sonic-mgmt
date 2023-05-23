@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def watchdog_api(conn, name, args=None):
     if args is None:
         args = []
@@ -29,4 +30,3 @@ def disarm(conn):
 
 def get_remaining_time(conn):
     return watchdog_api(conn, 'get_remaining_time')
-

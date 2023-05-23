@@ -62,6 +62,7 @@ interface {{ name }}
 {% if name.startswith('Loopback') %}
  description LOOPBACK
 {% else %}
+ mtu 9214
  no switchport
 {% endif %}
 {% if name.startswith('Port-Channel') %}
@@ -104,6 +105,7 @@ router bgp {{ host['bgp']['asn'] }}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} maximum-routes 0
  neighbor {{ remote_ip }} description {{ asn }}
+ neighbor {{ remote_ip }} allowas-in
 {% if remote_ip | ipv6 %}
  address-family ipv6
   neighbor {{ remote_ip }} activate

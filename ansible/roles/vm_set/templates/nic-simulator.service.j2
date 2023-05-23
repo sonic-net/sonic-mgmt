@@ -1,0 +1,6 @@
+[Unit]
+Description=nic simulator
+After=network.target
+
+[Service]
+ExecStart={{ ip_command_path }} netns exec {{ netns_name }} /usr/bin/env {{ python_command }} {{ abs_root_path }}/nic_simulator/nic_simulator.py -p {{ nic_simulator_port }} -v {{ vm_set_name }} -l debug

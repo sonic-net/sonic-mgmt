@@ -12,9 +12,10 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-REDIS_NEIGH_ENTRY_MAC_ATTR ="SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS"
+REDIS_NEIGH_ENTRY_MAC_ATTR = "SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS"
 ROUTE_TABLE_NAME = 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY'
 DEFAULT_ROUTE_NUM = 2
+
 
 class TestNeighborMacNoPtf:
     """
@@ -28,12 +29,13 @@ class TestNeighborMacNoPtf:
     TEST_INTF = {
         4: {"intfIp": "29.0.0.1/24", "NeighborIp": "29.0.0.2"},
         6: {"intfIp": "fe00::1/64", "NeighborIp": "fe00::2"},
-    }	
+    }
 
     def count_routes(self, asichost, prefix):
         # Counts routes in ASIC_DB with a given prefix
         num = asichost.shell(
-                '{} ASIC_DB eval "return #redis.call(\'keys\', \'{}:{{\\"dest\\":\\"{}*\')" 0'.format(asichost.sonic_db_cli, ROUTE_TABLE_NAME, prefix),
+                '{} ASIC_DB eval "return #redis.call(\'keys\', \'{}:{{\\"dest\\":\\"{}*\')" 0'
+                .format(asichost.sonic_db_cli, ROUTE_TABLE_NAME, prefix),
                 module_ignore_errors=True, verbose=True)['stdout']
         return int(num)
 
@@ -44,19 +46,21 @@ class TestNeighborMacNoPtf:
         # these routes are present only on multi asic device, on single asic platform they will be zero
         internal = self.count_routes(asichost, "8.") + self.count_routes(asichost, "2603")
         allroutes = self.count_routes(asichost, "")
-        logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} allroutes {}".format(asichost.asic_index, localv4, localv6, internal, allroutes))
+        logger.info("asic[{}] localv4 routes {} localv6 routes {} internalv4 {} allroutes {}"
+                    .format(asichost.asic_index, localv4, localv6, internal, allroutes))
         bgp_routes_asic = allroutes - localv6 - localv4 - internal - DEFAULT_ROUTE_NUM
 
         return bgp_routes_asic
 
     def _check_no_bgp_routes(self, duthost):
         bgp_routes = 0
-        # Checks that there are no routes installed by BGP in ASIC_DB by filtering out all local routes installed on testbed
+        # Checks that there are no routes installed by BGP in ASIC_DB
+        # by filtering out all local routes installed on testbed
         for asic in duthost.asics:
             bgp_routes += self._get_bgp_routes_asic(asic)
-        
+
         return bgp_routes == 0
-            
+
     @pytest.fixture(scope="module", autouse=True)
     def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
@@ -77,7 +81,7 @@ class TestNeighborMacNoPtf:
         yield
 
         logger.info("Reload Config DB")
-        config_reload(duthost, config_source='config_db', wait=120)
+        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(params=[4, 6])
     def ipVersion(self, request):
@@ -110,7 +114,7 @@ class TestNeighborMacNoPtf:
         def find_routed_interface():
             for asichost in duthost.asics:
                 intfStatus = asichost.show_interface(command="status")["ansible_facts"]["int_status"]
-                for intf, status in intfStatus.items():
+                for intf, status in list(intfStatus.items()):
                     if "routed" in status["vlan"] and "up" in status["oper_state"]:
                         testRoutedInterface[asichost.asic_index] = intf
             return testRoutedInterface
@@ -132,6 +136,7 @@ class TestNeighborMacNoPtf:
                 None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
         def verifyOrchagentRunningOrAssert(duthost):
             """
                 Verifyes that orchagent is running, asserts otherwise
@@ -189,9 +194,9 @@ class TestNeighborMacNoPtf:
         logger.info("{0} an ip entry '{1}' for {2}".format(action, self.TEST_INTF[ipVersion]["intfIp"], intf))
         asichost.config_ip_intf(intf, self.TEST_INTF[ipVersion]["intfIp"], action)
 
-
     @pytest.fixture(autouse=True)
-    def updateNeighborIp(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, routedInterfaces, ipVersion, verifyOrchagentPresence):
+    def updateNeighborIp(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                         enum_frontend_asic_index, routedInterfaces, ipVersion, verifyOrchagentPresence):
         """
             Update Neighbor/Interface IP
 
@@ -224,7 +229,8 @@ class TestNeighborMacNoPtf:
         self.__updateInterfaceIp(asichost, routedInterface, ipVersion, action="remove")
 
     @pytest.fixture
-    def arpTableMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, ipVersion, updateNeighborIp):
+    def arpTableMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                    enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
             Retreive DUT ARP table MAC entry of neighbor IP
 
@@ -242,7 +248,8 @@ class TestNeighborMacNoPtf:
         yield dutArpTable["v{0}".format(ipVersion)][self.TEST_INTF[ipVersion]["NeighborIp"]]["macaddress"]
 
     @pytest.fixture
-    def redisNeighborMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_frontend_asic_index,  ipVersion, updateNeighborIp):
+    def redisNeighborMac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                         enum_frontend_asic_index, ipVersion, updateNeighborIp):
         """
             Retreive DUT Redis MAC entry of neighbor IP
 

@@ -1,0 +1,67 @@
+{
+    "128": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-128",
+        "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
+        "policy": "security",
+        "send_sci": "false"
+    },
+    "256": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-256",
+        "primary_cak": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "policy": "security",
+        "send_sci": "false"
+    },
+    "128_XPN": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-XPN-128",
+        "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
+        "policy": "security",
+        "send_sci": "false"
+    },
+    "256_XPN": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-XPN-256",
+        "primary_cak": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "policy": "security",
+        "send_sci": "false"
+    },
+    "128_SCI": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-128",
+        "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
+        "policy": "security",
+        "send_sci": "true"
+    },
+    "256_SCI": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-256",
+        "primary_cak": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "policy": "security",
+        "send_sci": "true"
+    },
+    "128_XPN_SCI": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-XPN-128",
+        "primary_cak": "0123456789ABCDEF0123456789ABCDEF",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
+        "policy": "security",
+        "send_sci": "true"
+    },
+    "256_XPN_SCI": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-XPN-256",
+        "primary_cak": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "policy": "security",
+        "send_sci": "true",
+        "rekey_period": 240
+    }
+}

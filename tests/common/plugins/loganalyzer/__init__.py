@@ -30,9 +30,6 @@ def analyzer_add_marker(analyzers, node=None, results=None):
     loganalyzer = analyzers[node.hostname]
     logging.info("Add start marker into DUT syslog for host {}".format(node.hostname))
     marker = loganalyzer.init()
-    logging.info("Load config and analyze log for host {}".format(node.hostname))
-    # Read existed common regular expressions located with legacy loganalyzer module
-    loganalyzer.load_common_config()
     results[node.hostname] = marker
 
 
@@ -53,14 +50,16 @@ def loganalyzer(duthosts, request):
     analyzers = {}
     parallel_run(analyzer_logrotate, [], {}, duthosts, timeout=120)
     for duthost in duthosts:
-        analyzers[duthost.hostname] = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
+        analyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name)
+        analyzer.load_common_config()
+        analyzers[duthost.hostname] = analyzer
     markers = parallel_run(analyzer_add_marker, [analyzers], {}, duthosts, timeout=120)
 
     yield analyzers
 
     # Skip LogAnalyzer if case is skipped
-    if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped:
+    if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped or \
+            "rep_setup" in request.node.__dict__ and request.node.rep_setup.skipped:
         return
     logging.info("Starting to analyse on all DUTs")
     parallel_run(analyze_logs, [analyzers, markers], {}, duthosts, timeout=120)
-

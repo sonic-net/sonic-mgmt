@@ -13,4 +13,3 @@
   include_tasks: advanced-reboot.yml
   vars:
       reboot_type: fast-reboot
-

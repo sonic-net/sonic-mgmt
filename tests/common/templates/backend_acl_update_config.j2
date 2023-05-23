@@ -1,0 +1,69 @@
+{%- set vlan2ports = {} %}
+{%- for vlan in VLAN %}
+    {% set portlist = [] %}
+    {%- for vlan_name, port in VLAN_MEMBER %}
+        {%- if vlan_name == vlan %}
+            {%- if portlist.append(port) %}{%- endif %}
+        {%- endif %}
+    {%- endfor %}
+    {%- set _ = vlan2ports.update({vlan: portlist| sort | join(',')}) %}
+{%- endfor %}
+
+
+{
+        "acl": {
+                "acl-sets": {
+                        "acl-set": {
+                                "DATAACL": {
+                                        "acl-entries": {
+                                                "acl-entry": {
+                                                 {% for vlan, vlan_entries in VLAN.items() %}
+    "{{ loop.index }}": {
+                                                             "config": {
+                                                                     "sequence-id": {{ loop.index }}
+                                                             },
+                                                             "actions": {
+                                                                     "config": {
+                                                                             "forwarding-action": "ACCEPT"
+                                                                     }
+                                                             },
+                                                             "l2": {
+                                                                     "config": {
+                                                                             "vlan_id": "{{ vlan_entries['vlanid'] }}"
+                                                                     }
+                                                             },
+                                                             "input_interface": {
+                                                                     "interface_ref": {
+                                                                             "config": {
+                                                                                     "interface": "{{ vlan2ports[vlan] }}"
+                                                                             }
+                                                                      }
+                                                             }
+
+                                                     },
+                                                 {% endfor -%}
+   "999": {
+                                                             "config": {
+                                                                     "sequence-id": 999
+                                                             },
+                                                             "actions": {
+                                                                     "config": {
+                                                                             "forwarding-action": "ACCEPT"
+                                                                     }
+                                                             },
+                                                             "input_interface": {
+                                                                     "interface_ref": {
+                                                                             "config": {
+                                                                                     "interface": "{{ intf_list }}"
+                                                                             }
+                                                                      }
+                                                             }
+              }
+
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+}

@@ -44,16 +44,21 @@ def test_portstat_clear(duthosts, enum_rand_one_per_hwsku_frontend_hostname, com
     """
     COUNT_THRES = 10
     for intf in before_portstat:
-        rx_ok_before = int(before_portstat[intf]['rx_ok'].replace(',',''))
-        rx_ok_after = int(after_portstat[intf]['rx_ok'].replace(',',''))
-        tx_ok_before = int(before_portstat[intf]['tx_ok'].replace(',',''))
-        tx_ok_after = int(after_portstat[intf]['tx_ok'].replace(',',''))
+        tmp_ok_cnt = before_portstat[intf]['rx_ok'].replace(',', '')
+        rx_ok_before = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
+        tmp_ok_cnt = after_portstat[intf]['rx_ok'].replace(',', '')
+        rx_ok_after = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
+        tmp_ok_cnt = before_portstat[intf]['tx_ok'].replace(',', '')
+        tx_ok_before = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
+        tmp_ok_cnt = after_portstat[intf]['tx_ok'].replace(',', '')
+        tx_ok_after = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
         if int(rx_ok_before >= COUNT_THRES):
             pytest_assert(rx_ok_before >= rx_ok_after,
                           'Value of RX_OK after clear should be lesser')
         if int(tx_ok_before >= COUNT_THRES):
             pytest_assert(tx_ok_before >= tx_ok_after,
                           'Value of TX_OK after clear should be lesser')
+
 
 @pytest.mark.parametrize('command', ['portstat -D', 'portstat --delete-all'])
 def test_portstat_delete_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname, command):
@@ -68,16 +73,14 @@ def test_portstat_delete_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     logger.info('Verify that the file names are in the /tmp directory')
     uid = duthost.command('id -u')['stdout'].strip()
     for stats_file in stats_files:
-        pytest_assert(duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-                      .format(uid=uid, filename=stats_file))['stat']['exists'])
+        pytest_assert(get_tmp_portstat_file_existing_status(duthost, uid, stats_file))
 
     logger.info('Run the command to be tested "{}"'.format(command))
     duthost.command(command)
 
     logger.info('Verify that the file names are not in the /tmp directory')
     for stats_file in stats_files:
-        pytest_assert(not duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-                      .format(uid=uid, filename=stats_file))['stat']['exists'])
+        pytest_assert(not get_tmp_portstat_file_existing_status(duthost, uid, stats_file))
 
 
 @pytest.mark.parametrize('command',
@@ -96,21 +99,23 @@ def test_portstat_delete_tag(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     logger.info('Verify that the file names are in the /tmp directory')
     uid = duthost.command('id -u')['stdout'].strip()
     for stats_file in stats_files:
-        pytest_assert(duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-                      .format(uid=uid, filename=stats_file))['stat']['exists'])
+        pytest_assert(get_tmp_portstat_file_existing_status(duthost, uid, stats_file))
 
     full_delete_command = command + ' ' + file_to_delete
     logger.info('Run the command to be tested "{}"'.format(full_delete_command))
     duthost.command(full_delete_command)
 
     logger.info('Verify that the deleted file name is not in the directory')
-    pytest_assert(not duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-                  .format(uid=uid, filename=file_to_delete))['stat']['exists'])
+    pytest_assert(not get_tmp_portstat_file_existing_status(duthost, uid, file_to_delete))
 
     logger.info('Verify that the remaining file names are in the directory')
     for stats_file in files_not_deleted:
-        pytest_assert(duthost.stat(path='/tmp/portstat-{uid}/{uid}-{filename}'\
-                      .format(uid=uid, filename=stats_file))['stat']['exists'])
+        pytest_assert(get_tmp_portstat_file_existing_status(duthost, uid, stats_file))
+
+
+def get_tmp_portstat_file_existing_status(duthost, uid, stats_file):
+    return duthost.stat(path='/tmp/cache/portstat/{uid}-{filename}'.format(
+        uid=uid, filename=stats_file))['stat']['exists']
 
 
 @pytest.mark.parametrize('command', ['portstat -a', 'portstat --all'])
@@ -122,8 +127,8 @@ def test_portstat_display_all(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     pytest_assert(base_portstat and all_portstats, 'No parsed command output')
 
     logger.info('Verify the all number of columns is greater than the base number of columns')
-    for intf in all_portstats.keys():
-        pytest_assert(len(all_portstats[intf].keys()) > len(base_portstat[intf].keys()))
+    for intf in list(all_portstats.keys()):
+        pytest_assert(len(list(all_portstats[intf].keys())) > len(list(base_portstat[intf].keys())))
 
 
 @pytest.mark.parametrize('command', ['portstat -p 1', 'portstat --period 1'])
