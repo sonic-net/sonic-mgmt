@@ -87,15 +87,15 @@ DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
 # Below M0_VLAN IPs are ip in vlan range
 DOWNSTREAM_DST_IP_M0_VLAN = {
     "ipv4": "192.168.0.253",
-    "ipv6": "20c0:a800::14"
+    "ipv6": "fc02:1000::5"
 }
 DOWNSTREAM_IP_TO_ALLOW_M0_VLAN = {
     "ipv4": "192.168.0.252",
-    "ipv6": "20c0:a800::1"
+    "ipv6": "fc02:1000::6"
 }
 DOWNSTREAM_IP_TO_BLOCK_M0_VLAN = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::9"
+    "ipv6": "fc02:1000::7"
 }
 
 DOWNSTREAM_IP_PORT_MAP = {}
@@ -386,8 +386,6 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname, topo_scenario):
     if tbinfo["topo"]["type"] in ["t0", "mx"] and request.param == "ipv6":
         pytest.skip("IPV6 ACL test not currently supported on t0/mx testbeds")
-    if topo_scenario == "m0_vlan_scenario" and request.param == "ipv6":
-        pytest.skip("IPV6 ACL test not currently supported on m0_vlan")
 
     return request.param
 
@@ -435,6 +433,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
         for dut in duthosts:
             dut.command("sonic-clear fdb all")
             dut.command("sonic-clear arp")
+            dut.command("sonic-clear ndp")
             # Wait some time to ensure the async call of clear is completed
             time.sleep(20)
             for addr in addr_list:
@@ -449,6 +448,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
     duthost.command("sonic-clear fdb all")
     duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear ndp")
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
@@ -931,6 +931,11 @@ class BaseAclTest(object):
                     rule_id = 32
                 else:
                     rule_id = 30
+            elif topo_scenario == "m0_vlan_scenario":
+                if ip_version == "ipv6":
+                    rule_id = 34
+                else:
+                    rule_id = 2
             else:
                 rule_id = 2
         else:
@@ -952,6 +957,11 @@ class BaseAclTest(object):
                     rule_id = 33
                 else:
                     rule_id = 31
+            elif topo_scenario == "m0_vlan_scenario":
+                if ip_version == "ipv6":
+                    rule_id = 35
+                else:
+                    rule_id = 15
             else:
                 rule_id = 15
         else:
