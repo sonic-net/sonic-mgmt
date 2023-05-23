@@ -1,0 +1,268 @@
+config:
+  vlan_count: 1
+  upstream:
+    port_aliases:
+      - etp47
+      - etp48
+  acl_rule_file_name: bmc_ares_acl_rules.json
+  acl_tables:
+    - BMC_ACL_NORTHBOUND
+shelfs:
+  - id: 1
+    rm:
+      port_alias: etp1
+      ipv4_addr: 172.17.0.1
+      ipv4_prefix: 24
+      ipv6_addr: fc02::1
+      ipv6_prefix: 64
+    bmc:
+      - config:
+          ipv4_subnet:
+          ipv6_subnet:
+        hosts:
+          - port_alias: etp5
+            ipv4_addr: 172.17.0.17
+            ipv4_prefix: 24
+            ipv6_addr: fc02::17
+            ipv6_prefix: 64
+          - port_alias: etp6
+            ipv4_addr: 172.17.0.21
+            ipv4_prefix: 24
+            ipv6_addr: fc02::21
+            ipv6_prefix: 64
+          - port_alias: etp7
+            ipv4_addr: 172.17.0.25
+            ipv4_prefix: 24
+            ipv6_addr: fc02::25
+            ipv6_prefix: 64
+          - port_alias: etp8
+            ipv4_addr: 172.17.0.29
+            ipv4_prefix: 24
+            ipv6_addr: fc02::29
+            ipv6_prefix: 64
+          - port_alias: etp9
+            ipv4_addr: 172.17.0.33
+            ipv4_prefix: 24
+            ipv6_addr: fc02::33
+            ipv6_prefix: 64
+          - port_alias: etp10
+            ipv4_addr: 172.17.0.37
+            ipv4_prefix: 24
+            ipv6_addr: fc02::37
+            ipv6_prefix: 64
+          - port_alias: etp11
+            ipv4_addr: 172.17.0.41
+            ipv4_prefix: 24
+            ipv6_addr: fc02::41
+            ipv6_prefix: 64
+          - port_alias: etp12
+            ipv4_addr: 172.17.0.45
+            ipv4_prefix: 24
+            ipv6_addr: fc02::45
+            ipv6_prefix: 64
+          - port_alias: etp13
+            ipv4_addr: 172.17.0.49
+            ipv4_prefix: 24
+            ipv6_addr: fc02::49
+            ipv6_prefix: 64
+          - port_alias: etp14
+            ipv4_addr: 172.17.0.53
+            ipv4_prefix: 24
+            ipv6_addr: fc02::53
+            ipv6_prefix: 64
+          - port_alias: etp15
+            ipv4_addr: 172.17.0.57
+            ipv4_prefix: 24
+            ipv6_addr: fc02::57
+            ipv6_prefix: 64
+  - id: 2
+    rm:
+      port_alias: etp2
+      ipv4_addr: 172.17.0.5
+      ipv4_prefix: 24
+      ipv6_addr: fc02::5
+      ipv6_prefix: 64
+    bmc:
+      - config:
+          ipv4_subnet:
+          ipv6_subnet:
+        hosts:
+          - port_alias: etp16
+            ipv4_addr: 172.17.0.61
+            ipv4_prefix: 24
+            ipv6_addr: fc02::61
+            ipv6_prefix: 64
+          - port_alias: etp17
+            ipv4_addr: 172.17.0.65
+            ipv4_prefix: 24
+            ipv6_addr: fc02::65
+            ipv6_prefix: 64
+          - port_alias: etp18
+            ipv4_addr: 172.17.0.69
+            ipv4_prefix: 24
+            ipv6_addr: fc02::69
+            ipv6_prefix: 64
+          - port_alias: etp19
+            ipv4_addr: 172.17.0.73
+            ipv4_prefix: 24
+            ipv6_addr: fc02::73
+            ipv6_prefix: 64
+          - port_alias: etp20
+            ipv4_addr: 172.17.0.77
+            ipv4_prefix: 24
+            ipv6_addr: fc02::77
+            ipv6_prefix: 64
+          - port_alias: etp21
+            ipv4_addr: 172.17.0.81
+            ipv4_prefix: 24
+            ipv6_addr: fc02::81
+            ipv6_prefix: 64
+          - port_alias: etp22
+            ipv4_addr: 172.17.0.85
+            ipv4_prefix: 24
+            ipv6_addr: fc02::85
+            ipv6_prefix: 64
+          - port_alias: etp23
+            ipv4_addr: 172.17.0.89
+            ipv4_prefix: 24
+            ipv6_addr: fc02::89
+            ipv6_prefix: 64
+          - port_alias: etp24
+            ipv4_addr: 172.17.0.93
+            ipv4_prefix: 24
+            ipv6_addr: fc02::93
+            ipv6_prefix: 64
+          - port_alias: etp25
+            ipv4_addr: 172.17.0.97
+            ipv4_prefix: 24
+            ipv6_addr: fc02::97
+            ipv6_prefix: 64
+          - port_alias: etp26
+            ipv4_addr: 172.17.0.101
+            ipv4_prefix: 24
+            ipv6_addr: fc02::101
+            ipv6_prefix: 64
+  - id: 3
+    rm:
+      port_alias: etp3
+      ipv4_addr: 172.17.0.9
+      ipv4_prefix: 24
+      ipv6_addr: fc02::9
+      ipv6_prefix: 64
+    bmc:
+      - config:
+          ipv4_subnet:
+          ipv6_subnet:
+        hosts:
+          - port_alias: etp27
+            ipv4_addr: 172.17.0.105
+            ipv4_prefix: 24
+            ipv6_addr: fc02::105
+            ipv6_prefix: 64
+          - port_alias: etp28
+            ipv4_addr: 172.17.0.109
+            ipv4_prefix: 24
+            ipv6_addr: fc02::109
+            ipv6_prefix: 64
+          - port_alias: etp29
+            ipv4_addr: 172.17.0.113
+            ipv4_prefix: 24
+            ipv6_addr: fc02::113
+            ipv6_prefix: 64
+          - port_alias: etp30
+            ipv4_addr: 172.17.0.117
+            ipv4_prefix: 24
+            ipv6_addr: fc02::117
+            ipv6_prefix: 64
+          - port_alias: etp31
+            ipv4_addr: 172.17.0.121
+            ipv4_prefix: 24
+            ipv6_addr: fc02::121
+            ipv6_prefix: 64
+          - port_alias: etp32
+            ipv4_addr: 172.17.0.125
+            ipv4_prefix: 24
+            ipv6_addr: fc02::125
+            ipv6_prefix: 64
+          - port_alias: etp33
+            ipv4_addr: 172.17.0.129
+            ipv4_prefix: 24
+            ipv6_addr: fc02::129
+            ipv6_prefix: 64
+          - port_alias: etp34
+            ipv4_addr: 172.17.0.133
+            ipv4_prefix: 24
+            ipv6_addr: fc02::133
+            ipv6_prefix: 64
+          - port_alias: etp35
+            ipv4_addr: 172.17.0.137
+            ipv4_prefix: 24
+            ipv6_addr: fc02::137
+            ipv6_prefix: 64
+          - port_alias: etp36
+            ipv4_addr: 172.17.0.141
+            ipv4_prefix: 24
+            ipv6_addr: fc02::141
+            ipv6_prefix: 64
+  - id: 4
+    rm:
+      port_alias: etp4
+      ipv4_addr: 172.17.0.13
+      ipv4_prefix: 24
+      ipv6_addr: fc02::13
+      ipv6_prefix: 64
+    bmc:
+      - config:
+          ipv4_subnet:
+          ipv6_subnet:
+        hosts:
+          - port_alias: etp37
+            ipv4_addr: 172.17.0.145
+            ipv4_prefix: 24
+            ipv6_addr: fc02::145
+            ipv6_prefix: 64
+          - port_alias: etp38
+            ipv4_addr: 172.17.0.149
+            ipv4_prefix: 24
+            ipv6_addr: fc02::149
+            ipv6_prefix: 64
+          - port_alias: etp39
+            ipv4_addr: 172.17.0.153
+            ipv4_prefix: 24
+            ipv6_addr: fc02::153
+            ipv6_prefix: 64
+          - port_alias: etp40
+            ipv4_addr: 172.17.0.157
+            ipv4_prefix: 24
+            ipv6_addr: fc02::157
+            ipv6_prefix: 64
+          - port_alias: etp41
+            ipv4_addr: 172.17.0.161
+            ipv4_prefix: 24
+            ipv6_addr: fc02::161
+            ipv6_prefix: 64
+          - port_alias: etp42
+            ipv4_addr: 172.17.0.165
+            ipv4_prefix: 24
+            ipv6_addr: fc02::165
+            ipv6_prefix: 64
+          - port_alias: etp43
+            ipv4_addr: 172.17.0.169
+            ipv4_prefix: 24
+            ipv6_addr: fc02::169
+            ipv6_prefix: 64
+          - port_alias: etp44
+            ipv4_addr: 172.17.0.173
+            ipv4_prefix: 24
+            ipv6_addr: fc02::173
+            ipv6_prefix: 64
+          - port_alias: etp45
+            ipv4_addr: 172.17.0.177
+            ipv4_prefix: 24
+            ipv6_addr: fc02::177
+            ipv6_prefix: 64
+          - port_alias: etp46
+            ipv4_addr: 172.17.0.181
+            ipv4_prefix: 24
+            ipv6_addr: fc02::181
+            ipv6_prefix: 64

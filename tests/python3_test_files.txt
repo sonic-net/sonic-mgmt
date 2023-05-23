@@ -142,6 +142,7 @@ memory_checker/test_memory_checker.py
 monit/test_monit_status.py
 mpls/test_mpls.py
 mvrf/test_mgmtvrf.py
+mx/test_acl_rules.py
 nat/test_dynamic_nat.py
 nat/test_static_nat.py
 ntp/test_ntp.py

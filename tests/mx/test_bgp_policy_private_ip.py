@@ -3,7 +3,7 @@ import ipaddress
 import sys
 import re
 
-from mx_utils import create_vlan, remove_vlan
+from mx_utils import remove_vlan, get_vlan_config
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
@@ -52,16 +52,10 @@ def verify_private_ip_not_advertise(duthost, nbrhosts):
 
 
 @pytest.mark.parametrize("vlan_number", [4, 7])
-def test_bgp_policy_private_ip(duthost, nbrhosts, function_fixture_remove_all_vlans, mx_common_setup_teardown,
+def test_bgp_policy_private_ip(duthost, nbrhosts, setup_vlan, mx_common_setup_teardown,
                                vlan_number):
     dut_index_port, _, vlan_configs = mx_common_setup_teardown
-    vlan_config = None
-    for config in vlan_configs:
-        if len(config.keys()) == vlan_number:
-            vlan_config = config
-            break
-
+    vlan_config = get_vlan_config(vlan_configs, vlan_number)
     pytest_require(vlan_config is not None, "Can't get {} vlan config".format(vlan_number))
-    create_vlan(duthost, vlan_config, dut_index_port)
     verify_private_ip_not_advertise(duthost, nbrhosts)
     remove_vlan(duthost, vlan_config, dut_index_port)

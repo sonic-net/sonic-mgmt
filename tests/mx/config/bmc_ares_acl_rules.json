@@ -1,0 +1,533 @@
+{
+  "acl": {
+    "acl-sets": {
+      "acl-set": {
+        "BMC_ACL_NORTHBOUND": {
+          "acl-entries": {
+            "acl-entry": {
+              "0001_IN_PORTS_BMC_DST_IP_BMC_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "DROP"
+                  }
+                },
+                "config": {
+                  "sequence-id": 1
+                },
+                "input_interface": {
+                  "interface_ref": {
+                    "config": {
+                      "interface": "Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14,Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet24,Ethernet25,Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35,Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                    }
+                  }
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.128/25"
+                  }
+                }
+              },
+              "0006_IN_PORTS_BMC_DST_IP_BMC_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "DROP"
+                  }
+                },
+                "config": {
+                  "sequence-id": 6
+                },
+                "input_interface": {
+                  "interface_ref": {
+                    "config": {
+                      "interface": "Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14,Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet24,Ethernet25,Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35,Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                    }
+                  }
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.64/26"
+                  }
+                }
+              },
+              "0011_IN_PORTS_BMC_DST_IP_BMC_3": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "DROP"
+                  }
+                },
+                "config": {
+                  "sequence-id": 11
+                },
+                "input_interface": {
+                  "interface_ref": {
+                    "config": {
+                      "interface": "Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14,Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet24,Ethernet25,Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35,Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                    }
+                  }
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.32/27"
+                  }
+                }
+              },
+              "0016_IN_PORTS_BMC_DST_IP_BMC_4": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "DROP"
+                  }
+                },
+                "config": {
+                  "sequence-id": 16
+                },
+                "input_interface": {
+                  "interface_ref": {
+                    "config": {
+                      "interface": "Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14,Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet24,Ethernet25,Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35,Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                    }
+                  }
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.16/28"
+                  }
+                }
+              },
+              "0101_SHELF_1_SRC_IP_RM_DST_IP_BMC_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 101
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.16/28",
+                    "source-ip-address": "172.17.0.1/32"
+                  }
+                }
+              },
+              "0106_SHELF_1_SRC_IP_BMC_DST_IP_RM_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 106
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.1/32",
+                    "source-ip-address": "172.17.0.16/28"
+                  }
+                }
+              },
+              "0111_SHELF_1_SRC_IP_RM_DST_IP_BMC_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 111
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.32/28",
+                    "source-ip-address": "172.17.0.1/32"
+                  }
+                }
+              },
+              "0116_SHELF_1_SRC_IP_BMC_DST_IP_RM_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 116
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.1/32",
+                    "source-ip-address": "172.17.0.32/28"
+                  }
+                }
+              },
+              "0121_SHELF_1_SRC_IP_RM_DST_IP_BMC_3": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 121
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.48/29",
+                    "source-ip-address": "172.17.0.1/32"
+                  }
+                }
+              },
+              "0126_SHELF_1_SRC_IP_BMC_DST_IP_RM_3": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 126
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.1/32",
+                    "source-ip-address": "172.17.0.48/29"
+                  }
+                }
+              },
+              "0131_SHELF_1_SRC_IP_RM_DST_IP_BMC_4": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 131
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.56/30",
+                    "source-ip-address": "172.17.0.1/32"
+                  }
+                }
+              },
+              "0136_SHELF_1_SRC_IP_BMC_DST_IP_RM_4": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 136
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.1/32",
+                    "source-ip-address": "172.17.0.56/30"
+                  }
+                }
+              },
+              "0141_SHELF_2_SRC_IP_RM_DST_IP_BMC_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 141
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.64/27",
+                    "source-ip-address": "172.17.0.5/32"
+                  }
+                }
+              },
+              "0146_SHELF_2_SRC_IP_BMC_DST_IP_RM_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 146
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.5/32",
+                    "source-ip-address": "172.17.0.64/27"
+                  }
+                }
+              },
+              "0151_SHELF_2_SRC_IP_RM_DST_IP_BMC_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 151
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.96/29",
+                    "source-ip-address": "172.17.0.5/32"
+                  }
+                }
+              },
+              "0156_SHELF_2_SRC_IP_BMC_DST_IP_RM_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 156
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.5/32",
+                    "source-ip-address": "172.17.0.96/29"
+                  }
+                }
+              },
+              "0161_SHELF_2_SRC_IP_RM_DST_IP_BMC_3": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 161
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.60/30",
+                    "source-ip-address": "172.17.0.5/32"
+                  }
+                }
+              },
+              "0166_SHELF_2_SRC_IP_BMC_DST_IP_RM_3": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 166
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.5/32",
+                    "source-ip-address": "172.17.0.60/30"
+                  }
+                }
+              },
+              "0171_SHELF_3_SRC_IP_RM_DST_IP_BMC_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 171
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.192/26",
+                    "source-ip-address": "172.17.0.9/32"
+                  }
+                }
+              },
+              "0176_SHELF_3_SRC_IP_BMC_DST_IP_RM_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 176
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.9/32",
+                    "source-ip-address": "172.17.0.192/26"
+                  }
+                }
+              },
+              "0181_SHELF_3_SRC_IP_RM_DST_IP_BMC_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 181
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.128/28",
+                    "source-ip-address": "172.17.0.9/32"
+                  }
+                }
+              },
+              "0186_SHELF_3_SRC_IP_BMC_DST_IP_RM_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 186
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.9/32",
+                    "source-ip-address": "172.17.0.128/28"
+                  }
+                }
+              },
+              "0191_SHELF_3_SRC_IP_RM_DST_IP_BMC_3": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 191
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.112/28",
+                    "source-ip-address": "172.17.0.9/32"
+                  }
+                }
+              },
+              "0196_SHELF_3_SRC_IP_BMC_DST_IP_RM_3": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 196
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.9/32",
+                    "source-ip-address": "172.17.0.112/28"
+                  }
+                }
+              },
+              "0201_SHELF_3_SRC_IP_RM_DST_IP_BMC_4": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 201
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.104/29",
+                    "source-ip-address": "172.17.0.9/32"
+                  }
+                }
+              },
+              "0206_SHELF_3_SRC_IP_BMC_DST_IP_RM_4": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 206
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.9/32",
+                    "source-ip-address": "172.17.0.104/29"
+                  }
+                }
+              },
+              "0211_SHELF_4_SRC_IP_RM_DST_IP_BMC_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 211
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.160/27",
+                    "source-ip-address": "172.17.0.13/32"
+                  }
+                }
+              },
+              "0216_SHELF_4_SRC_IP_BMC_DST_IP_RM_1": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 216
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.13/32",
+                    "source-ip-address": "172.17.0.160/27"
+                  }
+                }
+              },
+              "0221_SHELF_4_SRC_IP_RM_DST_IP_BMC_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 221
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.144/28",
+                    "source-ip-address": "172.17.0.13/32"
+                  }
+                }
+              },
+              "0226_SHELF_4_SRC_IP_BMC_DST_IP_RM_2": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "ACCEPT"
+                  }
+                },
+                "config": {
+                  "sequence-id": 226
+                },
+                "ip": {
+                  "config": {
+                    "destination-ip-address": "172.17.0.13/32",
+                    "source-ip-address": "172.17.0.144/28"
+                  }
+                }
+              },
+              "9990_DROP_ALL": {
+                "actions": {
+                  "config": {
+                    "forwarding-action": "DROP"
+                  }
+                },
+                "config": {
+                  "sequence-id": 9990
+                },
+                "l2": {
+                  "config": {
+                    "ethertype": 2048
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

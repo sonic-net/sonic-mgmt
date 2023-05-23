@@ -8,7 +8,12 @@ def create_vlan(duthost, vlan_config, dut_port_map):
     intf_count = 0
     for vlan_id, config in vlan_config.items():
         duthost.shell("config vlan add {}".format(vlan_id))
-        duthost.shell("config interface ip add Vlan{} {}".format(vlan_id, config["prefix"]))
+        vlan_interface_ipv4 = config.get("interface_ipv4", None)
+        if vlan_interface_ipv4 is not None:
+            duthost.shell("config interface ip add Vlan{} {}".format(vlan_id, vlan_interface_ipv4))
+        vlan_interface_ipv6 = config.get("interface_ipv6", None)
+        if vlan_interface_ipv6 is not None:
+            duthost.shell("config interface ip add Vlan{} {}".format(vlan_id, vlan_interface_ipv6))
         for member in config["members"]:
             duthost.add_member_to_vlan(vlan_id, dut_port_map[member], False)
 
@@ -23,10 +28,14 @@ def remove_vlan(duthost, vlan_config, dut_port_map):
     Remove vlan by vlan_config
     """
     for vlan_id, config in vlan_config.items():
-        duthost.remove_ip_from_port("Vlan{}".format(vlan_id), config["prefix"])
+        vlan_interface_ipv4 = config.get("interface_ipv4", None)
+        if vlan_interface_ipv4 is not None:
+            duthost.remove_ip_from_port("Vlan{}".format(vlan_id), vlan_interface_ipv4)
+        vlan_interface_ipv6 = config.get("interface_ipv6", None)
+        if vlan_interface_ipv6 is not None:
+            duthost.remove_ip_from_port("Vlan{}".format(vlan_id), vlan_interface_ipv6)
         for member in config["members"]:
             duthost.del_member_from_vlan(vlan_id, dut_port_map[member])
-
         duthost.remove_vlan(vlan_id)
 
 
@@ -34,11 +43,7 @@ def get_vlan_config(vlan_configs, vlan_number):
     """
     Get vlan_config by number of vlans
     """
-    vlan_config = None
-    for config in vlan_configs:
-        if len(config.keys()) == vlan_number:
-            vlan_config = config
-            break
+    vlan_config = vlan_configs.get(str(vlan_number), None)
     pytest_require(vlan_config is not None, "Can't get {} vlan config".format(vlan_number))
     return vlan_config
 
@@ -61,7 +66,7 @@ def refresh_dut_mac_table(ptfhost, vlan_config, ptf_index_port):
     """
     for _, config in vlan_config.items():
         vlan_member = config["members"]
-        vlan_ip = config["prefix"].split("/")[0]
+        vlan_ip = config["interface_ipv4"].split("/")[0]
         ping_commands = []
         for member in vlan_member:
             ptf_port_index = ptf_index_port[member]

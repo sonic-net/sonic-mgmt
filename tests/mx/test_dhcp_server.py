@@ -303,10 +303,10 @@ def dhcp_packet_test(duthost, enum_asic_index, vlan_config, ptfadapter, verify_b
     first_vlan_config = get_test_vlan(vlan_config)
     test_port_index = first_vlan_config["members"][0]
     # ip address of dhcp server
-    ip_server = first_vlan_config["prefix"].split("/")[0]
+    ip_server = first_vlan_config["interface_ipv4"].split("/")[0]
     ptf_port_mac = ptfadapter.dataplane.get_mac(0, test_port_index)
     dut_port_mac = duthost.asic_instance(enum_asic_index).get_router_mac()
-    vlan_net = ipaddress.ip_network(UNICODE_TYPE(first_vlan_config["prefix"]), strict=False)
+    vlan_net = ipaddress.ip_network(UNICODE_TYPE(first_vlan_config["interface_ipv4"]), strict=False)
     netmask_client = vlan_net.netmask
     broadcast_ip = vlan_net.broadcast_address
     ip_base = ipaddress.ip_address(UNICODE_TYPE(VLAN_IP_BASE))
@@ -353,32 +353,28 @@ def verify_bmc_map(request, duthost):
 
 
 @pytest.mark.parametrize("vlan_number", [1, 4, 7])
-def test_dhcp_server_tc1_ip_assign(duthost, ptfhost, function_fixture_remove_all_vlans, mx_common_setup_teardown,
-                                   dhcp_client_setup_teardown, vlan_number):
-    dut_index_port, ptf_index_port, vlan_configs = mx_common_setup_teardown
-    vlan_config = get_vlan_config(vlan_configs, vlan_number)
-    intf_count = create_vlan(duthost, vlan_config, dut_index_port)
+def test_dhcp_server_tc1_ip_assign(duthost, ptfhost, setup_vlan, mx_common_setup_teardown,
+                                   dhcp_client_setup_teardown):
+    dut_index_port, ptf_index_port, _ = mx_common_setup_teardown
+    intf_count, vlan_config, _ = setup_vlan
     dhcp_setup(duthost, ptfhost, vlan_config, ptf_index_port, intf_count)
     dhcp_ip_assign_test(ptfhost, vlan_config, ptf_index_port)
     remove_vlan(duthost, vlan_config, dut_index_port)
 
 
 @pytest.mark.parametrize("vlan_number", [4])
-def test_dhcp_server_tc2_mac_change(duthost, ptfhost, ptfadapter, function_fixture_remove_all_vlans,
-                                    mx_common_setup_teardown, dhcp_client_setup_teardown,
-                                    vlan_number):
-    dut_index_port, ptf_index_port, vlan_configs = mx_common_setup_teardown
-    vlan_config = get_vlan_config(vlan_configs, vlan_number)
-    intf_count = create_vlan(duthost, vlan_config, dut_index_port)
+def test_dhcp_server_tc2_mac_change(duthost, ptfhost, ptfadapter, setup_vlan,
+                                    mx_common_setup_teardown, dhcp_client_setup_teardown):
+    dut_index_port, ptf_index_port, _ = mx_common_setup_teardown
+    intf_count, vlan_config, _ = setup_vlan
     dhcp_mac_change_test(duthost, ptfhost, vlan_config, ptf_index_port, ptfadapter, intf_count)
     remove_vlan(duthost, vlan_config, dut_index_port)
 
 
 @pytest.mark.parametrize("vlan_number", [4])
-def test_dhcp_server_tc3_packet(duthost, ptfhost, verify_bmc_map, function_fixture_remove_all_vlans,
-                                mx_common_setup_teardown, vlan_number, enum_asic_index, ptfadapter):
-    dut_index_port, ptf_index_port, vlan_configs = mx_common_setup_teardown
-    vlan_config = get_vlan_config(vlan_configs, vlan_number)
-    intf_count = create_vlan(duthost, vlan_config, dut_index_port)
+def test_dhcp_server_tc3_packet(duthost, ptfhost, verify_bmc_map, setup_vlan,
+                                mx_common_setup_teardown, enum_asic_index, ptfadapter):
+    _, ptf_index_port, _ = mx_common_setup_teardown
+    intf_count, vlan_config, _ = setup_vlan
     dhcp_setup(duthost, ptfhost, vlan_config, ptf_index_port, intf_count)
     dhcp_packet_test(duthost, enum_asic_index, vlan_config, ptfadapter, verify_bmc_map)

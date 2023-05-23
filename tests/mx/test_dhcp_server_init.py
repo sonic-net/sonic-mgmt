@@ -4,7 +4,7 @@ from tests.common import config_reload, reboot
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from mx_utils import create_vlan, get_vlan_config, check_dnsmasq, refresh_dut_mac_table
+from mx_utils import check_dnsmasq, refresh_dut_mac_table
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -12,7 +12,6 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
-VLAN_NUMBER = 1
 
 
 def do_check(duthost, intf_count, check_type, localhost, ptfhost, config, ptf_index_port):
@@ -36,18 +35,8 @@ def do_check(duthost, intf_count, check_type, localhost, ptfhost, config, ptf_in
     pytest_assert(wait_until(600, 3, 0, check_dnsmasq, duthost, intf_count), "dnsmasq.hosts check fialed")
 
 
-@pytest.fixture(scope="module")
-def setup_vlan(duthost, module_fixture_remove_all_vlans, mx_common_setup_teardown):
-    dut_index_port, ptf_index_port, vlan_configs = mx_common_setup_teardown
-    vlan_config = get_vlan_config(vlan_configs, VLAN_NUMBER)
-    intf_count = create_vlan(duthost, vlan_config, dut_index_port)
-    # Save config_db of mx vlan, to make it to take affect after reboot.
-    duthost.shell("config save -y")
-
-    yield intf_count, vlan_config, ptf_index_port
-
-
 @pytest.mark.parametrize("check_type", ["config_reload", "reboot"])
+@pytest.mark.parametrize("vlan_number", [1])
 def test_dhcp_server_init(localhost, ptfhost, duthost, setup_vlan, check_type):
     intf_count, vlan_config, ptf_index_port = setup_vlan
     do_check(duthost, intf_count, check_type, localhost, ptfhost, vlan_config, ptf_index_port)
