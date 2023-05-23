@@ -267,7 +267,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
 
 def start_dhcp_monitor_debug_counter(duthost):
     cmd = duthost.shell("ps aux | grep dhcpmon", module_ignore_errors=True)["stdout"]
-    match = re.search(r'/usr/sbin/dhcpmon.*', cmd)
+    matches = re.findall(r'/usr/sbin/dhcpmon.*', cmd)
 
     program_name = "dhcpmon"
     program_pid_list = []
@@ -285,12 +285,13 @@ def start_dhcp_monitor_debug_counter(duthost):
         exit_code = kill_cmd_result["rc"]
         pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
 
-    if match:
-        dhcpmon_cmd = match.group(0)
-        dhcpmon_cmd += " -D"
-        duthost.shell("docker exec -d dhcp_relay %s" % dhcpmon_cmd)
+    if matches:
+        for match in matches:
+            dhcpmon_cmd = match
+            dhcpmon_cmd += " -D"
+            duthost.shell("docker exec -d dhcp_relay %s" % dhcpmon_cmd)
     else:
-        assert False, "Failed to to start dhcpmon in debug counter mode\n"
+        assert False, "Failed to start dhcpmon in debug counter mode\n"
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -308,7 +309,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     try:
         for dhcp_relay in dut_dhcp_relay_data:
             loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
-            expected_agg_counter_message = ".*dhcp_relay#dhcpmon\[[0-9]+\]: \[    Agg-%s- Current rx/tx\] Discover: +\d+\/ +\d+, Offer: +\d+\/ +\d+, Request: +\d+\/ +\d+, ACK: +\d+\/ +\d+" % dhcp_relay['downlink_vlan_iface']['name']
+            expected_agg_counter_message = ".*dhcp_relay#dhcpmon\[[0-9]+\]: \[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] Discover: +1/ +4, Offer: +1/ +1, Request: +3/ +12, ACK: +1\/ +1+" % dhcp_relay['downlink_vlan_iface']['name']
             loganalyzer.expect_regex = [expected_agg_counter_message]
             marker=loganalyzer.init()
             # Run the DHCP relay test on the PTF host
