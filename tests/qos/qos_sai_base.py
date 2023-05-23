@@ -875,7 +875,13 @@ class QosSaiBase(QosBase):
 
         dutTopo = "topo-"
 
-        if dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
+        if dutAsic == "gb" and topo == "t2":
+            if get_src_dst_asic_and_duts['src_asic'] == \
+                    get_src_dst_asic_and_duts['dst_asic']:
+                dutTopo = dutTopo + "any"
+            else:
+                dutTopo = dutTopo + topo
+        elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
             # Default topo is any
@@ -1321,9 +1327,17 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
-            qpm = qos_param_generator.QosParamCisco(qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                    duthost,
-                                                    bufferConfig)
+            topo = dutTopo
+            if (get_src_dst_asic_and_duts['src_dut_index'] == 
+                    get_src_dst_asic_and_duts['dst_dut_index'] and
+                get_src_dst_asic_and_duts['src_asic_index'] == 
+                    get_src_dst_asic_and_duts['dst_asic_index']):
+                topo = "topo-any"
+            qpm = qos_param_generator.QosParamCisco(
+                      qosConfigs['qos_params'][dutAsic][topo],
+                      duthost,
+                      bufferConfig)
+
             qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]

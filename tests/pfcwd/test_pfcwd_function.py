@@ -12,6 +12,7 @@ from .files.pfcwd_helper import start_wd_on_ports
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
 from tests.common import constants
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
@@ -153,18 +154,23 @@ class PfcCmd(object):
         """
         logger.info("Retreiving pg profile and dynamic threshold for port: {}".format(port))
 
+        if is_tunnel_qos_remap_enabled(dut):
+            queue_range = '2-4'
+        else:
+            queue_range = '3-4'
+
         asic = dut.get_port_asic_instance(port)
         if PfcCmd.isBufferInApplDb(asic):
             db = "0"
-            pg_pattern = "BUFFER_PG_TABLE:{}:3-4"
+            pg_pattern = "BUFFER_PG_TABLE:{}:{}"
         else:
             db = "4"
-            pg_pattern = "BUFFER_PG|{}|3-4"
+            pg_pattern = "BUFFER_PG|{}|{}"
 
         pg_profile = asic.run_redis_cmd(
             argv = [
                 "redis-cli", "-n", db, "HGET",
-                pg_pattern.format(port), "profile"
+                pg_pattern.format(port, queue_range), "profile"
             ]
         )[0].encode("utf-8")
 
@@ -720,7 +726,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
@@ -728,34 +733,38 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.tx_action = None
 
         for idx, port in enumerate(self.ports):
-             logger.info("")
-             logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
-             self.setup_test_params(port, setup_info['vlan'], init=not idx)
-             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
-             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
-             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
-             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
-             actions = ['dontcare', 'drop', 'forward']
-             if duthost.sonichost._facts['asic_type']=="cisco-8000":
-                 actions = ['dontcare', 'drop']
-             for action in actions:
-                 try:
-                     self.set_traffic_action(duthost, action)
-                     self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
-                     logger.info("{} on port {}: Tx traffic action {}, Rx traffic action {} ".format(WD_ACTION_MSG_PFX[action], port, self.tx_action, self.rx_action))
-                     self.run_test(self.dut, port, action)
-                 except Exception as e:
-                     pytest.fail(str(e))
+            logger.info("")
+            logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
+            self.setup_test_params(port, setup_info['vlan'], init=not idx)
+            self.traffic_inst = SendVerifyTraffic(
+                self.ptf,
+                duthost.get_dut_iface_mac(port),
+                self.pfc_wd)
+            pfc_wd_restore_time_large = request.config.getoption("--restore-time")
+            # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
+            self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
+            actions = ['dontcare', 'drop', 'forward']
+            if duthost.sonichost._facts['asic_type'] == "cisco-8000":
+                actions = ['dontcare', 'drop']
+            for action in actions:
+                try:
+                    self.set_traffic_action(duthost, action)
+                    self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
+                    logger.info("{} on port {}: Tx traffic action {}, Rx traffic action {} ".
+                                format(WD_ACTION_MSG_PFX[action], port, self.tx_action, self.rx_action))
+                    self.run_test(self.dut, port, action)
+                except Exception as e:
+                    pytest.fail(str(e))
 
-                 finally:
-                     if self.storm_hndle:
-                         logger.info("--- Stop pfc storm on port {}".format(port))
-                         self.storm_hndle.stop_storm()
-                     else:
-                         logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
-                         PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
-                     logger.info("--- Stop PFC WD ---")
-                     self.dut.command("pfcwd stop")
+                finally:
+                    if self.storm_hndle:
+                        logger.info("--- Stop pfc storm on port {}".format(port))
+                        self.storm_hndle.stop_storm()
+                    else:
+                        logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
+                        PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
+                    logger.info("--- Stop PFC WD ---")
+                    self.dut.command("pfcwd stop")
 
     def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, enum_fanout_graph_facts, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
@@ -792,7 +801,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.ports = {key: value}
         port = key
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
@@ -805,14 +813,20 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         try:
             for idx, mmu_action in enumerate(MMU_ACTIONS):
-                self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+                self.traffic_inst = SendVerifyTraffic(
+                    self.ptf,
+                    duthost.get_dut_iface_mac(port),
+                    self.pfc_wd)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
                 # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
                 self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
                 if idx:
                     self.update_queue(port)
                     self.storm_setup()
-                self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
+                self.traffic_inst = SendVerifyTraffic(
+                    self.ptf,
+                    duthost.get_dut_iface_mac(port),
+                    self.pfc_wd)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
                 self.dut.command("pfcwd stop")
 
@@ -861,7 +875,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.neighbors = setup_info['neighbors']
-        dut_facts = self.dut.facts
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
         self.storm_hndle = None
@@ -870,48 +883,50 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         action = "dontcare"
 
         for idx, port in enumerate(self.ports):
-             logger.info("")
-             logger.info("--- Testing port toggling with PFCWD enabled on {} ---".format(port))
-             self.setup_test_params(port, setup_info['vlan'], init=not idx)
-             self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd)
-             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
-             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
-             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
+            logger.info("")
+            logger.info("--- Testing port toggling with PFCWD enabled on {} ---".format(port))
+            self.setup_test_params(port, setup_info['vlan'], init=not idx)
+            self.traffic_inst = SendVerifyTraffic(
+                self.ptf,
+                duthost.get_dut_iface_mac(port),
+                self.pfc_wd)
+            pfc_wd_restore_time_large = request.config.getoption("--restore-time")
+            # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
+            self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
 
-             try:
-                 self.set_traffic_action(duthost, action)
-                 # Verify that PFC storm is detected and restored
-                 self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
-                 logger.info("{} on port {}. Tx traffic action {}, Rx traffic action {}".format(WD_ACTION_MSG_PFX[action], port, self.tx_action, self.rx_action))
-                 self.run_test(self.dut, port, action)
+            try:
+                self.set_traffic_action(duthost, action)
+                # Verify that PFC storm is detected and restored
+                self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
+                logger.info("{} on port {}. Tx traffic action {}, Rx traffic action {}".format(WD_ACTION_MSG_PFX[action], port, self.tx_action, self.rx_action))
+                self.run_test(self.dut, port, action)
 
-                 # Toggle test port and verify that PFC storm is not detected
-                 loganalyzer = LogAnalyzer(ansible_host=self.dut, marker_prefix="pfc_function_storm_detect_{}_port_{}".format(action, port))
-                 marker = loganalyzer.init()
-                 ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
-                 reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
-                 loganalyzer.ignore_regex.extend(reg_exp)
-                 loganalyzer.expect_regex = []
-                 loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
-                 loganalyzer.match_regex = []
+                # Toggle test port and verify that PFC storm is not detected
+                loganalyzer = LogAnalyzer(ansible_host=self.dut, marker_prefix="pfc_function_storm_detect_{}_port_{}".format(action, port))
+                marker = loganalyzer.init()
+                ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
+                reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
+                loganalyzer.ignore_regex.extend(reg_exp)
+                loganalyzer.expect_regex = []
+                loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
+                loganalyzer.match_regex = []
 
-                 port_toggle(self.dut, tbinfo, ports=[port])
+                port_toggle(self.dut, tbinfo, ports=[port])
 
-                 logger.info("Verify that PFC storm is not detected on port {}".format(port))
-                 result = loganalyzer.analyze(marker, fail=False)
-                 if result["total"]["expected_missing_match"] == 0:
-                     pytest.fail(result)
+                logger.info("Verify that PFC storm is not detected on port {}".format(port))
+                result = loganalyzer.analyze(marker, fail=False)
+                if result["total"]["expected_missing_match"] == 0:
+                    pytest.fail(result)
 
-             except Exception as e:
-                 pytest.fail(str(e))
+            except Exception as e:
+                pytest.fail(str(e))
 
-             finally:
-                 if self.storm_hndle:
-                     logger.info("--- Stop PFC storm on port {}".format(port))
-                     self.storm_hndle.stop_storm()
-                 else:
-                     logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
-                     PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
-                 logger.info("--- Stop PFCWD ---")
-                 self.dut.command("pfcwd stop")
-
+            finally:
+                if self.storm_hndle:
+                    logger.info("--- Stop PFC storm on port {}".format(port))
+                    self.storm_hndle.stop_storm()
+                else:
+                    logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
+                    PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
+                logger.info("--- Stop PFCWD ---")
+                self.dut.command("pfcwd stop")
