@@ -5027,6 +5027,7 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-06" Proxy="admin" StartDevice="console-81" StartPort="34"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-20" Proxy="admin" StartDevice="console-179" StartPort="28"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-22" Proxy="admin" StartDevice="console-199" StartPort="20"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn4600c-acs-02" Proxy="admin" StartDevice="console-212" StartPort="33"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-n3132-acs-1" Proxy="admin" StartDevice="console-80" StartPort="13"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-n3132-acs-2" Proxy="admin" StartDevice="console-81" StartPort="2"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-n3132-acs-3" Proxy="admin" StartDevice="console-80" StartPort="11"/>
@@ -5057,6 +5058,9 @@
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
     <DevicesBmcInfo/>
+    <BmcLinksInfo>
+      <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
+    </BmcLinksInfo>
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
