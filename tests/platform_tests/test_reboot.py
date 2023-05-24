@@ -27,7 +27,6 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-logger = logging.getLogger(__name__)
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
