@@ -308,7 +308,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
         for dhcp_relay in dut_dhcp_relay_data:
             start_dhcp_monitor_debug_counter(duthost)
             loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
-            expected_agg_counter_message = ".*dhcp_relay#dhcpmon\[[0-9]+\]: \[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] Discover: +1/ +4, Offer: +1/ +1, Request: +3/ +12, ACK: +1\/ +1+" % dhcp_relay['downlink_vlan_iface']['name']
+            expected_agg_counter_message = ".*dhcp_relay#dhcpmon\[[0-9]+\]: \[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] Discover: +1/ +4, Offer: +1/ +1, Request: +3/ +12, ACK: +1/ +1+" % dhcp_relay['downlink_vlan_iface']['name']
             loganalyzer.expect_regex = [expected_agg_counter_message]
             marker=loganalyzer.init()
             # Run the DHCP relay test on the PTF host
