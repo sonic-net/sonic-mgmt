@@ -13,15 +13,15 @@ from abc import ABCMeta, abstractmethod
 logger = logging.getLogger(__name__)
 
 CREDENTIALS_FILE = 'credentials.yaml'
+g_inv_name = ""
 
 
 class IssueCheckerBase(six.with_metaclass(ABCMeta, object)):
     """Base class for issue checker
     """
 
-    def __init__(self, url, inv_name):
+    def __init__(self, url):
         self.url = url
-        self.inv_name = inv_name
 
     @abstractmethod
     def is_active(self):
@@ -37,12 +37,11 @@ class GitHubIssueChecker(IssueCheckerBase):
 
     NAME = 'GitHub'
 
-    def __init__(self, url, inv_name):
-        super(GitHubIssueChecker, self).__init__(url, inv_name)
+    def __init__(self, url):
+        super(GitHubIssueChecker, self).__init__(url)
         self.user = ''
         self.api_token = ''
         self.api_url = url.replace('github.com', 'api.github.com/repos')
-        self.inv_name = inv_name
         self.get_cred()
 
     def get_cred(self):
@@ -71,12 +70,12 @@ class GitHubIssueChecker(IssueCheckerBase):
         Returns:
             bool: False if the issue is closed else True.
         """
-        INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(self.inv_name)
+        global g_inv_name
+        INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(g_inv_name)
         PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
         base_path = os.path.dirname(__file__)
-        if os.path.exists(INV_ENV_FILE):
-            env_file_path = os.path.join(base_path, INV_ENV_FILE)
-        else:
+        env_file_path = os.path.join(base_path, INV_ENV_FILE)
+        if is_file_empty_or_comments(env_file_path):
             env_file_path = os.path.join(base_path, PUBLIC_ENV_FILE)
 
         try:
@@ -110,7 +109,28 @@ class GitHubIssueChecker(IssueCheckerBase):
         return True
 
 
-def issue_checker_factory(url, inv_name):
+def is_file_empty_or_comments(file_path):
+    # Check if the file exists
+    if not os.path.isfile(file_path):
+        logger.debug("File does not exist.")
+        return True
+
+    # Open the file
+    with open(file_path, 'r') as file:
+        # Read all lines
+        lines = file.readlines()
+        # Remove whitespace and comments from each line
+        stripped_lines = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+        # Check if the file is empty or contains only comments
+        if not stripped_lines:
+            logger.debug("File is empty or contains only comments.")
+            return True
+        else:
+            logger.debug("File is not empty and contains non-commented lines.")
+            return False
+
+
+def issue_checker_factory(url):
     """Factory function for creating issue checker object based on the domain name in the issue URL.
 
     Args:
@@ -123,14 +143,14 @@ def issue_checker_factory(url, inv_name):
     if m and len(m.groups()) > 0:
         domain_name = m.groups()[0].lower()
         if 'github' in domain_name:
-            return GitHubIssueChecker(url, inv_name)
+            return GitHubIssueChecker(url)
         else:
             logger.error('Unknown issue website: {}'.format(domain_name))
     logger.error('Creating issue checker failed. Bad issue url {}'.format(url))
     return None
 
 
-def check_issues(issues, inv_name):
+def check_issues(issues):
     """Check state of the specified issues.
 
     Because issue state checking may involve sending HTTP request. This function uses parallel run to speed up
@@ -142,7 +162,7 @@ def check_issues(issues, inv_name):
     Returns:
         dict: Issue state check result. Key is issue URL, value is either True or False based on issue state.
     """
-    checkers = [c for c in [issue_checker_factory(issue, inv_name) for issue in issues] if c is not None]
+    checkers = [c for c in [issue_checker_factory(issue) for issue in issues] if c is not None]
     if not checkers:
         logger.error('No checker created for issues: {}'.format(issues))
         return {}
