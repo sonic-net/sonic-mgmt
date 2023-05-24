@@ -444,6 +444,9 @@ def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_te
     not_behind_lag_ping_cmd = ping_format.format(ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"], vlan_ip)
     behind_lag_ping_cmd = " & ".join([ping_format.format(port, vlan_ip) for port in ptf_ports[ATTR_PORT_BEHIND_LAG]
                                       .values()])
+    duthost.shell("sonic-clear fdb all")
+    duthost.shell("sonic-clear arp")
+    time.sleep(20)
     # ping dut from port not behind lag, port not behind lag and lag interface to refresh arp table in dut.
     ptfhost.shell((not_behind_lag_ping_cmd + " & " + behind_lag_ping_cmd + "&" +
                   ping_format.format(PTF_LAG_NAME, vlan_ip)), module_ignore_errors=True)
