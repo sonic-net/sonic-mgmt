@@ -9,7 +9,6 @@ import logging
 import json
 
 from tests.common.config_reload import config_reload
-from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 DEFAULT_NN_TARGET_PORT = 3
 
