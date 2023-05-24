@@ -440,6 +440,15 @@ fdb/test_fdb_mac_expire.py:
       - "topo_type not in ['t0', 'm0', 'mx']"
 
 #######################################
+#####            fib              #####
+#######################################
+fib/test_fib.py::test_ipinip_hash:
+  skip:
+    reason: 'ipinip hash test is not fully supported on mellanox platform (case#00581265)'
+    conditions:
+      - "asic_type in ['mellanox']"
+
+#######################################
 #####   generic_config_updater    #####
 #######################################
 generic_config_updater:
@@ -447,6 +456,14 @@ generic_config_updater:
     reason: 'generic_config_updater is not a supported feature for T2'
     conditions:
       - "'t2' in topo_name"
+
+generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
+  skip:
+    reason: "This test is not run on this asic type or topology currently"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+      - "topo_type in ['m0', 'mx']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -475,9 +492,16 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
-    reason: "This test was not run on this hwsku type currently"
+    reason: "This test is not run on this hwsku/asic type currently"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
+      - "asic_type in ['broadcom', 'cisco-8000']"
+
+generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
+  skip:
+    reason: "This test is not run on this asic type currently"
+    conditions:
+      - "asic_type in ['broadcom', 'cisco-8000']"
 
 #######################################
 #####           http              #####
@@ -745,7 +769,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
     conditions:
-      - "asic_type in ['cisco-8000'] or platform in ['x86_64-cel_e1031-r0']"
+      - "platform in ['x86_64-cel_e1031-r0']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
   skip:
@@ -1107,9 +1131,9 @@ vxlan/test_vnet_vxlan.py:
 
 vxlan/test_vxlan_ecmp.py:
   skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run 8102. 4600 has issue https://github.com/sonic-net/sonic-mgmt/issues/6616"
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
     conditions:
-      - "(is_multi_asic==True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'] and asic_type not in ['barefoot'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0'])"
 
 #######################################
 #####           wan_lacp          #####

@@ -24,11 +24,11 @@ from .utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
 from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
-from tests.vlan.test_vlan import setup_acl_table             # noqa F401
-from tests.vlan.test_vlan import acl_rule_cleanup            # noqa F401
-from tests.vlan.test_vlan import vlan_intfs_dict             # noqa F401
-from tests.vlan.test_vlan import setup_po2vlan               # noqa F401
+from tests.common.fixtures.duthost_utils import ports_list            # noqa F401
+from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F401
+from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
+from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
