@@ -25,23 +25,28 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
+                    packet_size: 300
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
+                    packet_size: 300
                 xoff_3:
                     dscp: 2
                     ecn: 1
                     pg: 2
+                    packet_size: 300
                 xoff_4:
                     dscp: 6
                     ecn: 1
                     pg: 6
+                    packet_size: 300
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
                     pg: 3
                     pkts_num_leak_out: 0
+                    packet_size: 300
                 wm_q_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -62,21 +67,25 @@ qos_params:
                 ecn: 1
                 pg: 3
                 pkts_num_leak_out: 0
+                packet_size: 300
             xon_2:
                 dscp: 4
                 ecn: 1
                 pg: 4
                 pkts_num_leak_out: 0
+                packet_size: 300
             xon_3:
                 dscp: 2
                 ecn: 1
                 pg: 2
                 pkts_num_leak_out: 0
+                packet_size: 300
             xon_4:
                 dscp: 6
                 ecn: 1
                 pg: 6
                 pkts_num_leak_out: 0
+                packet_size: 300
             ecn_1:
                 dscp: 8
                 ecn: 0
@@ -673,14 +682,14 @@ qos_params:
                     ecn: 1
                     pg: 3
                     pkts_num_trig_pfc: 59605
-                    pkts_num_trig_ingr_drp: 59967
+                    pkts_num_trig_ingr_drp: 60228
                     pkts_num_margin: 4
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
                     pkts_num_trig_pfc: 59605
-                    pkts_num_trig_ingr_drp: 59967
+                    pkts_num_trig_ingr_drp: 60228
                     pkts_num_margin: 4
                 hdrm_pool_size:
                     dscps: [3, 4]
@@ -691,7 +700,7 @@ qos_params:
                     pgs_num: 18
                     pkts_num_trig_pfc: 4478
                     pkts_num_hdrm_full: 362
-                    pkts_num_hdrm_partial: 182 
+                    pkts_num_hdrm_partial: 182
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -818,23 +827,206 @@ qos_params:
                 lossless_weight: 30
             hdrm_pool_wm_multiplier: 1
             cell_size: 256
-        topo-any:
+        topo-dualtor:
+            100000_300m:
+                pkts_num_leak_out: 32
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 60204
+                    pkts_num_trig_ingr_drp: 60829
+                    pkts_num_margin: 4
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 60204
+                    pkts_num_trig_ingr_drp: 60829
+                    pkts_num_margin: 4
+                pcbb_xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 60204
+                    pkts_num_trig_ingr_drp: 60829
+                    pkts_num_margin: 4
+                pcbb_xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 60204
+                    pkts_num_trig_ingr_drp: 60829
+                    pkts_num_margin: 4
+                pcbb_xoff_3:
+                    outer_dscp: 2
+                    dscp: 3
+                    ecn: 1
+                    pg: 2
+                    pkts_num_trig_pfc: 60204
+                    pkts_num_trig_ingr_drp: 60829
+                    pkts_num_margin: 4
+                pcbb_xoff_4:
+                    outer_dscp: 6
+                    dscp: 4
+                    ecn: 1
+                    pg: 6
+                    pkts_num_trig_pfc: 60204
+                    pkts_num_trig_ingr_drp: 60829
+                    pkts_num_margin: 4
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                    src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                    dst_port_id: 10
+                    pgs_num: 18
+                    pkts_num_trig_pfc: 6301
+                    pkts_num_hdrm_full: 362
+                    pkts_num_hdrm_partial: 182
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 59714
+                    pkts_num_trig_ingr_drp: 60076
+                    cell_size: 256
+                    pkts_num_margin: 2
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 59714
+                    pkts_num_dismiss_pfc: 18
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 59714
+                    pkts_num_dismiss_pfc: 18
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 84935
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 18
+                    pkts_num_trig_pfc: 59714
+                    packet_size: 64
+                    cell_size: 256
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 84935
+                    packet_size: 64
+                    cell_size: 256
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 60076
+                    cell_size: 256
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 6
+                    pkts_num_trig_pfc: 59714
+                    pkts_num_trig_ingr_drp: 60076
+                    pkts_num_fill_egr_min: 8
+                    cell_size: 256
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 7
+                    pkts_num_trig_egr_drp: 84935
+                    cell_size: 256
+                wm_buf_pool_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    queue: 0
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_egr_drp: 84930
+                    pkts_num_fill_egr_min: 14
+                    cell_size: 256
+            ecn_1:
+                dscp: 8
+                ecn: 0
+                num_of_pkts: 5000
+                limit: 182000
+                min_limit: 180000
+                cell_size: 256
+            ecn_2:
+                dscp: 8
+                ecn: 1
+                num_of_pkts: 2047
+                limit: 182320
+                min_limit: 0
+                cell_size: 256
+            ecn_3:
+                dscp: 0
+                ecn: 0
+                num_of_pkts: 5000
+                limit: 182000
+                min_limit: 180000
+                cell_size: 256
+            ecn_4:
+                dscp: 0
+                ecn: 1
+                num_of_pkts: 2047
+                limit: 182320
+                min_limit: 0
+                cell_size: 256
+            wrr:
+                ecn: 1
+                q0_num_of_pkts: 140
+                q1_num_of_pkts: 140
+                q2_num_of_pkts: 140
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 140
+                q6_num_of_pkts: 140
+                limit: 80
+            wrr_chg:
+                ecn: 1
+                q0_num_of_pkts: 80
+                q1_num_of_pkts: 80
+                q2_num_of_pkts: 80
+                q3_num_of_pkts: 300
+                q4_num_of_pkts: 300
+                q5_num_of_pkts: 80
+                q6_num_of_pkts: 80
+                limit: 80
+                lossy_weight: 8
+                lossless_weight: 30
+            hdrm_pool_wm_multiplier: 1
+            cell_size: 256
+        topo-dualtor-56:
             50000_300m:
                 pkts_num_leak_out: 32
                 xoff_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 58276
-                    pkts_num_trig_ingr_drp: 58516
-                    pkts_num_margin: 4
+                    pkts_num_trig_pfc: 58576
+                    pkts_num_trig_ingr_drp: 58816
+                    pkts_num_margin: 50
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 58276
-                    pkts_num_trig_ingr_drp: 58516
-                    pkts_num_margin: 4
+                    pkts_num_trig_pfc: 58576
+                    pkts_num_trig_ingr_drp: 58816
+                    pkts_num_margin: 50
                 hdrm_pool_size:
                     dscps: [3, 4]
                     ecn: 1
@@ -844,7 +1036,7 @@ qos_params:
                     pgs_num: 18
                     pkts_num_trig_pfc: 4478
                     pkts_num_hdrm_full: 240
-                    pkts_num_hdrm_partial: 182 
+                    pkts_num_hdrm_partial: 182
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -925,15 +1117,45 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 59714
-                    pkts_num_trig_ingr_drp: 60076
+                    pkts_num_trig_pfc: 59784
+                    pkts_num_trig_ingr_drp: 60410
                     pkts_num_margin: 4
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 59714
-                    pkts_num_trig_ingr_drp: 60076
+                    pkts_num_trig_pfc: 59784
+                    pkts_num_trig_ingr_drp: 60410
+                    pkts_num_margin: 4
+                pcbb_xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 58620
+                    pkts_num_trig_ingr_drp: 59245
+                    pkts_num_margin: 4
+                pcbb_xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 58620
+                    pkts_num_trig_ingr_drp: 59245
+                    pkts_num_margin: 4
+                pcbb_xoff_3:
+                    outer_dscp: 2
+                    dscp: 3
+                    ecn: 1
+                    pg: 2
+                    pkts_num_trig_pfc: 58620
+                    pkts_num_trig_ingr_drp: 59245
+                    pkts_num_margin: 4
+                pcbb_xoff_4:
+                    outer_dscp: 6
+                    dscp: 4
+                    ecn: 1
+                    pg: 6
+                    pkts_num_trig_pfc: 58620
+                    pkts_num_trig_ingr_drp: 59245
                     pkts_num_margin: 4
                 hdrm_pool_size:
                     dscps: [3, 4]
@@ -944,7 +1166,260 @@ qos_params:
                     pgs_num: 18
                     pkts_num_trig_pfc: 6301
                     pkts_num_hdrm_full: 362
-                    pkts_num_hdrm_partial: 182 
+                    pkts_num_hdrm_partial: 182
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 59714
+                    pkts_num_trig_ingr_drp: 60076
+                    cell_size: 256
+                    pkts_num_margin: 2
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 59714
+                    pkts_num_dismiss_pfc: 18
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 59714
+                    pkts_num_dismiss_pfc: 18
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 84935
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 18
+                    pkts_num_trig_pfc: 59714
+                    packet_size: 64
+                    cell_size: 256
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 84935
+                    packet_size: 64
+                    cell_size: 256
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 60076
+                    cell_size: 256
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 6
+                    pkts_num_trig_pfc: 59714
+                    pkts_num_trig_ingr_drp: 60076
+                    pkts_num_fill_egr_min: 8
+                    cell_size: 256
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 7
+                    pkts_num_trig_egr_drp: 84935
+                    cell_size: 256
+                wm_buf_pool_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    queue: 0
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_egr_drp: 84930
+                    pkts_num_fill_egr_min: 14
+                    cell_size: 256
+            ecn_1:
+                dscp: 8
+                ecn: 0
+                num_of_pkts: 5000
+                limit: 182000
+                min_limit: 180000
+                cell_size: 256
+            ecn_2:
+                dscp: 8
+                ecn: 1
+                num_of_pkts: 2047
+                limit: 182320
+                min_limit: 0
+                cell_size: 256
+            ecn_3:
+                dscp: 0
+                ecn: 0
+                num_of_pkts: 5000
+                limit: 182000
+                min_limit: 180000
+                cell_size: 256
+            ecn_4:
+                dscp: 0
+                ecn: 1
+                num_of_pkts: 2047
+                limit: 182320
+                min_limit: 0
+                cell_size: 256
+            wrr:
+                ecn: 1
+                q0_num_of_pkts: 140
+                q1_num_of_pkts: 140
+                q2_num_of_pkts: 140
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 140
+                q6_num_of_pkts: 140
+                limit: 80
+            wrr_chg:
+                ecn: 1
+                q0_num_of_pkts: 80
+                q1_num_of_pkts: 80
+                q2_num_of_pkts: 80
+                q3_num_of_pkts: 300
+                q4_num_of_pkts: 300
+                q5_num_of_pkts: 80
+                q6_num_of_pkts: 80
+                limit: 80
+                lossy_weight: 8
+                lossless_weight: 30
+            hdrm_pool_wm_multiplier: 1
+            cell_size: 256
+        topo-any:
+            50000_300m:
+                pkts_num_leak_out: 32
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 58576
+                    pkts_num_trig_ingr_drp: 58816
+                    pkts_num_margin: 50
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 58576
+                    pkts_num_trig_ingr_drp: 58816
+                    pkts_num_margin: 50
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                    src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                    dst_port_id: 10
+                    pgs_num: 18
+                    pkts_num_trig_pfc: 4478
+                    pkts_num_hdrm_full: 240
+                    pkts_num_hdrm_partial: 182
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 58276
+                    pkts_num_trig_ingr_drp: 58516
+                    cell_size: 256
+                    pkts_num_margin: 2
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 58276
+                    pkts_num_dismiss_pfc: 18
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 58276
+                    pkts_num_dismiss_pfc: 18
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 112302
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 18
+                    pkts_num_trig_pfc: 58276
+                    packet_size: 64
+                    cell_size: 256
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 112302
+                    packet_size: 64
+                    cell_size: 256
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 58516
+                    cell_size: 256
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 6
+                    pkts_num_trig_pfc: 58276
+                    pkts_num_trig_ingr_drp: 58516
+                    pkts_num_fill_egr_min: 8
+                    cell_size: 256
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 7
+                    pkts_num_trig_egr_drp: 58516
+                    cell_size: 256
+                wm_buf_pool_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    queue: 0
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_egr_drp: 58516
+                    pkts_num_fill_egr_min: 14
+                    cell_size: 256
+            100000_300m:
+                pkts_num_leak_out: 32
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 59784
+                    pkts_num_trig_ingr_drp: 60410
+                    pkts_num_margin: 4
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 59784
+                    pkts_num_trig_ingr_drp: 60410
+                    pkts_num_margin: 4
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                    src_port_ids: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                    dst_port_id: 10
+                    pgs_num: 18
+                    pkts_num_trig_pfc: 6301
+                    pkts_num_hdrm_full: 362
+                    pkts_num_hdrm_partial: 182
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -1335,14 +1810,14 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 4490
-                    pkts_num_trig_ingr_drp: 4978
+                    pkts_num_trig_pfc: 19994
+                    pkts_num_trig_ingr_drp: 20481
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 4490
-                    pkts_num_trig_ingr_drp: 4978
+                    pkts_num_trig_pfc: 19994
+                    pkts_num_trig_ingr_drp: 20481
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -1461,6 +1936,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1471,6 +1947,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -1563,14 +2040,14 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 4457
-                    pkts_num_trig_ingr_drp: 5140
+                    pkts_num_trig_pfc: 20034
+                    pkts_num_trig_ingr_drp: 20521
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 4457
-                    pkts_num_trig_ingr_drp: 5140
+                    pkts_num_trig_pfc: 20034
+                    pkts_num_trig_ingr_drp: 20521
                 hdrm_pool_size:
                     dscps: [3, 4]
                     ecn: 1
@@ -1659,6 +2136,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1669,6 +2147,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -1734,7 +2213,7 @@ qos_params:
                     pgs_num: 37
                     pkts_num_trig_pfc: 2634
                     pkts_num_hdrm_full: 462
-                    pkts_num_hdrm_partial: 384 
+                    pkts_num_hdrm_partial: 384
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -1851,6 +2330,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -1861,6 +2341,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -1893,7 +2374,7 @@ qos_params:
                     pgs_num: 37
                     pkts_num_trig_pfc: 1856
                     pkts_num_hdrm_full: 1472
-                    pkts_num_hdrm_partial: 552 
+                    pkts_num_hdrm_partial: 552
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -2008,6 +2489,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 140
                 q6_num_of_pkts: 140
+                q7_num_of_pkts: 140
                 limit: 80
             wrr_chg:
                 ecn: 1
@@ -2018,6 +2500,7 @@ qos_params:
                 q4_num_of_pkts: 300
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
+                q7_num_of_pkts: 80
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -2043,6 +2526,16 @@ qos_params:
                 pkts_num_margin: 4
                 packet_size: 1350
                 cell_size: 384
+            shared_res_size_1:
+                ecn: 1
+                packet_size: 1350
+                cell_size: 384
+                pkts_num_margin: 1
+            shared_res_size_2:
+                ecn: 1
+                packet_size: 1350
+                cell_size: 384
+                pkts_num_margin: 1
             100000_300m:
                 pkts_num_leak_out: 0
                 pg_drop:
@@ -2053,7 +2546,7 @@ qos_params:
                     pkts_num_trig_pfc: 13653
                     pkts_num_trig_ingr_drp: 14819
                     pkts_num_margin: 375
-                    iterations: 100 
+                    iterations: 100
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -2082,6 +2575,38 @@ qos_params:
                     pkts_num_trig_pfc: 3414
                     pkts_num_dismiss_pfc: 2
                     packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
@@ -2089,6 +2614,24 @@ qos_params:
                     pkts_num_trig_egr_drp: 16000
                     pkts_num_margin: 4
                     packet_size: 1350
+                    cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: separate
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: shared
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
                     cell_size: 384
                 wm_q_shared_lossless:
                     dscp: 3
@@ -2106,30 +2649,12 @@ qos_params:
                     pkts_num_trig_egr_drp: 16000
                     pkts_num_margin: 3072
                     cell_size: 384
-                shared_res_size_1:
-                    dscps: [8, 8, 8, 8, 8, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
+                wm_q_wm_all_ports:
                     ecn: 1
-                    pgs: [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
-                    queues: [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
-                    src_port_ids: [0, 4, 16, 20, 34, 0, 0, 4, 4, 16, 16, 20, 20, 34, 34, 36, 36]
-                    dst_port_ids: [37, 38, 39, 42, 44, 37, 37, 38, 38, 39, 39, 42, 42, 44, 44, 45, 45]
-                    pkt_counts: [3413, 3413, 3413, 3413, 3413, 2389, 2389, 2389, 1526, 1526, 1392, 415, 415, 415, 415, 42, 1] 
-                    packet_size: 1350
+                    pkt_count: 3000
+                    pkts_num_margin: 1024
                     cell_size: 384
-                    pkts_num_margin: 1
-                    shared_limit_bytes: 46661760
-                shared_res_size_2:
-                    dscps: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    ecn: 1
-                    pgs: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    queues: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    src_port_ids: [0, 0, 4, 4, 16, 16, 20, 20, 34, 34, 36, 36, 37]
-                    dst_port_ids: [38, 38, 39, 39, 42, 42, 44, 44, 45, 45, 46, 46, 47]
-                    pkt_counts: [3527, 3527, 3527, 3527, 3527, 3527, 1798, 1798, 846, 687, 687, 328, 1]
                     packet_size: 1350
-                    cell_size: 384
-                    pkts_num_margin: 1
-                    shared_limit_bytes: 41943552
                 wm_buf_pool_lossless:
                     dscp: 3
                     ecn: 1
@@ -2187,6 +2712,38 @@ qos_params:
                     pkts_num_trig_pfc: 3414
                     pkts_num_dismiss_pfc: 2
                     packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
@@ -2194,6 +2751,24 @@ qos_params:
                     pkts_num_trig_egr_drp: 16000
                     pkts_num_margin: 4
                     packet_size: 1350
+                    cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: separate
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: shared
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
                     cell_size: 384
                 wm_q_shared_lossless:
                     dscp: 3
@@ -2211,30 +2786,12 @@ qos_params:
                     pkts_num_trig_egr_drp: 16000
                     pkts_num_margin: 3072
                     cell_size: 384
-                shared_res_size_1:
-                    dscps: [8, 8, 8, 8, 8, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
+                wm_q_wm_all_ports:
                     ecn: 1
-                    pgs: [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
-                    queues: [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
-                    src_port_ids: [0, 4, 16, 20, 34, 0, 0, 4, 4, 16, 16, 20, 20, 34, 34, 36, 36]
-                    dst_port_ids: [37, 38, 39, 42, 44, 37, 37, 38, 38, 39, 39, 42, 42, 44, 44, 45, 45]
-                    pkt_counts: [3413, 3413, 3413, 3413, 3413, 2389, 2389, 2389, 1526, 1526, 1392, 415, 415, 415, 415, 42, 1]
-                    packet_size: 1350
+                    pkt_count: 3000
+                    pkts_num_margin: 1024
                     cell_size: 384
-                    pkts_num_margin: 1
-                    shared_limit_bytes: 46661760
-                shared_res_size_2:
-                    dscps: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    ecn: 1
-                    pgs: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    queues: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    src_port_ids: [0, 0, 4, 4, 16, 16, 20, 20, 34, 34, 36, 36, 37]
-                    dst_port_ids: [38, 38, 39, 39, 42, 42, 44, 44, 45, 45, 46, 46, 47]
-                    pkt_counts: [3527, 3527, 3527, 3527, 3527, 3527, 1798, 1798, 846, 687, 687, 328, 1]
                     packet_size: 1350
-                    cell_size: 384
-                    pkts_num_margin: 1
-                    shared_limit_bytes: 41943552
                 wm_buf_pool_lossless:
                     dscp: 3
                     ecn: 1
@@ -2283,6 +2840,38 @@ qos_params:
                     pkts_num_trig_pfc: 3414
                     pkts_num_dismiss_pfc: 2
                     packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_margin: 4
+                    packet_size: 1350
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
@@ -2290,6 +2879,24 @@ qos_params:
                     pkts_num_trig_egr_drp: 16000
                     pkts_num_margin: 4
                     packet_size: 1350
+                    cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: separate
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: shared
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
                     cell_size: 384
                 wm_q_shared_lossless:
                     dscp: 3
@@ -2307,30 +2914,12 @@ qos_params:
                     pkts_num_trig_egr_drp: 16000
                     pkts_num_margin: 3072
                     cell_size: 384
-                shared_res_size_1:
-                    dscps: [8, 8, 8, 8, 8, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
+                wm_q_wm_all_ports:
                     ecn: 1
-                    pgs: [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
-                    queues: [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4]
-                    src_port_ids: [0, 4, 16, 20, 34, 0, 0, 4, 4, 16, 16, 20, 20, 34, 34, 36, 36]
-                    dst_port_ids: [37, 38, 39, 42, 44, 37, 37, 38, 38, 39, 39, 42, 42, 44, 44, 45, 45]
-                    pkt_counts: [3413, 3413, 3413, 3413, 3413, 2389, 2389, 2389, 1526, 1526, 1392, 415, 415, 415, 415, 42, 1]
-                    packet_size: 1350
+                    pkt_count: 3000
+                    pkts_num_margin: 1024
                     cell_size: 384
-                    pkts_num_margin: 1
-                    shared_limit_bytes: 46661760
-                shared_res_size_2:
-                    dscps: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    ecn: 1
-                    pgs: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    queues: [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3]
-                    src_port_ids: [0, 0, 4, 4, 16, 16, 20, 20, 34, 34, 36, 36, 37]
-                    dst_port_ids: [38, 38, 39, 39, 42, 42, 44, 44, 45, 45, 46, 46, 47]
-                    pkt_counts: [3527, 3527, 3527, 3527, 3527, 3527, 1798, 1798, 846, 687, 687, 328, 1]
                     packet_size: 1350
-                    cell_size: 384
-                    pkts_num_margin: 1
-                    shared_limit_bytes: 41943552
                 wm_buf_pool_lossless:
                     dscp: 3
                     ecn: 1
@@ -2340,6 +2929,520 @@ qos_params:
                     pkts_num_trig_pfc: 3703
                     cell_size: 384
                     packet_size: 1350
+                wrr:
+                    ecn: 1
+                    q0_num_of_pkts: 70
+                    q1_num_of_pkts: 70
+                    q2_num_of_pkts: 70
+                    q3_num_of_pkts: 75
+                    q4_num_of_pkts: 75
+                    q5_num_of_pkts: 70
+                    q6_num_of_pkts: 70
+                    limit: 40
+                wrr_chg:
+                    ecn: 1
+                    q0_num_of_pkts: 40
+                    q1_num_of_pkts: 40
+                    q2_num_of_pkts: 40
+                    q3_num_of_pkts: 150
+                    q4_num_of_pkts: 150
+                    q5_num_of_pkts: 40
+                    q6_num_of_pkts: 40
+                    limit: 40
+                    lossy_weight: 8
+                    lossless_weight: 30
+            400000_40m:
+                pkts_num_leak_out: 0
+                pg_drop:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_trig_pfc: 12681
+                    pkts_num_trig_ingr_drp: 14816
+                    pkts_num_margin: 375
+                    iterations: 100
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 3172
+                    pkts_num_trig_ingr_drp: 3704
+                    packet_size: 1350
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 3172
+                    pkts_num_trig_ingr_drp: 3704
+                    packet_size: 1350
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 3171
+                    pkts_num_dismiss_pfc: 2
+                    packet_size: 1350
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 3171
+                    pkts_num_dismiss_pfc: 2
+                    packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3172
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3172
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3172
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3172
+                    packet_size: 1350
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: separate
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: shared
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 14816
+                    pkts_num_margin: 3072
+                    cell_size: 384
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 3072
+                    cell_size: 384
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 3000
+                    pkts_num_margin: 1024
+                    cell_size: 384
+                    packet_size: 1350
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_pfc: 3703
+                    cell_size: 384
+                    packet_size: 1350
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 14808
+                    pkts_num_fill_min: 0
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_fill_min: 0
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                wrr:
+                    ecn: 1
+                    q0_num_of_pkts: 70
+                    q1_num_of_pkts: 70
+                    q2_num_of_pkts: 70
+                    q3_num_of_pkts: 75
+                    q4_num_of_pkts: 75
+                    q5_num_of_pkts: 70
+                    q6_num_of_pkts: 70
+                    limit: 40
+                wrr_chg:
+                    ecn: 1
+                    q0_num_of_pkts: 40
+                    q1_num_of_pkts: 40
+                    q2_num_of_pkts: 40
+                    q3_num_of_pkts: 150
+                    q4_num_of_pkts: 150
+                    q5_num_of_pkts: 40
+                    q6_num_of_pkts: 40
+                    limit: 40
+                    lossy_weight: 8
+                    lossless_weight: 30
+            400000_300m:
+                pkts_num_leak_out: 0
+                pg_drop:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_trig_pfc: 12145
+                    pkts_num_trig_ingr_drp: 14816
+                    pkts_num_margin: 375
+                    iterations: 100
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 3038
+                    pkts_num_trig_ingr_drp: 3704
+                    packet_size: 1350
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 3038
+                    pkts_num_trig_ingr_drp: 3704
+                    packet_size: 1350
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 3037
+                    pkts_num_dismiss_pfc: 2
+                    packet_size: 1350
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 3037
+                    pkts_num_dismiss_pfc: 2
+                    packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3040
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3040
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3040
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3040
+                    packet_size: 1350
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: separate
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: shared
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 14816
+                    pkts_num_margin: 3072
+                    cell_size: 384
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 3072
+                    cell_size: 384
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 3000
+                    pkts_num_margin: 1024
+                    cell_size: 384
+                    packet_size: 1350
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_pfc: 3703
+                    cell_size: 384
+                    packet_size: 1350
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 14808
+                    pkts_num_fill_min: 0
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_fill_min: 0
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                wrr:
+                    ecn: 1
+                    q0_num_of_pkts: 70
+                    q1_num_of_pkts: 70
+                    q2_num_of_pkts: 70
+                    q3_num_of_pkts: 75
+                    q4_num_of_pkts: 75
+                    q5_num_of_pkts: 70
+                    q6_num_of_pkts: 70
+                    limit: 40
+                wrr_chg:
+                    ecn: 1
+                    q0_num_of_pkts: 40
+                    q1_num_of_pkts: 40
+                    q2_num_of_pkts: 40
+                    q3_num_of_pkts: 150
+                    q4_num_of_pkts: 150
+                    q5_num_of_pkts: 40
+                    q6_num_of_pkts: 40
+                    limit: 40
+                    lossy_weight: 8
+                    lossless_weight: 30
+            400000_5m:
+                pkts_num_leak_out: 0
+                pg_drop:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_trig_pfc: 12753
+                    pkts_num_trig_ingr_drp: 14816
+                    pkts_num_margin: 375
+                    iterations: 100
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 3190
+                    pkts_num_trig_ingr_drp: 3704
+                    packet_size: 1350
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 3190
+                    pkts_num_trig_ingr_drp: 3704
+                    packet_size: 1350
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 3189
+                    pkts_num_dismiss_pfc: 2
+                    packet_size: 1350
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 3189
+                    pkts_num_dismiss_pfc: 2
+                    packet_size: 1350
+                lossless_voq_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3190
+                    packet_size: 1350
+                lossless_voq_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'multiple'
+                    pkts_num_trig_pfc: 3190
+                    packet_size: 1350
+                lossless_voq_3:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3190
+                    packet_size: 1350
+                lossless_voq_4:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    num_of_flows: 'single'
+                    pkts_num_trig_pfc: 3190
+                    packet_size: 1350
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                lossy_queue_voq_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: separate
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                lossy_queue_voq_2:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    flow_config: shared
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 4
+                    packet_size: 64
+                    cell_size: 384
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 14816
+                    pkts_num_margin: 3072
+                    cell_size: 384
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 3072
+                    cell_size: 384
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 3000
+                    pkts_num_margin: 1024
+                    cell_size: 384
+                    packet_size: 1350
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_pfc: 3703
+                    cell_size: 384
+                    packet_size: 1350
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 14808
+                    pkts_num_fill_min: 0
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_fill_min: 0
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
+                wrr:
+                    ecn: 1
+                    q0_num_of_pkts: 70
+                    q1_num_of_pkts: 70
+                    q2_num_of_pkts: 70
+                    q3_num_of_pkts: 75
+                    q4_num_of_pkts: 75
+                    q5_num_of_pkts: 70
+                    q6_num_of_pkts: 70
+                    limit: 40
+                wrr_chg:
+                    ecn: 1
+                    q0_num_of_pkts: 40
+                    q1_num_of_pkts: 40
+                    q2_num_of_pkts: 40
+                    q3_num_of_pkts: 150
+                    q4_num_of_pkts: 150
+                    q5_num_of_pkts: 40
+                    q6_num_of_pkts: 40
+                    limit: 40
+                    lossy_weight: 8
+                    lossless_weight: 30
             wrr:
                 ecn: 1
                 q0_num_of_pkts: 140
@@ -2364,3 +3467,429 @@ qos_params:
                 lossless_weight: 30
             hdrm_pool_wm_multiplier: 1
             cell_size: 384
+    jr2:
+        topo-any:
+            100000_300m:
+                pkts_num_leak_out: 51
+                internal_hdr_size: 48
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_trig_ingr_drp: 10861
+                    pkts_num_margin: 100
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_trig_ingr_drp: 10861
+                    pkts_num_margin: 100
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                    src_port_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16]
+                    dst_port_id: 18
+                    pgs_num: 18
+                    pkts_num_trig_pfc: 9974
+                    pkts_num_hdrm_full: 362
+                    pkts_num_hdrm_partial: 182
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_trig_ingr_drp: 10861
+                    cell_size: 4096
+                    pkts_num_margin: 30
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_dismiss_pfc: 200
+                    pkts_num_margin: 150
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_dismiss_pfc: 200
+                    pkts_num_margin: 150
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_margin: 20
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 51
+                    pkts_num_trig_pfc: 9874
+                    packet_size: 64
+                    cell_size: 4096
+                    pkts_num_margin: 40
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 51
+                    pkts_num_trig_egr_drp: 2396745
+                    packet_size: 64
+                    cell_size: 4096
+                    pkts_num_margin: 40
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 10861
+                    cell_size: 4096
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_pfc: 9974
+                    pkts_num_trig_ingr_drp: 10861
+                    pkts_num_fill_egr_min: 8
+                    cell_size: 4096
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    cell_size: 4096
+                wm_buf_pool_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    queue: 0
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_fill_egr_min: 0
+                    cell_size: 4096
+            ecn_1:
+                dscp: 8
+                ecn: 0
+                num_of_pkts: 5000
+                limit: 182000
+                min_limit: 180000
+                cell_size: 4096
+            ecn_2:
+                dscp: 8
+                ecn: 1
+                num_of_pkts: 2047
+                limit: 182320
+                min_limit: 0
+                cell_size: 4096
+            ecn_3:
+                dscp: 0
+                ecn: 0
+                num_of_pkts: 5000
+                limit: 182000
+                min_limit: 180000
+                cell_size: 4096
+            ecn_4:
+                dscp: 0
+                ecn: 1
+                num_of_pkts: 2047
+                limit: 182320
+                min_limit: 0
+                cell_size: 4096
+            wrr:
+                ecn: 1
+                q0_num_of_pkts: 140
+                q1_num_of_pkts: 140
+                q2_num_of_pkts: 140
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 140
+                q6_num_of_pkts: 140
+                limit: 80
+            wrr_chg:
+                ecn: 1
+                q0_num_of_pkts: 80
+                q1_num_of_pkts: 80
+                q2_num_of_pkts: 80
+                q3_num_of_pkts: 300
+                q4_num_of_pkts: 300
+                q5_num_of_pkts: 80
+                q6_num_of_pkts: 80
+                limit: 150
+                lossy_weight: 8
+                lossless_weight: 30
+            hdrm_pool_wm_multiplier: 1
+            cell_size: 4096
+    j2c+:
+        topo-any:
+            100000_300m:
+                pkts_num_leak_out: 51
+                internal_hdr_size: 48
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_trig_ingr_drp: 10861
+                    pkts_num_margin: 100
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_trig_ingr_drp: 10861
+                    pkts_num_margin: 100
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                    src_port_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16]
+                    dst_port_id: 18
+                    pgs_num: 18
+                    pkts_num_trig_pfc: 9974
+                    pkts_num_hdrm_full: 362
+                    pkts_num_hdrm_partial: 182
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_trig_ingr_drp: 10861
+                    cell_size: 4096
+                    pkts_num_margin: 30
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_dismiss_pfc: 200
+                    pkts_num_margin: 150
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 9874
+                    pkts_num_dismiss_pfc: 200
+                    pkts_num_margin: 150
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_margin: 20
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 51
+                    pkts_num_trig_pfc: 9874
+                    packet_size: 64
+                    cell_size: 4096
+                    pkts_num_margin: 40
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 51
+                    pkts_num_trig_egr_drp: 2396745
+                    packet_size: 64
+                    cell_size: 4096
+                    pkts_num_margin: 40
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 10861
+                    cell_size: 4096
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_pfc: 9974
+                    pkts_num_trig_ingr_drp: 10861
+                    pkts_num_fill_egr_min: 8
+                    cell_size: 4096
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    cell_size: 4096
+                wm_buf_pool_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    queue: 0
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_fill_egr_min: 0
+                    cell_size: 4096
+            400000_300m:
+                pkts_num_leak_out: 71
+                internal_hdr_size: 48
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 28160
+                    pkts_num_trig_ingr_drp: 28187
+                    pkts_num_margin: 100
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 28160
+                    pkts_num_trig_ingr_drp: 28187
+                    pkts_num_margin: 100
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                    src_port_ids: [0, 2, 4, 6, 8, 10, 12, 14, 16]
+                    dst_port_id: 18
+                    pgs_num: 18
+                    pkts_num_trig_pfc: 28260
+                    pkts_num_hdrm_full: 362
+                    pkts_num_hdrm_partial: 182
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 28160
+                    pkts_num_trig_ingr_drp: 28187
+                    cell_size: 4096
+                    pkts_num_margin: 30
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 28160
+                    pkts_num_dismiss_pfc: 200
+                    pkts_num_margin: 150
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 28160
+                    pkts_num_dismiss_pfc: 200
+                    pkts_num_margin: 150
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_margin: 3500
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_fill_min: 71
+                    pkts_num_trig_pfc: 28160
+                    packet_size: 64
+                    cell_size: 4096
+                    pkts_num_margin: 40
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_fill_min: 71
+                    pkts_num_trig_egr_drp: 2396745
+                    packet_size: 64
+                    cell_size: 4096
+                    pkts_num_margin: 40
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 28187
+                    cell_size: 4096
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_pfc: 28160
+                    pkts_num_trig_ingr_drp: 28187
+                    pkts_num_fill_egr_min: 8
+                    cell_size: 4096
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    cell_size: 4096
+                wm_buf_pool_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    queue: 0
+                    pkts_num_fill_ingr_min: 0
+                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_fill_egr_min: 0
+                    cell_size: 4096
+            ecn_1:
+                dscp: 8
+                ecn: 0
+                num_of_pkts: 5000
+                limit: 182000
+                min_limit: 180000
+                cell_size: 4096
+            ecn_2:
+                dscp: 8
+                ecn: 1
+                num_of_pkts: 2047
+                limit: 182320
+                min_limit: 0
+                cell_size: 4096
+            ecn_3:
+                dscp: 0
+                ecn: 0
+                num_of_pkts: 5000
+                limit: 182000
+                min_limit: 180000
+                cell_size: 4096
+            ecn_4:
+                dscp: 0
+                ecn: 1
+                num_of_pkts: 2047
+                limit: 182320
+                min_limit: 0
+                cell_size: 4096
+            wrr:
+                ecn: 1
+                q0_num_of_pkts: 140
+                q1_num_of_pkts: 140
+                q2_num_of_pkts: 140
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 140
+                q6_num_of_pkts: 140
+                limit: 80
+            wrr_chg:
+                ecn: 1
+                q0_num_of_pkts: 80
+                q1_num_of_pkts: 80
+                q2_num_of_pkts: 80
+                q3_num_of_pkts: 300
+                q4_num_of_pkts: 300
+                q5_num_of_pkts: 80
+                q6_num_of_pkts: 80
+                limit: 150
+                lossy_weight: 8
+                lossless_weight: 30
+            hdrm_pool_wm_multiplier: 1
+            cell_size: 4096

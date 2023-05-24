@@ -13,14 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 # Module Fixture
-@pytest.fixture(scope="module", autouse=True)
-def bypass_duplicate_lanes_platform(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts['platform'] == 'x86_64-arista_7050cx3_32s' or \
-            duthost.facts['platform'] == 'x86_64-dellemc_s5232f_c3538-r0':
-        pytest.skip("Temporary skip platform with duplicate lanes...")
-
-
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname):
     """
@@ -136,7 +128,8 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
         ignoreRegex = [
             ".*ERR sonic_yang.*",
             ".*ERR.*Failed to start dhcp_relay container.*",  # Valid test_dhcp_relay
-            ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*",  # Valid test_dhcp_relay test_syslog
+            # Valid test_dhcp_relay test_syslog
+            ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*",
             ".*ERR teamd[0-9].*get_dump: Can't get dump for LAG.*",  # Valid test_portchannel_interface
             ".*ERR swss[0-9]*#intfmgrd: :- setIntfVrf:.*",  # Valid test_portchannel_interface
             ".*ERR swss[0-9]*#orchagent.*removeLag.*",  # Valid test_portchannel_interface
@@ -149,6 +142,6 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
             ".*ERR dhcp_relay[0-9]*#dhcrelay.*",  # test_dhcp_relay
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation
-            ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*", # test_portchannel_interface tc2
+            ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*",   # test_portchannel_interface tc2
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)

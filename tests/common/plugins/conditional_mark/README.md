@@ -46,8 +46,8 @@ folder1/test_file1.py::test_case1:
     reason: "skip file1/case1"
     conditions:
       - "release in ['master'] or asic_type=='vs'"
-      - https://github.com/Azure/sonic-mgmt/issues/1234
-      - https://github.com/Azure/sonic-mgmt/issues/1235
+      - https://github.com/sonic-net/sonic-mgmt/issues/1234
+      - https://github.com/sonic-net/sonic-mgmt/issues/1235
 folder1/test_file1.py::test_case2[2+4-6]:
   skip:
     reason: "test file1/case2[2+4-6] skip"
@@ -58,7 +58,7 @@ folder2/test_file2.py::TestMarkers::test_case1:
   xfail:
     reason: "test file2/case1 xfail"
     conditions:
-      - https://github.com/Azure/sonic-mgmt/issues/1235 and topo_name == 't1-lag'
+      - https://github.com/sonic-net/sonic-mgmt/issues/1235 and topo_name == 't1-lag'
       -              # Empty condition will be ignored. Equivalent to True.
 folder2/test_file2.py::TestMarkers::test_case2:
   xfail:
@@ -91,7 +91,7 @@ feature_a/test_file_1.py::testcase_3:
   xfail:
     reason: "testcase_i are suppose to fail because an issue"
     conditions:
-      - https://github.com/Azure/sonic-mgmt/issues/1234
+      - https://github.com/sonic-net/sonic-mgmt/issues/1234
 ```
 
 And assume we have below test script:
@@ -135,22 +135,22 @@ Example variables can be used in condition string:
       "num_asic": 1,
       "is_multi_asic": False,
       "feature_status": {
-        "lldp": "enabled", 
-        "pmon": "enabled", 
-        "sflow": "disabled", 
-        "database": "always_enabled", 
-        "radv": "enabled", 
-        "macsec": "disabled", 
-        "telemetry": "enabled", 
-        "snmp": "enabled", 
-        "mux": "always_disabled", 
-        "bgp": "enabled", 
-        "dhcp_relay": "enabled", 
-        "mgmt-framework": "enabled", 
-        "nat": "disabled", 
-        "teamd": "enabled", 
-        "gbsyncd": "enabled", 
-        "syncd": "enabled", 
+        "lldp": "enabled",
+        "pmon": "enabled",
+        "sflow": "disabled",
+        "database": "always_enabled",
+        "radv": "enabled",
+        "macsec": "disabled",
+        "telemetry": "enabled",
+        "snmp": "enabled",
+        "mux": "always_disabled",
+        "bgp": "enabled",
+        "dhcp_relay": "enabled",
+        "mgmt-framework": "enabled",
+        "nat": "disabled",
+        "teamd": "enabled",
+        "gbsyncd": "enabled",
+        "syncd": "enabled",
         "swss": "enabled"
       },
       "asic_gen": "td2",
@@ -180,4 +180,3 @@ A new pytest command line option is added for specifying location of the conditi
 The plugin is open for extension in couple of areas:
 * Collect more facts. Then more variables can be used in condition string for evaluation.
 * Add more arguments for marks, not just the current `reason` argument.
-

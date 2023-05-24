@@ -11,7 +11,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.cisco_data import is_cisco_device
 from tests.common.innovium_data import is_innovium_device
-
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 logger = logging.getLogger(__name__)
 
 _DockerRegistryInfo = collections.namedtuple("DockerRegistryInfo", "host username password")
@@ -103,25 +103,37 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
 
 
-def swap_syncd(duthost, creds):
+def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
     """Replaces the running syncd container with the RPC version of it.
 
-    This will download a new Docker image to the duthost and restart the swss 
+    This will download a new Docker image to the duthost and restart the swss
     service.
 
     Args:
         duthost (SonicHost): The target device.
         creds (dict): Credentials used to access the docker registry.
     """
+
+    if namespace == DEFAULT_NAMESPACE and duthost.is_multi_asic:
+        asics_list = duthost.asics
+    else:
+        asics_list = [duthost.asic_instance_from_namespace(namespace)]
+
     vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
+
+    if duthost.facts.get("platform_asic") == 'broadcom-dnx':
+        docker_syncd_name = docker_syncd_name + "-dnx"
+
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
-    duthost.command("config bgp shutdown all")  
-    duthost.stop_service("swss")
-    duthost.delete_container("syncd")
+    duthost.command("config bgp shutdown all")
+
+    for asic in asics_list:
+        asic.stop_service("swss")
+        asic.delete_container("syncd")
 
     # Set sysctl RCVBUF parameter for tests
     duthost.command("sysctl -w net.core.rmem_max=609430500")
@@ -129,9 +141,11 @@ def swap_syncd(duthost, creds):
     # Set sysctl SENDBUF parameter for tests
     duthost.command("sysctl -w net.core.wmem_max=609430500")
 
-    _perform_swap_syncd_shutdown_check(duthost)
+    for asic in asics_list:
+        _perform_swap_syncd_shutdown_check(asic)
 
-    is_syncdrpc_present_locally = duthost.command('docker image inspect '+docker_rpc_image, module_ignore_errors=True)['rc'] == 0
+    is_syncdrpc_present_locally = duthost.command('docker image inspect ' + docker_rpc_image,
+                                                  module_ignore_errors=True)['rc'] == 0
 
     if is_syncdrpc_present_locally:
         tag_image(
@@ -153,11 +167,11 @@ def swap_syncd(duthost, creds):
 
     logger.info("Reloading config and restarting swss...")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    for asic in asics_list:
+        _perform_syncd_liveness_check(asic)
 
-    _perform_syncd_liveness_check(duthost)
 
-
-def restore_default_syncd(duthost, creds):
+def restore_default_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
     """Replaces the running syncd with the default syncd that comes with the image.
 
     This will restart the swss service.
@@ -166,12 +180,20 @@ def restore_default_syncd(duthost, creds):
         duthost (SonicHost): The target device.
         creds (dict): Credentials used to access the docker registry.
     """
+    if namespace == DEFAULT_NAMESPACE and duthost.is_multi_asic:
+        asics_list = duthost.asics
+    else:
+        asics_list = [duthost.asic_instance_from_namespace(namespace)]
     vendor_id = _get_vendor_id(duthost)
 
     docker_syncd_name = "docker-syncd-{}".format(vendor_id)
 
-    duthost.stop_service("swss")
-    duthost.delete_container("syncd")
+    if duthost.facts.get("platform_asic") == 'broadcom-dnx':
+        docker_syncd_name = docker_syncd_name + "-dnx"
+
+    for asic in asics_list:
+        asic.stop_service("swss")
+        asic.delete_container("syncd")
 
     tag_image(
         duthost,
@@ -192,11 +214,11 @@ def restore_default_syncd(duthost, creds):
     )
 
 
-def _perform_swap_syncd_shutdown_check(duthost):
+def _perform_swap_syncd_shutdown_check(asic):
     def ready_for_swap():
         if any([
-            duthost.is_container_running("syncd"),
-            duthost.is_container_running("swss"),
+            asic.is_container_running("syncd"),
+            asic.is_container_running("swss"),
         ]):
             return False
 
@@ -206,9 +228,9 @@ def _perform_swap_syncd_shutdown_check(duthost):
     pytest_assert(shutdown_check, "Docker and/or BGP failed to shut down in 30s")
 
 
-def _perform_syncd_liveness_check(duthost):
+def _perform_syncd_liveness_check(asic):
     def check_liveness():
-        return duthost.is_service_running("syncd")
+        return asic.is_service_running("syncd", "syncd")
 
     liveness_check = wait_until(30, 1, 0, check_liveness)
     pytest_assert(liveness_check, "syncd crashed after swap_syncd")

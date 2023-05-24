@@ -2,9 +2,9 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 import logging
 import time
-logger = logging.getLogger(__name__)
-
 import pytest
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -13,6 +13,7 @@ pytestmark = [
 ]
 
 TIME_FORWARD = 3600
+
 
 def config_long_jump(duthost, enable=False):
     """change ntpd option to enable or disable long jump"""
@@ -26,6 +27,7 @@ def config_long_jump(duthost, enable=False):
     duthost.command("sed -i %s /etc/default/ntp" % regex)
     duthost.service(name='ntp', state='restarted')
 
+
 @pytest.fixture(scope="module")
 def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
     """setup ntp client and server"""
@@ -36,11 +38,12 @@ def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
     # restart ntp server
     ntp_en_res = ptfhost.service(name="ntp", state="restarted")
 
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost), \
-        "NTP server was not started in PTF container {}; NTP service start result {}".format(ptfhost.hostname, ntp_en_res))
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost),
+                  "NTP server was not started in PTF container {}; NTP service start result {}"
+                  .format(ptfhost.hostname, ntp_en_res))
 
     # setup ntp on dut to sync with ntp server
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     ntp_servers = config_facts.get('NTP_SERVER', {})
     for ntp_server in ntp_servers:
         duthost.command("config ntp del %s" % ntp_server)
@@ -55,6 +58,12 @@ def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
     duthost.command("config ntp del %s" % ptfhost.mgmt_ip)
     for ntp_server in ntp_servers:
         duthost.command("config ntp add %s" % ntp_server)
+    # The time jump leads to exception in lldp_syncd. The exception has been handled by lldp_syncd,
+    # but it will leave error messages in syslog, which will cause subsequent test cases to fail.
+    # So we need to wait for a while to make sure the error messages are flushed.
+    # The default update interval of lldp_syncd is 10 seconds, so we wait for 20 seconds here.
+    time.sleep(20)
+
 
 @pytest.fixture
 def setup_long_jump_config(duthosts, rand_one_dut_hostname):
@@ -84,11 +93,13 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname):
     duthost.command("date -s '@{}'".format(dut_end_time))
     config_long_jump(duthost, long_jump_enable)
 
+
 def check_ntp_status(host):
     res = host.command("ntpstat", module_ignore_errors=True)
     if res['rc'] != 0:
-       return False
+        return False
     return True
+
 
 def test_ntp_long_jump_enabled(duthosts, rand_one_dut_hostname, setup_ntp, setup_long_jump_config):
     duthost = duthosts[rand_one_dut_hostname]
@@ -98,6 +109,7 @@ def test_ntp_long_jump_enabled(duthosts, rand_one_dut_hostname, setup_ntp, setup
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
                   "NTP long jump enable failed")
 
+
 def test_ntp_long_jump_disabled(duthosts, rand_one_dut_hostname, setup_ntp, setup_long_jump_config):
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -105,6 +117,7 @@ def test_ntp_long_jump_disabled(duthosts, rand_one_dut_hostname, setup_ntp, setu
 
     if wait_until(720, 10, 0, check_ntp_status, duthost):
         pytest.fail("NTP long jump disable failed")
+
 
 def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp):
     """ Verify that DUT is synchronized with configured NTP server """

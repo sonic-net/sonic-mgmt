@@ -41,12 +41,14 @@ def parse_portstat(content_lines):
     header_line = ''
     separation_line = ''
     separation_line_number = 0
+    reminder_line_number = len(content_lines)
     for idx, line in enumerate(content_lines):
         if line.find('----') >= 0:
             header_line = content_lines[idx-1]
             separation_line = content_lines[idx]
             separation_line_number = idx
-            break
+        if 'Reminder' in line:
+            reminder_line_number = idx
 
     try:
         positions = parse_column_positions(separation_line)
@@ -63,7 +65,9 @@ def parse_portstat(content_lines):
         return {}
 
     results = {}
-    for line in content_lines[separation_line_number+1:]:
+    for line in content_lines[separation_line_number+1:reminder_line_number]:
+        if not line.strip():    # skip empty line or newline
+            continue
         portstats = []
         for pos in positions:
             portstat = line[pos[0]:pos[1]].strip()

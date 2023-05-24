@@ -28,7 +28,13 @@
             <a:Value>True</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if 'dualtor-mixed' in topo %}
+{% if 'dualtor-aa' in topo %}
+          <a:DeviceProperty>
+            <a:Name>RedundancyType</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>Libra</a:Value>
+          </a:DeviceProperty>
+{% elif 'dualtor-mixed' in topo %}
           <a:DeviceProperty>
             <a:Name>RedundancyType</a:Name>
             <a:Reference i:nil="true" />
@@ -38,6 +44,13 @@
           <a:DeviceProperty>
             <a:Name>RedundancyType</a:Name>
             <a:Reference i:nil="true" />
+            <a:Value>Gemini</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if ('t1' in topo) and (enable_tunnel_qos_remap|default('false')|bool) %}
+          <a:DeviceProperty>
+            <a:Name>DownstreamRedundancyTypes</a:Name>
+            <a:Reference i:nil="true"/>
             <a:Value>Gemini</a:Value>
           </a:DeviceProperty>
 {% endif %}
@@ -210,4 +223,3 @@
     </Devices>
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
-

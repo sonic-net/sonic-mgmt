@@ -34,6 +34,13 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_presence:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_revision:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
   # Skip unsupported API test on Mellanox platform
   skip:
@@ -42,18 +49,6 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
       - "asic_type in ['mellanox']"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_supervisor_slot:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport']"
-
-platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
   skip:
     reason: "Unsupported platform API"
     conditions:
@@ -68,12 +63,32 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_thermal_manager:
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: 'OR'
     conditions:
+      - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "'sw_to3200k' in hwsku"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
@@ -81,6 +96,13 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_to
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_model:
   skip:
@@ -92,15 +114,20 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_serial:
   #Fan tray serial numbers cannot be retrieved through software in cisco platform
   #there is no fan tray idprom
   skip:
-    reason: "Retrieving fan tray serial number is not supported in Cisco 8000 and mellanox platform"
+    reason: "Unsupported platform API in mellanox or retrieving fan tray serial number is not supported in Cisco 8000"
     conditions:
-       - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API in mellanox or Cisco 8000 platform the leds belong to the fan_tray and are set through the fan_tray API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
   #test_set_fans_speed requires get_speed_tolerance to be implemented
@@ -110,6 +137,11 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####    api/test_component.py    #####
@@ -118,7 +150,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_get_available_firmw
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_component.py::TestComponentApi::test_get_description:
   skip:
@@ -130,7 +162,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_get_firmware_update
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_component.py::TestComponentApi::test_get_firmware_version:
   skip:
@@ -190,7 +222,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_update_firmware:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
 #####   api/test_fan_drawer.py    #####
@@ -199,7 +231,12 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consum
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_model:
   skip:
@@ -225,12 +262,13 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 
 #######################################
 ##### api/test_fan_drawer_fans.py #####
 #######################################
+
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
   #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
   #using RPM rather than thermalctld checking tolerance on percentages
@@ -254,10 +292,10 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_serial:
        - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led:
-   skip:
-     reason: "On Cisco 8000 and mellanox platform, fans do not have their own leds."
-     conditions:
-       - "asic_type in ['mellanox', 'cisco-8000']"
+  skip:
+    reason: "On Cisco 8000 and mellanox platform, fans do not have their own leds."
+    conditions:
+      - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
   #test_set_fans_speed requires get_speed_tolerance to be implemented
@@ -267,6 +305,29 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
+#######################################
+##### api/test_module.py #####
+#######################################
+
+platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+
+
+platform_tests/api/test_module.py::TestModuleApi::test_reboot:
+   skip:
+     reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform"
+     conditions:
+       - "asic_type in ['cisco-8000']"
 
 #######################################
 #####        api/test_psu.py      #####
@@ -283,6 +344,13 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
 platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
   skip:
     reason: "Unsupported platform API"
@@ -297,19 +365,32 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
 
 platform_tests/api/test_psu.py::TestPsuApi::test_led:
   skip:
-    reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
+    reason: "On Cisco 8000, mellanox and Nokia 7215 platform, PSU led are unable to be controlled by software"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox', 'cisco-8000'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport'])"
+      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
 #####    api/test_psu_fans.py     #####
 #######################################
+platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
+
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_fans_target_speed:
   skip:
     reason: "Unsupported platform API"
@@ -333,6 +414,11 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
     reason: "On Cisco 8000 and mellanox platform, PSU led are unable to be controlled by software"
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000']"
+  xfail:
+    reason: "Testcase consistently fails on Celestica, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
   skip:
@@ -391,17 +477,17 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_status:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['mellanox']"
-
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_temperature:
   skip:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['cisco-8000'] and release in ['202012']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_bias:
   skip:
@@ -421,11 +507,23 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_power:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
   skip:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "'sw_to3200k' in hwsku"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
   skip:
@@ -443,19 +541,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport'])"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['cisco-8000'] and release in ['202012']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "'sw_to3200k' in hwsku"
+      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
 #####     api/test_thermal.py     #####
@@ -535,12 +621,22 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
   skip:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['mellanox']"
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
 #######################################
 #####     api/test_watchdog.py    #####
@@ -548,8 +644,29 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
 platform_tests/api/test_watchdog.py:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
+      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0']"
+
+#######################################
+#####           broadcom          #####
+#######################################
+platform_tests/broadcom:
+  skip:
+    reason: "Marvell devices does not support platform_tests/broadcom"
+    conditions:
+      - "'marvell' in asic_type"
+
+platform_tests/broadcom/test_ser.py:
+  skip:
+    reason: "platform does not support test_ser"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/6218"
+      - "asic_type not in ['broadcom']"
+      - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
+      - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -566,12 +683,33 @@ platform_tests/cli/test_show_platform.py::test_show_platform_firmware_status:
     conditions:
       - "is_multi_asic==True and release in ['201911']"
 
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
+
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
+
 platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
   xfail:
     strict: True
     reason: "Image issue on 7050qx platforms"
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
+  xfail:
+    reason: "Testcase consistently fails, raised issue to track"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
 #######################################
 #####  daemon/test_syseepromd.py  #####
@@ -585,9 +723,40 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
+platform_tests/fwutil/test_fwutil.py:
+  skip:
+    reason: "Non-Mellanox platforms doesn't support fwutil for now"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7811
+
 platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
+
+#######################################
+#####           mellanox          #####
+#######################################
+platform_tests/mellanox:
+  skip:
+    reason: "Mellanox platform tests only supported on Mellanox devices"
+    conditions:
+      - "asic_type not in ['mellanox']"
+
+platform_tests/mellanox/test_reboot_cause.py:
+  skip:
+    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
+
+#######################################
+####  test_memory_exhaustion.py   #####
+#######################################
+platform_tests/test_memory_exhaustion.py:
+  skip:
+    reason: "Unsupported release or platforms"
+    conditions:
+      - "(is_multi_asic==True and release in ['201911']) or (hwsku in ['Celestica-E1031-T48S4'])"
 
 #######################################
 #####    test_platform_info.py    #####
@@ -620,26 +789,77 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
     conditions:
       - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
 
+platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+
 #######################################
 #####        test_reboot.py       #####
 #######################################
-platform_tests/test_reboot.py:
-  skip:
-    reason: "Skip reboot test for Celestica"
+platform_tests/test_reboot.py::test_cold_reboot:
+  xfail:
+    reason: "case failed and waiting for fix"
     conditions:
-      - "hwsku in ['Celestica-E1031-T48S4']"
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+platform_tests/test_reboot.py::test_continuous_reboot:
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+platform_tests/test_reboot.py::test_fast_reboot:
+  skip:
+    reason: "Skip test_fast_reboot for m0/mx"
+    conditions:
+      - "topo_type in ['m0', 'mx', 't1', 't2']"
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_power_off_reboot:
   skip:
-    reason: "Skip power off reboot test for Wistron"
+    reason: "Skip power off reboot test for Wistron/Nokia-7215"
     conditions:
-      - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku"
+      - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
+
+platform_tests/test_reboot.py::test_soft_reboot:
+  skip:
+    reason: "Skip test_soft_reboot for m0/mx"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+
+platform_tests/test_reboot.py::test_warm_reboot:
+  skip:
+    reason: "Skip test_warm_reboot for m0/mx"
+    conditions:
+      - "topo_type in ['m0', 'mx', 't1', 't2']"
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
-    reason: "Skip watchdog reboot test for Wistron"
+    reason: "Skip watchdog reboot test for Wistron / Nokia 7215 / cisco platform x86_64-8102_64h_o-r0"
+    conditions_logical_operator: or
     conditions:
-      - "hwsku in ['Celestica-E1031-T48S4'] or 'sw_to3200k' in hwsku"
+      - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "'t1' in topo_type and platform in ['x86_64-8102_64h_o-r0']"
 
 #######################################
 #####   test_reload_config.py     #####

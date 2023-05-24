@@ -10,26 +10,26 @@ from collections import defaultdict
 import re
 import libvirt
 import time
-import sys
 
 
 def resume_paused():
     MAX_ATTEMPTS = 10
 
     conn = libvirt.open("qemu:///system")
-    if conn == None:
-        print 'Failed to open connection to qemu:///system'
+    if conn is None:
+        print('Failed to open connection to qemu:///system')
         exit(1)
 
-    paused = [i.name() for i in conn.listAllDomains() if i.info()[0] == libvirt.VIR_DOMAIN_PAUSED]
+    paused = [i.name() for i in conn.listAllDomains() if i.info()
+              [0] == libvirt.VIR_DOMAIN_PAUSED]
 
     if len(paused) > 0:
-        print "Following VM are paused"
-        print "\n".join(paused)
+        print("Following VM are paused")
+        print("\n".join(paused))
         print
 
     for vm in paused:
-        print "Resume VM: " + vm.name()
+        print("Resume VM: " + vm.name())
         vm.resume()
 
     for _ in range(MAX_ATTEMPTS):
@@ -37,31 +37,38 @@ def resume_paused():
             break
         time.sleep(1)
     else:
-        print "Can't resume VMs:%s" % ", ".join(i.name() for i in conn.listAllDomains() if i.info()[0] == libvirt.VIR_DOMAIN_PAUSED)
+        print("Can't resume VMs:%s" % ", ".join(i.name()
+              for i in conn.listAllDomains() if i.info()[0] == libvirt.VIR_DOMAIN_PAUSED))
         paused = []
 
     conn.close()
 
     return paused
 
+
 def cmd(cmdline):
     cmd = cmdline.split(' ')
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     ret_code = process.returncode
 
     if ret_code != 0:
-        raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
+        raise Exception("ret_code=%d, error message=%s. cmd=%s" %
+                        (ret_code, stderr, cmdline))
 
     return stdout
+
 
 def get_list_of_bridges(vm):
     bridges = cmd("ovs-vsctl list-br")
     return [br for br in bridges.split("\n") if vm in br]
 
+
 def get_list_of_ports(bridge):
     ports = cmd("ovs-vsctl list-ports %s" % bridge)
     return ports.split("\n")[:-1]
+
 
 def extract_changing_ports(ports):
     result = {}
@@ -70,6 +77,7 @@ def extract_changing_ports(ports):
         if "NORMAL" not in of_rules:
             result[br] = ports[br]
     return result
+
 
 def get_port_id(ports):
     port_map = defaultdict(dict)
@@ -83,8 +91,9 @@ def get_port_id(ports):
 
     return port_map
 
+
 def cmd1(cmd):
-    print cmd
+    print(cmd)
 
 
 def reassign_ports(port_map, vm):
@@ -101,21 +110,24 @@ def reassign_ports(port_map, vm):
             if '.' in name:
                 vlan_iface_id = idx
 
-        #assert(injected_iface_id is None or vm_iface_id is None or vlan_iface_id is None)
-        #assert(injected_iface_id is None)
-        #assert(vm_iface_id is None)
-        #assert(vlan_iface_id is None)
+        # assert(injected_iface_id is None or vm_iface_id is None or vlan_iface_id is None)
+        # assert(injected_iface_id is None)
+        # assert(vm_iface_id is None)
+        # assert(vlan_iface_id is None)
         # clear old bindings
         cmd('ovs-ofctl del-flows %s' % br)
 
         # Add flow from a VM to an external iface
-        cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br, vm_iface_id, vlan_iface_id))
+        cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
+            (br, vm_iface_id, vlan_iface_id))
 
         # Add flow from external iface to a VM and a ptf container
-        cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s,%s" % (br, vlan_iface_id, vm_iface_id, injected_iface_id))
+        cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s,%s" %
+            (br, vlan_iface_id, vm_iface_id, injected_iface_id))
 
         # Add flow from a ptf container to an external iface
-        cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" % (br, injected_iface_id, vlan_iface_id))
+        cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
+            (br, injected_iface_id, vlan_iface_id))
 
     return
 
@@ -123,13 +135,14 @@ def reassign_ports(port_map, vm):
 def main():
     vms = resume_paused()
     for vm in vms:
-      bridges = get_list_of_bridges(vm)
-      ports = {br:get_list_of_ports(br) for br in bridges}
-      changing_ports = extract_changing_ports(ports)
-      port_map = get_port_id(changing_ports)
-      reassign_ports(port_map, vm)
+        bridges = get_list_of_bridges(vm)
+        ports = {br: get_list_of_ports(br) for br in bridges}
+        changing_ports = extract_changing_ports(ports)
+        port_map = get_port_id(changing_ports)
+        reassign_ports(port_map, vm)
 
     return
+
 
 if __name__ == '__main__':
     main()

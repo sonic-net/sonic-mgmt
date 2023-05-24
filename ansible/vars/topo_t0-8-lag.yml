@@ -1,0 +1,319 @@
+topology:
+  host_interfaces:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 28
+    - 29
+    - 30
+    - 31
+  disabled_host_interfaces:
+    - 0
+  VMs:
+    ARISTA01T1:
+      vlans:
+        - 6
+        - 7
+      vm_offset: 0
+    ARISTA02T1:
+      vlans:
+        - 8
+        - 9
+      vm_offset: 1
+    ARISTA03T1:
+      vlans:
+        - 22
+        - 23
+      vm_offset: 2
+    ARISTA04T1:
+      vlans:
+        - 24
+        - 25
+      vm_offset: 3
+    ARISTA05T1:
+      vlans:
+        - 4
+        - 5
+      vm_offset: 4
+    ARISTA06T1:
+      vlans:
+        - 10
+        - 11
+      vm_offset: 5
+    ARISTA07T1:
+      vlans:
+        - 20
+        - 21
+      vm_offset: 6
+    ARISTA08T1:
+      vlans:
+        - 26
+        - 27
+      vm_offset: 7
+  DUT:
+    vlan_configs:
+      default_vlan_config: one_vlan_a
+      one_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [1, 2, 3, 12, 13, 14, 15, 16, 17, 18, 19, 28, 29, 30, 31]
+          prefix: 192.168.0.1/21
+          prefix_v6: fc02:1000::1/64
+          tag: 1000
+      two_vlan_a:
+        Vlan100:
+          id: 100
+          intfs: [2, 29, 31]
+          prefix: 192.168.0.1/22
+          prefix_v6: fc02:100::1/64
+          tag: 100
+        Vlan200:
+          id: 200
+          intfs: [1, 3, 12, 13, 14, 15, 16, 17, 18, 19, 28, 30]
+          prefix: 192.168.4.1/22
+          prefix_v6: fc02:200::1/64
+          tag: 200
+      four_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [0, 1]
+          prefix: 192.168.0.1/23
+          prefix_v6: fc02:400::1/64
+          tag: 1000
+        Vlan2000:
+          id: 2000
+          intfs: [2, 3]
+          prefix: 192.168.2.1/23
+          prefix_v6: fc02:401::1/64
+          tag: 2000
+        Vlan3000:
+          id: 3000
+          intfs: [12, 13]
+          prefix: 192.168.4.1/23
+          prefix_v6: fc02:402::1/64
+          tag: 3000
+        Vlan4000:
+          id: 4000
+          intfs: [14, 15]
+          prefix: 192.168.6.1/23
+          prefix_v6: fc02:403::1/64
+          tag: 4000
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: ToRRouter
+    swrole: leaf
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    spine_asn: 65534
+    leaf_asn_start: 64600
+    tor_asn_start: 65500
+    failure_rate: 0
+
+configuration:
+  ARISTA01T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.56
+        - FC00::71
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.29/32
+        ipv6: 2064:100::1d/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.57/31
+        ipv6: fc00::72/126
+    bp_interface:
+      ipv4: 10.10.246.29/24
+      ipv6: fc0a::1d/64
+
+  ARISTA02T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.58
+        - FC00::75
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.30/32
+        ipv6: 2064:100::1e/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.59/31
+        ipv6: fc00::76/126
+    bp_interface:
+      ipv4: 10.10.246.30/24
+      ipv6: fc0a::1e/64
+
+  ARISTA03T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.60
+        - FC00::79
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.31/32
+        ipv6: 2064:100::1f/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.61/31
+        ipv6: fc00::7a/126
+    bp_interface:
+      ipv4: 10.10.246.31/24
+      ipv6: fc0a::1f/64
+
+  ARISTA04T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.62
+        - FC00::7D
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.32/32
+        ipv6: 2064:100::20/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.63/31
+        ipv6: fc00::7e/126
+    bp_interface:
+      ipv4: 10.10.246.32/24
+      ipv6: fc0a::20/64
+
+  ARISTA05T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.64
+        - FC00::81
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.33/32
+        ipv6: 2064:100::21/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.65/31
+        ipv6: fc00::82/126
+    bp_interface:
+      ipv4: 10.10.246.33/24
+      ipv6: fc0a::21/64
+
+  ARISTA06T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.66
+        - FC00::85
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.34/32
+        ipv6: 2064:100::22/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.67/31
+        ipv6: fc00::86/126
+    bp_interface:
+      ipv4: 10.10.246.34/24
+      ipv6: fc0a::22/64
+
+  ARISTA07T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.68
+        - FC00::89
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.35/32
+        ipv6: 2064:100::23/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.69/31
+        ipv6: fc00::8a/126
+    bp_interface:
+      ipv4: 10.10.246.35/24
+      ipv6: fc0a::23/64
+
+  ARISTA08T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+        - 10.0.0.70
+        - FC00::8D
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.36/32
+        ipv6: 2064:100::24/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 10.0.0.71/31
+        ipv6: fc00::8e/126
+    bp_interface:
+      ipv4: 10.10.246.36/24
+      ipv6: fc0a::24/64

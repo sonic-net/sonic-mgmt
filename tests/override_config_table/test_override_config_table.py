@@ -5,15 +5,19 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.utilities import skip_release
+from tests.common.utilities import update_pfcwd_default_state
+
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.topology('t0', 't1', 'any'),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -58,17 +62,20 @@ def get_running_config(duthost):
 
 def reload_minigraph_with_golden_config(duthost, json_data):
     duthost.copy(content=json.dumps(json_data, indent=4), dest=GOLDEN_CONFIG)
-    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=True, override_config=True)
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthost, golden_config_exists_on_dut):
+def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
     """
     Setup/teardown
     Args:
         duthost: DUT.
         golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
+    topo_type = tbinfo["topo"]["type"]
+    if topo_type in ["m0", "mx"]:
+        original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
@@ -81,6 +88,8 @@ def setup_env(duthost, golden_config_exists_on_dut):
 
     yield running_config
 
+    if topo_type in ["m0", "mx"]:
+        update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Restore Golden Config after test, else cleanup test file.
@@ -102,8 +111,13 @@ def load_minigraph_with_golden_empty_input(duthost):
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     current_config = get_running_config(duthost)
-    pytest_assert(initial_config == current_config,
-                  "Running config differs.")
+    for table in initial_config:
+        if table in NON_USER_CONFIG_TABLES:
+            continue
+        pytest_assert(
+            initial_config[table] == current_config[table],
+            "empty input compare fail! {}".format(table)
+        )
 
 
 def load_minigraph_with_golden_partial_config(duthost):
@@ -155,6 +169,8 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
 
     current_config = get_running_config(duthost)
     for table in full_config:
+        if table in NON_USER_CONFIG_TABLES:
+            continue
         pytest_assert(
             full_config[table] == current_config[table],
             "full config override fail! {}".format(table)
@@ -175,7 +191,7 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     current_config = get_running_config(duthost)
     pytest_assert(
         current_config.get('SYSLOG_SERVER', None) is None,
-        "Empty table removal fail: {}".format(current_config['SYSLOG_SERVER'])
+        "Empty table removal fail: {}".format(current_config)
     )
 
 
@@ -187,3 +203,4 @@ def test_load_minigraph_with_golden_config(duthost, setup_env):
     load_minigraph_with_golden_new_feature(duthost)
     full_config = setup_env
     load_minigraph_with_golden_full_config(duthost, full_config)
+    load_minigraph_with_golden_empty_table_removal(duthost)

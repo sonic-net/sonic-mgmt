@@ -1,7 +1,9 @@
 import math
 
+
 class QosParamMellanox(object):
-    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, dualTor):
+    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile,
+                 ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, dualTor):
         self.asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
@@ -16,6 +18,11 @@ class QosParamMellanox(object):
             'spc3': {
                 'cell_size': 144,
                 'headroom_overhead': 64,
+                'private_headroom': 30
+            },
+            'spc4': {
+                'cell_size': 192,
+                'headroom_overhead': 47,
                 'private_headroom': 30
             }
         }
@@ -68,10 +75,12 @@ class QosParamMellanox(object):
 
         if self.sharedHeadroomPoolSize:
             headroom = xon + xoff
-            ingress_lossless_size = int(math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - xon
+            ingress_lossless_size = int(
+                math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - xon
         else:
             headroom = size
-            ingress_lossless_size = int(math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - headroom
+            ingress_lossless_size = int(
+                math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - headroom
         hysteresis = headroom - (xon + xoff)
 
         egress_lossy_size = int(math.ceil(float(self.egressLossyProfile['static_th']) / self.cell_size))
@@ -142,14 +151,15 @@ class QosParamMellanox(object):
             hdrm_pool_size['cell_size'] = self.cell_size
             hdrm_pool_size['margin'] = 3
         else:
-            self.qos_params_mlnx[self.speed_cable_len].pop('hdrm_pool_size')    
+            self.qos_params_mlnx[self.speed_cable_len].pop('hdrm_pool_size')
 
         xoff = {}
         xoff['pkts_num_trig_pfc'] = pkts_num_trig_pfc
         xoff['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         # One motivation of margin is to tolerance the deviation.
         # We need a larger margin on SPC2/3
-        xoff['pkts_num_margin'] = 3
+        xoff['pkts_num_margin'] = 4
+        xoff['cell_size'] = self.cell_size
         self.qos_params_mlnx[self.speed_cable_len]['xoff_1'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_2'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_3'].update(xoff)
@@ -160,6 +170,7 @@ class QosParamMellanox(object):
         xon['pkts_num_dismiss_pfc'] = pkts_num_dismiss_pfc + self.extra_margin
         xon['pkts_num_hysteresis'] = pkts_num_hysteresis + 16
         xon['pkts_num_margin'] = 3
+        xon['cell_size'] = self.cell_size
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
         self.qos_params_mlnx['xon_3'].update(xon)
@@ -185,11 +196,15 @@ class QosParamMellanox(object):
         lossy_queue = self.qos_params_mlnx['lossy_queue_1']
         lossy_queue['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp - 1
         lossy_queue['cell_size'] = self.cell_size
+        if self.asic_type == "spc4":
+            lossy_queue['packet_size'] = 600
 
         wm_shared_lossy = {}
         wm_shared_lossy['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         wm_shared_lossy['cell_size'] = self.cell_size
         wm_shared_lossy["pkts_num_margin"] = 3
+        if self.asic_type == "spc4":
+            wm_shared_lossy["packet_size"] = 600
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)

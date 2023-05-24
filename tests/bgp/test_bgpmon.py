@@ -6,11 +6,11 @@ from jinja2 import Template
 import ptf.packet as scapy
 from ptf.mask import Mask
 import json
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 pytestmark = [
@@ -19,8 +19,21 @@ pytestmark = [
 
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
+MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture
+def set_timeout_for_bgpmon(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
+    global MAX_TIME_FOR_BGPMON
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_bgpmon.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_TIME_FOR_BGPMON = plt_reboot_ctrl.get('timeout', 180)
 
 
 def get_default_route_ports(host, tbinfo):
@@ -31,7 +44,8 @@ def get_default_route_ports(host, tbinfo):
         if route['protocol'] != 'bgp':
             continue
         for itfs in route['nexthops']:
-            ports.append(itfs['interfaceName'])
+            if 'interfaceName' in itfs and '-IB' not in itfs['interfaceName']:
+                ports.append(itfs['interfaceName'])
     port_indices = []
     for port in ports:
         if 'PortChannel' in port:
@@ -42,8 +56,32 @@ def get_default_route_ports(host, tbinfo):
 
     return port_indices
 
+
 @pytest.fixture
-def common_setup_teardown(duthost, ptfhost, tbinfo):
+def dut_with_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    if tbinfo['topo']['type'] == 't2':
+        # For T2 setup, default route via eBGP is only advertised from T3 VM's which are connected to one of the
+        # linecards and not the other. So, can't use enum_rand_one_per_hwsku_frontend_hostname for T2.
+        dut_to_T3 = None
+        for a_dut in duthosts.frontend_nodes:
+            minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
+            minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+            for key, value in list(minigraph_neighbors.items()):
+                if 'T3' in value['name']:
+                    dut_to_T3 = a_dut
+                    break
+            if dut_to_T3:
+                break
+        if dut_to_T3 is None:
+            pytest.skip("Did not find any DUT in the DUTs (linecards) that are connected to T3 VM's")
+        return dut_to_T3
+    else:
+        return duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+
+@pytest.fixture
+def common_setup_teardown(dut_with_default_route,  tbinfo):
+    duthost = dut_with_default_route
     peer_addr = generate_ip_through_default_route(duthost)
     pytest_assert(peer_addr, "Failed to generate ip address for test")
     peer_addr = str(IPNetwork(peer_addr).ip)
@@ -64,8 +102,9 @@ def common_setup_teardown(duthost, ptfhost, tbinfo):
                  dest=BGPMON_CONFIG_FILE)
     yield local_addr, peer_addr, peer_ports, mg_facts['minigraph_bgp_asn']
     # Cleanup bgp monitor
-    duthost.shell("redis-cli -n 4 -c DEL 'BGP_MONITORS|{}'".format(peer_addr))
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr), asic_index='all')
     duthost.file(path=BGPMON_CONFIG_FILE, state='absent')
+
 
 def build_syn_pkt(local_addr, peer_addr):
     pkt = testutils.simple_tcp_packet(
@@ -102,15 +141,21 @@ def build_syn_pkt(local_addr, peer_addr):
     exp_packet.set_ignore_extra_bytes()
     return exp_packet
 
-def test_bgpmon(duthost, localhost, common_setup_teardown, ptfadapter, ptfhost):
+
+def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
+                common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
+
+    duthost = dut_with_default_route
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+
     def bgpmon_peer_connected(duthost, bgpmon_peer):
         try:
-            bgp_summary = json.loads(duthost.shell('vtysh -c "show bgp summary json"')['stdout'])
+            bgp_summary = json.loads(asichost.run_vtysh("-c 'show bgp summary json'")['stdout'])
             return bgp_summary['ipv4Unicast']['peers'][bgpmon_peer]["state"] == "Established"
-        except Exception as e:
+        except Exception:
             logger.info('Unable to get bgp status')
             return False
 
@@ -120,31 +165,32 @@ def test_bgpmon(duthost, localhost, common_setup_teardown, ptfadapter, ptfhost):
     ptfadapter.dataplane.flush()
     # Load bgp monitor config
     logger.info("Configured bgpmon and verifying packet on {}".format(peer_ports))
-    duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
+    asichost.write_to_config_db(BGPMON_CONFIG_FILE)
     # Verify syn packet on ptf
-    (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
-    #To establish the connection we set the PTF port that receive syn packet following properties
+    (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet,
+                                                                   ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
     # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) ,
     # add the neighbor entry and the default route for dut loopback
     ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
     res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_interface))
     original_mac = res['stdout']
-    ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, Ether(rcvd_pkt).dst))
+    ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, scapy.Ether(rcvd_pkt).dst))
     ptfhost.shell("ip add add %s dev %s" % (peer_addr + "/24", ptf_interface))
     ptfhost.exabgp(name=BGP_MONITOR_NAME,
-                       state="started",
-                       local_ip=peer_addr,
-                       router_id=peer_addr,
-                       peer_ip=local_addr,
-                       local_asn=asn,
-                       peer_asn=asn,
-                       port=BGP_MONITOR_PORT, passive=True)
+                   state="started",
+                   local_ip=peer_addr,
+                   router_id=peer_addr,
+                   peer_ip=local_addr,
+                   local_asn=asn,
+                   peer_asn=asn,
+                   port=BGP_MONITOR_PORT, passive=True)
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, duthost.facts["router_mac"], ptf_interface))
     ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
     try:
-        pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT),
+        pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
                       "Failed to start bgp monitor session on PTF")
-        pytest_assert(wait_until(180, 5, 0, bgpmon_peer_connected, duthost, peer_addr),"BGPMon Peer connection not established")
+        pytest_assert(wait_until(MAX_TIME_FOR_BGPMON, 5, 0, bgpmon_peer_connected, duthost, peer_addr),
+                      "BGPMon Peer connection not established")
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         ptfhost.shell("ip route del %s dev %s" % (local_addr + "/32", ptf_interface))
@@ -152,26 +198,30 @@ def test_bgpmon(duthost, localhost, common_setup_teardown, ptfadapter, ptfhost):
         ptfhost.shell("ip add del %s dev %s" % (peer_addr + "/24", ptf_interface))
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
 
-def test_bgpmon_no_resolve_via_default(duthost, common_setup_teardown, ptfadapter):
+
+def test_bgpmon_no_resolve_via_default(dut_with_default_route, enum_rand_one_frontend_asic_index,
+                                       common_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ip nht resolve-via-default' is disabled.
     """
+    duthost = dut_with_default_route
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     local_addr, peer_addr, peer_ports, asn = common_setup_teardown
     exp_packet = build_syn_pkt(local_addr, peer_addr)
     # Load bgp monitor config
-    logger.info("Configured bgpmon and verifying no packet on {} when resolve-via-default is disabled".format(peer_ports))
+    logger.info("Configured bgpmon and verifying no packet on {} when resolve-via-default is disabled"
+                .format(peer_ports))
     try:
         # Disable resolve-via-default
-        duthost.command("vtysh -c \"configure terminal\" \
-                        -c \"no ip nht resolve-via-default\"")
+        duthost.run_vtysh(" -c \"configure terminal\" -c \"no ip nht resolve-via-default\"", asic_index='all')
         # Flush dataplane
         ptfadapter.dataplane.flush()
-        duthost.command("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
+        asichost.write_to_config_db(BGPMON_CONFIG_FILE)
+
         # Verify no syn packet is received
-        pytest_assert(0 == testutils.count_matched_packets_all_ports(test=ptfadapter, exp_packet=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT),
-                     "Syn packets is captured when resolve-via-default is disabled")
+        pytest_assert(0 == testutils.count_matched_packets_all_ports(test=ptfadapter, exp_packet=exp_packet,
+                                                                     ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT),
+                      "Syn packets is captured when resolve-via-default is disabled")
     finally:
         # Re-enable resolve-via-default
-        duthost.command("vtysh -c \"configure terminal\" \
-                        -c \"ip nht resolve-via-default\"")
-
+        duthost.run_vtysh("-c \"configure terminal\" -c \"ip nht resolve-via-default\"", asic_index='all')

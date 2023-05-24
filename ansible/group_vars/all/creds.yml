@@ -10,11 +10,8 @@ junos_default_password:  ""
 junos_login: "root"
 junos_password: ""
 
-cisco_default_login: "root"
-cisco_default_password: ""
-cisco_login: "root"
-cisco_password: ""
-
+cisco_login: "admin"
+cisco_password: "password"
 
 sonic_login: "admin"
 sonic_default_passwords:
@@ -27,3 +24,7 @@ k8s_master_password: "use_own_value"
 
 ptf_host_user: root
 ptf_host_pass: root
+
+vm_host_user: use_own_value
+vm_host_password: use_own_value
+vm_host_become_password: use_own_value

@@ -1,5 +1,7 @@
 **PLEASE REFER TO intro.md FIRST BEFORE THIS DOCUMENT**
 
+* refer to [containers/README.md](../containers/README.md) for ready to use conteinerized spytest environment.
+
 * Prerequisites for executing SpyTest
     * Server/Laptop or VM running Red Hat or Ubuntu with minimum 10GB HDD.
       We have tested on Red Hat 4.4.7-9 and Ubuntu 16.04.10
@@ -44,13 +46,17 @@
         * Please contact Ixia and STC to get the required APIs for these libraries
     * The exact files used for validating SPyTest are:
         * [IxNetwork 8.42](http://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/IxNetworkAPI8.42.1250.2Linux64.bin.tgz)
+        * [IxNetwork 9.20u2](https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.20-Update2/IxNetworkAPI9.20.2201.71Linux64.bin.tgz)
         * [STC 4.91](https://support.spirent.com/SpirentCSC/SpirentDownloadsAppPage?rid=10492)
     * Once installed, create symbolic links so that folder structure looks same as given in
         [SPYTEST-ROOT]/bin/tgen_folders.txt
     * IxOS TCL libraries need to be installed before installing the IxNetwork libraries
     * SPyTest needs IxNetwork to installed on an intermediate server/VM
-        * The exact file used for validating SPyTest is:  [IxNetwork 8.42](http://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/IxNetwork8.42EA.exe)
+        * The exact file used for validating SPyTest is:  
+            * [IxNetwork 8.42](http://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/IxNetwork8.42EA.exe)
+            * [IxNetwork 9.20u2](https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.20-Update2/IxNetwork-9.20-Update(2)-IxNetworkUpdates.exe)
+            * or any other [IxNetwork] https://support.ixiacom.com/ixnetwork-software-downloads-documentation should work
     * The IxNetwork Server IP address needs to be given in testbed file as "ix_server"
     * The IxNetwork API Server needs to be launched before launching SPyTest
-    * For Scapy traffic generator refer to [README.testbed.Setup.md](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Setup.md)
+    * For Scapy traffic generator refer to [README.testbed.Setup.md](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Setup.md)
 

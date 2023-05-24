@@ -1,7 +1,8 @@
 t0:
-  - arp/test_arp_dualtor.py
+  - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
+  - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved
   - bgp/test_bgp_speaker.py
@@ -10,9 +11,9 @@ t0:
   - container_checker/test_container_checker.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
-  - cacl/test_ebtables_application.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
+  - dns/test_dns_resolv_conf.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_bgp_prefix.py
@@ -27,13 +28,16 @@ t0:
   - generic_config_updater/test_portchannel_interface.py
   - generic_config_updater/test_syslog.py
   - generic_config_updater/test_vlan_interface.py
+  - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
+  - generic_config_updater/test_ecn_config_update.py
   - iface_namingmode/test_iface_namingmode.py
   - lldp/test_lldp.py
   - monit/test_monit_status.py
   - ntp/test_ntp.py
+  - override_config_table/test_override_config_table.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
-  - platform_tests/test_advanced_reboot.py::test_warm_reboot
+#  - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - radv/test_radv_ipv6_ra.py
@@ -61,6 +65,7 @@ t0:
   - test_features.py
   - test_interfaces.py
   - test_procdockerstatsd.py
+  - database/test_db_scripts.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -68,10 +73,14 @@ t0-2vlans:
 
 t0-sonic:
   - bgp/test_bgp_fact.py
-  - macsec/test_macsec.py
+  - macsec/test_controlplane.py
+  - macsec/test_dataplane.py
+  - macsec/test_deployment.py
+  - macsec/test_fault_handling.py
+  - macsec/test_interop_protocol.py
 
 dualtor:
-  - arp/test_arp_dualtor.py
+  - arp/test_arp_extended.py
 
 t1-lag:
   - bgp/test_bgp_allow_list.py
@@ -84,10 +93,12 @@ t1-lag:
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
   - container_checker/test_container_checker.py
+  - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - http/test_http_copy.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
   - monit/test_monit_status.py
+  - override_config_table/test_override_config_table.py
   - pc/test_lag_2.py
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
@@ -96,7 +107,9 @@ t1-lag:
   - test_interfaces.py
 
 multi-asic-t1-lag:
+  - bgp/test_bgp_bbr.py
   - bgp/test_bgp_fact.py
+  - bgp/test_bgp_update_timer.py
   - snmp/test_snmp_default_route.py
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
@@ -104,13 +117,34 @@ multi-asic-t1-lag:
   - tacacs/test_accounting.py
   - tacacs/test_authorization.py
   - tacacs/test_jit_user.py
-  - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-
-multi-asic-t1-lag-pr:
-  - bgp/test_bgp_fact.py
+  - cacl/test_cacl_function.py
+  - monit/test_monit_status.py
+  - iface_namingmode/test_iface_namingmode.py
+  - scp/test_scp_copy.py
+  - test_interfaces.py
+  - process_monitoring/test_critical_process_monitoring.py
+  - container_checker/test_container_checker.py
+  - http/test_http_copy.py
 
 t2:
   - test_vs_chassis_setup.py
   - voq/test_voq_init.py
+
+wan-pub:
+  - system_health/test_system_status.py
+  - snmp/test_snmp_cpu.py
+  - snmp/test_snmp_interfaces.py
+  - snmp/test_snmp_lldp.py
+  - snmp/test_snmp_pfc_counters.py
+  - snmp/test_snmp_queue.py
+  - snmp/test_snmp_v2mib.py
+  - arp/test_arpall.py
+  - telemetry/test_telemetry.py
+  - tacacs/test_jit_user.py
+  - tacacs/test_ro_user.py
+  - tacacs/test_rw_user.py
+  - tacacs/test_ro_disk.py
+  - tacacs/test_authorization.py
+  - tacacs/test_accounting.py

@@ -3,7 +3,6 @@ to support automation activities. These functions are used for various
 secondary activities like convert the ansible Unicode STDOUT output
 to string, get IP address in a subnet, increment an IP address, get
 VLAN subnet etc.
-
 This file is also a placeholder for auxiliary function that are
 required for supporting automation with Snappi devices in future:
 like collecting diagnostics, uploading and downloading files
@@ -17,14 +16,13 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 
+
 def increment_ip_address(ip, incr=1):
     """
     Increment IP address by an integer number.
-
     Args:
        ip (str): IP address in string format.
        incr (int): Increment by the specified number.
-
     Return:
        IP address in the argument incremented by the given integer.
     """
@@ -38,10 +36,8 @@ def ansible_stdout_to_str(ansible_stdout):
     """
     The stdout of Ansible host is essentially a list of unicode characters.
     This function converts it to a string.
-
     Args:
         ansible_stdout: stdout of Ansible
-
     Returns:
         Return a string
     """
@@ -54,10 +50,8 @@ def ansible_stdout_to_str(ansible_stdout):
 def get_vlan_subnet(host_ans):
     """
     Get VLAN subnet of a T0 device
-
     Args:
         host_ans: Ansible host instance of the device
-
     Returns:
         VLAN subnet, e.g., "192.168.1.1/24" where 192.168.1.1 is gateway
         and 24 is prefix length
@@ -66,7 +60,7 @@ def get_vlan_subnet(host_ans):
     mg_vlans = mg_facts['minigraph_vlans']
 
     if len(mg_vlans) != 1:
-        print 'There should be only one Vlan at the DUT'
+        print('There should be only one Vlan at the DUT')
         return None
 
     mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
@@ -78,37 +72,87 @@ def get_vlan_subnet(host_ans):
 def get_egress_lossless_buffer_size(host_ans):
     """
     Get egress lossless buffer size of a switch
-
     Args:
         host_ans: Ansible host instance of the device
-
     Returns:
         total switch buffer size in byte (int)
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "BUFFER_POOL" not in config_facts.keys():
+    if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
     profile_name = 'egress_lossless_pool'
 
-    if profile_name not in buffer_pools.keys():
+    if profile_name not in list(buffer_pools.keys()):
         return None
 
     egress_lossless_pool = buffer_pools[profile_name]
     return int(egress_lossless_pool['size'])
 
 
+def get_lossless_buffer_size(host_ans):
+    """
+    Get egress lossless buffer size of a switch, unless an 8102 switch,
+    in which case, get the ingress lossless buffer size
+    Args:
+        host_ans: Ansible host instance of the device
+    Returns:
+        total switch buffer size in byte (int)
+    """
+    config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                         source="running")['ansible_facts']
+    is_cisco_8102 = True if ('Cisco' or 'cisco') and '8102' in host_ans.facts['platform'] else False
+
+    if "BUFFER_POOL" not in list(config_facts.keys()):
+        return None
+
+    buffer_pools = config_facts['BUFFER_POOL']
+    profile_name = 'ingress_lossless_pool' if is_cisco_8102 else 'egress_lossless_pool'
+
+    if profile_name not in list(buffer_pools.keys()):
+        return None
+
+    lossless_pool = buffer_pools[profile_name]
+    return int(lossless_pool['size'])
+
+
+def get_pg_dropped_packets(duthost, phys_intf, prio):
+    """
+    Get number of ingress packets dropped on a specific priority
+    of a physical interface
+    Args:
+        host_ans: Ansible host instance of the device
+        phys_intf (str): Name of physical interface ex. Ethernet4
+        prio (int): Priority group to check ex. 4
+    Returns:
+        total number of dropped packets (int)
+    """
+    oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    oid_out = duthost.command(oid_cmd)
+    oid_str = str(oid_out["stdout_lines"][0] or 1)
+
+    if oid_str == "1":
+        return None
+
+    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    out = duthost.command(cmd)
+    dropped_packets = int(out["stdout_lines"][0] or -1)
+
+    if dropped_packets == -1:
+        return None
+
+    return dropped_packets
+
+
 def get_addrs_in_subnet(subnet, number_of_ip):
     """
     Get N IP addresses in a subnet.
-
     Args:
         subnet (str): IPv4 subnet, e.g., '192.168.1.1/24'
         number_of_ip (int): Number of IP addresses to get
-
     Return:
         Return n IPv4 addresses in this subnet in a list.
     """
@@ -128,11 +172,9 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     """
     Get the Snappi chassis connected to the DUT
     Note that a DUT can only be connected to a Snappi chassis
-
     Args:
         conn_data (dict): the dictionary returned by conn_graph_fact.
         Example format of the conn_data is given below:
-
         {u'device_conn': {u'sonic-s6100-dut':
                         {u'Ethernet64': {u'peerdevice': u'snappi-sonic',
                                         u'peerport': u'Card4/Port1',
@@ -169,9 +211,7 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
         u'device_vlan_list': {u'sonic-s6100-dut': [2, 2, 2, 2]},
         u'device_vlan_map_list': {u'sonic-s6100-dut': {u'19': 2}},
         u'device_vlan_range': {u'sonic-s6100-dut': [u'2']}}
-
         dut_hostname (str): hostname of the DUT
-
     Returns:
         The name of the peer Snappi chassis or None
     """
@@ -193,11 +233,9 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
 def get_peer_port(conn_data, dut_hostname, dut_intf):
     """
     Get the peer port of the DUT port
-
     Args:
         conn_data (dict): the dictionary returned by conn_graph_fact.
         Example format of the conn_data is given below:
-
         {u'device_conn': {u'sonic-s6100-dut':
                         {u'Ethernet64': {u'peerdevice': u'snappi-sonic',
                                         u'peerport': u'Card4/Port1',
@@ -234,10 +272,8 @@ def get_peer_port(conn_data, dut_hostname, dut_intf):
         u'device_vlan_list': {u'sonic-s6100-dut': [2, 2, 2, 2]},
         u'device_vlan_map_list': {u'sonic-s6100-dut': {u'19': 2}},
         u'device_vlan_range': {u'sonic-s6100-dut': [u'2']}}
-
         dut_hostname (str): hostname of the DUT
         dut_intf (str): name of DUT interface
-
     Returns:
         The name of the peer port or None
     """
@@ -255,11 +291,9 @@ def get_peer_port(conn_data, dut_hostname, dut_intf):
 def get_dut_intfs(conn_data, dut_hostname):
     """
     Get DUT's interfaces
-
     Args:
         conn_data (dict): the dictionary returned by conn_graph_fact.
         Example format of the conn_data is given below:
-
         {u'device_conn': {u'sonic-s6100-dut':
                         {u'Ethernet64': {u'peerdevice': u'snappi-sonic',
                                         u'peerport': u'Card4/Port1',
@@ -296,9 +330,7 @@ def get_dut_intfs(conn_data, dut_hostname):
         u'device_vlan_list': {u'sonic-s6100-dut': [2, 2, 2, 2]},
         u'device_vlan_map_list': {u'sonic-s6100-dut': {u'19': 2}},
         u'device_vlan_range': {u'sonic-s6100-dut': [u'2']}}
-
         dut_hostname (str): hostname of the DUT
-
     Returns:
         Return the list of interface names
     """
@@ -314,10 +346,8 @@ def get_dut_intfs(conn_data, dut_hostname):
 def pfc_class_enable_vector(prio_list):
     """
     Calculate class-enable vector field in PFC PAUSE frames
-
     Args:
         prio_list (list): list of priorities to pause, e.g., [3, 4]
-
     Returns:
         Return class-enable vector
     """
@@ -332,14 +362,11 @@ def pfc_class_enable_vector(prio_list):
 def get_wred_profiles(host_ans):
     """
     Get all the WRED/ECN profiles of a SONiC switch
-
     Args:
         host_ans: Ansible host instance of the device
-
     Returns:
         WRED/ECN profiles (dictionary) or None.
         Example format is given below:
-
         {
             u'AZURE_LOSSLESS': {
                 u'ecn': u'ecn_all',
@@ -361,7 +388,7 @@ def get_wred_profiles(host_ans):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "WRED_PROFILE" in config_facts.keys():
+    if "WRED_PROFILE" in list(config_facts.keys()):
         return config_facts['WRED_PROFILE']
     else:
         return None
@@ -370,14 +397,12 @@ def get_wred_profiles(host_ans):
 def config_wred(host_ans, kmin, kmax, pmax, profile=None):
     """
     Config a WRED/ECN profile of a SONiC switch
-
     Args:
         host_ans: Ansible host instance of the device
         kmin (int): RED/ECN minimum threshold in bytes
         kmax (int): RED/ECN maximum threshold in bytes
         pmax (int): RED/ECN maximum marking probability in percentage
         profile (str): name of profile to configure (None means any profile)
-
     Returns:
         If configuration succeeds (bool)
     """
@@ -425,11 +450,9 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None):
 def enable_ecn(host_ans, prio):
     """
     Enable ECN marking on a priority
-
     Args:
         host_ans: Ansible host instance of the device
         prio (int): priority
-
     Returns:
         N/A
     """
@@ -439,11 +462,9 @@ def enable_ecn(host_ans, prio):
 def disable_ecn(host_ans, prio):
     """
     Disable ECN marking on a priority
-
     Args:
         host_ans: Ansible host instance of the device
         prio (int): priority
-
     Returns:
         N/A
     """
@@ -453,12 +474,10 @@ def disable_ecn(host_ans, prio):
 def config_buffer_alpha(host_ans, profile, alpha_log2):
     """
     Configure buffer threshold (a.k.a., alpha)
-
     Args:
         host_ans: Ansible host instance of the device
         profile (str): buffer profile name
         alpha_log2 (int): set threshold to 2^alpha_log2
-
     Returns:
         N/A
     """
@@ -468,11 +487,9 @@ def config_buffer_alpha(host_ans, profile, alpha_log2):
 def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     """
     Configure ingress buffer thresholds (a.k.a., alpha) of a device to 2^alpha_log2
-
     Args:
         host_ans: Ansible host instance of the device
         alpha_log2 (int): set threshold to 2^alpha_log2
-
     Returns:
         If configuration succeeds (bool)
     """
@@ -482,7 +499,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "BUFFER_PROFILE" not in config_facts.keys():
+    if "BUFFER_PROFILE" not in list(config_facts.keys()):
         return False
 
     buffer_profiles = config_facts['BUFFER_PROFILE']
@@ -509,19 +526,17 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
 def get_pfcwd_config_attr(host_ans, config_scope, attr):
     """
     Get PFC watchdog configuration attribute
-
     Args:
         host_ans: Ansible host instance of the device
         config_scope (str): 'GLOBAL' or interface name
         attr (str): config attribute name, e.g., 'detection_time'
-
     Returns:
         config attribute (str) or None
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if 'PFC_WD' not in config_facts.keys():
+    if 'PFC_WD' not in list(config_facts.keys()):
         return None
 
     pfcwd_config = config_facts['PFC_WD']
@@ -538,10 +553,8 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
 def get_pfcwd_poll_interval(host_ans):
     """
     Get PFC watchdog polling interval
-
     Args:
         host_ans: Ansible host instance of the device
-
     Returns:
         Polling interval in ms (int) or None
     """
@@ -558,11 +571,9 @@ def get_pfcwd_poll_interval(host_ans):
 def get_pfcwd_detect_time(host_ans, intf):
     """
     Get PFC watchdog detection time of a given interface
-
     Args:
         host_ans: Ansible host instance of the device
         intf (str): interface name
-
     Returns:
         Detection time in ms (int) or None
     """
@@ -579,11 +590,9 @@ def get_pfcwd_detect_time(host_ans, intf):
 def get_pfcwd_restore_time(host_ans, intf):
     """
     Get PFC watchdog restoration time of a given interface
-
     Args:
         host_ans: Ansible host instance of the device
         intf (str): interface name
-
     Returns:
         Restoration time in ms (int) or None
     """
@@ -600,10 +609,8 @@ def get_pfcwd_restore_time(host_ans, intf):
 def start_pfcwd(duthost):
     """
     Start PFC watchdog with default setting
-
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
-
     Returns:
         N/A
     """
@@ -613,10 +620,8 @@ def start_pfcwd(duthost):
 def stop_pfcwd(duthost):
     """
     Stop PFC watchdog
-
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
-
     Returns:
         N/A
     """
@@ -626,10 +631,8 @@ def stop_pfcwd(duthost):
 def disable_packet_aging(duthost):
     """
     Disable packet aging feature (only on MLNX switches)
-
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
-
     Returns:
         N/A
     """
@@ -643,10 +646,8 @@ def disable_packet_aging(duthost):
 def enable_packet_aging(duthost):
     """
     Enable packet aging feature (only on MLNX switches)
-
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
-
     Returns:
         N/A
     """
@@ -655,6 +656,7 @@ def enable_packet_aging(duthost):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
 
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
     """
@@ -667,7 +669,7 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
     """
 
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
-    subnet = unicode(subnet, "utf-8")
+    subnet = subnet.encode().decode("utf-8")
     ipv6_list = []
     for i in range(number_of_ip):
         network = IPv6Network(subnet)
@@ -677,3 +679,29 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
         ipv6_list.append(str(address))
 
     return ipv6_list
+
+
+def sec_to_nanosec(secs):
+    """ Convert seconds to nanoseconds """
+    return secs * 1e9
+
+
+def get_pfc_frame_count(duthost, port, priority, is_tx=False):
+    """
+    Get the PFC frame count for a given port and priority from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        priority (int): priority of flow
+        is_tx (bool): if the PFC pause frame count is for Tx or Rx
+    Returns:
+        int: PFC pause frame count
+    """
+    if is_tx:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {}".format(port))['stdout']
+    else:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep {}".format(port))['stdout']
+
+    pause_frame_count = raw_out.split()[priority + 1]
+
+    return int(pause_frame_count.replace(',', ''))

@@ -1,10 +1,10 @@
 import logging
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # lgtm[py/unused-import]
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 from tests.common.utilities import str2bool
@@ -32,6 +32,7 @@ def pytest_addoption(parser):
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
 
+
 @pytest.fixture(scope="module")
 def two_queues(request):
     """
@@ -41,7 +42,7 @@ def two_queues(request):
     Args:
         request: pytest request object
         duthosts: AnsibleHost instance for multi DUT
-        rand_one_dut_hostname: hostname of DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
 
     Returns:
         two_queues: False/True
@@ -50,19 +51,19 @@ def two_queues(request):
 
 
 @pytest.fixture(scope="module")
-def fake_storm(request, duthosts, rand_one_dut_hostname):
+def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Enable/disable fake storm based on platform and input parameters
 
     Args:
         request: pytest request object
         duthosts: AnsibleHost instance for multi DUT
-        rand_one_dut_hostname: hostname of DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
 
     Returns:
         fake_storm: False/True
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 
@@ -73,7 +74,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
     """
     ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces(tbinfo)
     port_list = []
-    for iface in ip_ifaces.keys():
+    for iface in list(ip_ifaces.keys()):
         if iface.startswith("PortChannel"):
             port_list.extend(
                 mg_facts["minigraph_portchannels"][iface]["members"]
@@ -81,7 +82,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
         else:
             port_list.append(iface)
     port_list_set = set(port_list)
-    for port in test_ports.keys():
+    for port in list(test_ports.keys()):
         if port not in port_list_set:
             del test_ports[port]
     return test_ports
@@ -89,7 +90,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(
-    duthosts, rand_one_dut_hostname, ptfhost, conn_graph_facts, tbinfo,
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
     enum_frontend_asic_index
 ):
     """
@@ -103,21 +104,37 @@ def setup_pfc_test(
     Yields:
         setup_info: dictionary containing pfc timers, generated test ports and selected test ports
     """
-    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag"}
-    duthost = duthosts[rand_one_dut_hostname]
+    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag"}
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    port_list = mg_facts['minigraph_ports'].keys()
-    ports = (' ').join(port_list)
+    port_list = list(mg_facts['minigraph_ports'].keys())
     neighbors = conn_graph_facts['device_conn'][duthost.hostname]
     dut_eth0_ip = duthost.mgmt_ip
     vlan_nw = None
 
     if mg_facts['minigraph_vlans']:
+        # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+        unexpected_vlans = []
+        for vlan, vlan_data in list(mg_facts['minigraph_vlans'].items()):
+            if len(vlan_data['members']) < 2:
+                unexpected_vlans.append(vlan)
+
+        # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+        expected_vlan_ifaces = []
+        for vlan in unexpected_vlans:
+            for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+                if vlan != mg_vl_iface['attachto']:
+                    expected_vlan_ifaces.append(mg_vl_iface)
+        if expected_vlan_ifaces:
+            mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
         # gather all vlan specific info
         vlan_addr = mg_facts['minigraph_vlan_interfaces'][0]['addr']
         vlan_prefix = mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
         vlan_dev = mg_facts['minigraph_vlan_interfaces'][0]['attachto']
-        vlan_ips = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix), exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
+        vlan_ips = duthost.get_ip_in_range(
+            num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
+            exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
 
     # build the port list for the test
@@ -134,19 +151,19 @@ def setup_pfc_test(
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
-    setup_info = { 'test_ports': test_ports,
-                   'port_list': port_list,
-                   'selected_test_ports': selected_ports,
-                   'pfc_timers' : set_pfc_timers(),
-                   'neighbors': neighbors,
-                   'eth0_ip': dut_eth0_ip
+    setup_info = {'test_ports': test_ports,
+                  'port_list': port_list,
+                  'selected_test_ports': selected_ports,
+                  'pfc_timers': set_pfc_timers(),
+                  'neighbors': neighbors,
+                  'eth0_ip': dut_eth0_ip
                   }
 
     if mg_facts['minigraph_vlans']:
         setup_info['vlan'] = {'addr': vlan_addr,
                               'prefix': vlan_prefix,
                               'dev': vlan_dev
-                             }
+                              }
     else:
         setup_info['vlan'] = None
 

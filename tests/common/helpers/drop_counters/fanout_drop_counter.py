@@ -49,7 +49,7 @@ class FanoutOnyxDropCounter(FanoutDropCounter):
 
     def _get_trunk_port_to_server(self):
         fanout_trunk_port = None
-        for iface, iface_info in self.fanout_graph_facts[self.onyx_switch.hostname][DEVICE_PORT_VLANS].items():
+        for iface, iface_info in list(self.fanout_graph_facts[self.onyx_switch.hostname][DEVICE_PORT_VLANS].items()):
             if iface_info[MODE] == TRUNK:
                 fanout_trunk_port = '/'.join(iface.split('/')[1:])
                 break
@@ -65,7 +65,7 @@ class FanoutOnyxDropCounter(FanoutDropCounter):
 
     @staticmethod
     def _get_openflow_port_id_from_show_openflow(show_openflow, port):
-        regexp = 'Eth1/{}\s*OF-(\d+)'.format(port)
+        regexp = r'Eth1/{}\s*OF-(\d+)'.format(port)
         match = re.search(regexp, show_openflow)
         if match:
             return match.group(1)

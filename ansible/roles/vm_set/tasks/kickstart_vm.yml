@@ -4,6 +4,10 @@
   when: respin_vms is not defined
 
 - set_fact:
+    disable_updategraph: False
+  when: disable_updategraph is not defined
+
+- set_fact:
     skip_this_vm: True
 
 - set_fact:
@@ -61,6 +65,7 @@
               mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
               new_password={{ sonic_password }}
               num_asic={{ num_asic }}
+              disable_updategraph={{ disable_updategraph }}
     register: kickstart_output
     until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
     retries: 5
@@ -92,6 +97,7 @@
               mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
               new_password={{ sonic_password }}
               num_asic={{ num_asic }}
+              disable_updategraph={{ disable_updategraph }}
     register: kickstart_output_final
     until: '"kickstart_code" in kickstart_output_final and kickstart_output_final.kickstart_code == 0'
     retries: 5
@@ -110,3 +116,81 @@
     when: autostart|bool == true
 
   when: not skip_this_vm and (vm_type | lower) == "vsonic"
+
+- block:
+  - name: Wait until vm {{ vm_name }} is loaded
+    cisco_kickstart: telnet_port={{ serial_port }}
+              login={{ cisco_login }}
+              password={{ cisco_password }}
+              hostname={{ hostname }}
+              mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+    register: kickstart_output
+    until: '"kickstart_code" in kickstart_output and (kickstart_output.kickstart_code == 0 or kickstart_output.kickstart_code != -1)'
+    retries: 5
+    delay: 10
+    when: vm_name not in vm_list_running.list_vms
+
+  # for cisco vm, after destroy/start vm, vm will have existing configuration (which is conflict with cisco_kickstart procedure), need to respin vm
+  - name: Respin vm {{ vm_name }}
+    include_tasks: respin_cisco_vm.yml
+    vars:
+      src_disk_image: "{{ root_path }}/images/{{ cisco_image_filename }}"
+      disk_image: "{{ root_path }}/disks/{{ vm_name }}.img"
+    when: vm_name in respin_vms
+
+  - name: Set cisco vm host
+    set_fact:
+      cisco_vmhost: "cisco_{{ vm_name }}"
+
+  - name: Add cisco vm host
+    add_host:
+      hostname: "{{ cisco_vmhost }}"
+      ansible_user: "{{ cisco_login }}"
+      ansible_ssh_host: "{{ mgmt_ip_address }}"
+      ansible_ssh_pass: "{{ cisco_password }}"
+      groups:
+        - cisco_vmhost
+
+  - name: Check cisco {{ vm_name }} reachablity
+    iosxr_command:
+      commands: show version
+      wait_for: result[0] contains IOS-XR
+    vars:
+      - ansible_connection: 'network_cli'
+      - ansible_network_os: 'iosxr'
+    register: version
+    delegate_to: "{{ cisco_vmhost }}"
+    ignore_errors: yes
+
+  - block:
+    - name: Respin failed vm {{ vm_name }}
+      include_tasks: respin_cisco_vm.yml
+      vars:
+        src_disk_image: "{{ root_path }}/images/{{ cisco_image_filename }}"
+        disk_image: "{{ root_path }}/disks/{{ vm_name }}.img"
+
+    - name: Check failed cisco {{ vm_name }} reachablity
+      iosxr_command:
+        commands: show version
+        wait_for: result[0] contains IOS-XR
+      vars:
+        - ansible_connection: 'network_cli'
+        - ansible_network_os: 'iosxr'
+      register: respin_version
+      delegate_to: "{{ cisco_vmhost }}"
+      ignore_errors: yes
+
+    when: version['stdout'] is not defined
+
+  - name: Kickstart gives error after respin vm {{ vm_name }}
+    set_fact:
+      kickstart_failed_vms: "{{ kickstart_failed_vms + [vm_name] }}"
+    when: version['stdout'] is not defined and respin_version ['stdout'] is not defined
+
+  - name: Set VM to autostart
+    command: "virsh autostart {{ vm_name }}"
+    become: yes
+    when: autostart|bool == true
+
+  when: (vm_type | lower) == "vcisco"

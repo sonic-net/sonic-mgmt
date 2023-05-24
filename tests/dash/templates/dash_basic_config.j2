@@ -1,0 +1,68 @@
+[
+        {
+                "DASH_APPLIANCE_TABLE:123" : {
+                        "sip":"{{ loopback_ip }}",
+                        "vm_vni":"{{ vm_vni }}"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_VNET_TABLE:Vnet1" : {
+                        "vni":"{{ vnet1_vni }}",
+                        "guid":"559c6ce8-26ab-4193-b946-ccc6e8f930b2"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_VNET_TABLE:Vnet2" : {
+                        "vni":"{{ vnet2_vni }}",
+                        "guid":"659c6ce8-26ab-4193-b946-ccc6e8f930b2"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_VNET_MAPPING_TABLE:Vnet2:{{ remote_ca_ip }}" : {
+                        "routing_type":"vnet_encap",
+                        "underlay_ip":"{{ remote_pa_ip }}",
+                        "mac_address":"{{ remote_eni_mac }}",
+                        "use_dst_vni":"true"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_QOS_TABLE:qos100" : {
+                        "qos_id":"100",
+                        "bw":"10000",
+                        "cps":"1000",
+                        "flows":"10"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ENI_TABLE:{{ eni }}" : {
+                        "eni_id":"497f23d7-f0ac-4c99-a98f-59b470e8c7bd",
+                        "mac_address":"{{ local_eni_mac }}",
+                        "underlay_ip":"{{ local_pa_ip }}",
+                        "admin_state":"enabled",
+                        "vnet":"Vnet1",
+                        "qos":"qos100"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ROUTE_TABLE:{{ eni }}:{{ remote_ca_prefix }}" : {
+                        "action_type":"vnet",
+                        "vnet":"Vnet2"
+                },
+                "OP": "{{ op }}"
+        },
+        {
+                "DASH_ROUTE_RULE_TABLE:{{ eni }}:{{ vnet2_vni }}:{{ remote_pa_prefix }}" : {
+                        "action_type":"decap",
+			"priority":"1",
+			"pa_validation":"true",
+                        "vnet":"Vnet2"
+                },
+                "OP": "{{ op }}"
+        }
+]

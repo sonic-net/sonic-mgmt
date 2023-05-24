@@ -1,5 +1,8 @@
 import pytest
 
+from .macsec_helper import check_appl_db
+from tests.common.utilities import wait_until
+
 
 def pytest_configure(config):
     config.addinivalue_line(
@@ -52,3 +55,8 @@ def send_sci(macsec_profile):
 @pytest.fixture(scope="module")
 def rekey_period(macsec_profile):
     return macsec_profile['rekey_period']
+
+
+@pytest.fixture(scope="module")
+def wait_mka_establish(duthost, ctrl_links, policy, cipher_suite, send_sci):
+    assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)

@@ -24,16 +24,21 @@ import logging
 import pytest
 import time
 import json
+import re
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import dualtor_ports             # lgtm[py/unused-import]
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts     # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps, \
+    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
+from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
-from qos_sai_base import QosSaiBase
+from .qos_sai_base import QosSaiBase
+from tests.common.cisco_data import get_markings_dut, setup_markings_dut
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +48,20 @@ pytestmark = [
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
+
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(rand_one_dut_hostname, loganalyzer):
-    """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_attribute:1920 updating switch mac addr failed with error -2"""
+def ignore_expected_loganalyzer_exception(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """
+    ignore the syslog ERR syncd0#syncd:
+    [03:00.0] brcm_sai_set_switch_attribute:1920 updating switch mac addr failed with error -2
+    """
     ignore_regex = [
-            ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
+        ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
     ]
     if loganalyzer:
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignore_regex)
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(
+            ignore_regex)
+
 
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
@@ -67,14 +78,95 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-D108C8',
         'Force10-S6100',
         'Arista-7260CX3-Q64',
-        'Arista-7050CX3-32S-C32'
+        'Arista-7050CX3-32S-C32',
+        'Arista-7050CX3-32S-D48C8'
     ]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
+    def replaceNonExistentPortId(self, availablePortIds, portIds):
+        '''
+        if port id of availablePortIds/dst_port_ids is not existing in availablePortIds
+        replace it with correct one, make sure all port id is valid
+        e.g.
+            Given below parameter:
+                availablePortIds: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26,
+                                   28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
+                portIds: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            get result:
+                portIds: [0, 2, 16, 4, 18, 6, 20, 8, 22]
+        '''
+        if len(portIds) > len(availablePortIds):
+            logger.info('no enough ports for test')
+            return False
+
+        # cache available as free port pool
+        freePorts = [pid for pid in availablePortIds]
+
+        # record invaild port
+        # and remove valid port from free port pool
+        invalid = []
+        for idx, pid in enumerate(portIds):
+            if pid not in freePorts:
+                invalid.append(idx)
+            else:
+                freePorts.remove(pid)
+
+        # replace invalid port from free port pool
+        for idx in invalid:
+            portIds[idx] = freePorts.pop(0)
+
+        return True
+
+    def updateTestPortIdIp(self, dutConfig, qosParams=None):
+
+        portIdNames = []
+        portIds = []
+        for idName in dutConfig["testPorts"]:
+            if re.match(r'(?:src|dst)_port\S+id', idName):
+                portIdNames.append(idName)
+                ipName = idName.replace('id', 'ip')
+                pytest_assert(
+                    ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
+                portIds.append(dutConfig["testPorts"][idName])
+        pytest_assert(self.replaceNonExistentPortId(
+            dutConfig["testPortIds"], portIds), "No enough test ports")
+        for idx, idName in enumerate(portIdNames):
+            dutConfig["testPorts"][idName] = portIds[idx]
+            ipName = idName.replace('id', 'ip')
+            dutConfig["testPorts"][ipName] = dutConfig["testPortIps"][portIds[idx]]['peer_addr']
+
+        if qosParams is not None:
+            portIdNames = []
+            portNumbers = []
+            portIds = []
+            for idName in list(qosParams.keys()):
+                if re.match(r'(?:src|dst)_port\S+ids?', idName):
+                    portIdNames.append(idName)
+                    ids = qosParams[idName]
+                    if isinstance(ids, list):
+                        portIds += ids
+                        # if it's port list, record number of pots
+                        portNumbers.append(len(ids))
+                    else:
+                        portIds.append(ids)
+                        # record None to indicate it's just one port
+                        portNumbers.append(None)
+            pytest_assert(self.replaceNonExistentPortId(
+                dutConfig["testPortIds"], portIds), "No enough test ports")
+            startPos = 0
+            for idx, idName in enumerate(portIdNames):
+                if portNumbers[idx] is not None:    # port list
+                    qosParams[idName] = [
+                        portId for portId in portIds[startPos:startPos + portNumbers[idx]]]
+                    startPos += portNumbers[idx]
+                else:   # not list, just one port
+                    qosParams[idName] = portIds[startPos]
+                    startPos += 1
+
     def testParameter(
         self, duthost, dutConfig, dutQosConfig, ingressLosslessProfile,
-        ingressLossyProfile, egressLosslessProfile, dualtor_ports
+        ingressLossyProfile, egressLosslessProfile, dualtor_ports           # noqa F811
     ):
         logger.info("asictype {}".format(duthost.facts["asic_type"]))
         logger.info("config {}".format(dutConfig))
@@ -106,14 +198,18 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         normal_profile = ["xoff_1", "xoff_2"]
-        if not dutConfig["dualTor"] and not xoffProfile in normal_profile:
-            pytest.skip("Additional DSCPs are not supported on non-dual ToR ports")
+        if not dutConfig["dualTor"] and xoffProfile not in normal_profile:
+            pytest.skip(
+                "Additional DSCPs are not supported on non-dual ToR ports")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        self.updateTestPortIdIp(dutConfig)
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -130,17 +226,25 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[xoffProfile]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
-        if "pkts_num_egr_mem" in qosConfig.keys():
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        if "pkts_num_margin" in qosConfig[xoffProfile].keys():
+        if "pkts_num_margin" in list(qosConfig[xoffProfile].keys()):
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
 
-        if "packet_size" in qosConfig[xoffProfile].keys():
+        if "packet_size" in list(qosConfig[xoffProfile].keys()):
             testParams["packet_size"] = qosConfig[xoffProfile]["packet_size"]
+
+        if 'cell_size' in list(qosConfig[xoffProfile].keys()):
+            testParams["cell_size"] = qosConfig[xoffProfile]["cell_size"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCtest", testParams=testParams
@@ -148,12 +252,12 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testPfcStormWithSharedHeadroomOccupancy(
-        self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,
+        self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,              # noqa F811
         dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
     ):
         """
-            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link. 
-            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen 
+            Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link.
+            Ingress PG occupancy must cross into shared headroom region when the PFC Storm is seen
             Only for MLNX Platforms
 
             Args:
@@ -174,8 +278,9 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         normal_profile = ["xon_1", "xon_2"]
-        if not dutConfig["dualTor"] and not xonProfile in normal_profile:
-            pytest.skip("Additional DSCPs are not supported on non-dual ToR ports")
+        if not dutConfig["dualTor"] and xonProfile not in normal_profile:
+            pytest.skip(
+                "Additional DSCPs are not supported on non-dual ToR ports")
 
         if dutTestParams["basicParams"]["sonic_asic_type"] != "mellanox":
             pytest.skip("This Test Case is only meant for Mellanox ASIC")
@@ -184,7 +289,7 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Shared Headroom has to be enabled for this test")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        if xonProfile in dutQosConfig["param"][portSpeedCableLength].keys():
+        if xonProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
             if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
@@ -207,6 +312,16 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_num_private_headrooom": dutQosConfig["param"]["pkts_num_private_headrooom"]
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "packet_size" in list(qosConfig[xonProfile].keys()):
+            testParams["packet_size"] = qosConfig[xonProfile]["packet_size"]
+        if 'cell_size' in list(qosConfig[xonProfile].keys()):
+            testParams["cell_size"] = qosConfig[xonProfile]["cell_size"]
 
         # Params required for generating a PFC Storm
         duthost = dutConfig["dutInstance"]
@@ -233,29 +348,36 @@ class TestQosSai(QosSaiBase):
 
         # initialize PFC Storm Handler
         storm_hndle = PFCStorm(duthost, fanout_graph_facts, fanouthosts,
-                               pfc_queue_idx = queue_index,
-                               pfc_frames_number = frames_number,
-                               peer_info = peer_info)
+                               pfc_queue_idx=queue_index,
+                               pfc_frames_number=frames_number,
+                               peer_info=peer_info)
         storm_hndle.deploy_pfc_gen()
 
         # check if pfcwd status is enabled before running the test
-        prev_state = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "PFC_WD|{}"'.format(pfcwd_test_port))['stdout']
-        prev_poll_interval = duthost.shell('sonic-db-cli CONFIG_DB HGET "PFC_WD|GLOBAL" POLL_INTERVAL'.format(pfcwd_test_port))['stdout']
+        prev_state = duthost.shell(
+            'sonic-db-cli CONFIG_DB HGETALL "PFC_WD|{}"'.format(pfcwd_test_port))['stdout']
+        prev_poll_interval = duthost.shell(
+            'sonic-db-cli CONFIG_DB HGET "PFC_WD|GLOBAL" POLL_INTERVAL')['stdout']
 
         try:
             prev_state = json.loads(prev_state)
         except Exception as e:
-            logging.debug("Exception: {}, PFC_WD State: {}".format(str(e), prev_state))
+            logging.debug(
+                "Exception: {}, PFC_WD State: {}".format(str(e), prev_state))
             prev_state = {}
 
         try:
             prev_poll_interval = int(prev_poll_interval)
+            if int(pfcwd_timers['pfc_wd_poll_time']) > prev_poll_interval:
+                pfcwd_timers['pfc_wd_poll_time'] = str(prev_poll_interval)
         except Exception as e:
-            logging.debug("Exception: {}, Poll Interval: {}".format(str(e), prev_poll_interval))
+            logging.debug("Exception: {}, Poll Interval: {}".format(
+                str(e), prev_poll_interval))
             prev_poll_interval = 0
 
         # set poll interval for pfcwd
-        duthost.command("pfcwd interval {}".format(pfcwd_timers['pfc_wd_poll_time']))
+        duthost.command("pfcwd interval {}".format(
+            pfcwd_timers['pfc_wd_poll_time']))
 
         logger.info("--- Start Pfcwd on port {}".format(pfcwd_test_port))
         start_wd_on_ports(duthost,
@@ -271,35 +393,40 @@ class TestQosSai(QosSaiBase):
 
             # Trigger PfcWd
             storm_hndle.start_storm()
-            logger.info("PfcWd Status: {}".format(duthost.command("pfcwd show stats")["stdout_lines"]))
+            logger.info("PfcWd Status: {}".format(
+                duthost.command("pfcwd show stats")["stdout_lines"]))
             time.sleep(10)
             storm_hndle.stop_storm()
-            logger.info("PfcWd Status: {}".format(duthost.command("pfcwd show stats")["stdout_lines"]))
+            logger.info("PfcWd Status: {}".format(
+                duthost.command("pfcwd show stats")["stdout_lines"]))
 
-            logger.info("---  Enable dst iface and verify if the PFC frames are not sent from src port ---")
+            logger.info(
+                "---  Enable dst iface and verify if the PFC frames are not sent from src port ---")
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfReleaseBuffer", testParams=testParams
             )
         except Exception as e:
             raise e
         finally:
+            if prev_state:
+                logger.info(
+                    "--- Restore original config {} for PfcWd on {} ---".format(prev_state, pfcwd_test_port))
+                start_wd_on_ports(duthost,
+                                  pfcwd_test_port,
+                                  prev_state.get("restoration_time", "200"),
+                                  prev_state.get("detection_time", "200"),
+                                  prev_state.get("action", "drop"))
+            else:
+                logger.info("--- Stop PfcWd on {} ---".format(pfcwd_test_port))
+                duthost.command("pfcwd stop {}".format(pfcwd_test_port))
+
             if prev_poll_interval:
-                logger.info("--- Restore original poll interval {} ---".format(prev_poll_interval))
+                logger.info(
+                    "--- Restore original poll interval {} ---".format(prev_poll_interval))
                 duthost.command("pfcwd interval {}".format(prev_poll_interval))
             else:
                 logger.info("--- Set Default Polling Interval ---".format())
                 duthost.command("pfcwd interval {}".format("200"))
-
-            if prev_state:
-                logger.info("--- Restore original config {} for PfcWd on {} ---".format(prev_state, pfcwd_test_port))
-                start_wd_on_ports(duthost,
-                        pfcwd_test_port,
-                        prev_state.get("restoration_time", "200"),
-                        prev_state.get("detection_time", "200"),
-                        prev_state.get("action", "drop"))
-            else:
-                logger.info("--- Stop PfcWd on {} ---".format(pfcwd_test_port))
-                duthost.command("pfcwd stop {}".format(pfcwd_test_port))
 
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.PtfEnableDstPorts", testParams=testParams
@@ -329,11 +456,12 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         normal_profile = ["xon_1", "xon_2"]
-        if not dutConfig["dualTor"] and not xonProfile in normal_profile:
-            pytest.skip("Additional DSCPs are not supported on non-dual ToR ports")
+        if not dutConfig["dualTor"] and xonProfile not in normal_profile:
+            pytest.skip(
+                "Additional DSCPs are not supported on non-dual ToR ports")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        if xonProfile in dutQosConfig["param"][portSpeedCableLength].keys():
+        if xonProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
             if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
@@ -341,6 +469,7 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig = dutQosConfig["param"]
 
+        self.updateTestPortIdIp(dutConfig)
 
         dst_port_count = set([
             dutConfig["testPorts"]["dst_port_id"],
@@ -349,7 +478,8 @@ class TestQosSai(QosSaiBase):
         ])
 
         if len(dst_port_count) != 3:
-            pytest.skip("PFC Xon Limit test: Need at least 3 destination ports")
+            pytest.skip(
+                "PFC Xon Limit test: Need at least 3 destination ports")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -370,23 +500,96 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
-        if "pkts_num_egr_mem" in qosConfig.keys():
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        if "pkts_num_hysteresis" in qosConfig[xonProfile].keys():
+        if "pkts_num_hysteresis" in list(qosConfig[xonProfile].keys()):
             testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
 
-        if "pkts_num_margin" in qosConfig[xonProfile].keys():
+        if "pkts_num_margin" in list(qosConfig[xonProfile].keys()):
             testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
 
-        if "packet_size" in qosConfig[xonProfile].keys():
+        if "packet_size" in list(qosConfig[xonProfile].keys()):
             testParams["packet_size"] = qosConfig[xonProfile]["packet_size"]
+
+        if 'cell_size' in list(qosConfig[xonProfile].keys()):
+            testParams["cell_size"] = qosConfig[xonProfile]["cell_size"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PFCXonTest", testParams=testParams
+        )
+
+    @pytest.mark.parametrize("LosslessVoqProfile", ["lossless_voq_1", "lossless_voq_2",
+                             "lossless_voq_3", "lossless_voq_4"])
+    def testQosSaiLosslessVoq(
+            self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig,
+            dutQosConfig, singleMemberPortStaticRoute, nearbySourcePorts
+    ):
+        """
+            Test QoS SAI XOFF limits for various voq mode configurations
+            Args:
+                LosslessVoqProfile (pytest parameter): LosslessVoq Profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Lossless Voq test is not supported")
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        self.updateTestPortIdIp(dutConfig, qosConfig[LosslessVoqProfile])
+
+        dst_port_id, dst_port_ip = singleMemberPortStaticRoute
+        src_port_1_id, src_port_2_id = nearbySourcePorts
+
+        testPortIps = dutConfig["testPortIps"]
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": qosConfig[LosslessVoqProfile]["dscp"],
+            "ecn": qosConfig[LosslessVoqProfile]["ecn"],
+            "pg": qosConfig[LosslessVoqProfile]["pg"],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dst_port_ip,
+            "src_port_1_id": src_port_1_id,
+            "src_port_1_ip": testPortIps[src_port_1_id]['peer_addr'],
+            "src_port_2_id": src_port_2_id,
+            "src_port_2_ip": testPortIps[src_port_2_id]['peer_addr'],
+            "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
+            "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
+            "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]["pkts_num_trig_pfc"]
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_margin" in list(qosConfig[LosslessVoqProfile].keys()):
+            testParams["pkts_num_margin"] = qosConfig[LosslessVoqProfile]["pkts_num_margin"]
+
+        if "packet_size" in list(qosConfig[LosslessVoqProfile].keys()):
+            testParams["packet_size"] = qosConfig[LosslessVoqProfile]["packet_size"]
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.LosslessVoq", testParams=testParams
         )
 
     def testQosSaiHeadroomPoolSize(
@@ -415,12 +618,14 @@ class TestQosSai(QosSaiBase):
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
 
+        if 'hdrm_pool_size' not in list(qosConfig.keys()):
+            pytest.skip("Headroom pool size is not enabled on this DUT")
+
         if not dutConfig['dualTor']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
 
-        if not 'hdrm_pool_size' in qosConfig.keys():
-            pytest.skip("Headroom pool size is not enabled on this DUT")
+        self.updateTestPortIdIp(dutConfig, qosConfig["hdrm_pool_size"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -438,10 +643,16 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_hdrm_full": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_full"],
             "pkts_num_hdrm_partial": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_partial"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
-        pkts_num_trig_pfc_shp = qosConfig["hdrm_pool_size"].get("pkts_num_trig_pfc_shp")
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        pkts_num_trig_pfc_shp = qosConfig["hdrm_pool_size"].get(
+            "pkts_num_trig_pfc_shp")
         if pkts_num_trig_pfc_shp:
             testParams["pkts_num_trig_pfc_shp"] = pkts_num_trig_pfc_shp
 
@@ -454,7 +665,7 @@ class TestQosSai(QosSaiBase):
         if margin:
             testParams["margin"] = margin
 
-        if "pkts_num_egr_mem" in qosConfig.keys():
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
         self.runPtfTest(
@@ -481,12 +692,25 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
 
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        qosConfig = dutQosConfig["param"]
         testPortIps = dutConfig["testPortIps"]
 
-        if not sharedResSizeKey in qosConfig.keys():
-            pytest.skip("Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
+        if sharedResSizeKey not in list(qosConfig.keys()):
+            pytest.skip(
+                "Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
+
+        if "skip" in qosConfig[sharedResSizeKey]:
+            # Skip if buffer pools and profiles are not be present, marked by qos param generator
+            pytest.skip(qosConfig[sharedResSizeKey]["skip"])
+
+        self.updateTestPortIdIp(dutConfig, qosConfig[sharedResSizeKey])
+
+        port_idx_to_id = list(testPortIps.keys())
+        # Translate requested port indices to available port IDs
+        src_port_ids = [port_idx_to_id[idx]
+                        for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
+        dst_port_ids = [port_idx_to_id[idx]
+                        for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -496,14 +720,19 @@ class TestQosSai(QosSaiBase):
             "ecn": qosConfig[sharedResSizeKey]["ecn"],
             "pgs": qosConfig[sharedResSizeKey]["pgs"],
             "queues": qosConfig[sharedResSizeKey]["queues"],
-            "src_port_ids": qosConfig[sharedResSizeKey]["src_port_ids"],
-            "src_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["src_port_ids"]],
-            "dst_port_ids": qosConfig[sharedResSizeKey]["dst_port_ids"],
-            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in qosConfig[sharedResSizeKey]["dst_port_ids"]],
+            "src_port_ids": src_port_ids,
+            "src_port_ips": [testPortIps[port]['peer_addr'] for port in src_port_ids],
+            "dst_port_ids": dst_port_ids,
+            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in dst_port_ids],
             "pkt_counts":  qosConfig[sharedResSizeKey]["pkt_counts"],
             "shared_limit_bytes": qosConfig[sharedResSizeKey]["shared_limit_bytes"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         if "packet_size" in qosConfig[sharedResSizeKey]:
             testParams["packet_size"] = qosConfig[sharedResSizeKey]["packet_size"]
@@ -520,7 +749,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiHeadroomPoolWatermark(
-        self, duthosts, rand_one_dut_hostname,  ptfhost, dutTestParams,
+        self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,  ptfhost, dutTestParams,
         dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize,
         resetWatermark
     ):
@@ -529,7 +758,8 @@ class TestQosSai(QosSaiBase):
 
             Args:
                 duthosts (AnsibleHost): Dut hosts
-                rand_one_dut_hostname (AnsibleHost): select one of the duts in multi dut testbed
+                enum_rand_one_per_hwsku_frontend_hostname (AnsibleHost): select one of the frontend node
+                    in multi dut testbed
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
@@ -544,15 +774,16 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        cmd_output = duthost.shell("show headroom-pool watermark", module_ignore_errors=True)
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        cmd_output = duthost.shell(
+            "show headroom-pool watermark", module_ignore_errors=True)
         if cmd_output['rc'] != 0:
             pytest.skip("Headroom pool watermark is not supported")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         testPortIps = dutConfig["testPortIps"]
-        if not 'hdrm_pool_size' in qosConfig.keys():
+        if 'hdrm_pool_size' not in list(qosConfig.keys()):
             pytest.skip("Headroom pool size is not enabled on this DUT")
 
         testParams = dict()
@@ -575,10 +806,19 @@ class TestQosSai(QosSaiBase):
             "cell_size": dutQosConfig["param"]["cell_size"],
             "buf_pool_roid": ingressLosslessProfile["bufferPoolRoid"],
             "max_headroom": sharedHeadroomPoolSize,
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
-        if "pkts_num_egr_mem" in qosConfig.keys():
+        margin = qosConfig["hdrm_pool_size"].get("margin")
+        if margin:
+            testParams["margin"] = margin
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
         self.runPtfTest(
@@ -611,7 +851,9 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
-        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
+                ('platform_asic' in dutTestParams["basicParams"] and
+                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             disableTest = False
         if disableTest:
             pytest.skip("Buffer Pool watermark test is disabled")
@@ -648,7 +890,12 @@ class TestQosSai(QosSaiBase):
             "buf_pool_roid": buf_pool_roid
         })
 
-        if "packet_size" in qosConfig[bufPool].keys():
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "packet_size" in list(qosConfig[bufPool].keys()):
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
 
         self.runPtfTest(
@@ -678,11 +925,12 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        if "lossy_queue_1" in dutQosConfig["param"][portSpeedCableLength].keys():
+        if "lossy_queue_1" in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
             qosConfig = dutQosConfig["param"]
 
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -701,17 +949,22 @@ class TestQosSai(QosSaiBase):
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
-        if "pkts_num_egr_mem" in qosConfig.keys():
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        if "packet_size" in qosConfig["lossy_queue_1"].keys():
+        if "packet_size" in list(qosConfig["lossy_queue_1"].keys()):
             testParams["packet_size"] = qosConfig["lossy_queue_1"]["packet_size"]
             testParams["cell_size"] = qosConfig["lossy_queue_1"]["cell_size"]
 
-        if "pkts_num_margin" in qosConfig["lossy_queue_1"].keys():
+        if "pkts_num_margin" in list(qosConfig["lossy_queue_1"].keys()):
             testParams["pkts_num_margin"] = qosConfig["lossy_queue_1"]["pkts_num_margin"]
 
         self.runPtfTest(
@@ -719,24 +972,106 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
+    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
+    def testQosSaiLossyQueueVoq(
+        self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute
+    ):
+        """
+            Test QoS SAI Lossy queue with non_default voq and default voq
+            Args:
+                LossyVoq : qos.yml entry lookup key
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ingressLossyProfile (Fxiture): Map of ingress lossy buffer profile attributes
+                duthost : DUT host params
+                localhost : local host params
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Lossy Queue Voq test is not supported")
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        flow_config = qosConfig[LossyVoq]["flow_config"]
+        assert flow_config in [
+            "shared", "separate"], "Invalid flow config '{}'".format(flow_config)
+        if flow_config == "shared":
+            original_voq_markings = get_markings_dut(duthost)
+            setup_markings_dut(duthost, localhost,
+                               voq_allocation_mode="default")
+
+        self.updateTestPortIdIp(dutConfig, qosConfig[LossyVoq])
+
+        try:
+            dst_port_id, dst_port_ip = singleMemberPortStaticRoute
+            testParams = dict()
+            testParams.update(dutTestParams["basicParams"])
+            testParams.update({
+                "dscp": qosConfig[LossyVoq]["dscp"],
+                "ecn": qosConfig[LossyVoq]["ecn"],
+                "pg": qosConfig[LossyVoq]["pg"],
+                "src_port_id": dutConfig["testPorts"]["src_port_id"],
+                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "dst_port_id": dst_port_id,
+                "dst_port_ip": dst_port_ip,
+                "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+                "flow_config": flow_config,
+                "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
+            })
+
+            if "platform_asic" in dutTestParams["basicParams"]:
+                testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+            else:
+                testParams["platform_asic"] = None
+
+            if "packet_size" in list(qosConfig[LossyVoq].keys()):
+                testParams["packet_size"] = qosConfig[LossyVoq]["packet_size"]
+                testParams["cell_size"] = qosConfig[LossyVoq]["cell_size"]
+
+            if "pkts_num_margin" in list(qosConfig[LossyVoq].keys()):
+                testParams["pkts_num_margin"] = qosConfig[LossyVoq]["pkts_num_margin"]
+
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.LossyQueueVoqTest",
+                testParams=testParams
+            )
+
+        finally:
+            if flow_config == "shared":
+                setup_markings_dut(duthost, localhost, **original_voq_markings)
+
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, dutTestParams, dutConfig
+        self, duthost, ptfhost, dutTestParams, dutConfig, dut_qos_maps      # noqa F811
     ):
         """
             Test QoS SAI DSCP to queue mapping
 
             Args:
+                duthost (AnsibleHost): The DUT host
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
-
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
             Returns:
                 None
 
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        # Skip the regular dscp to pg mapping test. Will run another test case instead.
+        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+            pytest.skip(
+                "Skip this test since separated DSCP_TO_TC_MAP is applied")
+
+        self.updateTestPortIdIp(dutConfig)
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -744,10 +1079,77 @@ class TestQosSai(QosSaiBase):
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-            "hwsku":dutTestParams['hwsku'],
+            "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
             "dual_tor_scenario": dutConfig['dualTorScenario']
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.DscpMappingPB",
+            testParams=testParams
+        )
+
+    @pytest.mark.parametrize("direction", ["downstream", "upstream"])
+    def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams,
+                                            dutConfig, direction, dut_qos_maps):        # noqa F811
+        """
+            Test QoS SAI DSCP to queue mapping.
+            We will have separated DSCP_TO_TC_MAP for uplink/downlink ports on T1 if PCBB enabled.
+            This test case will generate both upstream and downstream traffic to verify the behavior
+
+            Args:
+                duthost (AnsibleHost): The DUT host
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                direction (str): upstream/downstream
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        # Only run this test on T1 testbed when separated DSCP_TO_TC_MAP is defined
+        if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+            pytest.skip(
+                "Skip this test since separated DSCP_TO_TC_MAP is not applied")
+        if "dualtor" in dutTestParams['topo']:
+            pytest.skip("Skip this test case on dualtor testbed")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "hwsku": dutTestParams['hwsku'],
+            "dual_tor_scenario": True
+        })
+        if direction == "downstream":
+            testParams.update({
+                "dst_port_id": dutConfig["testPorts"]["downlink_port_ids"][0],
+                "dst_port_ip": dutConfig["testPorts"]["downlink_port_ips"][0],
+                "src_port_id": dutConfig["testPorts"]["uplink_port_ids"][0],
+                "src_port_ip": dutConfig["testPorts"]["uplink_port_ips"][0]
+            })
+            testParams.update({"leaf_downstream": True})
+        else:
+            testParams.update({
+                "dst_port_id": dutConfig["testPorts"]["uplink_port_ids"][0],
+                "dst_port_ip": dutConfig["testPorts"]["uplink_port_ips"][0],
+                "src_port_id": dutConfig["testPorts"]["downlink_port_ids"][0],
+                "src_port_ip": dutConfig["testPorts"]["downlink_port_ips"][0]
+            })
+            testParams.update({"leaf_downstream": False})
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpMappingPB",
@@ -781,6 +1183,12 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "vlan_id": dutConfig["testPorts"]["src_port_vlan"]
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.Dot1pToQueueMapping",
             testParams=testParams
@@ -813,19 +1221,26 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "vlan_id": dutConfig["testPorts"]["src_port_vlan"]
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.Dot1pToPgMapping",
             testParams=testParams
         )
 
     def testQosSaiDwrr(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        self, ptfhost, duthost, dutTestParams, dutConfig, dutQosConfig,
     ):
         """
             Test QoS SAI DWRR
 
             Args:
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                duthost (AnsibleHost): The DUT for testing
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
@@ -839,6 +1254,13 @@ class TestQosSai(QosSaiBase):
         """
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
+        if "wrr" in qosConfig[portSpeedCableLength]:
+            qosConfigWrr = qosConfig[portSpeedCableLength]["wrr"]
+        else:
+            qosConfigWrr = qosConfig["wrr"]
+        qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
+
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -848,20 +1270,27 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "q0_num_of_pkts": qosConfig["wrr"]["q0_num_of_pkts"],
-            "q1_num_of_pkts": qosConfig["wrr"]["q1_num_of_pkts"],
-            "q2_num_of_pkts": qosConfig["wrr"]["q2_num_of_pkts"],
-            "q3_num_of_pkts": qosConfig["wrr"]["q3_num_of_pkts"],
-            "q4_num_of_pkts": qosConfig["wrr"]["q4_num_of_pkts"],
-            "q5_num_of_pkts": qosConfig["wrr"]["q5_num_of_pkts"],
-            "q6_num_of_pkts": qosConfig["wrr"]["q6_num_of_pkts"],
-            "limit": qosConfig["wrr"]["limit"],
+            "q0_num_of_pkts": qosConfigWrr["q0_num_of_pkts"],
+            "q1_num_of_pkts": qosConfigWrr["q1_num_of_pkts"],
+            "q2_num_of_pkts": qosConfigWrr["q2_num_of_pkts"],
+            "q3_num_of_pkts": qosConfigWrr["q3_num_of_pkts"],
+            "q4_num_of_pkts": qosConfigWrr["q4_num_of_pkts"],
+            "q5_num_of_pkts": qosConfigWrr["q5_num_of_pkts"],
+            "q6_num_of_pkts": qosConfigWrr["q6_num_of_pkts"],
+            "q7_num_of_pkts": qosConfigWrr.get("q7_num_of_pkts", 0),
+            "limit": qosConfigWrr["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
-            "hwsku":dutTestParams['hwsku'],
-            "topo": dutTestParams["topo"]
+            "hwsku": dutTestParams['hwsku'],
+            "topo": dutTestParams["topo"],
+            "qos_remap_enable": qos_remap_enable
         })
 
-        if "lossy_queue_1" in dutQosConfig["param"][portSpeedCableLength].keys():
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "lossy_queue_1" in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             testParams["ecn"] = qosConfig[portSpeedCableLength]["lossy_queue_1"]["ecn"]
         else:
             testParams["ecn"] = qosConfig["lossy_queue_1"]["ecn"]
@@ -895,10 +1324,11 @@ class TestQosSai(QosSaiBase):
         """
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        if pgProfile in dutQosConfig["param"][portSpeedCableLength].keys():
+        if pgProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
-            if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo'] and pgProfile in dutQosConfig["param"][portSpeedCableLength]["breakout"].keys():
+            if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo'] \
+                    and pgProfile in list(dutQosConfig["param"][portSpeedCableLength]["breakout"].keys()):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
             else:
                 qosConfig = dutQosConfig["param"]
@@ -906,7 +1336,10 @@ class TestQosSai(QosSaiBase):
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
-            pktsNumFillShared = int(qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
+            pktsNumFillShared = int(
+                qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
+
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -923,17 +1356,26 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": qosConfig[pgProfile]["pkts_num_fill_min"],
             "pkts_num_fill_shared": pktsNumFillShared,
             "cell_size": qosConfig[pgProfile]["cell_size"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
-        if "pkts_num_egr_mem" in qosConfig.keys():
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        if "packet_size" in qosConfig[pgProfile].keys():
+        if "packet_size" in list(qosConfig[pgProfile].keys()):
             testParams["packet_size"] = qosConfig[pgProfile]["packet_size"]
 
-        if "pkts_num_margin" in qosConfig[pgProfile].keys():
+        if "pkts_num_margin" in list(qosConfig[pgProfile].keys()):
             testParams["pkts_num_margin"] = qosConfig[pgProfile]["pkts_num_margin"]
+
+        # For J2C+ we need the internal header size in calculating the shared watermarks
+        if "internal_hdr_size" in list(qosConfig.keys()):
+            testParams["internal_hdr_size"] = qosConfig["internal_hdr_size"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGSharedWatermarkTest",
@@ -966,6 +1408,8 @@ class TestQosSai(QosSaiBase):
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
 
+        self.updateTestPortIdIp(dutConfig)
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -981,14 +1425,22 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig["wm_pg_headroom"]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig["wm_pg_headroom"]["pkts_num_trig_ingr_drp"],
             "cell_size": qosConfig["wm_pg_headroom"]["cell_size"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
-        if "pkts_num_egr_mem" in qosConfig.keys():
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        if "pkts_num_margin" in qosConfig["wm_pg_headroom"].keys():
+        if "pkts_num_margin" in list(qosConfig["wm_pg_headroom"].keys()):
             testParams["pkts_num_margin"] = qosConfig["wm_pg_headroom"]["pkts_num_margin"]
+
+        if "packet_size" in list(qosConfig["wm_pg_headroom"].keys()):
+            testParams["packet_size"] = qosConfig["wm_pg_headroom"]["packet_size"]
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGHeadroomWatermarkTest",
@@ -1013,7 +1465,7 @@ class TestQosSai(QosSaiBase):
         """
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        if "pg_drop" in dutQosConfig["param"][portSpeedCableLength].keys():
+        if "pg_drop" in list(dutQosConfig["param"][portSpeedCableLength].keys()):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
             qosConfig = dutQosConfig["param"]
@@ -1035,8 +1487,13 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_ingr_drp": qosConfig[pgDropKey]["pkts_num_trig_ingr_drp"],
             "pkts_num_margin": qosConfig[pgDropKey]["pkts_num_margin"],
             "iterations": qosConfig[pgDropKey]["iterations"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PGDropTest", testParams=testParams
@@ -1074,11 +1531,13 @@ class TestQosSai(QosSaiBase):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_ingr_drp"]
         else:
-            if queueProfile in dutQosConfig["param"][portSpeedCableLength].keys():
+            if queueProfile in list(dutQosConfig["param"][portSpeedCableLength].keys()):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             else:
                 qosConfig = dutQosConfig["param"]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_egr_drp"]
+
+        self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1095,16 +1554,21 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": qosConfig[queueProfile]["pkts_num_fill_min"],
             "pkts_num_trig_drp": triggerDrop,
             "cell_size": qosConfig[queueProfile]["cell_size"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
-        if "pkts_num_egr_mem" in qosConfig.keys():
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        if "packet_size" in qosConfig[queueProfile].keys():
+        if "packet_size" in list(qosConfig[queueProfile].keys()):
             testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
 
-        if "pkts_num_margin" in qosConfig[queueProfile].keys():
+        if "pkts_num_margin" in list(qosConfig[queueProfile].keys()):
             testParams["pkts_num_margin"] = qosConfig[queueProfile]["pkts_num_margin"]
 
         self.runPtfTest(
@@ -1113,17 +1577,18 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpToPgMapping(
-        self, request, ptfhost, dutTestParams, dutConfig,
+        self, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps     # noqa F401
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
 
             Args:
+                duthost (AnsibleHost): The DUT host
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
-
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
             Returns:
                 None
 
@@ -1131,10 +1596,16 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         disableTest = request.config.getoption("--disable_test")
-        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
+                ('platform_asic' in dutTestParams["basicParams"] and
+                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             disableTest = False
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
+        # Skip the regular dscp to pg mapping test. Will run another test case instead.
+        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+            pytest.skip(
+                "Skip this test since separated DSCP_TO_TC_MAP is applied")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1144,13 +1615,79 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.DscpToPgMapping",
+            testParams=testParams
+        )
+
+    @pytest.mark.parametrize("direction", ["downstream", "upstream"])
+    def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost,
+                                           dutTestParams, dutConfig, direction, dut_qos_maps):      # noqa F811
+        """
+            Test QoS SAI DSCP to PG mapping ptf test.
+            Since we are using different DSCP_TO_TC_MAP on uplink/downlink port, the test case also need to
+            run separately
+
+            Args:
+                duthost (AnsibleHost)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                direction (str): downstream or upstream
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+            pytest.skip(
+                "Skip this test since separated DSCP_TO_TC_MAP is not applied")
+        if "dualtor" in dutTestParams['topo']:
+            pytest.skip("Skip this test case on dualtor testbed")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        if direction == "downstream":
+            testParams.update({
+                "dst_port_id": dutConfig["testPorts"]["downlink_port_ids"][0],
+                "dst_port_ip": dutConfig["testPorts"]["downlink_port_ips"][0],
+                "src_port_id": dutConfig["testPorts"]["uplink_port_ids"][0],
+                "src_port_ip": dutConfig["testPorts"]["uplink_port_ips"][0]
+            })
+            src_port_name = dutConfig["testPorts"]["uplink_port_names"][0]
+        else:
+            testParams.update({
+                "dst_port_id": dutConfig["testPorts"]["uplink_port_ids"][0],
+                "dst_port_ip": dutConfig["testPorts"]["uplink_port_ips"][0],
+                "src_port_id": dutConfig["testPorts"]["downlink_port_ids"][0],
+                "src_port_ip": dutConfig["testPorts"]["downlink_port_ips"][0]
+            })
+            src_port_name = dutConfig["testPorts"]["downlink_port_names"][0]
+
+        testParams['dscp_to_pg_map'] = load_dscp_to_pg_map(
+            duthost, src_port_name, dut_qos_maps)
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpToPgMapping",
             testParams=testParams
         )
 
     def testQosSaiDwrrWeightChange(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        self, ptfhost, duthost, dutTestParams, dutConfig, dutQosConfig,
         updateSchedProfile
     ):
         """
@@ -1173,28 +1710,105 @@ class TestQosSai(QosSaiBase):
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"]
+        if "wrr_chg" in qosConfig[portSpeedCableLength]:
+            qosConfigWrrChg = qosConfig[portSpeedCableLength]["wrr_chg"]
+        else:
+            qosConfigWrrChg = qosConfig["wrr_chg"]
 
+        qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
-            "ecn": qosConfig["wrr_chg"]["ecn"],
+            "ecn": qosConfigWrrChg["ecn"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "q0_num_of_pkts": qosConfig["wrr_chg"]["q0_num_of_pkts"],
-            "q1_num_of_pkts": qosConfig["wrr_chg"]["q1_num_of_pkts"],
-            "q2_num_of_pkts": qosConfig["wrr_chg"]["q2_num_of_pkts"],
-            "q3_num_of_pkts": qosConfig["wrr_chg"]["q3_num_of_pkts"],
-            "q4_num_of_pkts": qosConfig["wrr_chg"]["q4_num_of_pkts"],
-            "q5_num_of_pkts": qosConfig["wrr_chg"]["q5_num_of_pkts"],
-            "q6_num_of_pkts": qosConfig["wrr_chg"]["q6_num_of_pkts"],
-            "limit": qosConfig["wrr_chg"]["limit"],
+            "q0_num_of_pkts": qosConfigWrrChg["q0_num_of_pkts"],
+            "q1_num_of_pkts": qosConfigWrrChg["q1_num_of_pkts"],
+            "q2_num_of_pkts": qosConfigWrrChg["q2_num_of_pkts"],
+            "q3_num_of_pkts": qosConfigWrrChg["q3_num_of_pkts"],
+            "q4_num_of_pkts": qosConfigWrrChg["q4_num_of_pkts"],
+            "q5_num_of_pkts": qosConfigWrrChg["q5_num_of_pkts"],
+            "q6_num_of_pkts": qosConfigWrrChg["q6_num_of_pkts"],
+            "limit": qosConfigWrrChg["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
-            "hwsku":dutTestParams['hwsku'],
-            "topo": dutTestParams["topo"]
+            "hwsku": dutTestParams['hwsku'],
+            "topo": dutTestParams["topo"],
+            "qos_remap_enable": qos_remap_enable
         })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
+        )
+
+    @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
+    def testQosSaiQWatermarkAllPorts(
+        self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        resetWatermark
+    ):
+        """
+            Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
+
+            Args:
+                queueProfile (pytest parameter): queue profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                resetWatermark (Fixture): reset queue watermarks
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("This test is only supported on cisco-8000")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        testPortIps = dutConfig["testPortIps"]
+
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "ecn": qosConfig[queueProfile]["ecn"],
+            "dst_port_ids": dutConfig["testPortIds"],
+            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in dutConfig["testPortIds"]],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkt_count": qosConfig[queueProfile]["pkt_count"],
+            "cell_size": qosConfig[queueProfile]["cell_size"],
+            "hwsku": dutTestParams['hwsku']
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "packet_size" in qosConfig[queueProfile].keys():
+            testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
+
+        if "pkts_num_margin" in qosConfig[queueProfile].keys():
+            testParams["pkts_num_margin"] = qosConfig[queueProfile]["pkts_num_margin"]
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.QWatermarkAllPortTest",
+            testParams=testParams
         )

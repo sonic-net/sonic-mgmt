@@ -38,4 +38,3 @@ def add_cont_warm_reboot_args(parser):
         default="current",
         help="Comma separated list of images to be installed during continuous reboot test",
     )
-
