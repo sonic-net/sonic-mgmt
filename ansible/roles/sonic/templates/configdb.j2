@@ -56,7 +56,7 @@
 {% endfor %}
         "{{ configuration_properties['common']['nhipv4'] }}": {
             "admin_status": "up",
-            "asn": "{{ configuration_properties['common']['leaf_asn_start'] }}",
+            "asn": "{{ host['bgp']['asn'] }}",
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['bp_interface']['ipv4'].split('/')[0] }}",
@@ -66,7 +66,7 @@
         },
         "{{ configuration_properties['common']['nhipv6'] | lower }}": {
             "admin_status": "up",
-            "asn": "{{ configuration_properties['common']['leaf_asn_start'] }}",
+            "asn": "{{ host['bgp']['asn'] }}",
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['bp_interface']['ipv6'].split('/')[0] | lower }}",
