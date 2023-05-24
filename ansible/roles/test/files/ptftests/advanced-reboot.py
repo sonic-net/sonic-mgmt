@@ -1500,8 +1500,19 @@ class ReloadTest(BaseTest):
 
         self.log("Rebooting remote side")
         if self.reboot_type != 'service-warm-restart' and self.test_params['other_vendor_flag'] is False:
+            # Check to see if the warm-reboot script knows about the retry count feature
             stdout, stderr, return_code = self.dut_connection.execCommand(
-                "sudo " + self.reboot_type, timeout=30)
+                "sudo " + self.reboot_type + " -h", timeout=5)
+            if "retry count" in stdout:
+                if self.test_params['neighbor_type'] == "sonic":
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -N", timeout=30)
+                else:
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -n", timeout=30)
+            else:
+                stdout, stderr, return_code = self.dut_connection.execCommand(
+                    "sudo " + self.reboot_type, timeout=30)
 
         elif self.test_params['other_vendor_flag'] is True:
             ignore_db_integrity_check = " -d"
