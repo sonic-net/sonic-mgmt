@@ -10,6 +10,9 @@ def pytest_addoption(parser):
     route_group.addoption("--num_routes", action="store", default=None, type=int,
                           help="Number of routes for add/delete")
 
+    route_group.addoption("--max_scale", action="store_true",
+                          help="Test with maximum possible route scale")
+
 
 @pytest.fixture(scope='module')
 def get_function_conpleteness_level(pytestconfig):
