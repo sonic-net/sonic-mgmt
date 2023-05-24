@@ -27,6 +27,7 @@ r, ".* INFO kernel:.*"
 r, ".* INFO systemd.*"
 r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
 r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
+r, ".*y_cable_port.*GET http.*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
