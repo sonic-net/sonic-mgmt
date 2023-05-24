@@ -450,9 +450,11 @@ generic_config_updater:
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
-    reason: "This test is not run on this asic type currently"
+    reason: "This test is not run on this asic type or topology currently"
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "topo_type in ['m0', 'mx']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
