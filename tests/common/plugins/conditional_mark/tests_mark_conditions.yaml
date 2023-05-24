@@ -439,17 +439,11 @@ fdb/test_fdb_mac_expire.py:
 #######################################
 #####            fib              #####
 #######################################
-fib/test_fib.py::test_ipinip_hash[ipv4]:
+fib/test_fib.py::test_ipinip_hash:
   skip:
-    reason: "The inner IP header is not used as hash keys."
+    reason: 'ipinip hash test is not fully supported on mellanox platform (case#00581265)'
     conditions:
-      "asic_type in ['mellanox']"
-
-fib/test_fib.py::test_ipinip_hash[ipv6]:
-  skip:
-    reason: "The inner IP header is not used as hash keys."
-    conditions:
-      "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox']"
 
 #######################################
 #####   generic_config_updater    #####
