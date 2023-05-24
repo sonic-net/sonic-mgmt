@@ -439,6 +439,12 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
+generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
+  skip:
+    reason: "M0 and Mx don't support ecn config update"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+
 generic_config_updater/test_eth_interface.py:
   xfail:
     reason: 'Xfail this script due to many failures found'
