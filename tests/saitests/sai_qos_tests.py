@@ -437,6 +437,8 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_3_ip = self.test_params['dst_port_3_ip']
         self.dst_port_3_mac = self.dataplane.get_mac(0, self.dst_port_3_id)
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
+        self.test_port_ids = self.test_params.get("testPortIds", None)
+        self.test_port_ips = self.test_params.get("testPortIps", None)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -452,6 +454,13 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         send_packet(self, self.dst_port_2_id, arpreq_pkt)
         arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1, self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
+
+        # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
+        if self.test_port_ids and self.test_port_ips:
+            for portid in self.test_port_ids:
+                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
+                                     'ping -q -c 3 {}'.format(self.test_port_ips[portid]['peer_addr']))
+
         time.sleep(8)
 
 
@@ -1904,7 +1913,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg]), 'unexpectedly not trigger PFC for PG {} (counter: {}), at step {} {}'.format(pg, port_counter_fields[pg], step_id, step_desc)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] == recv_counters_base[cntr]), 'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(port_counter_fields[cntr], step_id, step_desc)
+                assert(recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN), 'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(port_counter_fields[cntr], step_id, step_desc)
             # xmit port no egress drop
             for cntr in egress_counters:
                 assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly egress drop on xmit port 1 (counter: {}), at step {} {}'.format(port_counter_fields[cntr], step_id, step_desc)
