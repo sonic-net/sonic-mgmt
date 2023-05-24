@@ -467,21 +467,42 @@ class TestShowQueue():
 
         for key in buffer_queue_keys:
             try:
-                interfaces.add(key.split('|')[1])
+                fields = key.split("|")
+                # The format of BUFFER_QUEUE entries on VOQ chassis is
+                #   'BUFFER_QUEUE|<host name>|<asic-name>|Ethernet32|0-2'
+                # where 'host name' could be any host in the chassis, including those from other
+                # cards. This test only cares about local interfaces, so we can filter out the rest
+                if duthost.facts['switch_type'] == 'voq':
+                    hostname = fields[1]
+                    if hostname != duthost.hostname:
+                        continue
+                # The interface name is always the last but one field in the BUFFER_QUEUE entry key
+                interfaces.add(fields[-2])
             except IndexError:
                 pass
 
+        # For the test to be valid, we should have at least one interface selected
+        assert (len(interfaces) > 0)
+
+        intfsChecked = 0
         if mode == 'alias':
             for intf in interfaces:
                 alias = setup['port_name_map'][intf]
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
                                   .format(alias), queue_counter) is not None) \
                     and (setup['port_alias_map'][alias] not in queue_counter)
+                intfsChecked += 1
         elif mode == 'default':
             for intf in interfaces:
+                if intf not in setup['port_name_map']:
+                    continue
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
                                   .format(intf), queue_counter) is not None) \
                     and (setup['port_name_map'][intf] not in queue_counter)
+                intfsChecked += 1
+
+        # At least one interface should have been checked to have a valid result
+        assert(intfsChecked > 0)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
