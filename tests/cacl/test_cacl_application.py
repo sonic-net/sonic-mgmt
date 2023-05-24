@@ -563,7 +563,7 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         ip6tables_rules.append("-A INPUT -j DROP")
 
     # IP Table rule to allow eth1-midplane traffic for chassis
-    if asic_index is None:
+    if asic_index is not None:
         append_midplane_traffic_rules(duthost, iptables_rules)
 
     return iptables_rules, ip6tables_rules
