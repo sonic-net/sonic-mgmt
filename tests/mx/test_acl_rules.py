@@ -5,6 +5,7 @@ import json
 import os
 import pytest
 import random
+import sys
 import yaml
 
 from functools import reduce
@@ -77,7 +78,8 @@ def build_exp_pkt(input_pkt):
 
 
 class PowerShelfInfo:
-    def __init__(self, rm, bmc_hosts):
+    def __init__(self, id, rm, bmc_hosts):
+        self.id = id
         self.rm = rm
         self.bmc_hosts = bmc_hosts
 
@@ -107,7 +109,12 @@ def send_and_verify_traffic_v4(duthost, ptfadapter, src, dsts, expect_behavior, 
     if expect_behavior == "accept":
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
     elif expect_behavior == "drop":
-        testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
+        if sys.version_info.major == 2:
+            # Python2 env is using ptf=0.9.1 which doesn't support timeout parameter.
+            # However ptf module doesn't contain a __version__ variable, so we can only check by Python version.
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids)
+        else:
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
 
 
 def send_and_verify_traffic_v6(duthost, ptfadapter, src, dsts, expect_behavior, pkt=None):
@@ -121,7 +128,12 @@ def send_and_verify_traffic_v6(duthost, ptfadapter, src, dsts, expect_behavior, 
     if expect_behavior == "accept":
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
     elif expect_behavior == "drop":
-        testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
+        if sys.version_info.major == 2:
+            # Python2 env is using ptf=0.9.1 which doesn't support timeout parameter.
+            # However ptf module doesn't contain a __version__ variable, so we can only check by Python version.
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids)
+        else:
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -143,12 +155,29 @@ def setup_python_library_on_dut(duthost, creds):
 
 class BmcOtwAclRulesBase:
 
+    def shuffle_ports(self, pool, max_len=0):
+        random.shuffle(pool)
+        if max_len == 0 or max_len > len(pool):
+            max_len = len(pool)
+        idx = 0
+        while idx < max_len:
+            yield copy.copy(pool[idx])
+            idx += 1
+
+    def shuffle_src_dst_pairs(self, pool, max_len=0):
+        random.shuffle(pool)
+        idx = 0
+        while idx + 1 < len(pool):
+            if max_len > 0 and idx / 2 >= max_len:
+                return
+            yield copy.copy(pool[idx]), copy.copy(pool[idx + 1])
+            idx += 2
+
     def rand_one(self, pool):
         return copy.copy(random.sample(pool, 1)[0])
 
-    def rand_src_dst(self, pool):
-        rand_idx = random.sample(range(len(pool)), 2)
-        return copy.copy(pool[rand_idx[0]]), copy.copy(pool[rand_idx[1]])
+    def filter_shelf_with_rm_ipv6(self, shelfs):
+        return [shelf for shelf in shelfs if shelf.rm.ipv6_addr is not None]
 
     @pytest.fixture(scope="class")
     def setup_teardown(self, duthost, ptfhost, rack_topo_file, mx_common_setup_teardown, port_alias_to_name, port_alias_to_ptf_index):
@@ -169,7 +198,7 @@ class BmcOtwAclRulesBase:
                     bmc_info['ptf_port_id'] = port_alias_to_ptf_index[bmc_info['port_alias']]
                     bmc_host = PortInfo(**bmc_info)
                     shelf_bmc_hosts.append(bmc_host)
-            shelfs.append(PowerShelfInfo(shelf_rm, shelf_bmc_hosts))
+            shelfs.append(PowerShelfInfo(shelf_topo['id'], shelf_rm, shelf_bmc_hosts))
         rms = [shelf.rm for shelf in shelfs]
         bmc_hosts = reduce(lambda x, y: x + y, [shelf.bmc_hosts for shelf in shelfs])
         upstream_ports = [PortInfo(
@@ -253,8 +282,7 @@ class BmcOtwAclRulesBase:
         Test 1: BMCs cannot use it's own IP as SRC_IP to send packet to other BMC
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for _ in range(10):
-            src_bmc, dst_bmc = self.rand_src_dst(bmc_hosts)
+        for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
             send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
 
     def test_bmc_otw_req_1_v4_src_ip_rm(self, duthost, ptfadapter, setup_teardown):
@@ -264,8 +292,7 @@ class BmcOtwAclRulesBase:
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
         for shelf in shelfs:
-            for _ in range(5):
-                src_bmc, dst_bmc = self.rand_src_dst(shelf.bmc_hosts)
+            for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(shelf.bmc_hosts, max_len=5):
                 src_bmc.ipv4_addr = shelf.rm.ipv4_addr
                 src_bmc.ipv4_prefix = shelf.rm.ipv4_prefix
                 send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
@@ -276,8 +303,7 @@ class BmcOtwAclRulesBase:
         TEST 3: BMCs cannot use upstream IP as SRC_IP to send packet to other BMC
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for _ in range(10):
-            src_bmc, dst_bmc = self.rand_src_dst(bmc_hosts)
+        for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
             src_bmc.ipv4_addr = SAMPLE_UPSTREAM_IPV4_ADDR
             src_bmc.ipv4_prefix = SAMPLE_UPSTREAM_IPV4_PREFIX
             send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
@@ -288,8 +314,7 @@ class BmcOtwAclRulesBase:
         Test 1: BMCs cannot use it's own IP as SRC_IP to send packet to other BMC
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for _ in range(10):
-            src_bmc, dst_bmc = self.rand_src_dst(bmc_hosts)
+        for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
             send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
 
     def test_bmc_otw_req_1_v6_src_ip_rm(self, duthost, ptfadapter, setup_teardown):
@@ -298,11 +323,11 @@ class BmcOtwAclRulesBase:
         TEST 2: BMCs cannot use RM IP as SRC_IP to send packet to other BMC
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for shelf in shelfs:
-            if shelf.rm.ipv6_addr is None:
-                continue
-            for _ in range(5):
-                src_bmc, dst_bmc = self.rand_src_dst(shelf.bmc_hosts)
+        shelfs_v6 = self.filter_shelf_with_rm_ipv6(shelfs)
+        if len(shelfs_v6) == 0:
+            pytest.skip("No shelf has IPv6 address configured on RM")
+        for shelf in shelfs_v6:
+            for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(shelf.bmc_hosts, max_len=5):
                 src_bmc.ipv6_addr = shelf.rm.ipv6_addr
                 src_bmc.ipv6_prefix = shelf.rm.ipv6_prefix
                 send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
@@ -313,8 +338,7 @@ class BmcOtwAclRulesBase:
         TEST 3: BMCs cannot use upstream IP as SRC_IP to send packet to other BMC
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for _ in range(10):
-            src_bmc, dst_bmc = self.rand_src_dst(bmc_hosts)
+        for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
             src_bmc.ipv6_addr = SAMPLE_UPSTREAM_IPV6_ADDR
             src_bmc.ipv6_prefix = SAMPLE_UPSTREAM_IPV6_PREFIX
             send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
@@ -324,28 +348,25 @@ class BmcOtwAclRulesBase:
         Request 2: Direct access is not allowed from outside to BMC by default
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for _ in range(10):
-            src_upstream = self.rand_one(upstream_ports)
-            dst_bmc = self.rand_one(bmc_hosts)
-            send_and_verify_traffic_v6(duthost, ptfadapter, src_upstream, [dst_bmc], expect_behavior="drop")
+        for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=10):
+            upstream = self.rand_one(upstream_ports)
+            send_and_verify_traffic_v6(duthost, ptfadapter, upstream, [rand_bmc], expect_behavior="drop")
 
     def test_bmc_otw_req_3_v4(self, duthost, ptfadapter, setup_teardown):
         """
         Request 3: Direct access is not allowed from BMC to outside by default.
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for _ in range(10):
-            src_bmc = self.rand_one(bmc_hosts)
-            send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, upstream_ports, expect_behavior="drop")
+        for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=10):
+            send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="drop")
 
     def test_bmc_otw_req_3_v6(self, duthost, ptfadapter, setup_teardown):
         """
         Request 3: Direct access is not allowed from BMC to outside by default.
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for _ in range(10):
-            src_bmc = self.rand_one(bmc_hosts)
-            send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, upstream_ports, expect_behavior="drop")
+        for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=10):
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="drop")
 
     @pytest.mark.skip(reason="TODO: Will implement this function when write test to verify ad-hoc ACL rules")
     def test_bmc_otw_req_4_v6(self):
@@ -362,14 +383,13 @@ class BmcOtwAclRulesBase:
         shelfs, bmc_hosts, upstream_ports = setup_teardown
         cmd_tpl = "python3 -c \"from ptf import testutils; import scapy.all as scapy2; " \
                   "scapy2.sendp(testutils.simple_icmp_packet(ip_dst='{}'), iface='{}')\""
-        for _ in range(10):
-            dst = self.rand_one(bmc_hosts)
-            pkt = testutils.simple_icmp_packet(ip_dst='{}'.format(dst.ipv4_addr))
+        for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=10):
+            pkt = testutils.simple_icmp_packet(ip_dst='{}'.format(rand_bmc.ipv4_addr))
             exp_pkt = build_exp_pkt(pkt)
-            cmd = cmd_tpl.format(dst.ipv4_addr, ptf_idx_to_port_name[dst.ptf_port_id])
+            cmd = cmd_tpl.format(rand_bmc.ipv4_addr, ptf_idx_to_port_name[rand_bmc.ptf_port_id])
             ptfadapter.dataplane.flush()
             duthost.shell(cmd)
-            testutils.verify_packet(ptfadapter, exp_pkt, dst.ptf_port_id, timeout=10)
+            testutils.verify_packet(ptfadapter, exp_pkt, rand_bmc.ptf_port_id, timeout=10)
 
     def test_bmc_otw_req_5_v6(self, duthost, ptfadapter, mx_common_setup_teardown, setup_teardown):
         """
@@ -379,14 +399,13 @@ class BmcOtwAclRulesBase:
         shelfs, bmc_hosts, upstream_ports = setup_teardown
         cmd_tpl = "python3 -c \"from ptf import testutils; import scapy.all as scapy2; " \
                   "scapy2.sendp(testutils.simple_icmpv6_packet(ipv6_dst='{}'), iface='{}')\""
-        for _ in range(10):
-            dst = self.rand_one(bmc_hosts)
-            pkt = testutils.simple_icmpv6_packet(ipv6_dst='{}'.format(dst.ipv6_addr))
+        for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=10):
+            pkt = testutils.simple_icmpv6_packet(ipv6_dst='{}'.format(rand_bmc.ipv6_addr))
             exp_pkt = build_exp_pkt(pkt)
-            cmd = cmd_tpl.format(dst.ipv6_addr, ptf_idx_to_port_name[dst.ptf_port_id])
+            cmd = cmd_tpl.format(rand_bmc.ipv6_addr, ptf_idx_to_port_name[rand_bmc.ptf_port_id])
             ptfadapter.dataplane.flush()
             duthost.shell(cmd)
-            testutils.verify_packet(ptfadapter, exp_pkt, dst.ptf_port_id, timeout=10)
+            testutils.verify_packet(ptfadapter, exp_pkt, rand_bmc.ptf_port_id, timeout=10)
 
     def test_bmc_otw_req_6_v4_same_shelf(self, duthost, ptfadapter, setup_teardown):
         """
@@ -395,8 +414,7 @@ class BmcOtwAclRulesBase:
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
         for shelf in shelfs:
-            for _ in range(5):
-                rand_bmc = self.rand_one(shelf.bmc_hosts)
+            for rand_bmc in self.shuffle_ports(shelf.bmc_hosts, max_len=5):
                 send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
                 send_and_verify_traffic_v4(duthost, ptfadapter, shelf.rm, [rand_bmc], expect_behavior="accept")
 
@@ -407,12 +425,13 @@ class BmcOtwAclRulesBase:
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
         if len(shelfs) <= 1:
-            pytest.skip("Skip this test because there is only one shelf")
-        for _ in range(10):
-            bmc_shelf, rm_shelf = self.rand_src_dst(shelfs)
-            rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
-            send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
-            send_and_verify_traffic_v4(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
+            pytest.skip("Only one shelf on the rack")
+        for bmc_shelf in shelfs:
+            for rm_shelf in shelfs:
+                if bmc_shelf.id != rm_shelf.id:
+                    rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
+                    send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
+                    send_and_verify_traffic_v4(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
 
     def test_bmc_otw_req_6_v6_same_shelf(self, duthost, ptfadapter, setup_teardown):
         """
@@ -420,10 +439,9 @@ class BmcOtwAclRulesBase:
         TEST 1: BMC can communicate with RM in the same shelf
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        shelfs_v6 = list(filter(lambda s: s.rm.ipv6_addr is not None, shelfs))
+        shelfs_v6 = self.filter_shelf_with_rm_ipv6(shelfs)
         for shelf in shelfs_v6:
-            for _ in range(5):
-                rand_bmc = self.rand_one(shelf.bmc_hosts)
+            for rand_bmc in self.shuffle_ports(shelf.bmc_hosts, max_len=5):
                 send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
                 send_and_verify_traffic_v6(duthost, ptfadapter, shelf.rm, [rand_bmc], expect_behavior="accept")
 
@@ -433,14 +451,15 @@ class BmcOtwAclRulesBase:
         TEST 2: BMC cannot communicate with RM in the different shelf
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
-        shelfs_v6 = list(filter(lambda s: s.rm.ipv6_addr is not None, shelfs))
-        if len(shelfs_v6) <= 1:
-            pytest.skip("Skip this test since there is only one shelf rm has ipv6 address")
-        for _ in range(10):
-            bmc_shelf, rm_shelf = self.rand_src_dst(shelfs_v6)
-            rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
-            send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
-            send_and_verify_traffic_v6(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
+        shelfs_v6 = self.filter_shelf_with_rm_ipv6(shelfs)
+        if len(shelfs_v6) < 2:
+            pytest.skip("Less than 2 shelf has IPv6 address configured on RM")
+        for bmc_shelf in shelfs_v6:
+            for rm_shelf in shelfs_v6:
+                if bmc_shelf.id != rm_shelf.id:
+                    rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
+                    send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
+                    send_and_verify_traffic_v6(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
 
 
 class TestBmcOtwStaticAclRules(BmcOtwAclRulesBase):
