@@ -178,7 +178,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiPfcXoffLimit(
         self, xoffProfile, duthosts, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        ingressLosslessProfile, egressLosslessProfile, set_static_route
+        ingressLosslessProfile, egressLosslessProfile
     ):
         """
             Test QoS SAI XOFF limits
