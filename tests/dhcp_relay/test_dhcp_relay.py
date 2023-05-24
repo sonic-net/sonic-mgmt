@@ -317,28 +317,28 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
             marker = loganalyzer.init()
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
-                      "ptftests",
-                      "dhcp_relay_test.DHCPTest",
-                       platform_dir="ptftests",
-                       params={"hostname": duthost.hostname,
-                               "client_port_index": dhcp_relay['client_iface']['port_idx'],
-                               # This port is introduced to test DHCP relay packet received
-                               # on other client port
-                               "other_client_port": repr(dhcp_relay['other_client_ports']),
-                               "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
-                               "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
-                               "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
-                               "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
-                               "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-                               "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                               "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
-                               "dest_mac_address": BROADCAST_MAC,
-                               "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
-                               "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
-                               "uplink_mac": str(dhcp_relay['uplink_mac']),
-                               "testbed_mode": testbed_mode,
-                               "testing_mode": testing_mode},
-                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                       "ptftests",
+                       "dhcp_relay_test.DHCPTest",
+                        platform_dir="ptftests",
+                        params={"hostname": duthost.hostname,
+                                "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                                # This port is introduced to test DHCP relay packet received
+                                # on other client port
+                                "other_client_port": repr(dhcp_relay['other_client_ports']),
+                                "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                                "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                                "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                                "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                                "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                                "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                                "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                                "dest_mac_address": BROADCAST_MAC,
+                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                                "testbed_mode": testbed_mode,
+                                "testing_mode": testing_mode},
+                        log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
             logger.info("Check for expected log {} in syslog".format(expected_agg_counter_message))
             loganalyzer.analyze(marker)
     except LogAnalyzerError as err:
