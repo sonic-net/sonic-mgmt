@@ -94,7 +94,8 @@ class QosBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        pytest_assert(ptfhost.shell(
+        try:
+            pytest_assert(ptfhost.shell(
                       argv = [
                           "ptf",
                           "--test-dir",
@@ -121,6 +122,8 @@ class QosBase:
                       ],
                       chdir = "/root",
                       )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
+        except:
+            raise
 
 
 class QosSaiBase(QosBase):
@@ -1495,3 +1498,21 @@ class QosSaiBase(QosBase):
         dut_asic.command("sleep 70")
         dut_asic.command("counterpoll watermark disable")
         dut_asic.command("counterpoll queue disable")
+
+
+    @pytest.fixture(scope='function', autouse=True)
+    def set_static_route(self, duthost, dutConfig, enum_frontend_asic_index):
+        if duthost.facts["asic_type"] != "cisco-8000":
+            yield
+            return
+        dst_keys = []
+        for k in dutConfig["testPorts"].keys():
+            if re.search("dst_port.*ip", k):
+                dst_keys.append(k)
+
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        for k in dst_keys:
+            dut_asic.shell("ping -c 3 {}".format(
+                dutConfig["testPorts"][k]), module_ignore_errors=True)
+
+        yield
