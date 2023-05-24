@@ -15,9 +15,11 @@ from datetime import datetime
 
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.utilities import wait_until
-from tests.common.reboot import *
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
+    check_reboot_cause_history, reboot_ctrl_dict, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
+    REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_POWEROFF, REBOOT_TYPE_WATCHDOG
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
@@ -31,6 +33,18 @@ pytestmark = [
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
+
+
+@pytest.fixture
+def set_max_time_for_interfaces(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
+    global MAX_WAIT_TIME_FOR_INTERFACES
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', 300)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -124,7 +138,9 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
             logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
             return
 
-def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+
+def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, set_max_time_for_interfaces,
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
@@ -258,7 +274,8 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
         raise e
 
 
-def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
+                         localhost, conn_graph_facts, set_max_time_for_interfaces, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
@@ -271,7 +288,8 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, 
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_WATCHDOG)
 
 
-def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
+                           localhost, conn_graph_facts, set_max_time_for_interfaces, xcvr_skip_list):        # noqa F811
     """
     @summary: This test case is to perform 3 cold reboot in a row
     """

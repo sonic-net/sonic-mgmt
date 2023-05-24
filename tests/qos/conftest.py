@@ -79,7 +79,13 @@ def nearbySourcePorts(duthost, mg_facts, singleMemberPort):
     nearby_ports = []
     single_slc = None
     for intf in all_ports:
-        lanes = duthost.shell('redis-cli -n 4 hget "PORT|{}" lanes'.format(intf))['stdout'].split(',')
+        ns_spec = ""
+        ns = duthost.asic_instance().get_asic_namespace()
+        if ns:
+          ns_spec = " -n " + ns
+        lanes = duthost.shell(
+            'sonic-db-cli {} CONFIG_DB hget "PORT|{}" lanes'.format(
+                ns_spec, intf))['stdout'].split(',')
         assert len(lanes) > 0, "Lanes not found for port {}".format(port)
         slc = int(lanes[0]) >> 9
         if single_slc == None:
