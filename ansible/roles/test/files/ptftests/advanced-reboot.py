@@ -1153,7 +1153,7 @@ class ReloadTest(BaseTest):
         # wait until all bgp session are established
         self.log("Wait until bgp routing is up on all devices")
         for _, q in self.ssh_jobs:
-            q.put('quit')
+            self.put_nowait(q, 'quit')
 
         def wait_for_ssh_threads(signal):
             while any(thr.is_alive() for thr, _ in self.ssh_jobs) and not signal.is_set():
@@ -1244,7 +1244,7 @@ class ReloadTest(BaseTest):
         # wait until all bgp session are established
         self.log("Wait until bgp routing is up on all devices")
         for _, q in self.ssh_jobs:
-            q.put('quit')
+            self.put_nowait(q, 'quit')
 
         def wait_for_ssh_threads(signal):
             while any(thr.is_alive() for thr, _ in self.ssh_jobs) and not signal.is_set():
@@ -1624,7 +1624,7 @@ class ReloadTest(BaseTest):
                 self.put_nowait(q, 'cpu_going_down')
             if self.cpu_state.get() == 'down':
                 for _, q in self.ssh_jobs:
-                    q.put('cpu_down')
+                    self.put_nowait(q, 'cpu_down')
                 break
             time.sleep(self.TIMEOUT)
 
@@ -1634,7 +1634,7 @@ class ReloadTest(BaseTest):
                 self.put_nowait(q, 'cpu_going_up')
             if self.cpu_state.get() == 'up':
                 for _, q in self.ssh_jobs:
-                    q.put('cpu_up')
+                    self.put_nowait(q, 'cpu_up')
                 break
             time.sleep(self.TIMEOUT)
 
