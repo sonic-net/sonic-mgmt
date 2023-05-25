@@ -142,8 +142,7 @@ def check_authorization_tacacs_only(
                                     duthosts,
                                     enum_rand_one_per_hwsku_hostname,
                                     tacacs_creds,
-                                    remote_user_client,
-                                    remote_rw_user_client):
+                                    remote_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     """
         Verify TACACS+ user run command in server side whitelist:
@@ -170,6 +169,23 @@ def check_authorization_tacacs_only(
         dutip, tacacs_creds['local_user'],
         tacacs_creds['local_user_passwd']
     )
+
+
+
+def test_authorization_tacacs_only(
+                                duthosts,
+                                enum_rand_one_per_hwsku_hostname,
+                                setup_authorization_tacacs,
+                                tacacs_creds,
+                                check_tacacs,
+                                remote_user_client,
+                                remote_rw_user_client):
+
+    check_authorization_tacacs_only(
+                                    duthosts,
+                                    enum_rand_one_per_hwsku_hostname,
+                                    tacacs_creds,
+                                    remote_user_client)
 
     # check commands used by scripts
     commands = [
@@ -217,31 +233,13 @@ def check_authorization_tacacs_only(
         pytest_assert(exit_code == 0)
 
 
-def test_authorization_tacacs_only(
-                                duthosts,
-                                enum_rand_one_per_hwsku_hostname,
-                                setup_authorization_tacacs,
-                                tacacs_creds,
-                                check_tacacs,
-                                remote_user_client,
-                                remote_rw_user_client):
-
-    check_authorization_tacacs_only(
-                                    duthosts,
-                                    enum_rand_one_per_hwsku_hostname,
-                                    tacacs_creds,
-                                    remote_user_client,
-                                    remote_rw_user_client)
-
-
 def test_authorization_tacacs_only_some_server_down(
         duthosts, enum_rand_one_per_hwsku_hostname,
         setup_authorization_tacacs,
         tacacs_creds,
         ptfhost,
         check_tacacs,
-        remote_user_client,
-        remote_rw_user_client):
+        remote_user_client):
     """
         Setup multiple tacacs server for this UT.
         Tacacs server 127.0.0.1 not accessible.
@@ -268,8 +266,7 @@ def test_authorization_tacacs_only_some_server_down(
                                 duthosts,
                                 enum_rand_one_per_hwsku_hostname,
                                 tacacs_creds,
-                                remote_user_client,
-                                remote_rw_user_client)
+                                remote_user_client)
 
     # Cleanup
     duthost.shell("sudo config tacacs delete %s" % invalid_tacacs_server_ip)
