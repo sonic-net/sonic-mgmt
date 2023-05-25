@@ -433,6 +433,17 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      conditions:
         - "asic_type in ['cisco-8000']"
 
+pfcwd/test_pfcwd_warm_reboot.py:
+   skip:
+     reason: "Warm Reboot is not supported in T2."
+     conditions:
+        - "'t2' in topo_name"
+   xfail:
+     reason: "Warm Reboot is not supported in dualtor."
+     conditions:
+        - "'dualtor' in topo_name"
+        - https://github.com/sonic-net/sonic-mgmt/issues/8400
+
 #######################################
 #####         platform_tests      #####
 #######################################
