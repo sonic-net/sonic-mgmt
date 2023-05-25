@@ -347,7 +347,7 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
         ptfhost: PTF host object
     """
     ptf_lag = {
-        "port_list": ptf_ports[ATTR_PORT_BEHIND_LAG].values(),
+        "port_list": list(ptf_ports[ATTR_PORT_BEHIND_LAG].values()),
         "ip": ptf_ports["ip"]["lag"]
     }
     ptf_not_lag = ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]
