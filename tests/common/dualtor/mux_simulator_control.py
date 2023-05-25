@@ -500,7 +500,9 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname, active_standby_ports):
+def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
+                                                      tbinfo, rand_one_dut_hostname,
+                                                      active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly selected tor.
 
