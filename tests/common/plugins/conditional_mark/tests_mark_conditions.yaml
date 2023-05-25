@@ -743,6 +743,11 @@ pfcwd/test_pfcwd_warm_reboot.py:
      reason: "Warm Reboot is not supported in T2."
      conditions:
         - "'t2' in topo_name"
+   xfail:
+     reason: "Warm Reboot is not supported in dualtor."
+     conditions:
+        - "'dualtor' in topo_name"
+        - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
 #####         platform_tests      #####
