@@ -66,7 +66,7 @@ def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factor
 
         # Restart PSU daemon to take the mock stuff
         logger.info('Restart PSU daemon to take mock PSU power threshold')
-        duthost.shell('docker exec -ti pmon supervisorctl restart psud')
+        duthost.shell('docker exec pmon supervisorctl restart psud')
         psudaemon_restarted = True
         time.sleep(2)
     elif not all_psus_supporting_thresholds:
@@ -79,11 +79,11 @@ def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factor
 
     if psudaemon_restarted:
         logger.info('Restore PSU daemon')
-        duthost.shell('docker exec -ti pmon supervisorctl restart psud')
+        duthost.shell('docker exec pmon supervisorctl restart psud')
         time.sleep(2)
 
 
-def init_log_analyzer(duthost, marker, expected, ignored=None):
+def init_log_analyzer(duthost, marker, expected, ignored=['Failed to read from file.*(fan_amb|port_amb)']):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
     marker = loganalyzer.init()
 
@@ -141,18 +141,24 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
 
         return False
 
-    def _calculate_psu_power_threshold(ambient_threshold, port_ambient, fan_ambient):
+    def _calculate_psu_power_threshold(ambient_threshold, port_ambient, fan_ambient, extra_adjustment=None):
         ambient_temperature = min(port_ambient, fan_ambient)
         if ambient_temperature <= ambient_threshold:
-            return power_capacity
+            power_threshold = power_capacity
+        else:
+            power_threshold = power_capacity - slope * (ambient_temperature - ambient_threshold)
 
-        return power_capacity - slope * (ambient_temperature - ambient_threshold)
+        if extra_adjustment:
+            power_threshold -= extra_adjustment
+
+        return power_threshold
 
     def _update_ambient_sensors_and_check_db(psu_index, port_ambient_mock, fan_ambient_mock, power, was_power_exceeded):
         power_critical_threshold = _calculate_psu_power_threshold(ambient_critical_threshold, port_ambient_mock,
                                                                   fan_ambient_mock)
         power_warning_suppress_threshold = _calculate_psu_power_threshold(ambient_warning_threshold,
-                                                                          port_ambient_mock, fan_ambient_mock)
+                                                                          port_ambient_mock, fan_ambient_mock,
+                                                                          slope * 1000)
 
         logger.info('Mock ambient temperature sensors (fan {} port {}) and check the thresholds)'.format(
             port_ambient_mock/1000,
@@ -221,7 +227,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
 
         power_capacity = mocker.read_psu_power_threshold(psu_index)
         power = mocker.read_psu_power(psu_index)
-        slope = mocker.read_psu_power_slope(psu_index)
+        slope = mocker.read_psu_power_slope(psu_index) * 1000
 
         if power > power_capacity:
             pytest.fail('Current power {} exceeds maximum power capacity {}'.format(
@@ -230,7 +236,6 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         # Ignore some possible errors
         loganalyzer, marker = init_log_analyzer(duthost,
                                                 'PSU power exceeding test',
-                                                [],
                                                 [])
 
         # Mock the power as well.
