@@ -1299,9 +1299,9 @@ class PsuPowerThresholdMocker(object):
 
     def mock_power_threshold(self, number_psus):
         self.mock_helper.mock_value(
-            self.AMBIENT_TEMP_WARNING_THRESHOLD, 65000, True)
+            self.AMBIENT_TEMP_WARNING_THRESHOLD, 38000, True)
         self.mock_helper.mock_value(
-            self.AMBIENT_TEMP_CRITICAL_THRESHOLD, 75000, True)
+            self.AMBIENT_TEMP_CRITICAL_THRESHOLD, 40000, True)
 
         max_power = None
         for i in range(number_psus):
@@ -1313,7 +1313,7 @@ class PsuPowerThresholdMocker(object):
             self.mock_helper.mock_value(
                 self.PSU_POWER_CAPACITY.format(i + 1), max_power, True)
             self.mock_helper.mock_value(
-                self.PSU_POWER_SLOPE.format(i + 1), 2000, True)
+                self.PSU_POWER_SLOPE.format(i + 1), 30, True)
 
         # Also mock ambient temperatures
         self.mock_helper.mock_value(
