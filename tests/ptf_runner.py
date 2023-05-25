@@ -36,7 +36,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if is_python3:
         path_exists = host.stat(path="/root/env-python3/bin/ptf")
         if path_exists["stat"]["exists"]:
-            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
+            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir + '/py3', testname)
         else:
             error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\n" \
                         "Please check and update docker-ptf image, make sure to use the correct one."
@@ -94,11 +94,11 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         if module_ignore_errors:
             if result["rc"] != 0:
                 return result
-    except Exception:
+    except Exception as ex:
         if log_file:
             ptf_collect(host, log_file)
         traceback_msg = traceback.format_exc()
         allure.attach(traceback_msg, 'ptf_runner_exception_traceback', allure.attachment_type.TEXT)
         logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))
-        raise Exception
+        raise ex
     return True
