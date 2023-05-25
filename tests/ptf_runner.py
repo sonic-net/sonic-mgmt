@@ -94,11 +94,11 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         if module_ignore_errors:
             if result["rc"] != 0:
                 return result
-    except Exception as ex:
+    except Exception:
         if log_file:
             ptf_collect(host, log_file)
         traceback_msg = traceback.format_exc()
         allure.attach(traceback_msg, 'ptf_runner_exception_traceback', allure.attachment_type.TEXT)
         logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))
-        raise ex
+        raise
     return True
