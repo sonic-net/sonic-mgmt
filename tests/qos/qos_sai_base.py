@@ -1843,7 +1843,8 @@ class QosSaiBase(QosBase):
         # find the one that is backplane based.
         # set a static route through that portchannel.
         # remove when done.
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+        if not (src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
+                and dutTestParams['topo'] == 't2'):
             yield
             return
         src_asic = get_src_dst_asic_and_duts['src_asic']
