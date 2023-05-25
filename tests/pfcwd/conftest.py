@@ -173,4 +173,37 @@ def setup_pfc_test(
 
     # set poll interval
     duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
+
+    logger.info("setup_info : {}".format(setup_info))
     yield setup_info
+
+@pytest.fixture(scope="module")
+def setup_dut_test_params(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
+    enum_frontend_asic_index
+):
+    """
+    Sets up all the parameters needed for the PFCWD tests
+
+    Args:
+        duthost: AnsibleHost instance for DUT
+        ptfhost: AnsibleHost instance for PTF
+        conn_graph_facts: fixture that contains the parsed topology info
+
+    Yields:
+        dut_info: dictionary containing dut information
+    """
+    dut_test_params = {'basicParams': {'is_dualtor': False}}
+    if "dualtor" in tbinfo["topo"]["name"]:
+        dut_test_params["basicParams"]["is_dualtor"] = True
+        vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+        if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+            default_vlan_name = vlan_cfgs['default_vlan_config']
+            if default_vlan_name:
+                for vlan in list(vlan_cfgs[default_vlan_name].values()):
+                    if 'mac' in vlan and vlan['mac']:
+                        dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
+                        break
+
+    logger.info("dut_test_params : {}".format(dut_test_params))
+    yield dut_test_params
