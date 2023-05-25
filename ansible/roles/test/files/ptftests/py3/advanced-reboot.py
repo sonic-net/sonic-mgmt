@@ -180,6 +180,7 @@ class ReloadTest(BaseTest):
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
         self.check_param('neighbor_type', 'eos', required=False)
+        self.check_param('num_of_packets', 70000, required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -246,7 +247,7 @@ class ReloadTest(BaseTest):
 =======
         # How many packets to be sent in send_in_background method
         self.packets_to_send = min(
-            int(self.time_to_listen / (self.send_interval + 0.0015)), 70000)
+            int(self.time_to_listen / (self.send_interval + 0.0015)), self.num_of_packets)
 
 >>>>>>> Update advanced-reboot ptf test to support 70K packets:ansible/roles/test/files/ptftests/advanced-reboot.py
         # Thread pool for background watching operations
@@ -638,6 +639,7 @@ class ReloadTest(BaseTest):
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_mac = self.test_params['vlan_mac']
         self.lo_prefix = self.test_params['lo_prefix']
+        self.num_of_packets = self.test_params['num_of_packets']
         if self.vlan_mac != self.dut_mac:
             self.is_dualtor = True
         else:
