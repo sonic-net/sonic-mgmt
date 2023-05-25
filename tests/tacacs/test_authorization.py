@@ -236,7 +236,12 @@ def test_authorization_tacacs_only(
 
 def test_authorization_tacacs_only_some_server_down(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        setup_authorization_tacacs, tacacs_creds, ptfhost, check_tacacs, remote_user_client):
+        setup_authorization_tacacs,
+        tacacs_creds,
+        ptfhost,
+        check_tacacs,
+        remote_user_client,
+        remote_rw_user_client):
     """
         Setup multiple tacacs server for this UT.
         Tacacs server 127.0.0.1 not accessible.
@@ -259,7 +264,12 @@ def test_authorization_tacacs_only_some_server_down(
         Verify TACACS+ user can't run command not in server side whitelist.
         Verify Local user can't login.
     """
-    check_authorization_tacacs_only(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, remote_user_client)
+    check_authorization_tacacs_only(
+                                duthosts,
+                                enum_rand_one_per_hwsku_hostname,
+                                tacacs_creds,
+                                remote_user_client,
+                                remote_rw_user_client)
 
     # Cleanup
     duthost.shell("sudo config tacacs delete %s" % invalid_tacacs_server_ip)
