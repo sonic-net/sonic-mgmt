@@ -1843,12 +1843,12 @@ class QosSaiBase(QosBase):
         # find the one that is backplane based.
         # set a static route through that portchannel.
         # remove when done.
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
         if not (src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
                 and dutTestParams['topo'] == 't2'):
             yield
             return
-        src_asic = get_src_dst_asic_and_duts['src_asic']
-        dst_asic = get_src_dst_asic_and_duts['dst_asic']
         dst_keys = []
         for k in dutConfig["testPorts"].keys():
             if re.search("dst_port.*ip", k):
