@@ -36,6 +36,8 @@ PORT_STATUS_CHECK_INTERVAL = 10
 # To avoid getting candidate test ports again and again, use a global variable
 # to save all candidate test ports.
 # Key: dut host name, value: a dictionary of candidate ports tuple with dut port name as key
+global all_ports_by_dut
+global fanout_original_port_states
 all_ports_by_dut = {}
 fanout_original_port_states = {}
 
@@ -55,7 +57,6 @@ def check_image_version(duthost):
 
 def save_fanout_port_state(portinfo):
     key = "{}|{}".format(portinfo['dutname'], portinfo['port'])
-    global fanout_original_port_states
     if key not in fanout_original_port_states:
         dutname, portname = portinfo['dutname'], portinfo['port']
         duthost, dut_port, fanout, fanout_port = all_ports_by_dut[dutname][portname]
@@ -99,9 +100,6 @@ def recover_ports(duthosts, fanouthosts):
         enum_dut_portname_module_fixture (str): DUT port name
         fanouthosts: Fanout objects
     """
-    global all_ports_by_dut
-    global fanout_original_port_states
-
     logger.info('Collecting existing port configuration for DUT and fanout...')
     for duthost in duthosts:
         # Only do the sampling when there are no candidates
