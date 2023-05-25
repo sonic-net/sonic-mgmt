@@ -4190,7 +4190,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt = get_multiple_flows_udp(
+        pkt = get_multiple_flows(
                 self,
                 router_mac if router_mac != '' else dst_port_mac,
                 dst_port_id,
