@@ -328,7 +328,7 @@ def is_valid_platform_and_version(duthost, table, scenario):
     os_version = duthost.os_version
     if asic == "unknown":
         return False
-    if os_version == "none":
+    if "master" or "internal" in os_version:
         return True
     gcu_conf = get_gcu_field_operations_conf()
     version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6]
