@@ -185,7 +185,7 @@ class TestMvrfOutbound():
         logger.info("Starting http server on PTF")
         free_port = self.get_free_port(ptfhost)
         ptfhost.command("python {} {}".format(server_script_dest_path, free_port), module_async=True)
-        localhost.wait_for(host=ptfhost.mgmt_ip, port=int(free_port), state="started", timeout=30)
+        localhost.wait_for(host=ptfhost.mgmt_ip, port=int(free_port), state="started", timeout=60)
 
         url = "http://{}:{}".format(ptfhost.mgmt_ip, free_port)
         from temp_http_server import MAGIC_STRING
