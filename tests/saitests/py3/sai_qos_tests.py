@@ -377,6 +377,8 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
         self.test_port_ids = self.test_params.get("testPortIds", None)
         self.test_port_ips = self.test_params.get("testPortIps", None)
+        self.src_dut_index = self.test_params.get("src_dut_index", 0)
+        self.src_asic_inde = self.test_params.get("src_asic_inde", 0)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -401,7 +403,8 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         if self.test_port_ids and self.test_port_ips:
             for portid in self.test_port_ids:
                 self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
-                                     'ping -q -c 3 {}'.format(self.test_port_ips[portid]['peer_addr']))
+                    'ping -q -c 3 {}'.format(
+                    self.test_port_ips[self.src_dut_index][self.src_asic_index][portid]['peer_addr']))
 
         time.sleep(8)
 
