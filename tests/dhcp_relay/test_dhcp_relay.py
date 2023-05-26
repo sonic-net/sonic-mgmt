@@ -305,19 +305,17 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
         skip_release(duthost, ["201811", "201911"])
 
     start_dhcp_monitor_debug_counter(duthost)
-
     try:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
-        loganalyzer.expect_regex = []
-        marker = loganalyzer.init()
         for dhcp_relay in dut_dhcp_relay_data:
             expected_agg_counter_message = (
                 r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                 r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
                 r"Discover: +1/ +4, Offer: +1/ +1, Request: +3/ +12, ACK: +1/ +1+"
             ) % dhcp_relay['downlink_vlan_iface']['name']
-
-            loganalyzer.expect_regex.append(expected_agg_counter_message)
+            loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
+            loganalyzer.expect_regex = []
+            marker = loganalyzer.init()
+            loganalyzer.expect_regex = [expected_agg_counter_message]
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
@@ -342,9 +340,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "testbed_mode": testbed_mode,
                                "testing_mode": testing_mode},
                        log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
-        time.sleep(18)      # dhcpmon debug counter prints every 18 seconds
-        logger.info("Check for expected log {} in syslog".format(loganalyzer.expect_regex))
-        loganalyzer.analyze(marker)
+            time.sleep(18)      # dhcpmon debug counter prints every 18 seconds
+            loganalyzer.analyze(marker)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
