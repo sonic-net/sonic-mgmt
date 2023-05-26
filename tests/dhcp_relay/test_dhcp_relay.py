@@ -266,29 +266,29 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
 
 
 def start_dhcp_monitor_debug_counter(duthost):
-    cmd = duthost.shell("ps aux | grep dhcpmon", module_ignore_errors=True)["stdout"]
-    matches = re.findall(r'/usr/sbin/dhcpmon.*', cmd)
-
     program_name = "dhcpmon"
     program_pid_list = []
-    program_list = duthost.shell("docker exec {} supervisorctl status".format("dhcp_relay"), module_ignore_errors=True)
+    program_list = duthost.shell("ps aux | grep {}".format(program_name))
+    matches = re.findall(r'/usr/sbin/dhcpmon.*', program_list["stdout"])
+
     for program_info in program_list["stdout_lines"]:
-        if program_info.find(program_name) != -1:
-            program_status = program_info.split()[1]
-            if program_status == "RUNNING":
-                program_pid = int(program_info.split()[3].strip(','))
-                program_pid_list.append(program_pid)
+        if program_name in program_info:
+            program_pid = int(program_info.split()[1])
+            program_pid_list.append(program_pid)
 
     for program_pid in program_pid_list:
-        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format("dhcp_relay", program_pid))
+        kill_cmd_result = duthost.shell("sudo kill {} || true".format(program_pid), module_ignore_errors=True)
         # Get the exit code of 'kill' command
         exit_code = kill_cmd_result["rc"]
-        pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
+        if exit_code != 0:
+            stderr = kill_cmd_result.get("stderr", "")
+            if "No such process" not in stderr:
+                pytest.fail("Failed to stop program '{}' before test. Error: {}".format(program_name, stderr))
 
     if matches:
-        for match in matches:
-            dhcpmon_cmd = match
-            dhcpmon_cmd += " -D"
+        for dhcpmon_cmd in matches:
+            if "-D" not in dhcpmon_cmd:
+                dhcpmon_cmd += " -D"
             duthost.shell("docker exec -d dhcp_relay %s" % dhcpmon_cmd)
     else:
         assert False, "Failed to start dhcpmon in debug counter mode\n"
@@ -303,44 +303,48 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
+    
+    start_dhcp_monitor_debug_counter(duthost)
 
     try:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
+        loganalyzer.expect_regex = []
+        marker = loganalyzer.init()
         for dhcp_relay in dut_dhcp_relay_data:
-            start_dhcp_monitor_debug_counter(duthost)
-            loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
             expected_agg_counter_message = (
-                r".*dhcp_relay#dhcpmon\[[0-9]+\]: \[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
+                r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
+                r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
                 r"Discover: +1/ +4, Offer: +1/ +1, Request: +3/ +12, ACK: +1/ +1+"
-                % dhcp_relay['downlink_vlan_iface']['name']
-            )
-            loganalyzer.expect_regex = [expected_agg_counter_message]
-            marker = loganalyzer.init()
+            ) % dhcp_relay['downlink_vlan_iface']['name']
+
+            loganalyzer.expect_regex.append(expected_agg_counter_message)
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
                        "dhcp_relay_test.DHCPTest",
-                        platform_dir="ptftests",
-                        params={"hostname": duthost.hostname,
-                                "client_port_index": dhcp_relay['client_iface']['port_idx'],
-                                # This port is introduced to test DHCP relay packet received
-                                # on other client port
-                                "other_client_port": repr(dhcp_relay['other_client_ports']),
-                                "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
-                                "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
-                                "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
-                                "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
-                                "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-                                "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                                "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
-                                "dest_mac_address": BROADCAST_MAC,
-                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
-                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
-                                "uplink_mac": str(dhcp_relay['uplink_mac']),
-                                "testbed_mode": testbed_mode,
-                                "testing_mode": testing_mode},
-                        log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
-            logger.info("Check for expected log {} in syslog".format(expected_agg_counter_message))
-            loganalyzer.analyze(marker)
+                       platform_dir="ptftests",
+                       params={"hostname": duthost.hostname,
+                               "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                               # This port is introduced to test DHCP relay packet received
+                               # on other client port
+                               "other_client_port": repr(dhcp_relay['other_client_ports']),
+                               "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                               "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                               "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                               "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                               "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                               "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                               "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                               "dest_mac_address": BROADCAST_MAC,
+                               "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                               "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                               "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "testbed_mode": testbed_mode,
+                               "testing_mode": testing_mode},
+                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+        time.sleep(18)      # dhcpmon debug counter prints every 18 seconds
+        logger.info("Check for expected log {} in syslog".format(loganalyzer.expect_regex))
+        loganalyzer.analyze(marker)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
