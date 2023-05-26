@@ -303,7 +303,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
-    
+
     start_dhcp_monitor_debug_counter(duthost)
 
     try:
@@ -348,7 +348,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
-    
+
     # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
     restart_dhcp_service(duthost)
     pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
