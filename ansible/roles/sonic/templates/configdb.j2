@@ -93,11 +93,15 @@
         }
     },
     "DEVICE_NEIGHBOR_METADATA": {
-        "{{ duts_name }}": {
+{% set separator = joiner(",") %}
+{% for dut_name in duts_name.split(',') %}
+{{ separator() }}
+        "{{ dut_name }}": {
                 "hwsku": "SONiC-VM",
-                "mgmt_addr": "{{ hostvars[duts_name]['ansible_host'] }}",
+                "mgmt_addr": "{{ hostvars[dut_name]['ansible_host'] }}",
                 "type": "TorRouter"
         }
+{% endfor %}
     },
 {% set separator = joiner(",") %}
 {% set first_in_loop = true %}
