@@ -5,14 +5,18 @@ steps:
   displayName: 'checkout sonic-mgmt repo'
 
 - script: |
-    sudo docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
-    sudo docker run -dt -v $(pwd):/var/src/sonic-mgmt --name sonic-mgmt-collect \
-      sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest /bin/bash
+    set -x
+    /usr/bin/docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
+    /usr/bin/docker run -dt --name sonic-mgmt-collect \
+      -v $(System.DefaultWorkingDirectory):/var/src/sonic-mgmt \
+      sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
+      /bin/bash
   displayName: 'Prepare sonic-mgmt docker container'
 
 - script: |
-    docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
-      sudo pytest --inventory ../ansible/veos_vtb --host-pattern all \
+    set -x
+    /usr/bin/docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
+      pytest --inventory ../ansible/veos_vtb --host-pattern all \
       --testbed_file vtestbed.yaml --testbed vms-kvm-t0 \
       --ignore saitests --ignore ptftests --ignore acstests \
       --ignore scripts --ignore k8s --ignore sai_qualify --ignore common \
