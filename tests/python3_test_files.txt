@@ -30,6 +30,7 @@ bgp/test_traffic_shift.py
 cacl/test_cacl_application.py
 cacl/test_cacl_function.py
 cacl/test_ebtables_application.py
+configlet/test_add_rack.py
 console/test_console_availability.py
 console/test_console_driver.py
 console/test_console_loopback.py
