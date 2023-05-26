@@ -35,7 +35,6 @@ class SonicHost(AnsibleHostBase):
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
     """
-    DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
     """
     setting either one of shell_user/shell_pw or ssh_user/ssh_passwd pair should yield the same result.
@@ -45,7 +44,7 @@ class SonicHost(AnsibleHostBase):
                  ssh_user=None, ssh_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
 
-        self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
+        self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd", "gbsyncd"]
 
         if shell_user and shell_passwd:
             im = self.host.options['inventory_manager']
