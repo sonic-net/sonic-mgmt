@@ -177,6 +177,7 @@ def setup_pfc_test(
     logger.info("setup_info : {}".format(setup_info))
     yield setup_info
 
+
 @pytest.fixture(scope="module")
 def setup_dut_test_params(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811

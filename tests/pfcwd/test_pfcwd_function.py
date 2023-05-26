@@ -384,7 +384,7 @@ class SetupPfcwdFunc(object):
             self.ptf.command("ping {} -c 10".format(vlan['addr']))
 
             if is_dualtor:
-                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']), module_ignore_errors=True)
+                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']), module_ignore_errors=True)  # noqa: E501
             else:
                 self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']))
 
@@ -748,7 +748,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         for idx, port in enumerate(self.ports):
             logger.info("")
             logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
-            self.setup_test_params(port, setup_info['vlan'], init=not idx, is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
+            self.setup_test_params(port, setup_info['vlan'], init=not idx,
+                                   is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(port),
@@ -825,7 +826,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.fake_storm = fake_storm
         self.storm_hndle = None
         logger.info("---- Testing on port {} ----".format(port))
-        self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True, is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
+        self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True,
+                               is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
         self.rx_action = None
         self.tx_action = None
         self.set_traffic_action(duthost, "drop")
@@ -907,7 +909,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         for idx, port in enumerate(self.ports):
             logger.info("")
             logger.info("--- Testing port toggling with PFCWD enabled on {} ---".format(port))
-            self.setup_test_params(port, setup_info['vlan'], init=not idx, is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
+            self.setup_test_params(port, setup_info['vlan'], init=not idx,
+                                   is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(port),
