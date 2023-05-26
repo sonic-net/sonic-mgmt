@@ -171,7 +171,6 @@ def check_authorization_tacacs_only(
     )
 
 
-
 def test_authorization_tacacs_only(
                                 duthosts,
                                 enum_rand_one_per_hwsku_hostname,
