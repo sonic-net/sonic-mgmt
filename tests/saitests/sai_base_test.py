@@ -45,6 +45,7 @@ class ThriftInterface(BaseTest):
             server = self.test_params['server']
         else:
             server = 'localhost'
+        self.server = server
 
         if self.test_params.has_key("port_map"):
             user_input = self.test_params['port_map']
