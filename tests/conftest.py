@@ -1519,7 +1519,7 @@ def duts_running_config_facts(duthosts):
     return cfg_facts
 
 @pytest.fixture(scope='class')
-def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, lower_tor_host):
+def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, lower_tor_host, creds):
     """
         Prepares DUT host test params
 
@@ -1549,7 +1549,9 @@ def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, l
                     ).vars['ansible_host'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
-            "sonic_version": duthost.os_version
+            "sonic_version": duthost.os_version,
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         }
     }
 
