@@ -353,6 +353,7 @@ def config_interface_admin_status(duthost, ports, admin_status="up"):
     duthost.shell_cmds(cmds=cmds)
 
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_upstream(
@@ -405,6 +406,7 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
             upper_tor_host.shell("config save -y")
 
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_downstream_standby(
