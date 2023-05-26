@@ -458,9 +458,6 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
-            # TODO: https://github.com/sonic-net/sonic-mgmt/issues/5970
-            if self.sonichost.is_multi_asic and docker == "gbsyncd":
-                continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
                 r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
