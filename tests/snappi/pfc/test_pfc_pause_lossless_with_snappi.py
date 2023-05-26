@@ -12,7 +12,7 @@ from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossl
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
-from tests.snappi.files.helper import skip_warm_and_fast_reboot_on_cisco_devices, skip_warm_reboot
+from tests.snappi.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +175,6 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
     duthost = duthosts[rand_one_dut_hostname]
 
     skip_warm_reboot(duthost, reboot_type)
-    skip_warm_and_fast_reboot_on_cisco_devices(duthost, reboot_type)
 
     lossless_prio = int(lossless_prio)
     pause_prio_list = [lossless_prio]
@@ -249,7 +248,6 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
     duthost = duthosts[rand_one_dut_hostname]
 
     skip_warm_reboot(duthost, reboot_type)
-    skip_warm_and_fast_reboot_on_cisco_devices(duthost, reboot_type)
 
     pause_prio_list = lossless_prio_list
     test_prio_list = lossless_prio_list

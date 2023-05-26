@@ -10,7 +10,7 @@ from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list  
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from .files.pfcwd_basic_helper import run_pfcwd_basic_test
-from tests.snappi.files.helper import skip_warm_and_fast_reboot_on_cisco_devices, skip_warm_reboot
+from tests.snappi.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,6 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
 
     duthost = duthosts[rand_one_dut_hostname]
     skip_warm_reboot(duthost, reboot_type)
-    skip_warm_and_fast_reboot_on_cisco_devices(duthost, reboot_type)
 
     testbed_config, port_config_list = snappi_testbed_config
     lossless_prio = int(lossless_prio)
@@ -223,7 +222,6 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
 
     duthost = duthosts[rand_one_dut_hostname]
     skip_warm_reboot(duthost, reboot_type)
-    skip_warm_and_fast_reboot_on_cisco_devices(duthost, reboot_type)
 
     testbed_config, port_config_list = snappi_testbed_config
 
