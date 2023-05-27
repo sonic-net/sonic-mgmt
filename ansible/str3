@@ -41,6 +41,8 @@ all:
           ansible_host: 10.64.247.50
         vms63-6:
           ansible_host: 10.64.247.51
+        vms63-7:
+          ansible_host: 10.64.247.62
 
     pdu:
       hosts:
@@ -111,8 +113,10 @@ fanout:
       ansible_host: 10.3.146.117
     str2-7260cx3-acs-fan-23:
       ansible_host: 10.3.146.114
-    str2-7260cx3-acs-fan-35:
+    str3-7260cx3-acs-fan-35:
       ansible_host: 10.3.147.79
+    str3-7260cx3-acs-fan-37:
+      ansible_host: 10.3.147.120
     str3-z9332f-01:
       ansible_host: 10.3.146.248
       os: sonic
@@ -189,6 +193,23 @@ sonic_mlnx_4600C:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x41E7E224"
+    str3-msn4600c-acs-07:
+      ansible_host: 10.3.147.114
+      model: MSN4600-CS2ROS
+      serial: MT2207X25064
+      base_mac: 90:0A:84:11:96:00
+      syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2207X25064"
+        "0x24": "90:0A:84:11:96:00"
+        "0x25": "02/20/2022 19:38:59"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2020.11-5.3.0005-115200"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0xC03AD379"
 
 sonic_cisco_8102:
   vars:

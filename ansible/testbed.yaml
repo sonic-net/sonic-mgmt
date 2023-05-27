@@ -1111,6 +1111,21 @@
   auto_recover: 'True'
   comment: jcai
 
+- conf-name: vms63-t0-4600-7
+  group-name: vms63-7
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms63-7
+  ptf_ip: 10.64.247.62/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63104
+  dut:
+    - str3-msn4600c-acs-07
+  inv_name: str3
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: testbed-str2-7215-acs-3
   group-name: vms21-9
   topo: mx
