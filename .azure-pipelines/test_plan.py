@@ -309,12 +309,12 @@ class TestPlanManager(object):
         headers = {
             "Content-Type": "application/json"
         }
-        if self.with_auth:
-            headers["Authorization"] = "Bearer {}".format(self.get_token())
         start_time = time.time()
         http_exception_times = 0
         while (timeout < 0 or (time.time() - start_time) < timeout):
             try:
+                if self.with_auth:
+                    headers["Authorization"] = "Bearer {}".format(self.get_token())
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
                 print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,

@@ -1111,6 +1111,21 @@
   auto_recover: 'True'
   comment: jcai
 
+- conf-name: vms63-t0-4600-7
+  group-name: vms63-7
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms63-7
+  ptf_ip: 10.64.247.62/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63104
+  dut:
+    - str3-msn4600c-acs-07
+  inv_name: str3
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: testbed-str2-7215-acs-3
   group-name: vms21-9
   topo: mx
@@ -1848,6 +1863,7 @@
   ptf: bjw6-1
   ptf_ip: 10.150.23.50/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.50/17"]
   server: server_bjw_6
   vm_base: VM56000
   dut:
@@ -1863,6 +1879,7 @@
   ptf: bjw16-1
   ptf_ip: 10.150.23.51/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.51/17"]
   server: server_bjw_16
   vm_base: VM73000
   dut:
@@ -1878,6 +1895,7 @@
   ptf: bjw6-3
   ptf_ip: 10.150.23.52/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.52/17"]
   server: server_bjw_6
   vm_base: VM56030
   dut:
@@ -1893,6 +1911,7 @@
   ptf: bjw16-2
   ptf_ip: 10.150.23.53/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.53/17"]
   server: server_bjw_16
   vm_base: VM73024
   dut:
@@ -1908,6 +1927,7 @@
   ptf: bjw6-5
   ptf_ip: 10.150.23.54/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.54/17"]
   server: server_bjw_6
   vm_base: VM56038
   dut:
@@ -1923,6 +1943,7 @@
   ptf: bjw6-6
   ptf_ip: 10.150.23.55/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.55/17"]
   server: server_bjw_6
   vm_base: VM56044
   dut:
@@ -1938,6 +1959,7 @@
   ptf: bjw6-7
   ptf_ip: 10.150.23.56/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.56/17"]
   server: server_bjw_6
   vm_base: VM56050
   dut:
@@ -1953,6 +1975,7 @@
   ptf: bjw6-8
   ptf_ip: 10.150.23.57/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.57/17"]
   server: server_bjw_6
   vm_base: VM56054
   dut:
@@ -1968,6 +1991,7 @@
   ptf: bjw6-9
   ptf_ip: 10.150.23.58/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.58/17"]
   server: server_bjw_6
   vm_base: VM56078
   dut:
@@ -1983,6 +2007,7 @@
   ptf: bjw6-11
   ptf_ip: 10.150.23.60/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.60/17"]
   server: server_bjw_6
   vm_base: VM56082
   dut:
@@ -1998,6 +2023,7 @@
   ptf: bjw7-1
   ptf_ip: 10.150.23.63/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.63/17"]
   server: server_bjw_7
   vm_base: VM57000
   dut:
@@ -2013,6 +2039,7 @@
   ptf: bjw7-4
   ptf_ip: 10.150.23.64/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.64/17"]
   server: server_bjw_7
   vm_base: VM57006
   dut:
@@ -2028,6 +2055,7 @@
   ptf: bjw7-5
   ptf_ip: 10.150.23.65/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.65/17"]
   server: server_bjw_7
   vm_base: VM57030
   dut:
@@ -2043,6 +2071,7 @@
   ptf: bjw16-3
   ptf_ip: 10.150.23.66/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.66/17"]
   server: server_bjw_16
   vm_base: VM73028
   dut:
@@ -2058,6 +2087,7 @@
   ptf: bjw12-1
   ptf_ip: 10.150.23.61/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.61/17"]
   server: server_bjw_12
   vm_base: VM72000
   dut:
@@ -2073,6 +2103,7 @@
   ptf: bjw12-2
   ptf_ip: 10.150.23.62/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.62/17"]
   server: server_bjw_12
   vm_base: VM72024
   dut:
@@ -2088,6 +2119,7 @@
   ptf: bjw12-3
   ptf_ip: 10.150.23.59/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.59/17"]
   server: server_bjw_12
   vm_base: VM72030
   dut:
@@ -2163,6 +2195,7 @@
   ptf: bjw7-7
   ptf_ip: 10.150.23.67/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.67/17"]
   server: server_bjw_7
   vm_base: VM57042
   dut:
@@ -2178,6 +2211,7 @@
   ptf: bjw7-8
   ptf_ip: 10.150.23.68/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.68/17"]
   server: server_bjw_7
   vm_base: VM57074
   dut:
@@ -2193,6 +2227,7 @@
   ptf: bjw7-9
   ptf_ip: 10.150.23.69/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.69/17"]
   server: server_bjw_7
   vm_base: VM57098
   dut:
