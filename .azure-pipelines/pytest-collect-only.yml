@@ -1,8 +1,13 @@
 steps:
 
+- task: DockerInstaller@0
+  inputs:
+    dockerVersion: '20.10.23'
+  displayName: 'Install Docker'
+
 - checkout: self
   clean: true
-  displayName: 'checkout sonic-mgmt repo'
+  displayName: 'Checkout sonic-mgmt repo'
 
 - script: |
     set -x
