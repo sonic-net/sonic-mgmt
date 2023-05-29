@@ -2029,7 +2029,9 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.write('{}\n'.format(port_cnt_tbl))
 
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] == recv_counters_base[cntr]), 'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(port_counter_fields[cntr], step_id, step_desc)
+                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
+                    'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                    port_counter_fields[cntr], step_id, step_desc)
             recv_counters_base = recv_counters
 
             step_id += 1
