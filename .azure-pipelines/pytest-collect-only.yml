@@ -11,8 +11,11 @@ steps:
 
 - script: |
     set -x
-    sudo docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
-    sudo docker run -dt --name sonic-mgmt-collect \
+
+    sudo /agent/_work/_tool/docker-stable/20.10.23/x64/docker pull \
+      sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
+
+    sudo /agent/_work/_tool/docker-stable/20.10.23/x64/docker run -dt --name sonic-mgmt-collect \
       -v $(System.DefaultWorkingDirectory):/var/src/sonic-mgmt \
       sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
       /bin/bash
@@ -20,7 +23,8 @@ steps:
 
 - script: |
     set -x
-    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
+
+    sudo /agent/_work/_tool/docker-stable/20.10.23/x64/docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
       pytest --inventory ../ansible/veos_vtb --host-pattern all \
       --testbed_file vtestbed.yaml --testbed vms-kvm-t0 \
       --ignore saitests --ignore ptftests --ignore acstests \
