@@ -11,6 +11,7 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_column_positions
 from tests.common.portstat_utilities import parse_portstat
+from tests.drop_packets.drop_packets import is_mellanox_fanout
 
 
 pytestmark = [
@@ -322,13 +323,16 @@ class TestIPPacket(object):
                       "DUT forwarded {} packets, but {} packets matched expected format, not in expected range"
                       .format(tx_ok, match_cnt))
 
-    def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                       ptfadapter, common_param):
+    def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthosts, localhost,
+                                                       enum_rand_one_per_hwsku_frontend_hostname, ptfadapter,
+                                                       common_param):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
         # THEN DUT should drop packet with 0xffff and add drop count
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if is_mellanox_fanout(duthost, localhost):
+            pytest.skip("Not supported at Mellanox fanout")
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         pkt = testutils.simple_ip_packet(
