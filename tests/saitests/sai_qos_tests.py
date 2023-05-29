@@ -408,7 +408,7 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
         raise RuntimeError(
             "fill_leakout_plus_one: Couldn't raise queue occupancy:"
             "src_port:{}, dst_port_id:{}, pkt:{}, queue:{}".format(
-	        src_port_id, dst_port_id, pkt.__repr__()[0:180], queue))
+                src_port_id, dst_port_id, pkt.__repr__()[0:180], queue))
     else:
         return False
 
@@ -1317,56 +1317,56 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = 64
         pkt = get_multiple_flows(
             self,
-	    pkt_dst_mac,
-	    dst_port_id,
-	    dst_port_ip,
-	    None,
-	    dscp,
-	    ecn,
-	    ttl,
-	    packet_length,
-	    src_port_1_id,
-	    1)[0][0]
+            pkt_dst_mac,
+            dst_port_id,
+            dst_port_ip,
+            None,
+            dscp,
+            ecn,
+            ttl,
+            packet_length,
+            src_port_1_id,
+            1)[0][0]
 
         pkt3 = get_multiple_flows(
             self,
-	    pkt_dst_mac,
-	    dst_port_id,
-	    dst_port_ip,
-	    None,
-	    dscp,
-	    ecn,
-	    ttl,
-	    packet_length,
-	    src_port_2_id,
-	    1)[0][0]
+            pkt_dst_mac,
+            dst_port_id,
+            dst_port_ip,
+            None,
+            dscp,
+            ecn,
+            ttl,
+            packet_length,
+            src_port_2_id,
+            1)[0][0]
 
         if num_of_flows == "multiple":
             pkt2 = get_multiple_flows(
                 self,
-	        pkt_dst_mac,
-	        dst_port_id,
-	        dst_port_ip,
-	        None,
-	        dscp,
-	        ecn,
-	        ttl,
-	        packet_length,
-	        src_port_1_id,
-	        1)[0][0]
+                pkt_dst_mac,
+                dst_port_id,
+                dst_port_ip,
+                None,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                src_port_1_id,
+                1)[0][0]
 
             pkt4 = get_multiple_flows(
                 self,
-	        pkt_dst_mac,
-	        dst_port_id,
-	        dst_port_ip,
-	        None,
-	        dscp,
-	        ecn,
-	        ttl,
-	        packet_length,
-	        src_port_2_id,
-	        1)[0][0]
+                pkt_dst_mac,
+                dst_port_id,
+                dst_port_ip,
+                None,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                src_port_2_id,
+                1)[0][0]
 
         # get a snapshot of counter values at recv and transmit ports
         recv_counters_base1, queue_counters = sai_thrift_read_port_counters(self.client, port_list[src_port_1_id])
@@ -1709,44 +1709,44 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         pkt = get_multiple_flows(
               self,
-	      pkt_dst_mac,
-  	      dst_port_id,
-  	      dst_port_ip,
-	      src_port_vlan,
-	      int(self.test_params['pg']),
-	      ecn,
-	      ttl,
-	      packet_length,
-	      src_port_id,
-	      1)[0][0]
+              pkt_dst_mac,
+                dst_port_id,
+                dst_port_ip,
+              src_port_vlan,
+              int(self.test_params['pg']),
+              ecn,
+              ttl,
+              packet_length,
+              src_port_id,
+              1)[0][0]
         
         # create packet
         pkt2 = get_multiple_flows(
               self,
-	      pkt_dst_mac2,
-  	      dst_port_2_id,
-  	      dst_port_2_ip,
-	      src_port_vlan,
-	      int(self.test_params['pg']),
-	      ecn,
-	      ttl,
-	      packet_length,
-	      src_port_id,
-	      1)[0][0]
+              pkt_dst_mac2,
+                dst_port_2_id,
+                dst_port_2_ip,
+              src_port_vlan,
+              int(self.test_params['pg']),
+              ecn,
+              ttl,
+              packet_length,
+              src_port_id,
+              1)[0][0]
 
         # create packet
         pkt3 = get_multiple_flows(
               self,
-	      pkt_dst_mac3,
-  	      dst_port_3_id,
-  	      dst_port_3_ip,
-	      src_port_vlan,
-	      int(self.test_params['pg']),
-	      ecn,
-	      ttl,
-	      packet_length,
-	      src_port_id,
-	      1)[0][0]
+              pkt_dst_mac3,
+                dst_port_3_id,
+                dst_port_3_ip,
+              src_port_vlan,
+              int(self.test_params['pg']),
+              ecn,
+              ttl,
+              packet_length,
+              src_port_id,
+              1)[0][0]
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in self.test_params.keys():
@@ -2373,20 +2373,20 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         recv_counters_bases = [sai_thrift_read_port_counters(self.client, port_list[sid])[0] for sid in self.src_port_ids]
         xmit_counters_bases = [sai_thrift_read_port_counters(self.client, port_list[sid])[0] for sid in self.dst_port_ids]
 
-	pkts = []
+        pkts = []
         for i in range(len(self.src_port_ids)):
             pkts.append(get_multiple_flows(
                       self,
-	              self.router_mac,
-      	              self.dst_port_ids[i],
-      	              self.dst_port_ips[i],
-	              None,
-	              self.dscps[i],
-	              self.ecn,
-	              64,
-	              self.packet_size,
-	              self.src_port_ids[i],
-	              1)[0][0])
+                      self.router_mac,
+                            self.dst_port_ids[i],
+                            self.dst_port_ips[i],
+                      None,
+                      self.dscps[i],
+                      self.ecn,
+                      64,
+                      self.packet_size,
+                      self.src_port_ids[i],
+                      1)[0][0])
 
         # Disable all dst ports
         uniq_dst_ports = list(set(self.dst_port_ids))
@@ -2653,20 +2653,20 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.write("Since it's dual-TOR testbed, modify pkt_dst_mac from {} to {}\n".format(pkt_dst_mac, def_vlan_mac))
             pkt_dst_mac = def_vlan_mac
 
-	pkts = {}
+        pkts = {}
         for prio in prio_list:
             pkts[prio] = get_multiple_flows(
                   self,
-	          pkt_dst_mac,
-      	          dst_port_id,
-      	          dst_port_ip,
-	          None,
-	          prio,
-	          ecn,
-	          64,
-	          64,
-	          src_port_id,
-	          1)[0][0]
+                  pkt_dst_mac,
+                        dst_port_id,
+                        dst_port_ip,
+                  None,
+                  prio,
+                  ecn,
+                  64,
+                  64,
+                  src_port_id,
+                  1)[0][0]
 
         sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
         send_packet(self, src_port_id, pkts[0], pkts_num_leak_out)
@@ -2796,16 +2796,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         pkt = get_multiple_flows(
                   self,
-	          router_mac if router_mac != '' else dst_port_mac,
-      	          dst_port_id,
-      	          dst_port_ip,
-	          None,
-	          dscp,
-	          ecn,
-	          ttl,
-	          packet_length,
-	          src_port_id,
-	          1)[0][0]
+                  router_mac if router_mac != '' else dst_port_mac,
+                        dst_port_id,
+                        dst_port_ip,
+                  None,
+                  dscp,
+                  ecn,
+                  ttl,
+                  packet_length,
+                  src_port_id,
+                  1)[0][0]
 
         print >> sys.stderr, "dst_port_id: %d, src_port_id: %d src_port_vlan: %s" % (dst_port_id, src_port_id, src_port_vlan)
 
@@ -2926,18 +2926,18 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # crafting 2 udp packets with different udp_dport in order for traffic to go through different flows
-	pkt_tuples = get_multiple_flows(
+        pkt_tuples = get_multiple_flows(
                   self,
-	          pkt_dst_mac,
-		  dst_port_id,
-      	          dst_port_ip,
-	          None,
-	          dscp,
-	          ecn,
-	          ttl,
-	          packet_length,
-	          src_port_id,
-	          2)
+                  pkt_dst_mac,
+        	  dst_port_id,
+                        dst_port_ip,
+                  None,
+                  dscp,
+                  ecn,
+                  ttl,
+                  packet_length,
+                  src_port_id,
+                  2)
 
         pkt = pkt_tuples[0][0]
         pkt2 = pkt_tuples[1][0]
@@ -3057,16 +3057,16 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         pkt = get_multiple_flows(
                   self,
-	          router_mac if router_mac != '' else dst_port_mac,
-      	          dst_port_id,
-      	          dst_port_ip,
-	          None,
-	          dscp,
-	          ecn,
-	          ttl,
-	          packet_length,
-	          src_port_id,
-	          1)[0][0]
+                  router_mac if router_mac != '' else dst_port_mac,
+                        dst_port_id,
+                        dst_port_ip,
+                  None,
+                  dscp,
+                  ecn,
+                  ttl,
+                  packet_length,
+                  src_port_id,
+                  1)[0][0]
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
@@ -3416,16 +3416,16 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
         packet_length = 64
         pkt = get_multiple_flows(
                   self,
-	          router_mac if router_mac != '' else dst_port_mac,
-      	          dst_port_id,
-      	          dst_port_ip,
-	          None,
-	          dscp,
-	          ecn,
-	          ttl,
-	          packet_length,
-	          src_port_id,
-	          1)[0][0]
+                  router_mac if router_mac != '' else dst_port_mac,
+                        dst_port_id,
+                        dst_port_ip,
+                  None,
+                  dscp,
+                  ecn,
+                  ttl,
+                  packet_length,
+                  src_port_id,
+                  1)[0][0]
 
         print >> sys.stderr, "test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
             dst_port_id, src_port_id, src_port_vlan
@@ -3808,16 +3808,16 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         cell_occupancy = (packet_length + cell_size - 1) / cell_size
         pkt = get_multiple_flows(
                   self,
-	          router_mac if router_mac != '' else dst_port_mac,
-      	          dst_port_id,
-      	          dst_port_ip,
-	          None,
-	          dscp,
-	          ecn,
-	          ttl,
-	          packet_length,
-	          src_port_id,
-	          1)[0][0]
+                  router_mac if router_mac != '' else dst_port_mac,
+                        dst_port_id,
+                        dst_port_ip,
+                  None,
+                  dscp,
+                  ecn,
+                  ttl,
+                  packet_length,
+                  src_port_id,
+                  1)[0][0]
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
