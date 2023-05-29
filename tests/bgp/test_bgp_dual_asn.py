@@ -20,6 +20,7 @@ from tests.generic_config_updater.gu_utils import (
     delete_checkpoint,
     rollback_or_reload,
 )
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 
 
 pytestmark = [pytest.mark.topology("t0")]
@@ -69,13 +70,16 @@ def lo_intfs(duthost, tbinfo):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(
+    duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+):
     """
     Setup/teardown fixture for bgp speaker config
     Args:
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
+    logger.info("Save bgp speaker configuration on %s" % (rand_one_dut_hostname))
     duthost = duthosts[rand_one_dut_hostname]
     original_bgp_speaker_config = get_bgp_speaker_runningconfig(duthost)
     create_checkpoint(duthost)
@@ -86,7 +90,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
         # sleep for a short time, waiting for config apply
-        time.sleep(10)
+        time.sleep(30)
         current_bgp_speaker_config = get_bgp_speaker_runningconfig(duthost)
         pytest_assert(
             set(original_bgp_speaker_config) == set(current_bgp_speaker_config),
@@ -252,14 +256,17 @@ class BgpDualAsn:
             )
 
         ptfhost.shell("ip route flush %s/%d" % (self.lo["addr"], self.lo["prefixlen"]))
-        ptfhost.shell(
-            "ip route add %s/%d via %s"
-            % (self.lo["addr"], self.lo["prefixlen"], vlan_addr)
-        )
-        ptfhost.shell(
-            "ip -6 route add %s/%d via %s"
-            % (self.lo6["addr"], self.lo6["prefixlen"], vlan_addr6)
-        )
+        try:
+            ptfhost.shell(
+                "ip route add %s/%d via %s"
+                % (self.lo["addr"], self.lo["prefixlen"], vlan_addr)
+            )
+            ptfhost.shell(
+                "ip -6 route add %s/%d via %s"
+                % (self.lo6["addr"], self.lo6["prefixlen"], vlan_addr6)
+            )
+        except Exception:
+            logger.info("route may already exists, ignore error !")
 
         # Issue a ping command to populate entry for next_hop
         for port in self.ptf_ports:
@@ -448,13 +455,17 @@ def get_bgp_uptime(duthost, bgp_neighbor):
     # it's a work around for show ip bgp neighbors <ipaddress>, it can not show
     # neighbors which are not configured
     output = duthost.shell(
-        "show ip bgp neighbors | grep -A 10 {} | grep 'Established'".format(bgp_neighbor)
+        "show ip bgp neighbors | grep -A 10 {} | grep 'Established'".format(
+            bgp_neighbor
+        )
     )
     if not output["stdout"]:
         pytest_assert(True, "Bgp neighbor {} is not up".format(bgp_neighbor))
     time_string = re.search(r"up for (\d{2}:\d{2}:\d{2})", output["stdout"]).group(1)
     t = datetime.strptime(time_string, "%H:%M:%S").time()
-    return int(timedelta(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds())
+    return int(
+        timedelta(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds()
+    )
 
 
 def check_bgp_routes_exist(duthost, prefix):
@@ -469,7 +480,9 @@ def announce_route(ptfhost, exabgp_port, prefix, nexthop):
     update_routes("announce", ptfhost.mgmt_ip, exabgp_port, route)
 
 
-def test_bgp_dual_asn_v4(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, setup_env):
+def test_bgp_dual_asn_v4(
+    duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, setup_env
+):
     duthost = duthosts[rand_one_dut_hostname]
 
     dualAsn = BgpDualAsn()
