@@ -277,7 +277,7 @@ class PfcPktCntrs(object):
 
 class SetupPfcwdFunc(object):
     """ Test setup per port """
-    def setup_test_params(self, port, vlan, init=False, mmu_params=False, is_dualtor=False):
+    def setup_test_params(self, port, vlan, init=False, mmu_params=False):
         """
         Sets up test parameters associated with a DUT port
 
@@ -290,7 +290,7 @@ class SetupPfcwdFunc(object):
         self.setup_port_params(port, init=init)
         if mmu_params:
             self.setup_mmu_params(port)
-        self.resolve_arp(vlan, is_dualtor)
+        self.resolve_arp(vlan, self.is_dualtor)
         if not self.pfc_wd['fake_storm']:
             self.storm_setup(init=init)
 
@@ -744,12 +744,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.storm_hndle = None
         self.rx_action = None
         self.tx_action = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
 
         for idx, port in enumerate(self.ports):
             logger.info("")
             logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
-            self.setup_test_params(port, setup_info['vlan'], init=not idx,
-                                   is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
+            self.setup_test_params(port, setup_info['vlan'], init=not idx)
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(port),
@@ -826,10 +826,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.fake_storm = fake_storm
         self.storm_hndle = None
         logger.info("---- Testing on port {} ----".format(port))
-        self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True,
-                               is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
+        self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True)
         self.rx_action = None
         self.tx_action = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
         self.set_traffic_action(duthost, "drop")
         self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
 
@@ -904,13 +904,14 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.storm_hndle = None
         self.rx_action = None
         self.tx_action = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
         action = "dontcare"
 
         for idx, port in enumerate(self.ports):
             logger.info("")
             logger.info("--- Testing port toggling with PFCWD enabled on {} ---".format(port))
-            self.setup_test_params(port, setup_info['vlan'], init=not idx,
-                                   is_dualtor=setup_dut_info['basicParams']['is_dualtor'])
+            self.setup_test_params(port, setup_info['vlan'], init=not idx)
+
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(port),
