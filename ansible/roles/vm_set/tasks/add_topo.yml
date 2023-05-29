@@ -86,6 +86,7 @@
             ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
             ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
             ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+            ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
             mgmt_bridge: "{{ mgmt_bridge }}"
             vm_names: ""
           become: yes
@@ -138,6 +139,7 @@
         ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
         ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
         ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+        ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
         ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
         ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
         mgmt_bridge: "{{ mgmt_bridge }}"
@@ -208,6 +210,7 @@
       ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
       ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
       ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+      ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
       ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
       ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
       mgmt_bridge: "{{ mgmt_bridge }}"
