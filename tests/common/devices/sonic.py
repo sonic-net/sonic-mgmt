@@ -35,7 +35,7 @@ class SonicHost(AnsibleHostBase):
     This type of host contains information about the SONiC device (device info, services, etc.),
     and also provides the ability to run Ansible modules on the SONiC device.
     """
-    DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd", "gbsyncd"]
+    DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
     """
     setting either one of shell_user/shell_pw or ssh_user/ssh_passwd pair should yield the same result.
@@ -45,7 +45,7 @@ class SonicHost(AnsibleHostBase):
                  ssh_user=None, ssh_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
 
-        self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd", "gbsyncd"]
+        self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
         if shell_user and shell_passwd:
             im = self.host.options['inventory_manager']
@@ -81,6 +81,9 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
         if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
             self.DEFAULT_ASIC_SERVICES.append("macsec")
+        feature_status = self.get_feature_status()
+        if 'gbsyncd' in feature_status.keys() and feature_status['gbsyncd']['status'] == 'enabled':
+            self.DEFAULT_ASIC_SERVICES.append("gbsyncd")
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
