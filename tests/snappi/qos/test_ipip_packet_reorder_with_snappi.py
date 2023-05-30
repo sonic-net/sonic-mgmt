@@ -10,7 +10,7 @@ from tests.common.snappi.qos_fixtures import prio_dscp_map # noqa F401
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('t0', 'tgen')]
+pytestmark = [pytest.mark.topology('tgen')]
 
 
 def test_ip_in_ip_packet_reorder(snappi_api, # noqa F811
