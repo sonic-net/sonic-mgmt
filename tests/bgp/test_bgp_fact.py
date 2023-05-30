@@ -24,7 +24,10 @@ def test_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
         # Check bgpmon functionality by validate STATE DB contains this neighbor as well
         state_fact = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'
                                    .format(sonic_db_cmd, k), module_ignore_errors=False)['stdout_lines']
+        peer_type = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "peerType"'
+                                   .format(sonic_db_cmd, k), module_ignore_errors=False)['stdout_lines']
         assert state_fact[0] == "Established"
+        assert peer_type[0] ==  "i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP"
 
     # In multi-asic, would have 'BGP_INTERNAL_NEIGHBORS' and possibly no 'BGP_NEIGHBOR' (ebgp) neighbors.
     nbrs_in_cfg_facts = {}
