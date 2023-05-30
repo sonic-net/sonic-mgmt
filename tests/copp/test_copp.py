@@ -24,6 +24,7 @@ import logging
 import pytest
 import json
 import random
+import time
 from collections import namedtuple
 
 from tests.copp import copp_utils
@@ -398,6 +399,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
 
     # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
     upStreamDuthost.command("sudo config bgp shutdown all")
+    time.sleep(30)
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
                                test_params.nn_target_namespace, test_params.nn_target_vlanid,
