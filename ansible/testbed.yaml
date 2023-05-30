@@ -1889,15 +1889,15 @@
   comment: SAI Qualification
 
 - conf-name: testbed-bjw-can-2700-1
-  group-name: bjw6-3
+  group-name: bjw13-1
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: bjw6-3
+  ptf: bjw13-1
   ptf_ip: 10.150.23.52/23
   ptf_ipv6:
   ptf_extra_mgmt_ip: ["172.16.188.52/17"]
-  server: server_bjw_6
-  vm_base: VM56030
+  server: server_bjw_13
+  vm_base: VM74000  # 4 VMs
   dut:
     - bjw-can-2700-1
   inv_name: bjw
