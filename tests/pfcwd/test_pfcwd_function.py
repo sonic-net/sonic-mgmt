@@ -290,7 +290,7 @@ class SetupPfcwdFunc(object):
         self.setup_port_params(port, init=init)
         if mmu_params:
             self.setup_mmu_params(port)
-        self.resolve_arp(vlan)
+        self.resolve_arp(vlan, self.is_dualtor)
         if not self.pfc_wd['fake_storm']:
             self.storm_setup(init=init)
 
@@ -368,7 +368,7 @@ class SetupPfcwdFunc(object):
             PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
         time.sleep(2)
 
-    def resolve_arp(self, vlan):
+    def resolve_arp(self, vlan, is_dualtor=False):
         """
         Populate ARP info for the DUT vlan port
 
@@ -382,7 +382,11 @@ class SetupPfcwdFunc(object):
                 ptf_port += (constants.VLAN_SUB_INTERFACE_SEPARATOR + self.pfc_wd['test_port_vlan_id'])
             self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
             self.ptf.command("ping {} -c 10".format(vlan['addr']))
-            self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']))
+
+            if is_dualtor:
+                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']), module_ignore_errors=True)  # noqa: E501
+            else:
+                self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']))
 
     def storm_setup(self, init=False):
         """
@@ -711,7 +715,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.rx_action = action
         self.tx_action = action
 
-    def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, enum_fanout_graph_facts,  # noqa F811
+    def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
                            ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
         PFCwd functional test
@@ -727,6 +731,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
+        setup_dut_info = setup_dut_test_params
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
@@ -739,6 +744,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.storm_hndle = None
         self.rx_action = None
         self.tx_action = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
 
         for idx, port in enumerate(self.ports):
             logger.info("")
@@ -774,7 +780,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     logger.info("--- Stop PFC WD ---")
                     self.dut.command("pfcwd stop")
 
-    def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
+    def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,   # noqa F811
                               ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
         Tests if mmu changes impact Pfcwd functionality
@@ -805,6 +811,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
+        setup_dut_info = setup_dut_test_params
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
@@ -822,6 +829,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True)
         self.rx_action = None
         self.tx_action = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
         self.set_traffic_action(duthost, "drop")
         self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
 
@@ -856,7 +864,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             logger.info("--- Stop PFC WD ---")
             self.dut.command("pfcwd stop")
 
-    def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, enum_fanout_graph_facts,  # noqa F811
+    def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
                                tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
         Test PfCWD functionality after toggling port
@@ -883,6 +891,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
+        setup_dut_info = setup_dut_test_params
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
@@ -895,12 +904,14 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.storm_hndle = None
         self.rx_action = None
         self.tx_action = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
         action = "dontcare"
 
         for idx, port in enumerate(self.ports):
             logger.info("")
             logger.info("--- Testing port toggling with PFCWD enabled on {} ---".format(port))
             self.setup_test_params(port, setup_info['vlan'], init=not idx)
+
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(port),
