@@ -36,7 +36,7 @@ class L1SwitchHost(object):
         Shuts down the given port, both directions or tx or rx based on direction.
 
         Args:
-            port_name (str): Name of the port to shutdown
+            port_name (str): Name of the port to shutdown ex. "14"
             direction (str): Direction of the port to shutdown, either "bi-directional", "tx" or "rx"
         Returns:
             None
@@ -58,7 +58,7 @@ class L1SwitchHost(object):
         Starts up the given port, oth directions or tx or rx based on direction.
 
         Args:
-            port_name (str): Name of the port to startup
+            port_name (str): Name of the port to startup ex. "14"
             direction (str): Direction of the port to startup, either "bi-directional", "tx" or "rx"
         Returns:
             None
@@ -77,7 +77,7 @@ class L1SwitchHost(object):
 
     def get_connected_ports(self):
         """
-        Gets all the connected ports in list form on the switch.
+        Gets all the connected ports in dict form on the switch.
 
         Args:
             None
@@ -92,7 +92,7 @@ class L1SwitchHost(object):
             for i in range(8, len(out) - 1):
                 result = re.search(r"\((\w+,\w+)\)-\((\w+,\w+)\)", out[i])
                 if result:
-                    port1, port2 = self.convert_str_to_port_pair(result.group(0))
+                    port1, port2 = self.extract_port_pair(result.group(0))
                     if port1 is None or port2 is None:
                         continue
                     self.connections[port1] = port2
