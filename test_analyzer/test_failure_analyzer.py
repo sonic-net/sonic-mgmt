@@ -859,12 +859,12 @@ class GeneralAnalyzer(BasicAnalyzer):
             self.icm_20220531_limit))
 
         if len(setup_error_new_icm_table) > self.setup_error_limit:
-            setup_error_final_icm_list = setup_error_new_icm_table[:self.setup_error_limit+1]
+            error_final_icm_list = setup_error_new_icm_table[:self.setup_error_limit]
         else:
-            setup_error_final_icm_list = setup_error_new_icm_table
+            error_final_icm_list = setup_error_new_icm_table
         setup_set = set()
         common_summary_new_icm_list = []
-        for icm in setup_error_final_icm_list:
+        for icm in error_final_icm_list:
             setup_set.add(icm['subject'])
         for icm in common_summary_new_icm_table:
             if icm['subject'] not in setup_set:
