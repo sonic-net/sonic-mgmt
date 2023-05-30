@@ -185,6 +185,10 @@ def hash_keys(duthost):
     if duthost.sonichost.is_multi_asic:
         hash_keys.remove('ingress-port')
 
+    if duthost.facts['platform'] in ['x86_64-nokia_ixr7250e_36x400g-r0']:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+
     return hash_keys
 
 
