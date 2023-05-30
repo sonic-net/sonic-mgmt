@@ -908,6 +908,22 @@ def overwrite_lab_file(vxr_ports):
         "/home/vxr/golden-code/sonic-test/sonic-mgmt/ansible/lab"
     )
 
+# VXR sim failed
+def handle_sim_failure():
+    SUMMARY_REPORT_FILENAME = "results.json"
+    COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
+
+    SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
+    COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
+
+    # Include sim_status field to indicate failure
+    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_failure"}
+
+    for file_path in [SUMMARY_REPORT_PATH, COMMON_REPORT_PATH]:
+        with open(file_path, "w") as output_file:
+            json.dump(sum, output_file)
+
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -1010,8 +1026,12 @@ def main():
         os.system("bash -c '{} start {} |& tee sim_op.log'".format(vxr_path, topo_yaml))
         
         sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
+
+        # Populate results file with failure data
         if not int(sim_output):
+            handle_sim_failure()
             sys.exit("Sim is not up. Exiting now")
+
         os.system("{} ports > vxr_ports.yaml".format(vxr_path))
         input_file = "vxr_ports.yaml"
     delta2 = datetime.datetime.now()
