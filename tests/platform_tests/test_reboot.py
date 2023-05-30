@@ -27,7 +27,6 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-logger = logging.getLogger(__name__)
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
@@ -137,7 +136,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=N
             logging.info(
                 "Skip check reboot-cause history for version before 202012")
         else:
-            logger.info("Check reboot-cause history")
+            logging.info("Check reboot-cause history")
             assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
                               REBOOT_TYPE_HISTOYR_QUEUE), \
                 "Check reboot-cause history failed after rebooted by %s" % reboot_type
