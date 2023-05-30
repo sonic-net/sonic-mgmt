@@ -315,6 +315,31 @@ def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_du
         counter_poll_config(rand_selected_dut, 'queue', 10000)
 
 
+def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue, pkt, src_port, exp_pkt, dst_ports):
+    try:
+        # Start PFC storm from leaf fanout switch
+        start_pfc_storm(storm_handler, peer_info, prio)
+        ptfadapter.dataplane.flush()
+        # Record the queue counter before sending test packet
+        base_queue_count = get_queue_counter(dut, port, queue, True)
+        # Send testing packet again
+        testutils.send_packet(ptfadapter, src_port, pkt, 1)
+        # The packet should be paused
+        testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
+        # Check the queue counter didn't increase
+        queue_count = get_queue_counter(dut, port, queue, False)
+        assert base_queue_count == queue_count
+        return True
+    except AssertionError:
+        logger.info('assert {}'.format(sys.exc_info()))
+        return False
+    except Exception:
+        logger.info('exception {}'.format(sys.exc_info()))
+        return False
+    finally:
+        stop_pfc_storm(storm_handler)
+
+
 def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
                                           toggle_all_simulator_ports_to_rand_unselected_tor,            # noqa F811
                                           tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):    # noqa F811
@@ -372,36 +397,11 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
                                  pfc_frames_number=PFC_PKT_COUNT,
                                  peer_info=peer_info)
 
-        def pfc_pause_test():
-            try:
-                # Start PFC storm from leaf fanout switch
-                start_pfc_storm(storm_handler, peer_info, prio)
-                ptfadapter.dataplane.flush()
-                # Record the queue counter before sending test packet
-                base_queue_count = get_queue_counter(
-                    rand_selected_dut, actual_port_name, queue, True)
-                # Send testing packet again
-                testutils.send_packet(ptfadapter, src_port, pkt, 1)
-                # The packet should be paused
-                testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
-                # Check the queue counter didn't increase
-                queue_count = get_queue_counter(
-                    rand_selected_dut, actual_port_name, queue, False)
-                assert base_queue_count == queue_count
-                return True
-            except AssertionError:
-                logger.info('assert {}'.format(sys.exc_info()))
-                return False
-            except Exception:
-                logger.info('exception {}'.format(sys.exc_info()))
-                return False
-            finally:
-                stop_pfc_storm(storm_handler)
-
         retry = 0
         while retry < PFC_PAUSE_TEST_RETRY_MAX:
             try:
-                if pfc_pause_test():
+                if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut, actual_port_name,
+                                  queue, pkt, src_port, exp_pkt, dst_ports):
                     break
             except AssertionError:
                 retry += 1
@@ -467,37 +467,12 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                  pfc_frames_number=PFC_PKT_COUNT,
                                  peer_info=peer_info)
 
-        def pfc_pause_test():
-            try:
-                # Start PFC storm from leaf fanout switch
-                start_pfc_storm(storm_handler, peer_info, prio)
-                ptfadapter.dataplane.flush()
-                # Read queue counter before sending packet
-                base_queue_count = get_queue_counter(
-                    rand_selected_dut, dualtor_meta['selected_port'], queue, True)
-                # Send testing packet again
-                testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
-                # The packet should be paused
-                testutils.verify_no_packet(
-                    ptfadapter, exp_pkt, dualtor_meta['target_server_port'])
-                # Check the queue counter didn't increase
-                queue_count = get_queue_counter(
-                    rand_selected_dut, dualtor_meta['selected_port'], queue, False)
-                assert base_queue_count == queue_count
-                return True
-            except AssertionError:
-                logger.info('assert {}'.format(sys.exc_info()))
-                return False
-            except Exception:
-                logger.info('exception {}'.format(sys.exc_info()))
-                return False
-            finally:
-                stop_pfc_storm(storm_handler)
-
         retry = 0
         while retry < PFC_PAUSE_TEST_RETRY_MAX:
             try:
-                if pfc_pause_test():
+                if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut,
+                                  dualtor_meta['selected_port'], queue, tunnel_pkt.exp_pkt, src_port, exp_pkt,
+                                  dualtor_meta['target_server_port']):
                     break
             except AssertionError:
                 retry += 1
