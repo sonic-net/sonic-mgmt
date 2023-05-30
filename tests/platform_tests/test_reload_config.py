@@ -130,5 +130,6 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
 def check_interfaces_config_service_status(duthost):
     # check interfaces-config.service status
     regx_interface_config_service_exit = r'.*Main PID: \d+ \(code=exited, status=0\/SUCCESS\).*'
-    interface_config_server_status = duthost.command('systemctl status interfaces-config.service')['stdout']
+    interface_config_server_status = duthost.command(
+        'systemctl status interfaces-config.service', module_ignore_errors=True)['stdout']
     return re.search(regx_interface_config_service_exit, interface_config_server_status)
