@@ -649,6 +649,12 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
     conditions:
         - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
 
+pc/test_lag_member.py:
+  skip:
+    reason: "Not support dualtor topo"
+    conditions:
+        - "'dualtor' in topo_name"
+
 pc/test_po_cleanup.py:
   skip:
     reason: "Skip test due to there is no portchannel exists in current topology."
