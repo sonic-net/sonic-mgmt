@@ -191,7 +191,8 @@ pdu-112,14,str-e1031-acs-4,PSU1
 pdu-113,14,str-e1031-acs-4,PSU2
 pdu-101,27,str-acs-serv-01,PSU1
 pdu-101,25,str-acs-serv-02,PSU1
-pdu-100,21,str-acs-serv-03,PSU1
+pdu-99,21,str-acs-serv-03,PSU1
+pdu-100,21,str-acs-serv-03,PSU2
 pdu-100,32,str-acs-serv-06,PSU1
 pdu-100,31,str-acs-serv-07,PSU1
 pdu-100,19,str-acs-serv-11,PSU1
