@@ -323,7 +323,7 @@ class TestIPPacket(object):
                       .format(tx_ok, match_cnt))
 
     def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                       ptfadapter, common_param):
+                                                       ptfadapter, common_param, tbinfo):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
         # THEN DUT should drop packet with 0xffff and add drop count
@@ -378,6 +378,13 @@ class TestIPPacket(object):
         tx_ok = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
+
+        # For t2 max topology, increase the tolerance value from 0.1 to 0.2
+        # Set the tolerance value to 0.2 if the topology is T2 max, PKT_NUM_ZERO would be set to 200
+        vms_num = len(tbinfo['topo']['properties']['topology']['VMs'])
+        if tbinfo['topo']['type'] == "t2" and vms_num > 8:
+            logger.info("Setting PKT_NUM_ZERO for t2 max topology with 0.2 tolerance")
+            self.PKT_NUM_ZERO = self.PKT_NUM * 0.2
 
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
