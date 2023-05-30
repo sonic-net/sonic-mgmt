@@ -84,8 +84,12 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
-           -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
+    cfg_facts = duthost.get_running_config_facts()
+    up_ports = [p for p, v in cfg_facts['PORT'].items() if v.get('admin_status', None) == 'up']
+    v_port = sorted(up_ports)[0]
+    logging.warning("v_port={}".format(v_port))
+    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/{2} -xt COUNTERS_DB \
+           -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT, v_port)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
@@ -171,6 +175,7 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
     skip_201911_and_older(duthost)
     cmd = generate_client_cli(
         duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE, update_count=3)
+    logging.warning("cmd={}".format(cmd))
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
