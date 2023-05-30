@@ -67,7 +67,6 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
     report_file = open('full_report.txt', 'w')
     tcs_file = open(script_file, 'r')
     tcs = tcs_file.readlines()
-    print("Test cases:", tcs)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -232,7 +231,6 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
     report_file = open('full_report.txt', 'w')
     tcs_file = open(script_file, 'r')
     tcs = tcs_file.readlines()
-    print("Test cases:", tcs)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
