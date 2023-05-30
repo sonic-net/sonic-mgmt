@@ -65,33 +65,33 @@
   retries: 5
   delay: 10
 
-- name: Install docker-ce
-  apt: pkg=docker-ce
-  become: yes
-  environment: "{{ proxy_env | default({}) }}"
-
-- name: Update python2 packages
-  block:
-  - name: remove old python packages
-    pip: name=docker-py state=absent executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-    ignore_errors: yes
-  - name: Install python packages
-    pip: name=docker version=4.1.0 state=forcereinstall executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-  when: pip_executable=="pip"
-
-- name: Update python3 packages
-  block:
-  - name: remove old python packages
-    pip: name=docker-py state=absent executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-    ignore_errors: yes
-  - name: Install python packages
-    pip: name=docker version=6.1.0 state=forcereinstall executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-  when: pip_executable=="pip3"
+#- name: Install docker-ce
+#  apt: pkg=docker-ce
+#  become: yes
+#  environment: "{{ proxy_env | default({}) }}"
+#
+#- name: Update python2 packages
+#  block:
+#  - name: remove old python packages
+#    pip: name=docker-py state=absent executable={{ pip_executable }}
+#    become: yes
+#    environment: "{{ proxy_env | default({}) }}"
+#    ignore_errors: yes
+#  - name: Install python packages
+#    pip: name=docker version=4.1.0 state=forcereinstall executable={{ pip_executable }}
+#    become: yes
+#    environment: "{{ proxy_env | default({}) }}"
+#  when: pip_executable=="pip"
+#
+#- name: Update python3 packages
+#  block:
+#  - name: remove old python packages
+#    pip: name=docker-py state=absent executable={{ pip_executable }}
+#    become: yes
+#    environment: "{{ proxy_env | default({}) }}"
+#    ignore_errors: yes
+#  - name: Install python packages
+#    pip: name=docker version=6.1.0 state=forcereinstall executable={{ pip_executable }}
+#    become: yes
+#    environment: "{{ proxy_env | default({}) }}"
+#  when: pip_executable=="pip3"
