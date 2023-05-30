@@ -118,7 +118,7 @@ stages:
         FEATURES: ${{ parameters.FEATURES }}
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
-        COMMON_EXTRA_PARAMS: "--topology t0,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }}"
+        COMMON_EXTRA_PARAMS: "--topology t0,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
         REPO_NAME: ${{ parameters.REPO_NAME }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
