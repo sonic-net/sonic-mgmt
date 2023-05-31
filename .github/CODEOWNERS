@@ -7,7 +7,7 @@
 # These owners will be the default owners for everything in the repo.
 # Unless a later match takes precedence, # @Azure/sonic-fundamentals
 # will be requested for review when someone opens a pull request.
-*       @Azure/sonic-fundamentals
+#       @Azure/sonic-fundamentals
 
 # Ansible
 
@@ -29,6 +29,7 @@ tests/platform_tests/test_auto_negotiation.py @prgeor @Junchao-Mellanox
 tests/platform_tests/thermal_control_test_helper.py @prgeor @Junchao-Mellanox
 tests/system_health @prgeor @Junchao-Mellanox
 tests/show_techsupport @yxieca @noaOrMlnx
+tests/qos @XuChen-MSFT @wsycqyz
 tests/qos/test_buffer.py @neethajohn @stephenxs
 tests/qos/test_buffer_traditional.py @neethajohn @stephenxs
 tests/qos/files/dynamic_buffer_param.json @neethajohn @stephenxs
