@@ -24,13 +24,21 @@ stages:
   - group: Testbed-Tools
   - group: GIT_SECRETS
   jobs:
-  - job: pre_commit
-    displayName: "pre-commit-check"
+  - job: static_analysis
+    displayName: "Static Analysis"
     timeoutInMinutes: 10
     continueOnError: false
     pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
+
+  - job: validate_test_cases
+    displayName: "Validate Test Cases"
+    timeoutInMinutes: 20
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+    - template: .azure-pipelines/pytest-collect-only.yml
 
 - stage: Test
   dependsOn: Pre_test
