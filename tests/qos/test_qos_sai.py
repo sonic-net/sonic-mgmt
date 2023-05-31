@@ -191,6 +191,8 @@ class TestQosSai(QosSaiBase):
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
                 ingressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
                 egressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
+                set_static_route (Fixture): Setup the static route if the src
+                                            and dst ASICs are different.
 
             Returns:
                 None
