@@ -144,8 +144,9 @@ def parse_list_from_str(s):
 
 class TestPlanManager(object):
 
-    def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
+    def __init__(self, url, frontend_url, tenant_id=None, client_id=None, client_secret=None, ):
         self.url = url
+        self.frontend_url = frontend_url
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
@@ -306,8 +307,8 @@ class TestPlanManager(object):
         print(str(resp["data"]))
 
     def poll(self, test_plan_id, interval=60, timeout=-1, expected_state=""):
-        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
-              .format(test_plan_id))
+        print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
+              .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
 
         poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
@@ -363,8 +364,9 @@ class TestPlanManager(object):
                     # Other status such as "SKIPPED", "CANCELED" are considered successful.
                     if step_status == "FAILED":
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
-                                        "Check https://www.testbed-tools.org/scheduler/testplan/{} for test plan status"
+                                        "Check {}/scheduler/testplan/{} for test plan status"
                                         .format(test_plan_id, step_status, result, time.time() - start_time,
+                                                self.frontend_url,
                                                 test_plan_id))
                     else:
                         print("Current status is {}".format(step_status))
@@ -732,6 +734,7 @@ if __name__ == "__main__":
         "tenant_id": os.environ.get("TENANT_ID"),
         "client_id": os.environ.get("CLIENT_ID"),
         "client_secret": os.environ.get("CLIENT_SECRET"),
+        "frontend_url": os.environ.get("FRONTEND_URL", "https://www.testbed-tools.org"),
     }
     env_missing = [k.upper() for k, v in env.items() if k.upper() in required_env and not v]
     if env_missing:
@@ -741,6 +744,7 @@ if __name__ == "__main__":
     try:
         tp = TestPlanManager(
             env["testbed_tools_url"],
+            env["frontend_url"],
             env["tenant_id"],
             env["client_id"],
             env["client_secret"])
