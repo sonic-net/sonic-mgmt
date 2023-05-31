@@ -11,7 +11,6 @@ from tests.common.dualtor.dual_tor_common import cable_type                     
 from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, \
                                            OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
@@ -551,7 +550,7 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(duthos
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):    # noqa F811
+def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mux_server_url, tbinfo, mux_config):    # noqa F811
     """
     A function level fixture to toggle all ports to a random side.
     """
@@ -617,7 +616,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
             return False
         return True
 
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
     _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo)
