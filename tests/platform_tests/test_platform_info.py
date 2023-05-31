@@ -136,8 +136,8 @@ def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 @pytest.fixture(scope="function")
-def ignore_particular_error_log(request, duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+def ignore_particular_error_log(request, duthosts, enum_supervisor_dut_hostname):
+    duthost = duthosts[enum_supervisor_dut_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
     loganalyzer.load_common_config()
 
@@ -240,12 +240,12 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_supervisor_dut_hostname,
                                              pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     if duthost.get_facts().get("modular_chassis") and not duthost.is_supervisor_node():
         pytest.skip("Skip chassis testing if the node is not SUP, only SUP has pdu info")
 
@@ -341,12 +341,12 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
-def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_show_platform_temperature_mocked(duthosts, enum_supervisor_dut_hostname,
                                           mocker_factory, ignore_particular_error_log):  # noqa F811
     """
     @summary: Check output of 'show platform temperature'
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     # Mock data and check
     mocker = mocker_factory(duthost, 'ThermalStatusMocker')
     pytest_require(mocker, "No ThermalStatusMocker for %s, skip rest of the testing in this case" %
