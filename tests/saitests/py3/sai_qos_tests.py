@@ -358,6 +358,16 @@ def fill_leakout_plus_one(
             src_port_id, dst_port_id, pkt.__repr__()[0:180], queue))
     return False
 
+def get_peer_addresses(data):
+    def get_peer_addr(data, addr):
+        if isinstance(data, dict) and 'peer_addr' in data:
+            addr.add(data['peer_addr'])
+        elif isinstance(data, dict):
+            for val in data.values():
+                get_peer_addr(val, addr)
+    addresses = set()
+    get_peer_addr(data, addresses)
+    return list(addresses)
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
@@ -383,6 +393,8 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_3_ip = self.test_params['dst_port_3_ip']
         self.dst_port_3_mac = self.dataplane.get_mac(0, self.dst_port_3_id)
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
+        self.test_port_ids = self.test_params.get("testPortIds", None)
+        self.test_port_ips = self.test_params.get("testPortIps", None)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -402,6 +414,13 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
                                        self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
+
+        # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
+        if self.test_port_ips:
+            for ip in get_peer_addresses(self.test_port_ips):
+                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
+                    'ping -q -c 3 {}'.format(ip))
+
         time.sleep(8)
 
 
