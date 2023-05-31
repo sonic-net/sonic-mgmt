@@ -464,6 +464,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     conditions:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
+      - "platform in ['x86_64-kvm_x86_64-r0']" 
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -493,15 +494,19 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test is not run on this hwsku/asic type currently"
+    conditions_logical_operator: "OR"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
       - "asic_type in ['broadcom', 'cisco-8000']"
+      - "platform in ['x86_64-kvm_x86_64-r0']"
 
 generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
   skip:
     reason: "This test is not run on this asic type currently"
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+      - "platform in ['x86_64-kvm_x86_64-r0']"
 
 #######################################
 #####           http              #####
