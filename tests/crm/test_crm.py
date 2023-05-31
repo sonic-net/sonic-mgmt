@@ -454,7 +454,7 @@ def get_crm_resources_fdb_and_ip_route(duthost, asic_ix):
     for line in output['stdout_lines']:
         if line:
             line = line.split()
-            if duthost.sonichost.is_multi_asic and asic_matched == False:
+            if duthost.sonichost.is_multi_asic and asic_matched is False:
                 if line[0] == asic_str:
                     asic_matched = True
                 continue
