@@ -246,8 +246,6 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_supervisor_dut_hostn
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
-    if duthost.get_facts().get("modular_chassis") and not duthost.is_supervisor_node():
-        pytest.skip("Skip chassis testing if the node is not SUP, only SUP has pdu info")
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
