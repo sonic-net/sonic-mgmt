@@ -68,9 +68,11 @@ def check_daemon_status(duthosts, enum_supervisor_dut_hostname):
         duthost.start_pmon_daemon(daemon_name)
         time.sleep(10)
 
+
 def check_if_daemon_restarted(duthost, daemon_name, pre_daemon_pid):
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     return (daemon_pid > pre_daemon_pid)
+
 
 def check_expected_daemon_status(duthost, expected_daemon_status):
     daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
