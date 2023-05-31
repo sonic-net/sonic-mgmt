@@ -675,6 +675,12 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
     conditions:
         - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
 
+pc/test_lag_member.py:
+  skip:
+    reason: "Not support dualtor topo"
+    conditions:
+        - "'dualtor' in topo_name"
+
 pc/test_po_cleanup.py:
   skip:
     reason: "Skip test due to there is no portchannel exists in current topology."
@@ -958,6 +964,13 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 #######################################
 #####      show_techsupport       #####
 #######################################
+show_techsupport/test_auto_techsupport.py:
+  skip:
+    reason: "auto techsupport on multi asic platforms doesnt work"
+    strict: True
+    conditions:
+      - (is_multi_asic==True)
+
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
     reason: "Test supported only on Nvidia(Mellanox) devices"
