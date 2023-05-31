@@ -387,8 +387,15 @@ class TestSfpApi(PlatformApiTestBase):
                         if info_dict["type_abbrv_name"] == "QSFP-DD":
                             XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
                                              self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + \
-                                             ["active_apsel_hostlane{}".format(i) for i in
-                                              range(1, info_dict['host_lane_count'] + 1)]
+                                             ["active_apsel_hostlane{}".format(i)
+                                              for i in range(1, info_dict['host_lane_count'] + 1)]
+                            if 'ZR' in info_dict['media_interface_code']:
+                                UPDATED_EXPECTED_XCVR_INFO_KEYS = XCVR_INFO_KEYS + self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
+                            else:
+                                UPDATED_EXPECTED_XCVR_INFO_KEYS = XCVR_INFO_KEYS
+
+                        if info_dict["type_abbrv_name"] == "QSFP-DD":
+                            XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + ["active_apsel_hostlane{}".format(i) for i in range(1, info_dict['host_lane_count'] + 1)]
                             if 'ZR' in info_dict['media_interface_code']:
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = XCVR_INFO_KEYS + self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
                             else:
