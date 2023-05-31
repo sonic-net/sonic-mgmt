@@ -441,13 +441,23 @@ def get_entries_num(used, available):
     return ((used + available) // 100) + 1
 
 
-def get_crm_resources_fdb_and_ip_route(duthost):
+def get_crm_resources_fdb_and_ip_route(duthost, asic_ix):
     keys = ['ipv4_route', 'ipv6_route', 'fdb_entry']
     output = duthost.shell("crm show resources all")
     result = {}
+    asic_str = ""
+    asic_matched = False
+
+    if duthost.sonichost.is_multi_asic:
+        asic_str = 'ASIC' + str(asic_ix)
+
     for line in output['stdout_lines']:
         if line:
             line = line.split()
+            if duthost.sonichost.is_multi_asic and asic_matched == False:
+                if line[0] == asic_str:
+                    asic_matched = True
+                continue
             if line[0] in keys:
                 counters = {'used': int(line[1]), 'available': int(line[2])}
                 result[line[0]] = counters
@@ -491,7 +501,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     add_routes_template = Template(add_template)
 
     # Get ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used = crm_stats['fdb_entry']['used']
@@ -522,7 +532,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     time.sleep(CRM_UPDATE_TIME)
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     new_crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     new_crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used_after_add_route = crm_stats['fdb_entry']['used']
@@ -552,7 +562,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     time.sleep(CRM_UPDATE_TIME)
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     new_crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     new_crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used_after_del_route = crm_stats['fdb_entry']['used']
