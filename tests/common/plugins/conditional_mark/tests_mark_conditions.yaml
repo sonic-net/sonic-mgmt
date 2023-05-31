@@ -332,6 +332,15 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
       - "asic_type in ['mellanox'] or hwsku in ['Arista-7280CR3-C40']"
 
 #######################################
+#####            ipfwd            #####
+#######################################
+ipfwd/test_dir_bcast.py:
+  skip:
+    reason: "Unsupported topology."
+    conditions:
+      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name"
+
+#######################################
 #####           mvrf              #####
 #######################################
 mvrf:
