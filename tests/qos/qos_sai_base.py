@@ -1849,10 +1849,17 @@ class QosSaiBase(QosBase):
         # remove when done.
         src_asic = get_src_dst_asic_and_duts['src_asic']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
-        if not (src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
+
+        try:
+            if not (
+                src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
                 and dutTestParams['topo'] == 't2'):
+                yield
+                return
+        except KeyError:
             yield
             return
+
         dst_keys = []
         for k in dutConfig["testPorts"].keys():
             if re.search("dst_port.*ip", k):
