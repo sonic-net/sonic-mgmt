@@ -82,7 +82,7 @@ def __gen_pc_mac(id):
     Returns:
         MAC address (string)
     """
-    return '11:22:33:44:55:{:02d}'.format(id)
+    return '10:22:33:44:55:{:02d}'.format(id)
 
 def __valid_ipv4_addr(ip):
     """
