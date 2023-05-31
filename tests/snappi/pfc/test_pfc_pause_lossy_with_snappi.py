@@ -243,6 +243,9 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,                  # noqa F
 
     testbed_config, port_config_list = snappi_testbed_config
     duthost = duthosts[rand_one_dut_hostname]
+
+    skip_warm_reboot(duthost, reboot_type)
+
     pause_prio_list = lossy_prio_list
     test_prio_list = lossy_prio_list
     bg_prio_list = lossless_prio_list
