@@ -129,6 +129,7 @@ def verify_data(data_before, data_after):
                     return False
     return True
 
+
 def get_and_verify_data(duthost, data_before_restart):
     data_after_restart = wait_data(duthost)
     return verify_data(data_before_restart, data_after_restart)
