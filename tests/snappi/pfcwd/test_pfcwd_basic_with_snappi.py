@@ -221,6 +221,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                    "Port is not mapped to the expected DUT")
 
     duthost = duthosts[rand_one_dut_hostname]
+    skip_warm_reboot(duthost, reboot_type)
 
     testbed_config, port_config_list = snappi_testbed_config
 
