@@ -1846,3 +1846,88 @@ class QosSaiBase(QosBase):
         logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
 
         return dualtor_ports_set
+
+    @pytest.fixture(scope='function', autouse=True)
+    def set_static_route(
+            self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
+        # Get portchannels.
+        # find the one that is backplane based.
+        # set a static route through that portchannel.
+        # remove when done.
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+
+        try:
+            if not (
+                src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
+                and dutTestParams['topo'] == 't2'):
+                yield
+                return
+        except KeyError:
+            yield
+            return
+
+        dst_keys = []
+        for k in dutConfig["testPorts"].keys():
+            if re.search("dst_port.*ip", k):
+                dst_keys.append(k)
+
+        for k in dst_keys:
+            dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
+                dst_asic.asic_index,
+                dutConfig["testPorts"][k]), module_ignore_errors=True)
+
+        if src_asic == dst_asic:
+            yield
+            return
+        portchannels = dst_asic.command(
+            "show interface portchannel -n asic{} -d all".format(
+                dst_asic.asic_index))['stdout']
+        regx = re.compile("(PortChannel[0-9]+)")
+        bp_portchannels= []
+        for l in portchannels.split("\n"):
+            if "-BP" in l:
+                match = regx.search(l)
+                if match:
+                    bp_portchannels.append(match.group(1))
+        if not bp_portchannels:
+            raise RuntimeError(
+                "Couldn't find the backplane porchannels from {}".format(
+                    bp_portchannels))
+
+        ip_address_mapping = self.get_interface_ip(dst_asic)
+        dst_keys = []
+        for k in dutConfig["testPorts"].keys():
+            if re.search("dst_port.*ip", k):
+                dst_keys.append(k)
+
+        for dst_index in range(len(dst_keys)):
+            src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
+                src_asic.asic_index,
+                ip_address_mapping[bp_portchannels[dst_index]]))
+            src_asic.shell("ip netns exec asic{} route add {} gw {}".format(
+                src_asic.asic_index,
+                dutConfig["testPorts"][dst_keys[dst_index]],
+                ip_address_mapping[bp_portchannels[dst_index]]))
+        yield
+        for dst_index in range(len(dst_keys)):
+            src_asic.shell("ip netns exec asic{} route del {} gw {}".format(
+                src_asic.asic_index,
+                dutConfig["testPorts"][dst_keys[dst_index]],
+                ip_address_mapping[bp_portchannels[dst_index]]))
+
+    def get_interface_ip(self, dut_asic):
+        """
+            Parse the output of "show ip int -n asic0 -d all" into a dict:
+            interface => ip address.
+        """
+        mapping = {}
+        ip_address_out = dut_asic.command("show ip interface -n asic{}".format(
+            dut_asic.asic_index))['stdout']
+        re_pattern = re.compile("^([^ ]*) [ ]*([0-9\.]*)\/")
+        for line in ip_address_out.split("\n"):
+            match = re_pattern.search(line)
+            if match:
+                mapping[match.group(1)] = match.group(2)
+
+        return mapping
