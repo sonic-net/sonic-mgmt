@@ -464,7 +464,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     conditions:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
-      - "platform in ['x86_64-kvm_x86_64-r0']" 
+      - "platform in ['x86_64-kvm_x86_64-r0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
