@@ -244,14 +244,27 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 )
 
             ptfhost.remove_ip_addresses()
+            # let's stop arp_responder and garp_service as they could pollute
+            # devices' arp tables.
+            ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
+            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
+            first_neighbor_port = None
             for conn in connections:
                 ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"],
                                                   conn["neighbor_addr"]))
+                if not first_neighbor_port:
+                    first_neighbor_port = conn["neighbor_intf"]
                 # NOTE: this enables the standby ToR to passively learn
-                # all the neighbors configured on the ptf interfaces
+                # all the neighbors configured on the ptf interfaces.
+                # As the ptf is a multihomed environment, the packets to the
+                # vlan gateway will always egress the first ptf port that has
+                # vlan subnet address assigned, so let's use the first
+                # ptf port to announce the neigbors.
                 ptfhost.shell(
-                    "arping %s -S %s -C 5" % (vlan_intf_addr, conn["neighbor_addr"].split("/")[0]),
+                    "arping %s -S %s -i %s -C 5" % (
+                        vlan_intf_addr, conn["neighbor_addr"].split("/")[0], first_neighbor_port
+                    ),
                     module_ignore_errors=True
                 )
 
