@@ -1,7 +1,7 @@
 {
     "DEVICE_METADATA": {
         "localhost": {
-            "hwsku": "{{ fanout_hwsku}}",
+            "hwsku": "{{ fanout_hwsku }}",
             "hostname": "{{ inventory_hostname }}"
         }
     },
@@ -18,8 +18,10 @@
     {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
             "fec" : "rs",
     {% endif %}
-    {% if 'broadcom' in fanout_sonic_version["asic_type"] and port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"] == "Access" %}
+    {% if 'broadcom' in fanout_sonic_version["asic_type"] or 'marvell' in fanout_sonic_version["asic_type"] %}
+        {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"] == "Access" %}
             "tpid": "0x9100",
+        {% endif %}
     {% endif %}
     {% if 'peerdevice' in fanout_port_config[port_name] %}
             "admin_status": "up"
