@@ -8,23 +8,21 @@ import logging
 
 import pytest
 import time
-# import re
-
+from tests.common.config_reload import config_reload
 from natsort import natsorted
 
 logger = logging.getLogger(__name__)
-# dut_4byte_asn = 400003
-# neighbor_4byte_asn = 400001
-
 
 pytestmark = [
-    pytest.mark.topology('t0'),
-    pytest.mark.device_type('vs')
+    pytest.mark.topology('t0')
 ]
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_frontend_asic_index):
+def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_frontend_asic_index, request):
+    # verify neighbors are type sonic
+    if request.config.getoption("neighbor_type") != "sonic":
+        pytest.skip("Neighbor type must be sonic")
     duthost = duthosts[rand_one_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
     namespace = duthost.get_namespace_from_asic_id(asic_index)
@@ -97,9 +95,8 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
     yield setup_info
 
     # restore config to original state
-    duthost.shell("sudo config reload -y", module_ignore_errors=True)
-    tor_neighbors[tor1].shell("sudo config reload -y", module_ignore_errors=True)
-    time.sleep(60)
+    config_reload(duthost, wait=60)
+    config_reload(tor_neighbors[tor1], wait=60, is_dut=False)
 
     # verify sessions are established
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
