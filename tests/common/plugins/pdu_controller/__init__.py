@@ -30,15 +30,28 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
     return pdu_hosts_vars
 
 
+def get_sup_node_or_first_node(duthosts):
+    # accomodate for T2 chassis, which only SUP has pdu info
+    # single-dut get itself
+    if len(duthosts) == 1:
+        return duthosts[0]
+    # try to find sup node in multi-dut
+    for dut in duthosts:
+        if dut.is_supervisor_node():
+            return dut
+    # if not chassis, it's dualtor, return first node
+    return duthosts[0]
+
+
 @pytest.fixture(scope="module")
-def pdu_controller(duthosts, enum_supervisor_dut_hostname, conn_graph_facts):
+def pdu_controller(duthosts, conn_graph_facts):
     """
     @summary: Fixture for controlling power supply to PSUs of DUT
     @param duthost: Fixture duthost defined in sonic-mgmt/tests/conftest.py
     @returns: Returns a pdu controller object implementing the BasePduController interface defined in
               controller_base.py.
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    duthost = get_sup_node_or_first_node(duthosts)
     pdu_hosts = get_pdu_hosts(duthost)
     pdu_hostnames = []
     if pdu_hosts:
