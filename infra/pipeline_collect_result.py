@@ -1,15 +1,27 @@
 #!/usr/bin/python
 
+import os
 import json
 import re
 
 SUMMARY_REPORT_FILENAME = "results.json"
 COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 
-sum_f = open("../../" + SUMMARY_REPORT_FILENAME, "w")
-com_f = open("../../" + COMMON_REPORT_FILENAME, "w")
+SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
+COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
-sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0}
+# VXR SIM failure detected, don't overwrite file contents
+if (os.path.isfile(SUMMARY_REPORT_PATH)):
+    with open(SUMMARY_REPORT_PATH, "r") as summary_file:
+        contents = json.load(summary_file)
+        if ("status" in contents and contents["status"] == "sim_failure"):
+            print("VXR SIM failure detected!")
+            exit(1)
+
+sum_f = open(SUMMARY_REPORT_PATH, "w")
+com_f = open(COMMON_REPORT_PATH, "w") 
+
+sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_success"}
 
 resultpattern = r'<th class="(passed|skipped|failed)">'
 numberpattern = r'<td>(\d+)</td>'

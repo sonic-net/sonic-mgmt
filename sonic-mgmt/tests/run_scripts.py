@@ -8,6 +8,9 @@ import subprocess
 import time
 import datetime
 import sys
+import requests
+import base64
+from allure_server import AllureServer
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
@@ -169,12 +172,9 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
 
-        #if last test, upload Allure results to server
-        if tc == tcs[-1].strip() and create_allure_report:
-            cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e --allure_server_addr='10.22.183.173' -e --allure_server_project_id={} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,build_id,log_dir,tc,tc_name)
-        else:
-            cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
+        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
+
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(tc_name), shell=True).strip()
         failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l".format(tc_name), shell=True).strip()
@@ -200,6 +200,14 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
+
+    if create_allure_report:
+        try:
+            allure_server_obj = AllureServer('10.22.183.173', 5050, "/tmp/allure_results", build_id)
+            report_url = allure_server_obj.generate_allure_report()
+            print("Allure report generated, url is: ", report_url)
+        except Exception as e:
+            print("Error while generating allure report! e:", e)
 
     current_result_file.write("Total TCs: {},          {} Pass, {} Fail, {} Skipped, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
@@ -324,18 +332,23 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        #if last test, upload Allure results to server
-        if tc == tcs[-1].strip() and create_allure_report:
-            cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e --allure_server_addr='10.22.183.173' -e --allure_server_project_id={} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,build_id,log_dir,tc,tc_name)
-        else:
-            cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
+        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
+
 
         if collect_logs and dut_address is not None:
             cmd_list = list()
             cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
             cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
+    if create_allure_report:
+        try:
+            allure_server_obj = AllureServer('10.22.183.173', 5050, "/tmp/allure_results",build_id)
+            report_url = allure_server_obj.generate_allure_report()
+            print("Allure report generated, url is: ", report_url)
+        except Exception as e:
+            print("Error while generating allure report! e: ", e)
 
     current_result_file.close()
     report_file.close()
