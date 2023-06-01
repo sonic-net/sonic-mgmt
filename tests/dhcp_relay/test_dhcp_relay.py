@@ -303,19 +303,25 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
+    
+    if "201811" in duthost.os_version or "201911" in duthost.os_version:
+        skip_dhcpmon = True
+    else:
+        skip_dhcpmon = False
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
-            start_dhcp_monitor_debug_counter(duthost)
-            expected_agg_counter_message = (
-                r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
-                r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                r"Discover: +1/ +4, Offer: +1/ +1, Request: +3/ +12, ACK: +1/ +1+"
-            ) % dhcp_relay['downlink_vlan_iface']['name']
-            loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
-            loganalyzer.expect_regex = []
-            marker = loganalyzer.init()
-            loganalyzer.expect_regex = [expected_agg_counter_message]
+            if not skip_dhcpmon:
+                start_dhcp_monitor_debug_counter(duthost)
+                expected_agg_counter_message = (
+                    r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
+                    r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
+                    r"Discover: +1/ +4, Offer: +1/ +1, Request: +3/ +12, ACK: +1/ +1+"
+                ) % dhcp_relay['downlink_vlan_iface']['name']
+                loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
+                loganalyzer.expect_regex = []
+                marker = loganalyzer.init()
+                loganalyzer.expect_regex = [expected_agg_counter_message]
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
@@ -340,8 +346,9 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "testbed_mode": testbed_mode,
                                "testing_mode": testing_mode},
                        log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
-            time.sleep(18)      # dhcpmon debug counter prints every 18 seconds
-            loganalyzer.analyze(marker)
+            if not skip_dhcpmon:
+                time.sleep(18)      # dhcpmon debug counter prints every 18 seconds
+                loganalyzer.analyze(marker)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
