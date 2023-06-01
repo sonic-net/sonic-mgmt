@@ -235,7 +235,20 @@ def _power_off_reboot_helper(kwargs):
         pdu_ctrl.turn_on_outlet(outlet)
 
 
-def test_power_off_reboot(duthosts, enum_supervisor_dut_hostname,
+def get_sup_node_or_first_node(duthosts):
+    # accomodate for T2 chassis, which only SUP has pdu info
+    # single-dut get itself
+    if len(duthosts) == 1:
+        return duthosts[0]
+    # try to find sup node in multi-dut
+    for dut in duthosts:
+        if dut.is_supervisor_node():
+            return dut
+    # if not chassis, it's dualtor, return first node
+    return duthosts[0]
+
+
+def test_power_off_reboot(duthosts,
                           localhost, conn_graph_facts, xcvr_skip_list,      # noqa F811
                           pdu_controller, power_off_delay):
     """
@@ -247,7 +260,7 @@ def test_power_off_reboot(duthosts, enum_supervisor_dut_hostname,
     @param pdu_controller: The python object of psu controller
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    duthost = get_sup_node_or_first_node(duthosts)
     UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
     if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
         pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform".format(
