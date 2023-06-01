@@ -2,7 +2,6 @@ import json
 import logging
 import re
 import pytest
-import time
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -910,9 +909,6 @@ def check_all_neighbors_present_remote(local_host, rem_host, rem_asic, neighs,
                     logger.debug("Asic neighbor encap for %s match: %s == %s", neighbor, encap_id,
                                  asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_INDEX'])
 
-
-#                pytest_assert(asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_ENCAP_IMPOSE_INDEX'] == "true",
-#                              "Encap impose is not true in asicDB")
                 pytest_assert(asic_dump[entry]['value']['SAI_NEIGHBOR_ENTRY_ATTR_IS_LOCAL'] == "false",
                               "is local is not false in asicDB")
 
