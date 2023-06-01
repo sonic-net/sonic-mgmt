@@ -2,7 +2,6 @@ import json
 import logging
 import re
 import pytest
-import time
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -10,6 +9,7 @@ from tests.common.helpers.sonic_db import AsicDbCli, AppDbCli, VoqDbCli, SonicDb
 from tests.common.devices.eos import EosHost
 
 logger = logging.getLogger(__name__)
+
 
 def check_host_arp_table_deleted(host, asic, neighs):
     """
@@ -198,7 +198,7 @@ def check_bgp_kernel_route(host, asicnum, prefix, ipver, interface, present=True
         pytest_assert(found, "Kernel route is not present in bgp output: %s" % parsed[prefix])
         logger.debug("Route %s is present in remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
     if present is False:
-        #logger.info("outout: %s", parsed)
+        # logger.info("outout: %s", parsed)
         pytest_assert(prefix not in parsed, "Prefix: %s still in route list: %s" % (prefix, parsed.keys()))
         logger.info("Route %s is removed from remote neighbor: %s/%s", prefix, host.hostname, str(asicnum))
 

@@ -27,8 +27,6 @@ from voq_helpers import get_ptf_port
 from voq_helpers import get_vm_with_ip
 from tests.common.devices.eos import EosHost
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # lgtm[py/unused-import]
-
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -224,8 +222,8 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
                         module_ignore_errors=True)
                     )
                 else:
-                    node_results.append(node['host'].shell("sudo vtysh -c 'configure terminal' -c 'router bgp " + str(node['conf']['bgp']['asn'])+ "' -c 'neighbor {} shutdown'".format(neighbor)))
-
+                    node_results.append(node['host'].shell("sudo vtysh -c 'configure terminal' -c 'router bgp " + str(
+                        node['conf']['bgp']['asn']) + "' -c 'neighbor {} shutdown'".format(neighbor)))
         results[node['host'].hostname] = node_results
 
     parallel_run(disable_nbr_bgp_neighs, [], {}, nbrhosts.values(), timeout=240)
@@ -804,7 +802,6 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, nbr_to_test, nbrhosts, all_cfg_facts, nbr_macs)
 
 
-
 class LinkFlap(object):
 
     def check_intf_status(self, dut, dut_intf, exp_status):
@@ -824,7 +821,7 @@ class LinkFlap(object):
         logging.info("status: %s", status)
         return status[dut_intf]['oper_state'] == exp_status
 
-    def check_fanout_link_state (self, fanout, fanout_port):
+    def check_fanout_link_state(self, fanout, fanout_port):
         return fanout.check_intf_link_state(fanout_port)
 
     def linkflap_down(self, fanout, fanport, dut, dut_intf):
@@ -910,11 +907,10 @@ class LinkFlap(object):
         if "portchannel" not in dut_intf.lower():
             # Wait for fanout port to be operationally up as well.
             fanout, fanport = fanout_switch_port_lookup(fanouthosts, dut.hostname, dut_intf)
-            pytest_assert(wait_until(30,1,0,self.check_fanout_link_state, fanout, fanport),
+            pytest_assert(wait_until(30, 1, 0, self.check_fanout_link_state, fanout, fanport),
                           "fanout port {} on {} didn't go up as expected".format(fanport, fanout.hostname))
 
         time.sleep(2)
-
 
 
 def pick_ports(cfg_facts):
@@ -1010,7 +1006,7 @@ class TestNeighborLinkFlap(LinkFlap):
                 sonic_ping(asic, neighbor, verbose=True)
 
             pytest_assert(wait_until(60, 2, 0, check_arptable_state_for_nbrs, per_host, asic, neighbors, "REACHABLE"),
-                        "STATE for neighbors {} did not change to reachable".format(neighbors))
+                          "STATE for neighbors {} did not change to reachable".format(neighbors))
 
             dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, neighbors, nbrhosts, all_cfg_facts, nbr_macs)
 
