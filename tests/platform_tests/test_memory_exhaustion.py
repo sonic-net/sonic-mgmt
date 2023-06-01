@@ -34,7 +34,6 @@ class TestMemoryExhaustion:
         # if not chassis, it's dualtor, return first node
         return duthosts[0]
 
-
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, localhost, pdu_controller):
         yield
@@ -53,7 +52,6 @@ class TestMemoryExhaustion:
                           'Recover {} by PDU reboot failed'.format(hostname))
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
-
 
     def test_memory_exhaustion(self, duthosts, localhost):
         duthost = self.get_sup_node_or_first_node(duthosts)
