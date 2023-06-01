@@ -22,24 +22,12 @@ class TestMemoryExhaustion:
     """
     This test case is used to verify that DUT will reboot when it runs out of memory.
     """
-    def get_sup_node_or_first_node(duthosts):
-        # accomodate for T2 chassis, which only SUP has pdu info
-        # single-dut get itself
-        if len(duthosts) == 1:
-            return duthosts[0]
-        # try to find sup node in multi-dut
-        for dut in duthosts:
-            if dut.is_supervisor_node():
-                return dut
-        # if not chassis, it's dualtor, return first node
-        return duthosts[0]
-
     @pytest.fixture(autouse=True)
-    def tearDown(self, duthosts, localhost, pdu_controller):
+    def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, pdu_controller):
         yield
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.
-        duthost = self.get_sup_node_or_first_node(duthosts)
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         if not self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED):
@@ -53,8 +41,8 @@ class TestMemoryExhaustion:
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
 
-    def test_memory_exhaustion(self, duthosts, localhost):
-        duthost = self.get_sup_node_or_first_node(duthosts)
+    def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         dut_datetime = duthost.get_now_time()
