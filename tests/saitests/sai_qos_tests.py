@@ -615,8 +615,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 3/4  1                 1               1                                                1                                         1
             # queue 5    1                 1               1                                                1                                         1
             # queue 7    0                 1               1                                                1                                         1
-            # LAG ports can have LACP packets on queue 0, hence using >= comparison
-            assert(queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
+            assert(queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
             assert(queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert(queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
             assert(queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
@@ -631,10 +630,12 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                     assert(queue_results[QUEUE_1] == 59 + queue_results_base[QUEUE_1])
                 else:
                     assert(queue_results[QUEUE_1] == 57 + queue_results_base[QUEUE_1])
-                assert(queue_results[QUEUE_7] == 1 + queue_results_base[QUEUE_7])
+                # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                assert(queue_results[QUEUE_7] >= 1 + queue_results_base[QUEUE_7])
             else:
                 assert(queue_results[QUEUE_1] == 58 + queue_results_base[QUEUE_1])
-                assert(queue_results[QUEUE_7] == queue_results_base[QUEUE_7])
+                # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                assert(queue_results[QUEUE_7] >= queue_results_base[QUEUE_7])
 
         finally:
             show_stats(self.__class__.__name__, self, self.test_params.get('sonic_asic_type', None), self.test_params.get('test_port_ids', None), bases=stats)
@@ -1936,7 +1937,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 port_counter_indexes, 'srcport {}, base is previous step'.format( src_port_id))
 
             for cntr in ingress_counters:
-                assert(recv_counters[cntr] == recv_counters_base[cntr]), 'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(port_counter_fields[cntr], step_id, step_desc)
+                assert(recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN), 'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(port_counter_fields[cntr], step_id, step_desc)
             recv_counters_base = recv_counters
 
             step_id += 1

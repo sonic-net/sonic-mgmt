@@ -1296,6 +1296,8 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize(
             "enum_dut_feature_container", generate_dut_feature_container_list(metafunc)
         )
+    if 'enum_dut_all_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_all_prio", generate_priority_lists(metafunc, 'all'))
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
@@ -1517,7 +1519,7 @@ def duts_running_config_facts(duthosts):
     return cfg_facts
 
 @pytest.fixture(scope='class')
-def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, lower_tor_host):
+def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, lower_tor_host, creds):
     """
         Prepares DUT host test params
 
@@ -1547,7 +1549,9 @@ def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, l
                     ).vars['ansible_host'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
-            "sonic_version": duthost.os_version
+            "sonic_version": duthost.os_version,
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         }
     }
 
