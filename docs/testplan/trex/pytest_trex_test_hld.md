@@ -50,7 +50,7 @@ Below is the TRex configuration file example:
   interfaces    : ["c2:00.1","c2:00.0"]    //ports on Server to generate traffic
   stack: linux_based
 
-  memory:                                     
+  memory:
              mbuf_64     : 86380
              mbuf_128    : 81900
              mbuf_256    : 8190
@@ -63,21 +63,21 @@ Below is the TRex configuration file example:
              traffic_mbuf_512    : 8190
              traffic_mbuf_1024   : 8190
              traffic_mbuf_2048   : 40960
-             dp_flows    : 1048576       
-             global_flows : 10240    
+             dp_flows    : 1048576
+             global_flows : 10240
 
   port_info       :  # Port IPs. Change to suit your needs. In case of loopback, you can leave as is.
           - ip         :  11.255.255.2    //IP on Server
             default_gw :  11.255.255.1    //IP on DUT
           - ip         :  200.0.0.2
             default_gw :  200.0.0.1
-            
+
 #### 3.3.2 DUT Configuration
 
 **a) IP configuration (consistent with the default_gw in /etc/trex_cfg.yaml)**
 
 config interface ip add Ethernet55 200.0.0.1/30
-config interface ip add Ethernet56 11.255.255.1/30 
+config interface ip add Ethernet56 11.255.255.1/30
 
 **b) Route configuration**
 
