@@ -22,6 +22,7 @@ class TestMemoryExhaustion:
     """
     This test case is used to verify that DUT will reboot when it runs out of memory.
     """
+
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, pdu_controller):
         yield
