@@ -367,24 +367,21 @@ class TestSfpApi(PlatformApiTestBase):
                     # NOTE: No more releases to be added here. Platform should use SFP-refactor.
                     # 'hardware_rev' is ONLY applicable to QSFP-DD/OSFP modules
                     if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
-                        UPDATED_EXPECTED_XCVR_INFO_KEYS = [key if key != 'vendor_rev' else 'hardware_rev' for key in
-                            self.EXPECTED_XCVR_INFO_KEYS]
+                        UPDATED_EXPECTED_XCVR_INFO_KEYS = [
+                            key if key != 'vendor_rev' else 'hardware_rev' for key in self.EXPECTED_XCVR_INFO_KEYS]
                     else:
                         if info_dict["type_abbrv_name"] == "QSFP-DD":
-                            XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
-                                             self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + \
-                                             ["active_apsel_hostlane{}".format(i)
-                                              for i in range(1, info_dict['host_lane_count'] + 1)]
+                            XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + \
+                                ["active_apsel_hostlane{}".format(i)
+                                 for i in range(1, info_dict['host_lane_count'] + 1)]
                             if 'ZR' in info_dict['media_interface_code']:
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = XCVR_INFO_KEYS + self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
                             else:
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = XCVR_INFO_KEYS
 
                         if info_dict["type_abbrv_name"] == "QSFP-DD":
-                            XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
-                                             self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + \
-                                             ["active_apsel_hostlane{}".format(i)
-                                              for i in range(1, info_dict['host_lane_count'] + 1)]
+                            XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + [
+                                "active_apsel_hostlane{}".format(i) or i in range(1, info_dict['host_lane_count'] + 1)]
                             if 'ZR' in info_dict['media_interface_code']:
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = XCVR_INFO_KEYS + self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
                             else:
@@ -404,7 +401,7 @@ class TestSfpApi(PlatformApiTestBase):
 
                     unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS + self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
-                        #hardware_rev is applicable only for QSFP-DD
+                        # hardware_rev is applicable only for QSFP-DD
                         if key == 'hardware_rev' and info_dict["type_abbrv_name"] == "QSFP-DD":
                             continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
