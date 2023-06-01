@@ -1833,10 +1833,8 @@ class TestQosSai(QosSaiBase):
         allTestPorts = []
         allTestPortIps = []
         all_dst_info = dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
-        for asic in all_dst_info:
-            allTestPorts.extend(list(all_dst_info[asic].keys()))
-            allTestPortIps.extend([x['peer_addr'] for x in all_dst_info[asic].values()])
-
+        allTestPorts.extend(list(all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].keys()))
+        allTestPortIps.extend([x['peer_addr'] for x in all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
