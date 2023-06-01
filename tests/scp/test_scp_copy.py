@@ -28,6 +28,7 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, add_rout
     for file in files_to_remove_2:
         ptfhost.file(path=file, state="absent")
 
+
 def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_teardown, creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ptf_ip = ptfhost.mgmt_ip

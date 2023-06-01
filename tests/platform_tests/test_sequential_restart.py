@@ -34,6 +34,7 @@ def heal_testbed(duthosts, rand_one_dut_hostname):
         logging.info("Restoring dut with critical process failure: {}".format(details))
         config_reload(duthost, config_source='config_db', wait=120)
 
+
 def is_service_hiting_start_limit(duthost, container_name):
     """
     @summary: Determine whether the container can not be restarted is due to
@@ -46,11 +47,12 @@ def is_service_hiting_start_limit(duthost, container_name):
 
     return False
 
+
 def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service, interfaces, xcvr_skip_list):
     """
     Restart specified service and check platform status
     """
-    logging.info("Restart the %s service on asic %s" %(service, enum_frontend_asic_index))
+    logging.info("Restart the %s service on asic %s" % (service, enum_frontend_asic_index))
 
     asichost = dut.asic_instance(enum_frontend_asic_index)
     service_name = asichost.get_service_name(service)
@@ -100,7 +102,7 @@ def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_
         interface_list = get_port_map(duthost, enum_frontend_asic_index)
 
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        new_intf_dict = {k:v for k, v in interface_list.items() if k in all_interfaces}
+        new_intf_dict = {k: v for k, v in interface_list.items() if k in all_interfaces}
         all_interfaces = new_intf_dict
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, all_interfaces))
 
