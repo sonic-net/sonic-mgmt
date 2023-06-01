@@ -238,14 +238,26 @@ def check_all_psu_on(dut, psu_test_results):
     return len(power_off_psu_list) == 0
 
 
+def get_sup_node_or_first_node(duthosts):
+    # accomodate for T2 chassis, which only SUP has pdu info
+    # single-dut get itself
+    if len(duthosts) == 1:
+        return duthosts[0]
+    # try to find sup node in multi-dut
+    for dut in duthosts:
+        if dut.is_supervisor_node():
+            return dut
+    # if not chassis, it's dualtor, return first node
+    return duthosts[0]
+
+
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_supervisor_dut_hostname,
-                                             pdu_controller, ignore_particular_error_log, tbinfo):
+def test_turn_on_off_psu_and_check_psustatus(duthosts, pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    duthost = get_sup_node_or_first_node(duthosts)
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
@@ -339,12 +351,12 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
-def test_show_platform_temperature_mocked(duthosts, enum_supervisor_dut_hostname,
+def test_show_platform_temperature_mocked(duthosts,
                                           mocker_factory, ignore_particular_error_log):  # noqa F811
     """
     @summary: Check output of 'show platform temperature'
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    duthost = get_sup_node_or_first_node(duthosts)    
     # Mock data and check
     mocker = mocker_factory(duthost, 'ThermalStatusMocker')
     pytest_require(mocker, "No ThermalStatusMocker for %s, skip rest of the testing in this case" %
