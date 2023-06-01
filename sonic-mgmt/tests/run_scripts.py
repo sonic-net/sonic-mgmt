@@ -142,8 +142,11 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         current_result_file.flush()
         report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
         report_file.flush()
-        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e --allure_server_addr='10.22.183.173' -e --allure_server_project_id={} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,build_id,log_dir)
-        os.system("bash -c '{}'".format(cmd))
+        # Use previous test results to generate Allure report
+        if create_allure_report:
+            allure_server_obj = AllureServer('10.22.183.173', 5050, "/tmp/allure_results", build_id)
+            report_url = allure_server_obj.generate_allure_report()
+            print("Allure report generated, url is: ", report_url)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
     current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file)) 
@@ -302,8 +305,11 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         current_result_file.flush()
         report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
         report_file.flush()
-        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e --allure_server_addr='10.22.183.173' -e --allure_server_project_id={} -e -rapP -O -u -e --skip_sanity -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,build_id,log_dir)
-        os.system("bash -c '{}'".format(cmd))
+        # Use previous test results to generate Allure report
+        if create_allure_report:
+            allure_server_obj = AllureServer('10.22.183.173', 5050, "/tmp/allure_results", build_id)
+            report_url = allure_server_obj.generate_allure_report()
+            print("Allure report generated, url is: ", report_url)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
     current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file))
