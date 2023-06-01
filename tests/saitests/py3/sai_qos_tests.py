@@ -1395,7 +1395,7 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
             self.test_params['src_port_2_ip'],
             self.dataplane.get_mac(0, int(self.test_params['src_port_2_id']))))
 
-        all_pkts = get_multiple_flows_udp(
+        all_pkts = get_multiple_flows(
                 self,
                 pkt_dst_mac,
                 dst_port_id,

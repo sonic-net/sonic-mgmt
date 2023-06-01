@@ -68,14 +68,14 @@ def check_skip_shared_res_test(self, dutQosConfig, get_src_dst_asic_and_duts, du
     dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
 
     if not sharedResSizeKey in qosConfig.keys():
-        return (False, 
+        pytest.skip( 
             "Shared reservation size parametrization '%s' "
             "is not enabled" % sharedResSizeKey)
 
     if "skip" in qosConfig[sharedResSizeKey]:
         # Skip if buffer pools and profiles are not be present,
         # marked by qos param generator
-        return (False, qosConfig[sharedResSizeKey]["skip"])
+        pytest.skip(qosConfig[sharedResSizeKey]["skip"])
 
     src_port_idx_to_id = list(src_testPortIps.keys())
     dst_port_idx_to_id = list(dst_testPortIps.keys())
@@ -86,7 +86,7 @@ def check_skip_shared_res_test(self, dutQosConfig, get_src_dst_asic_and_duts, du
         return (True, src_port_ids, dst_port_ids)
     except IndexError:
         # Not enough ports.
-        return (False, 
+        pytest.skip(
             "This test cannot be run since there are not enough ports."
             " Pls see qos.yaml for the port idx's that are needed.")
 
@@ -730,11 +730,9 @@ class TestQosSai(QosSaiBase):
 
 
     @pytest.mark.parametrize("sharedResSizeKey", ["shared_res_size_1", "shared_res_size_2"])
-    @pytest.mark.skipif("check_skip_shared_res_test",
-        reason="check_port_count has marked this test to skip.")
     def testQosSaiSharedReservationSize(
         self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        get_src_dst_asic_and_duts, check_port_count
+        get_src_dst_asic_and_duts, check_skip_shared_res_test
     ):
         """
             Test QoS SAI shared reservation size
