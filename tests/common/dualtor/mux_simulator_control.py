@@ -9,7 +9,6 @@ import requests
 from tests.common import utilities
 from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
 from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
-from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert
@@ -481,7 +480,9 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
+def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
+                                                      tbinfo, rand_one_dut_hostname,
+                                                      active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly selected tor.
 
@@ -490,6 +491,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
     """
     # Skip on non dualtor testbed or dualtor testbed without active-standby ports
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.debug('active_standby_ports: {}'.format(active_standby_ports))
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
         yield
         return
 
