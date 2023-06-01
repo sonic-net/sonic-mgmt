@@ -356,7 +356,7 @@ def test_show_platform_temperature_mocked(duthosts,
     """
     @summary: Check output of 'show platform temperature'
     """
-    duthost = get_sup_node_or_first_node(duthosts)    
+    duthost = get_sup_node_or_first_node(duthosts)
     # Mock data and check
     mocker = mocker_factory(duthost, 'ThermalStatusMocker')
     pytest_require(mocker, "No ThermalStatusMocker for %s, skip rest of the testing in this case" %
