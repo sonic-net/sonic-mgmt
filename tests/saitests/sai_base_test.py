@@ -27,6 +27,7 @@ import switch_sai_thrift.switch_sai_rpc as switch_sai_rpc
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
+import socket
 import sys
 import paramiko
 from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
@@ -94,18 +95,18 @@ class ThriftInterface(BaseTest):
             stdErr = se.readlines()
             retValue = 0
         except AuthenticationException as authenticationException:
-            print('SSH Authentication failure with message: %s' % authenticationException, file=sys.stderr)
+            sys.stderr.write('SSH Authentication failure with message: %s' % authenticationException)
         except SSHException as sshException:
-            print('SSH Command failed with message: %s' % sshException, file=sys.stderr)
+            sys.stderr.write('SSH Command failed with message: %s' % sshException)
         except BadHostKeyException as badHostKeyException:
-            print('SSH Authentication failure with message: %s' % badHostKeyException, file=sys.stderr)
+            sys.stderr.write('SSH Authentication failure with message: %s' % badHostKeyException)
         except socket.timeout as e:
             # The ssh session will timeout in case of a successful reboot
-            print('Caught exception socket.timeout: {}, {}, {}'.format(repr(e), str(e), type(e)), file=sys.stderr)
+            sys.stderr.write('Caught exception socket.timeout: {}, {}, {}'.format(repr(e), str(e), type(e)))
             retValue = 255
         except Exception as e:
-            print('Exception caught: {}, {}, type: {}'.format(repr(e), str(e), type(e)), file=sys.stderr)
-            print(sys.exc_info(), file=sys.stderr)
+            sys.stderr.write('Exception caught: {}, {}, type: {}'.format(repr(e), str(e), type(e)))
+            sys.stderr.write(sys.exc_info())
         finally:
             client.close()
 
