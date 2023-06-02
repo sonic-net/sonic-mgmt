@@ -177,3 +177,7 @@ minion_chassis_cpm,172.17.0.202/24,Nokia-IXR7250-36x400G,DevSonic,
 minion_linecard,172.17.0.100/24,Nokia-IXR7250-36x400G,DevSonic,
 VM0100,10.250.0.51/24,Force10-S6000,DevSonic,
 VM0101,10.250.0.52/24,Force10-S6000,DevSonic,
+
+# consoles
+console-1,152.148.150.78,Sonic,ConsoleServer,
+console-2,152.148.150.16,Sonic,ConsoleServer,

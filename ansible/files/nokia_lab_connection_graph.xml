@@ -2447,13 +2447,49 @@
     </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
-    <DevicesConsoleInfo/>
+    <DevicesConsoleInfo>
+      <DeviceConsoleInfo Hostname="console-1" HwSku="Sonic" ManagementIp="152.148.150.78" Protocol="" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-2" HwSku="Sonic" ManagementIp="152.148.150.16" Protocol="" Type="ConsoleServer"/>
+    </DevicesConsoleInfo>
     <ConsoleLinksInfo>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-01" Proxy="root" StartDevice="console-1" StartPort="10"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7260-10" Proxy="root" StartDevice="console-1" StartPort="11"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7260-11" Proxy="root" StartDevice="console-1" StartPort="12"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board27" Proxy="root" StartDevice="console-1" StartPort="2029"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board28" Proxy="root" StartDevice="console-1" StartPort="2007"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis10" Proxy="root" StartDevice="console-1" StartPort="2026"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board15" Proxy="root" StartDevice="console-1" StartPort="2015"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board7" Proxy="root" StartDevice="console-1" StartPort="2016"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis11" Proxy="root" StartDevice="console-1" StartPort="2028"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board1" Proxy="root" StartDevice="console-1" StartPort="2001"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board5" Proxy="root" StartDevice="console-1" StartPort="2005"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis9" Proxy="root" StartDevice="console-1" StartPort="2025"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board3" Proxy="root" StartDevice="console-1" StartPort="2004"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board4" Proxy="root" StartDevice="console-1" StartPort="2003"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis8" Proxy="root" StartDevice="console-2" StartPort="2031"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board9" Proxy="root" StartDevice="console-2" StartPort="2003"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board10" Proxy="root" StartDevice="console-2" StartPort="2008"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis12" Proxy="root" StartDevice="console-2" StartPort="2009"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board25" Proxy="root" StartDevice="console-1" StartPort="2014"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board26" Proxy="root" StartDevice="console-1" StartPort="2027"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis7" Proxy="root" StartDevice="console-2" StartPort="2026"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board40" Proxy="root" StartDevice="console-2" StartPort="2027"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board41" Proxy="root" StartDevice="console-2" StartPort="2028"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis15" Proxy="root" StartDevice="console-2" StartPort="2025"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board31" Proxy="root" StartDevice="console-2" StartPort="2015"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board33" Proxy="root" StartDevice="console-2" StartPort="2011"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board34" Proxy="root" StartDevice="console-2" StartPort="2012"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board35" Proxy="root" StartDevice="console-2" StartPort="2013"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board36" Proxy="root" StartDevice="console-2" StartPort="2014"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis13" Proxy="root" StartDevice="console-2" StartPort="2019"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board29" Proxy="root" StartDevice="console-2" StartPort="2021"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-egl-board30" Proxy="root" StartDevice="console-2" StartPort="2022"/>
+      <ConsoleLinkInfo BaudRate="115200" Console_type="telnet" EndDevice="ixre-cpm-chassis14" Proxy="root" StartDevice="console-2" StartPort="2010"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
+  <BmcGraphDeclaration>
+    <DevicesBmcInfo/>
+    <BmcLinksInfo>
+      <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
+    </BmcLinksInfo>
+  </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo/>
     <PowerControlLinksInfo>
