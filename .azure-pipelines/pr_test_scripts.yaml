@@ -30,6 +30,7 @@ t0:
   - generic_config_updater/test_vlan_interface.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - generic_config_updater/test_ecn_config_update.py
+  - generic_config_updater/test_pfcwd_status.py
   - iface_namingmode/test_iface_namingmode.py
   - lldp/test_lldp.py
   - minigraph/test_masked_services.py
