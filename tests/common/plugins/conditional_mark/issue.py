@@ -13,7 +13,7 @@ from abc import ABCMeta, abstractmethod
 logger = logging.getLogger(__name__)
 
 CREDENTIALS_FILE = 'credentials.yaml'
-g_inv_name = ""
+g_proxies = {}
 
 
 class IssueCheckerBase(six.with_metaclass(ABCMeta, object)):
@@ -70,29 +70,8 @@ class GitHubIssueChecker(IssueCheckerBase):
         Returns:
             bool: False if the issue is closed else True.
         """
-        global g_inv_name
-        INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(g_inv_name)
-        PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
-        base_path = os.path.dirname(__file__)
-        env_file_path = os.path.join(base_path, INV_ENV_FILE)
-        if is_file_empty_or_comments(env_file_path):
-            env_file_path = os.path.join(base_path, PUBLIC_ENV_FILE)
-
         try:
-            with open(env_file_path) as env_file:
-                proxy_env = yaml.safe_load(env_file)
-                if proxy_env is not None:
-                    proxy = proxy_env.get("proxy_env", {})
-                    http_proxy = proxy.get('http_proxy', '')
-                    https_proxy = proxy.get('https_proxy', '')
-                    proxies = {'http_proxy': http_proxy, 'https_proxy': https_proxy}
-                else:
-                    proxies = {'http_proxy': '', 'https_proxy': ''}
-        except Exception as e:
-            logger.error('Load proxy env from {} failed with error: {}'.format(env_file_path, repr(e)))
-
-        try:
-            response = requests.get(self.api_url, auth=(self.user, self.api_token), proxies=proxies)
+            response = requests.get(self.api_url, auth=(self.user, self.api_token), proxies=g_proxies)
             response.raise_for_status()
             issue_data = response.json()
             if issue_data.get('state', '') == 'closed':
@@ -107,27 +86,6 @@ class GitHubIssueChecker(IssueCheckerBase):
 
         logger.debug('Issue {} is active. Or getting issue state failed, consider it as active anyway'.format(self.url))
         return True
-
-
-def is_file_empty_or_comments(file_path):
-    # Check if the file exists
-    if not os.path.isfile(file_path):
-        logger.debug("File does not exist.")
-        return True
-
-    # Open the file
-    with open(file_path, 'r') as file:
-        # Read all lines
-        lines = file.readlines()
-        # Remove whitespace and comments from each line
-        stripped_lines = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
-        # Check if the file is empty or contains only comments
-        if not stripped_lines:
-            logger.debug("File is empty or contains only comments.")
-            return True
-        else:
-            logger.debug("File is not empty and contains non-commented lines.")
-            return False
 
 
 def issue_checker_factory(url):
