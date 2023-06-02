@@ -97,11 +97,11 @@ stages:
 - stage: Test
 
   variables:
-    - group: Testbed-Tools
+    - group: SONiC-Elastictest
 
   jobs:
   - job:
-    displayName: vms28_t0_4600c.202205.NightlyTest_by_TestbedV2
+    displayName: vms28_t0_4600c.202205.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
