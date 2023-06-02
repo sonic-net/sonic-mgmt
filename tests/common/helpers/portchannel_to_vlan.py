@@ -380,6 +380,11 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 @pytest.fixture(scope="module", autouse=True)
 def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
                ports_list, tbinfo, vlan_intfs_dict, setup_acl_table):  # noqa F811
+
+    if "dualtor" in tbinfo["topo"]["name"]:
+        yield
+        return
+
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
