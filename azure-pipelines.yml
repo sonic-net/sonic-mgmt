@@ -21,22 +21,29 @@ name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd
 stages:
 - stage: Pre_test
   variables:
-  - group: Testbed-Tools
   - group: GIT_SECRETS
   jobs:
-  - job: pre_commit
-    displayName: "pre-commit-check"
+  - job: static_analysis
+    displayName: "Static Analysis"
     timeoutInMinutes: 10
     continueOnError: false
     pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
+  - job: validate_test_cases
+    displayName: "Validate Test Cases"
+    timeoutInMinutes: 20
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+    - template: .azure-pipelines/pytest-collect-only.yml
+
 - stage: Test
   dependsOn: Pre_test
   condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
-  - group: Testbed-Tools
+  - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
   - name: testbed_file
@@ -44,42 +51,9 @@ stages:
   - group: GIT_SECRETS
 
   jobs:
-  - job: t0_part1
-    pool: sonictest
-    displayName: "kvmtest-t0-part1"
-    timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: false
-    steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0
-        vmtype: ceos
-        section: part-1
-
-  - job: t0_part2
-    pool: sonictest
-    displayName: "kvmtest-t0-part2"
-    timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: false
-    steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0
-        vmtype: ceos
-        section: part-2
-
-  - job: t0_testbedv2
-    displayName: "kvmtest-t0 by TestbedV2"
+  - job: t0_elastictest
+    displayName: "kvmtest-t0 by Elastictest"
     timeoutInMinutes: 240
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     pool: ubuntu-20.04
     steps:
@@ -89,10 +63,9 @@ stages:
         MIN_WORKER: $(T0_INSTANCE_NUM)
         MAX_WORKER: $(T0_INSTANCE_NUM)
 
-  - job: t0_2vlans_testbedv2
-    displayName: "kvmtest-t0-2vlans by TestbedV2"
+  - job: t0_2vlans_elastictest
+    displayName: "kvmtest-t0-2vlans by Elastictest"
     timeoutInMinutes: 240
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     pool: ubuntu-20.04
     steps:
@@ -104,25 +77,9 @@ stages:
         MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
 
-  - job: t1_lag_classic
-    pool: sonictest-t1-lag
-    displayName: "kvmtest-t1-lag classic"
-    timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: false
-    steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-03
-        tbname: vms-kvm-t1-lag
-        ptf_name: ptf_vms6-2
-        tbtype: t1-lag
-        vmtype: ceos
-
-  - job: t1_lag_testbedv2
-    displayName: "kvmtest-t1-lag by TestbedV2"
+  - job: t1_lag_elastictest
+    displayName: "kvmtest-t1-lag by Elastictest"
     timeoutInMinutes: 240
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
     continueOnError: false
     pool: ubuntu-20.04
     steps:
@@ -132,25 +89,49 @@ stages:
         MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
         MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
 
-  - job:
-    pool: sonictest-sonic-t0
-    displayName: "kvmtest-t0-sonic"
-    timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: true
-    steps:
-    - template: .azure-pipelines/run-test-template.yml
-      parameters:
-        dut: vlab-02
-        tbname: vms-kvm-t0-64-32
-        ptf_name: ptf_vms6-1
-        tbtype: t0-sonic
-        vmtype: vsonic
-
-  - job: sonic_t0_testbedv2
-    displayName: "kvmtest-t0-sonic by TestbedV2"
+  - job: dualtor_elastictest
+    displayName: "kvmtest-dualtor-t0 by Elastictest"
     timeoutInMinutes: 240
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: dualtor
+          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+
+  - job: multi_asic_elastictest
+    displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: t1-8-lag
+          TEST_SET: multi-asic-t1-lag
+          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+          NUM_ASIC: 4
+
+  - job: wan_elastictest
+    displayName: "kvmtest-wan by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: wan-pub
+          MIN_WORKER: $(WAN_INSTANCE_NUM)
+          MAX_WORKER: $(WAN_INSTANCE_NUM)
+          COMMON_EXTRA_PARAMS: "--skip_sanity "
+
+  - job: sonic_t0_elastictest
+    displayName: "kvmtest-t0-sonic by Elastictest"
+    timeoutInMinutes: 240
     continueOnError: false
     pool: ubuntu-20.04
     steps:
@@ -163,78 +144,3 @@ stages:
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
           VM_TYPE: vsonic
           SPECIFIED_PARAMS: '{\"test_pretest.py\":[\"--completeness_level=confident\",\"--allow_recover\"],\"test_posttest.py\":[\"--completeness_level=confident\",\"--allow_recover\"]}'
-
-
-  - job:
-    pool: sonictest-dualtor
-    displayName: "kvmtest-dualtor"
-    timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: false
-    steps:
-      - template: .azure-pipelines/run-test-template.yml
-        parameters:
-          dut: all
-          tbname: vms-kvm-dual-t0
-          ptf_name: ptf-04
-          tbtype: dualtor
-          vmtype: ceos
-
-  - job: dualtor_testbedv2
-    displayName: "kvmtest-dualtor-t0 by TestbedV2"
-    timeoutInMinutes: 240
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-      - template: .azure-pipelines/run-test-scheduler-template.yml
-        parameters:
-          TOPOLOGY: dualtor
-          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
-
-  - job:
-    pool: sonictest-ma
-    displayName: "kvmtest-multi-asic-t1-lag"
-    timeoutInMinutes: 400
-    condition: and(succeeded(), eq(variables.RUN_CLASSICAL_TEST, 'YES'))
-    continueOnError: false
-    steps:
-      - template: .azure-pipelines/run-test-template.yml
-        parameters:
-          dut: vlab-08
-          tbname: vms-kvm-four-asic-t1-lag
-          ptf_name: ptf_vms6-4
-          tbtype: multi-asic-t1-lag-pr
-          vmtype: ceos
-          image: sonic-4asic-vs.img.gz
-
-  - job: multi_asic_testbedv2
-    displayName: "kvmtest-multi-asic-t1-lag by TestbedV2"
-    timeoutInMinutes: 240
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-      - template: .azure-pipelines/run-test-scheduler-template.yml
-        parameters:
-          TOPOLOGY: t1-8-lag
-          TEST_SET: multi-asic-t1-lag
-          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
-          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
-          NUM_ASIC: 4
-
-  - job: wan_testbedv2
-    displayName: "kvmtest-wan by TestbedV2"
-    timeoutInMinutes: 240
-    condition: and(succeeded(), eq(variables.RUN_TESTBEDV2_TEST, 'YES'))
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-      - template: .azure-pipelines/run-test-scheduler-template.yml
-        parameters:
-          TOPOLOGY: wan-pub
-          MIN_WORKER: $(WAN_INSTANCE_NUM)
-          MAX_WORKER: $(WAN_INSTANCE_NUM)
-          COMMON_EXTRA_PARAMS: "--skip_sanity "
