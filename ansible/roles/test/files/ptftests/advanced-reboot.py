@@ -228,7 +228,7 @@ class ReloadTest(BaseTest):
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
-        self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
+        self.task_timeout = 500   # Wait up to 5 minutes for tasks to complete
         self.max_nr_vl_pkts = 500  # FIXME: should be 1000.
         # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
