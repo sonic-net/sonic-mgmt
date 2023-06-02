@@ -2,7 +2,7 @@ import logging
 
 import pytest
 from .pdu_manager import pdu_manager_factory
-from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_host_visible_vars, get_sup_node_or_first_node
 
 
 logger = logging.getLogger(__name__)
@@ -28,19 +28,6 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
     for pdu_hostname in pdu_hostnames:
         pdu_hosts_vars[pdu_hostname] = get_host_visible_vars(inventories, pdu_hostname)
     return pdu_hosts_vars
-
-
-def get_sup_node_or_first_node(duthosts):
-    # accomodate for T2 chassis, which only SUP has pdu info
-    # single-dut get itself
-    if len(duthosts) == 1:
-        return duthosts[0]
-    # try to find sup node in multi-dut
-    for dut in duthosts:
-        if dut.is_supervisor_node():
-            return dut
-    # if not chassis, it's dualtor, return first node
-    return duthosts[0]
 
 
 @pytest.fixture(scope="module")
