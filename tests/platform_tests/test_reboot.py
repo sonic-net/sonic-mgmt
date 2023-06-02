@@ -12,7 +12,7 @@ import time
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
-from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl, get_sup_node_or_first_node
 from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
     check_reboot_cause_history, reboot_ctrl_dict, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_POWEROFF, REBOOT_TYPE_WATCHDOG
@@ -233,19 +233,6 @@ def _power_off_reboot_helper(kwargs):
     for outlet in power_on_seq:
         logging.debug("turning on {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
-
-
-def get_sup_node_or_first_node(duthosts):
-    # accomodate for T2 chassis, which only SUP has pdu info
-    # single-dut get itself
-    if len(duthosts) == 1:
-        return duthosts[0]
-    # try to find sup node in multi-dut
-    for dut in duthosts:
-        if dut.is_supervisor_node():
-            return dut
-    # if not chassis, it's dualtor, return first node
-    return duthosts[0]
 
 
 def test_power_off_reboot(duthosts,
