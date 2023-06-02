@@ -77,6 +77,19 @@ def skip_release_for_platform(duthost, release_list, platform_list):
                     duthost.os_version, duthost.facts['platform'], ", ".join(release_list), ", ".join(platform_list)))
 
 
+def get_sup_node_or_first_node(duthosts):
+    # accomodate for T2 chassis, which only SUP has pdu info
+    # single-dut get itself
+    if len(duthosts) == 1:
+        return duthosts[0]
+    # try to find sup node in multi-dut
+    for dut in duthosts:
+        if dut.is_supervisor_node():
+            return dut
+    # if not chassis, it's dualtor, return first node
+    return duthosts[0]
+
+
 def wait(seconds, msg=""):
     """
     @summary: Pause specified number of seconds
