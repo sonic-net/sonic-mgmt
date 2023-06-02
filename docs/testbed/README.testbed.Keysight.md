@@ -110,7 +110,7 @@ cd /vms
 ./IxLoad_Web_9.30_KVM.sh -z -e Y
 ```
 
-### Run IxLoad API Server 
+### Run IxLoad API Server
 
 1. Load the image to kvm:
 ```
