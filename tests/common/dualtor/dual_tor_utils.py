@@ -31,7 +31,7 @@ from tests.common.dualtor.dual_tor_common import active_standby_ports           
 from tests.common.dualtor.dual_tor_common import active_active_ports                                            # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import mux_config                                                     # lgtm[py/unused-import]
 from tests.common.helpers.generators import generate_ip_through_default_route
-from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address, wait_until
 from tests.ptf_runner import ptf_runner
 
 
