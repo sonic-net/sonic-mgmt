@@ -12,7 +12,7 @@ _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
 if base_path not in sys.path:
     sys.path.append(base_path)
-from nightly.templates.lock_release import get_token_from_testbedV2
+from nightly.templates.lock_release import get_token_from_elastictest as get_token
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         'https': os.environ.get('http_proxy')
     }
 
-    token = get_token_from_testbedV2()
+    token = get_token()
     tbshare_resp = defaultdict(list)
     tbshare_resp = get_tbshare_resp(token, proxies)
     testbed_utilization = parse_testbed_status_result(tbshare_resp, skip_testbeds)
