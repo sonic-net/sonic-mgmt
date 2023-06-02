@@ -44,7 +44,7 @@ tests/ip @jcaiMR
 tests/ipfwd @jcaiMR
 tests/radv @jcaiMR
 tests/fdb @jcaiMR
-tests/pfcwd @lipxu
+tests/pfcwd @lipxu @neethajohn
 tests/lldp @ZhaohuiS
 tests/cacl @ZhaohuiS
 tests/dualtor @lolyu @wsycqyz
