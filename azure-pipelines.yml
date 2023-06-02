@@ -53,7 +53,7 @@ stages:
   jobs:
 
 # Definition of Elastictest test jobs:
-  - ${{ if eq(parameters.RUN_ELASTICTEST_TEST, 'YES') }}:
+  - ${{ if eq(variables.RUN_ELASTICTEST_TEST, 'YES') }}:
     - job: t0_elastictest
       displayName: "kvmtest-t0 by Elastictest"
       timeoutInMinutes: 240
@@ -150,7 +150,7 @@ stages:
             COMMON_EXTRA_PARAMS: "--skip_sanity "
 
 # Definition of classical test jobs:
-  - ${{ if eq(parameters.RUN_CLASSICAL_TEST, 'YES') }}:
+  - ${{ if eq(variables.RUN_CLASSICAL_TEST, 'YES') }}:
     - job: t0_part1
       pool: sonictest
       displayName: "kvmtest-t0-part1"
