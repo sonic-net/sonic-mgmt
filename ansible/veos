@@ -142,6 +142,7 @@ all:
           - cable-test
           - dualtor-120
           - tgen-t0-3
+          - tgen-t0-3-32
           - tgen-t1-3-lag
           - tgen-t1-64-4
           - tgen-t0-35-3

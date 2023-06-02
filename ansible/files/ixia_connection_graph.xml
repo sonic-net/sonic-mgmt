@@ -12,6 +12,7 @@
       <Device Hostname="msr-ixia-api-serv-1" HwSku="IXIA-tester" Type="DevIxiaApiServ"/>
       <Device Hostname="msr-ixia-4" HwSku="IXIA-tester" Type="DevIxiaChassis"/>
       <Device Hostname="str3-8102-01" HwSku="Cisco-8102-C64" Type="DevSonic"/>
+      <Device Hostname="STR-7050CX3-C19-U37" HwSku="Arista-7050CX3-32S-C32" Type="DevSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-1" EndPort="Card12/Port1" StartDevice="msr-a7060-dut-1" StartPort="Ethernet0"/>
@@ -34,6 +35,9 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port2" StartDevice="str3-8102-01" StartPort="Ethernet184"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port3" StartDevice="str3-8102-01" StartPort="Ethernet188"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port1" StartDevice="str3-8102-01" StartPort="Ethernet196"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port4" StartDevice="STR-7050CX3-C19-U37" StartPort="Ethernet100"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port5" StartDevice="STR-7050CX3-C19-U37" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="msr-ixia-4" EndPort="Card1/Port6" StartDevice="STR-7050CX3-C19-U37" StartPort="Ethernet108"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -75,6 +79,9 @@
     <DevicesL3Info Hostname="msr-sn2700-dut-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.0/32"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="STR-7050CX3-C19-U37">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.162/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="msr-7050cx3-dut-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.42/32"/>
     </DevicesL3Info>
@@ -85,6 +92,9 @@
       <InterfaceVlan mode="Access" portname="Card1/Port2" vlanids=""/>
       <InterfaceVlan mode="Access" portname="Card1/Port3" vlanids=""/>
       <InterfaceVlan mode="Access" portname="Card1/Port1" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port4" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port5" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port6" vlanids=""/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str3-8102-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.120/23"/>

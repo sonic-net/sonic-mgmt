@@ -975,6 +975,21 @@
   auto_recover: 'False'
   comment: devojha
 
+- conf-name: vms20-rdma-t0-7050cx3
+  group-name: vms20-ixia-11
+  topo: tgen-t0-3-32
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-11
+  ptf_ip: 10.64.246.150/23
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+    - STR-7050CX3-C19-U37
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: devojha
+
 - conf-name: vms21-t0-2700
   group-name: vms21-1
   topo: t0

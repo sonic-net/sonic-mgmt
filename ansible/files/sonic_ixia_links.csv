@@ -19,3 +19,6 @@ msr-7050cx3-dut-1,Ethernet8,msr-ixia-3,Card12/Port3,100000,,Access
 str3-8102-01,Ethernet184,msr-ixia-4,Card1/Port2,100000,,Access
 str3-8102-01,Ethernet188,msr-ixia-4,Card1/Port3,100000,,Access
 str3-8102-01,Ethernet196,msr-ixia-4,Card1/Port1,100000,,Access
+STR-7050CX3-C19-U37,Ethernet100,msr-ixia-4,Card1/Port4,100000,,Access
+STR-7050CX3-C19-U37,Ethernet104,msr-ixia-4,Card1/Port5,100000,,Access
+STR-7050CX3-C19-U37,Ethernet108,msr-ixia-4,Card1/Port6,100000,,Access
