@@ -97,12 +97,13 @@ def lock_release(testbed, action, token, proxies, hours, user, reason, force, ab
 
 def lock_release_from_elastictest(testbed, action, hours, user, reason, force, absolute):
     try:
+        lock_tb_num = 1
         data = {
             "testbed_requirement": {
-                'platform': 'physical',
+                'platform': 'PHYSICAL',
                 'name': [testbed],
-                'min': 1,
-                'max': 1
+                'min': lock_tb_num,
+                'max': lock_tb_num
             },
             "hours": hours,
             "requester_id": user,
@@ -132,6 +133,10 @@ def lock_release_from_elastictest(testbed, action, hours, user, reason, force, a
             if not resp['success']:
                 print('[Elastictest] Lock testbeds failed with error: {}'.format(resp['errmsg']))
                 return 2
+            if action == "lock":
+                if resp['data'] is None or (len(resp['data']) < lock_tb_num):
+                    print("[Elastictest] Lock testbed failed, can't lock expected testbed")
+                    return 2
             print('[Elastictest] {} testbed {} succeeded'.format(action, testbed))
             return 0
 
