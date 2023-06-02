@@ -1,9 +1,7 @@
 {
     "DEVICE_METADATA": {
         "localhost": {
-        {% if fanout_hwsku in ("Nokia-7215", "Arista-720DT-G48S4") %}
             "default_pfcwd_status": "disable",
-        {% endif %}
             "hwsku": "{{ fanout_hwsku }}",
             "hostname": "{{ inventory_hostname }}"
         }
