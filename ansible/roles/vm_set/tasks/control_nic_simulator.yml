@@ -50,12 +50,21 @@
     - name: Set nic simulator source directory
       set_fact:
         nic_simulator_dir: "{{ (playbook_dir, 'dualtor', 'nic_simulator') | path_join }}"
+        remote_nic_simulator_dir: "{{ (abs_root_path, 'nic_simulator') | path_join }}"
 
     - name: Copy nic simulator to test server
       copy:
         src: "{{ nic_simulator_dir }}"
         dest: "{{ abs_root_path }}"
         force: yes
+
+    - name: Generate gRPC dependencies from the protocol buffer definitions
+      shell:
+        cmd: python3 -m grpc.tools.protoc -I. --python_out=. --grpc_python_out=. {{ item }}
+        chdir: "{{ remote_nic_simulator_dir }}"
+      loop:
+       - nic_simulator_grpc_service.proto
+       - nic_simulator_grpc_mgmt_service.proto
 
     - name: Generate nic simulator systemd service file
       template:
