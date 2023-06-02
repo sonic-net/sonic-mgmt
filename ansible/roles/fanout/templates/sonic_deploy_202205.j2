@@ -1,6 +1,9 @@
 {
     "DEVICE_METADATA": {
         "localhost": {
+        {% if fanout_hwsku in ("Nokia-7215", "Arista-720DT-G48S4") %}
+            "default_pfcwd_status": "disable",
+        {% endif %}
             "hwsku": "{{ fanout_hwsku }}",
             "hostname": "{{ inventory_hostname }}"
         }
@@ -67,6 +70,49 @@
         }
     },
 
+    "VERSIONS": {
+        "DATABASE": {
+            "VERSION": "version_1_0_1"
+        }
+    },
+
+{% if fanout_hwsku in ("Nokia-7215", "Arista-720DT-G48S4") %}
+
+    "FLEX_COUNTER_TABLE": {
+        "ACL": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "BUFFER_POOL_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PFCWD": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PG_DROP": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PG_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PORT": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PORT_BUFFER_DROP": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "QUEUE": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "QUEUE_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "RIF": {
+            "FLEX_COUNTER_STATUS": "disable"
+        }
+    },
+
+{% else %}
+
     "FLEX_COUNTER_TABLE": {
         "PFCWD": {
             "FLEX_COUNTER_STATUS": "enable"
@@ -115,12 +161,6 @@
         }
     },
 
-    "VERSIONS": {
-        "DATABASE": {
-            "VERSION": "version_1_0_1"
-        }
-    },
-
     "PFC_WD": {
         "GLOBAL": {
             "POLL_INTERVAL": "200"
@@ -166,6 +206,8 @@
             "weight": "15"
         }
     },
+
+{% endif %}
 
     "FEATURE": {
         "acms": {
