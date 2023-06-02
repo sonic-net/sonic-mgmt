@@ -12,7 +12,7 @@ import pytest
 from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_sup_node_or_first_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from .thermal_control_test_helper import ThermalPolicyFileContext,\
     check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status,\
@@ -236,19 +236,6 @@ def check_all_psu_on(dut, psu_test_results):
         logging.warn('Powered off PSUs: {}'.format(power_off_psu_list))
 
     return len(power_off_psu_list) == 0
-
-
-def get_sup_node_or_first_node(duthosts):
-    # accomodate for T2 chassis, which only SUP has pdu info
-    # single-dut get itself
-    if len(duthosts) == 1:
-        return duthosts[0]
-    # try to find sup node in multi-dut
-    for dut in duthosts:
-        if dut.is_supervisor_node():
-            return dut
-    # if not chassis, it's dualtor, return first node
-    return duthosts[0]
 
 
 @pytest.mark.disable_loganalyzer
