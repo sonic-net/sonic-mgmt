@@ -1,0 +1,52 @@
+{
+{% for k in cfg_t1 %}
+{%     if k == 'BGP_NEIGHBOR' %}
+    "BGP_NEIGHBOR": {
+{%         for neigh in cfg_t1['BGP_NEIGHBOR'] | sort %}
+{#     to detect number of pcs, used multiplier 2, because each neigh have ipv4 and ipv6 key #}
+{%             if cfg_t1['BGP_NEIGHBOR'] | length == 48  %}
+{%                 if cfg_t1['BGP_NEIGHBOR'][neigh]['name'] in vm_list %}
+        "Vrf1|{{ neigh }}": {{ cfg_t1['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
+{%-                else %}
+        "{{ neigh }}": {{ cfg_t1['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
+{%-                endif %}
+{%-            else %}
+        "{{ neigh }}": {{ cfg_t1['BGP_NEIGHBOR'][neigh] | to_nice_json | indent(width=8) }}
+{%-            endif %}
+{%-            if not loop.last %},{%endif %}
+
+{%         endfor %}
+    },
+{%     elif k == 'PORTCHANNEL_INTERFACE' %}
+    "PORTCHANNEL_INTERFACE": {
+{%        for pc in cfg_t1['PORTCHANNEL_INTERFACE'] | sort %}
+{#     each pc have 3 keys: pc, pc|ipv4 and pc|ipv6 #}
+{%             if pc in pc_list %}
+        "{{ pc }}": {"vrf_name": "Vrf1"}
+{%-            else %}
+        "{{ pc }}": {{ cfg_t1['PORTCHANNEL_INTERFACE'][pc] | to_nice_json | indent(width=8) }}
+{%-            endif %}
+{%-            if not loop.last %},{% endif %}
+
+{%        endfor %}
+    },
+{%     elif k == 'INTERFACE' %}
+    "INTERFACE": {
+{%        for eth in cfg_t1['INTERFACE'] | sort %}
+{%             if eth in port_list %}
+        "{{ eth }}": {"vrf_name": "Vrf1"}
+{%-            else %}
+        "{{ eth }}": {{ cfg_t1['INTERFACE'][eth] | to_nice_json | indent }}
+{%-            endif  %}
+{%-            if not loop.last %},{% endif %}
+
+{%        endfor %}
+    },
+{%     else %}
+    "{{ k }}": {{ cfg_t1[k] | to_nice_json | indent}},
+{%     endif %}
+{% endfor %}
+    "VRF": {
+        "Vrf1": {}
+    }
+}
