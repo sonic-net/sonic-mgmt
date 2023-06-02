@@ -21,6 +21,9 @@
     fanout_sonic_version: "{{ fanout_sonic_version | default({}) | combine([dict(['key', 'value'] | zip(item.split(':') | map('trim')))] | items2dict) }}"
   with_items: "{{ sonic_version_content['stdout_lines'] }}"
 
+- fail: msg="sonic version other than 202205 does not support incremental update and dry run"
+  when: "'20220531' not in fanout_sonic_version['build_version'] and (incremental is defined or dry_run is defined)"
+
 - name: deploy SONiC fanout with image version 201811
   include_tasks:
     sonic/fanout_sonic_201811.yml
@@ -31,7 +34,17 @@
     sonic/fanout_sonic_202012.yml
   when: "'20201231' in fanout_sonic_version['build_version']"
 
-- name: deploy SONiC fanout with image version 202205
+- name: deploy SONiC fanout with image version 202205 not incremental and not dry_run
   include_tasks:
     sonic/fanout_sonic_202205.yml
-  when: "'20220531' in fanout_sonic_version['build_version']"
+  when: "'20220531' in fanout_sonic_version['build_version'] and dry_run is not defined and incremental is not defined"
+
+- name: deploy SONiC fanout with image version 202205 incremental and not dry_run
+  include_tasks:
+    sonic/fanout_sonic_incremental_202205.yml
+  when: "'20220531' in fanout_sonic_version['build_version'] and dry_run is not defined and incremental is defined"
+
+- name: deploy SONiC fanout with image version 202205 dry_run
+  include_tasks:
+    sonic/fanout_sonic_dry_run_202205.yml
+  when: "'20220531' in fanout_sonic_version['build_version'] and dry_run is defined"

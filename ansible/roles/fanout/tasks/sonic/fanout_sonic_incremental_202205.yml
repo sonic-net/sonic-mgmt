@@ -1,0 +1,32 @@
+- name: collect fanout port config
+  port_config_gen:
+    hwsku: "{{ device_info[inventory_hostname]['HwSku'] }}"
+    hwsku_type: "{{ device_info[inventory_hostname]['HwSkuType'] | default('predefined') }}"
+    device_conn: "{{ device_conn[inventory_hostname] }}"
+  become: yes
+
+- name: build fanout incremental patch
+  template:
+    src: "sonic_deploy_incremental_202205.j2"
+    dest: "/tmp/config_patch.json"
+
+- name: apply patch to config db
+  shell: config apply-patch /tmp/config_patch.json
+  become: yes
+
+- name: disable all copp rules
+  copy:
+    content: "{}"
+    dest: "/usr/share/sonic/templates/copp_cfg.j2"
+  become: yes
+
+- name: Shutdown arp_update process in swss (avoid fanout broadcasting it's MAC address)
+  shell: docker exec -i swss supervisorctl stop arp_update
+  become: yes
+
+- name: Setup broadcom based fanouts
+  block:
+    - name: reinit fp entries
+      shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
+      become: yes
+  when: "'broadcom' in fanout_sonic_version.asic_type"
