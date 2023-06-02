@@ -1,6 +1,6 @@
-# SONiC Testbed with Keysight IxNetwork as Traffic Generator
+# SONiC Testbed with Keysight IxNetwork/IxLoad as Traffic Generator
 
-This section gives an overview of the stand-alone testbed topology where SONiC DUT is directly connected with Keysight’s protocol emulator and traffic generator (IxNetwork).
+This section gives an overview of the stand-alone testbed topology where SONiC DUT is directly connected with Keysight’s protocol emulator and traffic generator (IxNetwork/IxLoad).
 
 ## Physical Topology
 
@@ -17,6 +17,9 @@ Based on test need there may be multiple topologies possible as shown below :
 - Multiple IxNetwork Topology
 ![](img/multiple-ixnetwork.PNG)
 
+- SONiC-DASH Topology
+![](img/sonic-dash-topology.svg)
+
 ## Topology Description
 
 ### Ixia Chassis (IxNetwork)
@@ -29,6 +32,7 @@ The IxNetwork API Server docker is installed in the Testbed server along with so
 ### Network connections
 - IxNetwork API server is connected to IxNetwork via the management port.
 - IxNetwork test ports are directly connected to single or multiple DUTs.
+- for DASH testbed CloudStorm and Novus ports are connected into a UHD100T32 and that is connected to the smartswitch.
 
 ## Deploy IxNetwork API Server
 
@@ -91,3 +95,25 @@ Note : The folders within /opt/container/one/ should to be created with read and
 ```
 
 6. Launch IxNetworkWeb using browser `https://container ip`
+
+
+## Deploy IxLoad API Server
+### Download IxLoad API Server vm image
+1. Download IxLoad KVM (VM deployment) from [ here ](https://downloads.ixiacom.com/support/downloads_and_updates/public/ixload/9.30/IxLoad_Web_9.30_KVM.sh)
+
+2. Copy IxLoad_Web_9.30_KVM.sh to /vms/ on your testbed server.
+
+
+3. Decompress the file (it may take a few minutes):
+```
+cd /vms
+./IxLoad_Web_9.30_KVM.sh -z -e Y
+```
+
+### Run IxLoad API Server 
+
+1. Load the image to kvm:
+```
+virt-install --name IxLoad-930 --memory 16000 --vcpus 8 --disk /vms/9.30.0.331_ixload/IxLoad_Web_9.30_KVM.qcow2,bus=sata --import --os-variant ubuntu20.04 --network bridge=br1,model=virtio
+```
+2. Set the VM to autostart : `virsh autostart IxLoad-930`
