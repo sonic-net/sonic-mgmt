@@ -752,7 +752,7 @@ def disable_packet_aging(duthost, asic_value='None'):
 
 def enable_packet_aging(duthost, asic_value='None'):
     """
-    Enable packet aging feature (only on MLNX switches)
+    Enable packet aging feature
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
         asic_value: asic value of the multi chassis based linecard
