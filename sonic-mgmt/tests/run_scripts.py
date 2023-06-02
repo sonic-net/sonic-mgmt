@@ -12,6 +12,8 @@ import requests
 import base64
 from allure_server import AllureServer
 
+ALLURE_SERVER_IP, ALLURE_SERVER_PORT, ALLURE_DIR = '10.22.183.173', 5050, '/tmp/allure_results'
+
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
@@ -53,6 +55,15 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         if error:
             print('There was an error pulling the runtime: {}'.format(error))
         ssh.close()
+
+# Generate allure report using data in ALLURE_DIR
+def generate_allure_report(build_id):
+    try:
+        allure_server_obj = AllureServer(ALLURE_SERVER_IP, ALLURE_SERVER_PORT, ALLURE_DIR, build_id)
+        report_url = allure_server_obj.generate_allure_report()
+        print("Allure report generated, url is: ", report_url)
+    except Exception as e:
+        print("Error while generating allure report! e: ", e)
 
 def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None):
     if drop_version is not None:
@@ -132,7 +143,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
         cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-
+    
     if not int(passed):
         current_result_file.write("{}, {} total, {} Pass, {} Fail, {} Skip, {} Error \n".format(tc_name,total_tests,passed,failed,skipped,errored))
         current_result_file.flush()
@@ -144,9 +155,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         report_file.flush()
         # Use previous test results to generate Allure report
         if create_allure_report:
-            allure_server_obj = AllureServer('10.22.183.173', 5050, "/tmp/allure_results", build_id)
-            report_url = allure_server_obj.generate_allure_report()
-            print("Allure report generated, url is: ", report_url)
+            generate_allure_report(build_id)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
     current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file)) 
@@ -203,14 +212,8 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-
     if create_allure_report:
-        try:
-            allure_server_obj = AllureServer('10.22.183.173', 5050, "/tmp/allure_results", build_id)
-            report_url = allure_server_obj.generate_allure_report()
-            print("Allure report generated, url is: ", report_url)
-        except Exception as e:
-            print("Error while generating allure report! e:", e)
+        generate_allure_report(build_id)
 
     current_result_file.write("Total TCs: {},          {} Pass, {} Fail, {} Skipped, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
@@ -307,9 +310,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         report_file.flush()
         # Use previous test results to generate Allure report
         if create_allure_report:
-            allure_server_obj = AllureServer('10.22.183.173', 5050, "/tmp/allure_results", build_id)
-            report_url = allure_server_obj.generate_allure_report()
-            print("Allure report generated, url is: ", report_url)
+            generate_allure_report(build_id)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
     current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file))
@@ -349,12 +350,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     if create_allure_report:
-        try:
-            allure_server_obj = AllureServer('10.22.183.173', 5050, "/tmp/allure_results",build_id)
-            report_url = allure_server_obj.generate_allure_report()
-            print("Allure report generated, url is: ", report_url)
-        except Exception as e:
-            print("Error while generating allure report! e: ", e)
+        generate_allure_report(build_id)
 
     current_result_file.close()
     report_file.close()
