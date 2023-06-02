@@ -226,7 +226,7 @@ if __name__ == '__main__':
 
     print('Args for lock_release: ' + str(args))
     if not args.brutal_release:
-        sys.exit(lock_release_from_elastictest(args.testbed, args.action, token, proxies, args.hours, args.user, args.reason, args.force, args.absolute))
+        sys.exit(lock_release_from_elastictest(args.testbed, args.action, args.hours, args.user, args.reason, args.force, args.absolute))
     else:
         testbed_res = get_testbed(args.testbed, token, proxies)
 
@@ -239,4 +239,4 @@ if __name__ == '__main__':
             print('Testbed "{}" is not locked by anyone'.format(args.testbed))
             sys.exit(0)
 
-        sys.exit(lock_release_from_elastictest(args.testbed, 'release', token, proxies, args.hours, locked_by, args.reason, args.force, args.absolute))
+        sys.exit(lock_release_from_elastictest(args.testbed, 'release', args.hours, locked_by, args.reason, args.force, args.absolute))
