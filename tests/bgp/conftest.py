@@ -7,6 +7,7 @@ import netaddr
 import pytest
 import random
 import re
+import six
 import socket
 
 from jinja2 import Template
@@ -302,12 +303,13 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             if not loopback_ip:
                 pytest.fail("ipv4 lo interface not found")
 
-            for local_intf, neighbor_addr in zip(local_interfaces, neighbor_addresses):
+            neighbor_intf = random.choice(local_interfaces)
+            for neighbor_addr in neighbor_addresses:
                 conn = {}
                 conn["local_intf"] = vlan_intf_name
                 conn["local_addr"] = vlan_intf_addr
                 conn["neighbor_addr"] = neighbor_addr
-                conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][local_intf]
+                conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][neighbor_intf]
                 if is_backend_topo and is_vlan_tagged:
                     conn["neighbor_intf"] += (constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id)
                 conn["loopback_ip"] = loopback_ip
@@ -316,14 +318,15 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             ptfhost.remove_ip_addresses()  # In case other case did not cleanup IP address configured on PTF interface
 
             for conn in connections:
-                ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"],
-                                                  conn["neighbor_addr"]))
+                ptfhost.shell("ip address add %s/%d dev %s" % (
+                    conn["neighbor_addr"], vlan_intf["prefixlen"], conn["neighbor_intf"]
+                ))
 
             yield connections
 
         finally:
             for conn in connections:
-                ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
+                ptfhost.shell("ip address flush %s" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
     def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
@@ -378,7 +381,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
             subnet_prefixlen = list(used_subnets)[0].prefixlen
             # Use a subnet which doesnt conflict with other subnets used in minigraph
-            subnets = ipaddress.ip_network("20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
+            subnets = ipaddress.ip_network(six.text_type("20.0.0.0/24")).subnets(new_prefix=subnet_prefixlen)
 
             loopback_ip = None
             for intf in mg_facts["minigraph_lo_interfaces"]:
