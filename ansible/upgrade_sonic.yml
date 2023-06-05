@@ -95,7 +95,7 @@
     # Increase this time during deploying minigraph
     - name: Reset sshd timeout
       become: True
-      shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
+      shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 1800/g" /etc/ssh/sshd_config && systemctl restart sshd
 
     - block:
         - fail: msg="image_url is not defined"
