@@ -111,10 +111,10 @@
       <Device Hostname="str2-7215-acs-4" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
       <Device Hostname="str2-pikez-acs-1" HwSku="Arista-720DT-G48S4" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-7215-acs-5" HwSku="Nokia-7215" Os="sonic" Type="FanoutLeafSonic"/>
-      <Device Hostname="str2-bluefield-01" HwSku="DPU" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-bluefield-01" HwSku="Nvidia-9009d3b600CVAA" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-bluefield-bmc-01" HwSku="DPU" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-bluefield-host-01" HwSku="DPU" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str2-bluefield-02" HwSku="DPU" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-bluefield-02" HwSku="Nvidia-9009d3b600CVAA" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-bluefield-bmc-02" HwSku="DPU" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-bluefield-host-02" HwSku="DPU" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-acs-serv-16" HwSku="TestServ" Os="" Type="Server"/>

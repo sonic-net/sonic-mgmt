@@ -109,10 +109,10 @@ str2-7215-acs-3,10.3.147.140/23,Nokia-7215,DevSonic,,sonic
 str2-7215-acs-4,10.3.147.48/23,Nokia-7215,FanoutLeafSonic,,sonic
 str2-pikez-acs-1,10.64.246.35/23,Arista-720DT-G48S4,DevSonic,,sonic
 str2-7215-acs-5,10.64.246.36/23,Nokia-7215,FanoutLeafSonic,,sonic
-str2-bluefield-01,10.64.247.32/23,DPU,DevSonic,,sonic
+str2-bluefield-01,10.64.247.32/23,Nvidia-9009d3b600CVAA,DevSonic,,sonic
 str2-bluefield-bmc-01,10.64.247.33/23,DPU,DevSonic,,sonic
 str2-bluefield-host-01,10.64.246.248/23,DPU,DevSonic,,sonic
-str2-bluefield-02,10.64.247.34/23,DPU,DevSonic,,sonic
+str2-bluefield-02,10.64.247.34/23,Nvidia-9009d3b600CVAA,DevSonic,,sonic
 str2-bluefield-bmc-02,10.64.247.35/23,DPU,DevSonic,,sonic
 str2-bluefield-host-02,10.64.246.249/23,DPU,DevSonic,,sonic
 str2-acs-serv-16,10.64.246.95/23,TestServ,Server,,
