@@ -84,11 +84,6 @@ def use_underlay_route(request):
     return request.param == "with-underlay-route"
 
 
-@pytest.fixture(params=["use-overlay-ip", "use-pkt-ca-ip"])
-def use_overlay_ip(request):
-    return request.param == "use-overlay-ip"
-
-
 @pytest.fixture(scope="function")
 def dash_config_info(duthost, config_facts, minigraph_facts, use_underlay_route):
     dash_info = {
@@ -171,11 +166,10 @@ def apply_vnet_configs(dash_config_info, apply_config):
 
 
 @pytest.fixture(scope="function")
-def apply_vnet_direct_configs(dash_config_info, apply_config, use_overlay_ip):
+def apply_vnet_direct_configs(dash_config_info, apply_config):
     dash_config_info[ROUTING_ACTION] = "vnet_direct"
     dash_config_info[ROUTING_ACTION_TYPE] = "maprouting"
-    if use_overlay_ip:
-        dash_config_info[LOOKUP_OVERLAY_IP] = "1.1.1.1"
+    dash_config_info[LOOKUP_OVERLAY_IP] = "1.1.1.1"
     apply_config(dash_config_info)
 
 
