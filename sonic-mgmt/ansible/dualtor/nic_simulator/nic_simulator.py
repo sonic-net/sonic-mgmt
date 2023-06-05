@@ -364,6 +364,9 @@ class OVSBridge(object):
 
     __slots__ = (
         "bridge_name",
+        "loopback2_ip",
+        "upper_tor_loopback3_ip",
+        "lower_tor_loopback3_ip",
         "ports",
         "lower_tor_port",
         "upper_tor_port",
@@ -380,13 +383,18 @@ class OVSBridge(object):
         "downstream_upper_tor_flow",
         "downstream_lower_tor_flow",
         "upstream_nic_flow",
-        "upstream_icmp_flow",
+        "upstream_loopback2_flow",
+        "upstream_upper_tor_loopback3_flow",
+        "upstream_lower_tor_loopback3_flow",
         "upstream_arp_flow",
         "upstream_icmpv6_flow"
     )
 
-    def __init__(self, bridge_name):
+    def __init__(self, bridge_name, loopback_ips):
         self.bridge_name = bridge_name
+        self.loopback2_ip = loopback_ips[0]
+        self.upper_tor_loopback3_ip = loopback_ips[1]
+        self.lower_tor_loopback3_ip = loopback_ips[2]
         self.lock = threading.RLock()
         self.ports = None
         self.lower_tor_port = None
@@ -454,30 +462,61 @@ class OVSBridge(object):
 
         # upstream flows
         # upstream packet from server NiC should be directed to both ToRs
-        self.upstream_nic_flow = self._add_flow(self.server_nic,
-                                                output_ports=[
-                                                    self.lower_tor_port, self.upper_tor_port],
-                                                priority=9, upstream=True)
-        # upstream icmp packet from ptf port should be directed to both ToRs
-        self.upstream_icmp_flow = self._add_flow(self.ptf_port, packet_filter="icmp",
-                                                 output_ports=[
-                                                     self.lower_tor_port, self.upper_tor_port],
-                                                 priority=8, upstream=True)
-        # upstream arp packet from ptf port should be directed to both ToRs
-        self.upstream_arp_flow = self._add_flow(self.ptf_port, packet_filter="arp",
-                                                output_ports=[
-                                                    self.lower_tor_port, self.upper_tor_port],
-                                                priority=7, upstream=True)
-        # upstream ipv6 icmp packet from ptf port should be directed to both ToRs
-        self.upstream_icmpv6_flow = self._add_flow(self.ptf_port, packet_filter="ipv6,nw_proto=58",
-                                                   output_ports=[
-                                                       self.lower_tor_port, self.upper_tor_port],
-                                                   priority=6, upstream=True)
+        self.upstream_nic_flow = self._add_flow(
+            self.server_nic,
+            output_ports=[self.lower_tor_port, self.upper_tor_port],
+            priority=9,
+            upstream=True
+        )
+        # upstream packet to loopback2 from ptf port should be duplicated to both ToRs
+        self.upstream_loopback2_flow = self._add_flow(
+            self.ptf_port,
+            packet_filter="ip,ip_dst=%s" % self.loopback2_ip,
+            output_ports=[self.lower_tor_port, self.upper_tor_port],
+            priority=8,
+            upstream=True
+        )
+        # upstream packet to the upper ToR loopback3 from ptf should be duplicated to both ToRs
+        self.upstream_upper_tor_loopback3_flow = self._add_flow(
+            self.ptf_port,
+            packet_filter="ip,ip_dst=%s" % self.upper_tor_loopback3_ip,
+            output_ports=[self.lower_tor_port, self.upper_tor_port],
+            priority=7,
+            upstream=True
+        )
+        # upstream packet to the lower ToR loopback3 from ptf should be duplicated to both ToRs
+        self.upstream_lower_tor_loopback3_flow = self._add_flow(
+            self.ptf_port,
+            packet_filter="ip,ip_dst=%s" % self.lower_tor_loopback3_ip,
+            output_ports=[self.lower_tor_port, self.upper_tor_port],
+            priority=7,
+            upstream=True
+        )
+        # upstream arp packet from ptf port should be duplicated to both ToRs
+        self.upstream_arp_flow = self._add_flow(
+            self.ptf_port, packet_filter="arp",
+            output_ports=[self.lower_tor_port, self.upper_tor_port],
+            priority=6,
+            upstream=True
+        )
+        # upstream ipv6 icmp packet from ptf port should be duplicated to both ToRs
+        self.upstream_icmpv6_flow = self._add_flow(
+            self.ptf_port, packet_filter="ipv6,nw_proto=58",
+            output_ports=[self.lower_tor_port, self.upper_tor_port],
+            priority=5,
+            upstream=True
+        )
         # upstream packet from ptf port should be ECMP directed to active ToRs
         self.upstream_ecmp_group = self._add_upstream_ecmp_group(
-            1, self.upper_tor_port, self.lower_tor_port)
+            1,
+            self.upper_tor_port,
+            self.lower_tor_port
+        )
         self.upstream_ecmp_flow = self._add_upstream_ecmp_flow(
-            self.ptf_port, self.upstream_ecmp_group, priority=5)
+            self.ptf_port,
+            self.upstream_ecmp_group,
+            priority=4
+        )
 
     def _get_ports(self):
         result = OVSCommand.ovs_vsctl_list_ports(self.bridge_name)
@@ -565,12 +604,24 @@ class OVSBridge(object):
                             portid=portid, recover=recover)
                         OVSCommand.ovs_ofctl_mod_flow(
                             self.bridge_name, self.upstream_nic_flow)
-                    # recover upstream icmp traffic(heartbeats) from ptf
-                    if self.upstream_icmp_flow.get_drop(portid):
-                        self.upstream_icmp_flow.set_drop(
+                    # recover upstream loopback2 traffic from ptf
+                    if self.upstream_loopback2_flow.get_drop(portid):
+                        self.upstream_loopback2_flow.set_drop(
                             portid=portid, recover=recover)
                         OVSCommand.ovs_ofctl_mod_flow(
-                            self.bridge_name, self.upstream_icmp_flow)
+                            self.bridge_name, self.upstream_loopback2_flow)
+                    # recover upstream upper ToR loopback3 traffic from ptf
+                    if self.upstream_upper_tor_loopback3_flow.get_drop(portid):
+                        self.upstream_upper_tor_loopback3_flow.set_drop(
+                            portid=portid, recover=recover)
+                        OVSCommand.ovs_ofctl_mod_flow(
+                            self.bridge_name, self.upstream_upper_tor_loopback3_flow)
+                    # recover upstream lower ToR loopback3 traffic from ptf
+                    if self.upstream_lower_tor_loopback3_flow.get_drop(portid):
+                        self.upstream_lower_tor_loopback3_flow.set_drop(
+                            portid=portid, recover=recover)
+                        OVSCommand.ovs_ofctl_mod_flow(
+                            self.bridge_name, self.upstream_lower_tor_loopback3_flow)
                     # recover upstream arp traffic from ptf
                     if self.upstream_arp_flow.get_drop(portid):
                         self.upstream_arp_flow.set_drop(
@@ -603,11 +654,21 @@ class OVSBridge(object):
                             self.upstream_nic_flow.set_drop(portid)
                             OVSCommand.ovs_ofctl_mod_flow(
                                 self.bridge_name, self.upstream_nic_flow)
-                        # drop upstream icmp traffic(heartbeats) from ptf
-                        if not self.upstream_icmp_flow.get_drop(portid):
-                            self.upstream_icmp_flow.set_drop(portid)
+                        # drop upstream loopback2 traffic from ptf
+                        if not self.upstream_loopback2_flow.get_drop(portid):
+                            self.upstream_loopback2_flow.set_drop(portid)
                             OVSCommand.ovs_ofctl_mod_flow(
-                                self.bridge_name, self.upstream_icmp_flow)
+                                self.bridge_name, self.upstream_loopback2_flow)
+                        # drop upstream upper ToR loopback3 traffic from ptf
+                        if not self.upstream_upper_tor_loopback3_flow.get_drop(portid):
+                            self.upstream_upper_tor_loopback3_flow.set_drop(portid)
+                            OVSCommand.ovs_ofctl_mod_flow(
+                                self.bridge_name, self.upstream_upper_tor_loopback3_flow)
+                        # drop upstream lower ToR loopback3 traffic from ptf
+                        if not self.upstream_lower_tor_loopback3_flow.get_drop(portid):
+                            self.upstream_lower_tor_loopback3_flow.set_drop(portid)
+                            OVSCommand.ovs_ofctl_mod_flow(
+                                self.bridge_name, self.upstream_lower_tor_loopback3_flow)
                         # drop upstream arp traffic from ptf
                         if not self.upstream_arp_flow.get_drop(portid):
                             self.upstream_arp_flow.set_drop(portid)
@@ -928,7 +989,7 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
 class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """NiC simulator class, define all the gRPC calls."""
 
-    def __init__(self, vm_set, mgmt_port, binding_port):
+    def __init__(self, vm_set, mgmt_port, binding_port, loopback_ips):
         self.vm_set = vm_set
         self.server_nics = self._find_all_server_nics()
         self.server_nic_addresses = {
@@ -944,7 +1005,7 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
             if server_nic in self.server_nic_addresses:
                 server_nic_addr = self.server_nic_addresses[server_nic]
                 if server_nic_addr is not None:
-                    self.ovs_bridges[server_nic_addr] = OVSBridge(bridge_name)
+                    self.ovs_bridges[server_nic_addr] = OVSBridge(bridge_name, loopback_ips)
         logging.info("Starting NiC simulator to manipulate OVS bridges: %s",
                      json.dumps(list(self.ovs_bridges.keys()), indent=4))
 
@@ -1011,6 +1072,13 @@ def parse_args():
         action="store_true",
         help="Redirect log to stdout"
     )
+    parser.add_argument(
+        "-d",
+        "--duplication-loopback-ips",
+        default="10.1.0.36,10.1.0.38,10.1.0.39",
+        help="the Loopback IPs to duplicate to both ToRs: <Loopback2>,<upper ToR Loopback3>,<lower ToR Loopback3>",
+        dest="loopback_ips"
+    )
     args = parser.parse_args()
     return args
 
@@ -1059,7 +1127,10 @@ def main():
     logging.debug("Start nic_simulator with args: %s", args)
     config_env()
     config_logging(args.vm_set, args.log_level.upper(), args.stdout_log)
-    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port)
+    loopback_ips = args.loopback_ips.split(",")
+    if len(loopback_ips) != 3:
+        raise ValueError("Invalid loopback ips: {loopback_ips}".format(loopback_ips=loopback_ips))
+    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port, loopback_ips)
     nic_simulator.start_nic_servers()
     try:
         nic_simulator.start_mgmt_server()

@@ -63,7 +63,7 @@ from switch_sai_thrift.sai_headers import SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRES
     SAI_ROUTER_INTERFACE_TYPE_PORT, SAI_ROUTER_INTERFACE_TYPE_VLAN, SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE,\
     SAI_SCHEDULER_ATTR_SCHEDULING_TYPE, SAI_STP_ATTR_VLAN_LIST, SAI_SWITCH_ATTR_PORT_LIST,\
     SAI_SWITCH_ATTR_PORT_NUMBER, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V4_STATE, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V6_STATE,\
-    SAI_VLAN_MEMBER_ATTR_VLAN_ID, SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, SAI_PORT_STAT_IF_IN_UCAST_PKTS,\
+    SAI_VLAN_MEMBER_ATTR_VLAN_ID, SAI_PORT_STAT_IF_IN_UCAST_PKTS,\
     SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_QLEN
 
 
@@ -104,13 +104,6 @@ def switch_init(client):
                 sai_port_list.append(port_id)
         else:
             print("unknown switch attribute")
-
-    # TOFIX in brcm sai: This causes the following error on td2 (a7050-qx-32s)
-    # ERR syncd: brcm_sai_set_switch_attribute:842 updating switch mac addr failed with error -2.
-    attr_value = sai_thrift_attribute_value_t(mac='00:77:66:55:44:33')
-    attr = sai_thrift_attribute_t(
-        id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
-    client.sai_thrift_set_switch_attribute(attr)
 
     # wait till the port are up
     time.sleep(10)

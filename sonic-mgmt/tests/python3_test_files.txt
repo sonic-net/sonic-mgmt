@@ -17,6 +17,7 @@ bfd/test_bfd.py
 bgp/test_bgp_allow_list.py
 bgp/test_bgp_bbr.py
 bgp/test_bgp_bounce.py
+bgp/test_bgp_dual_asn.py
 bgp/test_bgp_fact.py
 bgp/test_bgp_gr_helper.py
 bgp/test_bgp_multipath_relax.py
@@ -29,6 +30,7 @@ bgp/test_traffic_shift.py
 cacl/test_cacl_application.py
 cacl/test_cacl_function.py
 cacl/test_ebtables_application.py
+configlet/test_add_rack.py
 console/test_console_availability.py
 console/test_console_driver.py
 console/test_console_loopback.py

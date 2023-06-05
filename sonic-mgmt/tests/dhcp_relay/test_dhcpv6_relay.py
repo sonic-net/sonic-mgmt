@@ -33,22 +33,17 @@ def wait_all_bgp_up(duthost):
         pytest.fail("not all bgp sessions are up after config change")
 
 
-@pytest.fixture(scope="module", params=[SINGLE_TOR_MODE, DUAL_TOR_MODE])
-def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
-    testing_mode = request.param
+@pytest.fixture(scope="module")
+def testing_config(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     subtype_exist, subtype_value = get_subtype_from_configdb(duthost)
 
     if 'dualtor' in tbinfo['topo']['name']:
-        if testing_mode == SINGLE_TOR_MODE:
-            pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")
-
-        if testing_mode == DUAL_TOR_MODE:
-            if not subtype_exist or subtype_value != 'DualToR':
-                assert False, "Wrong DHCP setup on Dual ToR testbeds"
-            yield testing_mode, duthost, 'dual_testbed'
+        if not subtype_exist or subtype_value != 'DualToR':
+            assert False, "Wrong DHCP setup on Dual ToR testbeds"
+        yield DUAL_TOR_MODE, duthost
     else:
-        yield testing_mode, duthost, 'single_testbed'
+        yield SINGLE_TOR_MODE, duthost
 
 
 def get_subtype_from_configdb(duthost):
@@ -61,7 +56,7 @@ def get_subtype_from_configdb(duthost):
 
 
 @pytest.fixture(scope="module")
-def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, tbinfo):
     """ Fixture which returns a list of dictionaries where each dictionary contains
         data necessary to test one instance of a DHCP relay agent running on the DuT.
         This fixture is scoped to the module, as the data it gathers can be used by
@@ -186,7 +181,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
     for dhcp_relay in dut_dhcp_relay_data:
         assert ("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) or "*:*" in output,
                 "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)) or \
-                ("*:*" in output, "dhcp6relay socket is not properly binded")
+               ("*:*" in output, "dhcp6relay socket is not properly binded")
 
 
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
@@ -229,16 +224,12 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
             assert int(message_count) > 0, "Missing {} count".format(message)
 
 
-def test_dhcp_relay_default(tbinfo, ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
-                            validate_dut_routes_exist, testing_config):
+def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
-    testing_mode, duthost, testbed_mode = testing_config
+    _, duthost = testing_config
     skip_release(duthost, ["201811", "201911", "202106"])  # TO-DO: delete skip release on 201811 and 201911
-
-    if testing_mode == DUAL_TOR_MODE:
-        skip_release(duthost, ["201811", "201911"])
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
@@ -259,16 +250,15 @@ def test_dhcp_relay_default(tbinfo, ptfhost, duthosts, rand_one_dut_hostname, du
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 
 
-def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
-                                    validate_dut_routes_exist, testing_config):
+def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology after uplinks flap
        For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
        then test whether the DHCP relay agent relays packets properly.
     """
-    testing_mode, duthost, testbed_mode = testing_config
+    testing_mode, duthost = testing_config
     skip_release(duthost, ["201811", "201911", "202106"])
 
-    if testbed_mode == 'dual_testbed':
+    if testing_mode == DUAL_TOR_MODE:
         pytest.skip("skip the link flap testcase on dual tor testbeds")
 
     for dhcp_relay in dut_dhcp_relay_data:
@@ -304,17 +294,16 @@ def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, du
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 
 
-def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
-                                            validate_dut_routes_exist, testing_config):
+def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology when relay agent starts with uplinks down
        For each DHCP relay agent running on the DuT, bring the uplinks down, then restart the
        relay agent while the uplinks are still down. Then test whether the DHCP relay agent
        relays packets properly.
     """
-    testing_mode, duthost, testbed_mode = testing_config
+    testing_mode, duthost = testing_config
     skip_release(duthost, ["201811", "201911", "202106"])
 
-    if testbed_mode == 'dual_testbed':
+    if testing_mode == DUAL_TOR_MODE:
         pytest.skip("skip the uplinks down testcase on dual tor testbeds")
 
     for dhcp_relay in dut_dhcp_relay_data:

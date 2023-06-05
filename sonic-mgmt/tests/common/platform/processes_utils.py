@@ -7,7 +7,23 @@ import logging
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+
+
+def reset_timeout(duthost):
+    """
+    return: if timeout is specified in inventory file for this dut, return new timeout
+            if not specified, return 300 sec as default timeout
+    e.g.
+        processes_utils.py:
+          timeout: 400
+          wait: 60
+    """
+    reset_timeout = 300
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'processes_utils.py', 'cold')
+    if plt_reboot_ctrl:
+        reset_timeout = plt_reboot_ctrl.get('timeout', 300)
+    return reset_timeout
 
 
 def get_critical_processes_status(dut):
@@ -46,6 +62,8 @@ def wait_critical_processes(dut):
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     """
-    logging.info("Wait until all critical processes are healthy")
-    pytest_assert(wait_until(300, 20, 0, _all_critical_processes_healthy, dut),
+    timeout = reset_timeout(dut)
+    logging.info("Wait until all critical processes are healthy in {} sec"
+                 .format(timeout))
+    pytest_assert(wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut),
                   "Not all critical processes are healthy")

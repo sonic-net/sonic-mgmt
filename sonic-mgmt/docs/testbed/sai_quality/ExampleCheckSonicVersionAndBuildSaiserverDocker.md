@@ -60,7 +60,7 @@ In this article, you will get known how to get a saiserver docker and get a buil
    ```
    *Note: Follow the resource to get how to build a binary and docker*
 
-   [GitHub - Azure/sonic-buildimage: Scripts which perform an installable binary image build for SONiC](https://github.com/sonic-net/sonic-buildimage)
+   [GitHub - sonic-net/sonic-buildimage: Scripts which perform an installable binary image build for SONiC](https://github.com/sonic-net/sonic-buildimage)
 
 3. Start a local build
    ```

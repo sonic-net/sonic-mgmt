@@ -20,6 +20,7 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
+FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 SMALL_DISK_SKUS = [
     "Arista-7060CX-32S-C32",
     "Arista-7060CX-32S-Q32",
@@ -31,7 +32,10 @@ def _parse_timestamp(timestamp):
     try:
         time = datetime.strptime(timestamp, FMT)
     except ValueError:
-        time = datetime.strptime(timestamp, FMT_SHORT)
+        try:
+            time = datetime.strptime(timestamp, FMT_SHORT)
+        except ValueError:
+            time = datetime.strptime(timestamp, FMT_ALT)
     return time
 
 

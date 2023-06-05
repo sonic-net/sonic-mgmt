@@ -61,7 +61,7 @@ topology:
       vm_offset: 7
   DUT:
     vlan_configs:
-      default_vlan_config: two_vlan_a
+      default_vlan_config: one_vlan_a
       one_vlan_a:
         Vlan1000:
           id: 1000

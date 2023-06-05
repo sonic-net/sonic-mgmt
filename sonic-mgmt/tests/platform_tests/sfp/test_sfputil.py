@@ -95,7 +95,7 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
 def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                              enum_frontend_asic_index, conn_graph_facts,
-                             tbinfo, xcvr_skip_list, shutdown_ebgp):    # noqa F811
+                             tbinfo, xcvr_skip_list, shutdown_ebgp, stop_xcvrd):    # noqa F811
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """

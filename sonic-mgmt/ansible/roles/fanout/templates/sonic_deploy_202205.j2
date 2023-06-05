@@ -1,7 +1,8 @@
 {
     "DEVICE_METADATA": {
         "localhost": {
-            "hwsku": "{{ fanout_hwsku}}",
+            "default_pfcwd_status": "disable",
+            "hwsku": "{{ fanout_hwsku }}",
             "hostname": "{{ inventory_hostname }}"
         }
     },
@@ -18,8 +19,10 @@
     {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
             "fec" : "rs",
     {% endif %}
-    {% if 'broadcom' in fanout_sonic_version["asic_type"] and port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"] == "Access" %}
+    {% if 'broadcom' in fanout_sonic_version["asic_type"] or 'marvell' in fanout_sonic_version["asic_type"] %}
+        {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"] == "Access" %}
             "tpid": "0x9100",
+        {% endif %}
     {% endif %}
     {% if 'peerdevice' in fanout_port_config[port_name] %}
             "admin_status": "up"
@@ -64,6 +67,49 @@
             "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
         }
     },
+
+    "VERSIONS": {
+        "DATABASE": {
+            "VERSION": "version_1_0_1"
+        }
+    },
+
+{% if fanout_hwsku in ("Nokia-7215", "Arista-720DT-G48S4") %}
+
+    "FLEX_COUNTER_TABLE": {
+        "ACL": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "BUFFER_POOL_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PFCWD": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PG_DROP": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PG_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PORT": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PORT_BUFFER_DROP": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "QUEUE": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "QUEUE_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "RIF": {
+            "FLEX_COUNTER_STATUS": "disable"
+        }
+    },
+
+{% else %}
 
     "FLEX_COUNTER_TABLE": {
         "PFCWD": {
@@ -113,12 +159,6 @@
         }
     },
 
-    "VERSIONS": {
-        "DATABASE": {
-            "VERSION": "version_1_0_1"
-        }
-    },
-
     "PFC_WD": {
         "GLOBAL": {
             "POLL_INTERVAL": "200"
@@ -164,6 +204,8 @@
             "weight": "15"
         }
     },
+
+{% endif %}
 
     "FEATURE": {
         "acms": {

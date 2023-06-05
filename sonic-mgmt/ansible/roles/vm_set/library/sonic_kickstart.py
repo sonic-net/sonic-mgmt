@@ -84,9 +84,20 @@ class SerialSession(object):
 
 
 def session(new_params):
-    seq = [
-        ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; '
-         'echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
+    if new_params['disable_updategraph']:
+        seq = [
+            ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; '
+             'echo $(systemctl is-active swss); '
+             'sed -i -e "s/enabled=true/enabled=false/" /etc/sonic/updategraph.conf; '
+             'systemctl restart updategraph; sleep 1; done', [r'#'], 180),
+        ]
+    else:
+        seq = [
+            ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; '
+             'echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
+        ]
+
+    seq.extend([
         ('pkill dhclient', [r'#']),
         ('hostname %s' % str(new_params['hostname']), [r'#']),
         ('sed -i s:sonic:%s: /etc/hosts' %
@@ -98,7 +109,7 @@ def session(new_params):
         ('ip route', [r'#']),
         ('echo %s:%s | chpasswd' %
          (str(new_params['login']), str(new_params['new_password'])), [r'#']),
-    ]
+    ])
     # For multi-asic VS there is no default config generated.
     # interfaces-config service will not add eth0 IP address as there
     # no default config. Multiple SWSS service will not start until
@@ -133,6 +144,7 @@ def main():
         mgmt_gw=dict(required=True),
         new_password=dict(required=True),
         num_asic=dict(required=True),
+        disable_updategraph=dict(required=True, type='bool'),
     ))
 
     try:
