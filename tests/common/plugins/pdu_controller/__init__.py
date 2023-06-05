@@ -2,7 +2,7 @@ import logging
 
 import pytest
 from .pdu_manager import pdu_manager_factory
-from tests.common.utilities import get_host_visible_vars, get_sup_node_or_first_node
+from tests.common.utilities import get_host_visible_vars, get_sup_node_or_random_node
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def pdu_controller(duthosts, conn_graph_facts):
     @returns: Returns a pdu controller object implementing the BasePduController interface defined in
               controller_base.py.
     """
-    duthost = get_sup_node_or_first_node(duthosts)
+    duthost = get_sup_node_or_random_node(duthosts)
     pdu_hosts = get_pdu_hosts(duthost)
     pdu_hostnames = []
     if pdu_hosts:
