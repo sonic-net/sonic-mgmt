@@ -30,7 +30,7 @@ Based on Pytest framework, there are not too many hardware level constraints and
 ### 3.1 General Wiring
 
 TRex is installed on Pytest server to provide traffic-generating service through network cards. Server-Fanout-DUT wiring is consistent with the existing Pytest framework.
-Below is the wiring diagram:
+Below is the example of wiring diagram which is based on T0 topo:
 ![image](https://github.com/sonic-net/sonic-mgmt/assets/126938317/547cb37c-4a97-468c-9b7a-d7b7cbfbb86f)
 One or more network cards are needed, according to how many ports are needed to generate traffic. The bandwidth between TRex and DUT supports 100 Gig locally, and theoretically supports 200 Gig or 400 Gig.
 Connection between Pytest and TRex uses SSH, which makes TRex decoupled from pytest so that TRex module gets more stability.
@@ -110,6 +110,7 @@ Argument explanation: ("start -h" to get usage)
 
 ### 4.1 RDMA Test
 
+This contribution started from fixing the test gap: https://github.com/sonic-net/sonic-mgmt/issues/6733
 Below is part of RDMA test cases that we adapted on local SONiC version. We plan to adapt the RDMA test cases with community master version first. Then other modules are going to be adapted too.
 
 | Case | Objective | Test Setup | Expected Control Plane | Expected Data Plane |
