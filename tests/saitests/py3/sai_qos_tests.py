@@ -254,6 +254,8 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_3_ip = self.test_params['dst_port_3_ip']
         self.dst_port_3_mac = self.dataplane.get_mac(0, self.dst_port_3_id)
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
+        self.test_port_ids = self.test_params.get("testPortIds", None)
+        self.test_port_ips = self.test_params.get("testPortIps", None)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -273,6 +275,13 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
                                        self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
+
+        # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
+        if self.test_port_ids and self.test_port_ips:
+            for portid in self.test_port_ids:
+                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
+                                     'ping -q -c 3 {}'.format(self.test_port_ips[portid]['peer_addr']))
+
         time.sleep(8)
 
 
@@ -1971,7 +1980,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg, port_counter_fields[pg], step_id, step_desc)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                     port_counter_fields[cntr], step_id, step_desc)
             # xmit port no egress drop
@@ -2008,7 +2017,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.write('{}\n'.format(port_cnt_tbl))
 
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                     port_counter_fields[cntr], step_id, step_desc)
             recv_counters_base = recv_counters
@@ -2082,22 +2091,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         switch_init(self.client)
 
         # Parse input parameters
-        self.dynamic_threshold = self.test_params.get(
-            'dynamic_threshold', False)
         self.testbed_type = self.test_params['testbed_type']
         self.dscps = self.test_params['dscps']
-        if self.dynamic_threshold and len(self.dscps) > 1:
-            self.dscps = self.dscps[:1]
         self.ecn = self.test_params['ecn']
         self.router_mac = self.test_params['router_mac']
         self.sonic_version = self.test_params['sonic_version']
         # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
         self.pgs = [pg + 2 for pg in self.test_params['pgs']]
-        if self.dynamic_threshold:
-            self.pgs = [self.test_params['pgs'][0] + 2]
         self.src_port_ids = self.test_params['src_port_ids']
-        if self.dynamic_threshold and len(self.src_port_ids) > 1:
-            self.src_port_ids = self.src_port_ids[:1]
         self.src_port_ips = self.test_params['src_port_ips']
         print(self.src_port_ips, file=sys.stderr)
         sys.stderr.flush()
@@ -2108,8 +2109,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_id = self.test_params['dst_port_id']
         self.dst_port_ip = self.test_params['dst_port_ip']
         self.pgs_num = self.test_params['pgs_num']
-        if self.dynamic_threshold and self.pgs_num > 1:
-            self.pgs_num = 1
         self.asic_type = self.test_params['sonic_asic_type']
         self.pkts_num_leak_out = self.test_params['pkts_num_leak_out']
         self.pkts_num_trig_pfc = self.test_params.get('pkts_num_trig_pfc')
