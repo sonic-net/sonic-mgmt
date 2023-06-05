@@ -731,7 +731,7 @@ def stop_pfcwd(duthost, asic_value='None'):
 
 def disable_packet_aging(duthost, asic_value='None'):
     """
-    Disable packet aging feature (only on MLNX switches)
+    Disable packet aging feature
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
         asic_value: asic value of the multi chassis based linecard
