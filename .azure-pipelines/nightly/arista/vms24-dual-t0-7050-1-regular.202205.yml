@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 10 * * 1,3,5"
+  - cron: "0 10 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -41,7 +41,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "dualtor dualtor_io dualtor_mgmt platform_tests generic_config_updater crm autorestart fdb process_monitoring show_techsupport route override_config_table monit"'
+    default: '-S "pfc_asym span sub_port_interfaces snappi wan_test metadata-scripts mpls mx console ixia macsec mclag voq platform_tests dualtor dualtor_io dualtor_mgmt generic_config_updater crm autorestart fdb process_monitoring show_techsupport route override_config_table monit"'
     displayName: Testbed specific
 
   # Custom skip scripts
