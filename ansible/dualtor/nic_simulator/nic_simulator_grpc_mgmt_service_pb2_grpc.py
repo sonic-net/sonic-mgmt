@@ -34,6 +34,11 @@ class DualTorMgmtServiceStub(object):
                 request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,
                 response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
                 )
+        self.SetNicServerAdminState = channel.unary_unary(
+                '/DualTorMgmtService/SetNicServerAdminState',
+                request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,
+                response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.FromString,
+                )
 
 
 class DualTorMgmtServiceServicer(object):
@@ -63,6 +68,12 @@ class DualTorMgmtServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetNicServerAdminState(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DualTorMgmtServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -85,6 +96,11 @@ def add_DualTorMgmtServiceServicer_to_server(servicer, server):
                     servicer.SetDrop,
                     request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.FromString,
                     response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.SerializeToString,
+            ),
+            'SetNicServerAdminState': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetNicServerAdminState,
+                    request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.FromString,
+                    response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -161,5 +177,22 @@ class DualTorMgmtService(object):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetDrop',
             nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,
             nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetNicServerAdminState(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetNicServerAdminState',
+            nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,
+            nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
