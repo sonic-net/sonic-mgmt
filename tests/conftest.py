@@ -1018,18 +1018,19 @@ def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
 
 def generate_params_supervisor_hostname(request):
     duts = get_specified_duts(request)
-    if len(duts) == 1:
-        # We have a single node - dealing with pizza box, return it
-        return [duts[0]]
+    # try to find sup node in multi-dut
     inv_files = get_inventory_files(request)
     for dut in duts:
         # Expecting only a single supervisor node
         if is_supervisor_node(inv_files, dut):
             return [dut]
-    # If there are no supervisor cards in a multi-dut tesbed, we are dealing with all pizza box in the testbed,
-    # pick the first DUT
+    # If there are no supervisor card in a multi-dut tesbed, 
+    # 1. we are dealing with all pizza box in the testbed, pick a random DUT
+    # 2. or single-dut, pick itself
+    if len(duts) > 1:
+        duts = random.sample(duts, 1)
+    logger.info("Randomly select dut {} for testing".format(duts[0]))
     return [duts[0]]
-
 
 def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=False):
     _, tbinfo = get_tbinfo(request)
