@@ -12,7 +12,7 @@ import pytest
 from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until, get_sup_node_or_random_node
+from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from .thermal_control_test_helper import ThermalPolicyFileContext,\
     check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status,\
@@ -240,11 +240,12 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts, pdu_controller, ignore_particular_error_log, tbinfo):
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_supervisor_dut_hostname,
+                                             pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = get_sup_node_or_random_node(duthosts)
+    duthost = duthosts[enum_supervisor_dut_hostname]
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
@@ -338,12 +339,12 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
-def test_show_platform_temperature_mocked(duthosts,
+def test_show_platform_temperature_mocked(duthosts, enum_supervisor_dut_hostname,
                                           mocker_factory, ignore_particular_error_log):  # noqa F811
     """
     @summary: Check output of 'show platform temperature'
     """
-    duthost = get_sup_node_or_random_node(duthosts)
+    duthost = duthosts[enum_supervisor_dut_hostname]
     # Mock data and check
     mocker = mocker_factory(duthost, 'ThermalStatusMocker')
     pytest_require(mocker, "No ThermalStatusMocker for %s, skip rest of the testing in this case" %
