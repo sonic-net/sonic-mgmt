@@ -39,14 +39,6 @@ def _parse_timestamp(timestamp):
     return time
 
 
-@pytest.fixture(autouse=True, scope="module")
-def skip_on_simx(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    platform = duthost.facts["platform"]
-    if "simx" in platform:
-        pytest.skip('skipped on this platform: {}'.format(platform))
-
-
 @pytest.fixture(scope="module")
 def xcvr_skip_list(duthosts):
     intf_skip_list = {}
