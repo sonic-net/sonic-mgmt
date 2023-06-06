@@ -405,7 +405,7 @@ def get_wred_profiles(host_ans, asic_value="None"):
         return None
 
 
-def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
+def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
     """
     Config a WRED/ECN profile of a SONiC switch
     Args:
@@ -453,7 +453,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
         gmax_cmd = 'sudo ecnconfig -p {} -gmax {}'
         gmin_cmd = 'sudo ecnconfig -p {} -gmin {}'
 
-        if asic_value != 'None':
+        if asic_value != None:
             gmax_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmax {}' % asic_value
             gmin_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmin {}' % asic_value
             if asic_type == 'broadcom':
@@ -469,7 +469,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value='None'):
     return True
 
 
-def enable_ecn(host_ans, prio, asic_value='None'):
+def enable_ecn(host_ans, prio, asic_value=None):
     """
     Enable ECN marking on a priority
 
@@ -481,13 +481,13 @@ def enable_ecn(host_ans, prio, asic_value='None'):
     Returns:
         N/A
     """
-    if asic_value == 'None':
+    if asic_value == None:
         host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
 
 
-def disable_ecn(host_ans, prio, asic_value='None'):
+def disable_ecn(host_ans, prio, asic_value=None):
     """
     Disable ECN marking on a priority
 
@@ -499,7 +499,7 @@ def disable_ecn(host_ans, prio, asic_value='None'):
     Returns:
         N/A
     """
-    if asic_value == 'None':
+    if asic_value == None:
         host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
     else:
         asic_type = str(host_ans.facts["asic_type"])
@@ -508,7 +508,7 @@ def disable_ecn(host_ans, prio, asic_value='None'):
             enable_packet_aging(host_ans, asic_value)
 
 
-def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value='None'):
+def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value=None):
     """
     Configure buffer threshold (a.k.a., alpha)
 
@@ -521,13 +521,13 @@ def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value='None'):
     Returns:
         N/A
     """
-    if asic_value == 'None':
+    if asic_value == None:
         host_ans.shell('sudo mmuconfig -p {} -a {}'.format(profile, alpha_log2))
     else:
         host_ans.shell('sudo ip netns exec {} mmuconfig -p {} -a {}'.format(asic_value, profile, alpha_log2))
 
 
-def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, asic_value='None'):
+def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, asic_value=None):
     """
     Configure ingress buffer thresholds (a.k.a., alpha) of a device to 2^alpha_log2
 
@@ -542,7 +542,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, asic_value='None'
     if not isinstance(alpha_log2, int):
         return False
 
-    if asic_value == 'None':
+    if asic_value == None:
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
@@ -564,7 +564,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, asic_value='None'
         config_buffer_alpha(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2, asic_value=asic_value)
 
     """ Check if configuration succeeds """
-    if asic_value == 'None':
+    if asic_value == None:
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
@@ -581,7 +581,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, asic_value='None'
     return True
 
 
-def get_pfcwd_config_attr(host_ans, config_scope, attr, asic_value='None'):
+def get_pfcwd_config_attr(host_ans, config_scope, attr, asic_value=None):
     """
     Get PFC watchdog configuration attribute
 
@@ -594,7 +594,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr, asic_value='None'):
     Returns:
         config attribute (str) or None
     """
-    if asic_value == 'None':
+    if asic_value == None:
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
@@ -617,7 +617,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr, asic_value='None'):
     return None
 
 
-def get_pfcwd_poll_interval(host_ans, asic_value='None'):
+def get_pfcwd_poll_interval(host_ans, asic_value=None):
     """
     Get PFC watchdog polling interval
     Args:
@@ -627,7 +627,7 @@ def get_pfcwd_poll_interval(host_ans, asic_value='None'):
     Returns:
         Polling interval in ms (int) or None
     """
-    if asic_value == 'None':
+    if asic_value == None:
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope='GLOBAL',
                                     attr='POLL_INTERVAL')
@@ -643,7 +643,7 @@ def get_pfcwd_poll_interval(host_ans, asic_value='None'):
     return None
 
 
-def get_pfcwd_detect_time(host_ans, intf, asic_value='None'):
+def get_pfcwd_detect_time(host_ans, intf, asic_value=None):
     """
     Get PFC watchdog detection time of a given interface
     Args:
@@ -654,7 +654,7 @@ def get_pfcwd_detect_time(host_ans, intf, asic_value='None'):
     Returns:
         Detection time in ms (int) or None
     """
-    if asic_value == 'None':
+    if asic_value == None:
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='detection_time')
@@ -670,7 +670,7 @@ def get_pfcwd_detect_time(host_ans, intf, asic_value='None'):
     return None
 
 
-def get_pfcwd_restore_time(host_ans, intf, asic_value='None'):
+def get_pfcwd_restore_time(host_ans, intf, asic_value=None):
     """
     Get PFC watchdog restoration time of a given interface
     Args:
@@ -681,7 +681,7 @@ def get_pfcwd_restore_time(host_ans, intf, asic_value='None'):
     Returns:
         Restoration time in ms (int) or None
     """
-    if asic_value == 'None':
+    if asic_value == None:
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='restoration_time')
@@ -697,7 +697,7 @@ def get_pfcwd_restore_time(host_ans, intf, asic_value='None'):
     return None
 
 
-def start_pfcwd(duthost, asic_value='None'):
+def start_pfcwd(duthost, asic_value=None):
     """
     Start PFC watchdog with default setting
     Args:
@@ -707,13 +707,13 @@ def start_pfcwd(duthost, asic_value='None'):
     Returns:
         N/A
     """
-    if asic_value == 'None':
+    if asic_value == None:
         duthost.shell('sudo pfcwd start_default')
     else:
         duthost.shell('sudo ip netns exec {} pfcwd start_default'.format(asic_value))
 
 
-def stop_pfcwd(duthost, asic_value='None'):
+def stop_pfcwd(duthost, asic_value=None):
     """
     Stop PFC watchdog
     Args:
@@ -723,13 +723,13 @@ def stop_pfcwd(duthost, asic_value='None'):
     Returns:
         N/A
     """
-    if asic_value == 'None':
+    if asic_value == None:
         duthost.shell('sudo pfcwd stop')
     else:
         duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic_value))
 
 
-def disable_packet_aging(duthost, asic_value='None'):
+def disable_packet_aging(duthost, asic_value=None):
     """
     Disable packet aging feature
     Args:
@@ -750,7 +750,7 @@ def disable_packet_aging(duthost, asic_value='None'):
             duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
 
 
-def enable_packet_aging(duthost, asic_value='None'):
+def enable_packet_aging(duthost, asic_value=None):
     """
     Enable packet aging feature
     Args:

@@ -18,10 +18,10 @@ config_set = {
                 },
                 "non_chassis_multi_line_card": {
                     'hostname': ["sonic-s6100-dut1", "sonic-s6100-dut2"],
-                    'asic': ['None']
+                    'asic': [None]
                 },
                 "non_chassis_single_line_card": {
                     'hostname': ["sonic-s6100-dut1"],
-                    'asic': ['None']
+                    'asic': [None]
                 }
             }
