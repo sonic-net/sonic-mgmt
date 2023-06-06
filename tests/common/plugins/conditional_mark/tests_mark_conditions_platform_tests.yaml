@@ -1,4 +1,13 @@
 #######################################
+#####     platform_tests          #####
+#######################################
+platform_tests:
+  skip:
+    reason: "Skip tests not suitable on virtual testbed"
+    conditions:
+      - "'simx' in platform"
+
+#######################################
 #####             api             #####
 #######################################
 platform_tests/api:
