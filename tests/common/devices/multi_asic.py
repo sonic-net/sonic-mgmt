@@ -449,15 +449,18 @@ class MultiAsicSonicHost(object):
         Disable Rate limit for a given service
         """
         services = [feature]
+
         if (feature in self.sonichost.DEFAULT_ASIC_SERVICES):
             services = []
             for asic in self.asics:
                 service_name = asic.get_docker_name(feature)
                 if service_name in self.sonichost.critical_services:
                     services.append(service_name)
-        logger.info("wenyi: DEFAULT_ASIC_SERVICES:{}\n critical_services: {} \n services: {}"
-                    .format(self.sonichost.DEFAULT_ASIC_SERVICES, self.sonichost.critical_services, services))
+
         for docker in services:
+            # This is to avoid gbsyncd check for multi-asic, only check gbsyncd0/1/..
+            if self.sonichost.is_multi_asic and docker == "gbsyncd":
+                continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
                 r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
