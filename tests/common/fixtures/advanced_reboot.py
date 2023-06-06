@@ -463,7 +463,7 @@ class AdvancedReboot:
         source_dir = '/host/logs_before_reboot'
         target_dir = '/var/log'
 
-        command = f"test -d {source_dir}"
+        command = "test -d {}".format(source_dir)
         result = self.duthost.shell(command)
 
         if result["rc"] == 0:
