@@ -47,6 +47,9 @@ def get_pkt_drops(duthost, cli_cmd, asic_index):
     match = re.search("Last cached time was.*\n", stdout)
     if match:
         stdout = re.sub("Last cached time was.*\n", "", stdout)
+    match = re.search("Reminder:.*", stdout)
+    if match:
+        stdout = re.sub("Reminder:.*", "", stdout)
 
     try:
         return json.loads(stdout)
