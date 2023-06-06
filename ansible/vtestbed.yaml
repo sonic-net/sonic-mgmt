@@ -290,3 +290,34 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-wan-ecmp
+  group-name: vms6-1
+  topo: wan-ecmp
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+    - vlab-02
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-wan-pub-isis
+  group-name: vms6-1
+  topo: wan-pub-isis
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual switch vm

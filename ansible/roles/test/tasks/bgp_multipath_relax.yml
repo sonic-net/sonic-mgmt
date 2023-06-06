@@ -4,13 +4,13 @@
 #       1) all pre-configured vips are from the same asn and
 #       2) each prefix is "multipath" for leaf router
 #       3) we only test vips advertised ipv4 prefixes for now
-############################################################################ 
+############################################################################
 
 - fail: msg="please provide testbed_type for bgp_multipath_relax test"
-  when: testbed_type is not defined 
+  when: testbed_type is not defined
 
-- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-64-lag, t1-64-lag-clet"
-  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet']
+- fail: mgs="This test only works for leaf routers as DUT in topology, t1, t1-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag"
+  when: testbed_type not in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet', 't1-56-lag']
 
 - name: Gathering minigraph facts about the device
   minigraph_facts: host={{ inventory_hostname }}
@@ -51,7 +51,7 @@
      vips_prefix: "{{ vips_prefixes[0] }}"
 
 - name: find all pathes of the prefix for test
-  set_fact: 
+  set_fact:
      vips_t0: "{{ vips_t0 | default([]) + [configuration[item]['bgp']['asn']] }}"
      vips_asn: "{{ configuration[item]['vips']['ipv4']['asn'] }}"
   with_items:  "{{ dut_t0_nei }}"
@@ -69,21 +69,21 @@
     that:
         - bgp_route[vips_prefix]['found'] == True
         - bgp_route[vips_prefix]['path_num'] | int == vips_t0 | length
-        
+
 - name: verify vips asn in each path of installed BGP vips prefix
   assert:
     that:
         - vips_asn in item
   with_items: "{{ bgp_route[vips_prefix]['aspath'] }}"
 
-#### Verify each t2 adv routes: this option takes time and resources; verified working but print out too much, comment this 
+#### Verify each t2 adv routes: this option takes time and resources; verified working but print out too much, comment this
 #### out unless we have a reason to do so
-#- name: get BGP advertized routes to eatch T2 neighbor 
+#- name: get BGP advertized routes to eatch T2 neighbor
 #  bgp_route: neighbor="{{ bgp_v4nei[item] }}" direction="adv"
 #  with_items: dut_t2_nei
 #  register: adv_t2_results
 #
-#- name: Verify vips prefix is in advertized prefixes for each T2 neighbor; and the vips path just has one t0 and vips 
+#- name: Verify vips prefix is in advertized prefixes for each T2 neighbor; and the vips path just has one t0 and vips
 #  assert:
 #    that:
 #        - vips_prefix in item.ansible_facts['bgp_route_neiadv'].keys()
@@ -91,7 +91,7 @@
 #        - vips_asn in item.ansible_facts['bgp_route_neiadv'][vips_prefix]['aspath']
 #        - vips_asn == item.ansible_facts['bgp_route_neiadv'][vips_prefix]['aspath'][-1]
 #  with_items: "{{ adv_t2_results.results }}"
-######### Verify each t2 option 
+######### Verify each t2 option
 
 
 - name: gather one t2 neighbor advertised routes to validate routes advertised to t2 are correct with relaxed multipath

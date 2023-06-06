@@ -18,6 +18,7 @@ pytestmark = [
     pytest.mark.asic('mellanox')
 ]
 
+
 @pytest.mark.dynamic_config
 class TestWRDynamicInnerHashingLag():
 
@@ -34,7 +35,8 @@ class TestWRDynamicInnerHashingLag():
         logging.info("Executing warm boot dynamic inner hash test for outer {} and inner {} with symmetric_hashing"
                      " set to {}".format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-        log_file = "/tmp/wr_inner_hash_test.DynamicInnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
+        log_file = "/tmp/wr_inner_hash_test.DynamicInnerHashTest.{}.{}.{}.log"\
+                   .format(outer_ipver, inner_ipver, timestamp)
         logging.info("PTF log file: %s" % log_file)
 
         # to reduce test run time, check one of encapsulation formats
@@ -45,7 +47,7 @@ class TestWRDynamicInnerHashingLag():
         inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
         normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
-        
+
         if normalize_level == 'thorough':
             balancing_test_times = 200
             balancing_range = 0.3

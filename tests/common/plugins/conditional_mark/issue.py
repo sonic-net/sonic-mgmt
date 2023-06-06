@@ -5,7 +5,7 @@ import multiprocessing
 import os
 import re
 import yaml
-
+import six
 import requests
 
 from abc import ABCMeta, abstractmethod
@@ -15,10 +15,9 @@ logger = logging.getLogger(__name__)
 CREDENTIALS_FILE = 'credentials.yaml'
 
 
-class IssueCheckerBase(object):
+class IssueCheckerBase(six.with_metaclass(ABCMeta, object)):
     """Base class for issue checker
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, url):
         self.url = url
@@ -71,7 +70,7 @@ class GitHubIssueChecker(IssueCheckerBase):
             bool: False if the issue is closed else True.
         """
         try:
-            response = requests.get(self.api_url, auth=(self.user, self.api_token))
+            response = requests.get(self.api_url, auth=(self.user, self.api_token), timeout=10)
             response.raise_for_status()
             issue_data = response.json()
             if issue_data.get('state', '') == 'closed':
@@ -79,7 +78,7 @@ class GitHubIssueChecker(IssueCheckerBase):
                 labels = issue_data.get('labels', [])
                 if any(['name' in label and 'duplicate' in label['name'].lower() for label in labels]):
                     logger.warning('GitHub issue: {} looks like duplicate and was closed. Please re-check and ignore'
-                        'the test on the parent issue'.format(self.url))
+                                   'the test on the parent issue'.format(self.url))
                 return False
         except Exception as e:
             logger.error('Get details for {} failed with: {}'.format(self.url, repr(e)))
@@ -139,4 +138,4 @@ def check_issues(issues):
     for proc in check_procs:
         proc.join(timeout=60)
 
-    return check_results
+    return dict(check_results)

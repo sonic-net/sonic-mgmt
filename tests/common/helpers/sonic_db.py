@@ -1,5 +1,6 @@
 import logging
 import json
+import six
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.devices.sonic_asic import SonicAsic
 
@@ -87,7 +88,10 @@ class SonicDbCli(object):
         if result == {}:
             raise SonicDbKeyNotFound("Key: %s, field: %s not found in sonic-db cmd: %s" % (key, field, cmd))
         else:
-            return result['stdout'].decode('unicode-escape')
+            if six.PY2:
+                return result['stdout'].decode('unicode-escape')
+            else:
+                return result['stdout']
 
     def get_and_check_key_value(self, key, value, field=None):
         """
@@ -236,7 +240,7 @@ class AsicDbCli(SonicDbCli):
             return self.lagid_key_list
 
         cmd = self._cli_prefix() + "KEYS %s:*" % AsicDbCli.ASIC_LAG_TABLE
-        self.lagid_key_list =self._run_and_raise(cmd)["stdout_lines"]
+        self.lagid_key_list = self._run_and_raise(cmd)["stdout_lines"]
         return self.lagid_key_list
 
     def get_asic_db_lag_member_list(self):
@@ -328,7 +332,7 @@ class AsicDbCli(SonicDbCli):
         hostif_table = self.get_hostif_table(refresh)
 
         return_list = []
-        for hostif_key in hostif_table.keys():
+        for hostif_key in list(hostif_table.keys()):
             hostif_portid = hostif_table[hostif_key]['value']['SAI_HOSTIF_ATTR_OBJ_ID']
             return_list.append(hostif_portid)
         self.hostif_portidlist = return_list

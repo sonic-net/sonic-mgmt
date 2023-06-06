@@ -6,6 +6,7 @@ import os
 import re
 import socket
 import time
+import sys
 
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -14,11 +15,13 @@ from ansible import constants as ansible_constants
 from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
+from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
@@ -34,10 +37,15 @@ class SonicHost(AnsibleHostBase):
     """
     DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
+    """
+    setting either one of shell_user/shell_pw or ssh_user/ssh_passwd pair should yield the same result.
+    """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
                  ssh_user=None, ssh_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+
+        self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
         if shell_user and shell_passwd:
             im = self.host.options['inventory_manager']
@@ -71,6 +79,8 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
+        if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
+            self.DEFAULT_ASIC_SERVICES.append("macsec")
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
@@ -174,20 +184,34 @@ class SonicHost(AnsibleHostBase):
         """
         Gather facts about the platform for this SONiC device.
         """
+        facts = self._get_platform_info()
 
-        facts = dict()
-        facts.update(self._get_platform_info())
-        facts["num_asic"] = self._get_asic_count(facts["platform"])
-        facts["router_mac"] = self._get_router_mac()
-        facts["modular_chassis"] = self._get_modular_chassis()
-        facts["mgmt_interface"] = self._get_mgmt_interface()
-        facts["switch_type"] = self._get_switch_type()
-        asics_present = self.get_asics_present_from_inventory()
-        facts["asics_present"] = asics_present if len(asics_present) != 0 else list(range(facts["num_asic"]))
+        results = parallel_run_threaded(
+            [
+                lambda: self._get_asic_count(facts["platform"]),
+                self._get_router_mac,
+                self._get_modular_chassis,
+                self._get_mgmt_interface,
+                self._get_switch_type,
+                self._get_router_type,
+                self.get_asics_present_from_inventory,
+                lambda: self._get_platform_asic(facts["platform"])
+            ],
+            timeout=120,
+            thread_count=5
+        )
 
-        platform_asic = self._get_platform_asic(facts["platform"])
-        if platform_asic:
-            facts["platform_asic"] = platform_asic
+        facts["num_asic"] = results[0]
+        facts["router_mac"] = results[1]
+        facts["modular_chassis"] = results[2]
+        facts["mgmt_interface"] = results[3]
+        facts["switch_type"] = results[4]
+        facts["router_type"] = results[5]
+
+        facts["asics_present"] = results[6] if len(results[6]) != 0 else list(range(facts["num_asic"]))
+
+        if results[7]:
+            facts["platform_asic"] = results[7]
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -260,6 +284,13 @@ class SonicHost(AnsibleHostBase):
         except Exception:
             return ''
 
+    def _get_router_type(self):
+        try:
+            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.type'")["stdout_lines"][0] \
+                .encode().decode("utf-8").lower()
+        except Exception:
+            return ''
+
     def _get_platform_info(self):
         """
         Gets platform information about this SONiC device.
@@ -281,7 +312,7 @@ class SonicHost(AnsibleHostBase):
             try:
                 out = self.command("cat {}".format(platform_file_path))
                 platform_info = json.loads(out["stdout"])
-                for key, value in platform_info.items():
+                for key, value in list(platform_info.items()):
                     result[key] = value
 
             except Exception:
@@ -946,12 +977,25 @@ class SonicHost(AnsibleHostBase):
 
         return namespace_ids, True
 
-    def get_up_time(self):
-        up_time_text = self.command("uptime -s")["stdout"]
-        return datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+    def get_up_time(self, utc_timezone=False):
 
-    def get_now_time(self):
-        now_time_text = self.command('date +"%Y-%m-%d %H:%M:%S"')["stdout"]
+        if utc_timezone:
+            current_time = self.get_now_time(utc_timezone=True)
+            uptime_seconds = self.get_uptime()
+            uptime_since = current_time - uptime_seconds
+        else:
+            up_time_text = self.command("uptime -s")["stdout"]
+            uptime_since = datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+
+        return uptime_since
+
+    def get_now_time(self, utc_timezone=False):
+
+        command = 'date +"%Y-%m-%d %H:%M:%S"'
+        if utc_timezone:
+            command += ' -u'
+        now_time_text = self.command(command)["stdout"]
+
         return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
 
     def get_uptime(self):
@@ -1166,12 +1210,17 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
             m = re.match(r"^(default|\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m1 = re.match(r"^(default|\S+) via (\S+) dev (\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             m2 = re.match(r"^(default|\S+) nhid (\d+) proto (zebra|bgp|186) src (\S+)", rt[0])
+            # For case when there is no ecmp (below is example on Bullseye)
+            # default nhid 2270 via fc00::2 dev PortChannel102 proto bgp src fc00:10::1 metric 20 pref medium
+            m3 = re.match(r"^(default|\S+) nhid (\d+) via\s+(\S+)\s+dev\s+(\S+) proto (zebra|bgp|186) src (\S+)", rt[0])
             if m:
                 rtinfo['set_src'] = ipaddress.ip_address((m.group(3)).encode().decode())
             elif m1:
                 rtinfo['set_src'] = ipaddress.ip_address((m1.group(5)).encode().decode())
             elif m2:
                 rtinfo['set_src'] = ipaddress.ip_address((m2.group(4)).encode().decode())
+            elif m3:
+                rtinfo['set_src'] = ipaddress.ip_address((m3.group(6)).encode().decode())
 
             # parse nexthops
             for route_entry in rt:
@@ -1207,12 +1256,12 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         @param ipv6: check ipv6 default
         """
         if ipv4:
-            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
+            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
             if len(rtinfo_v4['nexthops']) == 0:
                 return False
 
         if ipv6:
-            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network(u'::/0'))
+            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
             if len(rtinfo_v6['nexthops']) == 0:
                 return False
 
@@ -1281,7 +1330,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1289,8 +1338,38 @@ Totals               6450                 6449
         """
         ipv4_output = self.shell("show ip route sum")["stdout_lines"]
         ipv4_summary = self._parse_route_summary(ipv4_output)
+
+        if skip_kernel_tunnel is True:
+            ipv4_route_kernel_output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_count = 0
+            for string in ipv4_route_kernel_output:
+                if re.search('tun', string):
+                    ipv4_route_kernel_count += 1
+            logging.debug("IPv4 kernel tun route {}, {}".format(ipv4_route_kernel_count, ipv4_route_kernel_output))
+
+            if ipv4_route_kernel_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['kernel']['FIB'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
+
+        if skip_kernel_tunnel is True:
+            ipv6_route_kernel_output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_count = 0
+            for string in ipv6_route_kernel_output:
+                if re.search('tun', string):
+                    ipv6_route_kernel_count += 1
+            logging.debug("IPv6 kernel tun route {}, {}".format(ipv6_route_kernel_count, ipv6_route_kernel_output))
+
+            if ipv6_route_kernel_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['kernel']['FIB'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
+
         return ipv4_summary, ipv6_summary
 
     def get_dut_iface_mac(self, iface_name):
@@ -1361,7 +1440,10 @@ Totals               6450                 6449
         features_stdout = command_output['stdout_lines']
         lines = features_stdout[2:]
         for x in lines:
-            result = x.encode('UTF-8')
+            if sys.version_info.major < 3:
+                result = x.encode('UTF-8')
+            else:
+                result = x
             r = result.split()
             feature_status[r[0]] = r[1]
         return feature_status, True
@@ -1374,8 +1456,8 @@ Totals               6450                 6449
             sep_char: The character used in separation line. Defaults to '-'.
 
         Returns:
-            Returns a list. Each item is a tuple with two elements. The first element is start position of a column. The
-            second element is the end position of the column.
+            Returns a list. Each item is a tuple with two elements. The first element is start position of a column.
+            The second element is the end position of the column.
         """
         prev = ' ',
         positions = []
@@ -1390,7 +1472,7 @@ Totals               6450                 6449
             prev = char
         return positions
 
-    def _parse_show(self, output_lines):
+    def _parse_show(self, output_lines, header_len=1):
 
         result = []
 
@@ -1399,7 +1481,7 @@ Totals               6450                 6449
         for idx, line in enumerate(output_lines):
             if sep_line_pattern.match(line):
                 sep_line_found = True
-                header_line = output_lines[idx-1]
+                header_lines = output_lines[idx-header_len:idx]
                 sep_line = output_lines[idx]
                 content_lines = output_lines[idx+1:]
                 break
@@ -1416,7 +1498,8 @@ Totals               6450                 6449
 
         headers = []
         for (left, right) in positions:
-            headers.append(header_line[left:right].strip().lower())
+            header = " ".join([header_line[left:right].strip().lower() for header_line in header_lines]).strip()
+            headers.append(header)
 
         for content_line in content_lines:
             # When an empty line is encountered while parsing the tabulate content, it is highly possible that the
@@ -1432,7 +1515,7 @@ Totals               6450                 6449
 
         return result
 
-    def show_and_parse(self, show_cmd, **kwargs):
+    def show_and_parse(self, show_cmd, header_len=1, **kwargs):
         """Run a show command and parse the output using a generic pattern.
 
         This method can adapt to the column changes as long as the output format follows the pattern of
@@ -1470,7 +1553,11 @@ Totals               6450                 6449
                 "lanes": "4,5,6,7",
                 "fec": "N/A",
                 "asym pfc": "off",
-                "admin": "up",                                                                                                                                                                                                                             "type": "QSFP+ or later",                                                                                                                                                                                                                  "vlan": "PortChannel0002",                                                                                                                                                                                                                 "mtu": "9100",                                                                                                                                                                                                                             "alias": "etp2",
+                "admin": "up",
+                "type": "QSFP+ or later",
+                "vlan": "PortChannel0002",
+                 "mtu": "9100",
+                 "alias": "etp2",
                 "interface": "Ethernet4",
                 "speed": "40G"
               },
@@ -1505,7 +1592,7 @@ Totals               6450                 6449
             output = output[start_line_index:]
         else:
             output = output[start_line_index:end_line_index]
-        return self._parse_show(output)
+        return self._parse_show(output, header_len)
 
     @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo, namespace=DEFAULT_NAMESPACE):
@@ -1519,7 +1606,7 @@ Totals               6450                 6449
             dut_index = tbinfo['duts'].index(self.hostname)
             map = tbinfo['topo']['ptf_map'][str(dut_index)]
             if map:
-                for port, index in mg_facts['minigraph_port_indices'].items():
+                for port, index in list(mg_facts['minigraph_port_indices'].items()):
                     if str(index) in map:
                         mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
         except (ValueError, KeyError):
@@ -1538,7 +1625,7 @@ Totals               6450                 6449
     def assert_topo_is_backend(self, tbinfo):
         topo_key = constants.TOPO_KEY
         name_key = constants.NAME_KEY
-        if topo_key in tbinfo.keys() and name_key in tbinfo[topo_key].keys():
+        if topo_key in list(tbinfo.keys()) and name_key in list(tbinfo[topo_key].keys()):
             topo_name = tbinfo[topo_key][name_key]
             if constants.BACKEND_TOPOLOGY_IND in topo_name:
                 return True
@@ -1568,6 +1655,8 @@ Totals               6450                 6449
             asic = "td3"
         elif "Broadcom Limited Device b980" in output:
             asic = "th3"
+        elif "Cisco Systems Inc Device a001" in output:
+            asic = "gb"
 
         return asic
 
@@ -1727,7 +1816,7 @@ Totals               6450                 6449
             #   section 1: resources usage
             #   section 2: ACL group
             #   section 3: ACL table
-            if 1 in sections.keys():
+            if 1 in list(sections.keys()):
                 crm_facts['resources'] = {}
                 resources = self._parse_show(sections[1])
                 for resource in resources:
@@ -1736,10 +1825,10 @@ Totals               6450                 6449
                         'available': int(resource['available count'])
                     }
 
-            if 2 in sections.keys():
+            if 2 in list(sections.keys()):
                 crm_facts['acl_group'] = self._parse_show(sections[2])
 
-            if 3 in sections.keys():
+            if 3 in list(sections.keys()):
                 crm_facts['acl_table'] = self._parse_show(sections[3])
             return True
         # Retry until crm resources are ready
@@ -2007,7 +2096,7 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -2015,9 +2104,10 @@ Totals               6450                 6449
         Returns:
             Dict of Interfaces and their IPv4 address
         """
+        active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
-        for k, v in ip_ifs.items():
+        for k, v in list(ip_ifs.items()):
             if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
                self.is_backend_portchannel(k, mg_facts))):
@@ -2030,6 +2120,10 @@ Totals               6450                 6449
                         "peer_ipv4": v["peer_ipv4"],
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
+                    active_ip_intf_cnt += 1
+
+                if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
+                    break
 
         return ip_ifaces
 
@@ -2056,6 +2150,46 @@ Totals               6450                 6449
             ]
         """
         return self.show_and_parse('show syslog')
+
+    def clear_acl_counters(self):
+        """
+        Clear ACL counters statistics.
+        """
+        self.command('aclshow -c')
+
+    def get_acl_counter(self, acl_table_name, acl_rule_name,
+                        timeout=ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC * 2,
+                        interval=ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC):
+        """
+        Read ACL counter of specific ACL table and ACL rule.
+
+        Args:
+            acl_table_name (str): Name of ACL table.
+            acl_rule_name (str): Name of ACL rule.
+            timeout (int): Maximum time (in second) wait for ACL counter available.
+            interval (int): Retry interval (in second) between read ACL counter.
+
+        Return:
+            packets_count (int): count of packets hit the specific ACL rule.
+        """
+        assert timeout >= 0 and interval > 0  # Validate arguments to avoid infinite loop
+        while timeout >= 0:
+            time.sleep(interval)  # Wait for orchagent to update the ACL counters
+            timeout -= interval
+            result = self.show_and_parse('aclshow -a')
+            for rule in result:
+                if acl_table_name == rule['table name'] and acl_rule_name == rule['rule name']:
+                    try:
+                        packets_count = int(rule['packets count'])
+                        return packets_count
+                    except ValueError:
+                        if rule['packets count'] == 'N/A':
+                            logging.warning("ACL counters are not ready yet, will retry after {} seconds"
+                                            .format(interval))
+                        else:
+                            raise ValueError('Got invalid packets count "{}" for {}|{}'
+                                             .format(acl_table_name, acl_rule_name, rule['packets count']))
+        raise Exception("Failed to read acl counter for {}|{}".format(acl_table_name, acl_rule_name))
 
     def remove_acl_table(self, acl_table):
         """
@@ -2138,10 +2272,42 @@ Totals               6450                 6449
         json_info = json.loads(commond_output["stdout"])
         return json_info
 
+    def links_status_down(self, ports):
+        show_int_result = self.command("show interface status")
+        for output_line in show_int_result['stdout_lines']:
+            output_port = output_line.split(' ')[0]
+            # Only care about port that connect to current DUT
+            if output_port in ports:
+                # Either oper or admin status 'down' means link down
+                # for SONiC OS, oper/admin status could only be up/down, so only 2 conditions here
+                if 'down' in output_line:
+                    logging.info("Interface {} is down on {}".format(output_port, self.hostname))
+                    continue
+                else:
+                    logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+                    return False
+        return True
+
+    def links_status_up(self, ports):
+        show_int_result = self.command("show interface status")
+        for output_line in show_int_result['stdout_lines']:
+            output_port = output_line.split(' ')[0]
+            # Only care about port that connect to current DUT
+            if output_port in ports:
+                # Either oper or admin status 'down' means link down
+                if 'down' in output_line:
+                    logging.info("Interface {} is down on {}".format(output_port, self.hostname))
+                    return False
+                logging.info("Interface {} is up on {}".format(output_port, self.hostname))
+        return True
+
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
-        return out["stdout_lines"][0]
+        if out["stdout_lines"]:
+            return out["stdout_lines"][0]
+        else:
+            return None
 
     def set_port_fec(self, portname, state):
         if not state:
@@ -2160,10 +2326,6 @@ Totals               6450                 6449
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
-
-    def is_intf_status_down(self, interface_name):
-        show_int_result = self.command("show interface status {}".format(interface_name))
-        return 'down' in show_int_result['stdout_lines'][2].lower()
 
 
 def assert_exit_non_zero(shell_output):

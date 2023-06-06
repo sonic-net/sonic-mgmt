@@ -3,7 +3,6 @@ import re
 REQUIRED_PATTERNS = {
     "time_span": [
         "SAI_CREATE_SWITCH",
-        "INIT_VIEW",
         "APPLY_VIEW"
     ],
     "offset_from_kexec": [
@@ -30,7 +29,8 @@ SERVICE_PATTERNS = {
 OTHER_PATTERNS = {
     "COMMON": {
         "PORT_INIT|Start": re.compile(r'.*NOTICE swss#orchagent.*initPort: Initialized port.*'),
-        "PORT_READY|Start": re.compile(r'.*swss#orchagent.*updatePortOperStatus.*Port Eth.*oper state set.* to up.*'),
+        "PORT_READY|Start": re.compile
+        (r'.*swss#orchagent.*updatePortOperStatus.*Port Eth.*oper state set down to up.*'),
         "FINALIZER|Start": re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
         "FINALIZER|End": re.compile(
             r"(.*WARMBOOT_FINALIZER.*Finalizing warmboot.*)|(.*WARMBOOT_FINALIZER.*warmboot is not enabled.*)"),
@@ -82,12 +82,17 @@ SAIREDIS_PATTERNS = {
     "SAI_CREATE_SWITCH|End": re.compile(r'.*\|g\|SAI_OBJECT_TYPE_SWITCH.*SAI_SWITCH_ATTR_DEFAULT_VIRTUAL_ROUTER_ID.*'),
     "NEIGHBOR_ENTRY|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_NEIGHBOR_ENTRY.*'),
     "DEFAULT_ROUTE_SET|Start": re.compile(
-        r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*'),
+        r'.*\|(S|s)\|SAI_OBJECT_TYPE_ROUTE_ENTRY.*0\.0\.0\.0/0.'
+        '*SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION=SAI_PACKET_ACTION_FORWARD.*'),
     "FDB_RESTORE|Start": re.compile(r'.*\|c\|SAI_OBJECT_TYPE_FDB_ENTRY.*'),
     "FDB_EVENT_OTHER_MAC_EXPIRY|Start": re.compile(
-        r".*\|n\|fdb_event.*fdb_entry.*mac.*(?!00:06:07:08:09:0A).*fdb_event.*SAI_FDB_EVENT_LEARNED.*SAI_FDB_ENTRY_ATTR_TYPE.*SAI_FDB_ENTRY_TYPE_DYNAMIC.*SAI_FDB_ENTRY_ATTR_PACKET_ACTION.*SAI_PACKET_ACTION_FORWARD.*"),
+        r".*\|n\|fdb_event.*fdb_entry.*mac.*(?!00:06:07:08:09:0A).*fdb_event."
+        "*[SAI_FDB_EVENT_MOVE|SAI_FDB_EVENT_LEARNED].*SAI_FDB_ENTRY_ATTR_TYPE."
+        "*SAI_FDB_ENTRY_TYPE_DYNAMIC.*SAI_FDB_ENTRY_ATTR_PACKET_ACTION.*SAI_PACKET_ACTION_FORWARD.*"),
     "FDB_EVENT_SCAPY_MAC_EXPIRY|Start": re.compile(
-        r".*\|n\|fdb_event.*fdb_entry.*mac.*00:06:07:08:09:0A.*fdb_event.*SAI_FDB_EVENT_LEARNED.*SAI_FDB_ENTRY_ATTR_TYPE.*SAI_FDB_ENTRY_TYPE_DYNAMIC.*SAI_FDB_ENTRY_ATTR_PACKET_ACTION.*SAI_PACKET_ACTION_FORWARD.*"),
+        r".*\|n\|fdb_event.*fdb_entry.*mac.*00:06:07:08:09:0A.*fdb_event."
+        "*[SAI_FDB_EVENT_MOVE|SAI_FDB_EVENT_LEARNED].*SAI_FDB_ENTRY_ATTR_TYPE."
+        "*SAI_FDB_ENTRY_TYPE_DYNAMIC.*SAI_FDB_ENTRY_ATTR_PACKET_ACTION.*SAI_PACKET_ACTION_FORWARD.*"),
 }
 
 OFFSET_ITEMS = ['DATABASE', 'FINALIZER', 'INIT_VIEW', 'SYNCD_CREATE_SWITCH',

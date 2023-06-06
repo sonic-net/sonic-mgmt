@@ -9,8 +9,9 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 
-from helpers import *
+from helpers import log_error, log_info, log_debug
 
 
 class DutHost:
@@ -20,8 +21,8 @@ class DutHost:
 
         self.facts = {}
         for ln in lines:
-            l = ln.split("=")
-            self.facts[l[0].strip().lower()] = l[1].strip().lower()
+            line = ln.split("=")
+            self.facts[line[0].strip().lower()] = line[1].strip().lower()
 
         self.os_version = self.facts["sonic_version"]
         self.hostname = socket.gethostname()
@@ -31,14 +32,11 @@ class DutHost:
         log_debug("facts: {}".format(str(self.facts)))
         log_debug("ver={} hostname={}".format(self.os_version, self.hostname))
 
-
-
     def shell(self, cmd, module_ignore_errors=False):
         log_debug("mocked shell: {}".format(cmd))
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, shell=True)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         (output, err) = p.communicate()
-        ## Wait for end of command. Get return returncode ##
+        # Wait for end of command. Get return returncode #
         rc = p.wait()
         ret = {
                 "rc": rc,
@@ -48,10 +46,8 @@ class DutHost:
         log_debug("ret:{}".format(str(ret)))
         return ret
 
-
     def copy(self, src, dest):
         os.system("cp {} {}".format(src, dest))
-
 
     def fetch(self, src, dest):
         ret = {}
@@ -70,23 +66,21 @@ class DutHost:
             src, dest, str(ret)))
         return ret
 
-
     def stat(self, path):
-        ret = { "stat": { "exists": os.path.exists(path) } }
+        ret = {"stat": {"exists": os.path.exists(path)}}
         log_debug("ret = {}".format(str(ret)))
         return ret
 
-
     def critical_services_fully_started(self):
-        expected = set(["radv", "snmp", "lldp", "syncd", 
-            "teamd", "swss", "bgp", "pmon" ])
+        expected = set(["radv", "snmp", "lldp", "syncd",
+                        "teamd", "swss", "bgp", "pmon"])
         client = docker.from_env()
         ctrs = set()
         try:
             for c in client.containers.list(all):
                 if getattr(c, "status") == "running":
                     ctrs.add(c.name)
-        except docker.errors.APIError as err:
+        except docker.errors.APIError:
             log_error("Failed to get containers list")
             return False
 
@@ -95,11 +89,10 @@ class DutHost:
             for i in expected:
                 if i not in ctrs:
                     missing.add(i)
-            print("Missing services: {}".format(str(missing)))
+            print(("Missing services: {}".format(str(missing))))
             return False
 
         return True
-
 
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
@@ -117,7 +110,6 @@ class DutHost:
         log_info("bgp neighbor {} info {}".format(neighbor_ip, nbinfo))
 
         return nbinfo[str(neighbor_ip)]
-
 
 
 def get_duthost():
@@ -138,7 +130,7 @@ def config_reload(duthost, config_source="config_db", wait=60, start_bgp=False):
     log_debug("config_reload cmd: {}".format(cmd))
     ret = duthost.shell(cmd)
     assert ret["rc"] == 0, "failed to run err:{}".format(str(ret["stderr"]))
-    
+
     if start_bgp:
         duthost.shell("config bgp startup all")
         log_debug("config_reload started BGP")
@@ -149,8 +141,8 @@ def config_reload(duthost, config_source="config_db", wait=60, start_bgp=False):
 
 
 def wait_until(timeout, interval, delay, condition, *args, **kwargs):
-    log_debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" % \
-                    (condition.__name__, timeout, interval, delay))
+    log_debug("Wait until %s is True, timeout is %s seconds, checking interval is %s, delay is %s seconds" %
+              (condition.__name__, timeout, interval, delay))
 
     if delay > 0:
         log_debug("Delay for %s seconds first" % delay)
@@ -182,4 +174,3 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
     log_debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
     return False
-

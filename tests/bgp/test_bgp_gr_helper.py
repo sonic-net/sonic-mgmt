@@ -17,13 +17,14 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhosts, setup_bgp_graceful_restart, tbinfo):
+def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhosts,
+                                        setup_bgp_graceful_restart, tbinfo, cct=8):
     """Verify that routes received from one neighbor are all preserved during peer graceful restart."""
 
     def _find_test_bgp_neighbors(test_neighbor_name, bgp_neighbors):
         """Find test BGP neighbor peers."""
         test_bgp_neighbors = []
-        for bgp_neighbor, neighbor_details in bgp_neighbors.items():
+        for bgp_neighbor, neighbor_details in list(bgp_neighbors.items()):
             if test_neighbor_name == neighbor_details['name']:
                 test_bgp_neighbors.append(bgp_neighbor)
         return test_bgp_neighbors
@@ -72,7 +73,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
                 assert counters["ribTableWalkCounters"]["Stale"] == counters["ribTableWalkCounters"]["All RIB"]
 
     def _verify_bgp_neighbor_routes_during_graceful_restart(neighbor_routes, rib):
-        for prefix, nexthops in neighbor_routes.items():
+        for prefix, nexthops in list(neighbor_routes.items()):
             logging.debug("Check prefix %s, nexthops:\n%s\n", prefix, json.dumps(nexthops))
             if prefix not in rib:
                 pytest.fail("Route to prefix %s doesn't exist during graceful restart." % prefix)
@@ -104,7 +105,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    portchannels = config_facts.get('PORTCHANNEL', {})
+    portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     configurations = tbinfo['topo']['properties']['configuration_properties']
     exabgp_ips = [configurations['common']['nhipv4'], configurations['common']['nhipv6']]
@@ -113,8 +114,8 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     # select neighbor to test
     if duthost.check_bgp_default_route():
         # if default route is present, select from default route nexthops
-        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u"0.0.0.0/0"))
-        rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network(u"::/0"))
+        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
+        rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network("::/0"))
 
         ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
         ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
@@ -125,12 +126,14 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         test_interface = ifnames_common[0]
     else:
         # if default route is not present, randomly select a neighbor to test
-        test_interface = random.sample([k for k, v in dev_nbrs.items() if not v['name'].startswith("Server")], 1)[0]
+        test_interface = random.sample(
+            [k for k, v in list(dev_nbrs.items()) if not v['name'].startswith("Server")], 1
+        )[0]
 
     # get neighbor device connected ports
     nbr_ports = []
     if test_interface.startswith("PortChannel"):
-        for member in portchannels[test_interface]['members']:
+        for member in list(portchannels[test_interface].keys()):
             nbr_ports.append(dev_nbrs[member]['port'])
         test_neighbor_name = dev_nbrs[member]['name']
     else:

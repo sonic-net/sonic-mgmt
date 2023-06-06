@@ -81,7 +81,7 @@
       asics_present: "{{ hostvars[sup_dut]['asics_present'] | default([]) }}"
     when: sup_dut is defined and hostvars[sup_dut]['asics_present'] is defined
 
-  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} asic_name={{ asic_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
   - name: get connection graph if defined for dut (ignore any errors)
@@ -257,6 +257,7 @@
   - name: find all interface asic names
     set_fact:
       vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
@@ -527,6 +528,27 @@
           timeout: 600
         changed_when: false
 
+      - name: Sync DUT system time with NTP server
+        block:
+          - name: Wait for ntp.service restart after reload minigraph
+            become: true
+            service: name=ntp state=started
+
+          - name: Stop ntp.service on DUT
+            become: true
+            service: name=ntp state=stopped
+
+          - name: Sync DUT system time with NTP server
+            become: true
+            command: ntpd -gq
+            ignore_errors: true
+            async: 60
+            poll: 10
+
+          - name: Start ntp.service on DUT
+            become: true
+            service: name=ntp state=restarted enabled=true
+
       - name: config static route for trex traffic passthrough
         become: true
         command: "{{ item }}"
@@ -539,10 +561,38 @@
         become: true
         shell: config bgp startup all
 
+      - name: Configure TACACS
+        become: true
+        shell: "{{ tacacs_config_cmd }}"
+        loop:
+          - config tacacs passkey {{ tacacs_passkey }}
+          - config tacacs authtype pap
+          - config aaa authentication login tacacs+
+        loop_control:
+          loop_var: tacacs_config_cmd
+        ignore_errors: true
+        when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
+
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
         shell: bash "/etc/sonic/apply_clet.sh"
         when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - block:
+         - name: create isis config file for SONiC device
+           template: src=templates/isis_config.j2
+                     dest=/etc/sonic/isis_config.json
+           become: true
+
+         - name: active isis config
+           become: true
+           shell: sonic-cfggen -j /etc/sonic/isis_config.json -w
+
+         #will remove below task, after isisd issue got fixed
+         - name: restart bgp container
+           become: true
+           shell: docker restart bgp
+        when: topo == "wan-ecmp" or topo == "wan-pub-isis"
 
       - block:
         - name: set the default grpc credential file path
@@ -593,7 +643,7 @@
 
           when: stat_result.stat.exists
 
-        when: "'dualtor-mixed' in topo"
+        when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true

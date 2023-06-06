@@ -8,17 +8,17 @@ from ptf import testutils
 
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.dual_tor_utils import upper_tor_host
-from tests.common.dualtor.dual_tor_utils import lower_tor_host
+from tests.common.dualtor.dual_tor_utils import upper_tor_host                                      # noqa F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host                                      # noqa F401
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
-from tests.common.dualtor.dual_tor_utils import force_active_tor                                                # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
-from tests.common.dualtor.dual_tor_common import cable_type 
+from tests.common.dualtor.dual_tor_utils import force_active_tor                                    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                            # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                  # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa F401
 from tests.common.helpers import bgp
 from tests.common.utilities import is_ipv4_address
 
@@ -31,12 +31,12 @@ pytestmark = [
 TEST_DEVICE_INTERFACE = "Loopback3"
 EXABGP_PORT_UPPER_TOR = 11000
 EXABGP_PORT_LOWER_TOR = 11001
-ANNOUNCED_SUBNET_IPV4 = u"10.10.100.0/27"
-ANNOUNCED_SUBNET_IPV6 = u"fc00:10::/64"
+ANNOUNCED_SUBNET_IPV4 = "10.10.100.0/27"
+ANNOUNCED_SUBNET_IPV6 = "fc00:10::/64"
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
+def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # noqa F811
     """Setup the interfaces used by the new BGP sessions on PTF."""
 
     def _find_test_lo_interface(mg_facts):
@@ -66,7 +66,7 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
 
     # find the server ip used in the bgp session
     mux_configs = mux_cable_server_ip(upper_tor_host)
-    test_iface = random.choice(mux_configs.keys())
+    test_iface = random.choice(list(mux_configs.keys()))
     test_server = mux_configs[test_iface]
     test_server_ip = test_server["server_ipv4"]
     test_server_ipv6 = test_server["server_ipv6"]
@@ -104,8 +104,12 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
     lower_tor_asn = lower_tor_mg_facts["minigraph_bgp_asn"]
     assert upper_tor_asn == lower_tor_asn
 
-    upper_tor_slb_asn = upper_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")["stdout"]
-    lower_tor_slb_asn = lower_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants.deployment_id_asn_map[DEVICE_METADATA['localhost']['deployment_id']]\"")["stdout"]
+    upper_tor_slb_asn = upper_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \
+                                             \"constants.deployment_id_asn_map[DEVICE_METADATA[\
+                                             'localhost']['deployment_id']]\"")["stdout"]
+    lower_tor_slb_asn = lower_tor_host.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \
+                                             \"constants.deployment_id_asn_map[DEVICE_METADATA[\
+                                             'localhost']['deployment_id']]\"")["stdout"]
 
     connections = {
         "upper_tor": {
@@ -136,11 +140,11 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):
 
     try:
         ptfhost.shell("ifconfig %s %s" % (upper_tor_server_ptf_intf, upper_tor_server_ip))
-        for conn in connections.values():
+        for conn in list(connections.values()):
             ptfhost.shell("ip route add %s via %s" % (conn["local_addr"], vlan_intf_addr))
         yield connections
     finally:
-        for conn in connections.values():
+        for conn in list(connections.values()):
             ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"], module_ignore_errors=True)
             ptfhost.shell("ip route del %s" % conn["local_addr"], module_ignore_errors=True)
 
@@ -151,7 +155,7 @@ def bgp_neighbors(ptfhost, setup_interfaces):
     # allow ebgp neighbors that are multiple hops away
     connections = setup_interfaces
     neighbors = {}
-    for dut, conn in connections.items():
+    for dut, conn in list(connections.items()):
         neighbors[dut] = bgp.BGPNeighbor(
             conn["localhost"],
             ptfhost,
@@ -208,12 +212,10 @@ def constants(setup_interfaces, ip_version):
 
 def test_orchagent_slb(
     bgp_neighbors, constants, conn_graph_facts,
-    force_active_tor,
-    upper_tor_host, lower_tor_host,
+    force_active_tor, upper_tor_host, lower_tor_host,       # noqa F811
     ptfadapter, ptfhost, setup_interfaces,
-    toggle_all_simulator_ports_to_upper_tor, tbinfo,
-    tunnel_traffic_monitor,
-    vmhost
+    toggle_all_simulator_ports_to_upper_tor, tbinfo,        # noqa F811
+    tunnel_traffic_monitor, vmhost                          # noqa F811
 ):
 
     def verify_bgp_session(duthost, bgp_neighbor):

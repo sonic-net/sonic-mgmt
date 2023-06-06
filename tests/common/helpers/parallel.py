@@ -6,20 +6,24 @@ import shutil
 import tempfile
 import signal
 import traceback
+import time
 
-from multiprocessing import Process, Manager, Pipe
+from multiprocessing import Process, Manager, Pipe, TimeoutError
+from multiprocessing.pool import ThreadPool
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
+
 class SonicProcess(Process):
     """
     Wrapper class around multiprocessing.Process that would capture the exception thrown if the Process throws
     an exception when run.
 
-    This exception (including backtrace) can be logged in test log to provide better info of why a particular Process failed.
+    This exception (including backtrace) can be logged in test log
+    to provide better info of why a particular Process failed.
     """
     def __init__(self, *args, **kwargs):
         Process.__init__(self, *args, **kwargs)
@@ -75,6 +79,7 @@ def parallel_run(
             spawned processes.
     """
     nodes = [node for node in nodes_list]
+
     # Callback API for wait_procs
     def on_terminate(worker):
         logger.info("process {} terminated with exit code {}".format(
@@ -86,16 +91,14 @@ def parallel_run(
         running_processes = [worker for worker in workers if worker.is_alive()]
         if len(running_processes) > 0:
             logger.info(
-                'Found processes still running: {}. Try to kill them.'.format( #lgtm [py/clear-text-logging-sensitive-data]
-                    str(running_processes)
-                )
+                'Found processes still running: {}. Try to kill them.'.format(str(running_processes))
             )
             for p in running_processes:
                 # If sanity check process is killed, it still has init results.
                 # set its failed to True.
                 if init_result:
                     init_result['failed'] = True
-                    results[results.keys()[0]] = init_result
+                    results[list(results.keys())[0]] = init_result
                 else:
                     results[p.name] = {'failed': True}
                 try:
@@ -110,7 +113,6 @@ def parallel_run(
                         """Processes running target "{}" could not be terminated.
                         Unable to kill {}:{}, error:{}""".format(target.__name__, p.pid, p.name, err)
                     )
-
 
     workers = []
     results = Manager().dict()
@@ -188,7 +190,7 @@ def parallel_run(
             # set its failed to True.
             if init_result:
                 init_result['failed'] = True
-                results[results.keys()[0]] = init_result
+                results[list(results.keys())[0]] = init_result
             else:
                 results[worker.name] = {'failed': True}
 
@@ -200,8 +202,8 @@ def parallel_run(
 
     # if we have failed processes, we should log the exception and exit code
     # of each Process and fail
-    if len(failed_processes.keys()):
-        for process_name, process in failed_processes.items():
+    if len(list(failed_processes.keys())):
+        for process_name, process in list(failed_processes.items()):
             p_exitcode = ""
             p_exception = ""
             p_traceback = ""
@@ -222,7 +224,7 @@ def parallel_run(
         )
     )
 
-    return results
+    return dict(results)
 
 
 def reset_ansible_local_tmp(target):
@@ -248,3 +250,37 @@ def reset_ansible_local_tmp(target):
     wrapper.__name__ = target.__name__
 
     return wrapper
+
+
+def parallel_run_threaded(target_functions, timeout=10, thread_count=2):
+    """
+    Run target functions with a thread pool.
+
+    @param target_functions: list of target functions to execute
+    @param timeout: timeout seconds, default 10
+    @param thread_count: thread count, default 2
+    """
+    pool = ThreadPool(thread_count)
+    results = [pool.apply_async(func) for func in target_functions]
+
+    start_time = time.time()
+    while time.time() - start_time <= timeout:
+        alive_functions = [func for func, result in zip(target_functions, results) if not result.ready()]
+        if alive_functions:
+            time.sleep(0.2)
+        else:
+            pool.close()
+            pool.join()
+            break
+    else:
+        raise TimeoutError("%s seconds timeout waiting for %r to finish" % (timeout, alive_functions))
+
+    outputs = []
+    for func, result in zip(target_functions, results):
+        try:
+            output = result.get()
+        except Exception as error:
+            logging.error("Target function %r errored:\n%s", func, traceback.format_exc())
+            raise error
+        outputs.append(output)
+    return outputs

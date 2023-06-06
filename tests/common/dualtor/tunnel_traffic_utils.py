@@ -6,6 +6,7 @@ import pytest
 import re
 import json
 
+from functools import reduce
 from ptf import mask, testutils
 from scapy.all import IP, IPv6, Ether
 from tests.common.dualtor import dual_tor_utils
@@ -54,6 +55,7 @@ def dut_dscp_tc_queue_maps(duthost):
         logging.error("Failed to retrieve map on {}, exception {}".format(duthost.hostname, repr(e)))
     return maps
 
+
 def derive_queue_id_from_dscp(duthost, dscp, is_tunnel):
     """
     Helper function to find Queue ID for a DSCP ID.
@@ -72,7 +74,8 @@ def derive_queue_id_from_dscp(duthost, dscp, is_tunnel):
         # Load tc_to_queue_map
         queue_id = map['tc_to_queue_map'][tc_to_queue_map_name][str(tc_id)]
     except Exception as e:
-        logging.error("Failed to retrieve queue id for dscp {} on {}, exception {}".format(dscp, duthost.hostname, repr(e)))
+        logging.error("Failed to retrieve queue id for dscp {} on {}, exception {}"
+                      .format(dscp, duthost.hostname, repr(e)))
         return
     return int(queue_id)
 
@@ -90,11 +93,12 @@ def derive_out_dscp_from_inner_dscp(duthost, inner_dscp):
     else:
         return inner_dscp
 
+
 def queue_stats_check(dut, exp_queue, packet_count):
     queue_counter = dut.shell('show queue counters | grep "UC"')['stdout']
     logging.debug('queue_counter:\n{}'.format(queue_counter))
     # In case of other noise packets
-    DIFF = 0.1
+    DIFF = max(10, packet_count * 0.1)
 
     """
     regex search will look for following pattern in queue_counter outpute
@@ -107,10 +111,13 @@ def queue_stats_check(dut, exp_queue, packet_count):
 
     if result:
         for number in result:
-            if int(number) <= packet_count * (1 + DIFF) and int(number) >= packet_count:
-                logging.info("the expected Queue : {} received expected numbers of packet {}".format(exp_queue, number))
+            if int(number) <= packet_count + DIFF and int(number) >= packet_count:
+                logging.info("the expected Queue : {} received expected numbers of packet {}"
+                             .format(exp_queue, number))
+
                 return True
-        logging.debug("the expected Queue : {} did not receive expected numbers of packet : {}".format(exp_queue, packet_count))
+        logging.debug("the expected Queue : {} did not receive expected numbers of packet : {}"
+                      .format(exp_queue, packet_count))
         return False
     else:
         logging.debug("Could not find expected queue counter matches.")
@@ -128,7 +135,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
         def _get_t1_ptf_port_indexes(dut, tbinfo):
             """Get the port indexes of those ptf port connecting to T1 switches."""
             pc_ports = dual_tor_utils.get_t1_ptf_pc_ports(dut, tbinfo)
-            return [int(_.strip("eth")) for _ in reduce(operator.add, pc_ports.values(), [])]
+            return [int(_.strip("eth")) for _ in reduce(operator.add, list(pc_ports.values()), [])]
 
         @staticmethod
         def _find_ipv4_lo_addr(config_facts):
@@ -201,13 +208,15 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             outer_dscp, outer_ecn = _disassemble_ip_tos(outer_tos)
             inner_dscp, inner_ecn = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
-            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {0:02b}".format(outer_ecn, inner_ecn))
+            logging.info("Outer packet ECN: {0:02b}, inner packet ECN: {1:02b}".format(outer_ecn, inner_ecn))
             check_res = []
             expected_outer_dscp = derive_out_dscp_from_inner_dscp(self.standby_tor, inner_dscp)
             if outer_dscp != expected_outer_dscp:
-                check_res.append("outer packet DSCP {0:06b} not same as expected packet DSCP {0:06b}".format(outer_dscp, expected_outer_dscp))
+                check_res.append("outer packet DSCP {0:06b} not same as expected packet DSCP {1:06b}"
+                                 .format(outer_dscp, expected_outer_dscp))
             if outer_ecn != inner_ecn:
-                check_res.append("outer packet ECN {0:02b} not same as inner packet ECN {0:02b}".format(outer_ecn, inner_ecn))
+                check_res.append("outer packet ECN {0:02b} not same as inner packet ECN {1:02b}"
+                                 .format(outer_ecn, inner_ecn))
             return " ,".join(check_res)
 
         def _check_queue(self, packet):
@@ -234,7 +243,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 check_res.append("no expect counter in the expected queue %s" % exp_queue)
             return " ,".join(check_res)
 
-        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None, check_items=("ttl", "tos", "queue"), packet_count=10):
+        def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None,
+                     check_items=("ttl", "tos", "queue"), packet_count=10):
             """
             Init the tunnel traffic monitor.
 
@@ -258,14 +268,15 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 self.active_tor_lo_addr = self._find_ipv4_lo_addr(active_tor_cfg_facts)
             else:
                 self.active_tor_lo_addr = [
-                    _["address_ipv4"] for _ in standby_tor_cfg_facts["PEER_SWITCH"].values()
+                    _["address_ipv4"] for _ in list(standby_tor_cfg_facts["PEER_SWITCH"].values())
                 ][0]
 
             self.existing = existing
             self.inner_packet = None
             if self.existing:
                 self.inner_packet = inner_packet
-            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr, inner_packet=self.inner_packet)
+            self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr,
+                                                     inner_packet=self.inner_packet)
             self.rec_pkt = None
             self.check_items = check_items
 

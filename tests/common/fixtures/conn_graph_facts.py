@@ -2,6 +2,8 @@ import pytest
 import os
 import six
 import yaml
+import sys
+import copy
 
 
 @pytest.fixture(scope="module")
@@ -15,21 +17,22 @@ def fanout_graph_facts(localhost, duthosts, rand_one_dut_hostname, conn_graph_fa
     duthost = duthosts[rand_one_dut_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
-    for _, val in dev_conn[duthost.hostname].items():
+    for _, val in list(dev_conn[duthost.hostname].items()):
         fanout = val["peerdevice"]
         if fanout not in facts:
-            facts[fanout] = {k: v[fanout] for k, v in get_graph_facts(duthost, localhost, fanout).items()}
+            facts[fanout] = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
     return facts
+
 
 @pytest.fixture(scope="module")
 def enum_fanout_graph_facts(localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn_graph_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
-    for _, val in dev_conn[duthost.hostname].items():
+    for _, val in list(dev_conn[duthost.hostname].items()):
         fanout = val["peerdevice"]
         if fanout not in facts:
-            facts[fanout] = {k: v[fanout] for k, v in get_graph_facts(duthost, localhost, fanout).items()}
+            facts[fanout] = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
     return facts
 
 
@@ -76,7 +79,7 @@ def get_graph_facts(duthost, localhost, hostnames):
                     kargs["hosts"] = hostnames
                 conn_graph_facts = localhost.conn_graph_facts(
                     **kargs)["ansible_facts"]
-                return conn_graph_facts
+                return key_convert2str(conn_graph_facts)
     # END OF DEPRECATE WARNING: deprecate ends here.
 
     kargs = {"filepath": lab_conn_graph_path}
@@ -86,4 +89,22 @@ def get_graph_facts(duthost, localhost, hostnames):
         kargs["hosts"] = hostnames
     conn_graph_facts = localhost.conn_graph_facts(
         **kargs)["ansible_facts"]
-    return conn_graph_facts
+    return key_convert2str(conn_graph_facts)
+
+
+def key_convert2str(conn_graph_facts):
+    """
+        In Python2, some key type are unicode, but In Python3, are AnsibleUnsafeText. Convert them to str.
+        Currently, convert the key in conn_graph_facts['device_conn'].
+    """
+    # If Python2, do not change
+    if sys.version_info[0] < 3:
+        return conn_graph_facts
+
+    # Else, convert
+    result = copy.deepcopy(conn_graph_facts)
+    result['device_conn'] = {}
+    for key, value in list(conn_graph_facts['device_conn'].items()):
+        result['device_conn'][str(key)] = value
+
+    return result

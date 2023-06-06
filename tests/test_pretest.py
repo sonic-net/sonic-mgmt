@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.pretest,
-    pytest.mark.topology('util'),
+    pytest.mark.topology('util', 'any'),
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health
 ]
@@ -163,7 +163,7 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         is_dhcp_server_enable = config_facts["ansible_facts"]["DEVICE_METADATA"]["localhost"]["dhcp_server"]
     except KeyError:
         is_dhcp_server_enable = None
-    for feature_name, state in features_dict.items():
+    for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:
             continue
         # Skip dhcp_relay check if dhcp_server is enabled
@@ -175,15 +175,15 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
 def collect_dut_lossless_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
-    if "PORT_QOS_MAP" not in config_facts.keys():
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
         return []
 
     port_qos_map = config_facts["PORT_QOS_MAP"]
-    if len(port_qos_map.keys()) == 0:
+    if len(list(port_qos_map.keys())) == 0:
         return []
 
     """ Here we assume all the ports have the same lossless priorities """
-    intf = port_qos_map.keys()[0]
+    intf = list(port_qos_map.keys())[0]
     if 'pfc_enable' not in port_qos_map[intf]:
         return []
 
@@ -194,17 +194,17 @@ def collect_dut_lossless_prio(dut):
 def collect_dut_all_prio(dut):
     config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
-    if "DSCP_TO_TC_MAP" not in config_facts.keys():
+    if "DSCP_TO_TC_MAP" not in list(config_facts.keys()):
         return []
 
     dscp_to_tc_map_lists = config_facts["DSCP_TO_TC_MAP"]
     if len(dscp_to_tc_map_lists) != 1:
         return []
 
-    profile = dscp_to_tc_map_lists.keys()[0]
+    profile = list(dscp_to_tc_map_lists.keys())[0]
     dscp_to_tc_map = dscp_to_tc_map_lists[profile]
 
-    tc = [int(p) for p in dscp_to_tc_map.values()]
+    tc = [int(p) for p in list(dscp_to_tc_map.values())]
     return list(set(tc))
 
 
@@ -212,6 +212,30 @@ def collect_dut_lossy_prio(dut):
     lossless_prio = collect_dut_lossless_prio(dut)
     all_prio = collect_dut_all_prio(dut)
     return [p for p in all_prio if p not in lossless_prio]
+
+
+def collect_dut_pfc_pause_delay_params(dut):
+    """
+    Retrieves a dictionary of pfc pause delay values for the headroom test
+    Args:
+        dut (Ansible host instance): device under test
+    Returns:
+        pfc_pause_delay_test_params: Mapped from pfc pause quanta to whether
+                                the headroom test will fail or not
+                                E.g. {1:True, 2:False, 3:False}
+    """
+    platform = dut.facts['platform']
+    pfc_pause_delay_test_params = {}
+    if 'cisco' and '8102' in platform.lower():
+        pfc_pause_delay_test_params[0] = True
+        pfc_pause_delay_test_params[1023] = True
+    elif 'arista' and '7050cx3' in platform.lower():
+        pfc_pause_delay_test_params[0] = True
+        pfc_pause_delay_test_params[200] = False
+    else:
+        pfc_pause_delay_test_params = None
+
+    return pfc_pause_delay_test_params
 
 
 def test_collect_testbed_prio(duthosts, tbinfo):
@@ -242,6 +266,31 @@ def test_collect_testbed_prio(duthosts, tbinfo):
             logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
+def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
+    pfc_pause_delay_params = {}
+
+    tbname = tbinfo['conf-name']
+    pytest_require(tbname, "skip test due to lack of testbed name.")
+
+    for dut in duthosts:
+        pfc_pause_delay_params_dut = collect_dut_pfc_pause_delay_params(dut)
+        if pfc_pause_delay_params_dut is None:
+            continue
+        else:
+            pfc_pause_delay_params[dut.hostname] = pfc_pause_delay_params_dut
+
+    file_name = tbname + '.json'
+    folder = 'pfc_headroom_test_params'
+    filepath = os.path.join(folder, file_name)
+    try:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        with open(filepath, 'w') as yf:
+            json.dump({tbname: pfc_pause_delay_params}, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+
 def test_update_saithrift_ptf(request, ptfhost):
     '''
     Install the correct python saithrift package on the ptf
@@ -251,19 +300,11 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("No URL specified for python saithrift package")
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
-    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True)
+    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
     if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
-
-
-def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
-    '''
-     Stop pfcwd on dual tor testbeds
-    '''
-    dut = duthosts[enum_dut_hostname]
-    dut.command('pfcwd stop')
 
 
 def prepare_autonegtest_params(duthosts, fanouthosts):
@@ -280,7 +321,8 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
                 if len(selected_ports) == max_interfaces_per_dut:
                     break
                 auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
-                if auto_neg_mode is not None:
+                fec_mode = duthost.get_port_fec(dut_port)
+                if auto_neg_mode is not None and fec_mode is not None:
                     speeds = get_common_supported_speeds(duthost, dut_port, fanout, fanout_port)
                     selected_ports[dut_port] = {
                         'fanout': fanout.hostname,

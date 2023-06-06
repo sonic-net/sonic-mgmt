@@ -196,12 +196,9 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
 
 def restore_syncd(dut, nn_target_namespace):
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
-
     syncd_docker_name = asichost.get_docker_name("syncd")
-
-    dut.command("docker exec {} rm -rf /etc/supervisor/conf.d/{}".format(syncd_docker_name, _SYNCD_NN_FILE))
-    dut.command("docker exec {} supervisorctl reread".format(syncd_docker_name))
-    dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
+    asichost.stop_service("syncd")
+    asichost.delete_container(syncd_docker_name)
 
 
 def _install_nano(dut, creds,  syncd_docker_name):
@@ -212,9 +209,13 @@ def _install_nano(dut, creds,  syncd_docker_name):
             dut (SonicHost): The target device.
             creds (dict): Credential information according to the dut inventory
     """
-    output = dut.command(
-        "docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] && [ -d /opt/ptf ] || echo copp'".format(
-            syncd_docker_name))
+
+    if dut.facts["asic_type"] == "cisco-8000":
+        output = dut.command("docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] || \
+            echo copp'".format(syncd_docker_name))
+    else:
+        output = dut.command("docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] && [ -d /opt/ptf ] || \
+            echo copp'".format(syncd_docker_name))
 
     if output["stdout"] == "copp":
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
@@ -252,13 +253,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     && mkdir ptf && cd ptf && wget \
                     https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
                     " '''.format(http_proxy, https_proxy, syncd_docker_name)
-
-        try:
-            # Stop bgp sessions
-            dut.command("sudo config bgp shutdown all")
-            dut.command(cmd)
-        finally:
-            dut.command("sudo config bgp startup all")
+        dut.command(cmd)
 
 
 def _map_port_number_to_interface(dut, nn_target_port):

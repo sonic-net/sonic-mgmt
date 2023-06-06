@@ -29,10 +29,10 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode
+    UNICODE_TYPE = unicode      # noqa F821
 
 
 def get_vlan_info(intf):

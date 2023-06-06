@@ -3,13 +3,14 @@ r, ".* INFO ntpd.*kernel reports TIME_ERROR: 0x41: Clock Unsynchronized.*"
 r, ".* ERR liblogging-stdlog: omfwd: error 11 sending via udp: Resource temporarily unavailable.*"
 r, ".* ERR syncd\d*#syncd: brcm_sai_get_port_stats:.* port stats get failed with error.*"
 r, ".* ERR pmon#xcvrd.*for checking mux_cable .* side, eeprom read returned a size.*"
-r, ".* ERR pmon#ledd.*initializeGlobalConfig: Sonic database config global file.*"
+r, ".* ERR .*initializeGlobalConfig: SonicDBConfig Global config is already initialized.*"
 r, ".* NOTICE kernel:.*profile=""/usr/sbin/ntpd"" name=""sbin"" pid=.* comm=""ntpd"" requested_mask=.*"
 r, ".* ERR snmp#snmp-subagent.*"
 r, ".* ERR route_check.py.*"
 r, ".* INFO mgmt-framework#supervisord: rest-server.*"
 r, ".* ERR radv#radvd.* Exiting, privsep_read_loop.*"
 r, ".* ERR ntpd.*bind.*AF_INET6.*"
+r, ".* ERR ntpd.*bind.*AF_INET.*"
 r, ".* ERR ntpd.*unable to create socket on.*"
 r, ".* WARNING syncd\d*#SDK:.* check_attribs_metadata: Not implemented attribute SAI_SWITCH_ATTR_SWITCH_HARDWARE_INFO.*"
 r, ".* WARNING syncd\d*#SDK:.* check_attribs_metadata: Not implemented attribute SAI_SWITCH_ATTR_AVAILABLE_DNAT_ENTRY.*"
@@ -162,3 +163,17 @@ r, ".* ERR .*echo_receive: last:errno=.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/16110065
 r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/16703529
+r, ".* ERR CCmisApi:.*system_service.*Broken pipe.*"
+
+r, ".* ERR CCmisApi:.*system_service_Map_base::at.*"
+
+r, ".*ERR kernel: \[.*\] AMD-Vi: Event logged \[IO_PAGE_FAULT device=00:13.1 domain=0x0009 address=0x0 flags=0x0000\].*"
+
+r, ".*WARNING kernel: .*linux_knet_cb.*linux_bcm_knet.*linux_user_bde.*linux_kernel_bde.*xt_TCPMSS.*8021q.*garp.*mrp.*dummy.*"
+r, ".* ERR .*CounterCheck: Invalid port oid.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/17617756
+# https://msazure.visualstudio.com/One/_workitems/edit/17863895
+r, ".* ERR syncd\d*#syncd.*SAI_API_ACL:_brcm_sai_acl_entry_bind.*"

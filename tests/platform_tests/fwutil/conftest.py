@@ -24,7 +24,7 @@ def check_path_exists(duthost, path):
 
 def pytest_generate_tests(metafunc):
     val = metafunc.config.getoption('--fw-pkg')
-    if 'fw_pkg_name' in metafunc.fixturenames and val is not None:
+    if 'fw_pkg_name' in metafunc.fixturenames:
         metafunc.parametrize('fw_pkg_name', [val], scope="module")
 
 
@@ -47,8 +47,8 @@ def fw_pkg(fw_pkg_name):
 
 @pytest.fixture(scope='function')
 def random_component(duthost, fw_pkg):
-    chass = show_firmware(duthost)["chassis"].keys()[0]
-    components = fw_pkg["chassis"].get(chass, {}).get("component", []).keys()
+    chass = list(show_firmware(duthost)["chassis"].keys())[0]
+    components = list(fw_pkg["chassis"].get(chass, {}).get("component", []).keys())
     if 'ONIE' in components:
         components.remove('ONIE')
     if len(components) == 0:
@@ -72,7 +72,7 @@ def next_image(duthost, fw_pkg):
     # Install next version of sonic
     current = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
 
-    image = fw_pkg.get("images", {}).keys()
+    image = list(fw_pkg.get("images", {}).keys())
     target = None
 
     for i in image:
