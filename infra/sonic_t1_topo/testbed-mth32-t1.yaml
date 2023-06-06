@@ -22,30 +22,16 @@ device_groups:
       hwsku: Cisco-8102-C32
       iface_speed: '100000'
 devices:
-  lab-s6000-01:
-    alias: null
-    ansible:
-      ansible_become_pass: null
-      ansible_host: 10.251.0.189
-      ansible_ssh_pass: null
-      sonicadmin_initial_password: null
-      sonicadmin_password: null
-      sonicadmin_user: null
-    credentials:
-      password: null
-      username: null
-    device_type: blank
-    hwsku: null
   mathilda-01:
     alias: null
     ansible:
       ansible_host: 192.168.122.47
       ansible_ssh_pass: cisco123
-      ansible_ssh_user: admin
+      ansible_ssh_user: cisco
     credentials:
       enable_password: cisco123
       password: cisco123
-      username: admin
+      username: cisco
     device_type: DevSonic
     hwsku: 32x100Gb
     os: sonic
@@ -61,19 +47,6 @@ devices:
       password: null
       username: null
     device_type: FanoutLeaf
-    hwsku: Arista-7260QX-64
-  str-7260-11:
-    alias: null
-    ansible:
-      ansible_host: 10.251.0.234/23
-      ansible_ssh_pass: password
-      ansible_ssh_user: user
-      fanout_sonic_password: password
-      fanout_sonic_user: admin
-    credentials:
-      password: null
-      username: null
-    device_type: FanoutRoot
     hwsku: Arista-7260QX-64
   str-acs-serv-01:
     alias: null
@@ -91,6 +64,17 @@ devices:
     device_type: server
     hwsku: TestServ
     mgmt_subnet_mask_length: '24'
+  docker-ptf:
+    device_type: blank
+    hwsku:
+    ansible:
+        ansible_ssh_user: root
+        ansible_host: 1.74.23.21/16
+        ansible_hostv6: fc0b::1/64
+        ansible_ssh_pass: root
+    credentials:
+        password: root
+        username: root
 docker_registry:
   docker_registry_host: sonicdev-microsoft.azurecr.io:443
   docker_registry_password: sonic
