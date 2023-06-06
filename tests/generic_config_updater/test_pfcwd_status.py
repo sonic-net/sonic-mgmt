@@ -1,3 +1,4 @@
+import json
 import logging
 import pytest
 
@@ -18,6 +19,31 @@ logger = logging.getLogger(__name__)
 
 READ_FLEXDB_TIMEOUT = 20
 READ_FLEXDB_INTERVAL = 5
+
+
+@pytest.fixture(scope="module", autouse=True)
+def set_default_pfcwd_config(duthost):
+    """
+    Enable pfcwd config before all test runs and disable at the end of all test runs
+
+    Args:
+        duthost: DUT host object
+    """
+    res = duthost.shell('sonic-db-dump -n CONFIG_DB -y -k \"DEVICE_METADATA|localhost\"')
+    meta_data = json.loads(res["stdout"])
+    pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
+    if pfc_status == 'disable':
+        duthost.shell('sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable')
+
+    yield
+
+    # Restore default config
+    duthost.shell('config pfcwd stop')
+    if pfc_status == 'disable':
+        duthost.shell('sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status disable')
+    else:
+        start_pfcwd = duthost.shell('config pfcwd start_default')
+        pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
 
 
 @pytest.fixture
@@ -63,22 +89,6 @@ def start_pfcwd(duthost):
     """
     duthost.shell('config pfcwd start_default')
     yield
-
-
-@pytest.fixture(scope='module', autouse=True)
-def restore_pfcwd(duthost):
-    """
-    Restore pfcwd config at the end of the module
-
-    Args:
-        duthost: DUT host object
-    """
-    yield
-
-    # Restore default config
-    duthost.shell('config pfcwd stop')
-    start_pfcwd = duthost.shell('config pfcwd start_default')
-    pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
 
 
 @pytest.fixture
