@@ -2,6 +2,7 @@ from __future__ import unicode_literals
 
 import copy
 import json
+import logging
 import os
 import pytest
 import random
@@ -83,6 +84,9 @@ class PowerShelfInfo:
         self.rm = rm
         self.bmc_hosts = bmc_hosts
 
+    def __str__(self):
+        return json.dumps(self.__dict__, ensure_ascii=False)
+
 
 class PortInfo:
     def __init__(self, port_name, port_alias, ptf_port_id,
@@ -97,6 +101,30 @@ class PortInfo:
         self.ipv6_prefix = ipv6_prefix
         self.__dict__.update(kwargs)
 
+    def __str__(self):
+        return json.dumps(self.__dict__, ensure_ascii=False)
+
+
+def verify_traffic(ptfadapter, dst_ptf_port_ids, exp_pkt, expect_behavior):
+    if expect_behavior == "accept":
+        if len(dst_ptf_port_ids) == 1:
+            testutils.verify_packet(ptfadapter, exp_pkt, dst_ptf_port_ids[0], timeout=10)
+        else:
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
+    elif expect_behavior == "drop":
+        if sys.version_info.major == 2:
+            # Python2 env is using ptf=0.9.1 which doesn't support timeout parameter.
+            # However ptf module doesn't contain a __version__ variable, so we can only check by Python version.
+            if len(dst_ptf_port_ids) == 1:
+                testutils.verify_no_packet(ptfadapter, exp_pkt, dst_ptf_port_ids[0], timeout=10)
+            else:
+                testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids)
+        else:
+            if len(dst_ptf_port_ids) == 1:
+                testutils.verify_no_packet(ptfadapter, exp_pkt, dst_ptf_port_ids[0], timeout=10)
+            else:
+                testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
+
 
 def send_and_verify_traffic_v4(duthost, ptfadapter, src, dsts, expect_behavior, pkt=None):
     router_mac = duthost.facts['router_mac']
@@ -104,17 +132,12 @@ def send_and_verify_traffic_v4(duthost, ptfadapter, src, dsts, expect_behavior, 
         pkt = testutils.simple_tcp_packet(eth_dst=router_mac, ip_src=src.ipv4_addr, ip_dst=dsts[0].ipv4_addr, tcp_flags="")
     exp_pkt = build_exp_pkt(pkt)
     ptfadapter.dataplane.flush()
+    dsts_str = json.dumps(dsts, default=lambda x: str(x))
+    logging.info("Start to Verify traffic between {} and {}, expect behavior is {}".format(src, dsts_str, expect_behavior))
     testutils.send(ptfadapter, pkt=pkt, port_id=src.ptf_port_id)
     dst_ptf_port_ids = [dst.ptf_port_id for dst in dsts]
-    if expect_behavior == "accept":
-        testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
-    elif expect_behavior == "drop":
-        if sys.version_info.major == 2:
-            # Python2 env is using ptf=0.9.1 which doesn't support timeout parameter.
-            # However ptf module doesn't contain a __version__ variable, so we can only check by Python version.
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids)
-        else:
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
+    verify_traffic(ptfadapter, dst_ptf_port_ids, exp_pkt, expect_behavior)
+    logging.info("Verify traffic between {} and {} passed, expect behavior is {}".format(src, dsts_str, expect_behavior))
 
 
 def send_and_verify_traffic_v6(duthost, ptfadapter, src, dsts, expect_behavior, pkt=None):
@@ -123,17 +146,12 @@ def send_and_verify_traffic_v6(duthost, ptfadapter, src, dsts, expect_behavior, 
         pkt = testutils.simple_tcpv6_packet(eth_dst=router_mac, ipv6_src=src.ipv6_addr, ipv6_dst=dsts[0].ipv6_addr, tcp_flags="")
     exp_pkt = build_exp_pkt(pkt)
     ptfadapter.dataplane.flush()
+    dsts_str = json.dumps(dsts, default=lambda x: str(x))
+    logging.info("Start to Verify traffic between {} and {}, expect behavior is {}".format(src, dsts_str, expect_behavior))
     testutils.send(ptfadapter, pkt=pkt, port_id=src.ptf_port_id)
     dst_ptf_port_ids = [dst.ptf_port_id for dst in dsts]
-    if expect_behavior == "accept":
-        testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
-    elif expect_behavior == "drop":
-        if sys.version_info.major == 2:
-            # Python2 env is using ptf=0.9.1 which doesn't support timeout parameter.
-            # However ptf module doesn't contain a __version__ variable, so we can only check by Python version.
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids)
-        else:
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ptf_port_ids, timeout=10)
+    verify_traffic(ptfadapter, dst_ptf_port_ids, exp_pkt, expect_behavior)
+    logging.info("Verify traffic between {} and {} passed, expect behavior is {}".format(src, dsts_str, expect_behavior))
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -414,7 +432,7 @@ class BmcOtwAclRulesBase:
         """
         shelfs, bmc_hosts, upstream_ports = setup_teardown
         for shelf in shelfs:
-            for rand_bmc in self.shuffle_ports(shelf.bmc_hosts, max_len=5):
+            for rand_bmc in self.shuffle_ports(shelf.bmc_hosts, max_len=0):
                 send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
                 send_and_verify_traffic_v4(duthost, ptfadapter, shelf.rm, [rand_bmc], expect_behavior="accept")
 
