@@ -459,6 +459,24 @@ class AdvancedReboot:
         # Handle mellanox platform
         self.__handleMellanoxDut()
 
+    def move_logs_before_reboot(self):
+        source_dir = '/host/logs_before_reboot'
+        target_dir = '/var/log'
+
+        command = f"test -d {source_dir}"
+        result = self.duthost.shell(command)
+
+        if result["rc"] == 0:
+            command = f"find {source_dir} -type f -exec cp {{}} {target_dir}/{{}}.preboot \\;"
+            result = self.duthost.shell(command)
+            if result["rc"] == 0:
+                logger.info("Files under /host/logs_before_reboot copied successfully to {}.".format(target_dir))
+            else:
+                logger.info("Failed to copy files under /host/logs_before_reboot copied successfully to {}.".format(target_dir))
+
+        else:
+            logger.info("Directory {} does not exist.".format(source_dir))
+
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
@@ -498,6 +516,7 @@ class AdvancedReboot:
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
                 if self.advanceboot_loganalyzer:
+                    self.move_logs_before_reboot()
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
                                                                reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:
