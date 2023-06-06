@@ -229,7 +229,7 @@ def set_output(url):
 
 
 @pytest.fixture(scope='module')
-def toggle_simulator_port_to_upper_tor(url, tbinfo):
+def toggle_simulator_port_to_upper_tor(url, tbinfo, active_standby_ports):
     """
     Returns _toggle_simulator_port_to_upper_tor to make fixture accept arguments
     """
@@ -456,7 +456,9 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname, active_standby_ports):
+def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
+                                                    tbinfo, rand_one_dut_hostname,
+                                                    active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly selected tor
 
