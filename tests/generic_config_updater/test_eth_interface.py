@@ -69,6 +69,10 @@ def get_ethernet_port_not_in_portchannel(duthost):
     port_name = ""
     ports = config_facts['PORT'].keys()
     port_channel_members = []
+    if 'PORTCHANNEL_MEMBER' not in config_facts:
+        if len(ports) > 0:
+            port_name = ports[0]
+        return port_name
     port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
     for port_channel in port_channel_member_facts.keys():
         for member in port_channel_member_facts[port_channel].keys():
