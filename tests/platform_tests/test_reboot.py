@@ -90,11 +90,12 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, duthosts,
         # If supervisor node is rebooted in chassis, linecards also will reboot.
         # Check if all linecards are back up.
         if dut.is_supervisor_node():
+            lc_reboot_type = "Power Loss"
             for host in duthosts:
                 if host != dut:
                     logging.info("checking if {} critical services are up".format(host.hostname))
                     wait_critical_processes(host)
-                    check_interfaces_and_services(host, interfaces, xcvr_skip_list, reboot_type)
+                    check_interfaces_and_services(host, interfaces, xcvr_skip_list, lc_reboot_type)
 
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=None):
     """
