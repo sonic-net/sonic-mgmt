@@ -467,7 +467,7 @@ class AdvancedReboot:
         result = self.duthost.shell(command)
 
         if result["rc"] == 0:
-            command = f"find {source_dir} -type f -exec cp {{}} {target_dir}/{{}}.preboot \\;"
+            command = 'sudo find ' + source_dir + ' -type f -exec sh -c \'mv "$0" "' + target_dir + '/$(basename "$0").preboot"\' {} \\;'
             result = self.duthost.shell(command)
             if result["rc"] == 0:
                 logger.info("Files under /host/logs_before_reboot copied successfully to {}.".format(target_dir))
