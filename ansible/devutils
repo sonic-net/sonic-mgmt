@@ -145,12 +145,21 @@ def get_console_info(hostname, attrs):
     return console_info
 
 
-def show_data_output(header, data, json_output=False):
+def show_data_output(header, data, json_output=False, output_file=None):
     if json_output:
-        print(json.dumps(sorted(data, key=lambda x: x['Host']), indent=4))
+        output_content = json.dumps(sorted(data, key=lambda x: x['Host']), indent=4)
     else:
-        print(
-            tabulate(sorted(data, key=lambda x: x[0]), headers=header, tablefmt='grid'))
+        output_content = tabulate(sorted(data, key=lambda x: x[0]), headers=header, tablefmt='grid')
+
+    if output_file:
+        try:
+            with open(output_file, 'w') as f:
+                f.write(output_content)
+            print("Output saved to {}".format(output_file))
+        except Exception as e:
+            print("Failed to write to output file: {}".format(e))
+    else:
+        print(output_content)
 
 
 def action_list(parameters):
@@ -164,7 +173,7 @@ def action_list(parameters):
         for name, vars in hosts.items():
             data.append(
                 (name, vars['ansible_host'] if 'ansible_host' in vars else 'not_available'))
-    show_data_output(header, data, parameters['json'])
+    show_data_output(header, data, parameters['json'], parameters['out'])
 
 
 def action_ping(parameters):
@@ -203,7 +212,7 @@ def action_ping(parameters):
                 data.append((name.split('|')[0], name.split('|')[
                             1], 'Success' if result['result'][0] == 0 else "Fail"))
 
-    show_data_output(header, data, parameters['json'])
+    show_data_output(header, data, parameters['json'], parameters['out'])
 
 
 def action_ssh(parameters):
@@ -279,7 +288,7 @@ def action_pdu(parameters, action):
 
 def action_pdu_status(parameters):
     header, data = action_pdu(parameters, 'status')
-    show_data_output(header, data, parameters['json'])
+    show_data_output(header, data, parameters['json'], parameters['out'])
 
 
 def action_pdu_failures(parameters):
@@ -292,17 +301,17 @@ def action_pdu_failures(parameters):
         else:
             if any(x['output_watts'] == '0' for x in entry[2]):
                 failures.append(entry)
-    show_data_output(header, failures, parameters['json'])
+    show_data_output(header, failures, parameters['json'], parameters['out'])
 
 
 def action_pdu_off(parameters):
     header, data = action_pdu(parameters, 'off')
-    show_data_output(header, data, parameters['json'])
+    show_data_output(header, data, parameters['json'], parameters['out'])
 
 
 def action_pdu_on(parameters):
     header, data = action_pdu(parameters, 'on')
-    show_data_output(header, data, parameters['json'])
+    show_data_output(header, data, parameters['json'], parameters['out'])
 
 
 def action_pdu_reboot(parameters):
@@ -312,7 +321,7 @@ def action_pdu_reboot(parameters):
     _, data_on = action_pdu(parameters, 'on')
 
     data = data + data_on
-    show_data_output(header, data, parameters['json'])
+    show_data_output(header, data, parameters['json'], parameters['out'])
 
 
 def action_dispatcher(parameters):
@@ -397,6 +406,8 @@ def main():
         type=int, required=False, default=1)
     parser.add_argument('-j', '--json', help='json output', action='store_true',
                         required=False, default=False)
+    parser.add_argument('-o', '--out', help='specify output file',
+                        required=False, default=None)
 
     args = parser.parse_args()
     if not validate_args(args):
@@ -435,6 +446,7 @@ def main():
                   'ipv6': args.ipv6,
                   'cmd': args.cmd,
                   'json': args.json,
+                  'out': args.out,
                   }
     action_dispatcher(parameters)
 
