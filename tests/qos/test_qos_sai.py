@@ -489,7 +489,9 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku":dutTestParams['hwsku'],
+            "pkts_num_egr_mem" :  qosConfig[xonProfile].get('pkts_num_egr_mem', None)
+
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -540,6 +542,10 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        if not get_src_dst_asic_and_duts['single_asic_test']:
+             pytest.skip("This test is not applicable when "
+                 "src and dst ASICs are different.")
+
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and \
                 'backend' not in dutTestParams['topo']:
@@ -1033,6 +1039,10 @@ class TestQosSai(QosSaiBase):
         """
         if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
             pytest.skip("Lossy Queue Voq test is not supported")
+        if not get_src_dst_asic_and_duts['single_asic_test']:
+             pytest.skip("This test is not applicable when "
+                 "src and dst ASICs are different.")
+
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
@@ -1365,6 +1375,12 @@ class TestQosSai(QosSaiBase):
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
+            if not get_src_dst_asic_and_duts['single_asic_test'] and \
+                dutTestParams["basicParams"].get("platform_asic", None) \
+                    == "cisco-8000":
+                pytest.skip(
+                    "Lossy test is not applicable in multiple ASIC case"
+                    " in cisco-8000 platform.")
             pktsNumFillShared = int(qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
