@@ -1143,9 +1143,12 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 vxlan/test_vnet_vxlan.py:
   skip:
-    reason: "enable tests only for: mellanox, barefoot"
+    reason: "1. Enable tests only for: mellanox, barefoot
+             2. Test skipped due to issue #8374"
+    conditions_logical_operator: OR
     conditions:
       - "asic_type not in ['mellanox', 'barefoot']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8374
 
 vxlan/test_vxlan_ecmp.py:
   skip:
