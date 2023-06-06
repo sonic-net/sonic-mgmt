@@ -101,7 +101,7 @@ def counter_poll_config(duthost, type, interval_ms):
         time.sleep(10)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='class')
 def tunnel_qos_maps(rand_selected_dut, dut_qos_maps):
     """
     Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from config DB.
