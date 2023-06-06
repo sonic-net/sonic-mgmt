@@ -21,8 +21,14 @@ test -z "$(ovs-vsctl list-br)" || ovs-vsctl list-br | xargs -I % ovs-vsctl del-b
 ptf_container_names=$(docker ps | grep ptf | awk '{print $NF}')
 for ptf in $ptf_container_names;
 do
-  docker exec $ptf supervisorctl stop exabgpv4:*
-  docker exec $ptf supervisorctl stop exabgpv6:*
+  process_name="$(docker exec $ptf supervisorctl status | awk '{print $1}')"
+  for process in $process_name;
+  do
+    process_status="$(docker exec $ptf supervisorctl status | grep $process | awk '{print $2}')"
+    if [[ $process_status == "RUNNING" ]]; then
+      docker exec $ptf supervisorctl stop $process
+    fi
+  done
 done
 
 # stop all running docker containers
