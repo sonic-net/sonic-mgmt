@@ -304,10 +304,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
 
-    if "201811" in duthost.os_version or "201911" in duthost.os_version:
-        skip_dhcpmon = True
-    else:
-        skip_dhcpmon = False
+    skip_dhcpmon = testing_mode == DUAL_TOR_MODE or "201811" in duthost.os_version or "201911" in duthost.os_version
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
