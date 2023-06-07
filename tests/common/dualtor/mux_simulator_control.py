@@ -225,7 +225,7 @@ def set_output(url):
     return _set_output
 
 @pytest.fixture(scope='module')
-def toggle_simulator_port_to_upper_tor(url, tbinfo):
+def toggle_simulator_port_to_upper_tor(url, tbinfo, active_standby_ports):
     """
     Returns _toggle_simulator_port_to_upper_tor to make fixture accept arguments
     """
@@ -437,7 +437,9 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
+def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
+                                                    tbinfo, rand_one_dut_hostname,
+                                                    active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly selected tor
 
@@ -445,7 +447,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tb
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
     # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
         return
 
     _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo)
