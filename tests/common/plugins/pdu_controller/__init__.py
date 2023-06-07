@@ -2,7 +2,7 @@ import logging
 
 import pytest
 from .pdu_manager import pdu_manager_factory
-from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_host_visible_vars, get_sup_node_or_random_node
 
 
 logger = logging.getLogger(__name__)
@@ -31,14 +31,14 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
 
 
 @pytest.fixture(scope="module")
-def pdu_controller(duthosts, enum_supervisor_dut_hostname, conn_graph_facts):
+def pdu_controller(duthosts, conn_graph_facts):
     """
     @summary: Fixture for controlling power supply to PSUs of DUT
     @param duthost: Fixture duthost defined in sonic-mgmt/tests/conftest.py
     @returns: Returns a pdu controller object implementing the BasePduController interface defined in
               controller_base.py.
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    duthost = get_sup_node_or_random_node(duthosts)
     pdu_hosts = get_pdu_hosts(duthost)
     pdu_hostnames = []
     if pdu_hosts:
