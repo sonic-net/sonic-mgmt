@@ -461,7 +461,7 @@ class MultiAsicSonicHost(object):
             # This is to avoid gbsyncd check fo VS
             # because VS gbsyncd docker's critical_processes has gbsyncdmgrd
             # while VS is missing gearbox_config.json file, so gbsyncdmgrd would not be running inside gbsyncd on VS 
-            if self.get_facts()['asic_type'] == 'vs' and docker == "gbsyncd":
+            if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
