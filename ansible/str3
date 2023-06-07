@@ -711,48 +711,44 @@ sonic_arista_7800_sup:
         "0x2E": "Aboot-norcal7-7.1.4-14169220"
         "0xFE": "0xdeadbeef"
 
+sonic_arista_7800_lc_400G:
+  vars:
+    max_cores: 64
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0,1]
+  hosts:
+    str3-7800-lc3-1:
+      hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
+      model: 7800R3A-36DM2-LC
+      slot_num: slot3
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: SGD21190878
+      base_mac: 2c:dd:e9:6c:cb:5c
+      ansible_host: 10.3.146.83
+
 sonic_arista_7800_lc_100G:
   vars:
-    max_cores: 16
+    max_cores: 64
     switch_type: voq
     voq_inband_intf: [Ethernet-IB0]
     voq_inband_type: port
     num_asics: 1
   hosts:
-    str3-7800-lc1-1:
-      hwsku: Arista-7800R3-48CQ2-C48
-      model: 7800R3-48CQ2-LC
-      sonic_hwsku: Arista-7800R3-48CQ2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
-      slot_num: slot3
-      switchids: [0]
-      voq_inband_ip: [3.3.3.1/32]
-      voq_inband_ipv6: [3333::3:1/128]
-      loopback4096_ip: [192.0.0.1/32]
-      loopback4096_ipv6: [2603:10e2:400::1/128]
-      serial: SSN20220006
-      base_mac: fc:bd:67:67:e4:1b
-      ansible_host: 10.3.146.58
-    str3-7800-lc2-1:
+    str3-7800-lc4-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
       slot_num: slot4
-      switchids: [2]
-      voq_inband_ip: [3.3.3.2/32]
-      voq_inband_ipv6: [3333::3:2/128]
-      loopback4096_ip: [192.0.0.2/32]
-      loopback4096_ipv6: [2603:10e2:400::2/128]
-      serial: SSN20220006
-      base_mac: fc:bd:67:67:e4:1b
-      ansible_host: 10.3.146.71
-    str3-7800-lc3-1:
-      hwsku: Arista-7800R3-48CQ2-C48
-      model: 7800R3-48CQ2-LC
-      sonic_hwsku: Arista-7800R3-48CQ2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
-      slot_num: slot5
       switchids: [4]
       voq_inband_ip: [3.3.3.3/32]
       voq_inband_ipv6: [3333::3:3/128]
@@ -760,41 +756,41 @@ sonic_arista_7800_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::3/128]
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
-      ansible_host: 10.3.146.72
-    str3-7800-lc4-1:
+      ansible_host: 10.3.146.71
+    str3-7800-lc5-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
-      slot_num: slot6
-      switchids: [2]
+      slot_num: slot5
+      switchids: [6]
       voq_inband_ip: [3.3.3.4/32]
       voq_inband_ipv6: [3333::3:4/128]
       loopback4096_ip: [192.0.0.4/32]
       loopback4096_ipv6: [2603:10e2:400::4/128]
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
-      ansible_host: 10.3.146.74
-    str3-7800-lc5-1:
+      ansible_host: 10.3.146.72
+    str3-7800-lc6-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
-      slot_num: slot7
-      switchids: [2]
+      slot_num: slot6
+      switchids: [8]
       voq_inband_ip: [3.3.3.5/32]
       voq_inband_ipv6: [3333::3:5/128]
       loopback4096_ip: [192.0.0.5/32]
       loopback4096_ipv6: [2603:10e2:400::5/128]
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
-      ansible_host: 10.3.146.75
-    str3-7800-lc6-1:
+      ansible_host: 10.3.146.74
+    str3-7800-lc7-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
-      slot_num: slot8
+      slot_num: slot7
       switchids: [10]
       voq_inband_ip: [3.3.3.6/32]
       voq_inband_ipv6: [3333::3:6/128]
@@ -802,12 +798,12 @@ sonic_arista_7800_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::6/128]
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
-      ansible_host: 10.3.146.80
-    str3-7800-lc7-1:
-      hwsku: Arista-7800R3-48CQM2-C48
-      sonic_hwsku: Arista-7800R3-48CQM2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cqm2_lc
-      model: 7800R3-48CQM2-LC
+      ansible_host: 10.3.146.75
+    str3-7800-lc8-1:
+      hwsku: Arista-7800R3-48CQ2-C48
+      model: 7800R3-48CQ2-LC
+      sonic_hwsku: Arista-7800R3-48CQ2-C48
+      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
       slot_num: slot8
       switchids: [12]
       voq_inband_ip: [3.3.3.7/32]
@@ -816,31 +812,36 @@ sonic_arista_7800_lc_100G:
       loopback4096_ipv6: [2603:10e2:400::7/128]
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
+      ansible_host: 10.3.146.80
+    str3-7800-lc9-1:
+      hwsku: Arista-7800R3-48CQM2-C48
+      sonic_hwsku: Arista-7800R3-48CQM2-C48
+      sonic_hw_platform:  x86_64-arista_7800r3_48cqm2_lc
+      model: 7800R3-48CQM2-LC
+      slot_num: slot9
+      switchids: [14]
+      voq_inband_ip: [3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:8/128]
+      loopback4096_ip: [192.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::8/128]
+      serial: SSN20220006
+      base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.81
-
-sonic_arista_7800_lc_400G:
-  vars:
-    max_cores: 16
-    switch_type: voq
-    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
-    voq_inband_type: port
-    num_asics: 2
-    frontend_asics: [0,1]
-  hosts:
-    str3-7800-lc8-1:
-      hwsku: Arista-7800R3A-36DM2-D36
-      sonic_hwsku: Arista-7800R3A-36DM2-D36
-      sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
-      model: 7800R3A-36DM2-LC
-      slot_num: slot8
-      switchids: [6,8]
-      voq_inband_ip: [3.3.3.8/32,3.3.3.9/32]
-      voq_inband_ipv6: [3333::3:8/128,3333::3:9/128]
-      loopback4096_ip: [192.0.0.8/32,192.0.0.9/32]
-      loopback4096_ipv6: [2603:10e2:400::8/128,2603:10e2:400::9/128]
-      serial: SGD21190878
-      base_mac: 2c:dd:e9:6c:cb:5c
-      ansible_host: 10.3.146.83
+    str3-7800-lc10-1:
+      hwsku: Arista-7800R3-48CQ2-C48
+      model: 7800R3-48CQ2-LC
+      sonic_hwsku: Arista-7800R3-48CQ2-C48
+      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
+      slot_num: slot10
+      switchids: [16]
+      voq_inband_ip: [3.3.3.9/32]
+      voq_inband_ipv6: [3333::3:9/128]
+      loopback4096_ip: [192.0.0.9/32]
+      loopback4096_ipv6: [2603:10e2:400::9/128]
+      serial: SSN20220006
+      base_mac: fc:bd:67:67:e4:1b
+      ansible_host: 10.3.146.58
+    
 
 sonic_arista32_100:
   hosts:

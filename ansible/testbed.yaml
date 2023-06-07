@@ -1675,9 +1675,9 @@
   server: server_62
   vm_base: VM62000
   dut:
-    - str3-7800-lc8-1
-    - str3-7800-lc1-1
-    - str3-7800-lc2-1
+    - str3-7800-lc3-1
+    - str3-7800-lc5-1
+    - str3-7800-lc6-1
     - str3-7808-sup-1
 
   inv_name: str3
@@ -1693,10 +1693,10 @@
   ptf_ip: 10.64.246.39/23
   ptf_ipv6:
   server: server_62
-  vm_base: VM62071
+  vm_base: VM62072
   dut:
-    - str3-7800-lc7-1
-    - str3-7800-lc5-1
+    - str3-7800-lc9-1
+    - str3-7800-lc10-1
     - str3-7808-sup-1
 
   inv_name: str3
