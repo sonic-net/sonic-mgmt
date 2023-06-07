@@ -718,7 +718,7 @@ def get_queue_count(duthost, port, priority):
     Returns:
         tuple (int, int): total count of packets and bytes in the queue
     """
-    raw_out = duthost.shell("show queue counters {} | sed -n '/\(UC{}\)/p'".format(port, priority))['stdout']
+    raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
     total_pkts = raw_out.split()[2]
     total_bytes = raw_out.split()[3]
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
