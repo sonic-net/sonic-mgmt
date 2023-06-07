@@ -31,7 +31,7 @@ def test_enable_dshell_client(duthosts, enum_rand_one_per_hwsku_hostname):
     result = duthost.command("sudo config platform cisco sdk-debug enable")
     logging.info(result)
     time.sleep(360)
-    assert "dshell_client: started" in result["stdout"], "dshell_client is not stopped"
+    assert "dshell_client: started" in result["stdout"], "dshell_client not started"
 
 def test_check_dshell_client_after_enable(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -52,6 +52,7 @@ def test_show_platform_npu_lpts(duthosts, enum_rand_one_per_hwsku_hostname):
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu lpts output"
+    assert result["stdout"], "No ouput for this CLI"
 
 def test_show_platform_npu_counters(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -62,7 +63,7 @@ def test_show_platform_npu_counters(duthosts, enum_rand_one_per_hwsku_hostname):
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu counters output"
-
+    assert result["stdout"], "No ouput for this CLI"
 
 def test_show_platform_npu_ecmp(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -73,6 +74,7 @@ def test_show_platform_npu_ecmp(duthosts, enum_rand_one_per_hwsku_hostname):
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu ecmp output"
+    assert result["stdout"], "No ouput for this CLI"
 
 def test_show_platform_npu_event_trap(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -83,7 +85,7 @@ def test_show_platform_npu_event_trap(duthosts, enum_rand_one_per_hwsku_hostname
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu event-trap"
-
+    assert result["stdout"], "No ouput for this CLI"
 
 def test_show_platform_npu_trap(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -94,3 +96,4 @@ def test_show_platform_npu_trap(duthosts, enum_rand_one_per_hwsku_hostname):
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu trap"
+    assert result["stdout"], "No ouput for this CLI"
