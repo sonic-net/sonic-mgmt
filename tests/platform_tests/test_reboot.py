@@ -235,7 +235,7 @@ def _power_off_reboot_helper(kwargs):
         pdu_ctrl.turn_on_outlet(outlet)
 
 
-def test_power_off_reboot(duthosts,
+def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                           localhost, conn_graph_facts, xcvr_skip_list,      # noqa F811
                           pdu_controller, power_off_delay):
     """
@@ -247,7 +247,7 @@ def test_power_off_reboot(duthosts,
     @param pdu_controller: The python object of psu controller
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
-    duthost = get_sup_node_or_random_node(duthosts)
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
     if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
         pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform".format(
@@ -256,7 +256,14 @@ def test_power_off_reboot(duthosts,
     if pdu_ctrl is None:
         pytest.skip(
             "No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
-
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    if is_chassis:
+        # This is extra check, for non-sup card on chassis, there is no pdu_controller, and test will be skipped earlier
+        if not duthost.is_supervisor_node():
+            pytest.skip("Skip power off reboot testing for chassis non-sup card, only sup has pdu link")
+        # Following is to accomodate for chassis, when no '--power_off_delay' option is given on pipeline run
+        else:
+            power_off_delay = 60
     all_outlets = pdu_ctrl.get_outlet_status()
     # If PDU supports returning output_watts, making sure that all outlets has power.
     no_power = [item for item in all_outlets if int(
@@ -292,8 +299,9 @@ def test_power_off_reboot(duthosts,
         for outlet in all_outlets:
             logging.debug("turning on {}".format(outlet))
             pdu_ctrl.turn_on_outlet(outlet)
-        # Sleep 120 for dut to boot up
-        time.sleep(120)
+        # Wait for ssh port to open up on the DUT
+        reboot_time = 300 if is_chassis else 120
+        wait_for_startup(duthost, localhost, 0, reboot_time)
         wait_critical_processes(duthost)
         raise e
 
