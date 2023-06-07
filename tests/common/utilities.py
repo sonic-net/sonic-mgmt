@@ -819,6 +819,61 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
     return None
 
 
+def run_until(interval, delay, retry, condition, function, *args, **kwargs):
+    """
+    @summary: Execute function until condition or retry number met.
+    @param interval: Interval between function execution.
+    @param delay: delay before start function call
+    @param retry: Number of retries until function meets condition.
+    @param condition: The expected condition for function to be met.
+    @param function: The function to be executed.
+    @param *args: Extra args required by the 'function'.
+    @param **kwargs: Extra args required by the 'function'.
+    @return: If the function meets conditions returns function output before finish specified retries. If no conditions
+        specified or was not meet - returns last function call output.
+    """
+    logger.debug("Wait until %s meet condition %s or %s retries, interval between calls is %s seconds" %
+                 (function.__name__, condition, retry, interval))
+    if delay > 0:
+        time.sleep(delay)
+
+    def compare_base_on_result_type(condition, result):
+        # Check exact match
+        if condition == result:
+            return True
+        # Check if function returns dict
+        elif isinstance(result, dict):
+            if condition in result.items():
+                return True
+        # Check if function returns string, list, set or tuple
+        elif isinstance(result, str) or isinstance(result, list) or isinstance(result, set) or \
+                isinstance(result, tuple):
+            if condition in result:
+                return True
+        else:
+            return False
+
+    for _ in range(retry):
+        try:
+            func_call_result = function(*args, **kwargs)
+            # Check if condition meets function result
+            if compare_base_on_result_type(condition, func_call_result):
+                break
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    function.__name__, "".join(details), e
+                )
+            )
+        finally:
+            # Wait if interval is set
+            if interval > 0:
+                time.sleep(interval)
+    return func_call_result
+
+
 def convert_scapy_packet_to_bytes(packet):
     """Convert scapy packet to bytes for python2 and python3 compatibility
     Args:
