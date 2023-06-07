@@ -70,7 +70,7 @@ class GitHubIssueChecker(IssueCheckerBase):
             bool: False if the issue is closed else True.
         """
         try:
-            response = requests.get(self.api_url, auth=(self.user, self.api_token))
+            response = requests.get(self.api_url, auth=(self.user, self.api_token), timeout=10)
             response.raise_for_status()
             issue_data = response.json()
             if issue_data.get('state', '') == 'closed':
@@ -138,4 +138,4 @@ def check_issues(issues):
     for proc in check_procs:
         proc.join(timeout=60)
 
-    return check_results
+    return dict(check_results)
