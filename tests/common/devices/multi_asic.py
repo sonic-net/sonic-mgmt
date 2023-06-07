@@ -458,8 +458,10 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
-            # This is to avoid gbsyncd check for multi-asic, only check gbsyncd0/1/..
-            if self.sonichost.is_multi_asic and docker == "gbsyncd":
+            # This is to avoid gbsyncd check fo VS
+            # because VS gbsyncd docker's critical_processes has gbsyncdmgrd
+            # while VS is missing gearbox_config.json file, so gbsyncdmgrd would not be running inside gbsyncd on VS 
+            if self.get_facts()['asic_type'] == 'vs' and docker == "gbsyncd":
                 continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
