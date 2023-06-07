@@ -705,3 +705,20 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     pause_frame_count = raw_out.split()[priority + 1]
 
     return int(pause_frame_count.replace(',', ''))
+
+
+def get_queue_count(duthost, port, priority):
+    """
+    Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
+    This is the equivalent of the "show queue counters" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        priority (int): priority of flow
+    Returns:
+        tuple (int, int): total count of packets and bytes in the queue
+    """
+    raw_out = duthost.shell("show queue counters {} | sed -n '/\(UC{}\)/p'".format(port, priority))['stdout']
+    total_pkts = raw_out.split()[2]
+    total_bytes = raw_out.split()[3]
+    return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))

@@ -8,6 +8,7 @@ chassis instead of reading it from fanout_graph_facts fixture.
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
 import time
+from enum import Enum
 
 
 class SnappiFanoutManager():
@@ -308,3 +309,8 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
                   "ARP is not resolved in {} seconds".format(max_attempts * poll_interval_sec))
 
     return attempts
+
+
+class class_enable_vector(Enum):
+    NO_BIT_SET = 0
+    BIT_SET = 1
