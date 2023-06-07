@@ -12,7 +12,7 @@ import time
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
-from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl, get_sup_node_or_random_node
 from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
     check_reboot_cause_history, reboot_ctrl_dict, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_POWEROFF, REBOOT_TYPE_WATCHDOG
@@ -235,7 +235,7 @@ def _power_off_reboot_helper(kwargs):
         pdu_ctrl.turn_on_outlet(outlet)
 
 
-def test_power_off_reboot(duthosts, enum_supervisor_dut_hostname,
+def test_power_off_reboot(duthosts,
                           localhost, conn_graph_facts, xcvr_skip_list,      # noqa F811
                           pdu_controller, power_off_delay):
     """
@@ -247,7 +247,7 @@ def test_power_off_reboot(duthosts, enum_supervisor_dut_hostname,
     @param pdu_controller: The python object of psu controller
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    duthost = get_sup_node_or_random_node(duthosts)
     UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
     if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
         pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform".format(
