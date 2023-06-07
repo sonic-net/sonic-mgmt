@@ -115,6 +115,8 @@ def lock_release_from_elastictest(testbed, action, hours, user, reason, force, a
         if action == 'release':
             data = {
                 'testbed_names': [testbed],
+                'force_release': force,
+                "requester_id": user,
             }
 
         headers = {
