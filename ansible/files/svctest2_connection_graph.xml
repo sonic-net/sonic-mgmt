@@ -17,7 +17,7 @@
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="svcstr2-7260cx3-acs-2" EndPort="Ethernet64/1" StartDevice="svcstr2-7260cx3-acs-1" StartPort="Ethernet63/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="svcstr2-7260cx3-acs-3" EndPort="Ethernet64/1" StartDevice="svcstr2-7260cx3-acs-1" StartPort="Ethernet64/1"/>
-      <DeviceInterfaceLink BandWidth="10000" EndDevice="svcstr2-z9332f-01" EndPort="Ethernet257" StartDevice="svcstr2-7260cx3-acs-1" StartPort="Ethernet17/1"/>
+      <DeviceInterfaceLink BandWidth="10000" EndDevice="svcstr2-z9332f-01" EndPort="Ethernet256" StartDevice="svcstr2-7260cx3-acs-1" StartPort="Ethernet65"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="svcstr2-server-5" EndPort="ens4f1" StartDevice="svcstr2-7260cx3-acs-1" StartPort="Ethernet1/1"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="svcstr2-z9332f-01" EndPort="Ethernet0" StartDevice="svcstr2-8800-lc1-1" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="svcstr2-z9332f-01" EndPort="Ethernet8" StartDevice="svcstr2-8800-lc1-1" StartPort="Ethernet8"/>
@@ -156,7 +156,7 @@
     <DevicesL2Info Hostname="svcstr2-7260cx3-acs-1">
       <InterfaceVlan mode="Trunk" portname="Ethernet63/1" vlanids="233-291"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="292-296"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet17/1" vlanids="201-232"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="201-232"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet1/1" vlanids=""/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="svcstr2-7260cx3-acs-3">
@@ -280,7 +280,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.252/24"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="svcstr2-z9332f-01">
-      <InterfaceVlan mode="Trunk" portname="Ethernet257" vlanids="201-232"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet256" vlanids="201-232"/>
       <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="201"/>
       <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="202"/>
       <InterfaceVlan mode="Access" portname="Ethernet16" vlanids="203"/>
