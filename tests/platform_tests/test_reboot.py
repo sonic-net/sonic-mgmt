@@ -258,13 +258,10 @@ def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
         pytest.skip(
             "No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
     is_chassis = duthost.get_facts().get("modular_chassis")
-    if is_chassis:
-        # This is extra check, for non-sup card on chassis, there is no pdu_controller, and test will be skipped earlier
-        if not duthost.is_supervisor_node():
-            pytest.skip("Skip power off reboot testing for chassis non-sup card, only sup has pdu link")
-        # Following is to accomodate for chassis, when no '--power_off_delay' option is given on pipeline run
-        else:
-            power_off_delay = 60
+    # non-sup on chassis will not have pdu_controller, will be skipped earlier
+    # This is to accomodate for chassis sup, when no '--power_off_delay' option is given
+    if is_chassis and duthost.is_supervisor_node():
+        power_off_delay = 60
     all_outlets = pdu_ctrl.get_outlet_status()
     # If PDU supports returning output_watts, making sure that all outlets has power.
     no_power = [item for item in all_outlets if int(
