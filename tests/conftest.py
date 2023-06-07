@@ -1032,7 +1032,6 @@ def generate_params_supervisor_hostname(request):
     logger.info("Randomly select dut {} for testing".format(duts[0]))
     return [duts[0]]
 
-
 def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=False):
     _, tbinfo = get_tbinfo(request)
     inv_files = get_inventory_files(request)
