@@ -31,6 +31,7 @@ from switch import (switch_init,
                     sai_thrift_read_pg_drop_counters,
                     sai_thrift_read_pg_shared_watermark,
                     sai_thrift_read_buffer_pool_watermark,
+                    sai_thrift_clear_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
                     sai_thrift_read_queue_occupancy)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,

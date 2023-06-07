@@ -906,6 +906,15 @@ def sai_thrift_read_buffer_pool_watermark(client, buffer_pool_id):
     return wm_vals[0]
 
 
+def sai_thrift_clear_buffer_pool_watermark(client, buffer_pool_id):
+    buffer_pool_wm_ids = [
+        SAI_BUFFER_POOL_STAT_WATERMARK_BYTES
+    ]
+
+    client.sai_thrift_clear_buffer_pool_stats(
+        buffer_pool_id, buffer_pool_wm_ids)
+
+
 def sai_thrift_read_headroom_pool_watermark(client, buffer_pool_id):
     buffer_pool_wm_ids = [
         SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES
