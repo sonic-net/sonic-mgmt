@@ -456,11 +456,13 @@ class MultiAsicSonicHost(object):
                 service_name = asic.get_docker_name(feature)
                 if service_name in self.sonichost.critical_services:
                     services.append(service_name)
-
+        logger.info("wenyi: services: {}".format(services))
         for docker in services:
             # This is to avoid gbsyncd check fo VS
             # because VS gbsyncd docker's critical_processes has gbsyncdmgrd
             # while VS is missing gearbox_config.json file, so gbsyncdmgrd would not be running inside gbsyncd on VS
+            logger.info("wenyi: asic_type: {}, docker: {}, docker_type: {}, is_gbsyncd: {}, "
+                        .format(self.get_facts()['asic_type'], docker, type(docker), ("gbsyncd" in docker)))
             if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
             cmd_disable_rate_limit = (
