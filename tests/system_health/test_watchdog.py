@@ -17,7 +17,7 @@ SLEEP_TIME = 10
 def pause_orchagent(duthost):
     # find orchagent pid
     pid = duthost.shell(
-                    r"ps -ef | grep orchagent | grep -v grep | awk '{print $2}'",
+                    r"pgrep orchagent",
                     module_ignore_errors=True)['stdout']
     logger.info('Get orchagent pid: {}'.format(pid))
 
@@ -42,7 +42,7 @@ def test_orchagent_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, pause_or
     if result != 'exist':
         pytest.skip("Skip orchagent watchdog test.")
 
-    # wait watchdog emit alert
+    # wait watchdog emit alert, orchagent watchdog timeout is 60 seconds
     WATCHDOG_TIMEOUT = 120
     current_attempt = 0
     while (True):
