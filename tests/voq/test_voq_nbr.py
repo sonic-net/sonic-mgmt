@@ -762,6 +762,12 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         # Check neighbor on local linecard
         logger.info("*" * 60)
         logger.info("Verify initial neighbor: %s, port %s", neighbor, local_port)
+        if ":" in neighbor:
+            logger.info("Force neighbor solicitation for IPV6.")
+            asic_cmd(asic, "ndisc6 %s %s" % (neighbor, local_port))
+        else:
+            logger.info("Force neighbor solicitation for IPV4.")
+            asic_cmd(asic, "arping -c 1 %s" % neighbor)
         pytest_assert(wait_until(60, 2, 0, check_arptable_mac,
                                  per_host, asic, neighbor, original_mac, checkstate=False),
                       "MAC {} didn't change in ARP table".format(original_mac))
