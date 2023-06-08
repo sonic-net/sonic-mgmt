@@ -17,7 +17,7 @@ else:
     from tests.common.utilities import wait_until
 
 CMD_APPLY_HACK = "config apply-patch -n -i '' -v {}"
-CMD_APPLY = "config apply-patch -n -v {}"
+CMD_APPLY = "config apply-patch -v {}"
 
 # HACKS summary:
 #
@@ -205,6 +205,12 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
         # The above error is possible, if some control plane component is making an update.
         # We can ignore rc, as DB comp is the final check. So skip it.
         # assert res["rc"] == 0, "Failed to apply patch"
+
+    # Manual shutdown needed because the removal of admin_status won't operate shutdown. It will
+    # by default keep the previous admin_status state. Thus making app-db comparison fail.
+    tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
+    duthost.shell("config interface shutdown {}".format(tor_ifname))
+    do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown before add patch".format(tor_ifname))
 
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_rm_t0_dir,
                       no_t0_db_dir, "generic_patch_rm_t0"), \
