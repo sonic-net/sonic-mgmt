@@ -32,6 +32,7 @@ t0:
   - generic_config_updater/test_ecn_config_update.py
   - iface_namingmode/test_iface_namingmode.py
   - lldp/test_lldp.py
+  - minigraph/test_masked_services.py
   - monit/test_monit_status.py
   - ntp/test_ntp.py
   - override_config_table/test_override_config_table.py

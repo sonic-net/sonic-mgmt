@@ -1,8 +1,11 @@
 #!/usr/bin/python
 
-from ansible.module_utils.basic import AnsibleModule
-from os import path
+import logging
 import sys
+from os import path
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.debug_utils import config_module_logging
+
 DOCUMENTATION = '''
 module:  reduce_and_add_sonic_images
 version_added:  "1.0"
@@ -25,12 +28,16 @@ Options:
 
 '''
 
+config_module_logging("reduce_and_add_sonic_images")
 
 results = {"downloaded_image_version": "Unknown", "current_stage": "Unknown"}
 
 
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
+    logging.debug("*** cmd: %s ***" % cmd)
     rc, out, err = module.run_command(cmd, use_unsafe_shell=True)
+    logging.debug("*** rc: %d, out: %s, err: %s ***" % (rc, out, err))
+
     if not ignore_error and rc != 0:
         module.fail_json(msg="Failed %s: rc=%d, out=%s, err=%s" %
                          (msg, rc, out, err))
@@ -81,6 +88,8 @@ def setup_swap_if_necessary(module):
 
 
 def reduce_installed_sonic_images(module):
+    logging.debug("reduce_installed_sonic_images")
+
     _, out, _ = exec_command(
         module, cmd="sonic_installer list", ignore_error=True)
     lines = out.split('\n')
@@ -100,6 +109,8 @@ def reduce_installed_sonic_images(module):
 
 
 def download_new_sonic_image(module, new_image_url, save_as):
+    logging.debug("download_new_sonic_image")
+
     global results
 
     if new_image_url:
@@ -119,6 +130,8 @@ def download_new_sonic_image(module, new_image_url, save_as):
 
 
 def install_new_sonic_image(module, new_image_url, save_as=None):
+    logging.debug("install new sonic image")
+
     if not save_as:
         avail = get_disk_free_size(module, "/host")
         save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
@@ -174,12 +187,15 @@ def work_around_for_reboot(module):
 def work_around_for_slow_disks(module):
     # Increase hung task timeout to 600 seconds to avoid kernel panic
     # while writing lots of data to a slow disk.
+    logging.debug("work around for slow disks, increase hung task timeout to 600 seconds")
     exec_command(
         module, cmd="sysctl -w kernel.hung_task_timeout_secs=600", ignore_error=True)
 
 
 def free_up_disk_space(module, disk_used_pcent):
     """Remove old log, core and dump files."""
+    logging.debug("free up disk space at best effort")
+
     def get_disk_used_percent(module):
         output = exec_command(module, cmd="df -BM --output=pcent /host")[1]
         return int(output.splitlines()[-1][:-1])
