@@ -233,6 +233,19 @@ sonic_cisco_8102:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0xB68424AA"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     str3-8102-05:
       ansible_host: 10.3.146.121
       model: 8102-64H-O
@@ -250,6 +263,19 @@ sonic_cisco_8102:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0x4365416D"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     str3-8102-06:
       ansible_host: 10.3.146.78
       model: 8102-64H-O
@@ -267,6 +293,19 @@ sonic_cisco_8102:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0xA3746C27"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
 
 sonic_cisco_8101:
   vars:
@@ -293,7 +332,17 @@ sonic_cisco_8101:
       plt_reboot_dict:
         cold:
           timeout: 300
-          wait: 90
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+
 sonic_cisco_8101_O8C48:
   vars:
     hwsku: Cisco-8101-O8C48
@@ -319,7 +368,16 @@ sonic_cisco_8101_O8C48:
       plt_reboot_dict:
         cold:
           timeout: 300
-          wait: 90
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     str3-8101-02:
       ansible_host: 10.3.146.191
       model: 8101-32FH-O
@@ -340,7 +398,17 @@ sonic_cisco_8101_O8C48:
       plt_reboot_dict:
         cold:
           timeout: 300
-          wait: 90
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+
 sonic_cisco_8111:
   vars:
     hwsku: Cisco-8111-C32

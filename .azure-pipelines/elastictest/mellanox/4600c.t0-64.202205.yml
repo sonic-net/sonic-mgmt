@@ -46,7 +46,7 @@ parameters:
     type: string
     default: internal-202205
 
-  # Custom run scripts, if both SCIPTS and FEATURES are empty, all the test will be executed
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
     default: " "
@@ -101,7 +101,7 @@ stages:
 
   jobs:
   - job:
-    displayName: vms28_t0_4600c.202205.NightlyTest_by_Elastictest
+    displayName: 4600c.t0-64.202205.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
