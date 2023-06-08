@@ -64,7 +64,7 @@ def _wait_until_pc_members_removed(asichost, pc_names):
     """
     Wait until all port channel members are removed.
     """
-    if not wait_until(30, 5, 5, lambda: asichost.get_portchannel_members(pc_names) is None):
+    if not wait_until(30, 5, 5, lambda: not asichost.get_portchannel_members(pc_names)):
         # Mark the test case as failed if port channel members are not removed.
         # The fixture reload_testbed_on_failed will do config reload to restore the DUT.
         pytest.fail("Portchannel members are not removed from {}".format(pc_names))
