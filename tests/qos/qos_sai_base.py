@@ -555,8 +555,6 @@ class QosSaiBase(QosBase):
             "dst_asic": dst_asic,
             "src_dut": src_dut,
             "dst_dut": dst_dut,
-            "single_asic_test": (src_dut == dst_dut and
-                src_asic == dst_asic),
             "all_asics": all_asics,
             "all_duts": all_duts
         }
