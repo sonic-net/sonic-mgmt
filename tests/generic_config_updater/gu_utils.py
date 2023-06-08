@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
+GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 
 
 def generate_tmpfile(duthost):
@@ -304,22 +305,23 @@ def get_asic_name(duthost):
     asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
     if asic_type == 'cisco-8000':
         asic = "cisco-8000"
-    elif asic_type == 'melanox':
-        GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-        spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
+    elif asic_type == 'mellanox' or asic_type == 'vs' or asic_type == 'broadcom':
         hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
-        if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
-            asic = "spc1"
-    elif asic_type == 'broadcom':
-        output = duthost.shell("lspci")['stdout']
-        broadcom_asics = asic_mapping["broadcom_asics"]
-        for asic_shorthand, asic_descriptions in broadcom_asics.items():
-            if asic != "unknown":
-                break
-            for asic_description in asic_descriptions:
-                if asic_description in output:
-                    asic = asic_shorthand
+        if asic_type == 'mellanox' or asic_type == 'vs':
+            spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
+            if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
+                asic = "spc1"
+                return asic
+        if asic_type == 'broadcom' or asic_type == 'vs':
+            broadcom_asics = asic_mapping["broadcom_asics"]
+            for asic_shorthand, hwskus in broadcom_asics.items():
+                if asic != "unknown":
                     break
+                for hwsku_cur in hwskus:
+                    if hwsku_cur.lower() in hwsku.lower():
+                        asic = asic_shorthand
+                        break
+
     return asic
 
 
