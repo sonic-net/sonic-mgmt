@@ -118,4 +118,3 @@ def test_power_off_reboot(duthosts, localhost, conn_graph_facts, enum_supervisor
         wait_for_startup(duthost, localhost, 0, reboot_time)
         wait_critical_processes(duthost)
         raise e
-
