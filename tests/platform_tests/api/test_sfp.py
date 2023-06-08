@@ -280,6 +280,18 @@ class TestSfpApi(PlatformApiTestBase):
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         return xcvr_type not in not_resettable_xcvr_type
 
+    def lp_mode_assert_delay(self, xcvr_info_dict):
+        xcvr_type = xcvr_info_dict["type_abbrv_name"]
+        if "QSFP" in xcvr_type and xcvr_type != "QSFP-DD":
+            return 0.1
+        return 0
+
+    def lp_mode_deassert_delay(self, xcvr_info_dict):
+        xcvr_type = xcvr_info_dict["type_abbrv_name"]
+        if "QSFP" in xcvr_type and xcvr_type != "QSFP-DD":
+            return 0.3
+        return 0
+
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
@@ -685,6 +697,10 @@ class TestSfpApi(PlatformApiTestBase):
                 # Test all channels for a eight-channel transceiver
                 all_channel_mask = 0xFF
                 expected_mask = 0x80
+            elif info_dict["type_abbrv_name"] == "SFP":
+                # Test all channels for a single-channel transceiver
+                all_channel_mask = 0x1
+                expected_mask = 0x1
             else:
                 # Test all channels for a four-channel transceiver
                 all_channel_mask = 0XF
@@ -743,9 +759,14 @@ class TestSfpApi(PlatformApiTestBase):
                 if ret is None:
                     logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
+                if state is True:
+                    delay = self.lp_mode_assert_delay(info_dict)
+                else:
+                    delay = self.lp_mode_deassert_delay(info_dict)
                 self.expect(ret is True, "Failed to {} low-power mode for transceiver {}"
                             .format("enable" if state is True else "disable", i))
-                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                self.expect(wait_until(5, 1, delay,
+                                       self._check_lpmode_status, sfp, platform_api_conn, i, state),
                             "Transceiver {} expected low-power state {} is not aligned with the real state"
                             .format(i, "enable" if state is True else "disable"))
         self.assert_expectations()

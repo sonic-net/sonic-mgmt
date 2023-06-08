@@ -34,8 +34,7 @@ class QosBase:
                           "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2",
-                           "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3", "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -1309,6 +1308,10 @@ class QosSaiBase(QosBase):
         if saiQosTest:
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"]
+            })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )

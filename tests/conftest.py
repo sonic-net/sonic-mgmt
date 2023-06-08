@@ -57,6 +57,7 @@ from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_a
 from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
+from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -1444,6 +1445,8 @@ def pytest_generate_tests(metafunc):        # noqa E302
         metafunc.parametrize(
             "enum_dut_feature_container", generate_dut_feature_container_list(metafunc)
         )
+    if 'enum_dut_all_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_all_prio", generate_priority_lists(metafunc, 'all'))
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
@@ -1540,8 +1543,8 @@ def enum_rand_one_frontend_asic_index(request):
 
 
 @pytest.fixture(scope="module")
-def duthost_console(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, creds):   # noqa F811
-    duthost = duthosts[rand_one_dut_hostname]
+def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa F811
+    duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
@@ -2110,7 +2113,7 @@ def on_exit():
     on_exit.cleanup()
 
 
-def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
+def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
     """
     Check that a packet is received on _any_ of the specified ports belonging to
     the given device (default device_number is 0).
@@ -2128,7 +2131,8 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
             continue
         if port in ports:
             logging.debug("Checking for pkt on device %d, port %d", device_number, port)
-            result = testutils.dp_poll(test, device_number=device, port_number=port, exp_pkt=pkt)
+            result = testutils.dp_poll(test, device_number=device, port_number=port,
+                                       timeout=timeout, exp_pkt=pkt)
             if isinstance(result, test.dataplane.PollSuccess):
                 received = True
             else:
@@ -2148,3 +2152,7 @@ def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
 # HACK: testutils.verify_packets_any to workaround code bug
 # TODO: delete me when ptf version is advanced than https://github.com/p4lang/ptf/pull/139
 testutils.verify_packets_any = verify_packets_any_fixed
+
+# HACK: We are using set_do_not_care_scapy but it will be deprecated.
+if not hasattr(Mask, "set_do_not_care_scapy"):
+    Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet

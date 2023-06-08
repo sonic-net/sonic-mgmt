@@ -42,21 +42,38 @@
 {% endif %}
     },
     "BGP_NEIGHBOR": {
+{% set local_ip_addrs = [] %}
+{% for name, iface in host['interfaces'].items() %}
+{% if not name.startswith('Loopback') and iface['lacp'] is not defined %}
+{% if iface['lacp']['ipv4'] is not defined %}
+{{ local_ip_addrs.append(iface['ipv4']) }}
+{% endif %}
+{% if iface['lacp']['ipv4'] is not defined %}
+{{ local_ip_addrs.append(iface['ipv6']) }}
+{% endif %}
+{% endif %}
+{% endfor %}
 {% for peer in host['bgp']['peers'][configuration_properties['common']['dut_asn']] %}
         "{{ peer | lower }}": {
             "admin_status": "up",
             "asn": "{{ configuration_properties['common']['dut_asn'] }}",
             "holdtime": "10",
             "keepalive": "3",
-            "local_addr": "{{ host['interfaces']['Port-Channel1']['ipv6' if peer | ipv6 else 'ipv4'].split('/')[0] | lower }}",
-            "name": "{{ hostname }}",
+{% set usable_local_ip_addrs = [] %}
+{% for local_ip_addr in local_ip_addrs %}
+{% if local_ip_addr | network_in_usable(peer) %}
+{{ usable_local_ip_addrs.append(local_ip_addr) }}
+{% endif %}
+{% endfor %}
+            "local_addr": "{{ usable_local_ip_addrs[0].split('/')[0] | lower }}",
+            "name": "{{ duts_name }}",
             "nhopself": "0",
             "rrclient": "0"
         },
 {% endfor %}
         "{{ configuration_properties['common']['nhipv4'] }}": {
             "admin_status": "up",
-            "asn": "{{ configuration_properties['common']['leaf_asn_start'] }}",
+            "asn": "{{ host['bgp']['asn'] }}",
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['bp_interface']['ipv4'].split('/')[0] }}",
@@ -66,7 +83,7 @@
         },
         "{{ configuration_properties['common']['nhipv6'] | lower }}": {
             "admin_status": "up",
-            "asn": "{{ configuration_properties['common']['leaf_asn_start'] }}",
+            "asn": "{{ host['bgp']['asn'] }}",
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['bp_interface']['ipv6'].split('/')[0] | lower }}",
@@ -74,6 +91,17 @@
             "nhopself": "0",
             "rrclient": "0"
         }
+    },
+    "DEVICE_NEIGHBOR_METADATA": {
+{% set separator = joiner(",") %}
+{% for dut_name in duts_name.split(',') %}
+{{ separator() }}
+        "{{ dut_name }}": {
+                "hwsku": "SONiC-VM",
+                "mgmt_addr": "{{ hostvars[dut_name]['ansible_host'] }}",
+                "type": "TorRouter"
+        }
+{% endfor %}
     },
 {% set separator = joiner(",") %}
 {% set first_in_loop = true %}

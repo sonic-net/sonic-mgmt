@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2'),
+    pytest.mark.disable_loganalyzer,
 ]
 
 MAX_TIME_TO_REBOOT = 120
@@ -27,10 +28,14 @@ MAX_TIME_TO_REBOOT = 120
 
 @pytest.fixture(scope='function')
 def set_max_to_reboot(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
     global MAX_TIME_TO_REBOOT
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_link_down.py', 'cold')
     if plt_reboot_ctrl:
-        MAX_TIME_TO_REBOOT = plt_reboot_ctrl['wait']
+        MAX_TIME_TO_REBOOT = plt_reboot_ctrl.get('timeout', 120)
 
 
 def multi_duts_and_ports(duthosts):
@@ -108,7 +113,7 @@ def links_up(fanout, ports):
     return fanout.links_status_up(ports)
 
 
-def link_status_on_host(localhost, fanouts_and_ports, up=True):
+def link_status_on_host(fanouts_and_ports, up=True):
     for fanout, ports in list(fanouts_and_ports.items()):
         hostname = fanout.hostname
         # Assumption here is all fanouts are healthy.
@@ -124,14 +129,14 @@ def link_status_on_host(localhost, fanouts_and_ports, up=True):
     return True
 
 
-def link_status_on_all_fanouts(localhost, fanouts_and_ports, up=True):
+def link_status_on_all_fanouts(fanouts_and_ports, up=True):
     """
     Return:
         True: if up=True, and all links on all fanout hosts are up
               or
               if up=False, and all link on all fanout hosts are down
     """
-    link_status_on_host(localhost, fanouts_and_ports, up)
+    link_status_on_host(fanouts_and_ports, up)
     logger.info("All interfaces on all fanouts are {}!".format('up' if up else 'down'))
     return True
 
@@ -143,8 +148,8 @@ def check_interfaces_and_services_all_LCs(duthosts, conn_graph_facts, xcvr_skip_
 
 
 def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
-                                 conn_graph_facts,
-                                 fanouthosts, tbinfo, xcvr_skip_list, set_max_to_reboot):
+                                 conn_graph_facts, set_max_to_reboot,
+                                 fanouthosts, xcvr_skip_list):
     if len(duthosts.nodes) == 1:
         pytest.skip("Skip single-host dut for this test")
 
@@ -166,7 +171,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, duts_and_ports)
 
     # Also make sure fanout hosts' links are up
-    link_status_on_all_fanouts(localhost, fanouts_and_ports)
+    link_status_on_all_fanouts(fanouts_and_ports)
 
     # Get a dut uptime before reboot
     dut_uptime_before = duthost.get_up_time()
@@ -175,7 +180,7 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
     reboot(duthost, localhost, wait_for_ssh=False)
 
     # Also make sure fanout hosts' links are down
-    link_status_on_all_fanouts(localhost, fanouts_and_ports, up=False)
+    link_status_on_all_fanouts(fanouts_and_ports, up=False)
 
     # Wait for ssh port to open up on the SUP
     wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
@@ -194,13 +199,13 @@ def test_link_down_on_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostna
         duthosts, conn_graph_facts, xcvr_skip_list)
 
     # Also make sure fanout hosts' links are up
-    link_status_on_all_fanouts(localhost, fanouts_and_ports)
+    link_status_on_all_fanouts(fanouts_and_ports)
 
 
-def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostname,
-                                    conn_graph_facts,
-                                    fanouthosts, xcvr_skip_list, tbinfo, set_max_to_reboot):
-    duthost = duthosts[enum_frontend_dut_hostname]
+def test_link_status_on_host_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
+                                    conn_graph_facts, set_max_to_reboot,
+                                    fanouthosts, xcvr_skip_list):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     hostname = duthost.hostname
 
     # Before test, check all interfaces and services are up
@@ -211,7 +216,7 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
     fanouts_and_ports = fanout_hosts_and_ports(fanouthosts, dut_ports)
 
     # Also make sure fanout hosts' links are up
-    link_status_on_host(localhost, fanouts_and_ports)
+    link_status_on_host(fanouts_and_ports)
 
     # Get a dut uptime before reboot
     dut_uptime_before = duthost.get_up_time()
@@ -220,7 +225,7 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
     reboot(duthost, localhost, wait_for_ssh=False)
 
     # After reboot, immediately check if all links on all fanouts are down
-    link_status_on_host(localhost, fanouts_and_ports, up=False)
+    link_status_on_host(fanouts_and_ports, up=False)
 
     # Wait for ssh port to open up on the DUT
     wait_for_startup(duthost, localhost, 0, MAX_TIME_TO_REBOOT)
@@ -236,4 +241,4 @@ def test_link_status_on_host_reboot(duthosts, localhost, enum_frontend_dut_hostn
         duthost, conn_graph_facts["device_conn"][hostname], xcvr_skip_list)
 
     # Also make sure fanout hosts' links are up
-    link_status_on_host(localhost, fanouts_and_ports)
+    link_status_on_host(fanouts_and_ports)

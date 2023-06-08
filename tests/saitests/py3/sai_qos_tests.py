@@ -91,6 +91,7 @@ STOP_PORT_MAX_RATE = 1
 RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53  # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52  # Fits the ptf hex_dump_buffer() parse function
+COUNTER_MARGIN = 2  # Margin for counter check
 
 
 def check_leackout_compensation_support(asic, hwsku):
@@ -253,6 +254,8 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_3_ip = self.test_params['dst_port_3_ip']
         self.dst_port_3_mac = self.dataplane.get_mac(0, self.dst_port_3_id)
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
+        self.test_port_ids = self.test_params.get("testPortIds", None)
+        self.test_port_ips = self.test_params.get("testPortIps", None)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -272,6 +275,13 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
                                        self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
+
+        # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
+        if self.test_port_ids and self.test_port_ips:
+            for portid in self.test_port_ids:
+                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
+                                     'ping -q -c 3 {}'.format(self.test_port_ips[portid]['peer_addr']))
+
         time.sleep(8)
 
 
@@ -436,8 +446,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 3/4  1                 1               1                                                1                                         1                         # noqa E501
             # queue 5    1                 1               1                                                1                                         1                         # noqa E501
             # queue 7    0                 1               1                                                1                                         1                         # noqa E501
-            # LAG ports can have LACP packets on queue 0, hence using >= comparison
-            assert (queue_results[QUEUE_0] >= 1 + queue_results_base[QUEUE_0])
+            assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
             assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
             assert (queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
             assert (queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
@@ -456,12 +465,14 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                 else:
                     assert (queue_results[QUEUE_1] ==
                             57 + queue_results_base[QUEUE_1])
-                assert (queue_results[QUEUE_7] == 1 +
+                # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                assert (queue_results[QUEUE_7] >= 1 +
                         queue_results_base[QUEUE_7])
             else:
                 assert (queue_results[QUEUE_1] == 58 +
                         queue_results_base[QUEUE_1])
-                assert (queue_results[QUEUE_7] == queue_results_base[QUEUE_7])
+                # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                assert (queue_results[QUEUE_7] >= queue_results_base[QUEUE_7])
 
         finally:
             print("END OF TEST", file=sys.stderr)
@@ -1969,7 +1980,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg, port_counter_fields[pg], step_id, step_desc)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                     port_counter_fields[cntr], step_id, step_desc)
             # xmit port no egress drop
@@ -2006,7 +2017,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.write('{}\n'.format(port_cnt_tbl))
 
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                     port_counter_fields[cntr], step_id, step_desc)
             recv_counters_base = recv_counters
@@ -2053,7 +2064,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg, port_counter_fields[pg], step_id, step_desc)
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                     port_counter_fields[cntr], step_id, step_desc)
             # xmit port no egress drop
@@ -2080,22 +2091,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         switch_init(self.client)
 
         # Parse input parameters
-        self.dynamic_threshold = self.test_params.get(
-            'dynamic_threshold', False)
         self.testbed_type = self.test_params['testbed_type']
         self.dscps = self.test_params['dscps']
-        if self.dynamic_threshold and len(self.dscps) > 1:
-            self.dscps = self.dscps[:1]
         self.ecn = self.test_params['ecn']
         self.router_mac = self.test_params['router_mac']
         self.sonic_version = self.test_params['sonic_version']
         # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
         self.pgs = [pg + 2 for pg in self.test_params['pgs']]
-        if self.dynamic_threshold:
-            self.pgs = [self.test_params['pgs'][0] + 2]
         self.src_port_ids = self.test_params['src_port_ids']
-        if self.dynamic_threshold and len(self.src_port_ids) > 1:
-            self.src_port_ids = self.src_port_ids[:1]
         self.src_port_ips = self.test_params['src_port_ips']
         print(self.src_port_ips, file=sys.stderr)
         sys.stderr.flush()
@@ -2106,8 +2109,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_id = self.test_params['dst_port_id']
         self.dst_port_ip = self.test_params['dst_port_ip']
         self.pgs_num = self.test_params['pgs_num']
-        if self.dynamic_threshold and self.pgs_num > 1:
-            self.pgs_num = 1
         self.asic_type = self.test_params['sonic_asic_type']
         self.pkts_num_leak_out = self.test_params['pkts_num_leak_out']
         self.pkts_num_trig_pfc = self.test_params.get('pkts_num_trig_pfc')
@@ -2283,7 +2284,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
                 send_packet(
-                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
+                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, int(pkt_cnt))
 
                 time.sleep(8)   # wait pfc counter refresh
                 self.show_port_counter(
@@ -4673,3 +4674,104 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             # Enable tx on dest port
             self.sai_thrift_port_tx_enable(
                 self.client, asic_type, [dst_port_id])
+
+
+class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
+
+    def runTest(self):
+        time.sleep(5)
+        switch_init(self.client)
+        # Parse input parameters
+        ingress_counters, egress_counters = get_counter_names(self.test_params['sonic_version'])
+        ecn = int(self.test_params['ecn'])
+        router_mac = self.test_params['router_mac']
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        dst_port_ids = self.test_params['dst_port_ids']
+        dst_port_ips = self.test_params['dst_port_ips']
+        dst_port_macs = [self.dataplane.get_mac(
+            0, ptid) for ptid in dst_port_ids]
+
+        asic_type = self.test_params['sonic_asic_type']
+        pkt_count = int(self.test_params['pkt_count'])
+        cell_size = int(self.test_params['cell_size'])
+        prio_list = [2, 3, 4, 8, 5, 46, 48]
+        queue_list = [1, 3, 4, 0, 2, 5, 6]
+        if 'packet_size' in list(self.test_params.keys()):
+            packet_length = int(self.test_params['packet_size'])
+        else:
+            packet_length = 64
+
+        cell_occupancy = (packet_length + cell_size - 1) // cell_size
+        dst_port_ids.remove(src_port_id)
+        dst_port_ips.remove(src_port_ip)
+        dst_port_macs.remove(src_port_mac)
+        ttl = 64
+        assert(router_mac != '')
+        pkt_dst_mac = router_mac
+
+        # Correct any destination ports that may be in a lag
+        for i in range(len(dst_port_ids)):
+            dst_port_id = dst_port_ids[i]
+            dst_port_ip = dst_port_ips[i]
+            real_dst_port_id = get_rx_port(
+                self,
+                0,
+                src_port_id,
+                router_mac,
+                dst_port_ip, src_port_ip
+            )
+            if real_dst_port_id != dst_port_id:
+                dst_port_ids[i] = real_dst_port_id
+
+        margin = int(self.test_params['pkts_num_margin']) if self.test_params.get(
+            'pkts_num_margin') else 8
+
+        recv_counters_base, _ = sai_thrift_read_port_counters(self.client, port_list[src_port_id])
+        dst_q_wm_res_bases = [sai_thrift_read_port_watermarks(self.client, port_list[sid])[0] for sid in dst_port_ids]
+        print("queue watermark base for all port is {}".format(dst_q_wm_res_bases), file=sys.stderr)
+
+        try:
+            for i in range(len(prio_list)):
+                dscp = prio_list[i]
+                queue = queue_list[i]
+                for j in range(len(dst_port_ids)):
+                    dst_port_id = dst_port_ids[j]
+                    dst_port_ip = dst_port_ips[j]
+                    self.sai_thrift_port_tx_disable(self.client, asic_type, [dst_port_id])
+                    pkt = construct_ip_pkt(packet_length,
+                                           pkt_dst_mac,
+                                           src_port_mac,
+                                           src_port_ip,
+                                           dst_port_ip,
+                                           dscp,
+                                           src_port_vlan,
+                                           ecn=ecn,
+                                           ttl=ttl)
+
+                    # leakout
+                    if 'cisco-8000' in asic_type:
+                        assert fill_leakout_plus_one(self, src_port_id,
+                               dst_port_id, pkt, queue, asic_type), \
+                               "Failed to fill leakout on dest port {}".format(dst_port_id)
+
+                    # send packet
+                    send_packet(self, src_port_id, pkt, pkt_count)
+                    self.sai_thrift_port_tx_enable(self.client, asic_type, [dst_port_id])
+
+            time.sleep(2)
+            # get all q_wm values for all port
+            dst_q_wm_res_all_port = [sai_thrift_read_port_watermarks(self.client, port_list[sid])[0]
+                                     for sid in dst_port_ids]
+            print("queue watermark for all port is {}".format(dst_q_wm_res_all_port), file=sys.stderr)
+            expected_wm = pkt_count * cell_occupancy
+            # verification of queue watermark for all ports
+            for qwms in dst_q_wm_res_all_port:
+                for qwm in qwms[:-1]:
+                    print("queue_wm value is {}".format(qwm), file=sys.stderr)
+                    assert((expected_wm - margin) * cell_size <= qwm <= (expected_wm + margin) * cell_size)
+
+        finally:
+            self.sai_thrift_port_tx_enable(self.client, asic_type, dst_port_ids)

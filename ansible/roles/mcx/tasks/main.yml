@@ -1,9 +1,6 @@
 ##############################################################################################
 ### playbook to deploy the mcx switch
 ### Use this playbook to deploy the console configurations of mcx switch in SONiC testbed
-### This playbook now supports Nokia-7215 and Celestica-E1031-T48S4 only
-### This playbook will configure management IP (default to Ethernet47 for Nokia-7215) and setup
-### console links based on connection graph.
 ################################################################################################
 - name: Gathering lab graph facts about the device
   conn_graph_facts: host={{ inventory_hostname }}
@@ -14,27 +11,21 @@
   fail: msg="Cannot confirm OS is SONiC"
   when: os is not defined or os != "sonic"
 
-- name: Set HwSku
-  set_fact:
-    HwSku: "{{ device_info[inventory_hostname][\"HwSku\"] }}"
-
-- name: Check that HwSku is Nokia-7215 or Celestica-E1031-T48S4
-  fail: msg="Device HwSku is not Nokia-7215 or Celestica-E1031-T48S4"
-  when: HwSku != "Nokia-7215" and HwSku != "Celestica-E1031-T48S4"
-
 - name: Prepare mgmt device admin login info
   set_fact: ansible_ssh_user={{ mgmt_admin_user }} ansible_ssh_pass={{ mgmt_admin_password }}
 
-- name: Move json config to console server
-  template:
-    src: mcx_config.j2
-    dest: /tmp/base_config.json
+- name: If dry_run and reset, use dry_run_reset.yml
+  import_tasks: dry_run_reset.yml
+  when: dry_run is defined and reset is defined
 
-- name: Backup config_db.json
-  shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
+- name: If dry_run and not reset, use dry_run_incremental.yml
+  import_tasks: dry_run_incremental.yml
+  when: dry_run is defined and reset is not defined
 
-- name: Generate new config_db.json with sonic-cfggen
-  shell: sonic-cfggen -H -k {{ HwSku }} -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
+- name: If reset setting, use reset_update.yml
+  import_tasks: reset_update.yml
+  when: reset is defined and dry_run is not defined
 
-- name: Config
-  shell: config reload -y
+- name: If reset is not set, use incremental_update.yml
+  import_tasks: incremental_update.yml
+  when: reset is not defined and dry_run is not defined
