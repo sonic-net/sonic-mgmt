@@ -114,9 +114,10 @@ def fetch_into_file(localhost, remote_ip, rwuser, rwpass, src_file, dst_file):
 
 
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
-        tacacs_creds, check_tacacs):
+         tacacs_creds,check_tacacs, tbinfo):
     """test tacacs rw user
     """
+
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_release(duthost, ["201911", "201811"])
 
@@ -137,7 +138,8 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         do_reboot(duthost, localhost, duthosts)
         assert do_check_clean_state(duthost), "state not good even after reboot"
         do_setup_tacacs(ptfhost, duthost, tacacs_creds)
-
+    if  duthost in duthosts.frontend_nodes:
+        add_route_to_ptf_setuplocal(duthost, tbinfo)
     # just check it out that ro user could indeed login
     ret = chk_ssh_remote_run(localhost, dutip, ro_user, ro_pass, "ls")
     assert ret, "Failed pre-test ssh login as ro user"
@@ -216,3 +218,19 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         do_reboot(duthost, localhost, duthosts)
         logger.debug("  END: reboot {} to restore disk RW state".
                 format(enum_rand_one_per_hwsku_hostname))
+
+
+def add_route_to_ptf_setuplocal(duthost, tbinfo):
+    ''' Local Update to Line Cards Routes as a reboot to CPM if selected first as duthost will remove the routes added by the fixture.
+    Function Reference to add_route_to_ptf_setup'''
+    net_bytes = tbinfo['ptf_ip'].split(".")
+    output=duthost.shell("show chassis modules status |grep LINE-CARD|awk  '{ print $3 }'")
+    slot_num = output['stdout']
+    dut_addr = net_bytes[0] + "." + net_bytes[1] + "." + net_bytes[2] + ".23" + slot_num + "/24"
+    duthost.facts['dut_ip_ptfnet_add'] = net_bytes[0] + "." + net_bytes[1] + "." + net_bytes[
+        2] + ".23" + slot_num
+
+    output = duthost.shell("sudo ip addr show dev eth0")
+    if dut_addr not in output['stdout']:
+        logger.info("Adding {} to eth0 interface on {}".format(dut_addr, duthost.hostname))
+        duthost.shell("sudo ip addr add {} dev eth0".format(dut_addr))
