@@ -859,7 +859,6 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     conditions_logical_operator: or
     conditions:
       - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
-      - "'t1' in topo_type and platform in ['x86_64-8102_64h_o-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
@@ -869,6 +868,17 @@ platform_tests/test_reload_config.py:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
+
+#######################################
+#########  test_sensors.py  ###########
+#######################################
+platform_tests/test_sensors.py::test_sensors:
+  xfail:
+    reason: "Case failed and waiting for fix on Arista platform"
+    conditions:
+      - "hwsku in ['Arista-7050QX32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7260CX3-D108C8', 'Arista-7060CX-32S-C32', 'Arista-7260CX3-C64']"
+      - "release in ['202205']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8437
 
 #######################################
 ##### test_sequential_restart.py  #####
