@@ -68,7 +68,7 @@ def common_setup_teardown(rand_selected_dut, request, tbinfo, vmhost):
     supported_platforms = ['broadcom_td3_hwskus', 'broadcom_th2_hwskus', 'cisco_hwskus']
     hostvars = get_host_visible_vars(rand_selected_dut.host.options['inventory'], rand_selected_dut.hostname)
     hwsku = rand_selected_dut.facts['hwsku']
-    skip = True
+    skip = False
     for platform in supported_platforms:
         supported_skus = hostvars.get(platform, [])
         if hwsku in supported_skus:
