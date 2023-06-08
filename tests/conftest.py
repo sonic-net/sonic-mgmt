@@ -1024,13 +1024,14 @@ def generate_params_supervisor_hostname(request):
         # Expecting only a single supervisor node
         if is_supervisor_node(inv_files, dut):
             return [dut]
-    # If there are no supervisor card in a multi-dut tesbed, 
+    # If there are no supervisor card in a multi-dut testbed
     # 1. we are dealing with all pizza box in the testbed, pick a random DUT
     # 2. or single-dut, pick itself
     if len(duts) > 1:
         duts = random.sample(duts, 1)
     logger.info("Randomly select dut {} for testing".format(duts[0]))
     return [duts[0]]
+
 
 def generate_param_asic_index(request, dut_hostnames, param_type, random_asic=False):
     _, tbinfo = get_tbinfo(request)
