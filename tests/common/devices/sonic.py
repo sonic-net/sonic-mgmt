@@ -2275,7 +2275,7 @@ Totals               6450                 6449
     def links_status_down(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
-            output_port = output_line.split(' ')[0]
+            output_port = output_line.strip().split(' ')[0]
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Either oper or admin status 'down' means link down
@@ -2291,7 +2291,7 @@ Totals               6450                 6449
     def links_status_up(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
-            output_port = output_line.split(' ')[0]
+            output_port = output_line.strip().split(' ')[0]
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Either oper or admin status 'down' means link down
