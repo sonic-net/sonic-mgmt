@@ -859,7 +859,6 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     conditions_logical_operator: or
     conditions:
       - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
-      - "'t1' in topo_type and platform in ['x86_64-8102_64h_o-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
