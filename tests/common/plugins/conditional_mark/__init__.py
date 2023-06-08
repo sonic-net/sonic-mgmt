@@ -180,49 +180,6 @@ def get_basic_facts(session):
             session.config.cache.set('BASIC_FACTS', basic_facts)
 
 
-def is_file_empty_or_comments(file_path):
-    # Check if the file exists
-    if not os.path.isfile(file_path):
-        logger.debug("File does not exist.")
-        return True
-
-    # Open the file
-    with open(file_path, 'r') as file:
-        # Read all lines
-        lines = file.readlines()
-        # Remove whitespace and comments from each line
-        stripped_lines = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
-        # Check if the file is empty or contains only comments
-        if not stripped_lines:
-            logger.debug("File is empty or contains only comments.")
-            return True
-        else:
-            logger.debug("File is not empty and contains non-commented lines.")
-            return False
-
-
-def get_http_proxies(inv_name):
-    INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(inv_name)
-    PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
-    base_path = os.path.dirname(__file__)
-    env_file_path = os.path.join(base_path, INV_ENV_FILE)
-    if is_file_empty_or_comments(env_file_path):
-        env_file_path = os.path.join(base_path, PUBLIC_ENV_FILE)
-
-    try:
-        with open(env_file_path) as env_file:
-            proxy_env = yaml.safe_load(env_file)
-            if proxy_env is not None:
-                proxy = proxy_env.get("proxy_env", {})
-                http_proxy = proxy.get('http_proxy', '')
-                proxies = {'http': http_proxy, 'https': http_proxy}
-            else:
-                proxies = {'http': '', 'https': ''}
-    except Exception as e:
-        logger.error('Load proxy env from {} failed with error: {}'.format(env_file_path, repr(e)))
-    return proxies
-
-
 def load_minigraph_facts(inv_name, dut_name):
     """Run 'ansible -m minigraph_facts -a host={{hostname}}' command to get some basic minigraph facts.
 
@@ -356,7 +313,6 @@ def load_basic_facts(session):
     Returns:
         dict: Dict of facts.
     """
-    global g_proxies
     results = {}
 
     testbed_name = session.config.option.testbed
@@ -375,8 +331,6 @@ def load_basic_facts(session):
         inv_name = tbinfo['inv_name']
     else:
         inv_name = 'lab'
-    g_proxies = get_http_proxies(inv_name)
-
     # Since internal repo add vendor test support, add check to see if it's sonic-os, other wise skip load facts.
     vendor = session.config.getoption("--dut_vendor", "sonic")
     if vendor == "sonic":

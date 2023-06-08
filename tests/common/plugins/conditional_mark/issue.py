@@ -13,7 +13,6 @@ from abc import ABCMeta, abstractmethod
 logger = logging.getLogger(__name__)
 
 CREDENTIALS_FILE = 'credentials.yaml'
-g_proxies = {}
 
 
 class IssueCheckerBase(six.with_metaclass(ABCMeta, object)):
@@ -71,7 +70,7 @@ class GitHubIssueChecker(IssueCheckerBase):
             bool: False if the issue is closed else True.
         """
         try:
-            response = requests.get(self.api_url, auth=(self.user, self.api_token), proxies=g_proxies)
+            response = requests.get(self.api_url, auth=(self.user, self.api_token))
             response.raise_for_status()
             issue_data = response.json()
             if issue_data.get('state', '') == 'closed':
