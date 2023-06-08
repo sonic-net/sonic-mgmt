@@ -139,4 +139,4 @@ def check_issues(issues, proxies=None):
     for proc in check_procs:
         proc.join(timeout=60)
 
-    return check_results
+    return dict(check_results)
