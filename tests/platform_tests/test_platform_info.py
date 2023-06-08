@@ -338,7 +338,7 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
-def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_hostname
+def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
                                           mocker_factory, ignore_particular_error_log):  # noqa F811
     """
     @summary: Check output of 'show platform temperature'
