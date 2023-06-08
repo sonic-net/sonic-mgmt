@@ -522,8 +522,8 @@ class SonicAsic(object):
         ret = self.sonichost.show_and_parse(cmd)
         for pc in ret:
             if pc["team dev"] == pc_name:
-                return None if pc["ports"] == "" else pc["ports"].split(" ")
-        return None
+                return pc["ports"].split()
+        return []
 
     def switch_arptable(self, *module_args, **complex_args):
         complex_args['namespace'] = self.namespace
