@@ -48,7 +48,7 @@ def test_show_platform_npu_lpts(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform npu lpts`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    result = duthost.command("show platform npu lpts")
+    result = duthost.command("sudo show platform npu lpts")
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu lpts output"
@@ -59,7 +59,7 @@ def test_show_platform_npu_counters(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform npu counters`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    result = duthost.command("show platform npu counters")
+    result = duthost.command("sudo show platform npu counters")
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu counters output"
@@ -70,7 +70,7 @@ def test_show_platform_npu_ecmp(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform npu ecmp`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    result = duthost.command("show platform npu ecmp")
+    result = duthost.command("sudo show platform npu ecmp")
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu ecmp output"
