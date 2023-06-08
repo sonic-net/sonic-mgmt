@@ -1492,6 +1492,7 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
 
     console_type = "console_" + console_type
 
+    #clear_console(console_host, int(console_port))
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
@@ -2210,7 +2211,7 @@ def login_sonic_over_console(tn, hostname, mgmt_password):
 
 @pytest.fixture(scope="session", autouse=True)
 def collect_console(duthosts, request):
-    if request.config.getoption("--capture_console"):
+    if request.config.getoption("--capture_console") and 'dut_console' not in request.config.args[0]:
         marker = request.config.getoption("-m")
         if not marker:
             marker = "test"
@@ -2247,7 +2248,7 @@ def collect_console(duthosts, request):
             tn.logfile = open(file_name, 'w')
             login_sonic_over_console(tn, dut_host.hostname, mgmt_password)
     yield
-    if request.config.getoption("--capture_console"):
+    if request.config.getoption("--capture_console") and 'dut_console' not in request.config.args[0]:
         logging.info("Collecting telnet console logs is done")
         for key, tn in tn_dir.items():
             logging.info("telnet object status is: {}".format(tn.isalive()))
