@@ -85,7 +85,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
 
 
-def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, 
+def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
                                   interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES, reboot_type=None):
     """
     Perform a further check after reboot-cause, including transceiver status, interface status
