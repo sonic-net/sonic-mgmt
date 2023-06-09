@@ -1470,7 +1470,7 @@ configuration:
       Ethernet1:
         lacp: 1
         dut_index: 2
-      Ethernet1:
+      Ethernet2:
         lacp: 1
         dut_index: 2
       Port-Channel1:
@@ -1496,7 +1496,7 @@ configuration:
       Ethernet1:
         lacp: 1
         dut_index: 2
-      Ethernet1:
+      Ethernet2:
         lacp: 1
         dut_index: 2
       Port-Channel1:
@@ -1522,7 +1522,7 @@ configuration:
       Ethernet1:
         lacp: 1
         dut_index: 2
-      Ethernet1:
+      Ethernet2:
         lacp: 1
         dut_index: 2
       Port-Channel1:
@@ -1548,7 +1548,7 @@ configuration:
       Ethernet1:
         lacp: 1
         dut_index: 2
-      Ethernet1:
+      Ethernet2:
         lacp: 1
         dut_index: 2
       Port-Channel1:
@@ -1574,7 +1574,7 @@ configuration:
       Ethernet1:
         lacp: 1
         dut_index: 2
-      Ethernet1:
+      Ethernet2:
         lacp: 1
         dut_index: 2
       Port-Channel1:
@@ -1600,7 +1600,7 @@ configuration:
       Ethernet1:
         lacp: 1
         dut_index: 2
-      Ethernet1:
+      Ethernet2:
         lacp: 1
         dut_index: 2
       Port-Channel1:
@@ -1626,7 +1626,7 @@ configuration:
       Ethernet1:
         lacp: 1
         dut_index: 2
-      Ethernet1:
+      Ethernet2:
         lacp: 1
         dut_index: 2
       Port-Channel1:
@@ -1652,7 +1652,7 @@ configuration:
       Ethernet1:
         lacp: 1
         dut_index: 2
-      Ethernet1:
+      Ethernet2:
         lacp: 1
         dut_index: 2
       Port-Channel1:
