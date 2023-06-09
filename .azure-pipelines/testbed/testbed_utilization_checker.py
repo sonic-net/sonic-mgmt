@@ -12,7 +12,7 @@ _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
 if base_path not in sys.path:
     sys.path.append(base_path)
-from nightly.templates.lock_release import get_token_from_elastictest as get_token
+from nightly.templates.lock_release import get_token as get_token
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
