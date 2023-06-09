@@ -7,7 +7,7 @@ from tests.common.snappi.snappi_helpers import get_dut_port_id, class_enable_vec
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, get_queue_count
+    get_pfc_frame_count, get_egress_queue_count
 from tests.common.snappi.port import select_ports, select_tx_port
 from tests.common.snappi.snappi_helpers import wait_for_arp
 
@@ -531,12 +531,15 @@ def __verify_results(rows,
                                   'Total TX dropped packets {} should be 0'.
                                   format(dropped_packets))
 
-    # Check if pause frames are correctly counted in the PFC counters
+    # Check if the counters are incremented correctly
+    # If the class enable vector is set, then the PFC pause frames should be counted in the PFC counters
+    # If the class enable vector is not set, then the PFC pause frames should be dropped, and the
+    # egress queue count on the switch should be incremented as packets continue onto the next hop
     for peer_port, prios in flow_port_config[1].items():
         for prio in range(len(prios)):
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio])
-            total_egress_packets, _ = get_queue_count(duthost, peer_port, prios[prio])
-            if test_flow_pause and class_enable_vec == class_enable_vector.BIT_SET:
+            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
+            total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
+            if class_enable_vec == class_enable_vector.BIT_SET:
                 pytest_assert(pfc_pause_rx_frames > 0,
                               "PFC pause frames with zero source MAC are not counted in the PFC counters")
             elif class_enable_vec == class_enable_vector.NO_BIT_SET:

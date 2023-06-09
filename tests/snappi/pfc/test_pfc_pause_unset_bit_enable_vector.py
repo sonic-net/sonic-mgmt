@@ -16,16 +16,16 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('tgen')]
 
 
-def test_pfc_unset_bit_enable_vector_single_lossless_prio(snappi_api, # noqa F811
-                                                          snappi_testbed_config, # noqa F811
-                                                          conn_graph_facts, # noqa F811
-                                                          fanout_graph_facts, # noqa F811
-                                                          duthosts,
-                                                          rand_one_dut_hostname,
-                                                          rand_one_dut_portname_oper_up,
-                                                          enum_dut_lossless_prio,
-                                                          all_prio_list, # noqa F811
-                                                          prio_dscp_map): # noqa F811
+def test_pfc_unset_cev_single_prio(snappi_api, # noqa F811
+                                   snappi_testbed_config, # noqa F811
+                                   conn_graph_facts, # noqa F811
+                                   fanout_graph_facts, # noqa F811
+                                   duthosts,
+                                   rand_one_dut_hostname,
+                                   rand_one_dut_portname_oper_up,
+                                   enum_dut_lossless_prio,
+                                   all_prio_list, # noqa F811
+                                   prio_dscp_map): # noqa F811
     """
     Test if PFC frames with no bit set in the class enable vector are ignored by the DUT
     for a single lossless priority
@@ -73,16 +73,16 @@ def test_pfc_unset_bit_enable_vector_single_lossless_prio(snappi_api, # noqa F81
                  class_enable_vec=class_enable_vector.NO_BIT_SET)
 
 
-def test_pfc_unset_bit_enable_vector_multi_lossless_prio(snappi_api, # noqa F811
-                                                         snappi_testbed_config, # noqa F811
-                                                         conn_graph_facts, # noqa F811
-                                                         fanout_graph_facts, # noqa F811
-                                                         duthosts,
-                                                         rand_one_dut_hostname,
-                                                         rand_one_dut_portname_oper_up,
-                                                         lossless_prio_list, # noqa F811
-                                                         lossy_prio_list, # noqa F811
-                                                         prio_dscp_map): # noqa F811
+def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
+                                  snappi_testbed_config, # noqa F811
+                                  conn_graph_facts, # noqa F811
+                                  fanout_graph_facts, # noqa F811
+                                  duthosts,
+                                  rand_one_dut_hostname,
+                                  rand_one_dut_portname_oper_up,
+                                  lossless_prio_list, # noqa F811
+                                  lossy_prio_list, # noqa F811
+                                  prio_dscp_map): # noqa F811
     """
     Test if PFC frames with no bit set in the class enable vector are ignored by the DUT
     for multiple lossless priorities

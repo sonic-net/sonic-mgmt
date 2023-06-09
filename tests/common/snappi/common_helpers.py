@@ -707,7 +707,7 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     return int(pause_frame_count.replace(',', ''))
 
 
-def get_queue_count(duthost, port, priority):
+def get_egress_queue_count(duthost, port, priority):
     """
     Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
     This is the equivalent of the "show queue counters" command.
