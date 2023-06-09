@@ -453,7 +453,7 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
         gmax_cmd = 'sudo ecnconfig -p {} -gmax {}'
         gmin_cmd = 'sudo ecnconfig -p {} -gmin {}'
 
-        if asic_value != None:
+        if asic_value is not None:
             gmax_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmax {}' % asic_value
             gmin_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmin {}' % asic_value
             if asic_type == 'broadcom':
@@ -481,7 +481,7 @@ def enable_ecn(host_ans, prio, asic_value=None):
     Returns:
         N/A
     """
-    if asic_value == None:
+    if asic_value is None:
         host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
@@ -499,7 +499,7 @@ def disable_ecn(host_ans, prio, asic_value=None):
     Returns:
         N/A
     """
-    if asic_value == None:
+    if asic_value is None:
         host_ans.shell('sudo ecnconfig -q {} off'.format(prio))
     else:
         asic_type = str(host_ans.facts["asic_type"])
@@ -521,7 +521,7 @@ def config_buffer_alpha(host_ans, profile, alpha_log2, asic_value=None):
     Returns:
         N/A
     """
-    if asic_value == None:
+    if asic_value is None:
         host_ans.shell('sudo mmuconfig -p {} -a {}'.format(profile, alpha_log2))
     else:
         host_ans.shell('sudo ip netns exec {} mmuconfig -p {} -a {}'.format(asic_value, profile, alpha_log2))
@@ -542,7 +542,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, asic_value=None):
     if not isinstance(alpha_log2, int):
         return False
 
-    if asic_value == None:
+    if asic_value is None:
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
@@ -564,7 +564,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2, asic_value=None):
         config_buffer_alpha(host_ans=host_ans, profile=profile, alpha_log2=alpha_log2, asic_value=asic_value)
 
     """ Check if configuration succeeds """
-    if asic_value == None:
+    if asic_value is None:
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
@@ -594,7 +594,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr, asic_value=None):
     Returns:
         config attribute (str) or None
     """
-    if asic_value == None:
+    if asic_value is None:
         config_facts = host_ans.config_facts(host=host_ans.hostname, source="running")['ansible_facts']
     else:
         config_facts = host_ans.config_facts(
@@ -627,7 +627,7 @@ def get_pfcwd_poll_interval(host_ans, asic_value=None):
     Returns:
         Polling interval in ms (int) or None
     """
-    if asic_value == None:
+    if asic_value is None:
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope='GLOBAL',
                                     attr='POLL_INTERVAL')
@@ -654,7 +654,7 @@ def get_pfcwd_detect_time(host_ans, intf, asic_value=None):
     Returns:
         Detection time in ms (int) or None
     """
-    if asic_value == None:
+    if asic_value is None:
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='detection_time')
@@ -681,7 +681,7 @@ def get_pfcwd_restore_time(host_ans, intf, asic_value=None):
     Returns:
         Restoration time in ms (int) or None
     """
-    if asic_value == None:
+    if asic_value is None:
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='restoration_time')
@@ -707,7 +707,7 @@ def start_pfcwd(duthost, asic_value=None):
     Returns:
         N/A
     """
-    if asic_value == None:
+    if asic_value is None:
         duthost.shell('sudo pfcwd start_default')
     else:
         duthost.shell('sudo ip netns exec {} pfcwd start_default'.format(asic_value))
@@ -723,7 +723,7 @@ def stop_pfcwd(duthost, asic_value=None):
     Returns:
         N/A
     """
-    if asic_value == None:
+    if asic_value is None:
         duthost.shell('sudo pfcwd stop')
     else:
         duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic_value))
