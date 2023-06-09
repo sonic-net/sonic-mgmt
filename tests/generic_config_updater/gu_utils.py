@@ -315,12 +315,13 @@ def get_asic_name(duthost):
         if asic_type == 'broadcom' or asic_type == 'vs':
             broadcom_asics = asic_mapping["broadcom_asics"]
             for asic_shorthand, hwskus in broadcom_asics.items():
-                if asic != "unknown":
-                    break
                 for hwsku_cur in hwskus:
                     if hwsku_cur.lower() in hwsku.lower():
                         asic = asic_shorthand
                         break
+                else:
+                    continue
+                break
 
     return asic
 
