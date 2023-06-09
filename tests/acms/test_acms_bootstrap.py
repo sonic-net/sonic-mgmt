@@ -29,7 +29,7 @@ test_data_cloud = [
 ]
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True, scope='module')
 def setup_acms(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     if not is_container_running(duthost, container_name):
@@ -37,6 +37,15 @@ def setup_acms(duthosts, rand_one_dut_hostname):
     dut_command = "docker exec %s supervisorctl stop start" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl stop acms" % container_name
+    duthost.shell(dut_command, module_ignore_errors=True)
+
+    yield
+
+    dut_command = "sudo rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
+    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "sudo rm /var/opt/msft/client/*"
+    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "docker restart %s" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
 
 
@@ -59,7 +68,7 @@ BootstrapCert=/etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx
     return
 
 @pytest.mark.parametrize("test_data", test_data_cloud)
-def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, setup_acms, test_data):
+def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
     """
     Test ACMS bootstrap functionality with internal image.
     Use invalid bootstrap certificate to access 5 DSMS endpoint.
