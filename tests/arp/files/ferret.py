@@ -2,11 +2,12 @@
 
 # python t.py -f /tmp/vxlan_decap.json -s 192.168.8.1
 
-import http.server
-import socketserver
+import SimpleHTTPServer
+import SocketServer
 import select
 import shutil
 import json
+import BaseHTTPServer
 import time
 import socket
 import ctypes
@@ -16,7 +17,7 @@ import binascii
 import argparse
 import os
 
-from io import StringIO
+from cStringIO import StringIO
 from collections import namedtuple
 
 
@@ -26,7 +27,7 @@ Record = namedtuple(
 ASIC_TYPE = None
 
 
-class Ferret(http.server.BaseHTTPRequestHandler):
+class Ferret(BaseHTTPServer.BaseHTTPRequestHandler):
     server_version = "FerretHTTP/0.1"
 
     def do_POST(self):
@@ -95,7 +96,7 @@ class RestAPI(object):
     PORT = 448
 
     def __init__(self, obj, db, src_ip):
-        self.httpd = socketserver.TCPServer(("", self.PORT), obj)
+        self.httpd = SocketServer.TCPServer(("", self.PORT), obj)
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
         self.context.verify_mode = ssl.CERT_NONE
         self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -155,7 +156,7 @@ class Poller(object):
         self.httpd = httpd
 
     def poll(self):
-        handlers = list(self.mapping.keys()) + [self.httpd.handler()]
+        handlers = self.mapping.keys() + [self.httpd.handler()]
         while True:
             (rdlist, _, _) = select.select(handlers, [], [])
             for handler in rdlist:
@@ -327,7 +328,7 @@ def extract_iface_names(config_file):
         graph = json.load(fp)
 
     net_ports = []
-    for name, val in list(graph['minigraph_portchannels'].items()):
+    for name, val in graph['minigraph_portchannels'].items():
         members = ['eth%d' % graph['minigraph_port_indices'][member]
                    for member in val['members']]
         net_ports.extend(members)
