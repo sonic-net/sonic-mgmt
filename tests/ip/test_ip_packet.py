@@ -303,7 +303,7 @@ class TestIPPacket(object):
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO, "Dropped {} packets in tx, not in expected range".format(tx_err))
         pytest_assert(match_cnt >= self.PKT_NUM_MIN, "DUT forwarded {} packets, but {} packets matched expected format, not in expected range".format(tx_ok, match_cnt))
 
-    def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+    def test_forward_ip_packet_with_0xffff_chksum_drop(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
                                                        ptfadapter, common_param, tbinfo):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
@@ -313,8 +313,6 @@ class TestIPPacket(object):
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx, pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         if is_mellanox_fanout(duthost, localhost):
             pytest.skip("Not supported at Mellanox fanout")
-        (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
-         pc_ports_map, ptf_indices, ingress_router_mac) = common_param
         pkt = testutils.simple_ip_packet(
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
