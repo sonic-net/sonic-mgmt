@@ -7,28 +7,9 @@ import sys
 DEFAULT_LOCK_HOURS = 36
 
 
-# todo: remove this method if new lock_release is stable for a time
-def get_token(client_id, client_secret, proxies):
-    token_url = 'https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/token'
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    payload = {
-        'resource': 'https://tbshare.azurewebsites.net',
-        'grant_type': 'client_credentials',
-        'client_id': client_id,
-        'client_secret': client_secret
-    }
-    try:
-        resp = requests.post(token_url, headers=headers, data=payload, proxies=proxies, timeout=10).json()
-        return resp['access_token']
-    except Exception as e:
-        print('Get token failed with exception: {}'.format(repr(e)))
-    return None
-
-
-def get_token_from_elastictest():
-    token_url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(os.environ.get('ELASTICTEST_MSAL_TENANT'))
+def get_token():
+    token_url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(
+        os.environ.get('ELASTICTEST_MSAL_TENANT'))
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
     }
@@ -47,55 +28,45 @@ def get_token_from_elastictest():
     return None
 
 
-def get_testbed(testbed, token, proxies):
+def get_testbed(testbed_name):
+    """
+    Get testbed info by search testbed name.
+    """
     try:
-        url = 'https://tbshare.azurewebsites.net/api/testbed/{}'.format(testbed)
+        # Use the same API as testbed mgmt page
+        url = '{}/query_by_keyword?keyword={}&testbed_type=PHYSICAL&page=1&page_size=1'.format(os.environ.get("ELASTICTEST_MGMT_TESTBEDS_URL"), testbed_name)
         headers = {
-            'Authorization': 'Bearer ' + token
+            'Authorization': 'Bearer {}'.format(get_token())
         }
-        return requests.get(url, headers=headers, proxies=proxies, timeout=10).json()
-    except:
+
+        response = requests.get(url, headers=headers, timeout=10).json()
+
+        # If the response is successful, the returned content will be like:
+        # { "success": True, "errmsg": "", "data": [{testbed1}, {testbed2}, ...]
+
+        if not response['success']:
+            print('Get testbed {} failed . {}'.format(testbed_name, response['errmsg']))
+
+        return response['data'][0]
+
+    except Exception as e:
+        print('Get testbed {} failed with exception: {}'.format(testbed_name, e))
         return {}
 
 
-# todo: remove this method if new lock_release is stable for a time
-def lock_release(testbed, action, token, proxies, hours, user, reason, force, absolute):
-    try:
-        url = 'https://tbshare.azurewebsites.net/api/{}'.format(action)
-        headers = {
-            'Authorization': 'Bearer ' + token
-        }
-        params = {
-            'name': testbed,
-            'user': user,
-            'force': force
-        }
-        if action == 'lock':
-            # Extra params required only for lock
-            params.update({
-                'hours': hours,
-                'lock_reason': reason,
-                'absolute': absolute
-            })
+def lock_release(testbed, action, hours, user, reason, force, absolute):
+    """
+    Lock or release a testbed.
 
-        result = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=10).json()
-        if 'failed' in result and result['failed']:
-            print('{} testbed {} failed'.format(action, testbed))
-            if 'msg' in result:
-                print(result['msg'])
-            return 2
-        else:
-            print('{} testbed {} succeeded'.format(action, testbed))
-            # sync lock/release to Elastictest, but not block current operation
-            lock_release_from_elastictest(testbed, action, hours, user, reason, force, absolute)
-            return 0
-
-    except Exception as e:
-        print('{} testbed {} failed with exception: {}'.format(action, testbed, repr(e)))
-        return 3
-
-
-def lock_release_from_elastictest(testbed, action, hours, user, reason, force, absolute):
+    Args:
+        testbed: testbed name. str.
+        action: lock/release. str.
+        hours: lock hours. int.
+        user: request user. str.
+        reason: lock reason. str.
+        force: force lock/release. bool.
+        absolute: absolute lock. bool.
+    """
     try:
         lock_tb_num = 1
         data = {
@@ -120,7 +91,7 @@ def lock_release_from_elastictest(testbed, action, hours, user, reason, force, a
             }
 
         headers = {
-            'Authorization': 'Bearer {}'.format(get_token_from_elastictest())
+            'Authorization': 'Bearer {}'.format(get_token())
         }
         resp = requests.post("{}/{}".format(os.environ.get("ELASTICTEST_MGMT_TESTBED_URL"), action),
                              json=data,
@@ -227,25 +198,21 @@ if __name__ == '__main__':
         'https': os.environ.get('http_proxy')
     }
 
-    token = get_token(client_id, client_secret, proxies)
-    if not token:
-        sys.exit(2)
-
     print('Args for lock_release: ' + str(args))
     force_lock = args.force.lower() in ['true', 'yes', 't', 'y']
     absolute_lock = args.absolute.lower() in ['true', 'yes', 't', 'y']
     if not args.brutal_release:
-        sys.exit(lock_release_from_elastictest(args.testbed, args.action, args.hours, args.user, args.reason, force_lock, absolute_lock))
+        sys.exit(lock_release(args.testbed, args.action, args.hours, args.user, args.reason, force_lock, absolute_lock))
     else:
-        testbed_res = get_testbed(args.testbed, token, proxies)
+        testbed_res = get_testbed(args.testbed)
 
-        if testbed_res.get('failed', True):
+        if not testbed_res:
             print('Failed to get testbed details')
             sys.exit(3)
 
-        locked_by = testbed_res.get('testbed').get('locked_by')
+        locked_by = testbed_res.get('locked_by')
         if not locked_by:
             print('Testbed "{}" is not locked by anyone'.format(args.testbed))
             sys.exit(0)
 
-        sys.exit(lock_release_from_elastictest(args.testbed, 'release', args.hours, locked_by, args.reason, force_lock, absolute_lock))
+        sys.exit(lock_release(args.testbed, 'release', args.hours, locked_by, args.reason, force_lock, absolute_lock))
