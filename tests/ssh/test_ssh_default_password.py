@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LOGIN_PARAMS_DICT = {
     "public": {"username": "admin",
-               "password": "YourPaSsWoRd"}
+               "password": "YourPaSsWoRd"},
+    "nokia": {"username": "admin",
+              "password": "123"}
 }
 
 
@@ -56,4 +58,4 @@ def get_image_type(duthost):
 
     """
 
-    return "public"
+    return "nokia"
