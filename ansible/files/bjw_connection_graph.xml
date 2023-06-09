@@ -1909,37 +1909,37 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.140/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="bjw-can-2700-4">
-      <InterfaceVlan mode="access" portname="Ethernet0" vlanids="1071"/>
-      <InterfaceVlan mode="access" portname="Ethernet4" vlanids="1072"/>
-      <InterfaceVlan mode="access" portname="Ethernet8" vlanids="1073"/>
-      <InterfaceVlan mode="access" portname="Ethernet12" vlanids="1074"/>
-      <InterfaceVlan mode="access" portname="Ethernet16" vlanids="1075"/>
-      <InterfaceVlan mode="access" portname="Ethernet20" vlanids="1076"/>
-      <InterfaceVlan mode="access" portname="Ethernet24" vlanids="1077"/>
-      <InterfaceVlan mode="access" portname="Ethernet28" vlanids="1078"/>
-      <InterfaceVlan mode="access" portname="Ethernet32" vlanids="1079"/>
-      <InterfaceVlan mode="access" portname="Ethernet36" vlanids="1080"/>
-      <InterfaceVlan mode="access" portname="Ethernet40" vlanids="1081"/>
-      <InterfaceVlan mode="access" portname="Ethernet44" vlanids="1082"/>
-      <InterfaceVlan mode="access" portname="Ethernet48" vlanids="1083"/>
-      <InterfaceVlan mode="access" portname="Ethernet52" vlanids="1084"/>
-      <InterfaceVlan mode="access" portname="Ethernet56" vlanids="1085"/>
-      <InterfaceVlan mode="access" portname="Ethernet60" vlanids="1086"/>
-      <InterfaceVlan mode="access" portname="Ethernet64" vlanids="1087"/>
-      <InterfaceVlan mode="access" portname="Ethernet68" vlanids="1088"/>
-      <InterfaceVlan mode="access" portname="Ethernet72" vlanids="1089"/>
-      <InterfaceVlan mode="access" portname="Ethernet76" vlanids="1090"/>
-      <InterfaceVlan mode="access" portname="Ethernet80" vlanids="1091"/>
-      <InterfaceVlan mode="access" portname="Ethernet84" vlanids="1092"/>
-      <InterfaceVlan mode="access" portname="Ethernet88" vlanids="1093"/>
-      <InterfaceVlan mode="access" portname="Ethernet92" vlanids="1094"/>
-      <InterfaceVlan mode="access" portname="Ethernet96" vlanids="1095"/>
-      <InterfaceVlan mode="access" portname="Ethernet100" vlanids="1096"/>
-      <InterfaceVlan mode="access" portname="Ethernet104" vlanids="1097"/>
-      <InterfaceVlan mode="access" portname="Ethernet108" vlanids="1098"/>
-      <InterfaceVlan mode="access" portname="Ethernet112" vlanids="1099"/>
-      <InterfaceVlan mode="access" portname="Ethernet116" vlanids="1100"/>
-      <InterfaceVlan mode="access" portname="Ethernet120" vlanids="1101"/>
+      <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1071"/>
+      <InterfaceVlan mode="Access" portname="Ethernet4" vlanids="1072"/>
+      <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="1073"/>
+      <InterfaceVlan mode="Access" portname="Ethernet12" vlanids="1074"/>
+      <InterfaceVlan mode="Access" portname="Ethernet16" vlanids="1075"/>
+      <InterfaceVlan mode="Access" portname="Ethernet20" vlanids="1076"/>
+      <InterfaceVlan mode="Access" portname="Ethernet24" vlanids="1077"/>
+      <InterfaceVlan mode="Access" portname="Ethernet28" vlanids="1078"/>
+      <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="1079"/>
+      <InterfaceVlan mode="Access" portname="Ethernet36" vlanids="1080"/>
+      <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="1081"/>
+      <InterfaceVlan mode="Access" portname="Ethernet44" vlanids="1082"/>
+      <InterfaceVlan mode="Access" portname="Ethernet48" vlanids="1083"/>
+      <InterfaceVlan mode="Access" portname="Ethernet52" vlanids="1084"/>
+      <InterfaceVlan mode="Access" portname="Ethernet56" vlanids="1085"/>
+      <InterfaceVlan mode="Access" portname="Ethernet60" vlanids="1086"/>
+      <InterfaceVlan mode="Access" portname="Ethernet64" vlanids="1087"/>
+      <InterfaceVlan mode="Access" portname="Ethernet68" vlanids="1088"/>
+      <InterfaceVlan mode="Access" portname="Ethernet72" vlanids="1089"/>
+      <InterfaceVlan mode="Access" portname="Ethernet76" vlanids="1090"/>
+      <InterfaceVlan mode="Access" portname="Ethernet80" vlanids="1091"/>
+      <InterfaceVlan mode="Access" portname="Ethernet84" vlanids="1092"/>
+      <InterfaceVlan mode="Access" portname="Ethernet88" vlanids="1093"/>
+      <InterfaceVlan mode="Access" portname="Ethernet92" vlanids="1094"/>
+      <InterfaceVlan mode="Access" portname="Ethernet96" vlanids="1095"/>
+      <InterfaceVlan mode="Access" portname="Ethernet100" vlanids="1096"/>
+      <InterfaceVlan mode="Access" portname="Ethernet104" vlanids="1097"/>
+      <InterfaceVlan mode="Access" portname="Ethernet108" vlanids="1098"/>
+      <InterfaceVlan mode="Access" portname="Ethernet112" vlanids="1099"/>
+      <InterfaceVlan mode="Access" portname="Ethernet116" vlanids="1100"/>
+      <InterfaceVlan mode="Access" portname="Ethernet120" vlanids="1101"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet124" vlanids="1071-1101"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-e1031-1">
