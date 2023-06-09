@@ -4201,7 +4201,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             client_to_use = self.dst_client
             # Some small amount of memory is always occupied
             buffer_pool_wm_base=sai_thrift_read_buffer_pool_watermark(
-                self.client_to_use, buf_pool_roid)
+                client_to_use, buf_pool_roid)
         else:
             client_to_use = self.src_client
         print("Initial watermark: {}".format(buffer_pool_wm_base))
@@ -4268,7 +4268,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                self.client_to_use, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             print("Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % (
                 (pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, buffer_pool_wm), file=sys.stderr)
             if pkts_num_fill_min:
@@ -4313,7 +4313,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
                 time.sleep(8)
                 buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                    self.client_to_use, buf_pool_roid) - buffer_pool_wm_base
+                    client_to_use, buf_pool_roid) - buffer_pool_wm_base
                 print("lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
                       * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size), file=sys.stderr)
                 assert(buffer_pool_wm <= (expected_wm + \
@@ -4334,11 +4334,11 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num_to_send)
 
             buffer_pool_wm_before_tx_enable = sai_thrift_read_buffer_pool_watermark(
-                self.client_to_use, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                self.client_to_use, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             if (self.src_client != self.dst_client and
                     asic_type == "cisco-8000"):
                 # Due to the presence of fabric, there may be more packets
