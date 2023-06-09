@@ -58,7 +58,10 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
 
 
 @pytest.fixture(autouse=False)
-def check_skip_shared_res_test(self, dutQosConfig, get_src_dst_asic_and_duts, dutConfig):
+@pytest.fixture(autouse=False)
+def check_skip_shared_res_test(
+        sharedResSizeKey, dutQosConfig,
+        get_src_dst_asic_and_duts, dutConfig):
     qosConfig = dutQosConfig["param"]
     src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
     src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
@@ -68,7 +71,7 @@ def check_skip_shared_res_test(self, dutQosConfig, get_src_dst_asic_and_duts, du
     dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
 
     if not sharedResSizeKey in qosConfig.keys():
-        pytest.skip( 
+        pytest.skip(
             "Shared reservation size parametrization '%s' "
             "is not enabled" % sharedResSizeKey)
 
