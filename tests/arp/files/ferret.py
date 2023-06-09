@@ -2,7 +2,6 @@
 
 # python t.py -f /tmp/vxlan_decap.json -s 192.168.8.1
 
-import SimpleHTTPServer
 import SocketServer
 import select
 import shutil
