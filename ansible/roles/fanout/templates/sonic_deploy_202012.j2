@@ -116,6 +116,23 @@
         }
     },
 
+{% if 'mellanox' in fanout_sonic_version["asic_type"] %}
+    "BUFFER_PG": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}|0-7": {
+            "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+    "BUFFER_QUEUE": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}|0-7": {
+            "profile": "[BUFFER_PROFILE|q_lossy_profile]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+{% endif %}
+
     "VERSIONS": {
         "DATABASE": {
             "VERSION": "version_1_0_1"
