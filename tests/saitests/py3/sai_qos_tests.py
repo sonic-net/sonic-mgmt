@@ -329,11 +329,10 @@ def get_counter_names(sonic_version):
 
 
 def fill_leakout_plus_one(
-        test_case, src_port_id, dst_port_id, pkt, queue, asic_type):
-    # Attempts to queue 1 packet while compensating for a varying packet leakout.
-    # Returns whether 1 packet was successfully enqueued.
         test_case, src_port_id, dst_port_id, pkt, queue, asic_type,
         pkts_num_egr_mem=None):
+    # Attempts to queue 1 packet while compensating for a varying packet leakout.
+    # Returns whether 1 packet was successfully enqueued.
     if pkts_num_egr_mem is not None:
         if test_case.clients['dst'] != test_case.clients['src']:
             fill_egress_plus_one(test_case, src_port_id, pkt, queue,
@@ -1219,6 +1218,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             margin = 2
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        pkts_num_egr_mem = None
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
 
