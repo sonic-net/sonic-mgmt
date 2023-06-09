@@ -1,5 +1,5 @@
 topology:
-  # 6 DUTs - 5 linecards (dut 0 - dut 4) and 1 Supervisor card (dut 5) 
+  # 6 DUTs - 5 linecards (dut 0 - dut 4) and 1 Supervisor card (dut 5)
   # 1 Linecard dut0 connected to Uplink(T3 VMs)
   # 4 Linecards dut1 - dut4 are connected to downlink(T1 VMs)
   # dut0        : Total VMs: 16(4*(4 port Lag)+ 4*(2 port Lag) + 8*(1 port Lag))
