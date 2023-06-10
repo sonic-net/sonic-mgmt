@@ -36,7 +36,7 @@ sonic_cisco_sup:
   vars:
     hwsku: Cisco-8800-RP
     sonic_hwsku:  Cisco-8800-RP
-    model: 'Cisco-8800-RP'
+    model: '8800-RP'
     sonic_hw_platform:  x86_64-8800_rp-r0
     slot_num: slot0
     card_type: supervisor
@@ -117,7 +117,9 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32,3.3.3.5/32]
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
       ansible_host: 10.206.144.120
-      model: 'Cisco-88-LC0-36FH-M-O36'
+      model: '88-LC0-36FH-M'
+      base_mac: C4:4D:84:E0:D6:20
+      serial: FOC2543P5E2
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -151,7 +153,9 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.12/32,3.3.3.13/32,3.3.3.14/32]
       loopback4096_ipv6: [2603:10e2:400::c/128,2603:10e2:400::d/128,2603:10e2:400::e/128]
       ansible_host: 10.206.144.123
-      model: 'Cisco-88-LC0-36FH-M-O36'
+      model: '88-LC0-36FH-M'
+      base_mac: CC:ED:4D:C6:E3:58
+      serial: FOC2548N36J
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
         "0x22": "1B0150"
@@ -185,7 +189,9 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.206.144.121
-      model: 'Cisco-88-LC0-36FH-O36'
+      model: '88-LC0-36FH'
+      base_mac: 50:49:21:63:17:80
+      serial: FOC2624KGVU
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -219,7 +225,9 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.9/32,3.3.3.10/32,3.3.3.11/32]
       loopback4096_ipv6: [2603:10e2:400::9/128,2603:10e2:400::a/128,2603:10e2:400::b/128]
       ansible_host: 10.206.144.122
-      model: 'Cisco-88-LC0-36FH-O36'
+      model: '88-LC0-36FH'
+      base_mac: 50:49:21:3B:27:F0
+      serial: FOC2629NXK2
       plt_reboot_dict:
         cold:
           timeout: 300
