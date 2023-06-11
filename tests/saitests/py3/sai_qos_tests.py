@@ -3384,24 +3384,18 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = construct_ip_pkt(packet_length,
-                               pkt_dst_mac,
-                               src_port_mac,
-                               src_port_ip,
-                               dst_port_ip,
-                               dscp,
-                               src_port_vlan,
-                               ecn=ecn,
-                               ttl=ttl)
-
-        print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
-              (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
-        # in case dst_port_id is part of LAG, find out the actual dst port
-        # for given IP parameters
-        dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
-        )
-        print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
+        pkt = get_multiple_flows(
+                self,
+                pkt_dst_mac,
+                dst_port_id,
+                dst_port_ip,
+                None,
+                dscp,
+                ecn, 
+                ttl, 
+                packet_length,
+                [(src_port_id, src_port_ip)],
+                packets_per_port=1)[src_port_id][0][0]
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
@@ -3416,15 +3410,18 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
 
-        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        # For TH3/cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        else:
+            pkts_num_egr_mem = None
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
         dst_pg_cntrs_base = sai_thrift_read_pg_counters(self.dst_client, port_list['dst'][dst_port_id])
         pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type, port_list['src'][src_port_id])
         dst_pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.dst_client, asic_type, port_list['dst'][dst_port_id])
+        print("Initial watermark:{}".format(pg_shared_wm_res_base))
 
         # send packets
         try:
@@ -3445,7 +3442,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
-                    self, src_port_id, dst_port_id, pkt, pg, asic_type)
+                    self, src_port_id, dst_port_id, pkt, pg, asic_type, pkts_num_egr_mem))
             else:
                 pg_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
@@ -3539,11 +3536,11 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     assert (pg_shared_wm_res[pg] <=
                             ((pkts_num_leak_out + pkts_num_fill_min + expected_wm + margin) * (packet_length + internal_hdr_size)))
                 else:
-                    print("lower bound: %d, actual value: %d, upper bound (+%d): %d" % (expected_wm * cell_size,
-                                 pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size),file=sys.stderr)
-                    assert(pg_shared_wm_res[pg] <= (
-                            expected_wm + margin) * cell_size)
-                    assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
+                    msg = "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (expected_wm * cell_size,
+                                 pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size)
+                    assert pg_shared_wm_res[pg] <= (
+                            expected_wm + margin) * cell_size, msg
+                    assert expected_wm * cell_size <= pg_shared_wm_res[pg], msg
 
                 pkts_num = pkts_inc
 
