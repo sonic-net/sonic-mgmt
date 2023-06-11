@@ -1819,9 +1819,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("This test is only supported on cisco-8000")
-
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         testPortIps = dutConfig["testPortIps"]
 
