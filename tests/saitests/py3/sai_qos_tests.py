@@ -365,13 +365,11 @@ def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num
     # pkts_num_egr_mem is the number of packets in full egress queues, to provide an initial filling boost
     # Returns whether 1 packet was successfully enqueued.
     first = time.time()
-    print ("first:{}".format(first))
     if asic_type not in ['cisco-8000']:
         return False
     pg_cntrs_base=sai_thrift_read_pg_occupancy(
         test_case.src_client, port_list['src'][src_port_id])
     send_packet(test_case, src_port_id, pkt, pkts_num_egr_mem)
-    print ("second:{}".format(time.time()-first))
     max_packets = 500
     for packet_i in range(max_packets):
         send_packet(test_case, src_port_id, pkt, 1)
@@ -381,7 +379,6 @@ def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num
             print("fill_egress_plus_one: Success, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
                 pkts_num_egr_mem + packet_i + 1, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
             return True
-    print ("last:{}".format(time.time()-first))
     raise RuntimeError("fill_egress_plus_one: Fail: src_port_id:{}"
         " pkts_num_egr_mem:{}, pkt:{}, queue:{}".format(
         src_port_id, pkts_num_egr_mem, pkt.__repr__()[0:180], queue))
