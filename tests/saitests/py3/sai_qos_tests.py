@@ -382,7 +382,6 @@ def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num
     raise RuntimeError("fill_egress_plus_one: Fail: src_port_id:{}"
         " pkts_num_egr_mem:{}, pkt:{}, queue:{}".format(
         src_port_id, pkts_num_egr_mem, pkt.__repr__()[0:180], queue))
-    return False
 
 
 def get_peer_addresses(data):
