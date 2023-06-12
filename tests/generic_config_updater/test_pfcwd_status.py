@@ -7,9 +7,10 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -227,11 +228,14 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        pfcwd_updated_config = duthost.shell("show pfcwd config")
-        pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
-        pytest_assert(exp_str in pfcwd_updated_config['stdout'],
-                      "pfcwd not started - unexpected")
-        check_config_update(duthost, expected_count)
+        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable"):
+            expect_op_success(duthost, output)
+            pfcwd_updated_config = duthost.shell("show pfcwd config")
+            pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
+            pytest_assert(exp_str in pfcwd_updated_config['stdout'],
+                          "pfcwd not started - unexpected")
+            check_config_update(duthost, expected_count)
+        else:
+            expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)
