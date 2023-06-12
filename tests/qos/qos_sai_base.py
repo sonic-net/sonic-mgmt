@@ -1469,7 +1469,7 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut']
 
         # This is not needed in T2.
-        if dutTestParams["topo"] in ['t2']:
+        if "t2" in dutTestParams["topo"]:
             yield
             return
 
