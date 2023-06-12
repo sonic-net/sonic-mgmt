@@ -3442,7 +3442,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
-                    self, src_port_id, dst_port_id, pkt, pg, asic_type, pkts_num_egr_mem))
+                    self, src_port_id, dst_port_id, pkt, pg, asic_type, pkts_num_egr_mem)
             else:
                 pg_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
