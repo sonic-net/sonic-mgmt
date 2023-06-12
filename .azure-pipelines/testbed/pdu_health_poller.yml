@@ -52,14 +52,15 @@ stages:
 
                 for inv in ${INVS}; do
                     for grp in ${GRPS}; do
-                    ./devutils -i ${inv} -a pdu_status -g ${grp} -j > ${inv}_${grp}_pdu.json 2>/dev/null
+                    ./devutils -i ${inv} -a pdu_status -g ${grp} -j -o ${inv}_${grp}_pdu.json
                   done
                 done
+
+                ls -l *.json
 
                 source /var/AzDevOps/env-python3/bin/activate
 
                 cd ../test_reporting
-                pip3 install -r requirements.txt
 
                 FILES=$(ls ../ansible/*pdu*.json)
 
