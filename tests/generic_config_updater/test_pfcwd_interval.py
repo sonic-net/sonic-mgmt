@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
@@ -163,15 +164,17 @@ def test_stop_pfcwd(duthost, ensure_dut_readiness):
             "path": "/PFC_WD/{}/action".format(interface)
         }
     ]
-
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        pfcwd_updated_config = duthost.shell("show pfcwd config")
-        pytest_assert(not pfcwd_config['rc'], "Unable to read updated pfcwd config")
-        pytest_assert(interface not in pfcwd_updated_config['stdout'].split(),
-                      "pfcwd unexpectedly still running on interface {}".format(interface))
+        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable"):
+            expect_op_success(duthost, output)
+            pfcwd_updated_config = duthost.shell("show pfcwd config")
+            pytest_assert(not pfcwd_config['rc'], "Unable to read updated pfcwd config")
+            pytest_assert(interface not in pfcwd_updated_config['stdout'].split(),
+                          "pfcwd unexpectedly still running on interface {}".format(interface))
+        else:
+            expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)
         # Restore default config
@@ -209,7 +212,7 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
 
-        if is_valid_config_update:
+        if is_valid_config_update and is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable"):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, value)
         else:
