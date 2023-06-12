@@ -358,6 +358,38 @@ def fill_leakout_plus_one(
             src_port_id, dst_port_id, pkt.__repr__()[0:180], queue))
     return False
 
+
+def overflow_egress(test_case, src_port_id, pkt, queue, asic_type):
+    # Attempts to queue 1 packet while compensating for a varying packet
+    # leakout and egress queues. Returns pkts_num_egr_mem: number of packets
+    # short of filling egress memory and leakout.
+    # Returns extra_bytes_occupied:
+    #    extra number of bytes occupied in source port
+    pkts_num_egr_mem = 0
+    extra_bytes_occupied = 0
+    if asic_type not in ['cisco-8000']:
+        return pkts_num_egr_mem, extra_bytes_occupied
+
+    pg_cntrs_base=sai_thrift_read_pg_occupancy(
+        test_case.src_client, port_list['src'][src_port_id])
+    max_cycles = 1000
+    for cycle_i in range(max_cycles):
+        send_packet(test_case, src_port_id, pkt, 1000)
+        pg_cntrs=sai_thrift_read_pg_occupancy(
+            test_case.src_client, port_list['src'][src_port_id])
+        if pg_cntrs[queue] > pg_cntrs_base[queue]:
+            print("get_pkts_num_egr_mem: Success, sent %d packets, "
+                "SQ occupancy bytes rose from %d to %d" % (
+                (cycle_i + 1) * 1000, pg_cntrs_base[queue],
+                    pg_cntrs[queue]), file=sys.stderr)
+            pkts_num_egr_mem = cycle_i * 1000
+            extra_bytes_occupied = pg_cntrs[queue] - pg_cntrs_base[queue]
+            print("overflow_egress:pkts_num_egr_mem:{}, extra_bytes_occupied:{}".format(
+                pkts_num_egr_mem, extra_bytes_occupied))
+            return pkts_num_egr_mem, extra_bytes_occupied
+    raise RuntimeError("Couldn't overflow the egress memory after 1000 iterations.")
+
+
 def get_peer_addresses(data):
     def get_peer_addr(data, addr):
         if isinstance(data, dict) and 'peer_addr' in data:
@@ -3770,6 +3802,8 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_trig_ingr_drp=int(self.test_params['pkts_num_trig_ingr_drp'])
         iterations=int(self.test_params['iterations'])
         margin=int(self.test_params['pkts_num_margin'])
+        cell_size=int(self.test_params.get('cell_size', 0))
+        is_multi_asic = (self.src_client != self.dst_client)
 
         pkt_dst_mac=router_mac if router_mac != '' else dst_port_mac
         dst_port_id=get_rx_port(
@@ -3801,14 +3835,21 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pg_dropped_cntrs_base=sai_thrift_read_pg_drop_counters(
                     self.src_client, port_list['src'][src_port_id])
+                pkt_num = pkts_num_trig_pfc
+
+                # Fill egress memory and leakout
+                if 'cisco-8000' in asic_type and is_multi_asic:
+                    pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(self,
+                                                    src_port_id, pkt, pg, asic_type)
+                    pkt_num -= extra_bytes_occupied // cell_size
 
                 # Send packets to trigger PFC
                 print("Iteration {}/{}, sending {} packets to trigger PFC".format(
                     test_i + 1, iterations, pkts_num_trig_pfc), file=sys.stderr)
-                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+                send_packet(self, src_port_id, pkt, pkt_num)
 
                 # Account for leakout
-                if 'cisco-8000' in asic_type:
+                if 'cisco-8000' in asic_type and not is_multi_asic:
                     queue_counters=sai_thrift_read_queue_occupancy(
                         self.dst_client, "dst", dst_port_id)
                     occ_pkts=queue_counters[queue] // (packet_length + 24)

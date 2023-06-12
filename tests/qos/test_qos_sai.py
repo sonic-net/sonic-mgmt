@@ -1522,21 +1522,13 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
-        pgDropKey = "pg_drop"
+        testParams.update(qosConfig['pg_drop'])
         testParams.update({
-            "dscp": qosConfig[pgDropKey]["dscp"],
-            "ecn": qosConfig[pgDropKey]["ecn"],
-            "pg": qosConfig[pgDropKey]["pg"],
-            "queue": qosConfig[pgDropKey]["queue"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_trig_pfc": qosConfig[pgDropKey]["pkts_num_trig_pfc"],
-            "pkts_num_trig_ingr_drp": qosConfig[pgDropKey]["pkts_num_trig_ingr_drp"],
-            "pkts_num_margin": qosConfig[pgDropKey]["pkts_num_margin"],
-            "iterations": qosConfig[pgDropKey]["iterations"],
             "hwsku":dutTestParams['hwsku']
         })
 
