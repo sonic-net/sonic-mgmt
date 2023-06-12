@@ -3507,6 +3507,22 @@ qos_params:
                     pkts_num_trig_ingr_drp: 10589
                     packet_size: 1350
                     pkts_num_margin: 20
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_dismiss_pfc: 23
+                    packet_size: 1350
+                    pkts_num_egr_mem: 6885
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_dismiss_pfc: 23
+                    packet_size: 1350
+                    pkts_num_egr_mem: 6885
             400000_300m:
                 pkts_num_leak_out: 10
                 xoff_1:
