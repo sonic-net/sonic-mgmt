@@ -49,7 +49,7 @@ parameters:
   # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
-    default: "vlan/test_vlan.py"
+    default: ""
     displayName: "Skip Scripts"
 
   # Test timeout

@@ -49,8 +49,7 @@ parameters:
   # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
-    default: "vlan/test_vlan.py \
-scp/test_scp_copy.py \
+    default: "scp/test_scp_copy.py \
 show_techsupport/tech_support_cmds.py \
 show_techsupport/templates \
 show_techsupport/test_auto_techsupport.py \
