@@ -58,7 +58,6 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
 
 
 @pytest.fixture(autouse=False)
-@pytest.fixture(autouse=False)
 def check_skip_shared_res_test(
         sharedResSizeKey, dutQosConfig,
         get_src_dst_asic_and_duts, dutConfig):
