@@ -1141,6 +1141,21 @@
   auto_recover: 'True'
   comment: v-saidia
 
+- conf-name: vms63-t1-4600-8
+  group-name: vms63-8
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms63-7
+  ptf_ip: 10.64.247.63/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63108
+  dut:
+    - str3-msn4600c-acs-08
+  inv_name: str3
+  auto_recover: 'True'
+  comment: v-saidia
+
 - conf-name: testbed-str2-7215-acs-3
   group-name: vms21-9
   topo: mx

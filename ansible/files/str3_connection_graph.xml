@@ -16,6 +16,7 @@
       <Device Hostname="str2-7260cx3-acs-fan-23" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-35" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-37" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-38" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-8101-fanout-01" HwSku="Cisco-8101-C64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-8101-fanout-02" HwSku="Cisco-8101-O8C48" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-8101-fanout-03" HwSku="Cisco-8101-O8C48" Os="" Type="FanoutLeaf"/>
@@ -24,6 +25,7 @@
       <Device Hostname="str3-msn4600c-acs-06" HwSku="ACS-MSN4600C" Os="sonic" Type="FanoutLeaf"/>
       <Device Hostname="str3-msn4600c-acs-05" HwSku="ACS-MSN4600C" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-msn4600c-acs-07" HwSku="ACS-MSN4600C" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-msn4600c-acs-08" HwSku="ACS-MSN4600C" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-8102-01" HwSku="Cisco-8102-C64" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-8102-05" HwSku="Cisco-8102-C64" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-8102-06" HwSku="Cisco-8102-C64" Os="sonic" Type="DevSonic"/>
@@ -68,6 +70,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-23" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet11/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-35" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet12/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-37" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet33/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet64/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet34/1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="str3-z9332f-06" EndPort="Ethernet257" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet13/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-02" EndPort="etp54" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet5/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-03" EndPort="etp54" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet7/1"/>
@@ -1139,6 +1142,70 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-35" EndPort="Ethernet50/1" StartDevice="str3-msn4600c-acs-07" StartPort="Ethernet244"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-35" EndPort="Ethernet51/1" StartDevice="str3-msn4600c-acs-07" StartPort="Ethernet248"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-35" EndPort="Ethernet52/1" StartDevice="str3-msn4600c-acs-07" StartPort="Ethernet252"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet1/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet0"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet2/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet3/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet8"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet4/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet12"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet5/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet16"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet6/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet20"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet7/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet24"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet8/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet28"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet9/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet32"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet10/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet36"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet11/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet40"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet12/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet44"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet13/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet48"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet14/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet52"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet15/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet56"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet16/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet60"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet17/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet64"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet18/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet68"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet19/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet72"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet20/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet76"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet21/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet80"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet22/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet84"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet23/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet24/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet92"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet25/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet26/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet100"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet27/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet104"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet28/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet108"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet29/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet112"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet30/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet116"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet31/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet120"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet32/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet124"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet33/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet128"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet34/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet132"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet35/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet136"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet36/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet140"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet37/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet144"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet38/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet148"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet39/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet152"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet40/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet156"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet41/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet160"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet42/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet164"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet43/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet168"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet44/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet172"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet45/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet176"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet46/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet180"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet47/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet184"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet48/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet188"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet49/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet192"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet50/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet196"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet51/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet200"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet52/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet204"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet53/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet208"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet54/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet212"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet55/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet216"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet56/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet220"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet57/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet224"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet58/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet228"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet59/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet232"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-38" EndPort="Ethernet60/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet236"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-35" EndPort="Ethernet53/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet240"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-35" EndPort="Ethernet54/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet244"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-35" EndPort="Ethernet55/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet248"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7260cx3-acs-fan-35" EndPort="Ethernet56/1" StartDevice="str3-msn4600c-acs-08" StartPort="Ethernet252"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -1768,8 +1835,9 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet10/1" vlanids="449-512"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet9/1" vlanids="513-576"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids="577-636"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet12/1" vlanids="637-672,1925-1928"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet12/1" vlanids="637-672,1925-1928,1989-1992"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet33/1" vlanids="1865-1924"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet34/1" vlanids="1929-1988"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet13/1" vlanids="577-608"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet5/1" vlanids="673-736"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet7/1" vlanids="737-800"/>
@@ -1782,7 +1850,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet18/1" vlanids="1034-1088"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet22/1" vlanids="1157-1598,1601-1612"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet24/1" vlanids="1669-1698"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids="1157-1796,1801-1928"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids="1157-1796,1801-1928,1929-1992"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids="1701-1764"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet27/1" vlanids="1765-1796"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1801-1863"/>
@@ -2347,6 +2415,72 @@
     <DevicesL3Info Hostname="str3-msn4600c-acs-05">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.222/23"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="str3-7260cx3-acs-fan-38">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.121/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str3-7260cx3-acs-fan-38">
+      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="1929-1988"/>
+      <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="1929"/>
+      <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="1930"/>
+      <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="1931"/>
+      <InterfaceVlan mode="Access" portname="Ethernet4/1" vlanids="1932"/>
+      <InterfaceVlan mode="Access" portname="Ethernet5/1" vlanids="1933"/>
+      <InterfaceVlan mode="Access" portname="Ethernet6/1" vlanids="1934"/>
+      <InterfaceVlan mode="Access" portname="Ethernet7/1" vlanids="1935"/>
+      <InterfaceVlan mode="Access" portname="Ethernet8/1" vlanids="1936"/>
+      <InterfaceVlan mode="Access" portname="Ethernet9/1" vlanids="1937"/>
+      <InterfaceVlan mode="Access" portname="Ethernet10/1" vlanids="1938"/>
+      <InterfaceVlan mode="Access" portname="Ethernet11/1" vlanids="1939"/>
+      <InterfaceVlan mode="Access" portname="Ethernet12/1" vlanids="1940"/>
+      <InterfaceVlan mode="Access" portname="Ethernet13/1" vlanids="1941"/>
+      <InterfaceVlan mode="Access" portname="Ethernet14/1" vlanids="1942"/>
+      <InterfaceVlan mode="Access" portname="Ethernet15/1" vlanids="1943"/>
+      <InterfaceVlan mode="Access" portname="Ethernet16/1" vlanids="1944"/>
+      <InterfaceVlan mode="Access" portname="Ethernet17/1" vlanids="1945"/>
+      <InterfaceVlan mode="Access" portname="Ethernet18/1" vlanids="1946"/>
+      <InterfaceVlan mode="Access" portname="Ethernet19/1" vlanids="1947"/>
+      <InterfaceVlan mode="Access" portname="Ethernet20/1" vlanids="1948"/>
+      <InterfaceVlan mode="Access" portname="Ethernet21/1" vlanids="1949"/>
+      <InterfaceVlan mode="Access" portname="Ethernet22/1" vlanids="1950"/>
+      <InterfaceVlan mode="Access" portname="Ethernet23/1" vlanids="1951"/>
+      <InterfaceVlan mode="Access" portname="Ethernet24/1" vlanids="1952"/>
+      <InterfaceVlan mode="Access" portname="Ethernet25/1" vlanids="1953"/>
+      <InterfaceVlan mode="Access" portname="Ethernet26/1" vlanids="1954"/>
+      <InterfaceVlan mode="Access" portname="Ethernet27/1" vlanids="1955"/>
+      <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="1956"/>
+      <InterfaceVlan mode="Access" portname="Ethernet29/1" vlanids="1957"/>
+      <InterfaceVlan mode="Access" portname="Ethernet30/1" vlanids="1958"/>
+      <InterfaceVlan mode="Access" portname="Ethernet31/1" vlanids="1959"/>
+      <InterfaceVlan mode="Access" portname="Ethernet32/1" vlanids="1960"/>
+      <InterfaceVlan mode="Access" portname="Ethernet33/1" vlanids="1961"/>
+      <InterfaceVlan mode="Access" portname="Ethernet34/1" vlanids="1962"/>
+      <InterfaceVlan mode="Access" portname="Ethernet35/1" vlanids="1963"/>
+      <InterfaceVlan mode="Access" portname="Ethernet36/1" vlanids="1964"/>
+      <InterfaceVlan mode="Access" portname="Ethernet37/1" vlanids="1965"/>
+      <InterfaceVlan mode="Access" portname="Ethernet38/1" vlanids="1966"/>
+      <InterfaceVlan mode="Access" portname="Ethernet39/1" vlanids="1967"/>
+      <InterfaceVlan mode="Access" portname="Ethernet40/1" vlanids="1968"/>
+      <InterfaceVlan mode="Access" portname="Ethernet41/1" vlanids="1969"/>
+      <InterfaceVlan mode="Access" portname="Ethernet42/1" vlanids="1970"/>
+      <InterfaceVlan mode="Access" portname="Ethernet43/1" vlanids="1971"/>
+      <InterfaceVlan mode="Access" portname="Ethernet44/1" vlanids="1972"/>
+      <InterfaceVlan mode="Access" portname="Ethernet45/1" vlanids="1973"/>
+      <InterfaceVlan mode="Access" portname="Ethernet46/1" vlanids="1974"/>
+      <InterfaceVlan mode="Access" portname="Ethernet47/1" vlanids="1975"/>
+      <InterfaceVlan mode="Access" portname="Ethernet48/1" vlanids="1976"/>
+      <InterfaceVlan mode="Access" portname="Ethernet49/1" vlanids="1977"/>
+      <InterfaceVlan mode="Access" portname="Ethernet50/1" vlanids="1978"/>
+      <InterfaceVlan mode="Access" portname="Ethernet51/1" vlanids="1979"/>
+      <InterfaceVlan mode="Access" portname="Ethernet52/1" vlanids="1980"/>
+      <InterfaceVlan mode="Access" portname="Ethernet53/1" vlanids="1981"/>
+      <InterfaceVlan mode="Access" portname="Ethernet54/1" vlanids="1982"/>
+      <InterfaceVlan mode="Access" portname="Ethernet55/1" vlanids="1983"/>
+      <InterfaceVlan mode="Access" portname="Ethernet56/1" vlanids="1984"/>
+      <InterfaceVlan mode="Access" portname="Ethernet57/1" vlanids="1985"/>
+      <InterfaceVlan mode="Access" portname="Ethernet58/1" vlanids="1986"/>
+      <InterfaceVlan mode="Access" portname="Ethernet59/1" vlanids="1987"/>
+      <InterfaceVlan mode="Access" portname="Ethernet60/1" vlanids="1988"/>
+    </DevicesL2Info>
     <DevicesL3Info Hostname="str3-7260cx3-acs-fan-37">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.120/23"/>
     </DevicesL3Info>
@@ -2417,7 +2551,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.79/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-7260cx3-acs-fan-35">
-      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="637-672,1925-1928"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="637-672,1925-1928,1989-1992"/>
       <InterfaceVlan mode="Access" portname="Ethernet9/1" vlanids="637"/>
       <InterfaceVlan mode="Access" portname="Ethernet10/1" vlanids="638"/>
       <InterfaceVlan mode="Access" portname="Ethernet11/1" vlanids="639"/>
@@ -2458,7 +2592,14 @@
       <InterfaceVlan mode="Access" portname="Ethernet50/1" vlanids="1926"/>
       <InterfaceVlan mode="Access" portname="Ethernet51/1" vlanids="1927"/>
       <InterfaceVlan mode="Access" portname="Ethernet52/1" vlanids="1928"/>
+      <InterfaceVlan mode="Access" portname="Ethernet53/1" vlanids="1989"/>
+      <InterfaceVlan mode="Access" portname="Ethernet54/1" vlanids="1990"/>
+      <InterfaceVlan mode="Access" portname="Ethernet55/1" vlanids="1991"/>
+      <InterfaceVlan mode="Access" portname="Ethernet56/1" vlanids="1992"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="str3-msn4600c-acs-08">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.111/23"/>
+    </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
@@ -2469,17 +2610,46 @@
       <DeviceConsoleInfo Hostname="console-212" HwSku="Cisco" ManagementIp="10.3.145.212" Os="" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
-      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-msn2700-01" Proxy="root" StartDevice="console-1" StartPort="10"/>
-      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-7260-10" Proxy="root" StartDevice="console-2" StartPort="11"/>
-      <ConsoleLinkInfo BaudRate="" Console_type="ssh" EndDevice="str-7260-11" Proxy="root" StartDevice="console-1" StartPort="12"/>
-      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="str-acs-serv-01" Proxy="root" StartDevice="management-1" StartPort="13"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8111-01" Proxy="admin" StartDevice="console-184" StartPort="11"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8111-02" Proxy="admin" StartDevice="console-184" StartPort="12"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-fanout-05" Proxy="admin" StartDevice="console-184" StartPort="33"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-fanout-06" Proxy="admin" StartDevice="console-184" StartPort="34"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-01" Proxy="admin" StartDevice="console-197" StartPort="28"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-02" Proxy="admin" StartDevice="console-197" StartPort="24"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-03" Proxy="admin" StartDevice="console-197" StartPort="27"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-04" Proxy="admin" StartDevice="console-197" StartPort="38"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-37" Proxy="admin" StartDevice="console-197" StartPort="47"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-38" Proxy="admin" StartDevice="console-197" StartPort="41"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8102-01" Proxy="admin" StartDevice="console-197" StartPort="6"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8102-05" Proxy="admin" StartDevice="console-197" StartPort="7"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8102-06" Proxy="admin" StartDevice="console-197" StartPort="19"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-32fh-01" Proxy="admin" StartDevice="console-185" StartPort="31"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-01" Proxy="admin" StartDevice="console-197" StartPort="23"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-02" Proxy="admin" StartDevice="console-197" StartPort="20"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-fanout-01" Proxy="admin" StartDevice="console-197" StartPort="25"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-fanout-02" Proxy="admin" StartDevice="console-197" StartPort="22"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-8101-fanout-03" Proxy="admin" StartDevice="console-197" StartPort="21"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-z9332f-01" Proxy="admin" StartDevice="console-199" StartPort="9"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-z9332f-04" Proxy="admin" StartDevice="console-199" StartPort="10"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-05" Proxy="admin" StartDevice="console-197" StartPort="14"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-06" Proxy="admin" StartDevice="console-197" StartPort="13"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-07" Proxy="admin" StartDevice="console-197" StartPort="12"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7260cx3-acs-fan-08" Proxy="admin" StartDevice="console-197" StartPort="11"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7808-sup-1" Proxy="admin" StartDevice="console-197" StartPort="10"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-z9332f-02" Proxy="admin" StartDevice="console-182" StartPort="5"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-msn4600c-acs-05" Proxy="admin" StartDevice="console-182" StartPort="20"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-msn4600c-acs-06" Proxy="admin" StartDevice="console-182" StartPort="19"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-msn4600c-acs-07" Proxy="admin" StartDevice="console-182" StartPort="8"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-msn4600c-acs-08" Proxy="admin" StartDevice="console-182" StartPort="9"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7060-acs-fan-01" Proxy="admin" StartDevice="console-212" StartPort="6"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7060-acs-1" Proxy="admin" StartDevice="console-212" StartPort="7"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7060-acs-2" Proxy="admin" StartDevice="console-212" StartPort="4"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-7060-acs-3" Proxy="admin" StartDevice="console-212" StartPort="5"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str3-dx010-acs-1" Proxy="admin" StartDevice="console-212" StartPort="3"/>
     </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
     <DevicesBmcInfo/>
-    <BmcLinksInfo>
-      <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
-    </BmcLinksInfo>
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
@@ -2500,14 +2670,93 @@
       <DevicePowerControlInfo Hostname="pdu-120" HwSku="Sentry4" ManagementIp="10.3.155.120" Os="" Protocol="snmp" Type="Pdu"/>
     </DevicesPowerControlInfo>
     <PowerControlLinksInfo>
-      <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU1" StartDevice="pdu-1" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU2" StartDevice="pdu-1" StartPort="3"/>
-      <PowerControlLinkInfo EndDevice="str-7260-10" EndPort="PSU1" StartDevice="pdu-1" StartPort="2"/>
-      <PowerControlLinkInfo EndDevice="str-7260-10" EndPort="PSU2" StartDevice="pdu-1" StartPort="4"/>
-      <PowerControlLinkInfo EndDevice="str-7260-11" EndPort="PSU1" StartDevice="pdu-2" StartPort="1"/>
-      <PowerControlLinkInfo EndDevice="str-7260-11" EndPort="PSU2" StartDevice="pdu-2" StartPort="3"/>
-      <PowerControlLinkInfo EndDevice="str-acs-serv-01" EndPort="PSU1" StartDevice="pdu-2" StartPort="2"/>
-      <PowerControlLinkInfo EndDevice="str-acs-serv-01" EndPort="PSU2" StartDevice="pdu-2" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-root03" EndPort="PSU1" StartDevice="pdu-116" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-root03" EndPort="PSU2" StartDevice="pdu-115" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-61" EndPort="PSU1" StartDevice="pdu-118" StartPort="9"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-01" EndPort="PSU1" StartDevice="pdu-90" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-01" EndPort="PSU2" StartDevice="pdu-91" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-02" EndPort="PSU1" StartDevice="pdu-90" StartPort="11"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-02" EndPort="PSU2" StartDevice="pdu-91" StartPort="11"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-03" EndPort="PSU1" StartDevice="pdu-90" StartPort="3"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-03" EndPort="PSU2" StartDevice="pdu-91" StartPort="3"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-04" EndPort="PSU1" StartDevice="pdu-122" StartPort="37"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-04" EndPort="PSU2" StartDevice="pdu-123" StartPort="37"/>
+      <PowerControlLinkInfo EndDevice="str3-8102-01" EndPort="PSU1" StartDevice="pdu-123" StartPort="44"/>
+      <PowerControlLinkInfo EndDevice="str3-8102-01" EndPort="PSU2" StartDevice="pdu-123" StartPort="46"/>
+      <PowerControlLinkInfo EndDevice="str3-8102-05" EndPort="PSU1" StartDevice="pdu-90" StartPort="7"/>
+      <PowerControlLinkInfo EndDevice="str3-8102-05" EndPort="PSU2" StartDevice="pdu-91" StartPort="7"/>
+      <PowerControlLinkInfo EndDevice="str3-8102-06" EndPort="PSU1" StartDevice="pdu-90" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str3-8102-06" EndPort="PSU2" StartDevice="pdu-91" StartPort="4"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-32fh-01" EndPort="PSU1" StartDevice="pdu-110" StartPort="36"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-32fh-01" EndPort="PSU2" StartDevice="pdu-111" StartPort="36"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-01" EndPort="PSU1" StartDevice="pdu-90" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-01" EndPort="PSU2" StartDevice="pdu-92" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-02" EndPort="PSU1" StartDevice="pdu-90" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-02" EndPort="PSU2" StartDevice="pdu-92" StartPort="19"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-fanout-01" EndPort="PSU1" StartDevice="pdu-90" StartPort="23"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-fanout-01" EndPort="PSU2" StartDevice="pdu-92" StartPort="23"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-fanout-02" EndPort="PSU1" StartDevice="pdu-90" StartPort="21"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-fanout-02" EndPort="PSU2" StartDevice="pdu-92" StartPort="21"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-fanout-03" EndPort="PSU1" StartDevice="pdu-90" StartPort="20"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-fanout-03" EndPort="PSU2" StartDevice="pdu-92" StartPort="20"/>
+      <PowerControlLinkInfo EndDevice="str3-z9332f-01" EndPort="PSU1" StartDevice="pdu-111" StartPort="38"/>
+      <PowerControlLinkInfo EndDevice="str3-z9332f-01" EndPort="PSU2" StartDevice="pdu-111" StartPort="40"/>
+      <PowerControlLinkInfo EndDevice="str3-z9332f-04" EndPort="PSU1" StartDevice="pdu-111" StartPort="41"/>
+      <PowerControlLinkInfo EndDevice="str3-z9332f-04" EndPort="PSU2" StartDevice="pdu-111" StartPort="47"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU1" StartDevice="pdu-86" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU2" StartDevice="pdu-86" StartPort="10"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU3" StartDevice="pdu-86" StartPort="20"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU4" StartDevice="pdu-90" StartPort="8"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU5" StartDevice="pdu-90" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU6" StartDevice="pdu-90" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU7" StartDevice="pdu-89" StartPort="8"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU8" StartDevice="pdu-89" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU9" StartDevice="pdu-89" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU10" StartDevice="pdu-88" StartPort="8"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU11" StartDevice="pdu-88" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU12" StartDevice="pdu-88" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU13" StartDevice="pdu-86" StartPort="8"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU14" StartDevice="pdu-86" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU15" StartDevice="pdu-86" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="str3-7808-sup-1" EndPort="PSU16" StartDevice="pdu-85" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-05" EndPort="PSU1" StartDevice="pdu-90" StartPort="2"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-05" EndPort="PSU2" StartDevice="pdu-91" StartPort="2"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-06" EndPort="PSU1" StartDevice="pdu-90" StartPort="14"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-06" EndPort="PSU2" StartDevice="pdu-91" StartPort="14"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-07" EndPort="PSU1" StartDevice="pdu-90" StartPort="9"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-07" EndPort="PSU2" StartDevice="pdu-91" StartPort="9"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-08" EndPort="PSU1" StartDevice="pdu-90" StartPort="10"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-08" EndPort="PSU2" StartDevice="pdu-91" StartPort="10"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-37" EndPort="PSU1" StartDevice="pdu-92" StartPort="12"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-37" EndPort="PSU2" StartDevice="pdu-92" StartPort="13"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-37" EndPort="PSU1" StartDevice="pdu-92" StartPort="12"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-37" EndPort="PSU2" StartDevice="pdu-92" StartPort="13"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-38" EndPort="PSU1" StartDevice="pdu-92" StartPort="14"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-38" EndPort="PSU2" StartDevice="pdu-92" StartPort="15"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-05" EndPort="PSU1" StartDevice="pdu-92" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-05" EndPort="PSU2" StartDevice="pdu-93" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-06" EndPort="PSU1" StartDevice="pdu-92" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-06" EndPort="PSU2" StartDevice="pdu-93" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-07" EndPort="PSU1" StartDevice="pdu-91" StartPort="19"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-08" EndPort="PSU1" StartDevice="pdu-91" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str3-z9332f-02" EndPort="PSU1" StartDevice="pdu-91" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str3-z9332f-02" EndPort="PSU2" StartDevice="pdu-88" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-62" EndPort="PSU1" StartDevice="pdu-89" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-62" EndPort="PSU2" StartDevice="pdu-88" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-fanout-05" EndPort="PSU1" StartDevice="pdu-100" StartPort="5"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-fanout-06" EndPort="PSU1" StartDevice="pdu-100" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-63" EndPort="PSU1" StartDevice="pdu-115" StartPort="38"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-63" EndPort="PSU2" StartDevice="pdu-115" StartPort="39"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-1" EndPort="PSU1" StartDevice="pdu-120" StartPort="32"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-1" EndPort="PSU2" StartDevice="pdu-119" StartPort="32"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-2" EndPort="PSU1" StartDevice="pdu-89" StartPort="10"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-2" EndPort="PSU2" StartDevice="pdu-90" StartPort="12"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-3" EndPort="PSU1" StartDevice="pdu-120" StartPort="35"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-3" EndPort="PSU2" StartDevice="pdu-119" StartPort="35"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-fan-01" EndPort="PSU1" StartDevice="pdu-120" StartPort="34"/>
+      <PowerControlLinkInfo EndDevice="str3-7060-acs-fan-01" EndPort="PSU2" StartDevice="pdu-119" StartPort="33"/>
+      <PowerControlLinkInfo EndDevice="str3-dx010-acs-1" EndPort="PSU1" StartDevice="pdu-120" StartPort="36"/>
+      <PowerControlLinkInfo EndDevice="str3-dx010-acs-1" EndPort="PSU2" StartDevice="pdu-119" StartPort="36"/>
     </PowerControlLinksInfo>
   </PowerControlGraphDeclaration>
 </LabConnectionGraph>

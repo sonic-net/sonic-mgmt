@@ -14,6 +14,7 @@ str3-7260cx3-acs-fan-08,10.3.146.117/23,Arista-7260CX3,FanoutLeaf,,
 str2-7260cx3-acs-fan-23,10.3.146.114/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-35,10.3.147.79/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-37,10.3.147.120/23,Arista-7260CX3,FanoutLeaf,,
+str3-7260cx3-acs-fan-38,10.3.147.121/23,Arista-7260CX3,FanoutLeaf,,
 str3-8101-fanout-01,10.3.146.195/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-02,10.3.146.193/23,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-03,10.3.146.192/23,Cisco-8101-O8C48,FanoutLeaf,,
@@ -22,6 +23,7 @@ str3-8101-fanout-06,10.3.146.178/23,Cisco-8101-O32,FanoutLeaf,,
 str3-msn4600c-acs-06,10.3.146.146/23,ACS-MSN4600C,FanoutLeaf,,sonic
 str3-msn4600c-acs-05,10.3.146.222/23,ACS-MSN4600C,DevSonic,,sonic
 str3-msn4600c-acs-07,10.3.147.114/23,ACS-MSN4600C,DevSonic,,sonic
+str3-msn4600c-acs-08,10.3.147.111/23,ACS-MSN4600C,DevSonic,,sonic
 str3-8102-01,10.3.146.120/23,Cisco-8102-C64,DevSonic,,sonic
 str3-8102-05,10.3.146.121/23,Cisco-8102-C64,DevSonic,,sonic
 str3-8102-06,10.3.146.78/23,Cisco-8102-C64,DevSonic,,sonic
