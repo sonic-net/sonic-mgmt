@@ -257,6 +257,10 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
 
 @pytest.fixture(scope='module', autouse=True)
 def disable_packet_aging(rand_selected_dut, duthosts):
+    """
+        For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout. Need to disable this
+        before any buffer tests.
+    """
     for duthost in duthosts:
         asic = duthost.get_asic_name()
         if 'spc' in asic:
