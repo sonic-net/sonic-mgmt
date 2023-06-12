@@ -113,10 +113,12 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
             pytest.fail(
                 'Got wrong information ({}) from STATE_DB PSU_INFO|{}'.format(output, psuname))
 
-        if int(float(output[0])) != power/1000000 \
-           or int(float(output[1])) != power_warning_suppress_threshold/1000000 \
+        if int(float(output[1])) != power_warning_suppress_threshold/1000000 \
            or int(float(output[2])) != power_critical_threshold/1000000 \
            or output[3] != str(power_overload):
+            return False
+
+        if abs(float(output[0])*1000000 - power/MAX_PSUS) > 100:
             return False
 
         command_check_system_health_db = 'sonic-db-cli STATE_DB hget SYSTEM_HEALTH_INFO "{}"'
@@ -186,7 +188,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
             power_warning_suppress_threshold/1000000,
             power_critical_threshold/1000000))
 
-        mocker.mock_psu_power(psu_index, power)
+        mocker.mock_psu_power(power, MAX_PSUS)
         if was_power_exceeded and power < power_warning_suppress_threshold \
            or not was_power_exceeded and power >= power_critical_threshold:
             timeout = 80
@@ -242,7 +244,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         # This is to make sure the power will be a fixed value because it can flucuate if it was read from a sensor.
         logger.info(
             'Mock PSU power to {} which is in normal range'.format(power/1000000))
-        mocker.mock_psu_power(psu_index, power)
+        mocker.mock_psu_power(power, MAX_PSUS)
 
         power_warning_suppress_threshold = None
         power_critical_threshold = None
@@ -278,7 +280,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
                 check_log_analyzer(loganalyzer, marker)
                 loganalyzer, marker = init_log_analyzer(duthost,
                                                         'PSU power exceeds threshold',
-                                                        ['PSU power warning: PSU {} power .* exceeds critical threshold'
+                                                        ['PSU power warning: system power .* exceeds the critical threshold'
                                                          .format(psu_index)])
 
             with allure.step('Mock the power'):
@@ -317,7 +319,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
                 check_log_analyzer(loganalyzer, marker)
                 loganalyzer, marker = init_log_analyzer(duthost,
                                                         'PSU power become back to normal',
-                                                        ['PSU power warning cleared: PSU {} power .* is back to normal'.
+                                                        ['PSU power warning cleared: system power .* is back to normal, below the warning suppress threshold'.
                                                          format(psu_index)])
 
             with allure.step('Mock power'):

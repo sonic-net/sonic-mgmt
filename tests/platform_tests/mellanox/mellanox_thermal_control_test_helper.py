@@ -1331,8 +1331,9 @@ class PsuPowerThresholdMocker(object):
         self.mock_helper.mock_value(
             self.FAN_AMBIENT_TEMP, self.read_fan_ambient_thermal())
 
-    def mock_psu_power(self, psu, power):
-        self.mock_helper.mock_value(self.PSU_POWER.format(psu), int(power))
+    def mock_psu_power(self, power, number_psus):
+        for i in range(number_psus):
+            self.mock_helper.mock_value(self.PSU_POWER.format(i+1), int(power/number_psus))
 
     def mock_fan_ambient_thermal(self, temperature):
         self.mock_helper.mock_value(self.FAN_AMBIENT_TEMP, int(temperature))
