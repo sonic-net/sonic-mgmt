@@ -3391,8 +3391,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 dst_port_ip,
                 None,
                 dscp,
-                ecn, 
-                ttl, 
+                ecn,
+                ttl,
                 packet_length,
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0][0]
