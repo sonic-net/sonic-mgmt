@@ -147,8 +147,8 @@ def generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port,
     router_mac = duthost.facts['router_mac']
     src_port_number = int(get_port_number(src_port))
     dst_port_number = int(get_port_number(dst_port))
-    src_mac = ptfadapter.dataplane.get_mac(0, src_port_number)
-    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port_number)
+    src_mac = ptfadapter.dataplane.get_mac(0, src_port_number).decode()
+    dst_mac = ptfadapter.dataplane.get_mac(0, dst_port_number).decode()
     # Get VLAN ID from name of sub-port
     if '.' in src_port:
         src_vlan_vid = int(src_port.split('.')[1])
