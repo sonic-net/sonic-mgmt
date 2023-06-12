@@ -10,8 +10,10 @@ import ast
 from operator import itemgetter
 from collections import defaultdict
 
+import host_device
 
-class Arista(object):
+
+class Arista(host_device.HostDevice):
     DEBUG = False
     # unit: second
     SSH_CMD_TIMEOUT = 10
