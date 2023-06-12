@@ -757,6 +757,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         dscp_to_pg_map = self.test_params.get('dscp_to_pg_map', None)
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        asic_type = self.test_params.get("sonic_asic_type")
 
         print("dst_port_id: %d, src_port_id: %d" %
               (dst_port_id, src_port_id), file=sys.stderr)
@@ -788,6 +789,10 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     pg_dscp_map[int(pg)] = [int(dscp)]
 
         print(pg_dscp_map, file=sys.stderr)
+        all_pkts = {}
+        ttl = exp_ttl + 1 if router_mac != '' else exp_ttl
+        if asic_type == "cisco-8000" and self.src_client != self.dst_client:
+            ttl = exp_ttl + 2
         dst_port_id = get_rx_port(
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip)
         print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
@@ -808,7 +813,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                                             ip_dst=dst_port_ip,
                                             ip_tos=tos,
                                             ip_id=exp_ip_id,
-                                            ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
+                                            ip_ttl=ttl)
                     send_packet(self, src_port_id, pkt, 1)
                     print("dscp: %d, calling send_packet" %
                           (tos >> 2), file=sys.stderr)
