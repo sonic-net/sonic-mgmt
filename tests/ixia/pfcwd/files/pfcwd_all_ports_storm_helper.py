@@ -268,5 +268,3 @@ def __stop_traffic(api, config, all_flow_names):
     api.set_state(State(FlowTransmitState(state='stop')))
 
     return rows
-
-

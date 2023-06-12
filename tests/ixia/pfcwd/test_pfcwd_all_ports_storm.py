@@ -67,4 +67,4 @@ def test_pfcwd_all_ports_pause_storm(ixia_api,
                               duthost=duthost,
                               dut_ports_list=dut_ports_list,
                               pause_prio_list=[lossless_prio],
-                              prio_dscp_map=prio_dscp_map)  
+                              prio_dscp_map=prio_dscp_map)
