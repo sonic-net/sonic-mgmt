@@ -241,6 +241,7 @@ test_t1_lag() {
     configlet/test_add_rack.py \
     container_checker/test_container_checker.py \
     http/test_http_copy.py \
+    iface_namingmode/test_iface_namingmode.py \
     ipfwd/test_mtu.py \
     lldp/test_lldp.py \
     monit/test_monit_status.py \
@@ -280,6 +281,7 @@ test_multi_asic_t1_lag_pr() {
     tgname=multi_asic_t1_lag
     tests="\
     bgp/test_bgp_fact.py \
+    iface_namingmode/test_iface_namingmode.py \
     snmp/test_snmp_default_route.py \
     snmp/test_snmp_loopback.py \
     snmp/test_snmp_pfc_counters.py \
