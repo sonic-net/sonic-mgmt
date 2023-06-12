@@ -1,4 +1,4 @@
-import logging, os, time, pytest 
+import os, time 
 from math import ceil
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -12,8 +12,8 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
 from tests.common.ixia.port import select_ports
 from tests.common.cisco_data import is_cisco_device
 
-from abstract_open_traffic_generator.flow import TxRx, Flow, Header,Size, Rate,\
-    Duration, FixedSeconds, FixedPackets, Continuous, PortTxRx, PfcPause
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header,Size, Rate
+from abstract_open_traffic_generator.flow import Duration, FixedSeconds, FixedPackets, Continuous, PortTxRx, PfcPause  
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
