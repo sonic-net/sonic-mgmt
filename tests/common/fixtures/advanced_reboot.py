@@ -464,7 +464,7 @@ class AdvancedReboot:
         target_dir = '/var/log'
 
         command = "test -d {}".format(source_dir)
-        result = self.duthost.shell(command)
+        result = self.duthost.shell(command, module_ignore_errors=True)
 
         if result["rc"] == 0:
             command = 'sudo find ' + source_dir + ' -type f -exec sh -c \'mv "$0" "' + target_dir + '/$(basename "$0").preboot"\' {} \\;'
@@ -472,8 +472,7 @@ class AdvancedReboot:
             if result["rc"] == 0:
                 logger.info("Files under /host/logs_before_reboot copied successfully to {}.".format(target_dir))
             else:
-                logger.info("Failed to copy files under /host/logs_before_reboot copied successfully to {}.".format(target_dir))
-
+                logger.info("Failed to copy files under /host/logs_before_reboot successfully to {}.".format(target_dir))
         else:
             logger.info("Directory {} does not exist.".format(source_dir))
 
