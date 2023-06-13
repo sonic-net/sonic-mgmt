@@ -1818,10 +1818,11 @@ Totals               6450                 6449
                 else:
                     in_section = False
                     continue
-            # Output of 'crm show resources all' has 3 sections.
+            # Output of 'crm show resources all' has 3 sections(4 on DPU platform).
             #   section 1: resources usage
             #   section 2: ACL group
             #   section 3: ACL table
+            #   section 4: DASH(DPU) ACL rules
             if 1 in list(sections.keys()):
                 crm_facts['resources'] = {}
                 resources = self._parse_show(sections[1])
@@ -1836,6 +1837,9 @@ Totals               6450                 6449
 
             if 3 in list(sections.keys()):
                 crm_facts['acl_table'] = self._parse_show(sections[3])
+
+            if 4 in list(sections.keys()):
+                crm_facts['dash_acl_group'] = self._parse_show(sections[4])
             return True
         # Retry until crm resources are ready
         timeout = crm_facts['polling_interval'] + 10
