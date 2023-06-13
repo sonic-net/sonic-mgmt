@@ -541,8 +541,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         if not get_src_dst_asic_and_duts['single_asic_test']:
-             pytest.skip("This test is not applicable when "
-                 "src and dst ASICs are different.")
+             pytest.skip("This test needs to be revisited later, for the case "
+                 "where src and dst ASICs are different.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and \
                 'backend' not in dutTestParams['topo']:
