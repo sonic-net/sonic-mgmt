@@ -3,7 +3,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts                  # noqa F401
-from tests.common.snappi.snappi_helpers import get_dut_port_id, class_enable_vector
+from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
@@ -41,7 +41,7 @@ def run_pfc_test(api,
                  test_traffic_pause,
                  headroom_test_params=None,
                  pfc_pause_src_mac=None,
-                 class_enable_vec=class_enable_vector.BIT_SET):
+                 class_enable_vec=True):
     """
     Run a PFC test
     Args:
@@ -61,7 +61,7 @@ def run_pfc_test(api,
         headroom_test_params (array): 2 element array if the associated pfc pause quanta
                                     results in no packet drop [pfc_delay, headroom_result]
         pfc_pause_src_mac (string): source MAC address of PFC Pause frames
-        class_enable_vec (ENUM): ENUM of class enable vector settings
+        class_enable_vec (bool): whether the PFC class enable vector has been set or not
     Returns:
         N/A
     """
@@ -195,7 +195,7 @@ def __gen_traffic(testbed_config,
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         pfc_pause_src_mac (string): source MAC address of PFC Pause frames
-        class_enable_vec (int): ENUM of class enable vector settings
+        class_enable_vec (bool): whether the PFC class enable vector has been set or not
     Returns:
         flows configurations (list): the list should have configurations of
         len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
@@ -315,8 +315,7 @@ def __gen_traffic(testbed_config,
         pause_pkt = pause_flow.packet.pfcpause()[-1]
         pause_pkt.src.value = pfc_pause_src_mac if pfc_pause_src_mac else '00:00:fa:ce:fa:ce'
         pause_pkt.dst.value = '01:80:C2:00:00:01'
-        pause_pkt.class_enable_vector.value = class_enable_vector.NO_BIT_SET.value if class_enable_vec == \
-            class_enable_vector.NO_BIT_SET else vector
+        pause_pkt.class_enable_vector.value = vector if class_enable_vec else 0
         pause_pkt.pause_class_0.value = pause_time[0]
         pause_pkt.pause_class_1.value = pause_time[1]
         pause_pkt.pause_class_2.value = pause_time[2]
@@ -416,8 +415,8 @@ def __verify_results(rows,
                      speed_gbps,
                      test_flow_pause,
                      tolerance,
-                     headroom_test_params=None,
-                     class_enable_vec=class_enable_vector.BIT_SET):
+                     class_enable_vec,
+                     headroom_test_params=None):
     """
     Verify if we get expected experiment results
     Args:
@@ -432,9 +431,9 @@ def __verify_results(rows,
         speed_gbps (int): link speed in Gbps
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
+        class_enable_vec (bool): whether the PFC class enable vector has been set or not
         headroom_test_params (array): 2 element array if the associated pfc pause quanta
             results in no packet drop [pfc_delay, headroom_result]
-        class_enable_vec (ENUM): ENUM of class enable vector settings
     Returns:
         N/A
     """
@@ -539,10 +538,10 @@ def __verify_results(rows,
         for prio in range(len(prios)):
             pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
             total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
-            if class_enable_vec == class_enable_vector.BIT_SET:
+            if class_enable_vec:
                 pytest_assert(pfc_pause_rx_frames > 0,
                               "PFC pause frames with zero source MAC are not counted in the PFC counters")
-            elif class_enable_vec == class_enable_vector.NO_BIT_SET:
+            else:
                 pytest_assert(pfc_pause_rx_frames == 0,
                               "PFC pause frames with no bit set in the class enable vector should be dropped")
                 pytest_assert(total_egress_packets == test_tx_frames[prio], "Queue counters should increment for \

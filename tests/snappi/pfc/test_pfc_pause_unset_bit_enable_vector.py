@@ -7,7 +7,6 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts # noqa F401
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_testbed_config # noqa F401
-from tests.common.snappi.snappi_helpers import class_enable_vector
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list # noqa F401
 
@@ -70,7 +69,7 @@ def test_pfc_unset_cev_single_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 class_enable_vec=class_enable_vector.NO_BIT_SET)
+                 class_enable_vec=False)
 
 
 def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
@@ -124,4 +123,4 @@ def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 class_enable_vec=class_enable_vector.NO_BIT_SET)
+                 class_enable_vec=False)
