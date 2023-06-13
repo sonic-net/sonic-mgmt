@@ -131,6 +131,7 @@ class AdvancedReboot:
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
         self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
+        self.neighborType = self.request.config.getoption("--neighbor_type")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -714,6 +715,7 @@ class AdvancedReboot:
                             ._hostvars[self.duthost.hostname].get("ansible_altpassword"),
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
+            "neighbor_type": self.neighborType,
         }
 
         if self.dual_tor_mode:
