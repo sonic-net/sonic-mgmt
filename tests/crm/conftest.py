@@ -3,7 +3,8 @@ import time
 import json
 import logging
 
-from test_crm import RESTORE_CMDS, CRM_POLLING_INTERVAL
+from test_crm import RESTORE_CMDS
+from tests.common.helpers.crm import CRM_POLLING_INTERVAL
 from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
