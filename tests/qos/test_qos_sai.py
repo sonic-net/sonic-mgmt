@@ -757,7 +757,7 @@ class TestQosSai(QosSaiBase):
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
         dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
-        (src_port_ids, dst_portids) = check_port_count
+        (src_port_ids, dst_portids) = check_skip_shared_res_test
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
