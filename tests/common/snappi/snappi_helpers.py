@@ -8,7 +8,6 @@ chassis instead of reading it from fanout_graph_facts fixture.
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
 import time
-from enum import Enum
 
 
 class SnappiFanoutManager():
