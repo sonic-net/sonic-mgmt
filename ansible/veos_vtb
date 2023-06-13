@@ -19,6 +19,7 @@ all:
           - t0
           - t0-16
           - t0-56
+          - t0-56-d48c8
           - t0-52
           - ptf32
           - ptf64
@@ -33,6 +34,9 @@ all:
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
+          - dualtor-aa
+          - dualtor-aa-56
+          - dualtor-aa-120
           - wan-pub
           - wan-4link
           - wan-pub-cisco

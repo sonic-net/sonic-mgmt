@@ -23,13 +23,16 @@ class MultiAsicSonicHost(object):
 
     _DEFAULT_SERVICES = ["pmon", "snmp", "lldp", "database"]
 
-    def __init__(self, ansible_adhoc, hostname):
+    def __init__(self, ansible_adhoc, hostname, duthosts, topo_type):
         """ Initializing a MultiAsicSonicHost.
 
         Args:
             ansible_adhoc : The pytest-ansible fixture
             hostname: Name of the host in the ansible inventory
         """
+        self.duthosts = duthosts
+        self.topo_type = topo_type
+        self.loganalyzer = None
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts[ASICS_PRESENT]]
 
@@ -455,8 +458,10 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
-            # TODO: https://github.com/sonic-net/sonic-mgmt/issues/5970
-            if self.sonichost.is_multi_asic and docker == "gbsyncd":
+            # This is to avoid gbsyncd check fo VS test_disable_rsyslog_rate_limit
+            # we are still getting whatever enabled feature in test_disable_rsyslog_rate_limit
+            # and gbsyncd feature will be added to services
+            if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "

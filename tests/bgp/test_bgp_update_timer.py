@@ -13,11 +13,14 @@ from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa F811
-from tests.common.dualtor.mux_simulator_control import (
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-)  # noqa F811
+from tests.common.dualtor.dual_tor_common import active_active_ports                    # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup    # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url                   # noqa F401
+from tests.common.dualtor.mux_simulator_control import \
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m               # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -71,6 +74,14 @@ def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
     return "Quagga" in show_res["stdout"]
+
+
+@pytest.fixture
+def has_suppress_feature(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Return True if current SONiC version runs with suppress enabled in FRR."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    suppress_enabled = ('bgp suppress-fib-pending' in duthost.shell('show runningconfiguration bgp')['stdout'])
+    return suppress_enabled
 
 
 @pytest.fixture
@@ -174,7 +185,7 @@ def common_setup_teardown(
 
 
 @pytest.fixture
-def constants(is_quagga, setup_interfaces):
+def constants(is_quagga, setup_interfaces, has_suppress_feature):
     class _C(object):
         """Dummy class to save test constants."""
 
@@ -186,7 +197,10 @@ def constants(is_quagga, setup_interfaces):
         _constants.update_interval_threshold = 20
     else:
         _constants.sleep_interval = 5
-        _constants.update_interval_threshold = 1
+        if not has_suppress_feature:
+            _constants.update_interval_threshold = 1
+        else:
+            _constants.update_interval_threshold = 2
 
     conn0 = setup_interfaces[0]
     _constants.routes = []
@@ -271,8 +285,9 @@ def test_bgp_update_timer_single_route(
     constants,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-):  # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
+    validate_active_active_dualtor_setup                                        # noqa F811
+):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
@@ -369,8 +384,9 @@ def test_bgp_update_timer_session_down(
     constants,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-):  # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
+    validate_active_active_dualtor_setup                                        # noqa F811
+):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown

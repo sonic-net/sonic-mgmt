@@ -9,7 +9,7 @@ import random
 import pytest
 
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
@@ -60,7 +60,7 @@ def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
 
 
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_hostname, dut_vars,
-                                             backup_and_restore_config_db):
+                                             backup_and_restore_config_db):     # noqa F811
     """
     @summary: Verify FLEXCOUNTERS_DB and COUNTERS_DB content after `counterpoll queue/watermark/queue enable`
 

@@ -36,9 +36,11 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     # when loganalyzer is disabled, the object could be None
     if loganalyzer:
         ignoreRegex = [
-            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
-            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*",
-            ".*ERR syncd#syncd: :- translate_vid_to_rid: unable to get RID for VID.*",
+            (".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, "
+             "NOT translating and NOT storing in ASIC DB.*"),
+            (".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent "
+             "since it contain invalid OIDs, bug.*"),
+            (".*ERR syncd#syncd: :- translate_vid_to_rid: unable to get RID for VID.*"),
         ]
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
@@ -55,7 +57,17 @@ def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend
     if request.node.rep_call.failed:
         # if test case failed, means bgp session down or port channel status not recovered, execute config reload
         logging.info("Reloading config and restarting swss...")
-        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+        config_reload(duthost, safe_reload=True)
+
+
+def _wait_until_pc_members_removed(asichost, pc_names):
+    """
+    Wait until all port channel members are removed.
+    """
+    if not wait_until(30, 5, 5, lambda: not asichost.get_portchannel_members(pc_names)):
+        # Mark the test case as failed if port channel members are not removed.
+        # The fixture reload_testbed_on_failed will do config reload to restore the DUT.
+        pytest.fail("Portchannel members are not removed from {}".format(pc_names))
 
 
 def has_bgp_neighbors(duthost, portchannel):
@@ -118,7 +130,8 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
         pytest_assert(
-            has_bgp_neighbors(duthost, portchannel) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
+            has_bgp_neighbors(duthost, portchannel) and
+            wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
             or not wait_until(10, 10, 0, pc_active, asichost, portchannel))
 
         # Step 3: Create tmp portchannel
@@ -140,7 +153,8 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
         pytest_assert(
-            has_bgp_neighbors(duthost, tmp_portchannel) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            has_bgp_neighbors(duthost, tmp_portchannel) and
+            wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, asichost, tmp_portchannel))
     finally:
         # Recover all states
@@ -152,7 +166,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             for member in portchannel_members:
                 asichost.config_portchannel_member(tmp_portchannel, member, "del")
 
-        time.sleep(5)
+        _wait_until_pc_members_removed(asichost, tmp_portchannel)
         if create_tmp_portchannel:
             asichost.config_portchannel(tmp_portchannel, "del")
         if remove_portchannel_ip:
@@ -163,7 +177,8 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
         time.sleep(5)
         pytest_assert(
-            has_bgp_neighbors(duthost, portchannel) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            has_bgp_neighbors(duthost, portchannel) and
+            wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, asichost, portchannel))
 
 
@@ -184,10 +199,10 @@ def test_po_update_io_no_loss(
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # generate ip-pc pairs, be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001")]
-    peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"], dut_mg_facts["minigraph_portchannels"][pc["attachto"]]['namespace']) for pc in
-                       dut_mg_facts["minigraph_portchannel_interfaces"]
-                       if
-                       ipaddress.ip_address(pc['peer_addr']).version == 4]
+    peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"],
+                        dut_mg_facts["minigraph_portchannels"][pc["attachto"]]['namespace'])
+                       for pc in dut_mg_facts["minigraph_portchannel_interfaces"]
+                       if ipaddress.ip_address(pc['peer_addr']).version == 4]
     # generate pc tuples, fill in members,
     # be like:[("10.0.0.56", "10.0.0.57", "PortChannel0001", ["Ethernet48", "Ethernet52"])]
     pcs = [(pair[0], pair[1], pair[2], dut_mg_facts["minigraph_portchannels"][pair[2]]["members"], pair[3]) for pair in
@@ -276,7 +291,7 @@ def test_po_update_io_no_loss(
 
         # Keep sending packets, and add/del different members during that time, observe whether packets lose
         pkt = testutils.simple_ip_packet(
-            eth_dst=duthost.asic_instance(duthost.get_asic_id_from_namespace(in_pc[4])).get_router_mac()  ,
+            eth_dst=duthost.asic_instance(duthost.get_asic_id_from_namespace(in_pc[4])).get_router_mac(),
             eth_src=ptfadapter.dataplane.get_mac(0, in_ptf_index),
             ip_src=in_peer_ip,
             ip_dst=out_peer_ip)
@@ -284,10 +299,10 @@ def test_po_update_io_no_loss(
         exp_pkt = pkt.copy()
         exp_pkt = mask.Mask(exp_pkt)
 
-        exp_pkt.set_do_not_care_packet(packet.Ether, 'dst')
-        exp_pkt.set_do_not_care_packet(packet.Ether, 'src')
-        exp_pkt.set_do_not_care_packet(packet.IP, 'chksum')
-        exp_pkt.set_do_not_care_packet(packet.IP, 'ttl')
+        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
 
         ptfadapter.dataplane.flush()
         member_update_finished_flag = Queue(1)
@@ -321,7 +336,8 @@ def test_po_update_io_no_loss(
 
             testutils.send(ptfadapter, in_ptf_index, pkt)
             send_count += 1
-            member_update_thread_finished = (not member_update_finished_flag.empty()) and member_update_finished_flag.get()
+            member_update_thread_finished = \
+                (not member_update_finished_flag.empty()) and member_update_finished_flag.get()
             reach_max_time = time.time() > t_max
             stop_sending = reach_max_time or member_update_thread_finished
         t.join(20)
@@ -340,6 +356,7 @@ def test_po_update_io_no_loss(
             for member in pc_members:
                 asichost.config_portchannel_member(tmp_pc, member, "del")
             time.sleep(2)
+        _wait_until_pc_members_removed(asichost, tmp_pc)
         if create_tmp_pc:
             asichost.config_portchannel(tmp_pc, "del")
         pytest_assert(

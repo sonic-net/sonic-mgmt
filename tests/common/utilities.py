@@ -14,7 +14,7 @@ import sys
 import threading
 import time
 import traceback
-from io import BytesIO
+from io import StringIO
 from ast import literal_eval
 
 import pytest
@@ -25,7 +25,7 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -502,9 +502,12 @@ def compare_crm_facts(left, right):
 
 def dump_scapy_packet_show_output(packet):
     """Dump packet show output to string."""
-    _stdout, sys.stdout = sys.stdout, BytesIO()
+    _stdout, sys.stdout = sys.stdout, StringIO()
     try:
-        packet.show()
+        if six.PY2:
+            packet.show()
+        else:
+            packet.show2()
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
@@ -800,3 +803,113 @@ def get_upstream_neigh_type(topo_type, is_upper=True):
         return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+
+def get_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
+        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
+
+
+def run_until(interval, delay, retry, condition, function, *args, **kwargs):
+    """
+    @summary: Execute function until condition or retry number met.
+    @param interval: Interval between function execution.
+    @param delay: delay before start function call
+    @param retry: Number of retries until function meets condition.
+    @param condition: The expected condition for function to be met.
+    @param function: The function to be executed.
+    @param *args: Extra args required by the 'function'.
+    @param **kwargs: Extra args required by the 'function'.
+    @return: If the function meets conditions returns function output before finish specified retries. If no conditions
+        specified or was not meet - returns last function call output.
+    """
+    logger.debug("Wait until %s meet condition %s or %s retries, interval between calls is %s seconds" %
+                 (function.__name__, condition, retry, interval))
+    if delay > 0:
+        time.sleep(delay)
+
+    def compare_base_on_result_type(condition, result):
+        # Check exact match
+        if condition == result:
+            return True
+        # Check if function returns dict
+        elif isinstance(result, dict):
+            if condition in result.items():
+                return True
+        # Check if function returns string, list, set or tuple
+        elif isinstance(result, str) or isinstance(result, list) or isinstance(result, set) or \
+                isinstance(result, tuple):
+            if condition in result:
+                return True
+        else:
+            return False
+
+    for _ in range(retry):
+        try:
+            func_call_result = function(*args, **kwargs)
+            # Check if condition meets function result
+            if compare_base_on_result_type(condition, func_call_result):
+                break
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    function.__name__, "".join(details), e
+                )
+            )
+        finally:
+            # Wait if interval is set
+            if interval > 0:
+                time.sleep(interval)
+    return func_call_result
+
+
+def convert_scapy_packet_to_bytes(packet):
+    """Convert scapy packet to bytes for python2 and python3 compatibility
+    Args:
+        packet: scapy packet
+    Returns:
+        str or bytes: packet in bytes
+    """
+    if six.PY2:
+        return str(packet)
+    else:
+        return bytes(packet)
+
+
+def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
+    """
+    Set default_pfcwd_status in the specified file with parameter default_pfcwd_value
+    The path is expected to be one of:
+    - /etc/sonic/init_cfg.json
+    - /etc/sonic/config_db.json
+
+    Args:
+        duthost (AnsibleHost): instance
+        default_pfcwd_value: value of default_pfcwd_status, enable or disable
+
+    Returns:
+        original value of default_pfcwd_status
+    """
+    output = duthost.shell("cat {} | grep default_pfcwd_status".format(filepath))['stdout']
+    matched = re.search('"default_pfcwd_status": "(.*)"', output)
+    if matched:
+        original_value = matched.group(1)
+    else:
+        pytest.fail("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
+
+    sed_command = ("sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' {}"
+                   .format(original_value, default_pfcwd_value, filepath))
+    duthost.shell(sed_command)
+
+    return original_value

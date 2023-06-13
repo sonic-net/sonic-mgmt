@@ -68,7 +68,8 @@ def get_port_channel():
                 "admin_status": "up",
                 "min_links": "1",
                 "mtu": "9100",
-                "members": list(sonic_local_ports)
+                "tpid": "0x8100",
+                "lacp_key": "auto"
             }
         }
     })
@@ -200,9 +201,13 @@ def get_port_related_data(is_mlnx, is_storage_backend):
             buffer_pg[pg.partition('BUFFER_PG|')[-1]] = orig_config[pg]['value']
 
         # "QUEUE"
-        for i in range(7):
-            queue["{}|{}".format(local_port, i)] = orig_config["QUEUE|{}|{}".format(
-                local_port, i)]["value"]
+        for i in range(8):
+            prefix_queue_key = "QUEUE|{}|{}".format(local_port, i)
+            queue_key = "{}|{}".format(local_port, i)
+            if prefix_queue_key in orig_config:
+                queue[queue_key] = orig_config[prefix_queue_key]["value"]
+            else:
+                break
 
         # "BUFFER_QUEUE"
         for q in filter_cfg_keys("BUFFER_QUEUE|" + local_port):
