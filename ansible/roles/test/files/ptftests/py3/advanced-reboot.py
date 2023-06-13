@@ -216,6 +216,9 @@ class ReloadTest(BaseTest):
 
         self.packets_list = []
         self.vnet = self.test_params['vnet']
+        self.num_of_packets = self.test_params['num_of_packets']
+        if self.test_params['asic_type'] == "mellanox":
+            self.num_of_packets = 70000
         if (self.vnet):
             self.packets_list = json.load(open(self.test_params['vnet_pkts']))
 
@@ -639,7 +642,6 @@ class ReloadTest(BaseTest):
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_mac = self.test_params['vlan_mac']
         self.lo_prefix = self.test_params['lo_prefix']
-        self.num_of_packets = self.test_params['num_of_packets']
         if self.vlan_mac != self.dut_mac:
             self.is_dualtor = True
         else:
