@@ -54,6 +54,11 @@ parameters:
     default: $(BJW_IMAGE_BRCM_ABOOT_201811)
     displayName: "Previous Image URL"
 
+  - name: DOCKER_FOLDER_SIZE
+    type: string
+    default: 3000M
+    displayName: "docker folder size when docker_inram enabled"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -64,3 +69,4 @@ stages:
       NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
       PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
+      DOCKER_FOLDER_SIZE: ${{ parameters.DOCKER_FOLDER_SIZE }}

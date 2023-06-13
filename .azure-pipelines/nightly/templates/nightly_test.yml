@@ -31,6 +31,10 @@ parameters:
     type: string
     default: ""
 
+  - name: DOCKER_FOLDER_SIZE
+    type: string
+    default: ""
+
   - name: ALWAYS_INSTALL_NEW_IMAGE
     type: boolean
     default: true
@@ -296,20 +300,41 @@ stages:
                     fi
                 fi
 
+                NEED_SHUTDOWN='No'
                 SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
                 BRANCH_NAME=$(echo "$SONIC_VERSION" | grep branch: | cut -d "'" -f2)
                 if [ "$ENABLE_FIPS" == 'yes' ] || ([ "$ENABLE_FIPS" != 'no' ] && [[ "$BRANCH_NAME" == "internal" || "$BRANCH_NAME" == "master" ]]); then
+                    NEED_SHUTDOWN='yes'
                     for dut in $DUT_LIST; do
                         ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo sonic-installer set-fips"
-                        ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo shutdown -r now"
                     done
                 fi
 
+                if [[ -z "$DOCKER_FOLDER_SIZE" ]]; then
+                    echo "sonic upgrade: use default docker folder size"
+                else
+                    echo "sonic upgrade: set docker folder size to $DOCKER_FOLDER_SIZE"
+                    HOST_PATH="/host/image-${BUILD_VERSION}"
+                    echo "current image path: $HOST_PATH"
+                    DOCKER_FOLDER_SIZE=${{ parameters.DOCKER_FOLDER_SIZE }}
+                    echo "set DOCKER_FOLDER_SIZE: $DOCKER_FOLDER_SIZE"
+                    NEED_SHUTDOWN='yes'
+                    for dut in $DUT_LIST; do
+                        ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo sh -c 'echo \"docker_inram_size=$DOCKER_FOLDER_SIZE\" >> $HOST_PATH/kernel-cmdline-append'"
+                    done
+                fi
+
+                if [ "$NEED_SHUTDOWN" == 'yes' ]; then
+                    for dut in $DUT_LIST; do
+                        ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo shutdown -r now"
+                    done
+                fi
                 sleep 180
             env:
               IMAGE_URL: ${{ parameters.IMAGE_URL }}
               PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
               SKIP_PREV_IMAGE: false
+              DOCKER_FOLDER_SIZE: ${{ parameters.DOCKER_FOLDER_SIZE }}
 
           - task: Bash@3
             displayName: "Upgrade container"
