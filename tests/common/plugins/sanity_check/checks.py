@@ -146,7 +146,7 @@ def check_interfaces(duthosts):
 
 
 @pytest.fixture(scope="module")
-def check_bgp(duthosts):
+def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
 
     def _check(*args, **kwargs):
@@ -206,6 +206,23 @@ def check_bgp(duthosts):
                 check_result['failed'] = False
             return not check_result['failed']
 
+        def _check_bgp_router_id(tbinfo):
+            duthost = kwargs['node']
+            mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+            check_bgo_router_id_cmd = r"show ip bgp sum"
+            bgp_sum_result = duthost.shell(check_bgo_router_id_cmd, module_ignore_errors=True)
+            if bgp_sum_result["rc"] == 0:
+                match = re.search(r'BGP router identifier (\d+\.\d+\.\d+\.\d+)', bgp_sum_result["stdout"])
+                if match:
+                    bgp_router_id = match.group(1)
+                    logger.info("BGP router identifier: %s" % bgp_router_id)
+                else:
+                    logger.info("Failed to get BGP router identifier")
+
+            loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
+
+            return bgp_router_id == loopback0
+
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
@@ -229,6 +246,10 @@ def check_bgp(duthosts):
                             check_result[a_result]['down_neighbors'], a_result, dut.hostname))
         else:
             logger.info('No BGP neighbors are down on %s' % dut.hostname)
+
+        if not wait_until(timeout, interval, 0, _check_bgp_router_id, tbinfo):
+            check_result['failed'] = True
+            logger.info("Failed to verify BGP router identifier is Loopback0 address on %s" % dut.hostname)
 
         logger.info("Done checking bgp status on %s" % dut.hostname)
         results[dut.hostname] = check_result
