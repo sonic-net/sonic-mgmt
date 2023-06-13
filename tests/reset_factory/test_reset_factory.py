@@ -14,8 +14,6 @@ pytestmark = [
 
 only_config_tested_directories = ["/etc/sonic", "/host/warmboot", "/var/dump", "/var/log", "/host/reboot-cause"]
 keep_basic_test_directories = ["/home"]
-running_dockers = {}
-DUT_HOSTNAME = ""
 TEST_FILE_NAME = "test_file"
 KEEP_ALL_CONFIG = "keep-all-config"
 ONLY_CONFIG = "only-config"
@@ -76,51 +74,46 @@ def reset_factory(duthost, localhost, flag=""):
         4.5 Delete all files under "/var/log"
         3.6 Delete all files and symlinks under "/host/reboot-cause/"
     """
-    global running_dockers
-    running_dockers = {}
-
-    global DUT_HOSTNAME
-    DUT_HOSTNAME = duthost[0].hostname
-    logging.info("Dut host: {}".format(DUT_HOSTNAME))
+    logging.info("Dut host: {}".format(duthost[0].hostname))
 
     keep_all_config, only_config, keep_basic = get_flags(flag)
     logging.info("Flag '{}' will be used".format(flag))
 
     try:
         logging.info("Create data for the test")
-        create_test_data(duthost)
+        running_dockers = create_test_data(duthost, duthost[0].hostname)
 
-        date_time_str = duthost.command("date")[DUT_HOSTNAME]["stdout"]
+        date_time_str = duthost.command("date")[duthost[0].hostname]["stdout"]
         logging.info("date: {}".format(date_time_str))
         reset_factory_start_time = datetime.strptime(date_time_str.split(" ", 1)[1], '%d %b %Y %H:%M:%S %p %Z')
         logging.info("Reset factory start time: " + str(reset_factory_start_time))
 
         logging.info("Execute reset factory, the dut will reboot")
-        execute_reset_factory(duthost, localhost, flag)
+        execute_reset_factory(duthost, localhost, flag, duthost[0].hostname)
 
         logging.info("Verify reset factory done as expected")
-        verify_reset_factory(duthost, keep_all_config, only_config, keep_basic)
+        verify_reset_factory(duthost, keep_all_config, only_config, keep_basic, running_dockers, duthost[0].hostname)
 
     finally:
-        clear_test_created_data(duthost)
+        clear_test_created_data(duthost, duthost[0].hostname)
 
 
-def create_test_data(duthost):
+def create_test_data(duthost, dut_hostname):
     """
     Add test data - create file and users
     """
     logging.info("Create new user - {}".format(TEST_USER_NAME))
-    run_command(duthost, "sudo useradd -m {} -p {}".format(TEST_USER_NAME, TEST_USER_PASS))
+    run_command(duthost, "sudo useradd -m {} -p {}".format(TEST_USER_NAME, TEST_USER_PASS), dut_hostname)
 
     logging.info("Create test files")
-    create_test_files(duthost, only_config_tested_directories)
-    create_test_files(duthost, keep_basic_test_directories)
+    create_test_files(duthost, only_config_tested_directories, dut_hostname)
+    create_test_files(duthost, keep_basic_test_directories, dut_hostname)
 
     logging.info("Update running dockers")
-    update_running_dockers(duthost)
+    return get_running_dockers(duthost, dut_hostname)
 
 
-def execute_reset_factory(duthost, localhost, flag):
+def execute_reset_factory(duthost, localhost, flag, dut_hostname):
     cmd = "sudo reset-factory {}".format(flag)
     logging.info("Command that will be executed: '{}'".format(cmd))
 
@@ -129,11 +122,11 @@ def execute_reset_factory(duthost, localhost, flag):
     perform_reboot(duthost, pool, cmd)
 
     logging.info("Wait for the dut to complete the reset factory flow")
-    localhost.wait_for(host=DUT_HOSTNAME, port=22, state='stopped', delay=10, timeout=300)
-    localhost.wait_for(host=DUT_HOSTNAME, port=22, state='started', delay=10, timeout=300)
+    localhost.wait_for(host=dut_hostname, port=22, state='stopped', delay=10, timeout=300)
+    localhost.wait_for(host=dut_hostname, port=22, state='started', delay=10, timeout=300)
 
 
-def verify_reset_factory(duthost, keep_all_config, only_config, keep_basic):
+def verify_reset_factory(duthost, keep_all_config, only_config, keep_basic, running_dockers, dut_hostname):
     """
     Verify reset factory done as expected according to provided flag
     """
@@ -141,7 +134,7 @@ def verify_reset_factory(duthost, keep_all_config, only_config, keep_basic):
 
     verify_keep_all_config(duthost, keep_all_config, failure_info)
     verify_keep_basic(duthost, only_config, keep_basic, failure_info)
-    verify_only_config(duthost, only_config, failure_info)
+    verify_only_config(duthost, only_config, failure_info, running_dockers, dut_hostname)
 
     pytest_assert(not failure_info, failure_info)
 
@@ -171,9 +164,9 @@ def verify_keep_basic(duthost, only_config, keep_basic, failure_info):
     failure_info += info
 
 
-def verify_only_config(duthost, only_config, failure_info):
+def verify_only_config(duthost, only_config, failure_info, running_dockers, dut_hostname):
     logging.info("Check running dockers")
-    info = check_running_dockers_after_reset_factory(duthost, only_config)
+    info = check_running_dockers_after_reset_factory(duthost, only_config, running_dockers, dut_hostname)
 
     logging.info("Check only-config files")
     info += check_files(duthost, only_config_tested_directories, only_config)
@@ -181,32 +174,34 @@ def verify_only_config(duthost, only_config, failure_info):
     failure_info += info
 
 
-def run_command(duthost, cmd):
+def run_command(duthost, cmd, dut_hostname):
     output = duthost.command(cmd)
-    res = output and "failed" in output[DUT_HOSTNAME].keys() and not output[DUT_HOSTNAME]["failed"]
+    res = output and "failed" in output[dut_hostname].keys() and not output[dut_hostname]["failed"]
     pytest_assert(res, "Failed to execute cmd:" + cmd)
-    return output[DUT_HOSTNAME]["stdout_lines"]
+    return output[dut_hostname]["stdout_lines"]
 
 
-def create_test_files(duthost, directories):
+def create_test_files(duthost, directories, dut_hostname):
     for directory in directories:
         logging.info("Add test file to {}".format(directory))
-        if not check_if_dir_or_file_exist(duthost, directory):
+        if not check_if_dir_or_file_exist(duthost, directory, dut_hostname):
             logging.info("Create dir {}".format(directory))
-            run_command(duthost, "sudo mkdir {}".format(directory))
+            run_command(duthost, "sudo mkdir {}".format(directory), dut_hostname)
         logging.info("Create test file")
-        run_command(duthost, "sudo touch {}/{}".format(directory, TEST_FILE_NAME))
+        run_command(duthost, "sudo touch {}/{}".format(directory, TEST_FILE_NAME), dut_hostname)
 
 
-def update_running_dockers(duthost):
-    output = run_command(duthost, "docker container list")[1:]
+def get_running_dockers(duthost, dut_hostname):
+    running_dockers = {}
+    output = run_command(duthost, "docker container list", dut_hostname)[1:]
     for line in output:
         line = line.split()
         docker_name = line[len(line) - 1]
-        start_time = run_command(duthost, r"docker inspect -f \{\{'.Created'\}\} " + docker_name)
+        start_time = run_command(duthost, r"docker inspect -f \{\{'.Created'\}\} " + docker_name, dut_hostname)
         start_time = create_date_time_obj(start_time[0].split(".")[0])
         logging.info("Running docker: {}, {}".format(docker_name, str(start_time)))
         running_dockers[docker_name] = start_time
+    return running_dockers
 
 
 def get_flags(str_flag):
@@ -234,11 +229,11 @@ def ssh_client(host, user, passwd):
     return dut_client
 
 
-def check_if_dir_or_file_exist(duthost, path):
+def check_if_dir_or_file_exist(duthost, path, dut_hostname):
     try:
         logging.info("Check if {} exists".format(path))
         output = duthost.command("ls {}".format(path))
-        if output and "failed" in output[DUT_HOSTNAME].keys() and not output[DUT_HOSTNAME]["failed"]:
+        if output and "failed" in output[dut_hostname].keys() and not output[dut_hostname]["failed"]:
             return True
         return False
     except Exception:
@@ -262,13 +257,13 @@ def check_files(duthost, directories, should_exist):
     return info
 
 
-def check_running_dockers_after_reset_factory(duthost, only_config):
+def check_running_dockers_after_reset_factory(duthost, only_config, running_dockers, dut_hostname):
     info = ""
     for docker_name, org_start_time in running_dockers.items():
         new_err = ""
         try:
             logging.info("Checking docker: {}".format(docker_name))
-            create_time = get_docker_start_time(duthost, docker_name)
+            create_time = get_docker_start_time(duthost, docker_name, dut_hostname)
 
             if docker_name == "database":
                 if org_start_time != create_time:
@@ -290,27 +285,27 @@ def check_running_dockers_after_reset_factory(duthost, only_config):
 
 
 @retry(Exception, delay=10, tries=18)
-def get_docker_start_time(duthost, docker_name):
-    output = run_command(duthost, r"docker inspect -f \{\{'.Created'\}\} " + docker_name)
+def get_docker_start_time(duthost, docker_name, dut_hostname):
+    output = run_command(duthost, r"docker inspect -f \{\{'.Created'\}\} " + docker_name, dut_hostname)
     create_time = create_date_time_obj(output[0].split(".")[0])
     logging.info("{} - {}".format(docker_name, str(create_time)))
     return create_time
 
 
-def clear_test_created_data(duthost):
+def clear_test_created_data(duthost, dut_hostname):
     logging.info("Cleanup")
     try:
         for directory in keep_basic_test_directories:
-            if check_if_dir_or_file_exist(duthost, "{}/{}".format(directory, TEST_FILE_NAME)):
-                run_command(duthost, "sudo rm {}/{}".format(directory, TEST_FILE_NAME))
+            if check_if_dir_or_file_exist(duthost, "{}/{}".format(directory, TEST_FILE_NAME), dut_hostname):
+                run_command(duthost, "sudo rm {}/{}".format(directory, TEST_FILE_NAME), dut_hostname)
 
         for directory in keep_basic_test_directories:
-            if check_if_dir_or_file_exist(duthost, "{}/{}".format(directory, TEST_FILE_NAME)):
-                run_command(duthost, "sudo rm {}/{}".format(directory, TEST_FILE_NAME))
+            if check_if_dir_or_file_exist(duthost, "{}/{}".format(directory, TEST_FILE_NAME), dut_hostname):
+                run_command(duthost, "sudo rm {}/{}".format(directory, TEST_FILE_NAME), dut_hostname)
 
-        file_exists = check_if_dir_or_file_exist(duthost, "/home/{}".format(TEST_USER_NAME))
+        file_exists = check_if_dir_or_file_exist(duthost, "/home/{}".format(TEST_USER_NAME), dut_hostname)
         if file_exists:
-            run_command(duthost, "sudo userdel {}".format(TEST_USER_NAME))
+            run_command(duthost, "sudo userdel {}".format(TEST_USER_NAME), dut_hostname)
 
     except Exception as err:
         logging.warning("Test cleanup failed - " + str(err))
