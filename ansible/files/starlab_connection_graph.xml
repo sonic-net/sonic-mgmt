@@ -5127,7 +5127,7 @@
       <PowerControlLinkInfo EndDevice="str-msn2700-01" EndPort="PSU2" StartDevice="pdu-103" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-02" EndPort="PSU1" StartDevice="pdu-99" StartPort="22"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-02" EndPort="PSU2" StartDevice="pdu-98" StartPort="22"/>
-      <PowerControlLinkInfo EndDevice="str-msn2700-03" EndPort="PSU1" StartDevice="pdu-98" StartPort="1"/>
+      <PowerControlLinkInfo EndDevice="str-msn2700-03" EndPort="PSU1" StartDevice="pdu-99" StartPort="2"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-03" EndPort="PSU2" StartDevice="pdu-98" StartPort="2"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-04" EndPort="PSU1" StartDevice="pdu-99" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str-msn2700-04" EndPort="PSU2" StartDevice="pdu-98" StartPort="17"/>

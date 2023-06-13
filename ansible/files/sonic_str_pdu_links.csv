@@ -36,7 +36,7 @@ pdu-102,26,str-msn2700-01,PSU1
 pdu-103,26,str-msn2700-01,PSU2
 pdu-99,22,str-msn2700-02,PSU1
 pdu-98,22,str-msn2700-02,PSU2
-pdu-98,1,str-msn2700-03,PSU1
+pdu-99,2,str-msn2700-03,PSU1
 pdu-98,2,str-msn2700-03,PSU2
 pdu-99,17,str-msn2700-04,PSU1
 pdu-98,17,str-msn2700-04,PSU2
