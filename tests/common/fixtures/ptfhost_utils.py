@@ -151,6 +151,12 @@ def remove_ip_addresses(ptfhost):
     ptfhost.remove_ip_addresses()
     # Interfaces restart is required, otherwise the ipv6 link-addresses won't back.
     ptfhost.restart_interfaces()
+    # NOTE: up/down ptf interfaces will interrupt icmp_responder socket
+    # read/write operations, so let's restart icmp_responder if it is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)
+    if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
+        logger.debug("restart icmp_responder after restart ptf ports")
+        ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
