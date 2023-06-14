@@ -555,20 +555,20 @@ sonic_cisco_8102:
     bjw-can-8102-1:
       ansible_host: 10.150.22.128
       model: 8102-64H-O
-      serial: FLM24500AT6
-      base_mac: E8:EB:34:E7:BD:B4
+      serial: FLM2628VDTP
+      base_mac: F8:E5:7E:5A:AA:64
       syseeprom_info:
         "0x21": "8102-64H-O"
-        "0x22": "ECI123"
-        "0x23": "FLM24500AT6"
-        "0x24": "E8:EB:34:E7:BD:B4"
-        "0x26": "0"
+        "0x22": "476277"
+        "0x23": "FLM2628VDTP"
+        "0x24": "F8:E5:7E:5A:AA:64"
+        "0x26": "2"
         "0x28": "x86_64-8102_64h_o-r0"
         "0x2A": "516"
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0xCA54AD10"
+        "0xFE": "0xC6B0FD08"
 
 sonic_mlnx_sn3800:
   vars:
