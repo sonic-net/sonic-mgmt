@@ -32,6 +32,7 @@ Based on Pytest framework, there are not too many hardware level constraints and
 TRex is installed on Pytest server to provide traffic-generating service through network cards. Server-Fanout-DUT wiring is consistent with the existing Pytest framework.
 Below is the example of wiring diagram which is based on T0 topo:
 ![image](https://github.com/allenzhuo-ragilenetworks/sonic-mgmt/assets/126938317/0ba0bdbb-6252-48f1-99e4-54250668d60b)
+
 One or more network cards are needed, according to how many ports are needed to generate traffic. The bandwidth between TRex and DUT supports 100 Gig locally, and theoretically supports 200 Gig or 400 Gig.
 Connection between Pytest and TRex uses SSH, which makes TRex decoupled from pytest so that TRex module gets more stability.
 
@@ -81,7 +82,7 @@ config interface ip add Ethernet56 11.255.255.1/30
 
 **b) Route configuration**
 
-config route add prefix 16.0.0.0/24 nexthop 11.255.255.0
+config route add prefix 16.0.0.0/24 nexthop 11.255.255.2
 config route add prefix 48.0.0.0/24 nexthop 200.0.0.2
 
 ### 3.4 Traffic Generating
