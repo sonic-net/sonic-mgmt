@@ -139,8 +139,8 @@ def test_mac_move(
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
 
     # active forwarding check after fdb ageout/flush
-    # skip Mellanox platforms for the traffic will be flooded in the vlan when there is no fdb entries
-    if not tor.facts['asic_type'] == 'mellanox':
+    # skip Mellanox and cisco platforms for the traffic will be flooded in the vlan when there is no fdb entries
+    if not (tor.facts['asic_type'] == 'mellanox' or tor.facts['asic_type'] == 'cisco-8000'):
         tor.shell("fdbclear")
         server_traffic_monitor = ServerTrafficMonitor(
             tor, ptfhost, vmhost, tbinfo, test_port,
