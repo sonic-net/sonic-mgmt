@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.pretest,
-    pytest.mark.topology('util'),
+    pytest.mark.topology('util', 'any'),
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health
 ]
@@ -234,7 +234,7 @@ def collect_dut_pfc_pause_delay_params(dut):
         pfc_pause_delay_test_params[200] = False
     else:
         pfc_pause_delay_test_params = None
-    
+
     return pfc_pause_delay_test_params
 
 
@@ -281,14 +281,12 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
 
     file_name = tbname + '.json'
     folder = 'pfc_headroom_test_params'
-
-    
     filepath = os.path.join(folder, file_name)
     try:
         if not os.path.exists(folder):
             os.mkdir(folder)
         with open(filepath, 'w') as yf:
-            json.dump({ tbname : pfc_pause_delay_params}, yf, indent=4)
+            json.dump({tbname: pfc_pause_delay_params}, yf, indent=4)
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
@@ -309,14 +307,6 @@ def test_update_saithrift_ptf(request, ptfhost):
     logging.info("Python saithrift package installed successfully")
 
 
-def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
-    '''
-     Stop pfcwd on dual tor testbeds
-    '''
-    dut = duthosts[enum_dut_hostname]
-    dut.command('pfcwd stop')
-
-
 def prepare_autonegtest_params(duthosts, fanouthosts):
     from tests.common.platform.device_utils import list_dut_fanout_connections
 
@@ -331,7 +321,8 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
                 if len(selected_ports) == max_interfaces_per_dut:
                     break
                 auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
-                if auto_neg_mode is not None:
+                fec_mode = duthost.get_port_fec(dut_port)
+                if auto_neg_mode is not None and fec_mode is not None:
                     speeds = get_common_supported_speeds(duthost, dut_port, fanout, fanout_port)
                     selected_ports[dut_port] = {
                         'fanout': fanout.hostname,

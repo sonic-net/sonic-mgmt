@@ -9,10 +9,12 @@ import pytest
 
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, show_muxcable_status, config_dualtor_arp_responder  # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import mux_config
-from tests.common.fixtures.ptfhost_utils import run_garp_service, change_mac_addresses, run_icmp_responder, pause_garp_service
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, \
+    show_muxcable_status, config_dualtor_arp_responder      # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config     # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service, \
+    change_mac_addresses, run_icmp_responder, pause_garp_service  # noqa F401
 
 from tests.common.utilities import wait_until
 
@@ -60,7 +62,7 @@ def pause_arp_update(duthosts):
 
 
 @pytest.fixture(params=['IPv4', 'IPv6'])
-def neighbor_ip(request, mux_config):
+def neighbor_ip(request, mux_config):       # noqa F811
     """
     Provide the neighbor IP used for testing
 
@@ -74,7 +76,7 @@ def neighbor_ip(request, mux_config):
 
 
 @pytest.fixture
-def clear_neighbor_table(duthosts, pause_arp_update, pause_garp_service):
+def clear_neighbor_table(duthosts, pause_arp_update, pause_garp_service):       # noqa F811
     logger.info("Clearing neighbor table on {}".format(duthosts))
     for duthost in duthosts:
         duthost.shell("sudo ip neigh flush all")
@@ -115,10 +117,10 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
 
     if ip_version == 'v4':
         pytest_require(ptf_intf_ipv4_addr is not None, 'No IPv4 VLAN address configured on device')
-        intf_name_cmd = "show arp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv4_addr)
+        intf_name_cmd = "show arp | grep -m 1 '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv4_addr)
     elif ip_version == 'v6':
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
-        intf_name_cmd = "show ndp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv6_addr)
+        intf_name_cmd = "show ndp | grep -m 1 '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv6_addr)
 
     # Find the interface on which the target IP is learned and set it to standby to force it to point to a tunnel route
     intf_name = upper_tor_host.shell(intf_name_cmd)['stdout']
@@ -132,14 +134,15 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
 
 
 def test_arp_update_for_failed_standby_neighbor(
-    config_dualtor_arp_responder, neighbor_ip, clear_neighbor_table,
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host
+    config_dualtor_arp_responder, neighbor_ip, clear_neighbor_table,            # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host     # noqa F811
 ):
     """
     Test the standby ToR's ability to recover from having a failed neighbor entry
 
     Test steps:
-    1. For the same neighbor IP, create a failed neighbor entry on the standby ToR and a reachable entry on the active ToR
+    1. For the same neighbor IP, create a failed neighbor entry on the standby ToR
+       and a reachable entry on the active ToR
     2. Run `arp_update` on the standby ToR
     3. Verify the failed entry is now incomplete and stays incomplete for 10 seconds
     4. Run `arp_update` on the active ToR
@@ -163,7 +166,8 @@ def test_arp_update_for_failed_standby_neighbor(
 
     arp_update_cmd = "docker exec -t swss supervisorctl start arp_update"
     lower_tor_host.shell(arp_update_cmd)
-    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(lower_tor_host, neighbor_ip, expected_midpoint_state)))
+    pytest_assert(wait_until(
+        5, 1, 0, lambda: verify_neighbor_status(lower_tor_host, neighbor_ip, expected_midpoint_state)))
 
     # Need to make sure the entry does not auto-transition to FAILED
     time.sleep(10)
@@ -174,8 +178,8 @@ def test_arp_update_for_failed_standby_neighbor(
 
 
 def test_standby_unsolicited_neigh_learning(
-    config_dualtor_arp_responder, neighbor_ip, clear_neighbor_table,
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host
+    config_dualtor_arp_responder, neighbor_ip, clear_neighbor_table,            # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host     # noqa F811
 ):
     """
     Test the standby ToR's ability to perform unsolicited neighbor learning (GARP and unsolicited NA)

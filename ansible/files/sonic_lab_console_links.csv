@@ -1,5 +1,5 @@
 StartDevice,StartPort,EndDevice,Console_type,Proxy,BaudRate
-console-1,10,dev-msn2700-01,ssh,root,9600
-console-2,11,dev-7260-10,ssh,root,9600
-console-1,12,dev-7260-11,ssh,root,
-management-1,13,dev-acs-serv-01,ssh,root,9600
+console-1,10,str-msn2700-01,ssh,root,9600
+console-2,11,str-7260-10,ssh,root,9600
+console-1,12,str-7260-11,ssh,root,
+management-1,13,str-acs-serv-01,ssh,root,9600

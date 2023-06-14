@@ -7,11 +7,13 @@ import yaml
 import random
 import os
 import sys
+import six
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-#from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports  # noqa F401
+from tests.common.cisco_data import is_cisco_device
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
     import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result  # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR  # noqa F401
@@ -19,7 +21,7 @@ from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink  # noqa F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from tests.common.system_utils import docker
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ class QosBase:
                           "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3", "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -68,13 +70,13 @@ class QosBase:
                 dutTestParams (dict): DUT host test params
         """
         # update router mac
+        dut_test_params["basicParams"]["asic_id"] = enum_frontend_asic_index
         if dut_test_params["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params["basicParams"]["router_mac"] = ''
 
-        dut_test_params["basicParams"]["asic_id"] = enum_frontend_asic_index
-        # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
-        # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
-        if "dualtor" in tbinfo["topo"]["name"]:
+        elif "dualtor" in tbinfo["topo"]["name"]:
+            # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+            # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
             dut_test_params["basicParams"]["is_dualtor"] = True
             vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
             if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
@@ -84,7 +86,17 @@ class QosBase:
                         if 'mac' in vlan and vlan['mac']:
                             dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
                             break
-            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"] is not None, "Dual-TOR miss default VLAN MAC address")
+            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"]
+                          is not None, "Dual-TOR miss default VLAN MAC address")
+        else:
+            try:
+                duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+                asic = duthost.asic_instance().asic_index
+                dut_test_params['basicParams']["router_mac"] = duthost.shell(
+                    'sonic-db-cli -n asic{} CONFIG_DB hget "DEVICE_METADATA|localhost" mac'.format(asic))['stdout']
+            except RunAnsibleModuleFail:
+                dut_test_params['basicParams']["router_mac"] = duthost.shell(
+                    'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
 
         yield dut_test_params
 
@@ -144,7 +156,10 @@ class QosSaiBase(QosBase):
             db = "4"
             keystr = "BUFFER_POOL|"
         if check_qos_db_fv_reference_with_table(dut_asic):
-            pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+            if six.PY2:
+                pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+            else:
+                pool = bufferProfile["pool"].translate({ord(i): None for i in '[]'})
         else:
             pool = keystr + bufferProfile["pool"]
         bufferSize = int(
@@ -155,7 +170,8 @@ class QosSaiBase(QosBase):
         bufferScale = 2 ** float(bufferProfile["dynamic_th"])
         bufferScale /= (bufferScale + 1)
         bufferProfile.update(
-            {"static_th": int(bufferProfile["size"]) + int(bufferScale * bufferSize)}
+            {"static_th": int(
+                bufferProfile["size"]) + int(bufferScale * bufferSize)}
         )
 
     def __updateVoidRoidParams(self, dut_asic, bufferProfile):
@@ -171,27 +187,33 @@ class QosSaiBase(QosBase):
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
             if self.isBufferInApplDb(dut_asic):
-                bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                    None, "[]").replace("BUFFER_POOL_TABLE:", ''
-                                        )
+                if six.PY2:
+                    bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                        None, "[]").replace("BUFFER_POOL_TABLE:", '')
+                else:
+                    bufferPoolName = bufferProfile["pool"].translate(
+                        {ord(i): None for i in '[]'}).replace("BUFFER_POOL_TABLE:", '')
             else:
-                bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                    None, "[]").replace("BUFFER_POOL|", ''
-                                        )
+                if six.PY2:
+                    bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                        None, "[]").replace("BUFFER_POOL|", '')
+                else:
+                    bufferPoolName = bufferProfile["pool"].translate(
+                        {ord(i): None for i in '[]'}).replace("BUFFER_POOL|", '')
         else:
-            bufferPoolName = bufferProfile["pool"].encode("utf-8")
+            bufferPoolName = six.text_type(bufferProfile["pool"])
 
-        bufferPoolVoid = dut_asic.run_redis_cmd(
+        bufferPoolVoid = six.text_type(dut_asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", "2", "HGET",
                 "COUNTERS_BUFFER_POOL_NAME_MAP", bufferPoolName
             ]
-        )[0].encode("utf-8")
+        )[0])
         bufferProfile.update({"bufferPoolVoid": bufferPoolVoid})
 
-        bufferPoolRoid = dut_asic.run_redis_cmd(
+        bufferPoolRoid = six.text_type(dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", "1", "HGET", "VIDTORID", bufferPoolVoid]
-        )[0].encode("utf-8").replace("oid:", '')
+        )[0]).replace("oid:", '')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
     def __getBufferProfile(self, request, dut_asic, os_version, table, port, priorityGroup):
@@ -209,6 +231,14 @@ class QosSaiBase(QosBase):
                 bufferProfile (dict): Map of buffer profile attributes
         """
 
+        if table == "BUFFER_QUEUE_TABLE" and dut_asic.sonichost.facts['switch_type'] == 'voq':
+            # For VoQ chassis, the buffer queues config is based on system port
+            if dut_asic.sonichost.is_multi_asic:
+                port = "{}:{}:{}".format(
+                    dut_asic.sonichost.hostname, dut_asic.namespace, port)
+            else:
+                port = "{}:Asic0:{}".format(dut_asic.sonichost.hostname, port)
+
         if self.isBufferInApplDb(dut_asic):
             db = "0"
             keystr = "{0}:{1}:{2}".format(table, port, priorityGroup)
@@ -219,12 +249,14 @@ class QosSaiBase(QosBase):
             bufkeystr = "BUFFER_PROFILE|"
 
         if check_qos_db_fv_reference_with_table(dut_asic):
-            bufferProfileName = dut_asic.run_redis_cmd(
-                argv=["redis-cli", "-n", db, "HGET", keystr, "profile"]
-            )[0].encode("utf-8").translate(None, "[]")
+            out = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
+            if six.PY2:
+                bufferProfileName = out.encode("utf-8").translate(None, "[]")
+            else:
+                bufferProfileName = out.translate({ord(i): None for i in '[]'})
         else:
             bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
-                argv = ["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
+                argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
 
         result = dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", db, "HGETALL", bufferProfileName]
@@ -239,7 +271,8 @@ class QosSaiBase(QosBase):
 
         if "pg_lossless" in bufferProfileName:
             pytest_assert(
-                "xon" in list(bufferProfile.keys()) and "xoff" in list(bufferProfile.keys()),
+                "xon" in list(bufferProfile.keys()) and "xoff" in list(
+                    bufferProfile.keys()),
                 "Could not find xon and/or xoff values for profile '{0}'".format(
                     bufferProfileName
                 )
@@ -288,21 +321,25 @@ class QosSaiBase(QosBase):
                 wredProfile (dict): Map of ECN/WRED attributes
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
-            wredProfileName = dut_asic.run_redis_cmd(
-                argv=[
-                    "redis-cli", "-n", "4", "HGET",
-                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                    "wred_profile"
-                ]
-            )[0].encode("utf-8").translate(None, "[]")
+            out = dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                        "wred_profile"
+                    ]
+                )[0]
+            if six.PY2:
+                wredProfileName = out.encode("utf-8").translate(None, "[]")
+            else:
+                wredProfileName = out.translate({ord(i): None for i in '[]'})
         else:
-            wredProfileName = "WRED_PROFILE|" + dut_asic.run_redis_cmd(
+            wredProfileName = "WRED_PROFILE|" + six.text_type(dut_asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", "4", "HGET",
                     "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
                     "wred_profile"
                 ]
-            )[0].encode("utf-8")
+            )[0])
 
         result = dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", "4", "HGETALL", wredProfileName]
@@ -322,12 +359,12 @@ class QosSaiBase(QosBase):
             Returns:
                 watermarkStatus (str): Watermark status
         """
-        watermarkStatus = dut_asic.run_redis_cmd(
+        watermarkStatus = six.text_type(dut_asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", "4", "HGET",
                 "FLEX_COUNTER_TABLE|QUEUE_WATERMARK", "FLEX_COUNTER_STATUS"
             ]
-        )[0].encode("utf-8")
+        )[0])
 
         return watermarkStatus
 
@@ -344,23 +381,27 @@ class QosSaiBase(QosBase):
                 SchedulerParam (dict): Map of scheduler parameters
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
-            schedProfile = dut_asic.run_redis_cmd(
-                argv=[
-                    "redis-cli", "-n", "4", "HGET",
-                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                ]
-            )[0].encode("utf-8").translate(None, "[]")
+            out = dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                    ]
+                )[0]
+            if six.PY2:
+                schedProfile = out.encode("utf-8").translate(None, "[]")
+            else:
+                schedProfile = out.translate({ord(i): None for i in '[]'})
         else:
-            schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+            schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", "4", "HGET",
                     "QUEUE|{0}|{1}".format(port, queue), "scheduler"
                 ]
-            )[0].encode("utf-8")
+            )[0])
 
-        schedWeight = dut_asic.run_redis_cmd(
+        schedWeight = six.text_type(dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
-        )[0].encode("utf-8")
+        )[0])
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
 
@@ -430,7 +471,8 @@ class QosSaiBase(QosBase):
         if dstPorts is None:
             if dst_port_ids:
                 pytest_assert(
-                    len(set(testPortIds).intersection(set(dst_port_ids))) == len(set(dst_port_ids)),
+                    len(set(testPortIds).intersection(
+                        set(dst_port_ids))) == len(set(dst_port_ids)),
                     "Dest port id passed in qos.yml not valid"
                 )
                 dstPorts = dst_port_ids
@@ -444,7 +486,8 @@ class QosSaiBase(QosBase):
         if srcPorts is None:
             if src_port_ids:
                 pytest_assert(
-                    len(set(testPortIds).intersection(set(src_port_ids))) == len(set(src_port_ids)),
+                    len(set(testPortIds).intersection(
+                        set(src_port_ids))) == len(set(src_port_ids)),
                     "Source port id passed in qos.yml not valid"
                 )
                 # To verify ingress lossless speed/cable-length randomize the source port.
@@ -492,7 +535,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
             self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-            enum_frontend_asic_index, lower_tor_host, tbinfo, dualtor_ports, dut_qos_maps): # noqa F811
+            enum_frontend_asic_index, lower_tor_host, tbinfo, dualtor_ports, dut_qos_maps):  # noqa F811
         """
             Build DUT host config pertaining to QoS SAI tests
 
@@ -534,7 +577,8 @@ class QosSaiBase(QosBase):
             )
             for _, lag in list(mgFacts["minigraph_portchannels"].items()):
                 for intf in lag["members"]:
-                    dutLagInterfaces.append(mgFacts["minigraph_ptf_indices"][intf])
+                    dutLagInterfaces.append(
+                        mgFacts["minigraph_ptf_indices"][intf])
 
             testPortIds = set(mgFacts["minigraph_ptf_indices"][port]
                               for port in list(mgFacts["minigraph_ports"].keys()))
@@ -543,7 +587,8 @@ class QosSaiBase(QosBase):
                 # The last port is used for up link from DUT switch
                 testPortIds -= {len(mgFacts["minigraph_ptf_indices"]) - 1}
             testPortIds = sorted(testPortIds)
-            pytest_require(len(testPortIds) != 0, "Skip test since no ports are available for testing")
+            pytest_require(len(testPortIds) != 0,
+                           "Skip test since no ports are available for testing")
 
             # get current DUT port IPs
             dutPortIps = {}
@@ -552,7 +597,8 @@ class QosSaiBase(QosBase):
             else:
                 intf_map = mgFacts["minigraph_interfaces"]
 
-            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(
+                duthost, dut_qos_maps)
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
@@ -568,7 +614,8 @@ class QosSaiBase(QosBase):
                     # we also need to test them separately
                     # for mellanox device, we run it on t1 topo mocked by ptf32 topo
                     if use_separated_upkink_dscp_tc_map and isMellanoxDevice(duthost):
-                        neighName = mgFacts["minigraph_neighbors"].get(intf, {}).get("name", "").lower()
+                        neighName = mgFacts["minigraph_neighbors"].get(
+                            intf, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
                             downlinkPortIps.append(portConfig["peer_addr"])
@@ -581,7 +628,8 @@ class QosSaiBase(QosBase):
             testPortIps = self.__assignTestPortIps(mgFacts, topo)
 
         elif topo in self.SUPPORTED_T1_TOPOS:
-            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps)
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(
+                duthost, dut_qos_maps)
             for iface, addr in list(dut_asic.get_active_ip_interfaces(tbinfo).items()):
                 vlan_id = None
                 if iface.startswith("Ethernet"):
@@ -595,7 +643,8 @@ class QosSaiBase(QosBase):
                     dutPortIps.update({portIndex: portIpMap})
                 elif iface.startswith("PortChannel"):
                     portName = next(
-                        iter(mgFacts["minigraph_portchannels"][iface]["members"])
+                        iter(mgFacts["minigraph_portchannels"]
+                             [iface]["members"])
                     )
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
                     portIpMap = {'peer_addr': addr["peer_ipv4"]}
@@ -603,7 +652,8 @@ class QosSaiBase(QosBase):
                 # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                 # we also need to test them separately
                 if use_separated_upkink_dscp_tc_map:
-                    neighName = mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
+                    neighName = mgFacts["minigraph_neighbors"].get(
+                        portName, {}).get("name", "").lower()
                     if 't0' in neighName:
                         downlinkPortIds.append(portIndex)
                         downlinkPortIps.append(addr["peer_ipv4"])
@@ -622,16 +672,18 @@ class QosSaiBase(QosBase):
                     if "." in iface:
                         iface, vlan_id = iface.split(".")
                     portIndex = mgFacts["minigraph_ptf_indices"][iface]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface }
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
                     if vlan_id is not None:
                         portIpMap['vlan_id'] = vlan_id
                     dutPortIps.update({portIndex: portIpMap})
                 elif iface.startswith("PortChannel"):
                     portName = next(
-                        iter(mgFacts["minigraph_portchannels"][iface]["members"])
+                        iter(mgFacts["minigraph_portchannels"]
+                             [iface]["members"])
                     )
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName }
+                    portIpMap = {
+                        'peer_addr': addr["peer_ipv4"], 'port': portName}
                     dutPortIps.update({portIndex: portIpMap})
 
             testPortIds = sorted(dutPortIps.keys())
@@ -680,7 +732,8 @@ class QosSaiBase(QosBase):
         if dualTor:
             testPortIds = dualTorPortIndexes
 
-        testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids)
+        testPorts = self.__buildTestPorts(
+            request, testPortIds, testPortIps, src_port_ids, dst_port_ids)
         # Update the uplink/downlink ports to testPorts
         testPorts.update({
             "uplink_port_ids": uplinkPortIds,
@@ -716,7 +769,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def ssh_tunnel_to_syncd_rpc(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-            swapSyncd, tbinfo, lower_tor_host
+            swapSyncd, tbinfo, lower_tor_host  # noqa: F811
     ):
         if 'dualtor' in tbinfo['topo']['name']:
             duthost = lower_tor_host
@@ -732,7 +785,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def updateIptables(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, swapSyncd, tbinfo,
-            lower_tor_host
+            lower_tor_host  # noqa: F811
     ):
         """
             Update iptables on DUT host with drop rule for BGP SYNC packets
@@ -752,7 +805,8 @@ class QosSaiBase(QosBase):
 
         ipVersions = [{"ip_version": "ipv4"}, {"ip_version": "ipv6"}]
 
-        logger.info("Add ip[6]tables rule to drop BGP SYN Packet from peer so that we do not ACK back")
+        logger.info(
+            "Add ip[6]tables rule to drop BGP SYN Packet from peer so that we do not ACK back")
         for ipVersion in ipVersions:
             dut_asic.bgp_drop_rule(state="present", **ipVersion)
 
@@ -764,9 +818,10 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def stopServices(
-            self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-            swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
-            tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports): # noqa F811
+            self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+            enum_frontend_asic_index, swapSyncd, enable_container_autorestart,
+            disable_container_autorestart, get_mux_status, tbinfo, upper_tor_host,      # noqa F811
+            lower_tor_host, toggle_all_simulator_ports):                                # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -785,7 +840,7 @@ class QosSaiBase(QosBase):
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
 
-        def updateDockerService(host, docker="", action="", service=""):
+        def updateDockerService(host, docker="", action="", service=""):  # noqa: F811
             """
                 Helper function to update docker services
 
@@ -803,7 +858,8 @@ class QosSaiBase(QosBase):
                     docker=docker,
                     action=action,
                     service=service
-                )
+                ),
+                module_ignore_errors=True
             )
             logger.info("{}ed {}".format(action, service))
 
@@ -812,7 +868,8 @@ class QosSaiBase(QosBase):
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
             toggle_all_simulator_ports(LOWER_TOR)
-            check_result = wait_until(120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+            check_result = wait_until(
+                120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
             validate_check_result(check_result, duthosts, get_mux_status)
 
             try:
@@ -827,17 +884,23 @@ class QosSaiBase(QosBase):
             duthost.shell('sudo config feature state mux disabled')
 
         services = [
-            {"docker": dut_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
+            {"docker": dut_asic.get_docker_name(
+                "lldp"), "service": "lldp-syncd"},
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
             {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpd"},
             {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpmon"},
+            {"docker": dut_asic.get_docker_name("radv"), "service": "radvd"},
+            {"docker": dut_asic.get_docker_name(
+                "swss"), "service": "arp_update"}
         ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
         if 'dualtor' in tbinfo['topo']['name']:
-            disable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
+            disable_container_autorestart(
+                duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
 
-        disable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
+        disable_container_autorestart(
+            duthost, testcase="test_qos_sai", feature_list=feature_list)
         for service in services:
             updateDockerService(duthost, action="stop", **service)
 
@@ -860,9 +923,11 @@ class QosSaiBase(QosBase):
             duthost_upper.shell('sudo config feature state mux enabled')
             logger.info("Start mux container for dual ToR testbed")
 
-        enable_container_autorestart(duthost, testcase="test_qos_sai", feature_list=feature_list)
+        enable_container_autorestart(
+            duthost, testcase="test_qos_sai", feature_list=feature_list)
         if 'dualtor' in tbinfo['topo']['name']:
-            enable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
+            enable_container_autorestart(
+                duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
@@ -899,7 +964,8 @@ class QosSaiBase(QosBase):
                 ".*WARNING syncd#SDK:.*sai_set_attribute: Failed attribs check, key:Switch ID.*",
                 ".*WARNING syncd#SDK:.*check_rate: Set max rate to 0.*"
             ]
-            loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
+            loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(
+                ignoreRegex)
 
         yield
 
@@ -921,37 +987,51 @@ class QosSaiBase(QosBase):
 
         if isMellanoxDevice(duthost):
             logger.info("Disable Mellanox packet aging")
-            duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+            duthost.copy(
+                src="qos/files/mellanox/packets_aging.py", dest="/tmp")
             duthost.command("docker cp /tmp/packets_aging.py syncd:/")
-            duthost.command("docker exec syncd python /packets_aging.py disable")
+            duthost.command(
+                "docker exec syncd python /packets_aging.py disable")
 
         yield
 
         if isMellanoxDevice(duthost):
             logger.info("Enable Mellanox packet aging")
-            duthost.command("docker exec syncd python /packets_aging.py enable")
+            duthost.command(
+                "docker exec syncd python /packets_aging.py enable")
             duthost.command("docker exec syncd rm -rf /packets_aging.py")
 
     def dutArpProxyConfig(self, duthost):
         # so far, only record ARP proxy config to logging for debug purpose
         vlanInterface = {}
         try:
-            vlanInterface = json.loads(duthost.shell('sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
-        except:
+            vlanInterface = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
+        except Exception:
             logger.info('Failed to read vlan interface config')
         if not vlanInterface:
             return
         for key, value in list(vlanInterface.items()):
             if 'proxy_arp' in value:
-                logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
+                logger.info('ARP proxy is {} on {}'.format(
+                    value['proxy_arp'], key))
 
-    def dutBufferConfig(self, duthost):
+    def dutBufferConfig(self, duthost, dut_asic):
         bufferConfig = {}
         try:
-            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_POOL"')['stdout'])
-            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PROFILE"')['stdout'])
-            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_QUEUE"')['stdout'])
-            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell('sonic-cfggen -d --var-json "BUFFER_PG"')['stdout'])
+            ns_spec = ""
+            ns = dut_asic.get_asic_namespace()
+            if ns is not None:
+                # multi-asic support
+                ns_spec = " -n " + ns
+            bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
+            bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
+            bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
+            bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
+                'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
         except Exception as err:
             logger.info(err)
         return bufferConfig
@@ -961,7 +1041,7 @@ class QosSaiBase(QosBase):
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
             dutConfig, ingressLosslessProfile, ingressLossyProfile,
             egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
-            tbinfo, lower_tor_host
+            tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Prepares DUT host QoS configuration
@@ -984,7 +1064,8 @@ class QosSaiBase(QosBase):
         pytest_assert("minigraph_hwsku" in mgFacts, "Could not find DUT SKU")
 
         profileName = ingressLosslessProfile["profileName"]
-        logger.info("Lossless Buffer profile selected is {}".format(profileName))
+        logger.info(
+            "Lossless Buffer profile selected is {}".format(profileName))
 
         if self.isBufferInApplDb(dut_asic):
             profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
@@ -1021,15 +1102,21 @@ class QosSaiBase(QosBase):
 
         elif 'broadcom' in duthost.facts['asic_type'].lower():
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
-                logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
+                logger.info(
+                    "THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
-                bufferConfig = self.dutBufferConfig(duthost)
-                pytest_assert(len(bufferConfig) == 4, "buffer config is incompleted")
-                pytest_assert('BUFFER_POOL' in bufferConfig, 'BUFFER_POOL is not exist in bufferConfig')
-                pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
-                pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
-                pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
+                bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+                pytest_assert(len(bufferConfig) == 4,
+                              "buffer config is incompleted")
+                pytest_assert('BUFFER_POOL' in bufferConfig,
+                              'BUFFER_POOL is not exist in bufferConfig')
+                pytest_assert('BUFFER_PROFILE' in bufferConfig,
+                              'BUFFER_PROFILE is not exist in bufferConfig')
+                pytest_assert('BUFFER_QUEUE' in bufferConfig,
+                              'BUFFER_QUEUE is not exist in bufferConfig')
+                pytest_assert('BUFFER_PG' in bufferConfig,
+                              'BUFFER_PG is not exist in bufferConfig')
 
                 current_file_dir = os.path.dirname(os.path.realpath(__file__))
                 sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
@@ -1051,6 +1138,25 @@ class QosSaiBase(QosBase):
                                                            duthost,
                                                            tbinfo["topo"]["name"])
                 qosParams = qpm.run()
+        elif is_cisco_device(duthost):
+            bufferConfig = self.dutBufferConfig(duthost, dut_asic)
+            pytest_assert('BUFFER_POOL' in bufferConfig,
+                          'BUFFER_POOL does not exist in bufferConfig')
+            pytest_assert('BUFFER_PROFILE' in bufferConfig,
+                          'BUFFER_PROFILE does not exist in bufferConfig')
+            pytest_assert('BUFFER_QUEUE' in bufferConfig,
+                          'BUFFER_QUEUE does not exist in bufferConfig')
+            pytest_assert('BUFFER_PG' in bufferConfig,
+                          'BUFFER_PG does not exist in bufferConfig')
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/cisco/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamCisco(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                    duthost,
+                                                    bufferConfig)
+            qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
         yield {
@@ -1095,7 +1201,8 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost.docker_cmds_on_all_asics("swssconfig /etc/swss/config.d/switch.json", "swss")
+        duthost.docker_cmds_on_all_asics(
+            "swssconfig /etc/swss/config.d/switch.json", "swss")
 
     def __deleteTmpSwitchConfig(self, duthost):
         """
@@ -1112,7 +1219,7 @@ class QosSaiBase(QosBase):
             duthost.file(path=file["path"], state="absent")
 
     @pytest.fixture(scope='class', autouse=True)
-    def handleFdbAging(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def handleFdbAging(self, tbinfo, duthosts, lower_tor_host, enum_rand_one_per_hwsku_frontend_hostname):  # noqa: F811
         """
             Disable FDB aging and reenable at the end of tests
 
@@ -1125,18 +1232,23 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         fdbAgingTime = 0
 
         self.__deleteTmpSwitchConfig(duthost)
-        duthost.docker_copy_from_asic("swss", "/etc/swss/config.d/switch.json", "/tmp")
+        duthost.docker_copy_from_asic(
+            "swss", "/etc/swss/config.d/switch.json", "/tmp")
         duthost.replace(
             dest='/tmp/switch.json',
             regexp='"fdb_aging_time": ".*"',
             replace='"fdb_aging_time": "{0}"'.format(fdbAgingTime),
             backup=True
         )
-        duthost.docker_copy_to_all_asics("swss", "/tmp/switch.json", "/etc/swss/config.d/switch.json")
+        duthost.docker_copy_to_all_asics(
+            "swss", "/tmp/switch.json", "/etc/swss/config.d/switch.json")
         self.__loadSwssConfig(duthost)
 
         yield
@@ -1144,14 +1256,15 @@ class QosSaiBase(QosBase):
         result = duthost.find(path=["/tmp"], patterns=["switch.json.*"])
         if result["matched"] > 0:
             src = result["files"][0]["path"]
-            duthost.docker_copy_to_all_asics("swss", src, "/etc/swss/config.d/switch.json")
+            duthost.docker_copy_to_all_asics(
+                "swss", src, "/etc/swss/config.d/switch.json")
             self.__loadSwssConfig(duthost)
         self.__deleteTmpSwitchConfig(duthost)
 
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
-            ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host
+            ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Update ARP entries of QoS SAI test ports
@@ -1176,6 +1289,10 @@ class QosSaiBase(QosBase):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+
+        dut_asic.command('sonic-clear fdb all')
+        dut_asic.command('sonic-clear arp')
+
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulate"
@@ -1183,19 +1300,25 @@ class QosSaiBase(QosBase):
             saiQosTest = "sai_qos_tests.ARPpopulatePTF"
         else:
             result = dut_asic.command("arp -n")
-            pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(duthost.hostname))
+            pytest_assert(
+                result["rc"] == 0, "failed to run arp command on {0}".format(duthost.hostname))
             if result["stdout"].find("incomplete") == -1:
                 saiQosTest = "sai_qos_tests.ARPpopulate"
 
         if saiQosTest:
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"]
+            })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
 
     @pytest.fixture(scope='class', autouse=True)
-    def dut_disable_ipv6(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, lower_tor_host):
+    def dut_disable_ipv6(
+            self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, lower_tor_host):  # noqa: F811
         if 'dualtor' in tbinfo['topo']['name']:
             duthost = lower_tor_host
         else:
@@ -1209,7 +1332,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
             self, request, duthosts, enum_frontend_asic_index,
-            enum_rand_one_per_hwsku_frontend_hostname, tbinfo, lower_tor_host
+            enum_rand_one_per_hwsku_frontend_hostname, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Retreives shared headroom pool size
@@ -1235,7 +1358,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def ingressLosslessProfile(
             self, request, duthosts, enum_frontend_asic_index,
-            enum_rand_one_per_hwsku_frontend_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports
+            enum_rand_one_per_hwsku_frontend_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports  # noqa: F811
     ):
         """
             Retreives ingress lossless profile
@@ -1255,7 +1378,8 @@ class QosSaiBase(QosBase):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]
+                                             ["src_port_id"]]
 
         if srcport in dualtor_ports:
             pgs = "2-4"
@@ -1266,7 +1390,8 @@ class QosSaiBase(QosBase):
             request,
             dut_asic,
             duthost.os_version,
-            "BUFFER_PG_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_PG",
+            "BUFFER_PG_TABLE" if self.isBufferInApplDb(
+                dut_asic) else "BUFFER_PG",
             srcport,
             pgs
         )
@@ -1274,7 +1399,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def ingressLossyProfile(
             self, request, duthosts, enum_frontend_asic_index,
-            enum_rand_one_per_hwsku_frontend_hostname, dutConfig, tbinfo, lower_tor_host
+            enum_rand_one_per_hwsku_frontend_hostname, dutConfig, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Retreives ingress lossy profile
@@ -1298,7 +1423,8 @@ class QosSaiBase(QosBase):
             request,
             dut_asic,
             duthost.os_version,
-            "BUFFER_PG_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_PG",
+            "BUFFER_PG_TABLE" if self.isBufferInApplDb(
+                dut_asic) else "BUFFER_PG",
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             "0"
         )
@@ -1306,7 +1432,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def egressLosslessProfile(
             self, request, duthosts, enum_frontend_asic_index,
-            enum_rand_one_per_hwsku_frontend_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports
+            enum_rand_one_per_hwsku_frontend_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports  # noqa: F811
     ):
         """
             Retreives egress lossless profile
@@ -1326,7 +1452,8 @@ class QosSaiBase(QosBase):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]
+                                             ["src_port_id"]]
 
         if srcport in dualtor_ports:
             queues = "2-4"
@@ -1337,7 +1464,8 @@ class QosSaiBase(QosBase):
             request,
             dut_asic,
             duthost.os_version,
-            "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
+            "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
+                dut_asic) else "BUFFER_QUEUE",
             srcport,
             queues
         )
@@ -1345,7 +1473,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def egressLossyProfile(
             self, request, duthosts, enum_frontend_asic_index,
-            enum_rand_one_per_hwsku_frontend_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports
+            enum_rand_one_per_hwsku_frontend_hostname, dutConfig, tbinfo, lower_tor_host, dualtor_ports  # noqa: F811
     ):
         """
             Retreives egress lossy profile
@@ -1365,7 +1493,8 @@ class QosSaiBase(QosBase):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]
+                                             ["src_port_id"]]
 
         if srcport in dualtor_ports:
             queues = "0-1"
@@ -1376,7 +1505,8 @@ class QosSaiBase(QosBase):
             request,
             dut_asic,
             duthost.os_version,
-            "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(dut_asic) else "BUFFER_QUEUE",
+            "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
+                dut_asic) else "BUFFER_QUEUE",
             srcport,
             queues
         )
@@ -1384,7 +1514,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def losslessSchedProfile(
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
-            dutConfig, tbinfo, lower_tor_host
+            dutConfig, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Retreives lossless scheduler profile
@@ -1411,7 +1541,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def lossySchedProfile(
             self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname,
-            dutConfig, tbinfo, lower_tor_host
+            dutConfig, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Retreives lossy scheduler profile
@@ -1438,7 +1568,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture
     def updateSchedProfile(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-            dutQosConfig, losslessSchedProfile, lossySchedProfile, tbinfo, lower_tor_host
+            dutQosConfig, losslessSchedProfile, lossySchedProfile, tbinfo, lower_tor_host  # noqa: F811
     ):
         """
             Updates lossless/lossy scheduler profiles
@@ -1510,9 +1640,8 @@ class QosSaiBase(QosBase):
             updateRedisSchedParam(schedParam)
 
     @pytest.fixture
-    def resetWatermark(
-            self, duthosts, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, lower_tor_host
-    ):
+    def resetWatermark(self, duthosts, enum_frontend_asic_index,
+                       enum_rand_one_per_hwsku_frontend_hostname, tbinfo, lower_tor_host):  # noqa: F811
         """
             Reset queue watermark
 

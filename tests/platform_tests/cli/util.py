@@ -3,6 +3,7 @@ util.py
 
 Utility functions for testing SONiC CLI
 """
+import six
 
 
 def parse_colon_speparated_lines(lines):
@@ -58,7 +59,10 @@ def get_fields(line, field_ranges):
     """
     fields = []
     for field_range in field_ranges:
-        field = line[field_range[0]:field_range[1]].encode('utf-8')
+        if six.PY2:
+            field = line[field_range[0]:field_range[1]].encode('utf-8')
+        else:
+            field = line[field_range[0]:field_range[1]]
         fields.append(field.strip())
 
     return fields
@@ -131,7 +135,3 @@ def get_skip_logical_module_list(duthost, mod_key=None):
                     for mod_id in dut_vars['skip_logical_modules'][mod_type]:
                         skip_logical_mod_list.append(mod_id)
     return skip_logical_mod_list
-
-
-
-

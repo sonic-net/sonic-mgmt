@@ -9,11 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 '''
-In case of multi-dut we need src_host_ip, src_router_ip, dst_host_ip, src_ptf_port_list, dst_ptf_port_list for the dut under test, 
-to take care of that made changes in the testcase 
+In case of multi-dut we need src_host_ip, src_router_ip, dst_host_ip, src_ptf_port_list, dst_ptf_port_list
+for the dut under test, to take care of that made changes in the testcase
 '''
 
-def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_rand_one_frontend_asic_index, key='src'):
+
+def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags,
+                  enum_rand_one_frontend_asic_index, key='src'):
     if not mg_facts['minigraph_portchannels']:
         pytest.fail("minigraph_portchannels is not defined")
 
@@ -24,21 +26,25 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_r
         if a_lag_data['po_intf_stat'] == 'Up' and a_lag_name not in ignore_lags:
             if enum_rand_one_frontend_asic_index is not None and \
                     int(lag_facts['lags'][a_lag_name]['po_namespace_id']) != enum_rand_one_frontend_asic_index:
-                    continue
+                continue
             # We found a portchannel that is up.
             up_lag = a_lag_name
-            selected_lag_facts[key + '_port_ids'] = [mg_facts['minigraph_ptf_indices'][intf] for intf in a_lag_data['po_config']['ports']]
-            selected_lag_facts[key + '_router_mac'] =  dut.asic_instance(enum_rand_one_frontend_asic_index).get_router_mac()
+            selected_lag_facts[key + '_port_ids'] = \
+                [mg_facts['minigraph_ptf_indices'][intf] for intf in a_lag_data['po_config']['ports']]
+            selected_lag_facts[key + '_router_mac'] = \
+                dut.asic_instance(enum_rand_one_frontend_asic_index).get_router_mac()
+            selected_lag_facts[key + '_port'] = [intf for intf in a_lag_data['po_config']['ports']]
             for intf in mg_facts['minigraph_portchannel_interfaces']:
                 if dut.is_backend_portchannel(intf['attachto'], mg_facts):
-                    continue 
+                    continue
                 if intf['attachto'] == up_lag:
                     addr = ip_address(str(intf['addr']))
                     selected_lag_facts[key + '_router_intf_name'] = intf['attachto']
                     if addr.version == 4:
                         selected_lag_facts[key + '_router_ipv4'] = intf['addr']
                         selected_lag_facts[key + '_host_ipv4'] = intf['peer_addr']
-                        selected_lag_facts[key + '_host_mac'] = switch_arptable['arptable']['v4'][intf['peer_addr']]['macaddress']
+                        selected_lag_facts[key + '_host_mac'] = \
+                            switch_arptable['arptable']['v4'][intf['peer_addr']]['macaddress']
                     elif addr.version == 6:
                         selected_lag_facts[key + '_router_ipv6'] = intf['addr']
                         selected_lag_facts[key + '_host_ipv6'] = intf['peer_addr']
@@ -48,7 +54,8 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags, enum_r
     return up_lag, selected_lag_facts
 
 
-def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, enum_rand_one_frontend_asic_index, key='src'):
+def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs,
+                   enum_rand_one_frontend_asic_index, key='src'):
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
     if is_backend_topology:
         interfaces = mg_facts['minigraph_vlan_sub_interfaces']
@@ -76,13 +83,16 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, en
                 if attachto_match:
                     up_port = a_intf_name
                     selected_port_facts[key + '_port_ids'] = [mg_facts['minigraph_ptf_indices'][a_intf_name]]
-                    selected_port_facts[key + '_router_mac'] = dut.asic_instance(enum_rand_one_frontend_asic_index).get_router_mac()
+                    selected_port_facts[key + '_router_mac'] = \
+                        dut.asic_instance(enum_rand_one_frontend_asic_index).get_router_mac()
                     addr = ip_address(str(intf['addr']))
                     selected_port_facts[key + '_router_intf_name'] = intf['attachto']
+                    selected_port_facts[key + '_port'] = [a_intf_name]
                     if addr.version == 4:
                         selected_port_facts[key + '_router_ipv4'] = intf['addr']
                         selected_port_facts[key + '_host_ipv4'] = intf['peer_addr']
-                        selected_port_facts[key + '_host_mac'] = switch_arptable['arptable']['v4'][intf['peer_addr']]['macaddress']
+                        selected_port_facts[key + '_host_mac'] = \
+                            switch_arptable['arptable']['v4'][intf['peer_addr']]['macaddress']
                     elif addr.version == 6:
                         selected_port_facts[key + '_router_ipv6'] = intf['addr']
                         selected_port_facts[key + '_host_ipv6'] = intf['peer_addr']
@@ -90,6 +100,7 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs, en
                 logger.info("{} port is {}".format(key, up_port))
                 break
     return up_port, selected_port_facts
+
 
 def arptable_on_switch(dut, asic_host, mg_facts):
     """
@@ -117,7 +128,7 @@ def arptable_on_switch(dut, asic_host, mg_facts):
         time.sleep(5)
         TIMEOUT -= 5
     return None
-    
+
 
 @pytest.fixture(scope='function')
 def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
@@ -161,12 +172,14 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
         # We didn't find 2 lags, lets check up interfaces
         port_status = asichost.show_interface(command='status')['ansible_facts']
         if src is None:
-            src, src_port_facts = get_port_facts(duthost, mg_facts, port_status, switch_arptable, used_intfs, enum_rand_one_frontend_asic_index, key='src')
+            src, src_port_facts = get_port_facts(duthost, mg_facts, port_status, switch_arptable,
+                                                 used_intfs, enum_rand_one_frontend_asic_index, key='src')
             used_intfs.add(src)
             facts.update(src_port_facts)
 
         if dst is None:
-            dst, dst_port_facts = get_port_facts(duthost, mg_facts, port_status, switch_arptable, used_intfs, enum_rand_one_frontend_asic_index, key='dst')
+            dst, dst_port_facts = get_port_facts(duthost, mg_facts, port_status, switch_arptable,
+                                                 used_intfs, enum_rand_one_frontend_asic_index, key='dst')
             facts.update(dst_port_facts)
 
     if src is None or dst is None:

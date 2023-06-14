@@ -7,25 +7,29 @@ import argparse
 import os.path
 from collections import defaultdict
 from fcntl import ioctl
-from pprint import pprint
 import logging
-logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 import ptf.packet as scapy
 import scapy.all as scapy2
-scapy2.conf.use_pcap=True
-import scapy.arch.pcapdnet
+import scapy.arch.pcapdnet # noqa F401
+scapy2.conf.use_pcap = True
+
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
 
 NEIGH_SOLICIT_ICMP_MSG_TYPE = 135
+
 
 def hexdump(data):
     print((" ".join("%02x" % ord(d) for d in data)))
 
+
 def get_if(iff, cmd):
     s = socket.socket()
-    ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
+    ifreq = ioctl(s, cmd, struct.pack("16s16x", iff))
     s.close()
 
     return ifreq
+
 
 def get_mac(iff):
     SIOCGIFHWADDR = 0x8927          # Get hardware address
@@ -48,7 +52,8 @@ class Interface(object):
             self.socket.close()
 
     def bind(self):
-        self.socket = scapy2.conf.L2listen(iface=self.iface, filter='arp || ip6[40] = {}'.format(NEIGH_SOLICIT_ICMP_MSG_TYPE))
+        self.socket = scapy2.conf.L2listen(
+            iface=self.iface, filter='arp || ip6[40] = {}'.format(NEIGH_SOLICIT_ICMP_MSG_TYPE))
 
     def handler(self):
         return self.socket
@@ -89,8 +94,10 @@ class ARPResponder(object):
     ARP_PKT_LEN = 64
     NDP_PKT_LEN = 90
     ARP_OP_REQUEST = 1
+
     def __init__(self, ip_sets):
-        self.arp_chunk = binascii.unhexlify('08060001080006040002') # defines a part of the packet for ARP Reply
+        # defines a part of the packet for ARP Reply
+        self.arp_chunk = binascii.unhexlify('08060001080006040002')
         self.arp_pad = binascii.unhexlify('00' * 18)
 
         self.ip_sets = ip_sets
@@ -99,14 +106,30 @@ class ARPResponder(object):
 
     def action(self, interface):
         data = interface.recv()
+        eth_type = struct.unpack('!H', data[12:14])[0]
+        # Retrieve the correct ethertype if the packet is VLAN tagged
+        if eth_type == 0x8100:  # 802.1Q, VLAN tagged
+            eth_type = struct.unpack('!H', data[16:18])[0]
 
-        if len(data) <= self.ARP_PKT_LEN:
-            return self.reply_to_arp(data, interface)
-        elif len(data) <= self.NDP_PKT_LEN:
-            return self.reply_to_ndp(data, interface)
+        if eth_type == 0x0806:  # ARP
+            if len(data) <= self.ARP_PKT_LEN:
+                return self.reply_to_arp(data, interface)
+            else:
+                # Handle the case where data length is greater than ARP packet length
+                pass
+        elif eth_type == 0x86DD:  # IPv6
+            if len(data) <= self.NDP_PKT_LEN:
+                return self.reply_to_ndp(data, interface)
+            else:
+                # Handle the case where data length is greater than NDP packet length
+                pass
+        else:
+            # Handle other Ethernet types
+            pass
 
     def reply_to_arp(self, data, interface):
-        remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(data)
+        remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(
+            data)
 
         # Don't send ARP response if the ARP op code is not request
         if op_type != self.ARP_OP_REQUEST:
@@ -122,7 +145,8 @@ class ARPResponder(object):
             vlan_list = [None]
 
         for vlan_id in vlan_list:
-            arp_reply = self.generate_arp_reply(self.ip_sets[interface.name()][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
+            arp_reply = self.generate_arp_reply(self.ip_sets[interface.name(
+            )][request_ip_str], remote_mac, request_ip, remote_ip, vlan_id)
             interface.send(arp_reply)
 
         return
@@ -133,11 +157,12 @@ class ARPResponder(object):
         target_ip_str = socket.inet_ntop(socket.AF_INET6, target_ip)
         if target_ip_str in self.ip_sets[interface.name()]:
             remote_ip_str = socket.inet_ntop(socket.AF_INET6, remote_ip)
-            neigh_adv_pkt = self.generate_neigh_adv(self.ip_sets[interface.name()][target_ip_str], remote_mac, target_ip_str, remote_ip_str)
+            neigh_adv_pkt = self.generate_neigh_adv(self.ip_sets[interface.name(
+            )][target_ip_str], remote_mac, target_ip_str, remote_ip_str)
             interface.send(neigh_adv_pkt)
 
         return
-        
+
     def extract_ndp_info(self, data):
         vlan_offset = 0
 
@@ -170,7 +195,8 @@ class ARPResponder(object):
         req_ip_end = req_ip_start + 4
         op_type_end = op_type_start + 1
 
-        return data[6:12], data[rem_ip_start:rem_ip_end], data[req_ip_start:req_ip_end], (ord(data[op_type_start]) * 256 + ord(data[op_type_end])), vlan_id
+        return data[6:12], data[rem_ip_start:rem_ip_end], data[req_ip_start:req_ip_end],\
+            (ord(data[op_type_start]) * 256 + ord(data[op_type_end])), vlan_id
 
     def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
         eth_hdr = remote_mac + local_mac
@@ -181,19 +207,23 @@ class ARPResponder(object):
         return eth_hdr + self.arp_chunk + local_mac + local_ip + remote_mac + remote_ip + self.arp_pad
 
     def generate_neigh_adv(self, local_mac, remote_mac, target_ip, remote_ip):
-        neigh_adv_pkt = Ether(src=local_mac, dst=remote_mac)/IPv6(src=target_ip, dst=remote_ip)
-        neigh_adv_pkt /= ICMPv6ND_NA(tgt=target_ip, R=0, S=1, O=1)
-        neigh_adv_pkt /= ICMPv6NDOptDstLLAddr(lladdr=local_mac)
+        neigh_adv_pkt = Ether(src=local_mac, dst=remote_mac) / IPv6(src=target_ip, dst=remote_ip) # noqa F821
+        neigh_adv_pkt /= ICMPv6ND_NA(tgt=target_ip, R=0, S=1, O=1)                                # noqa F821
+        neigh_adv_pkt /= ICMPv6NDOptDstLLAddr(lladdr=local_mac)                                   # noqa F821
 
         return neigh_adv_pkt
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
-    parser.add_argument('--conf', '-c', type=str, dest='conf', default='/tmp/from_t1.json', help='path to json file with configuration')
-    parser.add_argument('--extended', '-e', action='store_true', dest='extended', default=False, help='enable extended mode')
+    parser.add_argument('--conf', '-c', type=str, dest='conf',
+                        default='/tmp/from_t1.json', help='path to json file with configuration')
+    parser.add_argument('--extended', '-e', action='store_true',
+                        dest='extended', default=False, help='enable extended mode')
     args = parser.parse_args()
 
     return args
+
 
 def main():
     args = parse_args()
@@ -238,6 +268,7 @@ def main():
     p.poll()
 
     return
+
 
 if __name__ == '__main__':
     main()

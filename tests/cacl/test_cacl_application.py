@@ -82,18 +82,23 @@ def docker_network(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asi
            Sample output when docker hit the issue (Note that the IPv6 gateway is missing):
            "Config": [
                       {
-                       "Subnet": "240.127.1.1/24",
+                       "Subnet": "240.127.1.0/24",
                        "Gateway": "240.127.1.1"
                       },
                       {
                        "Subnet": "fd00::/80"
                       }
                      ]
+    When Gateway IP is missing, form the g/w IP as subnet + '1'.
+    IPv4 Gateway would be '240.127.1' + '1'
+    IPv6 Gateway would be 'fd00::' + '1'
     """
     docker_network['bridge'] = {'IPv4Address': ipam_info['Config'][0].get('Gateway',
-                                                                          ipam_info['Config'][0].get('Subnet')),
+                                                                          ipam_info['Config'][0].get('Subnet')
+                                                                          .split('/')[0][:-1] + '1'),
                                 'IPv6Address': ipam_info['Config'][1].get('Gateway',
-                                                                          ipam_info['Config'][1].get('Subnet'))}
+                                                                          ipam_info['Config'][1].get('Subnet')
+                                                                          .split('/')[0] + '1')}
 
     docker_network['container'] = {}
     for k, v in list(docker_containers_info.items()):
@@ -292,7 +297,7 @@ def get_cacl_tables_and_rules(duthost):
         stdout_lines = stdout_lines[2:]
         for line in stdout_lines:
             tokens = line.strip().split()
-            if len(tokens) == 6 and tokens[0] == table["name"]:
+            if len(tokens) == 7 and tokens[0] == table["name"]:
                 table["rules"].append({"name": tokens[1], "priority": tokens[2], "action": tokens[3]})
                 # Strip the trailing colon from the key name
                 key = tokens[4][:-1]
@@ -345,6 +350,15 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                     else:
                         pytest.fail("Unrecognized IP address type on interface '{}': {}"
                                     .format(iface_name, ip_ntwrk))
+
+
+def append_midplane_traffic_rules(duthost, iptables_rules):
+    result = duthost.shell('ip link show | grep -w "eth1-midplane"', module_ignore_errors=True)['stdout']
+    if result:
+        midplane_ip = duthost.shell('ip -4 -o addr show eth1-midplane | awk \'{print $4}\' | cut -d / -f1 | head -1',
+                                    module_ignore_errors=True)['stdout']
+        iptables_rules.append("-A INPUT -i eth1-midplane -j ACCEPT")
+        iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(midplane_ip, midplane_ip))
 
 
 def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby):
@@ -550,6 +564,10 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         # Default drop rules
         iptables_rules.append("-A INPUT -j DROP")
         ip6tables_rules.append("-A INPUT -j DROP")
+
+    # IP Table rule to allow eth1-midplane traffic for chassis
+    if asic_index is None:
+        append_midplane_traffic_rules(duthost, iptables_rules)
 
     return iptables_rules, ip6tables_rules
 

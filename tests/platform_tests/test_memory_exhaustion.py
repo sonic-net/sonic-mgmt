@@ -12,7 +12,7 @@ pytestmark = [
 ]
 
 SSH_SHUTDOWN_TIMEOUT = 360
-SSH_STARTUP_TIMEOUT = 360
+SSH_STARTUP_TIMEOUT = 420
 
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
@@ -24,10 +24,11 @@ class TestMemoryExhaustion:
     """
 
     @pytest.fixture(autouse=True)
-    def tearDown(self, duthost, localhost, pdu_controller):
+    def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, pdu_controller):
         yield
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         if not self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED):
@@ -41,7 +42,8 @@ class TestMemoryExhaustion:
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
 
-    def test_memory_exhaustion(self, duthost, localhost):
+    def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         dut_datetime = duthost.get_now_time()

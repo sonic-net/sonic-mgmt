@@ -37,6 +37,9 @@ class SonicHost(AnsibleHostBase):
     """
     DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
+    """
+    setting either one of shell_user/shell_pw or ssh_user/ssh_passwd pair should yield the same result.
+    """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
                  ssh_user=None, ssh_passwd=None):
@@ -78,6 +81,12 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
         if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
             self.DEFAULT_ASIC_SERVICES.append("macsec")
+        feature_status = self.get_feature_status()
+        # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
+        # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
+        gbsyncd_enabled = 'gbsyncd' in feature_status[0].keys() and feature_status[0]['gbsyncd'] == 'enabled'
+        if gbsyncd_enabled and self.facts["asic_type"] != "vs":
+            self.DEFAULT_ASIC_SERVICES.append("gbsyncd")
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
@@ -974,12 +983,25 @@ class SonicHost(AnsibleHostBase):
 
         return namespace_ids, True
 
-    def get_up_time(self):
-        up_time_text = self.command("uptime -s")["stdout"]
-        return datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+    def get_up_time(self, utc_timezone=False):
 
-    def get_now_time(self):
-        now_time_text = self.command('date +"%Y-%m-%d %H:%M:%S"')["stdout"]
+        if utc_timezone:
+            current_time = self.get_now_time(utc_timezone=True)
+            uptime_seconds = self.get_uptime()
+            uptime_since = current_time - uptime_seconds
+        else:
+            up_time_text = self.command("uptime -s")["stdout"]
+            uptime_since = datetime.strptime(up_time_text, "%Y-%m-%d %H:%M:%S")
+
+        return uptime_since
+
+    def get_now_time(self, utc_timezone=False):
+
+        command = 'date +"%Y-%m-%d %H:%M:%S"'
+        if utc_timezone:
+            command += ' -u'
+        now_time_text = self.command(command)["stdout"]
+
         return datetime.strptime(now_time_text, "%Y-%m-%d %H:%M:%S")
 
     def get_uptime(self):
@@ -1639,6 +1661,8 @@ Totals               6450                 6449
             asic = "td3"
         elif "Broadcom Limited Device b980" in output:
             asic = "th3"
+        elif "Cisco Systems Inc Device a001" in output:
+            asic = "gb"
 
         return asic
 
@@ -1794,10 +1818,11 @@ Totals               6450                 6449
                 else:
                     in_section = False
                     continue
-            # Output of 'crm show resources all' has 3 sections.
+            # Output of 'crm show resources all' has 3 sections(4 on DPU platform).
             #   section 1: resources usage
             #   section 2: ACL group
             #   section 3: ACL table
+            #   section 4: DASH(DPU) ACL rules
             if 1 in list(sections.keys()):
                 crm_facts['resources'] = {}
                 resources = self._parse_show(sections[1])
@@ -1812,6 +1837,9 @@ Totals               6450                 6449
 
             if 3 in list(sections.keys()):
                 crm_facts['acl_table'] = self._parse_show(sections[3])
+
+            if 4 in list(sections.keys()):
+                crm_facts['dash_acl_group'] = self._parse_show(sections[4])
             return True
         # Retry until crm resources are ready
         timeout = crm_facts['polling_interval'] + 10
@@ -2257,7 +2285,7 @@ Totals               6450                 6449
     def links_status_down(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
-            output_port = output_line.split(' ')[0]
+            output_port = output_line.strip().split(' ')[0]
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Either oper or admin status 'down' means link down
@@ -2273,7 +2301,7 @@ Totals               6450                 6449
     def links_status_up(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
-            output_port = output_line.split(' ')[0]
+            output_port = output_line.strip().split(' ')[0]
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Either oper or admin status 'down' means link down
@@ -2286,7 +2314,10 @@ Totals               6450                 6449
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
-        return out["stdout_lines"][0]
+        if out["stdout_lines"]:
+            return out["stdout_lines"][0]
+        else:
+            return None
 
     def set_port_fec(self, portname, state):
         if not state:

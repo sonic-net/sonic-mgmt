@@ -1,6 +1,7 @@
 from tests.common.helpers.assertions import pytest_require
 from tests.common.broadcom_data import is_broadcom_device
 
+
 def skip_pfcwd_test(duthost, trigger_pfcwd):
     """
     Skip PFC watchdog tests that may cause fake alerts

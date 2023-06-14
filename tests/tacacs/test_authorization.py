@@ -1,12 +1,12 @@
 import logging
 import paramiko
-import time
 import pytest
+from _pytest.outcomes import Failed
 
 from tests.tacacs.utils import stop_tacacs_server, start_tacacs_server
 from tests.tacacs.utils import per_command_check_skip_versions, remove_all_tacacs_server, get_ld_path
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -113,15 +113,29 @@ def setup_authorization_tacacs_local(duthosts, enum_rand_one_per_hwsku_hostname)
     duthost.shell("sudo config aaa authorization local")    # Default authorization method is local
 
 
+def verify_show_aaa(remote_user_client):
+    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
+    if exit_code != 0:
+        return False
+
+    try:
+        check_ssh_output(stdout, 'AAA authentication')
+        return True
+    except Failed:
+        return False
+
+
 def check_authorization_tacacs_only(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, remote_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     """
         Verify TACACS+ user run command in server side whitelist:
             If command have local permission, user can run command.
     """
-    exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'AAA authentication')
+    # The "config tacacs add" commands will trigger hostcfgd to regenerate tacacs config.
+    # If we immediately run "show aaa" command, the client may still be using the first invalid tacacs server.
+    # The second valid tacacs may not take effect yet. Wait some time for the valid tacacs server to take effect.
+    succeeded = wait_until(10, 1, 0, verify_show_aaa, remote_user_client)
+    pytest_assert(succeeded)
 
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config aaa")
     pytest_assert(exit_code == 1)
@@ -162,11 +176,6 @@ def test_authorization_tacacs_only_some_server_down(
 
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-
-    # The above "config tacacs add" commands will trigger hostcfgd to regenerate tacacs config.
-    # If we immediately run "show aaa" command, the client may still be using the first invalid tacacs server.
-    # The second valid tacacs may not take effect yet. Wait some time for the valid tacacs server to take effect.
-    time.sleep(2)
 
     """
         Verify TACACS+ user run command in server side whitelist:
@@ -408,3 +417,44 @@ def test_backward_compatibility_disable_authorization(
 
     # cleanup
     start_tacacs_server(ptfhost)
+
+
+def test_stop_request_next_server_after_reject(
+        duthosts, enum_rand_one_per_hwsku_hostname,
+        tacacs_creds, ptfhost, check_tacacs, remote_user_client, local_user_client):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # not ignore on version >= 202305
+    skip_versions = ["201811", "201911", "202012", "202106", "202111", "202205", "202211"]
+    skip_release(duthost, skip_versions)
+
+    # Use ptfhost ipv6 address as second ip address
+    ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
+    if 'ansible_hostv6' not in ptfhost_vars:
+        pytest.skip("Skip UT. ptf ansible_hostv6 not configured.")
+    tacacs_server_ipv6 = ptfhost_vars['ansible_hostv6']
+
+    # Setup second tacacs server
+    duthost.shell("sudo config tacacs add {}".format(tacacs_server_ipv6))
+    duthost.shell("sudo config tacacs timeout 1")
+
+    # Clean tacacs log
+    res = ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
+
+    # Login with invalied user, the first tacacs server will reject user login
+    dutip = duthost.mgmt_ip
+    check_ssh_connect_remote_failed(
+        dutip,
+        "invalid_user",
+        "invalid_password"
+    )
+
+    # Server side should only have 1 login request log:
+    #       After first tacacs server reject user login, tacacs will not try to connect to second server.
+    res = ptfhost.command(r"sed -n 's/\(exec authorization request for invalid_user\)/\1/p'  /var/log/tac_plus.log")
+    logger.warning(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) == 1)
+
+    # Remove second server IP
+    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ipv6)
+    duthost.shell("sudo config tacacs timeout 5")

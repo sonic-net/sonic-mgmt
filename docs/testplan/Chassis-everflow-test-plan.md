@@ -6,11 +6,11 @@
 
 # Introduction
 
-This is the test plan for Everflow on distributed VOQ system, as described in the [VOQ Everflow HLD](https://github.com/Azure/SONiC/blob/master/doc/voq/everflow.md).
+This is the test plan for Everflow on distributed VOQ system, as described in the [VOQ Everflow HLD](https://github.com/sonic-net/SONiC/blob/master/doc/voq/everflow.md).
 
 # Test Setup
 
-The test cases proposed in the test plan will be run in [T2 topology](https://github.com/Azure/sonic-mgmt/blob/aster/ansible/vars/topo_t2.yml).
+The test cases proposed in the test plan will be run in [T2 topology](https://github.com/sonic-net/sonic-mgmt/blob/aster/ansible/vars/topo_t2.yml).
 
 # Test Cases
 

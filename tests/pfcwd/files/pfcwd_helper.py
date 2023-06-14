@@ -3,16 +3,11 @@ import ipaddress
 import sys
 
 from tests.common import constants
-import sys
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
-    str = str
+    unicode = str
 
-
-# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
-if sys.version_info[0] >= 3:
-    str = str
 
 class TrafficPorts(object):
     """ Generate a list of ports needed for the PFC Watchdog test"""
@@ -101,17 +96,18 @@ class TrafficPorts(object):
                                                      'test_port_id': pfc_wd_test_port_id,
                                                      'rx_port_id': [self.pfc_wd_rx_port_id],
                                                      'test_port_type': 'interface'
-                                                    }
+                                                     }
             # populate info for the first port
             if first_pair:
-                self.test_ports[self.pfc_wd_rx_port] = {'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
-                                                        'rx_port': [pfc_wd_test_port],
-                                                        'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
-                                                        'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
-                                                        'test_port_id': self.pfc_wd_rx_port_id,
-                                                        'rx_port_id': [pfc_wd_test_port_id],
-                                                        'test_port_type': 'interface'
-                                                       }
+                self.test_ports[self.pfc_wd_rx_port] = {
+                    'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
+                    'rx_port': [pfc_wd_test_port],
+                    'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
+                    'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
+                    'test_port_id': self.pfc_wd_rx_port_id,
+                    'rx_port_id': [pfc_wd_test_port_id],
+                    'test_port_type': 'interface'
+                    }
 
             first_pair = False
 
@@ -145,7 +141,6 @@ class TrafficPorts(object):
 
             # populate info for all ports except the first one
             if first_pair or pfc_wd_test_port:
-                pfc_wd_test_portchannel = pc
                 pfc_wd_test_port = self.pc_info[pc]['members']
                 pfc_wd_test_port_addr = item['addr']
                 pfc_wd_test_port_id = [self.port_idx_info[port] for port in pfc_wd_test_port]
@@ -168,7 +163,7 @@ class TrafficPorts(object):
                                              'rx_port_id': self.pfc_wd_rx_port_id,
                                              'test_portchannel_members': pfc_wd_test_port_id,
                                              'test_port_type': 'portchannel'
-                                            }
+                                             }
             # populate info for the first port
             if first_pair:
                 for port in self.pfc_wd_rx_port:
@@ -180,7 +175,7 @@ class TrafficPorts(object):
                                              'rx_port_id': pfc_wd_test_port_id,
                                              'test_portchannel_members': self.pfc_wd_rx_port_id,
                                              'test_port_type': 'portchannel'
-                                            }
+                                             }
 
             first_pair = False
 
@@ -216,7 +211,7 @@ class TrafficPorts(object):
                                 'test_port_id': self.port_idx_info[item],
                                 'rx_port_id': rx_port_id,
                                 'test_port_type': 'vlan'
-                               }
+                                }
             if hasattr(self, 'pfc_wd_rx_port_vlan_id'):
                 temp_ports[item]['rx_port_vlan_id'] = self.pfc_wd_rx_port_vlan_id
             if vlan_type is not None and vlan_type == 'Tagged':
@@ -266,19 +261,20 @@ class TrafficPorts(object):
                                                      'rx_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
                                                      'test_port_vlan_id': vlan_id,
                                                      'test_port_type': 'interface'
-                                                    }
+                                                     }
             # populate info for the first port
             if first_pair:
-                self.test_ports[self.pfc_wd_rx_port] = {'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
-                                                        'rx_port': [pfc_wd_test_port],
-                                                        'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
-                                                        'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
-                                                        'test_port_id': self.pfc_wd_rx_port_id,
-                                                        'rx_port_id': [pfc_wd_test_port_id],
-                                                        'rx_port_vlan_id': vlan_id,
-                                                        'test_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
-                                                        'test_port_type': 'interface'
-                                                       }
+                self.test_ports[self.pfc_wd_rx_port] = {
+                    'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
+                    'rx_port': [pfc_wd_test_port],
+                    'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
+                    'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
+                    'test_port_id': self.pfc_wd_rx_port_id,
+                    'rx_port_id': [pfc_wd_test_port_id],
+                    'rx_port_vlan_id': vlan_id,
+                    'test_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
+                    'test_port_type': 'interface'
+                    }
 
             first_pair = False
 
@@ -297,7 +293,7 @@ def set_pfc_timers():
                   'pfc_wd_restore_time': 400,
                   'pfc_wd_restore_time_large': 3000,
                   'pfc_wd_poll_time': 400
-                 }
+                  }
     return pfc_timers
 
 

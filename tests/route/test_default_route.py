@@ -3,8 +3,7 @@ import ipaddress
 import logging
 
 
-from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies
-from tests.common.config_reload import config_reload
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
@@ -18,11 +17,12 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 def get_upstream_neigh(tb, device_neigh_metadata):
     """
     Get the information for upstream neighbors present in the testbed
-    
-    returns dict: {"upstream_neigh_name" : (ipv4_intf_ip, ipv6_intf_ip)} 
+
+    returns dict: {"upstream_neigh_name" : (ipv4_intf_ip, ipv6_intf_ip)}
     """
     upstream_neighbors = {}
     neigh_type = get_upstream_neigh_type(tb['topo']['type'])
@@ -58,7 +58,8 @@ def get_upstream_neigh(tb, device_neigh_metadata):
         upstream_neighbors.update({neigh_name: (ipv4_addr, ipv6_addr)})
     return upstream_neighbors
 
-def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
+
+def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, device_neigh_metadata):
     neigh_type = get_upstream_neigh_type(tbinfo['topo']['type'])
     asics = set()
     for name, asic in list(bgp_name_to_ns_mapping.items()):
@@ -69,42 +70,45 @@ def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping):
         asics.add(asic)
     return asics
 
+
 def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_metadata):
     """
     Verify the nexthops for the default routes match the ip interfaces
-    configured on the peer device 
+    configured on the peer device
     """
     default_route = duthost.get_default_route_from_app_db(af)
     pytest_assert(default_route, "default route not present in APP_DB")
     logging.info("default route from app db {}".format(default_route))
-     
-    nexthops = set() 
+
+    nexthops = set()
     if uplink_ns:
-        # multi-asic case: Now we have all routes on all asics, get the uplink routes only 
+        # multi-asic case: Now we have all routes on all asics, get the uplink routes only
         for ns in uplink_ns:
-            nexthop_list = list(default_route[ns].values())[0]['value']['nexthop'].split(',')
+            nexthop_list = list(default_route[ns].values())[
+                0]['value']['nexthop'].split(',')
             nexthops.update(set(nexthop_list))
     else:
         key = list(default_route.keys())[0]
         nexthop_list = default_route[key].get('value', {}).get('nexthop', None)
         nexthops.update(set(nexthop_list.split(',')))
-     
+
     pytest_assert(nexthops is not None, "Default route has not nexthops")
-    logging.info("nexthops in app_db {}".format(nexthops) )
-    
+    logging.info("nexthops in app_db {}".format(nexthops))
+
     upstream_neigh = get_upstream_neigh(tbinfo, device_neigh_metadata)
-    pytest_assert(upstream_neigh is not None, "No upstream neighbors in the testbed")
+    pytest_assert(upstream_neigh is not None,
+                  "No upstream neighbors in the testbed")
 
     if af == 'ipv4':
-        upstream_neigh_ip = set([upstream_neigh[neigh][0]  for neigh in upstream_neigh])
+        upstream_neigh_ip = set([upstream_neigh[neigh][0]
+                                for neigh in upstream_neigh])
     elif af == 'ipv6':
-        upstream_neigh_ip= set([upstream_neigh[neigh][1]  for neigh in upstream_neigh])
+        upstream_neigh_ip = set([upstream_neigh[neigh][1]
+                                for neigh in upstream_neigh])
 
     logging.info("peer intf ip from tb {}".format(upstream_neigh_ip))
-    pytest_assert(len(nexthops) == len(upstream_neigh_ip), \
-                    "Default route nexthops doesn't match the testbed topology")
-
-
+    pytest_assert(len(nexthops) == len(upstream_neigh_ip),
+                  "Default route nexthops doesn't match the testbed topology")
 
 
 def test_default_route_set_src(duthosts, tbinfo):
@@ -112,10 +116,12 @@ def test_default_route_set_src(duthosts, tbinfo):
     check if ipv4 and ipv6 default src address match Loopback0 address
 
     """
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
+    duthost = find_duthost_on_role(
+        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
-    config_facts = asichost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = asichost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts']
 
     lo_ipv4 = None
     lo_ipv6 = None
@@ -134,58 +140,67 @@ def test_default_route_set_src(duthosts, tbinfo):
     pytest_assert(lo_ipv6, "cannot find ipv6 Loopback0 address")
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
-    pytest_assert(rtinfo['set_src'], "default route do not have set src. {}".format(rtinfo))
-    pytest_assert(rtinfo['set_src'] == lo_ipv4.ip, \
-            "default route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv4.ip))
+    pytest_assert(rtinfo['set_src'],
+                  "default route do not have set src. {}".format(rtinfo))
+    pytest_assert(rtinfo['set_src'] == lo_ipv4.ip,
+                  "default route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv4.ip))
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
-    pytest_assert(rtinfo['set_src'], "default v6 route do not have set src. {}".format(rtinfo))
-    pytest_assert(rtinfo['set_src'] == lo_ipv6.ip, \
-            "default v6 route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv6.ip))
+    pytest_assert(
+        rtinfo['set_src'], "default v6 route do not have set src. {}".format(rtinfo))
+    pytest_assert(rtinfo['set_src'] == lo_ipv6.ip,
+                  "default v6 route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv6.ip))
+
 
 def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
     """
     check if ipv6 default route nexthop address uses global address
 
     """
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
+    duthost = find_duthost_on_role(
+        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
-    pytest_assert(len(rtinfo['nexthops']) > 0, "cannot find ipv6 nexthop for default route")
+    pytest_assert(len(rtinfo['nexthops']) > 0,
+                  "cannot find ipv6 nexthop for default route")
     for nh in rtinfo['nexthops']:
-        pytest_assert(not nh[0].is_link_local, \
-                "use link local address {} for nexthop".format(nh[0]))
+        pytest_assert(not nh[0].is_link_local,
+                      "use link local address {} for nexthop".format(nh[0]))
 
 
 def test_default_route_with_bgp_flap(duthosts, tbinfo):
     """
     Check the default route present in app_db has the correct nexthops ip
     Check the default route is removed when the bgp sessions are shutdown
-     
+
     """
 
-    pytest_require('t1-backend' not in tbinfo['topo']['name'], \
-            "Skip this testcase since this topology {} has no default routes"\
-                .format(tbinfo['topo']['name']))
+    pytest_require('t1-backend' not in tbinfo['topo']['name'],
+                   "Skip this testcase since this topology {} has no default routes"
+                   .format(tbinfo['topo']['name']))
 
-    duthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']) , tbinfo)
-    
-    config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    duthost = find_duthost_on_role(
+        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+
+    config_facts = duthost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-    
+
     uplink_ns = None
     # Get uplink namespaces/asics for multi-asic
     if duthost.is_multi_asic:
         bgp_name_to_ns_mapping = duthost.get_bgp_name_to_ns_mapping()
-        uplink_ns = get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, config_facts['DEVICE_NEIGHBOR_METADATA'])
-    
+        uplink_ns = get_uplink_ns(
+            tbinfo, bgp_name_to_ns_mapping, config_facts['DEVICE_NEIGHBOR_METADATA'])
+
     af_list = ['ipv4', 'ipv6']
 
     try:
         # verify the default route is correct in the app db
         for af in af_list:
-            verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, config_facts['DEVICE_NEIGHBOR_METADATA'])
+            verify_default_route_in_app_db(
+                duthost, tbinfo, af, uplink_ns, config_facts['DEVICE_NEIGHBOR_METADATA'])
 
         duthost.command("sudo config bgp shutdown all")
         if not wait_until(120, 2, 0, duthost.is_bgp_state_idle):
