@@ -45,8 +45,8 @@ def setup_acms(duthosts, rand_one_dut_hostname):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "sudo rm /var/opt/msft/client/*"
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker restart %s" % container_name
-    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "systemctl restart %s" % container_name
+    duthost.shell(dut_command)
 
 
 def create_acms_conf(region, cloudtype, duthost, filename):
