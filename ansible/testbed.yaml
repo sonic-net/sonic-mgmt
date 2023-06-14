@@ -970,7 +970,7 @@
   server: server_20
   vm_base:
   dut:
-    - str3-8102-01
+    - STR-8102-C19-U24
   inv_name: ixia
   auto_recover: 'False'
   comment: devojha
