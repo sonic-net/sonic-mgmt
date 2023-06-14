@@ -1796,20 +1796,20 @@ sonic_cisco_8102:
     str2-8102-02:
       ansible_host: 10.3.146.68
       model: 8102-64H-O
-      serial: FLM24510AC9
-      base_mac: A0:3D:6E:4E:D3:E8
+      serial: FLM2704056X
+      base_mac: F4:EE:31:92:8D:DC
       syseeprom_info:
         "0x21": "8102-64H-O"
-        "0x22": "ECI123"
-        "0x23": "FLM24510AC9"
-        "0x24": "A0:3D:6E:4E:D3:E8"
-        "0x26": "0"
+        "0x22": "477595"
+        "0x23": "FLM2704056X"
+        "0x24": "F4:EE:31:92:8D:DC"
+        "0x26": "3"
         "0x28": "x86_64-8102_64h_o-r0"
         "0x2A": "516"
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0x28641496"
+        "0xFE": "0xB8048CFF"
       plt_reboot_dict:
         cold:
           timeout: 300
