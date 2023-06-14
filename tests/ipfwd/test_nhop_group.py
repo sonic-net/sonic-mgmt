@@ -433,7 +433,9 @@ def test_nhop_group_member_count(duthost, tbinfo):
         pytest_assert(
             crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
             "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
-                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count, crm_before["available_nhop_grp"]
+                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count,
+                crm_before["available_nhop_grp"]
+
             )
         )
     elif is_mellanox_device(duthost):
