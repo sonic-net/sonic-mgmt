@@ -41,7 +41,7 @@ def run_pfc_test(api,
                  test_traffic_pause,
                  headroom_test_params=None,
                  pfc_pause_src_mac=None,
-                 class_enable_vec=True):
+                 set_class_enable_vec=True):
     """
     Run a PFC test
     Args:
@@ -61,7 +61,7 @@ def run_pfc_test(api,
         headroom_test_params (array): 2 element array if the associated pfc pause quanta
                                     results in no packet drop [pfc_delay, headroom_result]
         pfc_pause_src_mac (string): source MAC address of PFC Pause frames
-        class_enable_vec (bool): whether the PFC class enable vector has been set or not
+        set_class_enable_vec (bool): whether the PFC class enable vector has been set or not
     Returns:
         N/A
     """
@@ -114,7 +114,7 @@ def run_pfc_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_dscp_map=prio_dscp_map,
                   pfc_pause_src_mac=pfc_pause_src_mac,
-                  class_enable_vec=class_enable_vec)
+                  set_class_enable_vec=set_class_enable_vec)
 
     flows = testbed_config.flows
 
@@ -153,7 +153,7 @@ def run_pfc_test(api,
                      test_flow_pause=test_traffic_pause,
                      tolerance=TOLERANCE_THRESHOLD,
                      headroom_test_params=headroom_test_params,
-                     class_enable_vec=class_enable_vec)
+                     set_class_enable_vec=set_class_enable_vec)
 
 
 def __gen_traffic(testbed_config,
@@ -173,7 +173,7 @@ def __gen_traffic(testbed_config,
                   data_pkt_size,
                   prio_dscp_map,
                   pfc_pause_src_mac,
-                  class_enable_vec):
+                  set_class_enable_vec):
     """
     Generate configurations of flows, including test flows, background flows and
     pause storm. Test flows and background flows are also known as data flows.
@@ -195,7 +195,7 @@ def __gen_traffic(testbed_config,
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         pfc_pause_src_mac (string): source MAC address of PFC Pause frames
-        class_enable_vec (bool): whether the PFC class enable vector has been set or not
+        set_class_enable_vec (bool): whether the PFC class enable vector has been set or not
     Returns:
         flows configurations (list): the list should have configurations of
         len(test_flow_prio_list) test flow, len(bg_flow_prio_list) background
@@ -315,7 +315,7 @@ def __gen_traffic(testbed_config,
         pause_pkt = pause_flow.packet.pfcpause()[-1]
         pause_pkt.src.value = pfc_pause_src_mac if pfc_pause_src_mac else '00:00:fa:ce:fa:ce'
         pause_pkt.dst.value = '01:80:C2:00:00:01'
-        pause_pkt.class_enable_vector.value = vector if class_enable_vec else 0
+        pause_pkt.class_enable_vector.value = vector if set_class_enable_vec else 0
         pause_pkt.pause_class_0.value = pause_time[0]
         pause_pkt.pause_class_1.value = pause_time[1]
         pause_pkt.pause_class_2.value = pause_time[2]
@@ -415,7 +415,7 @@ def __verify_results(rows,
                      speed_gbps,
                      test_flow_pause,
                      tolerance,
-                     class_enable_vec,
+                     set_class_enable_vec,
                      headroom_test_params=None):
     """
     Verify if we get expected experiment results
@@ -431,7 +431,7 @@ def __verify_results(rows,
         speed_gbps (int): link speed in Gbps
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
-        class_enable_vec (bool): whether the PFC class enable vector has been set or not
+        set_class_enable_vec (bool): whether the PFC class enable vector has been set or not
         headroom_test_params (array): 2 element array if the associated pfc pause quanta
             results in no packet drop [pfc_delay, headroom_result]
     Returns:
@@ -538,7 +538,7 @@ def __verify_results(rows,
         for prio in range(len(prios)):
             pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
             total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
-            if class_enable_vec:
+            if set_class_enable_vec:
                 pytest_assert(pfc_pause_rx_frames > 0,
                               "PFC pause frames with zero source MAC are not counted in the PFC counters")
             else:

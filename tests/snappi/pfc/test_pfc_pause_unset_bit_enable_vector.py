@@ -69,7 +69,7 @@ def test_pfc_unset_cev_single_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 class_enable_vec=False)
+                 set_class_enable_vec=False)
 
 
 def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
@@ -123,4 +123,4 @@ def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 class_enable_vec=False)
+                 set_class_enable_vec=False)
