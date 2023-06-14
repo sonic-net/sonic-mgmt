@@ -25,6 +25,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import cable_type                                                     # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                           # lgtm[py/unused-import]
@@ -1458,7 +1459,8 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):
 
 
 @pytest.fixture
-def validate_active_active_dualtor_setup(duthosts, active_active_ports, ptfhost, tbinfo):                 # noqa F811
+def validate_active_active_dualtor_setup(
+    duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa F811
     """Validate that both ToRs are active for active-active mux ports."""
 
     def check_active_active_port_status(duthost, ports, status):
@@ -1475,11 +1477,11 @@ def validate_active_active_dualtor_setup(duthosts, active_active_ports, ptfhost,
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         return
 
-    # verify icmp_responder is running
-    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
-    if "RUNNING" not in icmp_responder_status:
-        ptfhost.shell("supervisorctl start icmp_responder")
+    if not all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
+        restart_nic_simulator()
+        ptfhost.shell("supervisorctl restart icmp_responder")
 
+    # verify icmp_responder is running
     icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
     pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
 

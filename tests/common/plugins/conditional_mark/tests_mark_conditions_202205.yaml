@@ -140,22 +140,6 @@ qos/test_pfc_pause.py::test_no_pfc:
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6716
 
-qos/test_tunnel_qos_remap.py::test_bounced_back_traffic_in_expected_queue[active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6667
-
-qos/test_tunnel_qos_remap.py::test_encap_dscp_rewrite[active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6667
-
 route/test_route_flap.py::test_route_flap:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
