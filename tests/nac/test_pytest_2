@@ -1,0 +1,221 @@
+============================= test session starts ==============================
+platform linux2 -- Python 2.7.18, pytest-4.6.9, py-1.8.1, pluggy-0.13.0
+rootdir: /home/sonic/nac
+collected 1 item
+
+test_nac_function5.py F                                                  [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_nac_functionality ____________________________
+
+ssh_clients = (<paramiko.client.SSHClient object at 0x7f7374716e90>, <paramiko.client.SSHClient object at 0x7f7374716f10>, <paramiko.client.SSHClient object at 0x7f7374722050>)
+
+    def test_nac_functionality(ssh_clients):
+        client1, client2, client3 = ssh_clients
+    
+        # Configuring IP on the Supplicant PC
+        cmd_sup_ip = "sudo ifconfig enp7s0f3 70.0.0.10"  # sample
+        stdin, stdout, stderr = client1.exec_command(cmd_sup_ip)
+        cmd_sup_ip_output = stdout.read().decode()
+        logging.info(cmd_sup_ip_output)
+    
+        cmd_show_int = "ifconfig enp7s0f3"
+        stdin, stdout, stderr = client1.exec_command(cmd_show_int)
+        cmd_show_int_output = stdout.read().decode()
+        logging.info(cmd_show_int_output)
+    
+        # To enable NAC Globally
+        cmd_enable_global = "sudo config nac enable"
+        stdin, stdout, stderr = client2.exec_command(cmd_enable_global)
+        cmd_enable_global = stdout.read().decode()
+        logging.info(cmd_enable_global)
+    
+        cmd_show_nac = "sudo show nac"
+        stdin, stdout, stderr = client2.exec_command(cmd_show_nac)
+        cmd_show_nac_output = stdout.read().decode()
+        logging.info(cmd_show_nac_output)
+    
+        # To enable NAC Interface
+        cmd_enable_int = "sudo config nac interface enable Ethernet16"
+        stdin, stdout, stderr = client2.exec_command(cmd_enable_int)
+        cmd_enable_int = stdout.read().decode()
+        logging.info(cmd_enable_int)
+    
+        cmd_show_enable_int = "sudo show nac interface Ethernet16"
+        stdin, stdout, stderr = client2.exec_command(cmd_show_enable_int)
+        cmd_show_enable_int_output = stdout.read().decode()
+        logging.info(cmd_show_enable_int_output)
+    
+        # Login to the root user
+        cmd_goto_root_user = "sudo su"
+        stdin, stdout, stderr = client1.exec_command(cmd_goto_root_user)
+    
+        # Goto the Supplicant file path
+        cmd_goto_path = "cd /home/sonic"
+        stdin, stdout, stderr = client1.exec_command(cmd_goto_path)
+    
+        # To start the Supplicant
+       # cmd_sup_start = "sudo wpa_supplicant -c./wpa_supplicant.conf -Dwired -ienp7s0f3"
+        #_, stdout, stderr = client1.exec_command(cmd_sup_start)
+        #cmd_sup_start_output = stdout.read().decode()
+        #logging.info("To start the supplicant: " + cmd_sup_start_output)
+        #time.sleep(20)
+    
+        #channel = stdin.channel
+        #channel.send("\x03")
+        #time.sleep(2)
+    
+        #output = channel.recv(1024).decode()
+    
+        #logging.info(output)  # Optional, for debugging
+    
+        # To verify Show NAC Interface Output
+        cmd_show_enable_int = "sudo show nac interface Ethernet16"
+        stdin, stdout, stderr = client2.exec_command(cmd_show_enable_int)
+        cmd_show_enable_int_output = stdout.read().decode()
+        # Print the output
+        logging.info(cmd_show_enable_int_output)  # Optional, for debugging
+    
+        # Configuring IP on the ping receiver
+        cmd_ping_ip = "sudo ifconfig eth4 70.0.0.20"  # sample
+        stdin, stdout, stderr = client3.exec_command(cmd_ping_ip)
+        cmd_ping_ip = stdout.read().decode()
+        logging.info(cmd_ping_ip)
+    
+        cmd_show_int1 = "sudo ifconfig eth4"
+        stdin, stdout, stderr = client3.exec_command(cmd_show_int1)
+        cmd_show_int1_output = stdout.read().decode()
+        logging.info(cmd_show_int1_output)  # Optional, for debugging
+    
+        # To check ping
+        cmd_ping_check = "ping 70.0.0.20"
+        _, stdout, stderr = client1.exec_command(cmd_ping_check)
+        time.sleep(10)
+        channel = stdout.channel
+        channel.send("\x03")
+        time.sleep(2)
+        output = ""
+        while channel.recv_ready():
+            output += channel.recv(1024).decode()
+        logging.info(output)  # Optional, for debugging
+    
+        # Assertions and verification code
+>       assert "expected_result" in output
+E       AssertionError: assert 'expected_result' in ''
+
+test_nac_function5.py:130: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO:paramiko.transport:Connected (version 2.0, client OpenSSH_8.2p1)
+INFO:paramiko.transport:Authentication (publickey) failed.
+INFO:paramiko.transport:Authentication (password) successful!
+INFO:paramiko.transport:Connected (version 2.0, client OpenSSH_8.4p1)
+INFO:paramiko.transport:Authentication (publickey) failed.
+INFO:paramiko.transport:Authentication (password) successful!
+INFO:paramiko.transport:Connected (version 2.0, client OpenSSH_7.6p1)
+INFO:paramiko.transport:Authentication (publickey) failed.
+INFO:paramiko.transport:Authentication (password) successful!
+------------------------------ Captured log setup ------------------------------
+INFO     paramiko.transport:transport.py:1874 Connected (version 2.0, client OpenSSH_8.2p1)
+INFO     paramiko.transport:transport.py:1874 Authentication (publickey) failed.
+INFO     paramiko.transport:transport.py:1874 Authentication (password) successful!
+INFO     paramiko.transport:transport.py:1874 Connected (version 2.0, client OpenSSH_8.4p1)
+INFO     paramiko.transport:transport.py:1874 Authentication (publickey) failed.
+INFO     paramiko.transport:transport.py:1874 Authentication (password) successful!
+INFO     paramiko.transport:transport.py:1874 Connected (version 2.0, client OpenSSH_7.6p1)
+INFO     paramiko.transport:transport.py:1874 Authentication (publickey) failed.
+INFO     paramiko.transport:transport.py:1874 Authentication (password) successful!
+----------------------------- Captured stderr call -----------------------------
+INFO:root:
+INFO:root:enp7s0f3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 70.0.0.10  netmask 255.0.0.0  broadcast 70.255.255.255
+        ether 0c:c4:7a:ea:6e:ce  txqueuelen 1000  (Ethernet)
+        RX packets 9095  bytes 659775 (659.7 KB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 7337  bytes 429091 (429.0 KB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+        device interrupt 78  memory 0x93800000-93ffffff  
+
+
+INFO:root:
+INFO:root:
+NAC Global Information:
+  NAC Admin State:            up
+  NAC Type       :            port
+  NAC Authentication Type :   local
+
+INFO:root:
+INFO:root:+-----------------+------------------+-----------------------+------------------+
+| InterfaceName   | NAC AdminState   | Authorization State   | Mapped Profile   |
++=================+==================+=======================+==================+
+| Ethernet16      | up               | unauthorized          |                  |
++-----------------+------------------+-----------------------+------------------+
+
+INFO:root:+-----------------+------------------+-----------------------+------------------+
+| InterfaceName   | NAC AdminState   | Authorization State   | Mapped Profile   |
++=================+==================+=======================+==================+
+| Ethernet16      | up               | unauthorized          |                  |
++-----------------+------------------+-----------------------+------------------+
+
+INFO:root:
+INFO:root:eth4: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 70.0.0.20  netmask 255.0.0.0  broadcast 70.255.255.255
+        ether 0c:c4:7a:ea:6a:54  txqueuelen 1000  (Ethernet)
+        RX packets 67814  bytes 4680053 (4.6 MB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 38864  bytes 5837666 (5.8 MB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+        device interrupt 88  memory 0x388002000000-3880027fffff  
+
+
+INFO:root:
+------------------------------ Captured log call -------------------------------
+INFO     root:test_nac_function5.py:47 
+INFO     root:test_nac_function5.py:52 enp7s0f3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 70.0.0.10  netmask 255.0.0.0  broadcast 70.255.255.255
+        ether 0c:c4:7a:ea:6e:ce  txqueuelen 1000  (Ethernet)
+        RX packets 9095  bytes 659775 (659.7 KB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 7337  bytes 429091 (429.0 KB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+        device interrupt 78  memory 0x93800000-93ffffff  
+
+
+INFO     root:test_nac_function5.py:58 
+INFO     root:test_nac_function5.py:63 
+NAC Global Information:
+  NAC Admin State:            up
+  NAC Type       :            port
+  NAC Authentication Type :   local
+
+INFO     root:test_nac_function5.py:69 
+INFO     root:test_nac_function5.py:74 +-----------------+------------------+-----------------------+------------------+
+| InterfaceName   | NAC AdminState   | Authorization State   | Mapped Profile   |
++=================+==================+=======================+==================+
+| Ethernet16      | up               | unauthorized          |                  |
++-----------------+------------------+-----------------------+------------------+
+
+INFO     root:test_nac_function5.py:104 +-----------------+------------------+-----------------------+------------------+
+| InterfaceName   | NAC AdminState   | Authorization State   | Mapped Profile   |
++=================+==================+=======================+==================+
+| Ethernet16      | up               | unauthorized          |                  |
++-----------------+------------------+-----------------------+------------------+
+
+INFO     root:test_nac_function5.py:110 
+INFO     root:test_nac_function5.py:115 eth4: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 70.0.0.20  netmask 255.0.0.0  broadcast 70.255.255.255
+        ether 0c:c4:7a:ea:6a:54  txqueuelen 1000  (Ethernet)
+        RX packets 67814  bytes 4680053 (4.6 MB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 38864  bytes 5837666 (5.8 MB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+        device interrupt 88  memory 0x388002000000-3880027fffff  
+
+
+INFO     root:test_nac_function5.py:127
+=============================== warnings summary ===============================
+/usr/local/lib/python2.7/dist-packages/paramiko/transport.py:33
+  /usr/local/lib/python2.7/dist-packages/paramiko/transport.py:33: CryptographyDeprecationWarning: Python 2 is no longer supported by the Python core team. Support for it is now deprecated in cryptography, and will be removed in the next release.
+    from cryptography.hazmat.backends import default_backend
+
+-- Docs: https://docs.pytest.org/en/latest/warnings.html
+==================== 1 failed, 1 warnings in 15.47 seconds =====================

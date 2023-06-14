@@ -1,0 +1,114 @@
+============================= test session starts ==============================
+platform linux2 -- Python 2.7.18, pytest-4.6.9, py-1.8.1, pluggy-0.13.0
+rootdir: /home/sonic/nac
+collected 1 item
+
+pytest_ex1.py F                                                          [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_nac_functionality ____________________________
+
+    def test_nac_functionality():
+        ip_address1 = '172.30.25.67'
+        username1 = 'sonic'
+        password1 = 'admin123'
+        ip_address2 = '172.30.25.102'
+        username2 = 'admin'
+        password2 = 'YourPaSsWoRd'
+        ip_address3 = '172.30.25.93'
+        username3 = 'sonic'
+        password3 = 'admin123'
+    
+    
+        client1 = paramiko.SSHClient()
+        client1.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+        client2 = paramiko.SSHClient()
+        client2.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+        client3 = paramiko.SSHClient()
+        client3.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+        try:
+            # Connect to the first device (Supplicant PC)
+            client1.connect(ip_address1, username=username1, password=password1)
+    
+            # Configuring IP on the Supplicant PC
+            cmd_sup_ip = "sudo ifconfig enp7s0f3 70.0.0.10"  # sample
+            stdin, stdout, stderr = client1.exec_command(cmd_sup_ip)
+            cmd_sup_ip_output = stdout.read().decode()
+            print(cmd_sup_ip_output)
+            if "inet 70.0.0.10" in cmd_sup_ip_output:
+                print("Yes")
+            else:
+                print("Invalid IP")
+    
+    
+            client2.connect(ip_address2, username=username2, password=password2)
+    
+            cmd_reload_config = "sudo config reload -y"
+            stdin, stdout, stderr = client2.exec_command(cmd_reload_config)
+            cmd_reload_config = stdout.read().decode()
+            time.sleep(60)
+            print(cmd_reload_config)
+            try:
+>               output = subprocess.check_output(cmd_reload_config, shell=True, text=True, stderr=subprocess.STDOUT)
+
+pytest_ex1.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+popenargs = ('Disabling container monitoring ...
+Stopping SONiC target ...
+Running command: /usr/local/bin/sonic-cfggen  -j /etc/s...ng SONiC target ...
+Enabling container monitoring ...
+Reloading Monit configuration ...
+Reinitializing monit daemon
+',)
+kwargs = {'shell': True, 'stderr': -2, 'text': True}
+
+    def check_output(*popenargs, **kwargs):
+        r"""Run command with arguments and return its output as a byte string.
+    
+        If the exit code was non-zero it raises a CalledProcessError.  The
+        CalledProcessError object will have the return code in the returncode
+        attribute and output in the output attribute.
+    
+        The arguments are the same as for the Popen constructor.  Example:
+    
+        >>> check_output(["ls", "-l", "/dev/null"])
+        'crw-rw-rw- 1 root root 1, 3 Oct 18  2007 /dev/null\n'
+    
+        The stdout argument is not allowed as it is used internally.
+        To capture standard error in the result, use stderr=STDOUT.
+    
+        >>> check_output(["/bin/sh", "-c",
+        ...               "ls -l non_existent_file ; exit 0"],
+        ...              stderr=STDOUT)
+        'ls: non_existent_file: No such file or directory\n'
+        """
+        if 'stdout' in kwargs:
+            raise ValueError('stdout argument not allowed, it will be overridden.')
+>       process = Popen(stdout=PIPE, *popenargs, **kwargs)
+E       TypeError: __init__() got an unexpected keyword argument 'text'
+
+/usr/lib/python2.7/subprocess.py:216: TypeError
+----------------------------- Captured stdout call -----------------------------
+
+Invalid IP
+Disabling container monitoring ...
+Stopping SONiC target ...
+Running command: /usr/local/bin/sonic-cfggen  -j /etc/sonic/init_cfg.json  -j /etc/sonic/config_db.json  --write-to-db
+Running command: /usr/local/bin/db_migrator.py -o migrate
+Running command: /usr/local/bin/sonic-cfggen -d -y /etc/sonic/sonic_version.yml -t /usr/share/sonic/templates/sonic-environment.j2,/etc/sonic/sonic-environment
+Restarting SONiC target ...
+Enabling container monitoring ...
+Reloading Monit configuration ...
+Reinitializing monit daemon
+
+=============================== warnings summary ===============================
+/usr/local/lib/python2.7/dist-packages/paramiko/transport.py:33
+  /usr/local/lib/python2.7/dist-packages/paramiko/transport.py:33: CryptographyDeprecationWarning: Python 2 is no longer supported by the Python core team. Support for it is now deprecated in cryptography, and will be removed in the next release.
+    from cryptography.hazmat.backends import default_backend
+
+-- Docs: https://docs.pytest.org/en/latest/warnings.html
+==================== 1 failed, 1 warnings in 91.17 seconds =====================

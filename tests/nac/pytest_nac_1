@@ -1,0 +1,145 @@
+============================= test session starts ==============================
+platform linux2 -- Python 2.7.18, pytest-4.6.9, py-1.8.1, pluggy-0.13.0
+rootdir: /home/sonic/nac
+collected 1 item
+
+test_nac_function3.py F                                                  [100%]
+
+=================================== FAILURES ===================================
+____________________________ test_nac_functionality ____________________________
+
+    def test_nac_functionality():
+        ip_address1 = '172.30.25.67'
+        username1 = 'sonic'
+        password1 = 'admin123'
+        ip_address2 = '172.30.25.102'
+        username2 = 'admin'
+        password2 = 'YourPaSsWoRd'
+        ip_address3 = '172.30.25.93'
+        username3 = 'sonic'
+        password3 = 'admin123'
+    
+        # Create an SSH client for the Supplicant
+        client1 = paramiko.SSHClient()
+        client1.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+        # Create an SSH client for the DUT
+        client2 = paramiko.SSHClient()
+        client2.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+        # Create an SSH client for the Ping Receiver
+        client3 = paramiko.SSHClient()
+        client3.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+        try:
+            # Connect to the first device (Supplicant PC)
+            client1.connect(ip_address1, username=username1, password=password1)
+    
+            # Configuring IP on the Supplicant PC
+            cmd_sup_ip = "ifconfig enp7s0f3 20.0.0.2"  # sample
+            stdin, stdout, stderr = client1.exec_command(cmd_sup_ip)
+            cmd_sup_ip_output = stdout.read().decode()
+            print(cmd_sup_ip_output)
+    
+    
+            cmd_show_int = "ifconfig enp7s0f3"
+            stdin, stdout, stderr = client1.exec_command(cmd_show_int)
+            cmd_show_int_output = stdout.read().decode()
+            print(cmd_show_int_output)  # Optional, for debugging
+    
+            # Connect to the second device (DUT)
+            client2.connect(ip_address2, username=username2, password=password2)
+    
+            # To enable NAC Globally
+            cmd_enable_global = "sudo config nac enable"
+            stdin, stdout, stderr = client2.exec_command(cmd_enable_global)
+            cmd_enable_global = stdout.read().decode()
+            print(cmd_enable_global)
+    
+            cmd_show_nac = "sudo show nac"
+            stdin, stdout, stderr = client2.exec_command(cmd_show_nac)
+            cmd_show_nac_output = stdout.read().decode()
+            print(cmd_show_nac_output)  # Optional, for debugging
+    
+            # To enable NAC Interface
+            cmd_enable_int = "sudo config nac interface enable Ethernet16"
+            stdin, stdout, stderr = client2.exec_command(cmd_enable_int)
+            cmd_enable_int = stdout.read().decode()
+            print(cmd_enable_int)
+    
+            cmd_show_enable_int = "sudo show nac interface Ethernet16"
+            stdin, stdout, stderr = client2.exec_command(cmd_show_enable_int)
+            cmd_show_enable_int_output = stdout.read().decode()
+            print(cmd_show_enable_int_output)  # Optional, for debugging
+    
+            # Connect to the first device (Supplicant PC) - 2
+            # client1.connect(ip_address1, username=username1, password=password1)
+    
+            # Goto the Supplicant file path
+            cmd_goto_path = "cd /home/sonic"
+            stdin, stdout, stderr = client1.exec_command(cmd_goto_path)
+    
+            # To start the Supplicant
+            cmd_sup_start = "sudo wpa_supplicant -c./wpa_supplicant.conf -Dwired -ienp7s0f3"
+            _, stdout, stderr = client1.exec_command(cmd_sup_start)
+            cmd_sup_start_output = stdout.read().decode()
+            print("To start the supplicant: " + cmd_sup_start_output)
+            time.sleep(20)
+    
+            channel = stdin.channel
+>           channel.send("\x03")
+
+test_nac_function3.py:84: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python2.7/dist-packages/paramiko/channel.py:801: in send
+    return self._send(s, m)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <paramiko.Channel 2 (closed) -> <paramiko.Transport at 0xbc195e90L (unconnected)>>
+s = '\x03', m = paramiko.Message('^\x00\x00\x00\x00')
+
+    def _send(self, s, m):
+        size = len(s)
+        self.lock.acquire()
+        try:
+            if self.closed:
+                # this doesn't seem useful, but it is the documented behavior
+                # of Socket
+>               raise socket.error("Socket is closed")
+E               error: Socket is closed
+
+/usr/local/lib/python2.7/dist-packages/paramiko/channel.py:1198: error
+----------------------------- Captured stdout call -----------------------------
+
+enp7s0f3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 20.0.0.2  netmask 255.0.0.0  broadcast 20.255.255.255
+        ether 0c:c4:7a:ea:6e:ce  txqueuelen 1000  (Ethernet)
+        RX packets 2982  bytes 211026 (211.0 KB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 1471  bytes 117751 (117.7 KB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+        device interrupt 78  memory 0x93800000-93ffffff  
+
+
+
+
+NAC Global Information:
+  NAC Admin State:            up
+  NAC Type       :            port
+  NAC Authentication Type :   local
+
+
++-----------------+------------------+-----------------------+------------------+
+| InterfaceName   | NAC AdminState   | Authorization State   | Mapped Profile   |
++=================+==================+=======================+==================+
+| Ethernet16      | up               | unauthorized          |                  |
++-----------------+------------------+-----------------------+------------------+
+
+To start the supplicant: 
+=============================== warnings summary ===============================
+/usr/local/lib/python2.7/dist-packages/paramiko/transport.py:33
+  /usr/local/lib/python2.7/dist-packages/paramiko/transport.py:33: CryptographyDeprecationWarning: Python 2 is no longer supported by the Python core team. Support for it is now deprecated in cryptography, and will be removed in the next release.
+    from cryptography.hazmat.backends import default_backend
+
+-- Docs: https://docs.pytest.org/en/latest/warnings.html
+==================== 1 failed, 1 warnings in 23.46 seconds =====================

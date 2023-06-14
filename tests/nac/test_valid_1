@@ -1,0 +1,14 @@
+============================= test session starts ==============================
+platform linux2 -- Python 2.7.18, pytest-4.6.9, py-1.8.1, pluggy-0.13.0
+rootdir: /home/sonic/nac
+collected 1 item
+
+pytest_ex.py .                                                           [100%]
+
+=============================== warnings summary ===============================
+/usr/local/lib/python2.7/dist-packages/paramiko/transport.py:33
+  /usr/local/lib/python2.7/dist-packages/paramiko/transport.py:33: CryptographyDeprecationWarning: Python 2 is no longer supported by the Python core team. Support for it is now deprecated in cryptography, and will be removed in the next release.
+    from cryptography.hazmat.backends import default_backend
+
+-- Docs: https://docs.pytest.org/en/latest/warnings.html
+===================== 1 passed, 1 warnings in 5.14 seconds =====================
