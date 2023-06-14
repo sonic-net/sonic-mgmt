@@ -157,5 +157,5 @@ stages:
           MIN_WORKER: $(T0_SONIC_NBR_INSTANCE_NUM)
           MAX_WORKER: $(T0_SONIC_NBR_INSTANCE_NUM)
           TEST_SET: t0-sonic-nbr
-          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic"
+          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
           VM_TYPE: vsonic
