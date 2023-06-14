@@ -2653,13 +2653,13 @@
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
-      <DevicePowerControlInfo Hostname="pdu-85" HwSku="Apc" ManagementIp="10.3.155.85" Os="" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-86" HwSku="Apc" ManagementIp="10.3.155.86" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-85" HwSku="ApcRPDU" ManagementIp="10.3.155.85" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-86" HwSku="ApcRPDU" ManagementIp="10.3.155.86" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-88" HwSku="Sentry" ManagementIp="10.3.155.88" Os="" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-89" HwSku="Apc" ManagementIp="10.3.155.89" Os="" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-90" HwSku="Apc" ManagementIp="10.3.155.90" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-89" HwSku="ApcRPDU" ManagementIp="10.3.155.89" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-90" HwSku="ApcRPDU" ManagementIp="10.3.155.90" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-91" HwSku="Sentry" ManagementIp="10.3.155.91" Os="" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-92" HwSku="Sentry" ManagementIp="10.3.155.92" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-92" HwSku="ApcRPDU" ManagementIp="10.3.155.92" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-93" HwSku="Sentry" ManagementIp="10.3.155.93" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-115" HwSku="Sentry" ManagementIp="10.3.155.115" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-116" HwSku="Sentry" ManagementIp="10.3.155.116" Os="" Protocol="snmp" Type="Pdu"/>
