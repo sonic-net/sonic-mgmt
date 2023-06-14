@@ -101,7 +101,7 @@ def download_image_local(duthost):
     branch_name = "-".join(ver[1:-1])
     swapfile = "docker-syncd-brcm-dnx-rpc.gz"
     local_file_path = '/' + swapfile
-    url = "http://152.148.153.8/files/sonic/build/{}/{}/{}".format(branch_name, pipeline, swapfile)
+    url = "http://152.148.153.62/files/sonic/build/{}/{}/{}".format(branch_name, pipeline, swapfile)
 
     try:
         output = duthost.shell('curl --silent -O {} --output {}'.format(url, local_file_path))['rc']

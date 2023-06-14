@@ -2299,16 +2299,16 @@ def epic_cli_setup(duthosts):
     for duthost in duthosts:
         output = duthost.stat(path="./epic-cli")
         if not output['stat']['exists'] == True:
-            cmd = "curl -O http://152.148.153.8/files/diag/apps/epic-cli"
+            cmd = "curl -O http://152.148.153.62/files/diag/apps/epic-cli"
             duthost.shell(cmd)
-            cmd = "curl -O http://152.148.153.8/files/diag/apps/tcping"
+            cmd = "curl -O http://152.148.153.62/files/diag/apps/tcping"
             duthost.shell(cmd)
             cmd = "chmod 777 epic-cli"
             duthost.shell(cmd)
         else:
             logging.info("epic-cli is installed already")
         if duthost in duthosts.supervisor_nodes:
-            cmd = "curl -O http://152.148.153.8/files/diag/apps/epic-utils-1.0.0-1.x86_64.deb"
+            cmd = "curl -O http://152.148.153.62/files/diag/apps/epic-utils-1.0.0-1.x86_64.deb"
             duthost.shell(cmd)
             cmd = "sudo dpkg -i epic-utils-1.0.0-1.x86_64.deb"
             duthost.shell(cmd)
