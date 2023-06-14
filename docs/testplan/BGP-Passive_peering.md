@@ -10,7 +10,7 @@ BGP Passive Peering
 
 ## Overview
 
-The goal of this test is to verify that BGP sessions stay established when passive peering is enabled.  
+The goal of this test is to verify that BGP sessions stay established when passive peering is enabled.
 It also tests various password matches and mismatches to ensure proper state is maintained.
 
 ### Scope
