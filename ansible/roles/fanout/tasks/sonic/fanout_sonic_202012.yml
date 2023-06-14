@@ -20,6 +20,13 @@
     dest: "/usr/share/sonic/templates/copp_cfg.j2"
   become: yes
 
+- name: Deploy copp rules on Mellanox fanout
+  template:
+    src: "sonic_mlnx_copp_cfg.j2"
+    dest: "/usr/share/sonic/templates/copp_cfg.j2"
+  become: yes
+  when: "'mellanox' in fanout_sonic_version.asic_type"
+
 - name: SONiC update config db
   shell: config reload -y
   become: true
