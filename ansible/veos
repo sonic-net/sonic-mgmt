@@ -157,6 +157,7 @@ all:
           - dualtor-aa-120
           - appliance
           - m0
+          - m0-2vlan
           - mc0
           - mx
 
