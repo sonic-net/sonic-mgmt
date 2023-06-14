@@ -297,6 +297,7 @@ def test_update_speed(duthost, ensure_dut_readiness):
             if is_valid:
                 expect_op_success(duthost, output)
                 current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
+                current_status_speed = current_status_speed.replace("M", "")
                 pytest_assert(current_status_speed == speed,
                               "Failed to properly configure interface speed to requested value {}".format(speed))
             else:
