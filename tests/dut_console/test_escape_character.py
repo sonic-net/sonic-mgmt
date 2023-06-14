@@ -14,12 +14,12 @@ pytestmark = [
 ]
 
 
-def test_console_escape():
+def test_console_escape(duthost_console):
     child = pexpect.spawn("ping 127.0.0.1 -c {} -i 1".format(TOTAL_PACKETS))
     time.sleep(5)
     child.sendcontrol('C')
     child.expect("\^C")
-    match = re.search(r'(\d) packets transmitted', child.read())
+    match = re.search(r'(\d) packets transmitted', str(child.read()))
     pytest_assert(int(match.group(1)) < TOTAL_PACKETS, "Escape Character does not work.")
 
 
