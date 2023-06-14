@@ -12,7 +12,7 @@ import pytest
 from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from .thermal_control_test_helper import ThermalPolicyFileContext,\
     check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status,\
@@ -240,12 +240,11 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname,
-                                             pdu_controller, ignore_particular_error_log, tbinfo):
+def test_turn_on_off_psu_and_check_psustatus(duthosts, pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = get_sup_node_or_random_node(duthosts)
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
