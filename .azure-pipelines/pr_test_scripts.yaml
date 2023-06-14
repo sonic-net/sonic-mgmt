@@ -67,6 +67,7 @@ t0:
   - test_interfaces.py
   - test_procdockerstatsd.py
   - database/test_db_scripts.py
+  - system_health/test_watchdog.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
