@@ -144,3 +144,18 @@ stages:
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
           VM_TYPE: vsonic
           SPECIFIED_PARAMS: '{\"test_pretest.py\":[\"--completeness_level=confident\",\"--allow_recover\"],\"test_posttest.py\":[\"--completeness_level=confident\",\"--allow_recover\"]}'
+
+  - job: t0_sonic_nbr_elastictest
+    displayName: "kvmtest-t0-sonic-nbr by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+      - template: .azure-pipelines/run-test-scheduler-template.yml
+        parameters:
+          TOPOLOGY: t0-64-32
+          MIN_WORKER: $(T0_SONIC_NBR_INSTANCE_NUM)
+          MAX_WORKER: $(T0_SONIC_NBR_INSTANCE_NUM)
+          TEST_SET: t0-sonic-nbr
+          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic"
+          VM_TYPE: vsonic

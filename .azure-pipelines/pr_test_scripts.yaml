@@ -80,6 +80,9 @@ t0-sonic:
   - macsec/test_fault_handling.py
   - macsec/test_interop_protocol.py
 
+t0-sonic-nbr:
+  - bgp/test_bgp_fact.py
+
 dualtor:
   - arp/test_arp_extended.py
 
