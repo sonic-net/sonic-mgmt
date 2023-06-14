@@ -237,10 +237,13 @@ def restore_default_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
     # Remove the RPC image from the duthost
     docker_rpc_image = docker_syncd_name + "-rpc"
     registry = load_docker_registry_info(duthost, creds)
-    duthost.command(
-        "docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, duthost.os_version),
-        module_ignore_errors=True
-    )
+
+    if "Nokia" in duthost.facts.get("hwsku"):
+        duthost.command("docker rmi {}:latest".format(docker_rpc_image), module_ignore_errors=True)
+    else:
+        duthost.command("docker rmi {}/{}:{}".format(registry.host, docker_rpc_image, duthost.os_version),
+                            module_ignore_errors=True)
+
 
 
 def _perform_swap_syncd_shutdown_check(asic):
