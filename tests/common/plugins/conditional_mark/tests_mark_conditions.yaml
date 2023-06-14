@@ -134,16 +134,6 @@ cacl/test_cacl_application.py::test_cacl_application_nondualtor:
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
-cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
-  skip:
-    reason: "caclmgrd may crash after loading scale ipv4 cacl rules."
-    conditions: https://github.com/sonic-net/sonic-buildimage/issues/10883
-
-cacl/test_cacl_application.py::test_cacl_scale_rules_ipv6:
-  skip:
-    reason: "caclmgrd may crash after loading scale ipv6 cacl rules."
-    conditions: https://github.com/sonic-net/sonic-buildimage/issues/10883
-
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
     reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
@@ -182,9 +172,11 @@ copp/test_copp.py::TestCOPP::test_remove_trap:
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
-    reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform"
+    conditions_logical_operator: or
+    reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
+      - "build_version > '20220531.27' and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -654,17 +646,6 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
   xfail:
     strict: True
     reason: "Known NTP bug"
-
-#######################################
-#####       passw_hardening       #####
-#######################################
-passw_hardening/test_passw_hardening.py:
-  skip:
-    reason: "Password-hardening supported just in master version"
-    conditions_logical_operator: or
-    conditions:
-        - "release not in ['master']"
-        - https://github.com/sonic-net/sonic-mgmt/issues/6428
 
 #######################################
 #####           pc               #####
@@ -1143,9 +1124,12 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 vxlan/test_vnet_vxlan.py:
   skip:
-    reason: "enable tests only for: mellanox, barefoot"
+    reason: "1. Enable tests only for: mellanox, barefoot
+             2. Test skipped due to issue #8374"
+    conditions_logical_operator: OR
     conditions:
       - "asic_type not in ['mellanox', 'barefoot']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8374
 
 vxlan/test_vxlan_ecmp.py:
   skip:
