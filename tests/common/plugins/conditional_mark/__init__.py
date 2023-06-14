@@ -117,6 +117,42 @@ def read_asic_name(hwsku):
     except IOError as e:
         return None
 
+
+def get_http_proxies(inv_name):
+    INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(inv_name)
+    PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
+    base_path = os.path.dirname(__file__)
+    inv_env_path = os.path.join(base_path, INV_ENV_FILE)
+    public_env_path = os.path.join(base_path, PUBLIC_ENV_FILE)
+    proxies = {}
+
+    if os.path.isfile(public_env_path):
+        try:
+            with open(public_env_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    proxies = {'http': http_proxy, 'https': http_proxy}
+                else:
+                    proxies = {'http': '', 'https': ''}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(public_env_path, repr(e)))
+
+    if os.path.isfile(inv_env_path):
+        try:
+            with open(inv_env_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    proxies = {'http': http_proxy, 'https': http_proxy}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(inv_env_path, repr(e)))
+
+    return proxies
+
+
 def load_dut_basic_facts(session):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
 
@@ -147,6 +183,8 @@ def load_dut_basic_facts(session):
             inv_name = tbinfo['inv_name']
         else:
             inv_name = 'lab'
+        proxies = get_http_proxies(inv_name)
+        session.config.cache.set('PROXIES', proxies)
 
         inv_full_path = os.path.join(os.path.dirname(__file__), '../../../../ansible', inv_name)
         ansible_cmd = 'ansible -m dut_basic_facts -i {} {} -o'.format(inv_full_path, dut_name)
@@ -235,7 +273,7 @@ def update_issue_status(condition_str, session):
 
     unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
     if unknown_issues:
-        results = check_issues(unknown_issues)
+        results = check_issues(unknown_issues, proxies=proxies)
         issue_status_cache.update(results)
         session.config.cache.set('ISSUE_STATUS', issue_status_cache)
 
