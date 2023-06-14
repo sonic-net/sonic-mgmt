@@ -103,6 +103,7 @@ class HashTest(BaseTest):
             'single_fib_for_duts', 'multiple-fib')
 
         self.ipver = self.test_params.get('ipver', 'ipv4')
+        self.is_active_active_dualtor = self.test_params.get("is_active_active_dualtor", False)
 
         # set the base mac here to make it persistent across calls of check_ip_route
         self.base_mac = self.dataplane.get_mac(
@@ -224,9 +225,16 @@ class HashTest(BaseTest):
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
         skip_protos = [2, 253, 4, 41, 60, 254]
+
+        if self.is_active_active_dualtor:
+            # Skip ICMP for active-active dualtor as it is duplicated to both ToRs
+            skip_protos.append(1)
+
         if ipv6:
             # Skip ip_proto 0 for IPv6
             skip_protos.append(0)
+            # Skip IPv6-ICMP for active-active dualtor as it is duplicated to both ToRs
+            skip_protos.append(58)
 
         while True:
             ip_proto = random.randint(0, 255)
