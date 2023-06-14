@@ -19,7 +19,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa
 NUM_NHs = 8
 DEFAULT_VLAN_ID = 1000
 DEFAULT_VLAN_IPv4 = ipaddress.ip_network('200.200.200.0/28')
-DEFAULT_VLAN_IPv6 = ipaddress.ip_network(unicode('200:200:200:200::/124'))
+DEFAULT_VLAN_IPv6 = ipaddress.ip_network('200:200:200:200::/124')
 PREFIX_IPV4_LIST = ['100.50.25.12/32', '100.50.25.13/32', '100.50.25.14/32']
 PREFIX_IPV6_LIST = ['fc:05::/128', 'fc:06::/128', 'fc:07::/128']
 FG_ECMP_CFG = '/tmp/fg_ecmp.json'

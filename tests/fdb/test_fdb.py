@@ -294,14 +294,15 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     router_mac = duthost.facts['router_mac']
 
-    port_index_to_name = { v: k for k, v in list(conf_facts['port_index_map'].items()) }
+    port_index_to_name = { v: k for k, v in conf_facts['port_index_map'].items() }
 
     configured_dummay_mac_count = get_dummay_mac_count
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
     available_ports_idx = []
-    for idx, name in list(ptf_ports_available_in_topo.items()):
-        if idx in port_index_to_name and conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up':
+    for idx, name in ptf_ports_available_in_topo.items():
+        if idx in port_index_to_name and \
+            conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up':
             available_ports_idx.append(idx)
 
     vlan_table = {}
@@ -329,7 +330,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             if port_index:
                 vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
 
-    vlan_member_count = sum([ len(members) for members in list(vlan_table.values()) ])
+    vlan_member_count = sum([ len(members) for members in vlan_table.values() ])
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:
@@ -351,8 +352,8 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     dummy_mac_count = 0
     total_mac_count = 0
-    for k, vl in list(fdb_fact.items()):
-        assert validate_mac(k) == True
+    for k, vl in fdb_fact.items():
+        assert validate_mac(k) is True
         for v in vl:
             assert v['port'] in interface_table
             assert v['vlan'] in interface_table[v['port']]
