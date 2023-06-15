@@ -1295,7 +1295,6 @@ class QosSaiBase(QosBase):
             dut_asic.command('sonic-clear fdb all')
             dut_asic.command('sonic-clear arp')
 
-
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulate"
