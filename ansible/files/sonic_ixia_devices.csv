@@ -1,13 +1,4 @@
 Hostname,ManagementIp,HwSku,Type,Protocol
-msr-s6100-dut-1,10.3.147.1/32,Dell-S6100,DevSonic,
-msr-a7060-dut-1,10.3.147.3/32,Arista-7060,DevSonic,
-msr-sn2700-dut-1,10.3.147.0/32,Mellanox-SN2700,DevSonic,
-msr-7050qx-dut-1,10.3.147.2/23,Arista-7050-QX-32S,DevSonic,
-msr-7050cx3-dut-1,10.3.147.42/32,Arista-7050CX3-32S-C32,DevSonic,
-msr-ixia-1,10.3.145.24/32,IXIA-tester,DevIxiaChassis,
-msr-ixia-2,10.3.145.24/32,IXIA-tester,DevIxiaChassis,
-msr-ixia-3,10.3.145.24/32,IXIA-tester,DevIxiaChassis,
-msr-ixia-api-serv-1,10.64.246.150/23,IXIA-tester,DevIxiaApiServ,
 msr-ixia-4,10.3.145.39/32,IXIA-tester,DevIxiaChassis,
 STR-8102-C19-U24,10.3.147.115/23,Cisco-8102-C64,DevSonic,
 STR-7050CX3-C19-U37,10.3.147.162/23,Arista-7050CX3-32S-C32,DevSonic,
