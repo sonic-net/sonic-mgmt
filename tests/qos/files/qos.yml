@@ -3630,16 +3630,16 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 10300
-                    pkts_num_trig_ingr_drp: 10589
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_trig_ingr_drp: 3704
                     packet_size: 1350
                     pkts_num_margin: 20
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 10300
-                    pkts_num_trig_ingr_drp: 10589
+                    pkts_num_trig_pfc: 3415
+                    pkts_num_trig_ingr_drp: 3704
                     packet_size: 1350
                     pkts_num_margin: 20
                 wm_q_wm_all_ports:
@@ -3770,16 +3770,16 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 9923
-                    pkts_num_trig_ingr_drp: 10589
+                    pkts_num_trig_pfc: 3038
+                    pkts_num_trig_ingr_drp: 3704
                     packet_size: 1350
                     pkts_num_margin: 20
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 9923
-                    pkts_num_trig_ingr_drp: 10589
+                    pkts_num_trig_pfc: 3038
+                    pkts_num_trig_ingr_drp: 3704
                     packet_size: 1350
                     pkts_num_margin: 20
                 wm_q_wm_all_ports:
@@ -3895,17 +3895,17 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 4481
-                    pkts_num_trig_ingr_drp: 7689
-                    packet_size: 8140
+                    pkts_num_trig_pfc: 3202
+                    pkts_num_trig_ingr_drp: 6404
+                    packet_size: 8156
                     pkts_num_margin: 20
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 4481
-                    pkts_num_trig_ingr_drp: 7689
-                    packet_size: 8140
+                    pkts_num_trig_pfc: 3202
+                    pkts_num_trig_ingr_drp: 6404
+                    packet_size: 8156
                     pkts_num_margin: 20
                 xon_1:
                     dscp: 3
@@ -3980,16 +3980,16 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 12798
-                    pkts_num_trig_ingr_drp: 24320
+                    pkts_num_trig_pfc: 11522
+                    pkts_num_trig_ingr_drp: 23044
                     packet_size: 8156
                     pkts_num_margin: 20
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 12798
-                    pkts_num_trig_ingr_drp: 24320
+                    pkts_num_trig_pfc: 11522
+                    pkts_num_trig_ingr_drp: 23044
                     packet_size: 8156
                     pkts_num_margin: 20
                 lossy_queue_1:
