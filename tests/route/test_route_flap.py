@@ -256,6 +256,8 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             dst_prefix_set.add(entry)
     pytest_assert(dst_prefix_set, "dst_prefix_set is empty")
 
+    # Get internal bgp ips for later filtering
+    internal_bgp_ips = duthost.get_internal_bgp_peers().keys()
     dev_port = None
     for dst_prefix in dst_prefix_set:
         if dev_port:
@@ -268,15 +270,19 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                     break
                 dev = json.loads(asic.run_vtysh(cmd)['stdout'])
                 for per_hop in dev[route_to_ping][0]['nexthops']:
-                    if 'interfaceName' in per_hop.keys() and 'IB' not in per_hop['interfaceName']:
-                        dev_port = per_hop['interfaceName']
-                        break
+                    if 'interfaceName' not in per_hop.keys():
+                        continue
+                    if 'ip' in per_hop.keys() and per_hop['ip'] in internal_bgp_ips:
+                        continue
+                    dev_port = per_hop['interfaceName']
         else:
             dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
             for per_hop in dev[route_to_ping][0]['nexthops']:
-                if 'interfaceName' in per_hop.keys() and 'IB' not in per_hop['interfaceName']:
-                    dev_port = per_hop['interfaceName']
-                    break
+                if 'interfaceName' not in per_hop.keys():
+                    continue
+                if 'ip' in per_hop.keys() and per_hop['ip'] in internal_bgp_ips:
+                    continue
+                dev_port = per_hop['interfaceName']
 
     pytest_assert(dev_port, "dev_port not exist")
     route_nums = len(dst_prefix_set)
