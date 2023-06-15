@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
 SONIC_SSH_PORT = 22
 
+
 @pytest.fixture(autouse=True)
 def _ignore_mux_errlogs(rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
