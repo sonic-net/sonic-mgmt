@@ -29,7 +29,7 @@ def _ignore_mux_errlogs(rand_one_dut_hostname, loganalyzer):
             [
                 ".*y_cable_port.*GET http.*"
             ])
-    return 
+    return
 
 
 def restore_config_db(duthost):
