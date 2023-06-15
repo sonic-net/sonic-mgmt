@@ -1,0 +1,27 @@
+- name: collect fanout port config
+  port_config_gen:
+    hwsku: "{{ device_info[inventory_hostname]['HwSku'] }}"
+    hwsku_type: "{{ device_info[inventory_hostname]['HwSkuType'] | default('predefined') }}"
+    device_conn: "{{ device_conn[inventory_hostname] }}"
+  become: yes
+
+- name: print fanout incremental config
+  debug:
+    msg: "{{ lookup('template', 'sonic_deploy_incremental_202205.j2') }}"
+  when: incremental is defined
+
+- name: build fanout patch config
+  template:
+    src: "sonic_deploy_incremental_202205.j2"
+    dest: "/tmp/config_patch.json"
+  when: incremental is defined
+
+- name: generate config_db.json
+  shell: config apply-patch -d /tmp/config_patch.json
+  become: yes
+  when: incremental is defined
+
+- name: print fanout startup config
+  debug:
+    msg: "{{ lookup('template', 'sonic_deploy_202205.j2') }}"
+  when: incremental is not defined
