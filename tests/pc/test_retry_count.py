@@ -228,9 +228,8 @@ class TestNeighborRetryCount:
         """
         for nbr in list(nbrhosts.keys()):
             port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
-            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on neighbor is incorrect")
             pytest_assert(port_channel_status["runner"]["retry_count"] == 5,
-                          "retry count on DUT is incorrect; expected 5, but is {}"
+                          "retry count on neighbor is incorrect; expected 5, but is {}"
                           .format(port_channel_status["runner"]["retry_count"]))
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
