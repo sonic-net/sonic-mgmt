@@ -1,0 +1,63 @@
+[
+    {
+        "op": "replace",
+        "path": "/VLAN",
+        "value": {
+{% for vlanid in device_vlan_list[inventory_hostname] | unique %}
+            "Vlan{{ vlanid }}": {
+                "vlanid": "{{ vlanid }}"
+            }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+        }
+    },
+    {
+        "op": "replace",
+        "path": "/VLAN_MEMBER",
+{% set ns = {'firstPrinted': False} %}
+        "value": {
+{% for port_name in device_port_vlans[inventory_hostname] %}
+{% if device_port_vlans[inventory_hostname][port_name]['mode'] == 'Access' %}
+{% if ns.firstPrinted %},
+{% endif %}
+            "Vlan{{ device_port_vlans[inventory_hostname][port_name]['vlanids'] }}|{{ fanout_port_config[port_name]['name'] }}": {
+                "tagging_mode" : "untagged"
+            }{% if ns.update({'firstPrinted': True}) %} {% endif %}
+{% elif device_port_vlans[inventory_hostname][port_name]['mode'] == 'Trunk' %}
+{% for vlanid in device_port_vlans[inventory_hostname][port_name]['vlanlist'] %}
+{% if ns.firstPrinted %},
+{% endif %}
+            "Vlan{{ vlanid }}|{{ fanout_port_config[port_name]['name'] }}": {
+                "tagging_mode" : "tagged"
+            }{% if ns.update({'firstPrinted': True}) %} {% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+        }
+    },
+{% if 'broadcom' in fanout_sonic_version["asic_type"] %}
+{% for port_name in fanout_port_config %}
+{% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"] == "Access" %}
+    {
+        "op": "add",
+        "path": "/PORT/{{ port_name }}/tpid",
+        "value": "0x9100"
+    },
+{% endif %}
+{% endfor %}
+{% endif %}
+{% for feature in ["acms", "mux", "bgp", "dhcp_relay", "lldp", "radv", "teamd", "mgmt-framework", "nat", "sflow", "telemetry", "restapi"] %}
+    {
+        "op": "replace",
+        "path": "/FEATURE/{{ feature }}/auto_restart",
+        "value": "False"
+    },
+    {
+        "op": "replace",
+        "path": "/FEATURE/{{ feature }}/state",
+        "value": "False"
+    }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+]
