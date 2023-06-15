@@ -37,7 +37,7 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     high_cpu_consume_procs = {}
     is_asan = is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname)
     if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0',
-                                     'x86_64-cel_e1031-r0') or is_asan:
+                                     'x86_64-cel_e1031-r0', 'x86_64-arista_7800r3a_36dm2_lc') or is_asan:
         memory_threshold = 90
     if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
         high_cpu_consume_procs['syncd'] = 80

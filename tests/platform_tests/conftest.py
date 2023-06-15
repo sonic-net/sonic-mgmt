@@ -20,6 +20,7 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
+FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 SMALL_DISK_SKUS = [
     "Arista-7060CX-32S-C32",
     "Arista-7060CX-32S-Q32",
@@ -31,7 +32,10 @@ def _parse_timestamp(timestamp):
     try:
         time = datetime.strptime(timestamp, FMT)
     except ValueError:
-        time = datetime.strptime(timestamp, FMT_SHORT)
+        try:
+            time = datetime.strptime(timestamp, FMT_SHORT)
+        except ValueError:
+            time = datetime.strptime(timestamp, FMT_ALT)
     return time
 
 
@@ -303,6 +307,10 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
                         fdb_aging_disable_start = result.get("time_span", {}).get("FDB_AGING_DISABLE", {})\
                             .get("timestamp", {}).get("Start")
                         if not fdb_aging_disable_start:
+                            break
+                        # Ignore MAC learning events before FDB aging disable, as MAC learning is still allowed
+                        log_time = timestamp.strftime(FMT)
+                        if _parse_timestamp(log_time) < _parse_timestamp(fdb_aging_disable_start):
                             break
                         first_after_offset = fdb_aging_disable_start
                     else:

@@ -665,11 +665,6 @@ class TestQosSai(QosSaiBase):
         if margin:
             testParams["margin"] = margin
 
-        dynamic_threshold = qosConfig["hdrm_pool_size"].get(
-            "dynamic_threshold", False)
-        if dynamic_threshold:
-            testParams["dynamic_threshold"] = dynamic_threshold
-
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
@@ -817,11 +812,6 @@ class TestQosSai(QosSaiBase):
         margin = qosConfig["hdrm_pool_size"].get("margin")
         if margin:
             testParams["margin"] = margin
-
-        dynamic_threshold = qosConfig["hdrm_pool_size"].get(
-            "dynamic_threshold", False)
-        if dynamic_threshold:
-            testParams["dynamic_threshold"] = dynamic_threshold
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
@@ -1625,6 +1615,10 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
         })
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            src_port_name = dutConfig["dutInterfaces"][testParams["src_port_id"]]
+            testParams['dscp_to_pg_map'] = load_dscp_to_pg_map(duthost, src_port_name, dut_qos_maps)
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]

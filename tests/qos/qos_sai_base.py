@@ -21,6 +21,7 @@ from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink  # noqa F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
+from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
@@ -86,8 +87,9 @@ class QosBase:
                         if 'mac' in vlan and vlan['mac']:
                             dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
                             break
-            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"]
-                          is not None, "Dual-TOR miss default VLAN MAC address")
+
+            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"] is not None,
+                          "Dual-TOR miss default VLAN MAC address")
         else:
             try:
                 duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -434,7 +436,7 @@ class QosSaiBase(QosBase):
             testVlanIp = None
             for vlan in mgFacts["minigraph_vlan_interfaces"]:
                 if mgFacts["minigraph_vlans"][testVlan]["name"] in vlan["attachto"]:
-                    testVlanIp = ipaddress.ip_address(str(vlan["addr"]))  # noqa F821
+                    testVlanIp = ipaddress.ip_address(vlan["addr"])  # noqa F821
                     break
             pytest_assert(testVlanIp, "Failed to obtain vlan IP")
 
@@ -682,8 +684,7 @@ class QosSaiBase(QosBase):
                              [iface]["members"])
                     )
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {
-                        'peer_addr': addr["peer_ipv4"], 'port': portName}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
                     dutPortIps.update({portIndex: portIpMap})
 
             testPortIds = sorted(dutPortIps.keys())
@@ -1005,9 +1006,8 @@ class QosSaiBase(QosBase):
         # so far, only record ARP proxy config to logging for debug purpose
         vlanInterface = {}
         try:
-            vlanInterface = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
-        except Exception:
+            vlanInterface = json.loads(duthost.shell('sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
+        except:  # noqa: E722
             logger.info('Failed to read vlan interface config')
         if not vlanInterface:
             return
@@ -1308,6 +1308,10 @@ class QosSaiBase(QosBase):
         if saiQosTest:
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"]
+            })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )

@@ -302,7 +302,7 @@ def ignore_t2_syslog_msgs(duthost):
         bounce which results in SAI sending messages orchagent regarding the fabric port state change.
         However, in linecards in T2 chassis, there is modelling of fabric ports in orchagent. Thus, orchagent generates
         error message indication to port object found for the port.
-        Please see https://github.com/Azure/sonic-buildimage/issues/9033 for details.
+        Please see https://github.com/sonic-net/sonic-buildimage/issues/9033 for details.
     """
     if duthost.topo_type == "t2" and duthost.facts.get('platform_asic') == "broadcom-dnx":
         ignoreRegex = [".*orchagent.*Failed to get port by bridge port ID.*"]
