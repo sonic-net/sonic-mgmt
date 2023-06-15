@@ -67,7 +67,7 @@ jobs:
           while read label
           do
             echo label: $label
-            if [[ "$label" == "Request for $branch branch" ]];then
+            if [[ "$label" == "Approved for $branch branch" ]];then
               create_pr=1
             fi
             if [[ "$label" == "Created PR to $branch branch" ]];then
@@ -85,7 +85,7 @@ jobs:
           done <<< "$labels"
 
           if [[ "$create_pr" != "1" ]];then
-            echo "Didn't find 'Request for $branch branch' tag."
+            echo "Didn't find 'Approved for $branch branch' tag."
             return 0
           fi
           # Begin to cherry-pick PR
@@ -103,7 +103,7 @@ jobs:
             gh pr edit $pr_url --add-label "Cherry Pick Conflict_$branch"
             echo 'Add label "Cherry Pick Conflict_$branch" success'
             gh pr comment $pr_url --body "@${author} PR conflicts with $branch branch"
-            echo 'Add comment "@${author} PR conflicts with $branch branch"'
+            echo 'Add commnet "@${author} PR conflicts with $branch branch"'
           else
             # Create PR to release branch
             git push mssonicbld HEAD:cherry/$branch/${pr_id} -f
@@ -135,3 +135,4 @@ jobs:
           echo Begin to parse Branch: $branch
           cherry_pick
         done
+

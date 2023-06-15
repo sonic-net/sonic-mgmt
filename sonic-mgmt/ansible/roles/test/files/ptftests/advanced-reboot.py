@@ -84,7 +84,7 @@ from multiprocessing.pool import ThreadPool, TimeoutError
 from fcntl import ioctl
 from collections import defaultdict
 from device_connection import DeviceConnection
-from arista import Arista
+from host_device import HostDevice
 
 
 class StateMachine():
@@ -178,6 +178,7 @@ class ReloadTest(BaseTest):
         self.check_param('bgp_v4_v6_time_diff', 40, required=False)
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
+        self.check_param('neighbor_type', 'eos', required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -1444,7 +1445,10 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.neigh_handle = Arista(neigh, None, self.test_params)
+            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                         if x['mgmt_addr'] == neigh]
+            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
+                                                                 None, self.test_params)
             self.neigh_handle.connect()
             fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
             self.neigh_handle.disconnect()
@@ -1496,8 +1500,19 @@ class ReloadTest(BaseTest):
 
         self.log("Rebooting remote side")
         if self.reboot_type != 'service-warm-restart' and self.test_params['other_vendor_flag'] is False:
+            # Check to see if the warm-reboot script knows about the retry count feature
             stdout, stderr, return_code = self.dut_connection.execCommand(
-                "sudo " + self.reboot_type, timeout=30)
+                "sudo " + self.reboot_type + " -h", timeout=5)
+            if "retry count" in stdout:
+                if self.test_params['neighbor_type'] == "sonic":
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -N", timeout=30)
+                else:
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -n", timeout=30)
+            else:
+                stdout, stderr, return_code = self.dut_connection.execCommand(
+                    "sudo " + self.reboot_type, timeout=30)
 
         elif self.test_params['other_vendor_flag'] is True:
             ignore_db_integrity_check = " -d"
@@ -1587,7 +1602,10 @@ class ReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
-        ssh = Arista(ip, queue, self.test_params, log_cb=self.log)
+        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                     if x['mgmt_addr'] == ip]
+        ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
+                                               self.test_params, log_cb=self.log)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         self.log('SSH thread for VM {} finished'.format(ip))
 
