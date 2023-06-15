@@ -3489,7 +3489,7 @@ qos_params:
                     pkts_num_trig_ingr_drp: 14812
                     pkts_num_margin: 375
                     iterations: 100
-                pkts_num_leak_out: 0
+                pkts_num_leak_out: 8
                 xoff_1:
                     dscp: 3
                     ecn: 1
