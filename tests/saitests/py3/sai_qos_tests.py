@@ -327,9 +327,15 @@ def get_counter_names(sonic_version):
 
 
 def fill_leakout_plus_one(
-        test_case, src_port_id, dst_port_id, pkt, queue, asic_type):
+        test_case, src_port_id, dst_port_id, pkt, queue, asic_type,
+        pkts_num_egr_mem=None):
     # Attempts to queue 1 packet while compensating for a varying packet leakout.
     # Returns whether 1 packet was successfully enqueued.
+    if pkts_num_egr_mem is not None:
+        if test_case.clients['dst'] != test_case.clients['src']:
+            return fill_egress_plus_one(test_case, src_port_id, pkt, queue,
+                                        asic_type, int(pkts_num_egr_mem))
+
     if asic_type in ['cisco-8000']:
         queue_counters_base = sai_thrift_read_queue_occupancy(
             test_case.dst_client, "dst", dst_port_id)
@@ -1193,6 +1199,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             self.test_params['pkts_num_trig_ingr_drp'])
         hwsku = self.test_params['hwsku']
         platform_asic = self.test_params['platform_asic']
+        src_dut_index=int(self.test_params.get('src_dut_index', 0))
+        dst_dut_index=int(self.test_params.get('dst_dut_index', 0))
+        pkts_num_egr_mem = None
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
@@ -1261,6 +1270,11 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
 
+        # For cisco-8000, if src and dst port in different linecard, dynamic fill_egress
+        if 'cisco-8000' in asic_type:
+            if src_dut_index != dst_dut_index:
+                pkts_num_egr_mem = 0
+
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
         try:
@@ -1278,7 +1292,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                             pkts_num_leak_out + pkts_num_trig_pfc) // cell_occupancy - 1 - margin)
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(self, src_port_id, dst_port_id,
-                       pkt, int(self.test_params['pg']), asic_type)
+                       pkt, int(self.test_params['pg']), asic_type, pkts_num_egr_mem)
                 # Send 1 less packet due to leakout filling
                 send_packet(self, src_port_id, pkt, (pkts_num_leak_out +
                             pkts_num_trig_pfc) // cell_occupancy - 2 - margin)
@@ -1449,6 +1463,8 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
         asic_type = self.test_params['sonic_asic_type']
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        src_dut_index=int(self.test_params.get('src_dut_index', 0))
+        dst_dut_index=int(self.test_params.get('dst_dut_index', 0))
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
@@ -1810,6 +1826,9 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             hysteresis = 0
         hwsku = self.test_params['hwsku']
+        src_dut_index=int(self.test_params.get('src_dut_index', 0))
+        dst_dut_index=int(self.test_params.get('dst_dut_index', 0))
+        pkts_num_egr_mem = None
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -1899,6 +1918,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
+        # For cisco-8000, if src and dst port in different linecard, dynamic fill_egress
+        if 'cisco-8000' in asic_type:
+            if src_dut_index != dst_dut_index:
+                pkts_num_egr_mem = 0
 
         step_id = 1
         step_desc = 'disable TX for dst_port_id, dst_port_2_id, dst_port_3_id'
@@ -3446,6 +3470,9 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         hwsku = self.test_params['hwsku']
         internal_hdr_size = self.test_params.get('internal_hdr_size', 0)
         platform_asic = self.test_params['platform_asic']
+        src_dut_index=int(self.test_params.get('src_dut_index', 0))
+        dst_dut_index=int(self.test_params.get('dst_dut_index', 0))
+        pkts_num_egr_mem = None
 
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
@@ -3492,6 +3519,11 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
+        # For cisco-8000, if src and dst port in different linecard, dynamic fill_egress
+        if 'cisco-8000' in asic_type:
+            if src_dut_index != dst_dut_index:
+                pkts_num_egr_mem = 0
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
