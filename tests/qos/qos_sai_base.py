@@ -1461,6 +1461,11 @@ class QosSaiBase(QosBase):
         dut_asic = get_src_dst_asic_and_duts['src_asic']
         duthost = get_src_dst_asic_and_duts['src_dut']
 
+        # This is not needed in T2.
+        if dutTestParams["topo"] in ['t2']:
+            yield
+            return
+
         dut_asic.command('sonic-clear fdb all')
         dut_asic.command('sonic-clear arp')
 
@@ -1486,6 +1491,8 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+        yield
+        return
 
     @pytest.fixture(scope='class', autouse=True)
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host):
@@ -1870,9 +1877,17 @@ class QosSaiBase(QosBase):
                 dst_asic.asic_index,
                 dutConfig["testPorts"][k]), module_ignore_errors=True)
 
+        ip_address_mapping = self.get_interface_ip(dst_asic)
+        for intf in ip_address_mapping.keys():
+            if ip_address_mapping[intf]['peer_addr'] != '':
+                dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
+                    dst_asic.asic_index,
+                    ip_address_mapping[intf]['peer_addr']), module_ignore_errors=True)
+
         if src_asic == dst_asic:
             yield
             return
+
         portchannels = dst_asic.command(
             "show interface portchannel -n asic{} -d all".format(
                 dst_asic.asic_index))['stdout']
@@ -1888,26 +1903,37 @@ class QosSaiBase(QosBase):
                 "Couldn't find the backplane porchannels from {}".format(
                     bp_portchannels))
 
-        ip_address_mapping = self.get_interface_ip(dst_asic)
-        dst_keys = []
-        for k in dutConfig["testPorts"].keys():
-            if re.search("dst_port.*ip", k):
-                dst_keys.append(k)
+        non_bp_intfs = set(list(ip_address_mapping.keys())) \
+            - set(bp_portchannels)
+        addresses_to_ping = []
+        for dst_key in dst_keys:
+            addresses_to_ping.append(dutConfig["testPorts"][dst_key])
 
-        for dst_index in range(len(dst_keys)):
+        for dst_intf in non_bp_intfs:
+            if ip_address_mapping[dst_intf]['peer_addr'] != '':
+                addresses_to_ping.append(
+                    ip_address_mapping[dst_intf]['peer_addr'])
+
+        addresses_to_ping = list(set(addresses_to_ping))
+        no_of_bp_pcs = len(bp_portchannels)
+
+        for dst_index in range(len(addresses_to_ping)):
+            gw = ip_address_mapping[
+                bp_portchannels[dst_index%no_of_bp_pcs]]['addr']
             src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
-                src_asic.asic_index,
-                ip_address_mapping[bp_portchannels[dst_index]]))
+                src_asic.asic_index, gw))
             src_asic.shell("ip netns exec asic{} route add {} gw {}".format(
                 src_asic.asic_index,
-                dutConfig["testPorts"][dst_keys[dst_index]],
-                ip_address_mapping[bp_portchannels[dst_index]]))
+                addresses_to_ping[dst_index],
+                gw))
         yield
-        for dst_index in range(len(dst_keys)):
+        for dst_index in range(len(addresses_to_ping)):
+            gw = ip_address_mapping[
+                bp_portchannels[dst_index%no_of_bp_pcs]]['addr']
             src_asic.shell("ip netns exec asic{} route del {} gw {}".format(
                 src_asic.asic_index,
-                dutConfig["testPorts"][dst_keys[dst_index]],
-                ip_address_mapping[bp_portchannels[dst_index]]))
+                addresses_to_ping[dst_index],
+                gw))
 
     def get_interface_ip(self, dut_asic):
         """
@@ -1915,12 +1941,19 @@ class QosSaiBase(QosBase):
             interface => ip address.
         """
         mapping = {}
-        ip_address_out = dut_asic.command("show ip interface -n asic{}".format(
-            dut_asic.asic_index))['stdout']
-        re_pattern = re.compile("^([^ ]*) [ ]*([0-9\.]*)\/")
+        all_opt = ""
+        ip_address_out = dut_asic.command(
+            "show ip interface -n asic{} -d all".format(
+            dut_asic.asic_index, all_opt))['stdout']
+        re_pattern = re.compile(
+            "^([^ ]*) [ ]*([0-9\.]*)\/[0-9]*  *[^ ]*  *[^ ]*  *([0-9\.]*)")
         for line in ip_address_out.split("\n"):
             match = re_pattern.search(line)
             if match:
-                mapping[match.group(1)] = match.group(2)
+                mapping[match.group(1)] = {
+                    'addr' : match.group(2),
+                    'peer_addr' : match.group(3),
+                }
 
         return mapping
+

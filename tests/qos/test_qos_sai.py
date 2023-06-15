@@ -56,6 +56,43 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
         for a_dut in get_src_dst_asic_and_duts['all_duts']:
             loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex)
 
+
+@pytest.fixture(autouse=False)
+def check_skip_shared_res_test(
+        sharedResSizeKey, dutQosConfig,
+        get_src_dst_asic_and_duts, dutConfig):
+    qosConfig = dutQosConfig["param"]
+    src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+    src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+    dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+    dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+    src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+    dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+
+    if not sharedResSizeKey in qosConfig.keys():
+        pytest.skip(
+            "Shared reservation size parametrization '%s' "
+            "is not enabled" % sharedResSizeKey)
+
+    if "skip" in qosConfig[sharedResSizeKey]:
+        # Skip if buffer pools and profiles are not be present,
+        # marked by qos param generator
+        pytest.skip(qosConfig[sharedResSizeKey]["skip"])
+
+    src_port_idx_to_id = list(src_testPortIps.keys())
+    dst_port_idx_to_id = list(dst_testPortIps.keys())
+    # Translate requested port indices to available port IDs
+    try:
+        src_port_ids = [src_port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
+        dst_port_ids = [dst_port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
+        return (True, src_port_ids, dst_port_ids)
+    except IndexError:
+        # Not enough ports.
+        pytest.skip(
+            "This test cannot be run since there are not enough ports."
+            " Pls see qos.yaml for the port idx's that are needed.")
+
+
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
 
@@ -693,9 +730,11 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
+
     @pytest.mark.parametrize("sharedResSizeKey", ["shared_res_size_1", "shared_res_size_2"])
     def testQosSaiSharedReservationSize(
-        self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig, get_src_dst_asic_and_duts
+        self, sharedResSizeKey, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        get_src_dst_asic_and_duts, check_skip_shared_res_test
     ):
         """
             Test QoS SAI shared reservation size
@@ -711,7 +750,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-
         qosConfig = dutQosConfig["param"]
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
@@ -719,21 +757,7 @@ class TestQosSai(QosSaiBase):
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
         dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
-
-        if not sharedResSizeKey in qosConfig.keys():
-            pytest.skip("Shared reservation size parametrization '%s' is not enabled" % sharedResSizeKey)
-
-        if "skip" in qosConfig[sharedResSizeKey]:
-            # Skip if buffer pools and profiles are not be present, marked by qos param generator
-            pytest.skip(qosConfig[sharedResSizeKey]["skip"])
-
-        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[sharedResSizeKey])
-
-        src_port_idx_to_id = list(src_testPortIps.keys())
-        dst_port_idx_to_id = list(dst_testPortIps.keys())
-        # Translate requested port indices to available port IDs
-        src_port_ids = [src_port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["src_port_i"]]
-        dst_port_ids = [dst_port_idx_to_id[idx] for idx in qosConfig[sharedResSizeKey]["dst_port_i"]]
+        (src_port_ids, dst_portids) = check_skip_shared_res_test
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1777,7 +1801,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark
+        resetWatermark, get_src_dst_asic_and_duts
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -1797,9 +1821,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("This test is only supported on cisco-8000")
-
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         testPortIps = dutConfig["testPortIps"]
 
@@ -1808,12 +1829,18 @@ class TestQosSai(QosSaiBase):
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
 
+        allTestPorts = []
+        allTestPortIps = []
+        all_dst_info = dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
+        allTestPorts.extend(list(all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].keys()))
+        allTestPortIps.extend([x['peer_addr'] for x in all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
             "ecn": qosConfig[queueProfile]["ecn"],
-            "dst_port_ids": dutConfig["testPortIds"],
-            "dst_port_ips": [testPortIps[port]['peer_addr'] for port in dutConfig["testPortIds"]],
+            "dst_port_ids": allTestPorts,
+            "dst_port_ips": allTestPortIps,
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
