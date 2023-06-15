@@ -55,8 +55,7 @@ class LACPRetryCount(Packet):
         ConditionalField(XStrFixedLenField("partner_retry_count_reserved", "", 1), lambda pkt:pkt.version == 0xf1),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
-        ConditionalField(XStrFixedLenField("reserved", "", 42), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(XStrFixedLenField("reserved", "", 50), lambda pkt:pkt.version != 0xf1),
+        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt:pkt.version == 0xf1),], XStrFixedLenField("reserved", "", 50)),
     ]
 
 def verify_retry_count(hosts, expected_retry_count):
