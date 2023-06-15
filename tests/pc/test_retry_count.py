@@ -7,7 +7,7 @@ import tempfile
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
-from scapy.all import Packet, ByteField, ShortField, MACField, XStrFixedLenField, ConditionalField
+from scapy.all import Packet, ByteField, ShortField, MACField, XStrFixedLenField, ConditionalField, MultipleTypeField
 from scapy.all import split_layers, bind_layers, rdpcap
 import scapy.contrib.lacp
 import scapy.layers.l2
@@ -55,8 +55,10 @@ class LACPRetryCount(Packet):
         ConditionalField(XStrFixedLenField("partner_retry_count_reserved", "", 1), lambda pkt:pkt.version == 0xf1),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
-        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt:pkt.version == 0xf1),], XStrFixedLenField("reserved", "", 50)),
+        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt:pkt.version == 0xf1)],
+                          XStrFixedLenField("reserved", "", 50)),
     ]
+
 
 def verify_retry_count(hosts, expected_retry_count):
     for host in hosts:
@@ -69,6 +71,7 @@ def verify_retry_count(hosts, expected_retry_count):
                     return False
 
     return True
+
 
 @pytest.fixture(scope="class")
 def higher_retry_count_on_peers(request, duthost, nbrhosts):
@@ -84,7 +87,8 @@ def higher_retry_count_on_peers(request, duthost, nbrhosts):
         nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count set PortChannel1 5")
 
     # Wait for retry count info to be updated
-    pytest_assert(wait_until(5, 1, 0, verify_retry_count, [duthost], 5), "Retry count info on DUT has not been changed to 5.")
+    pytest_assert(wait_until(5, 1, 0, verify_retry_count, [duthost], 5),
+                  "Retry count on DUT has not been changed to 5.")
 
     yield
 
@@ -92,7 +96,8 @@ def higher_retry_count_on_peers(request, duthost, nbrhosts):
         nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count set PortChannel1 3")
 
     # Wait for retry count info to be updated
-    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3), "Retry count info on DUT has not been changed to 3.")
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
+                  "Retry count on DUT has not been changed to 3.")
 
 
 @pytest.fixture(scope="class")
@@ -111,7 +116,8 @@ def higher_retry_count_on_dut(request, duthost, nbrhosts):
         duthost.shell("sudo config portchannel retry-count set {} 5".format(port_channel))
 
     # Wait for retry count info to be updated
-    pytest_assert(wait_until(5, 1, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 5), "Retry count info on neighbors has not been changed to 5.")
+    pytest_assert(wait_until(5, 1, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 5),
+                  "Retry count on neighbors has not been changed to 5.")
 
     yield
 
@@ -119,7 +125,8 @@ def higher_retry_count_on_dut(request, duthost, nbrhosts):
         duthost.shell("sudo config portchannel retry-count set {} 3".format(port_channel))
 
     # Wait for retry count info to be updated
-    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3), "Retry count info on neighbors has not been changed to 3.")
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
+                  "Retry count on neighbors has not been changed to 3.")
 
 
 @pytest.fixture(scope="function")
@@ -198,7 +205,8 @@ def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers):
         nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature false")
 
     # Wait 90 seconds for retry count to get updated on the DUT
-    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3), "Retry count info on neighbors has not been reset to 3.")
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
+                  "Retry count on neighbors has not been reset to 3.")
 
     yield
 
@@ -213,7 +221,8 @@ def disable_retry_count_on_dut(duthost, nbrhosts, higher_retry_count_on_dut):
         duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature false".format(port_channel))
 
     # Wait 90 seconds for retry count to get updated on the peers
-    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3), "Retry count info on neighbors has not been reset to 3.")
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
+                  "Retry count on neighbors has not been reset to 3.")
 
     yield
 
