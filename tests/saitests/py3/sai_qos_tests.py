@@ -182,13 +182,13 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
 
         return result.port
 
-    print ("Need : {} flows total, {} sources, {} packets per port".format(len(src_details)*packets_per_port, len(src_details), packets_per_port))
+    print ("Need : {} flows total, {} sources, {} packets per port".format(
+        len(src_details)*packets_per_port, len(src_details), packets_per_port))
     all_pkts = {}
     for src_tuple in src_details:
         num_of_pkts = 0
         while (num_of_pkts < packets_per_port):
             ip_Addr = next(IP_ADDR)
-            print("Trying {} => {}, src_ip:{} dstip:{}".format(src_tuple[0], dst_id, ip_Addr, dst_ip), file=sys.stderr)
             pkt_args = {
                 'ip_ecn':ecn,
                 'ip_ttl':ttl,
@@ -3538,7 +3538,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
-                print("pkts num to send: %d, total pkts: %d, pg shared: %d" %
+                print("pkts num to send: %d, expected wm: %d, pg shared: %d" %
                       (pkts_num, expected_wm, total_shared), file=sys.stderr)
 
                 send_packet(self, src_port_id, pkt,int(pkts_num))
@@ -4238,9 +4238,14 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         buffer_pool_wm_base=0
         if 'cisco-8000' in asic_type:
+            # We use dst client for cisco 8000.
+            client_to_use = self.dst_client
             # Some small amount of memory is always occupied
             buffer_pool_wm_base=sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid)
+                client_to_use, buf_pool_roid)
+        else:
+            client_to_use = self.src_client
+        print("Initial watermark: {}".format(buffer_pool_wm_base))
 
         # Prepare TCP packet data
         tos=dscp << 2
@@ -4254,13 +4259,19 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt=simple_tcp_packet(pktlen=packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = get_multiple_flows(
+                self,
+                router_mac if router_mac != '' else dst_port_mac,
+                dst_port_id,
+                dst_port_ip,
+                None,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                [(src_port_id, src_port_ip)],
+                packets_per_port=1)[src_port_id][0][0]
+
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -4298,7 +4309,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             print("Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % (
                 (pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, buffer_pool_wm), file=sys.stderr)
             if pkts_num_fill_min:
@@ -4343,7 +4354,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
                 time.sleep(8)
                 buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                    self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                    client_to_use, buf_pool_roid) - buffer_pool_wm_base
                 print("lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
                       * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size), file=sys.stderr)
                 assert(buffer_pool_wm <= (expected_wm + \
@@ -4363,10 +4374,19 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 send_packet(self, src_port_id, pkt, pkts_num_to_send)
 
+            buffer_pool_wm_before_tx_enable = sai_thrift_read_buffer_pool_watermark(
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
+            if (self.src_client != self.dst_client and
+                    asic_type == "cisco-8000"):
+                # Due to the presence of fabric, there may be more packets
+                # held up in fabric, and they add to the watermark after
+                # tx_enabled. So we use the watermark before tx is enabled.
+                buffer_pool_wm = buffer_pool_wm_before_tx_enable
+
             print("exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
                 pkts_num, (expected_wm * cell_size), buffer_pool_wm), file=sys.stderr)
             assert(expected_wm == total_shared)
@@ -4544,7 +4564,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             # Enable tx on dest port
             self.sai_thrift_port_tx_enable(
-                self.client, asic_type, [dst_port_id])
+                self.dst_client, asic_type, [dst_port_id])
 
 
 class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
