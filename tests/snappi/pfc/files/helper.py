@@ -530,19 +530,19 @@ def __verify_results(rows,
                                   'Total TX dropped packets {} should be 0'.
                                   format(dropped_packets))
 
-    # Check if the counters are incremented correctly
-    # If the class enable vector is set, then the PFC pause frames should be counted in the PFC counters
-    # If the class enable vector is not set, then the PFC pause frames should be dropped, and the
-    # egress queue count on the switch should be incremented as packets continue onto the next hop
-    for peer_port, prios in flow_port_config[1].items():
-        for prio in range(len(prios)):
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
-            total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
-            if set_class_enable_vec:
-                pytest_assert(pfc_pause_rx_frames > 0,
-                              "PFC pause frames with zero source MAC are not counted in the PFC counters")
-            else:
-                pytest_assert(pfc_pause_rx_frames == 0,
-                              "PFC pause frames with no bit set in the class enable vector should be dropped")
-                pytest_assert(total_egress_packets == test_tx_frames[prio], "Queue counters should increment for \
-                              invalid PFC pause frames")
+        # Check if the counters are incremented correctly
+        # If the class enable vector is set, then the PFC pause frames should be counted in the PFC counters
+        # If the class enable vector is not set, then the PFC pause frames should be dropped, and the
+        # egress queue count on the switch should be incremented as packets continue onto the next hop
+        for peer_port, prios in flow_port_config[1].items():
+            for prio in range(len(prios)):
+                pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
+                total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
+                if set_class_enable_vec:
+                    pytest_assert(pfc_pause_rx_frames > 0,
+                                  "PFC pause frames with zero source MAC are not counted in the PFC counters")
+                else:
+                    pytest_assert(pfc_pause_rx_frames == 0,
+                                  "PFC pause frames with no bit set in the class enable vector should be dropped")
+                    pytest_assert(total_egress_packets == test_tx_frames[prio], "Queue counters should increment for \
+                                  invalid PFC pause frames")
