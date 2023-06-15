@@ -113,6 +113,9 @@ def higher_retry_count_on_dut(request, duthost):
 
 @pytest.fixture(scope="function")
 def config_reload_on_cleanup(request, nbrhosts, duthost):
+    if request.config.getoption("enable_macsec"):
+        pytest.skip("Skip for now, since config reload will disable macsec for future test cases")
+
     yield
 
     for nbr in list(nbrhosts.keys()):
