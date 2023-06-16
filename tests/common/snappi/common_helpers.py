@@ -359,7 +359,7 @@ def pfc_class_enable_vector(prio_list):
     return vector
 
 
-def get_wred_profiles(host_ans, asic_value="None"):
+def get_wred_profiles(host_ans, asic_value=None):
     """
     Get all the WRED/ECN profiles of a SONiC switch
     Args:

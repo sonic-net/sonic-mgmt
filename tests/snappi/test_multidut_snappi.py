@@ -91,7 +91,7 @@ def test_snappi(request,
                 ):
 
     """
-    Test if we can use Snappi API generate traffic in a testbed
+    Test if we can use Snappi API to generate traffic in a testbed
 
     Args:
         snappi_api (pytest fixture): Snappi session
