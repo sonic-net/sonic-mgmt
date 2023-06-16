@@ -4216,6 +4216,7 @@ qos_params:
                     pkts_num_trig_pfc: 9974
                     pkts_num_hdrm_full: 362
                     pkts_num_hdrm_partial: 182
+                    margin: 5
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -4322,7 +4323,7 @@ qos_params:
                     pkts_num_trig_pfc: 28260
                     pkts_num_hdrm_full: 362
                     pkts_num_hdrm_partial: 182
-                    margin: 1
+                    margin: 5
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -4429,6 +4430,7 @@ qos_params:
                     pkts_num_trig_pfc: 35208
                     pkts_num_hdrm_full: 362
                     pkts_num_hdrm_partial: 182
+                    margin: 5
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -4535,6 +4537,7 @@ qos_params:
                     pkts_num_trig_pfc: 37549
                     pkts_num_hdrm_full: 362
                     pkts_num_hdrm_partial: 182
+                    margin: 5
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
@@ -4641,7 +4644,7 @@ qos_params:
                     pkts_num_trig_pfc: 37549
                     pkts_num_hdrm_full: 362
                     pkts_num_hdrm_partial: 182
-                    margin: 1
+                    margin: 5
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
