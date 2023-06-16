@@ -3536,8 +3536,31 @@ qos_params:
                     pkts_num_trig_pfc: 6404
                     cell_size: 8192
                     packet_size: 6144
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 3000
+                    pkts_num_margin: 2048
+                    cell_size: 6144
+                    packet_size: 6144
             400000_120000m:
                 pkts_num_leak_out: 0
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 6404
+                    pkts_num_margin: 2048
+                    cell_size: 6144
+                    packet_size: 6144
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_egr_drp: 16000
+                    pkts_num_margin: 3072
+                    cell_size: 384
                 wm_buf_pool_lossless:
                     dscp: 3
                     ecn: 1
@@ -3546,6 +3569,12 @@ qos_params:
                     pkts_num_fill_ingr_min: 181
                     pkts_num_trig_pfc: 23044
                     cell_size: 8192
+                    packet_size: 6144
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 3000
+                    pkts_num_margin: 2048
+                    cell_size: 6144
                     packet_size: 6144
             wrr:
                 ecn: 1
@@ -3847,7 +3876,7 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    pkts_num_trig_ingr_drp: 12152
+                    pkts_num_trig_ingr_drp: 13660
                     pkts_num_margin: 3072
                     cell_size: 384
                 wm_q_shared_lossy:
@@ -3943,8 +3972,8 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    pkts_num_trig_ingr_drp: 3202
-                    pkts_num_margin: 2048
+                    pkts_num_trig_ingr_drp: 855
+                    pkts_num_margin: 1024
                     cell_size: 6144
                     packet_size: 6144
                 wm_q_shared_lossy:
@@ -3972,6 +4001,12 @@ qos_params:
                     pkts_num_fill_ingr_min: 181
                     pkts_num_trig_pfc: 642
                     cell_size: 8192
+                    packet_size: 6144
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 855
+                    pkts_num_margin: 1024
+                    cell_size: 6144
                     packet_size: 6144
             400000_120000m:
                 pkts_num_leak_out: 0
@@ -4005,8 +4040,8 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    pkts_num_trig_ingr_drp: 11522
-                    pkts_num_margin: 4096
+                    pkts_num_trig_ingr_drp: 855
+                    pkts_num_margin: 1024
                     cell_size: 6144
                     packet_size: 6144
                 wm_q_shared_lossy:
@@ -4025,6 +4060,12 @@ qos_params:
                     pkts_num_fill_ingr_min: 181
                     pkts_num_trig_pfc: 642
                     cell_size: 8192
+                    packet_size: 6144
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 855
+                    pkts_num_margin: 1024
+                    cell_size: 6144
                     packet_size: 6144
     jr2:
         topo-any:
