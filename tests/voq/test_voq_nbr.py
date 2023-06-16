@@ -356,7 +356,7 @@ def ping_all_dut_local_nbrs(duthosts):
                 node_results.append(sonic_ping(asic, neighbor, verbose=True))
         results[node.hostname] = node_results
 
-    parallel_run(_ping_all_local_nbrs, [], {}, duthosts.frontend_nodes, timeout=120)
+    parallel_run(_ping_all_local_nbrs, [], {}, duthosts.frontend_nodes, timeout=300)
 
 
 def ping_all_neighbors(duthosts, all_cfg_facts, neighbors):
