@@ -232,9 +232,9 @@ class FilterPktBuffer(object):
         """
         if pkt_type == 'received' and self.received_pkt:
             received_pkt = convert_pkt_to_dict(self.received_pkt)
-            print('Received packet:\n{}'.format(json.dumps(self.__remove_ignore_fields(received_pkt), indent=4)))
+            print(('Received packet:\n{}'.format(json.dumps(self.__remove_ignore_fields(received_pkt), indent=4))))
         elif pkt_type == 'expected':
-            print('Expected packet:\n{}'.format(json.dumps(self.__remove_ignore_fields(self.pkt_dict), indent=4)))
+            print(('Expected packet:\n{}'.format(json.dumps(self.__remove_ignore_fields(self.pkt_dict), indent=4))))
         elif pkt_type == 'received':
             print('Received packet not available')
         else:

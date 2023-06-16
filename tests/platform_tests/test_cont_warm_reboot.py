@@ -1,7 +1,6 @@
 import os
 import shutil
 import csv
-import sys
 import time
 import json
 import traceback
@@ -12,8 +11,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import get_reboot_cause
 from tests.common.fixtures.advanced_reboot import AdvancedReboot
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 
 from tests.platform_tests.verify_dut_health import RebootHealthError,\
     check_services, check_interfaces_and_transceivers, check_neighbors,\
@@ -35,18 +34,21 @@ class ContinuousReboot:
         self.ptfhost = ptfhost
         self.localhost = localhost
         self.conn_graph_facts = conn_graph_facts
-        self.continuous_reboot_count = request.config.getoption("--continuous_reboot_count")
-        self.continuous_reboot_delay = request.config.getoption("--continuous_reboot_delay")
+        self.continuous_reboot_count = request.config.getoption(
+            "--continuous_reboot_count")
+        self.continuous_reboot_delay = request.config.getoption(
+            "--continuous_reboot_delay")
         self.reboot_type = request.config.getoption("--reboot_type")
         self.image_location = request.config.getoption("--image_location")
         self.image_list = request.config.getoption("--image_list")
-        self.current_image = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+        self.current_image = self.duthost.shell(
+            'sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         self.test_report = dict()
         if self.image_location is None:
-            logging.error("Invalid image location specified: {}".format(str(self.image_location)))
+            logging.error("Invalid image location specified: {}".format(
+                str(self.image_location)))
 
         self.init_reporting()
-
 
     def init_reporting(self):
         self.reboot_count = None
@@ -68,7 +70,6 @@ class ContinuousReboot:
         self.fast_reboot_fail = 0
         self.pre_existing_cores = 0
 
-
     def reboot_and_check(self, tbinfo):
         """
         Perform the specified type of reboot and check platform status.
@@ -89,15 +90,14 @@ class ContinuousReboot:
         check_neighbors(self.duthost, tbinfo)
         logging.info("Finished reboot test and health checks..")
 
-
     @handle_test_error
     def run_reboot_testcase(self):
         result = self.advancedReboot.runRebootTestcase()
         if result is not True:
             # Create a failure report
             error = result.get("stderr")
-            raise RebootHealthError("Reboot test failed with error: {}".format(error))
-
+            raise RebootHealthError(
+                "Reboot test failed with error: {}".format(error))
 
     @handle_test_error
     def check_reboot_type(self):
@@ -107,18 +107,18 @@ class ContinuousReboot:
         logging.info("Check reboot cause")
         reboot_cause = get_reboot_cause(self.duthost)
         if reboot_cause != self.reboot_type:
-            raise RebootHealthError("Reboot cause {} did not match the trigger {}".format(reboot_cause, self.reboot_type))
-
+            raise RebootHealthError("Reboot cause {} did not match the trigger {}".format(
+                reboot_cause, self.reboot_type))
 
     @handle_test_error
     def verify_image(self):
-        self.current_image = self.duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
+        self.current_image = self.duthost.shell(
+            'sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
         if self.is_new_image is True:
             # After boot-up, verify that the required image is running on the DUT
             if self.advancedReboot.binaryVersion != self.current_image:
                 raise RebootHealthError("Image installation failed.\
                     Expected: {}. Found: {}".format(self.advancedReboot.binaryVersion, self.current_image))
-
 
     def check_test_params(self):
         while True:
@@ -127,69 +127,83 @@ class ContinuousReboot:
                     install_info = json.load(f)
                     if str(install_info.get('STOP_TEST')).lower() == 'true':
                         logging.info("==================== Stop test instruction received.\
-                            Terminating test early at {}/{} iteration ====================".format \
-                            (self.reboot_count, self.continuous_reboot_count))
+                            Terminating test early at {}/{} iteration ====================".format
+                                     (self.reboot_count, self.continuous_reboot_count))
                         return False
                     if str(install_info.get('PAUSE_TEST')).lower() == 'true':
                         time.sleep(10)
                         continue
                     reboot_type = str(install_info.get('REBOOT_TYPE')).lower()
                     if reboot_type != 'warm' and reboot_type != 'fast':
-                        logging.warn("Unsupported reboot type - {}. Proceeding with {}.".format(reboot_type, self.reboot_type))
+                        logging.warn(
+                            "Unsupported reboot type - {}. Proceeding with {}.".format(reboot_type, self.reboot_type))
                     else:
                         self.reboot_type = reboot_type
                 except ValueError:
-                    logging.warn("Invalid json file, continuing the reboot test with old list of images")
+                    logging.warn(
+                        "Invalid json file, continuing the reboot test with old list of images")
                 break
-        logging.info("Copy latest PTF test files to PTF host '{0}'".format(self.ptfhost.hostname))
+        logging.info("Copy latest PTF test files to PTF host '{0}'".format(
+            self.ptfhost.hostname))
         self.ptfhost.copy(src="ptftests", dest="/root")
         return True
-
 
     def handle_image_installation(self, count):
         with open(self.input_file, "r") as f:
             try:
                 install_info = json.load(f)
-                image_install_list = install_info.get('install_list').split(",")
+                image_install_list = install_info.get(
+                    'install_list').split(",")
                 # Use modulus operator to cycle through the image_install_list per reboot iteration
-                self.new_image = image_install_list[count % len(image_install_list)].strip()
-                image_path = install_info.get('location').strip() + "/" + self.new_image
-                file_exists = self.duthost.command("curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),\
+                self.new_image = image_install_list[count % len(
+                    image_install_list)].strip()
+                image_path = install_info.get(
+                    'location').strip() + "/" + self.new_image
+                file_exists = self.duthost.command(
+                    "curl -o /dev/null --silent -Iw '%{{http_code}}' {}".format(image_path),
                     module_ignore_errors=True)["stdout"]
                 if file_exists != '200':
-                    logging.info("Remote image file {} does not exist. Curl returned: {}".format(image_path, file_exists))
+                    logging.info("Remote image file {} does not exist. Curl returned: {}".format(
+                        image_path, file_exists))
                     logging.warn("Continuing the test with current image")
                     self.new_image = "current"
             except ValueError:
-                logging.warn("Invalid json file, continuing the reboot test with old list of images")
+                logging.warn(
+                    "Invalid json file, continuing the reboot test with old list of images")
 
         if self.new_image == "current":
-            logging.info("Next image is set to current - skip image installation")
+            logging.info(
+                "Next image is set to current - skip image installation")
             self.advancedReboot.newSonicImage = None
             self.is_new_image = False
         else:
             self.advancedReboot.newSonicImage = image_path
             self.advancedReboot.cleanupOldSonicImages = True
             self.is_new_image = True
-            logging.info("Image to be installed on DUT - {}".format(image_path))
+            logging.info(
+                "Image to be installed on DUT - {}".format(image_path))
         self.advancedReboot.imageInstall()
         if self.advancedReboot.newImage:
             # The image upgrade will delete all the preexisting cores
             self.pre_existing_cores = 0
 
-
     def test_set_up(self):
         asic_type = self.duthost.facts["asic_type"]
         if asic_type in ["mellanox"]:
-            issu_capability = self.duthost.command("show platform mlnx issu")["stdout"]
+            issu_capability = self.duthost.command(
+                "show platform mlnx issu")["stdout"]
             if "disabled" in issu_capability:
-                pytest.skip("ISSU is not supported on this DUT, skip this test case")
+                pytest.skip(
+                    "ISSU is not supported on this DUT, skip this test case")
 
-        self.pre_existing_cores = self.duthost.shell('ls /var/core/ | wc -l')['stdout']
-        logging.info("Found {} preexisting core files inside /var/core/".format(self.pre_existing_cores))
+        self.pre_existing_cores = self.duthost.shell(
+            'ls /var/core/ | wc -l')['stdout']
+        logging.info(
+            "Found {} preexisting core files inside /var/core/".format(self.pre_existing_cores))
 
         input_data = {
-            'install_list': self.image_list, # this list can be modified at runtime to enable testing different images
+            # this list can be modified at runtime to enable testing different images
+            'install_list': self.image_list,
             'location': self.image_location,
             'REBOOT_TYPE': "warm",
             'PAUSE_TEST': False,
@@ -197,22 +211,25 @@ class ContinuousReboot:
         }
 
         self.log_dir = os.getcwd() + "continous_reboot"
-        dir_name = "continous_reboot_{}".format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+        dir_name = "continous_reboot_{}".format(
+            datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
         self.log_dir = os.path.join(os.getcwd(), dir_name)
         os.makedirs(self.log_dir)
 
         # test input file for dynamic interaction
-        self.input_file = os.path.join(self.log_dir, "continuous_reboot_input.json")
+        self.input_file = os.path.join(
+            self.log_dir, "continuous_reboot_input.json")
         with open(self.input_file, "w") as image_file:
             json.dump(input_data, image_file, indent=4)
 
         # test output file for results
-        self.reports_file = os.path.join(self.log_dir, "continuous_reboot_report.csv")
+        self.reports_file = os.path.join(
+            self.log_dir, "continuous_reboot_report.csv")
         with open(self.reports_file, "w") as report_file:
-            header = ["test_id", "image", "is_new_image", "up_time", "test_duration", "result"]
+            header = ["test_id", "image", "is_new_image",
+                      "up_time", "test_duration", "result"]
             writer = csv.DictWriter(report_file, fieldnames=header)
             writer.writeheader()
-
 
     def create_test_report(self):
         if self.sub_test_result is False:
@@ -236,11 +253,12 @@ class ContinuousReboot:
             "image": self.current_image,
             "is_new_image": self.is_new_image,
             "up_time": str(self.duthost.get_uptime().total_seconds()) + "s",
-            "test_duration": str((self.test_end_time - self.test_start_time).total_seconds())  + "s",
+            "test_duration": str((self.test_end_time - self.test_start_time).total_seconds()) + "s",
             "result": self.sub_test_result
         }
         with open(self.reports_file, "a") as report_file:
-            header = ["test_id", "image", "is_new_image", "up_time", "test_duration", "result"]
+            header = ["test_id", "image", "is_new_image",
+                      "up_time", "test_duration", "result"]
             writer = csv.DictWriter(report_file, fieldnames=header)
             writer.writerow(test_report)
 
@@ -253,9 +271,11 @@ class ContinuousReboot:
             '/tmp/swss.rec']
 
         if self.sub_test_result is True:
-            test_dir = os.path.join(self.log_dir, "pass", str(self.reboot_count))
+            test_dir = os.path.join(
+                self.log_dir, "pass", str(self.reboot_count))
         else:
-            test_dir = os.path.join(self.log_dir, "fail", str(self.reboot_count))
+            test_dir = os.path.join(
+                self.log_dir, "fail", str(self.reboot_count))
         os.makedirs(test_dir)
         for file in log_files:
             try:
@@ -264,33 +284,36 @@ class ContinuousReboot:
                     shutil.move(file, test_dir)
             except Exception:
                 logging.error("Error copying file {}".format(str(file)))
-        report_file =  os.path.join(test_dir, "continuous_reboot_report.json")
+        report_file = os.path.join(test_dir, "continuous_reboot_report.json")
         test_report["checks"] = self.test_report
         with open(report_file, "w") as report_file:
             json.dump(test_report, report_file, indent=4)
 
-        pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".\
-            format(self.test_failures, self.reboot_count))
-
+        pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".
+                      format(self.test_failures, self.reboot_count))
 
     def start_continuous_reboot(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds):
         self.test_set_up()
         # Start continuous warm/fast reboot on the DUT
         for count in range(self.continuous_reboot_count):
             self.reboot_count = count + 1
-            self.sub_test_result = True # set default result to be True, any failure will set this to False
+            # set default result to be True, any failure will set this to False
+            self.sub_test_result = True
             self.test_start_time = datetime.now()
-            logging.info("\n==================== Start continuous reboot iteration: {}/{}. Type: {} ===================="\
+            logging.info(
+                "\n==================== Start continuous reboot iteration: {}/{}. Type: {} ===================="
                 .format(self.reboot_count, self.continuous_reboot_count, self.reboot_type))
             reboot_type = self.reboot_type + "-reboot"
             try:
-                self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds,\
-                    rebootType=reboot_type, moduleIgnoreErrors=True)
+                self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds,
+                                                     rebootType=reboot_type, moduleIgnoreErrors=True)
             except Exception:
                 self.sub_test_result = False
                 self.test_failures = self.test_failures + 1
-                logging.error("AdvancedReboot initialization failed with {}".format(traceback.format_exc()))
-                logging.info("Waiting 300s for external fix or a signal to end the test...")
+                logging.error("AdvancedReboot initialization failed with {}".format(
+                    traceback.format_exc()))
+                logging.info(
+                    "Waiting 300s for external fix or a signal to end the test...")
                 time.sleep(300)
                 if not self.check_test_params():
                     break
@@ -298,35 +321,40 @@ class ContinuousReboot:
             self.handle_image_installation(count)
             self.reboot_and_check(tbinfo)
             self.test_report = get_test_report()
-            self.sub_test_result = all([check == True for check in list(self.test_report.values())])
+            self.sub_test_result = all(
+                [check is True for check in list(self.test_report.values())])
             self.advancedReboot.newSonicImage = None
             self.test_end_time = datetime.now()
             self.create_test_report()
-            logging.info("\n==================== End continuous reboot iteration: {}/{}. Result: {} ===================="\
+            logging.info(
+                "\n==================== End continuous reboot iteration: {}/{}. Result: {} ===================="
                 .format(self.reboot_count, self.continuous_reboot_count, self.sub_test_result))
             if not self.check_test_params():
                 break
 
-
     def test_teardown(self):
         logging.info("="*50)
-        logging.info("----- Total continuous reboots: {}. Pass: {}. Fail: {} ------".format(self.reboot_count,\
-            self.reboot_count - self.test_failures, self.test_failures))
-        logging.info("------ Total warm reboot tests: {}. Pass: {}. Fail: {} ------". \
-            format(self.warm_reboot_count, self.warm_reboot_pass, self.warm_reboot_fail))
-        logging.info("------ Total fast reboot tests: {}. Pass: {}. Fail: {} ------". \
-            format(self.fast_reboot_count, self.fast_reboot_pass, self.fast_reboot_fail))
+        logging.info("----- Total continuous reboots: {}. Pass: {}. Fail: {} ------".
+                     format(self.reboot_count, self.reboot_count - self.test_failures, self.test_failures))
+        logging.info("------ Total warm reboot tests: {}. Pass: {}. Fail: {} ------".
+                     format(self.warm_reboot_count, self.warm_reboot_pass, self.warm_reboot_fail))
+        logging.info("------ Total fast reboot tests: {}. Pass: {}. Fail: {} ------".
+                     format(self.fast_reboot_count, self.fast_reboot_pass, self.fast_reboot_fail))
         logging.info("-"*50)
-        logging.info("Test results summary available at {}".format(self.log_dir + "/continuous_reboot_report.csv"))
-        logging.info("Passed tests logs stored at {}".format(self.log_dir + "/pass/"))
-        logging.info("Failed tests logs stored at {}".format(self.log_dir + "/fail/"))
+        logging.info("Test results summary available at {}".format(
+            self.log_dir + "/continuous_reboot_report.csv"))
+        logging.info("Passed tests logs stored at {}".format(
+            self.log_dir + "/pass/"))
+        logging.info("Failed tests logs stored at {}".format(
+            self.log_dir + "/fail/"))
         logging.info("="*50)
-        pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".\
-            format(self.test_failures, self.reboot_count))
+        pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".
+                      format(self.test_failures, self.reboot_count))
 
 
 @pytest.mark.device_type('vs')
-def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, conn_graph_facts, tbinfo, creds):
+def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                           ptfhost, localhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
@@ -348,6 +376,8 @@ def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_h
         Status of BGP neighbors - should be established
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    continuous_reboot = ContinuousReboot(request, duthost, ptfhost, localhost, conn_graph_facts)
-    continuous_reboot.start_continuous_reboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds)
+    continuous_reboot = ContinuousReboot(
+        request, duthost, ptfhost, localhost, conn_graph_facts)
+    continuous_reboot.start_continuous_reboot(
+        request, duthosts, duthost, ptfhost, localhost, tbinfo, creds)
     continuous_reboot.test_teardown()

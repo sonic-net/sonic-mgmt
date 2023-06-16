@@ -3,16 +3,15 @@ import logging
 import time
 import pytest
 import os
-
 import ptf.testutils as testutils
-import everflow_test_utilities as everflow_utils
+from . import everflow_test_utilities as everflow_utils
 
-from everflow_test_utilities import BaseEverflowTest
-from everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
+from .everflow_test_utilities import BaseEverflowTest
+from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
                                     DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
 from tests.common.helpers.assertions import pytest_require
 
-from everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401
+from .everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 
 pytestmark = [
@@ -27,19 +26,6 @@ EVERFLOW_TABLE_NAME = {
 EVERFLOW_SESSION_NAME = "everflow_session_per_interface"
 
 logger = logging.getLogger(__file__)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def skip_if_not_supported(tbinfo, setup_info, ip_ver):      # noqa F811
-
-    asic_type = setup_info[UP_STREAM]['everflow_dut'].facts["asic_type"]
-    unsupported_platforms = ["mellanox", "cisco-8000"]
-    # Skip ipv6 test on Mellanox platform
-    is_mellanox_ipv4 = asic_type == 'mellanox' and ip_ver == 'ipv4'
-    # Skip ipv6 test on cisco-8000 platform
-    is_cisco_ipv4 = asic_type == 'cisco-8000' and ip_ver == 'ipv4'
-    pytest_require(asic_type not in unsupported_platforms or is_mellanox_ipv4 or is_cisco_ipv4,
-                   "Match 'IN_PORTS' is not supported on {} platform".format(asic_type))
 
 
 def build_candidate_ports(duthost, tbinfo, ns):
@@ -59,7 +45,7 @@ def build_candidate_ports(duthost, tbinfo, ns):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     i = 0
-    for dut_port, neigh in mg_facts["minigraph_neighbors"].items():
+    for dut_port, neigh in list(mg_facts["minigraph_neighbors"].items()):
         if neigh['namespace'] != ns:
             continue
         ptf_idx = mg_facts["minigraph_ptf_indices"][dut_port]
@@ -81,7 +67,7 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
     """
     config_vars = {}
     config_vars['acl_table_name'] = EVERFLOW_TABLE_NAME[ip_ver]
-    config_vars['rules'] = [{'qualifiers': {'input_interface': ','.join(candidate_ports.keys())}}]
+    config_vars['rules'] = [{'qualifiers': {'input_interface': ','.join(list(candidate_ports.keys()))}}]
     return config_vars
 
 
@@ -205,11 +191,11 @@ def test_everflow_per_interface(ptfadapter, setup_info, apply_acl_rule, tbinfo, 
     uplink_ports = everflow_config["monitor_port_ptf_ids"]
 
     # Verify that packet ingressed from INPUT_PORTS (candidate ports) are mirrored
-    for port, ptf_idx in everflow_config['candidate_ports'].items():
+    for port, ptf_idx in list(everflow_config['candidate_ports'].items()):
         logger.info("Verifying packet ingress from {} is mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, True)
 
     # Verify that packet ingressed from unselected ports are not mirrored
-    for port, ptf_idx in everflow_config['unselected_ports'].items():
+    for port, ptf_idx in list(everflow_config['unselected_ports'].items()):
         logger.info("Verifying packet ingress from {} is not mirrored".format(port))
         send_and_verify_packet(ptfadapter, packet, exp_packet, ptf_idx, uplink_ports, False)

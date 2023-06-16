@@ -12,6 +12,7 @@ from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from tests.common.dualtor.mux_simulator_control import _probe_mux_ports
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -34,8 +35,12 @@ __all__ = CHECK_ITEMS
 
 def _find_down_phy_ports(dut, phy_interfaces):
     down_phy_ports = []
+    include_inband_intfs = True if dut.sonichost.get_facts().get(
+        'switch_type', None) == 'voq' else False
     intf_facts = dut.show_interface(command='status',
-                                    include_internal_intfs=('201811' not in dut.os_version))[
+                                    include_internal_intfs=(
+                                        '201811' not in dut.os_version),
+                                    include_inband_intfs=include_inband_intfs)[
                                         'ansible_facts']['int_status']
     for intf in phy_interfaces:
         try:
@@ -83,7 +88,7 @@ def check_interfaces(duthosts):
     def _check(*args, **kwargs):
         result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes,
                               timeout=600, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_interfaces_on_dut(*args, **kwargs):
@@ -103,7 +108,7 @@ def check_interfaces(duthosts):
             ip_interfaces = []
             cfg_facts = asic.config_facts(host=dut.hostname,
                                           source="persistent", verbose=False)['ansible_facts']
-            phy_interfaces = [k for k, v in cfg_facts["PORT"].items() if
+            phy_interfaces = [k for k, v in list(cfg_facts["PORT"].items()) if
                               "admin_status" in v and v["admin_status"] == "up"]
             if "PORTCHANNEL_INTERFACE" in cfg_facts:
                 ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
@@ -147,7 +152,7 @@ def check_bgp(duthosts):
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes,
                               timeout=600, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_bgp_on_dut(*args, **kwargs):
@@ -173,7 +178,7 @@ def check_bgp(duthosts):
                 a_asic_result = False
                 a_asic_neighbors = a_asic_facts['ansible_facts']['bgp_neighbors']
                 if a_asic_neighbors is not None and len(a_asic_neighbors) > 0:
-                    down_neighbors = [k for k, v in a_asic_neighbors.items()
+                    down_neighbors = [k for k, v in list(a_asic_neighbors.items())
                                       if v['state'] != 'established']
                     if down_neighbors:
                         if dut.facts['num_asic'] == 1:
@@ -216,7 +221,7 @@ def check_bgp(duthosts):
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
         if (check_result['failed']):
-            for a_result in check_result.keys():
+            for a_result in list(check_result.keys()):
                 if a_result != 'failed':
                     # Dealing with asic result
                     if 'down_neighbors' in check_result[a_result]:
@@ -254,7 +259,7 @@ def check_dbmemory(duthosts):
     def _check(*args, **kwargs):
         init_result = {"failed": False, "check_item": "dbmemory"}
         result = parallel_run(_check_dbmemory_on_dut, args, kwargs, duthosts, timeout=600, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_dbmemory_on_dut(*args, **kwargs):
@@ -286,7 +291,7 @@ def _check_monit_services_status(check_result, monit_services_status):
     @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
     """
     check_result["services_status"] = {}
-    for service_name, service_info in monit_services_status.items():
+    for service_name, service_info in list(monit_services_status.items()):
         check_result["services_status"].update({service_name: service_info["service_status"]})
         if service_info["service_status"] == "Not monitored":
             continue
@@ -437,7 +442,7 @@ def _check_single_intf_status(intf_status, expected_side):
     active_intf, mux_intf = None, None
     active_flows, mux_flows = None, None
 
-    for input_intf, actions in intf_status['flows'].items():
+    for input_intf, actions in list(intf_status['flows'].items()):
         if 'mu' in input_intf:
             mux_intf = input_intf
             mux_flows = actions
@@ -459,46 +464,57 @@ def _check_single_intf_status(intf_status, expected_side):
     return failed, failed_reason
 
 
-def _check_dut_mux_status(duthosts, duts_minigraph_facts):
+def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 
-    def _verify_show_mux_status():
-        duts_mux_status = duthosts.show_and_parse("show mux status")
+    def _verify_show_mux_status(**kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        dut_mux_status = dut.show_and_parse("show mux status")
 
-        duts_parsed_mux_status.clear()
-        for dut_hostname, dut_mux_status in duts_mux_status.items():
-            logger.info('Verify that "show mux status" has output ON {}'.format(dut_hostname))
-            if len(dut_mux_status) != len(port_cable_types):
-                err_msg_from_mux_status.append("Some ports doesn't have 'show mux status' output")
-                return False
+        dut_parsed_mux_status = {}
+        dut_wrong_mux_status_ports = []
+        check_result = {"failed": False, "check_item": "check_mux_simulator", "host": dut.hostname, "error_msg": []}
+        logger.info('Verify that "show mux status" has output ON {}'.format(dut.hostname))
+        if len(dut_mux_status) != len(port_cable_types):
+            check_result["error_msg"] = "Some ports doesn't have 'show mux status' output"
+            check_result["failed"] = True
 
-            dut_parsed_mux_status = {}
-            for row in dut_mux_status:
-                if row["status"] not in ("active", "standby"):
-                    err_msg_from_mux_status.append('Unexpected mux status "{}", \
-                                                   please check output of "show mux status"'
-                                                   .format(row['status']))
-                    return False
+        dut_parsed_mux_status = {}
+        for row in dut_mux_status:
+            if row["status"] not in ("active", "standby"):
+                check_result["error_msg"].append('Unexpected mux status "{}", please check output of "show mux status"'
+                                                 .format(row['status']))
+                dut_wrong_mux_status_ports.append(row['port'])
 
-                port_name = row['port']
-                port_idx = str(duts_minigraph_facts[dut_hostname][0][1]['minigraph_port_indices'][port_name])
-                mux_status = 0 if row["status"] == "standby" else 1
-                dut_parsed_mux_status[port_idx] = {"status": mux_status, "cable_type": port_cable_types[port_idx]}
-                if "hwstatus" in row:
-                    dut_parsed_mux_status[port_idx]["hwstatus"] = row["hwstatus"]
+            port_name = row['port']
+            port_idx = str(duts_minigraph_facts[dut.hostname][0][1]['minigraph_port_indices'][port_name])
+            mux_status = 0 if row["status"] == "standby" else 1
+            dut_parsed_mux_status[port_idx] = {"status": mux_status, "cable_type": port_cable_types[port_idx]}
+            if "hwstatus" in row:
+                dut_parsed_mux_status[port_idx]["hwstatus"] = row["hwstatus"]
 
-            duts_parsed_mux_status[dut_hostname] = dut_parsed_mux_status
+        check_result["parsed_mux_status"] = dut_parsed_mux_status
 
+        if len(dut_wrong_mux_status_ports) != 0:
+            check_result["failed"] = True
+
+        results[dut.hostname] = check_result
+
+    def _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
         logger.info('Verify that the mux status on both ToRs are consistent')
-        upper_tor_mux_status = duts_parsed_mux_status[duthosts[0].hostname]
-        lower_tor_mux_status = duts_parsed_mux_status[duthosts[1].hostname]
+        upper_tor_mux_status = duts_parsed_mux_status[dut_upper_tor.hostname]
+        lower_tor_mux_status = duts_parsed_mux_status[dut_lower_tor.hostname]
 
         logger.info('Verify that mux status is consistent on both ToRs.')
-        for port_idx, cable_type in port_cable_types.items():
+        for port_idx, cable_type in list(port_cable_types.items()):
             if cable_type == CableType.active_standby:
                 if (upper_tor_mux_status[port_idx]['status'] ^ lower_tor_mux_status[port_idx]['status']) == 0:
                     err_msg_from_mux_status.append('Inconsistent mux status for active-standby ports on dualtors, \
                                                    please check output of "show mux status"')
-                    return False
+                    dut_wrong_mux_status_ports.append(port_idx)
+
+        if len(dut_wrong_mux_status_ports) != 0:
+            return False
 
         logger.info('Check passed, return parsed mux status')
         err_msg_from_mux_status.append("")
@@ -520,7 +536,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
         return False, err_msg, {}
 
     port_cable_types = {}
-    has_active_active_ports = False
+
     for row in upper_tor_mux_config:
         port_name = row["port"]
         port_idx = str(duts_minigraph_facts[dut_upper_tor.hostname][0][1]['minigraph_port_indices'][port_name])
@@ -534,18 +550,32 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts):
                 port_cable_types[port_idx] = CableType.default_type
         else:
             port_cable_types[port_idx] = CableType.default_type
-        if port_cable_types[port_idx] == CableType.active_active:
-            has_active_active_ports = True
 
     duts_parsed_mux_status = {}
     err_msg_from_mux_status = []
-    if (has_active_active_ports and not wait_until(30, 5, 0, _verify_show_mux_status)) \
-            or (not wait_until(30, 5, 0, _verify_show_mux_status)):
-        if err_msg_from_mux_status:
-            err_msg = err_msg_from_mux_status[-1]
-        else:
-            err_msg = "Unknown error occured inside the check"
-        return False, err_msg, {}
+    dut_wrong_mux_status_ports = []
+
+    init_result = {"failed": False, "check_item": "check_mux_simulator"}
+    run_result = parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+
+    for result in run_result.values():
+        if result['failed'] is True:
+            err_msg = result["error_msg"][-1]
+            return False, err_msg, {}
+
+    duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
+    duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
+
+    if not _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
+        if len(dut_wrong_mux_status_ports) != 0:
+            _probe_mux_ports(duthosts, dut_wrong_mux_status_ports)
+        if not wait_until(30, 5, 0, _verify_inconsistent_mux_status,
+                          duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
+            if err_msg_from_mux_status:
+                err_msg = err_msg_from_mux_status[-1]
+            else:
+                err_msg = "Unknown error occured inside the check"
+            return False, err_msg, {}
 
     # FIXME: Enable the check for hwstatus
     # for dut_mux_status in duts_parsed_mux_status.values():
@@ -588,7 +618,7 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
         failed = False
         reason = ''
 
-        check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts)
+        check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
         if not check_passed:
             logger.warning(err_msg)
             results['failed'] = True
@@ -600,7 +630,7 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
         mux_simulator_status = get_mux_status()
         upper_tor_mux_status = duts_mux_status[duthosts[0].hostname]
 
-        for status in mux_simulator_status.values():
+        for status in list(mux_simulator_status.values()):
             port_index = str(status['port_index'])
 
             # Some host interfaces in dualtor topo are disabled.
@@ -632,7 +662,7 @@ def check_monit(duthosts):
     def _check(*args, **kwargs):
         init_result = {"failed": False, "check_item": "monit"}
         result = parallel_run(_check_monit_on_dut, args, kwargs, duthosts, timeout=600, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_monit_on_dut(*args, **kwargs):
@@ -704,7 +734,7 @@ def check_processes(duthosts):
                 timeout = 1000
                 break
         result = parallel_run(_check_processes_on_dut, args, kwargs, duthosts, timeout=timeout, init_result=init_result)
-        return result.values()
+        return list(result.values())
 
     @reset_ansible_local_tmp
     def _check_processes_on_dut(*args, **kwargs):
@@ -723,7 +753,7 @@ def check_processes(duthosts):
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
-            for k, v in processes_status.items():
+            for k, v in list(processes_status.items()):
                 if v['status'] is False or len(v['exited_critical_process']) > 0:
                     check_result['failed'] = True
                 check_result["services_status"].update({k: v['status']})
@@ -735,7 +765,7 @@ def check_processes(duthosts):
                 processes_status = dut.all_critical_process_status()
                 check_result["processes_status"] = processes_status
                 check_result["services_status"] = {}
-                for k, v in processes_status.items():
+                for k, v in list(processes_status.items()):
                     if v['status'] is False or len(v['exited_critical_process']) > 0:
                         check_result['failed'] = True
                     check_result["services_status"].update({k: v['status']})
@@ -877,7 +907,7 @@ def check_neighbor_macsec_empty(ctrl_links):
     nodes = []
     nodes_name = set()
     dut_nbr_mapping = {}
-    for _, nbr in ctrl_links.items():
+    for _, nbr in list(ctrl_links.items()):
         if nbr["name"] in nodes_name:
             continue
         nodes_name.add(nbr["name"])
@@ -896,7 +926,7 @@ def check_neighbor_macsec_empty(ctrl_links):
         init_check_result = {"failed": False, "check_item": "neighbor_macsec_empty", "unhealthy_nbrs": []}
         check_results = parallel_run(_check_macsec_empty, args, kwargs, nodes, timeout=300)
         unhealthy_dut = set()
-        for nbr_name, check_result in check_results.items():
+        for nbr_name, check_result in list(check_results.items()):
             if check_result:
                 init_check_result["failed"] = True
                 init_check_result["unhealthy_nbrs"].append(nbr_name)

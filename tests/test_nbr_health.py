@@ -2,9 +2,9 @@ import json
 import pytest
 import logging
 
-from common.helpers.assertions import pytest_assert
-from common.devices.eos import EosHost
-from common.devices.sonic import SonicHost
+from .common.helpers.assertions import pytest_assert
+from .common.devices.eos import EosHost
+from .common.devices.sonic import SonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
     if "localhost" in dev_meta and "type" in dev_meta["localhost"]:
         dut_type = dev_meta["localhost"]["type"]
 
-    for k, v in nei_meta.items():
+    for k, v in list(nei_meta.items()):
         if v['type'] in ['SmartCable', 'Server', 'Asic'] or dut_type == v['type']:
             # Smart cable doesn't respond to snmp, it doesn't have BGP session either.
             # DualToR has the peer ToR listed in device as well. If the device type

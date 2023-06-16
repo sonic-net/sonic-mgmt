@@ -18,7 +18,7 @@ import random
 import socket
 import threading
 from collections import defaultdict
-from Queue import Queue
+from six.moves.queue import Queue
 
 import ptf
 from ptf.base_tests import BaseTest
@@ -72,8 +72,10 @@ class ArpTest(BaseTest):
 
     def dut_exec_cmd(self, cmd):
         self.log("Executing cmd='{}'".format(cmd))
-        stdout, stderr, return_code = self.dut_connection.execCommand(cmd, timeout=120)
-        self.log("return_code={}, stdout={}, stderr={}".format(return_code, stdout, stderr))
+        stdout, stderr, return_code = self.dut_connection.execCommand(
+            cmd, timeout=120)
+        self.log("return_code={}, stdout={}, stderr={}".format(
+            return_code, stdout, stderr))
 
         if return_code == 0:
             return True, str(stdout)
@@ -87,7 +89,8 @@ class ArpTest(BaseTest):
             cmd = q_from.get()
             if cmd == 'WR':
                 self.log("Rebooting remote side")
-                res, res_text = self.dut_exec_cmd("sudo warm-reboot -c {}".format(self.ferret_ip))
+                res, res_text = self.dut_exec_cmd(
+                    "sudo warm-reboot -c {}".format(self.ferret_ip))
                 if res:
                     q_to.put('ok: %s' % res_text)
                 else:
@@ -165,23 +168,23 @@ class ArpTest(BaseTest):
 
     def generatePkts(self, gw, port_ip, port_mac, vlan_id):
         pkt = testutils.simple_arp_packet(
-                        ip_snd=port_ip,
-                        ip_tgt=gw,
-                        eth_src=port_mac,
-                        hw_snd=port_mac,
-                        vlan_vid=vlan_id
-                        )
+            ip_snd=port_ip,
+            ip_tgt=gw,
+            eth_src=port_mac,
+            hw_snd=port_mac,
+            vlan_vid=vlan_id
+        )
 
         exp_pkt = testutils.simple_arp_packet(
-                        ip_snd=gw,
-                        ip_tgt=port_ip,
-                        eth_src=self.dut_mac,
-                        eth_dst=port_mac,
-                        hw_snd=self.dut_mac,
-                        hw_tgt=port_mac,
-                        arp_op=2,
-                        vlan_vid=vlan_id
-                       )
+            ip_snd=gw,
+            ip_tgt=port_ip,
+            eth_src=self.dut_mac,
+            eth_dst=port_mac,
+            hw_snd=self.dut_mac,
+            hw_tgt=port_mac,
+            arp_op=2,
+            vlan_vid=vlan_id
+        )
         masked_exp_pkt = Mask(exp_pkt)
         # Ignore the Ethernet padding zeros
         masked_exp_pkt.set_ignore_extra_bytes()
@@ -199,7 +202,8 @@ class ArpTest(BaseTest):
                     vlan_id = test['vlan_id']
                 else:
                     vlan_id = 0
-                self.gen_pkts[port] = self.generatePkts(gw, port_ip, port_mac, vlan_id)
+                self.gen_pkts[port] = self.generatePkts(
+                    gw, port_ip, port_mac, vlan_id)
 
         return
 
@@ -207,7 +211,8 @@ class ArpTest(BaseTest):
         params = testutils.test_params_get()
         if param_name not in params:
             if required:
-                raise Exception("required parameter '%s' is not presented" % param_name)
+                raise Exception(
+                    "required parameter '%s' is not presented" % param_name)
             else:
                 return default
         else:
@@ -227,7 +232,8 @@ class ArpTest(BaseTest):
                                                username=self.dut_username,
                                                password=self.dut_password,
                                                alt_password=self.dut_alt_password)
-        self.how_long = int(self.get_param('how_long', required=False, default=300))
+        self.how_long = int(self.get_param(
+            'how_long', required=False, default=300))
 
         if not os.path.isfile(config):
             raise Exception("the config file %s doesn't exist" % config)
@@ -261,10 +267,12 @@ class ArpTest(BaseTest):
                 if ip.version == 4:
                     test['vlan_gw'] = d['addr']
                     prefixlen = int(d['prefixlen'])
-                    test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(d['addr'], prefixlen, test['acc_ports'])
+                    test['vlan_ip_prefixes'] = self.generate_VlanPrefixes(
+                        d['addr'], prefixlen, test['acc_ports'])
                     break
             else:
-                raise Exception("No invalid IPv4 address found for Vlan '%s'" % vlan)
+                raise Exception(
+                    "No invalid IPv4 address found for Vlan '%s'" % vlan)
 
             self.tests.append(test)
 
@@ -286,7 +294,8 @@ class ArpTest(BaseTest):
 
     def runTest(self):
         print
-        thr = threading.Thread(target=self.dut_thr, kwargs={'q_from': self.q_to_dut, 'q_to': self.q_from_dut})
+        thr = threading.Thread(target=self.dut_thr, kwargs={
+                               'q_from': self.q_to_dut, 'q_to': self.q_from_dut})
         thr.setDaemon(True)
         thr.start()
 
@@ -339,12 +348,14 @@ class ArpTest(BaseTest):
         if test_port_thr.isAlive():
             self.log("Timed out waiting for traffic-sender (test_port_thr thread)")
             self.req_dut('quit')
-            self.assertTrue(False, "Timed out waiting for traffic-sender (test_port_thr thread)")
+            self.assertTrue(
+                False, "Timed out waiting for traffic-sender (test_port_thr thread)")
 
         uptime_after = self.get_uptime()
 
         if uptime_before == uptime_after:
-            self.log("The DUT wasn't rebooted. Uptime: %s vs %s" % (uptime_before, uptime_after))
+            self.log("The DUT wasn't rebooted. Uptime: %s vs %s" %
+                     (uptime_before, uptime_after))
             self.assertTrue(uptime_before != uptime_after,
                             "The DUT wasn't rebooted. Uptime: %s vs %s" % (uptime_before, uptime_after))
 
@@ -363,9 +374,11 @@ class ArpTest(BaseTest):
             if not was_active:
                 pauses[port].append(sorted(data.keys())[-1] - last_inactive)
 
-        m_pauses = {port: max(pauses[port]) for port in pauses.keys() if max(pauses[port]) > 25}
+        m_pauses = {port: max(pauses[port])
+                    for port in pauses.keys() if max(pauses[port]) > 25}
         for port in m_pauses.keys():
-            self.log("Port eth%d. Max pause in arp_response %d sec" % (port, int(m_pauses[port])))
+            self.log("Port eth%d. Max pause in arp_response %d sec" %
+                     (port, int(m_pauses[port])))
         print
         sys.stdout.flush()
         self.assertTrue(len(m_pauses) == 0, "Too long pauses in arp responses")
@@ -373,7 +386,8 @@ class ArpTest(BaseTest):
     def testPort(self, port):
         pkt, exp_pkt = self.gen_pkts[port]
         testutils.send_packet(self, port, pkt)
-        nr_rcvd = testutils.count_matched_packets(self, exp_pkt, port, timeout=0.2)
+        nr_rcvd = testutils.count_matched_packets(
+            self, exp_pkt, port, timeout=0.2)
         return nr_rcvd
 
     def req_dut(self, cmd):
@@ -408,11 +422,13 @@ class ArpTest(BaseTest):
 
             if test_non_broadcast_reply_thread.isAlive():
                 self.log("Timed out waiting for test_non_broadcast_reply_thread")
-                self.assertTrue(False, "Timed out waiting for test_non_broadcast_reply_thread")
+                self.assertTrue(
+                    False, "Timed out waiting for test_non_broadcast_reply_thread")
 
             uptime_after = self.get_uptime()
             if uptime_before == uptime_after:
-                self.log("The DUT wasn't rebooted. Uptime: %s vs %s" % (uptime_before, uptime_after))
+                self.log("The DUT wasn't rebooted. Uptime: %s vs %s" %
+                         (uptime_before, uptime_after))
                 self.assertTrue(uptime_before != uptime_after,
                                 "The DUT wasn't rebooted. Uptime: %s vs %s" % (uptime_before, uptime_after))
 
@@ -426,7 +442,8 @@ class ArpTest(BaseTest):
             if self.get_everflow_acl_counter(1) == -1:
                 if time.time() >= stop_at:
                     self.log("ERR: everflow rule_arp table seems not up")
-                    self.assertTrue(False, "everflow rule_arp table seems not up")
+                    self.assertTrue(
+                        False, "everflow rule_arp table seems not up")
                 else:
                     continue
             else:
@@ -470,7 +487,8 @@ class ArpTest(BaseTest):
             return -1
         for rule in result:
             if "EVERFLOW" == rule['table name'] and "rule_arp" == rule['rule name']:
-                self.log("retrieve rule_arp EVERFLOW counter {}".format(rule['packets count']))
+                self.log("retrieve rule_arp EVERFLOW counter {}".format(
+                    rule['packets count']))
                 if rule['packets count'] == 'N/A':
                     return 0
                 else:
@@ -480,14 +498,17 @@ class ArpTest(BaseTest):
         return -1
 
     def check_neighbor_advertise_vxlan(self):
-        output, _, _ = self.dut_connection.execCommand('show vxlan name {}'.format(self.VXLAN_TUNNEL_NAME))
+        output, _, _ = self.dut_connection.execCommand(
+            'show vxlan name {}'.format(self.VXLAN_TUNNEL_NAME))
         result = parse_show(output)
         if len(result) == 0:
-            self.assertTrue(False, "vxlan tunnel {} not exists".format(self.VXLAN_TUNNEL_NAME))
+            self.assertTrue(False, "vxlan tunnel {} not exists".format(
+                self.VXLAN_TUNNEL_NAME))
 
     # master branch return None
     def get_release_version(self):
-        output, _, _ = self.dut_connection.execCommand("sonic-cfggen -y /etc/sonic/sonic_version.yml -v release")
+        output, _, _ = self.dut_connection.execCommand(
+            "sonic-cfggen -y /etc/sonic/sonic_version.yml -v release")
         if len(output) == 0:
             return None
         return output[0]
@@ -497,6 +518,7 @@ class ArpTest(BaseTest):
             "sonic-db-cli STATE_DB hget 'WARM_RESTART_ENABLE_TABLE|system' enable")
 
         if len(output) == 0:
-            self.assertTrue(False, "Failed to get warm restart state {}".format(output))
+            self.assertTrue(
+                False, "Failed to get warm restart state {}".format(output))
 
         return True if "true" in output else False

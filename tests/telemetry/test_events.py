@@ -86,7 +86,7 @@ def check_heartbeat(duthost, localhost):
     op_file = os.path.join(DATA_DIR, "check_heartbeat.json")
     logger.info("Validating sonic-events-eventd:heartbeat is working")
     run_cmd(localhost, ["heartbeat=2"], op_file=op_file,
-            filter_event="sonic-events-eventd:heartbeat", event_cnt=1, 
+            filter_event="sonic-events-eventd:heartbeat", event_cnt=1,
             timeout=60)
     data = {}
     with open(op_file, "r") as f:

@@ -81,7 +81,7 @@ def test_active_tor_remove_neighbor_downstream_active(
         # restore ipv4 neighbor since it is statically configured
         flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4" or "ipv6")
         try:
-            ptfhost.shell("supervisorctl stop arp_responder")
+            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
             # stop garp_service since there is no equivalent in production
             ptfhost.shell("supervisorctl stop garp_service")
             with flush_neighbor_ct as flushed_neighbor:
@@ -153,11 +153,11 @@ def test_downstream_ecmp_nexthops(
     if ip_version == "ipv4":
         dst_server_addr = "1.1.1.2"
         interface_to_server = {intf: servers["server_ipv4"].split("/")[0]
-                               for intf, servers in iface_server_map.items()}
+                               for intf, servers in list(iface_server_map.items())}
     elif ip_version == "ipv6":
         dst_server_addr = "fc10:2020::f"
         interface_to_server = {intf: servers["server_ipv6"].split("/")[0]
-                               for intf, servers in iface_server_map.items()}
+                               for intf, servers in list(iface_server_map.items())}
     else:
         raise ValueError("Unknown IP version '%s'" % ip_version)
 

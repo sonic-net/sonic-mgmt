@@ -29,7 +29,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
     UNICODE_TYPE = unicode      # noqa F821

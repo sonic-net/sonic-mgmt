@@ -1,4 +1,13 @@
 #######################################
+#####          cutsom_acl         #####
+#######################################
+acl/custom_acl_table/test_custom_acl_table.py:
+  skip:
+    reason: "Custom ACL not supported on older releases"
+    conditions:
+      - "release in ['201811', '201911', '202012']"
+
+#######################################
 #####            acl              #####
 #######################################
 acl/null_route/test_null_route_helper.py:
@@ -16,15 +25,6 @@ acl/test_acl_outer_vlan.py:
       - "asic_type in ['cisco-8000']"
 
 #######################################
-#####          cutsom_acl         #####
-#######################################
-acl/custom_acl_table/test_custom_acl_table.py:
-  skip:
-    reason: "Custom ACL not supported on older releases"
-    conditions:
-      - "release in ['201811', '201911', '202012']"
-
-#######################################
 #####            arp              #####
 #######################################
 arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
@@ -33,26 +33,38 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     conditions:
       - "release not in ['202012']"
 
+arp/test_stress_arp.py:
+  skip:
+    resason: "Extremely long long run time."
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/7874
+
+arp/test_unknown_mac.py:
+  skip:
+    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            bfd              #####
 #######################################
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for 201911 images or older, other than mlnx4600c and cisco-8102. Skipping the test"
+    reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
     conditions:
-      - "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0']"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform not in ['x86_64-8102_64h_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0']"
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform not in ['x86_64-8102_64h_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0']"
 
 
 #######################################
@@ -70,6 +82,12 @@ bgp/test_bgp_bbr.py:
     conditions:
       - "'t1' not in topo_type"
 
+bgp/test_bgp_gr_helper.py:
+  skip:
+    reason: 'bgp graceful restarted is not a supported feature for T2'
+    conditions:
+      - "'t2' in topo_name"
+
 bgp/test_bgp_multipath_relax.py:
   skip:
     reason: "Not supported topology backend."
@@ -82,12 +100,11 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
-bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
+bgp/test_bgp_speaker.py:
   skip:
-    reason: "Test is flaky and causing PR test to fail unnecessarily"
+    reason: "Not supported on topology backend."
     conditions:
-      - "asic_type in ['vs']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6471
+      - "'backend' in topo_name"
 
 bgp/test_bgpmon.py:
   skip:
@@ -95,17 +112,12 @@ bgp/test_bgpmon.py:
     conditions:
       - "'backend' in topo_name"
 
-bgp/test_bgp_gr_helper.py:
+bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
-    reason: 'bgp graceful restarted is not a supported feature for T2'
+    reason: "Test is flaky and causing PR test to fail unnecessarily"
     conditions:
-      - "'t2' in topo_name"
-
-bgp/test_bgp_speaker.py:
-  skip:
-    reason: "Not supported on topology backend."
-    conditions:
-      - "'backend' in topo_name"
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6471
 
 #######################################
 #####            cacl             #####
@@ -121,16 +133,6 @@ cacl/test_cacl_application.py::test_cacl_application_nondualtor:
     reason: "test_cacl_application is only supported on non dualtor topology"
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
-
-cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
-  skip:
-    reason: "caclmgrd may crash after loading scale ipv4 cacl rules."
-    conditions: https://github.com/sonic-net/sonic-buildimage/issues/10883
-
-cacl/test_cacl_application.py::test_cacl_scale_rules_ipv6:
-  skip:
-    reason: "caclmgrd may crash after loading scale ipv6 cacl rules."
-    conditions: https://github.com/sonic-net/sonic-buildimage/issues/10883
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
@@ -170,9 +172,11 @@ copp/test_copp.py::TestCOPP::test_remove_trap:
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
-    reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform"
+    conditions_logical_operator: or
+    reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
+      - "build_version > '20220531.27' and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -190,7 +194,7 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
   skip:
     reason: "Not supported on broadcom after 201911 release, mellanox all releases and cisco-8000 all releases and marvell asics"
     conditions:
-      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox']) or (asic_type in ['cisco-8000']) or (asic_type in ['marvell'])"
+      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['mellanox']) or (asic_type in ['cisco-8000'])"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
   skip:
@@ -250,19 +254,29 @@ dualtor/test_orchagent_active_tor_downstream.py:
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
+dualtor/test_orchagent_active_tor_downstream.py::test_downstream_ecmp_nexthops:
+  skip:
+    reason: "On Mellanox SPC1 platforms, due to HW limitation, the hierarchy ecmp behavior is not exactly as expected in the test case."
+    conditions:
+      - "asic_gen == 'spc1'"
+
 dualtor/test_orchagent_mac_move.py:
   skip:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
-dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream:
+dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
   skip:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+  xfail:
+    reason: "Image issue on Boradcom platforms, but not consistently failing"
+    conditions:
+      - "asic_type in ['broadcom']"
 
-dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_t1_link_recovered:
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream:
   skip:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
@@ -280,21 +294,17 @@ dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_lo
     conditions:
       - "(topo_type not in ['t0'])"
 
-dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_remove_neighbor_downstream_standby:
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_t1_link_recovered:
   skip:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
-dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
+dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_remove_neighbor_downstream_standby:
   skip:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
-  xfail:
-    reason: "Image issue on Boradcom platforms, but not consistently failing"
-    conditions:
-      - "asic_type in ['broadcom']"
 
 dualtor/test_standby_tor_upstream_mux_toggle.py:
   skip:
@@ -316,34 +326,57 @@ dut_console:
 #######################################
 ecmp/inner_hashing/test_inner_hashing.py:
   skip:
-    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
+    conditions_logical_operator: or
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
-      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106']"
+      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['mellanox']"
+      - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
   skip:
-    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
+    conditions_logical_operator: or
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
-      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106']"
+      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['mellanox']"
+      - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
   skip:
-    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
+    conditions_logical_operator: or
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
-      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106']"
+      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['mellanox']"
+      - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
   skip:
-    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform"
+    conditions_logical_operator: or
+    reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
-      - "branch in ['201811', '201911', '202012', '202106'] or platform in ['x86_64-mlnx_msn2700-r0']"
+      - "branch in ['201811', '201911', '202012', '202106']"
+      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['mellanox']"
+      - "'dualtor' in topo_name"
 
 ecmp/test_fgnhg.py:
-  xfail:
-    reason: "case failed waiting for fix"
+  skip:
+    conditions_logical_operator: or
+    reason: "The test case only runs on Mellanox T0 platform running 202012 or above; Mellanox 2700 platform is skipped"
     conditions:
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6558
+      - "branch in ['201811', '201911']"
+      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####         everflow            #####
@@ -358,18 +391,36 @@ everflow/test_everflow_per_interface.py:
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-default]:
+  skip:
+    reason: "Skip everflow per interface IPv6 test on unsupported platforms"
+    conditions:
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox']"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_l3_scenario]:
+  skip:
+    reason: "Skip m0 everflow per interface IPv6 test on marvell"
+    conditions:
+      - "asic_type in ['marvell']"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vlan_scenario]:
+  skip:
+    reason: "Skip m0 everflow per interface IPv6 test on marvell"
+    conditions:
+      - "asic_type in ['marvell']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   xfail:
     strict: True
     reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms."
     conditions:
       - "asic_type=='cisco-8000'"
-  skip:
-    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
-    conditions:
-      - "asic_subtype in ['broadcom-dnx']"
-
-everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
     reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
     conditions:
@@ -385,6 +436,15 @@ fdb/test_fdb_mac_expire.py:
       - "topo_type not in ['t0', 'm0', 'mx']"
 
 #######################################
+#####            fib              #####
+#######################################
+fib/test_fib.py::test_ipinip_hash:
+  skip:
+    reason: 'ipinip hash test is not fully supported on mellanox platform (case#00581265)'
+    conditions:
+      - "asic_type in ['mellanox']"
+
+#######################################
 #####   generic_config_updater    #####
 #######################################
 generic_config_updater:
@@ -393,17 +453,51 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
+generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
+  skip:
+    reason: "This test is not run on this asic type or topology currently"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+      - "topo_type in ['m0', 'mx']"
+
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
     conditions:
       - "platform in ['x86_64-kvm_x86_64-r0']"
 
+generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
+  skip:
+    reason: "Skip asym pfc on unsupported platforms"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+generic_config_updater/test_eth_interface.py::test_update_speed:
+  xfail:
+    reason: 'Xfail this script due to this not being a production scenario and misleading StateDB output for valid speed'
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
+
+generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
+  skip:
+    reason: 'Skipping test on mellanox platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/7733'
+    conditions:
+      - "asic_type in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7733
+
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
-    reason: "This test was not run on this hwsku type currently"
+    reason: "This test is not run on this hwsku/asic type currently"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
+      - "asic_type in ['broadcom', 'cisco-8000']"
+
+generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
+  skip:
+    reason: "This test is not run on this asic type currently"
+    conditions:
+      - "asic_type in ['broadcom', 'cisco-8000']"
 
 #######################################
 #####           http              #####
@@ -411,6 +505,18 @@ generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_upda
 http/test_http_copy.py:
   skip:
     reason: "Test doesn't clean up the files in /tmp, it will cause the subsequent cases in /tmp fail, skipping until the issue is addressed"
+
+#######################################
+#####    iface_loopback_action    #####
+#######################################
+iface_loopback_action/test_iface_loopback_action.py:
+  skip:
+    reason: "Not working on non-mellanox platform or T1 topo. Test does not support dualtor topology."
+    conditions_logical_operator: "OR"
+    conditions:
+      - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/7704"
+      - "'t1' in topo_name"
+      - "'dualtor' in topo_name"
 
 #######################################
 #####      iface_namingmode       #####
@@ -423,6 +529,12 @@ iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
       - "platform in ['x86_64-cel_e1031-r0']"
   skip:
     reason: "M0/MX topo does not support TestShowPriorityGroup"
+    conditions:
+      - "topo_name in ['m0', 'mx']"
+
+iface_namingmode/test_iface_namingmode.py::TestShowQueue:
+  skip:
+    reason: "M0/MX topo does not support TestShowQueue"
     conditions:
       - "topo_name in ['m0', 'mx']"
 
@@ -440,12 +552,6 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
-iface_namingmode/test_iface_namingmode.py::TestShowQueue:
-  skip:
-    reason: "M0/MX topo does not support TestShowQueue"
-    conditions:
-      - "topo_name in ['m0', 'mx']"
-
 #######################################
 #####            ip               #####
 #######################################
@@ -457,9 +563,9 @@ ip/test_ip_packet.py:
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
   skip:
-    reason: "Broadcom, Cisco, Barefoot and Marvell Asic will tolorate IP packets with 0xffff checksum"
+    reason: "Broadcom, Cisco, Barefoot, Innovium and Marvell Asic will tolorate IP packets with 0xffff checksum"
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot'] and asic_subtype not in ['broadcom-dnx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'innovium'] and asic_subtype not in ['broadcom-dnx']"
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
   skip:
@@ -480,12 +586,7 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'mx']"
-  xfail:
-    reason: "Dualtor do not support now, need to fix in buildimage."
-    conditions:
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-buildimage/issues/12167
+      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name"
 
 ipfwd/test_mtu.py:
   skip:
@@ -496,12 +597,6 @@ ipfwd/test_mtu.py:
 #######################################
 #####           macsec            #####
 #######################################
-macsec/test_macsec.py:
-  skip:
-    reason: "This test can only run on 7280 CR3"
-    conditions:
-      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
-
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
@@ -513,6 +608,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
     reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
     conditions:
       - "'t2' in topo_name"
+
+macsec/test_macsec.py:
+  skip:
+    reason: "This test can only run on 7280 CR3"
+    conditions:
+      - "platform not in ['x86_64-arista_7280cr3mk_32d4', 'x86_64-kvm_x86_64-r0']"
 
 #######################################
 #####            mpls             #####
@@ -552,17 +653,6 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
-#####       passw_hardening       #####
-#######################################
-passw_hardening/test_passw_hardening.py:
-  skip:
-    reason: "Password-hardening supported just in master version"
-    conditions_logical_operator: or
-    conditions:
-        - "release not in ['master']"
-        - https://github.com/sonic-net/sonic-mgmt/issues/6428
-
-#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
@@ -570,6 +660,12 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
     reason: "Only support t1-lag and t2 topology"
     conditions:
         - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
+
+pc/test_lag_member.py:
+  skip:
+    reason: "Not support dualtor topo"
+    conditions:
+        - "'dualtor' in topo_name"
 
 pc/test_po_cleanup.py:
   skip:
@@ -624,15 +720,26 @@ pfc_asym/test_pfc_asym.py::test_pfc_asym_off_rx_pause_frames:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on m0/mx or dual tor testbed."
+    reason: "Pfcwd tests skipped on m0/mx testbed."
     conditions:
-      - "'dualtor' in topo_name or topo_name in ['m0', 'mx']"
+      - "topo_name in ['m0', 'mx']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_warm_reboot.py:
+   skip:
+     reason: "Warm Reboot is not supported in T2."
+     conditions:
+        - "'t2' in topo_name"
+   xfail:
+     reason: "Warm Reboot is not supported in dualtor."
+     conditions:
+        - "'dualtor' in topo_name"
+        - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
 #####         platform_tests      #####
@@ -659,7 +766,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
     conditions:
-      - "asic_type in ['cisco-8000'] or platform in ['x86_64-cel_e1031-r0']"
+      - "platform in ['x86_64-cel_e1031-r0']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
   skip:
@@ -690,9 +797,9 @@ qos/test_buffer.py:
 
 qos/test_buffer_traditional.py:
   skip:
-    reason: "Buffer traditional test is only supported 201911 branch and not yet supported on multi-ASIC platform."
+    reason: "Buffer traditional test is only supported 201911 branch"
     conditions:
-      - "is_multi_asic==True or release not in ['201911']"
+      - "release not in ['201911']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -719,7 +826,13 @@ qos/test_qos_sai.py::TestQosSai:
   skip:
     reason: "Unsupported testbed type."
     conditions:
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
+  skip:
+    reason: "sai_thrift_read_buffer_pool_watermark are not supported on DNX"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-arista_7800r3_48cq2_lc', 'x86_64-arista_7800r3_48cqm2_lc', 'x86_64-arista_7800r3a_36d2_lc']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:
@@ -767,11 +880,17 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
     conditions:
       - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
+qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:
-    reason: "sai_thrift_read_buffer_pool_watermark are not supported on DNX"
+    reason: "Lossless Voq test is not supported"
     conditions:
-      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-arista_7800r3_48cq2_lc', 'x86_64-arista_7800r3_48cqm2_lc', 'x86_64-arista_7800r3a_36d2_lc']"
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
+  skip:
+    reason: "Lossy Queue Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
   skip:
@@ -831,6 +950,19 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 #######################################
 #####      show_techsupport       #####
 #######################################
+show_techsupport/test_auto_techsupport.py:
+  skip:
+    reason: "auto techsupport on multi asic platforms doesnt work"
+    strict: True
+    conditions:
+      - (is_multi_asic==True)
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
+  skip:
+    reason: "Test supported only on Nvidia(Mellanox) devices"
+    conditions:
+      - "asic_type not in ['mellanox']"
+
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
     reason: "Generic internal image issue"
@@ -839,44 +971,20 @@ show_techsupport/test_techsupport.py::test_techsupport:
       - "branch in ['internal-202012']"
       - "build_version <= '20201231.33'"
 
-show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
-  skip:
-    reason: "Test supported only on Nvidia(Mellanox) devices"
-    conditions:
-      - "asic_type not in ['mellanox']"
-
 #######################################
 #####            snmp             #####
 #######################################
-snmp/test_snmp_interfaces.py::test_snmp_interfaces:
-  skip:
-    reason: "Interfaces not present on supervisor node."
-    conditions:
-      - "is_supervisor"
-
-snmp/test_snmp_lldp.py:
-  skip:
-    reason: "LLDP not supported on supervisor node."
-    conditions:
-      - "is_supervisor"
-
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
     conditions:
       - "topo_name in ['m0', 'mx']"
 
-snmp/test_snmp_phy_entity.py::test_psu_info:
-  skip:
-    reason: "Not supported on non supervisor node."
-    conditions:
-      - "is_supervisor"
-
 snmp/test_snmp_queue.py:
   skip:
     reason: "Interfaces not present on supervisor node or M0/MX topo does not support test_snmp_queue or unsupported platform"
     conditions:
-      - "is_supervisor or topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
+      - "topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
 
 #######################################
 #####            span             #####
@@ -904,13 +1012,29 @@ sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3'] and asic_type not in ['barefoot','innovium']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','innovium']"
+
+sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port_in_lag]:
+  skip:
+    reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_unaffected_by_sub_ports_removal[port_in_lag:
+  skip:
+    reason: "Not supported port type"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports:
   skip:
     reason: "Cisco 8000 platform does not support DSCP PIPE Mode for IPinIP Tunnels"
     conditions:
       - "asic_type=='cisco-8000'"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_untagged_packet_not_routed[port_in_lag] :
+  skip:
+    reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[port_in_lag]:
+  skip:
+    reason: "Not supported port type"
 
 #######################################
 #####             syslog          #####
@@ -944,13 +1068,13 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
       - "build_version <= '20201231.44'"
 
 #######################################
-#####       test_pretest.py       #####
+#####           telemetry         #####
 #######################################
-test_pretest.py::test_stop_pfcwd:
+telemetry/test_telemetry.py:
   skip:
-    reason: "Skip this test on non dualTOR testbeds."
+    reason: "Skip telemetry test for 201911 and older branches"
     conditions:
-      - "'dualtor' not in topo_name"
+      - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
 #######################################
 #####            vlan             #####
@@ -970,41 +1094,17 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
-voq:
+voq/test_fabric_reach.py:
   skip:
-    reason: Skip all HW SKUs that are not VOQ based (No Inband interface present) from running VOQ test cases
+    reason: "Skip test_fabric_reach on unsupported testbed."
     conditions:
-      - "len(VOQ_INBAND_INTERFACE) == 0"
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
 
-voq/test_voq_ipfwd.py:
+voq/test_voq_fabric_status_all.py:
   skip:
-    reason: "Did not find any asic in the DUTs (linecards) that are connected to T1 VM's."
+    reason: "Skip test_voq_fabric_status_all on unsupported testbed."
     conditions:
-      - "not any('T1' in value['name'] for key, value in minigraph_neighbors.items())"
-
-voq/test_voq_ipfwd.py::test_host_route_table_bgp:
-  skip:
-    reason: "Has no inband interfaces, so must not be connected to fabric"
-    conditions:
-      - "len(BGP_VOQ_CHASSIS_NEIGHBOR) == 0"
-
-voq/test_voq_ipfwd.py::test_host_route_table_inband_addr:
-  skip:
-    reason: "Has no inband interfaces, so must not be connected to fabric."
-    conditions:
-      - "len(VOQ_INBAND_INTERFACE) == 0"
-
-voq/test_voq_nbr.py::TestGratArp::test_gratarp_macchange:
-  skip:
-    reason: "Can't run this test without any IP interfaces on ethernet ports."
-    conditions:
-      - "len(INTERFACE) == 0"
-
-voq/test_voq_nbr.py::test_neighbor_hw_mac_change:
-  skip:
-    reason: "Can't run this test without any IP interfaces on ethernet ports."
-    conditions:
-      - "len(INTERFACE) == 0"
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
 
 #######################################
 #####             vrf             #####
@@ -1016,30 +1116,6 @@ vrf/test_vrf.py::TestVrfAclRedirect:
       - "len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
 
 #######################################
-#####           vxlan            #####
-#######################################
-vxlan/test_vxlan_ecmp.py:
-  skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run 8102. 4600 has issue https://github.com/sonic-net/sonic-mgmt/issues/6616"
-    conditions:
-      - "(is_multi_asic==True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'] and asic_type not in ['barefoot'])"
-
-vxlan/test_vnet_vxlan.py:
-  skip:
-    reason: "enable tests only for: mellanox, barefoot"
-    conditions:
-      - "asic_type not in ['mellanox', 'barefoot']"
-
-#######################################
-#####           telemetry         #####
-#######################################
-telemetry/test_telemetry.py:
-  skip:
-    reason: "Skip telemetry test for 201911 and older branches"
-    conditions:
-      - "(is_multi_asic==True) and (release in ['201811', '201911'])"
-
-#######################################
 #####           vrf_attr          #####
 #######################################
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
@@ -1047,6 +1123,24 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
     reason: "RIF MAC taking precedence over VRF MAC"
     conditions:
       - "asic_type in ['barefoot']"
+
+#######################################
+#####           vxlan            #####
+#######################################
+vxlan/test_vnet_vxlan.py:
+  skip:
+    reason: "1. Enable tests only for: mellanox, barefoot
+             2. Test skipped due to issue #8374"
+    conditions_logical_operator: OR
+    conditions:
+      - "asic_type not in ['mellanox', 'barefoot']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8374
+
+vxlan/test_vxlan_ecmp.py:
+  skip:
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0'])"
 
 #######################################
 #####           wan_lacp          #####

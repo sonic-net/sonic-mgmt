@@ -2,12 +2,12 @@ import json
 import os
 import pytest
 import logging
-import re
 import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.config_reload import config_reload
+from tests.common.utilities import update_pfcwd_default_state
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,10 @@ CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE = ".* Failed to parse PFC Watchdog .* 
 CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE = ".* Failed to parse PFC Watchdog .* restoration_time .*"
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer, # disable automatic fixture and invoke within each test
+    pytest.mark.disable_loganalyzer,    # disable automatic fixture and invoke within each test
     pytest.mark.topology('any')
 ]
+
 
 def create_run_dir():
     """
@@ -31,6 +32,7 @@ def create_run_dir():
         os.mkdir(TMP_DIR)
     except OSError as err:
         pytest.fail("Failed to create a temp run dir: {}".format(str(err)))
+
 
 def generate_cfg_templates(test_port):
     """
@@ -44,14 +46,14 @@ def generate_cfg_templates(test_port):
     """
     create_run_dir()
     with open(os.path.join(TEMPLATES_DIR, "pfc_config_params.json"), "r") as read_file:
-       cfg_params = json.load(read_file)
+        cfg_params = json.load(read_file)
 
     for key in cfg_params:
         write_file = key
         write_params = dict()
-        write_params["PFC_WD"] = { test_port: { "action": cfg_params[key]["pfc_wd_action"],
-                                                "detection_time": cfg_params[key]["pfc_wd_detection_time"],
-                                                "restoration_time": cfg_params[key]["pfc_wd_restoration_time"]
+        write_params["PFC_WD"] = {test_port: {"action": cfg_params[key]["pfc_wd_action"],
+                                              "detection_time": cfg_params[key]["pfc_wd_detection_time"],
+                                              "restoration_time": cfg_params[key]["pfc_wd_restoration_time"]
                                               }
                                   }
         # create individual template files for each test
@@ -59,6 +61,7 @@ def generate_cfg_templates(test_port):
             json.dump(write_params, wfile)
 
     return cfg_params
+
 
 def copy_templates_to_dut(duthost, cfg_params):
     """
@@ -76,6 +79,7 @@ def copy_templates_to_dut(duthost, cfg_params):
         src_file = os.path.join(TMP_DIR, "{}.json".format(key))
         duthost.copy(src=src_file, dest="{}/{}.json".format(DUT_RUN_DIR, key))
 
+
 def cfg_teardown(duthost):
     """
     Cleans up the DUT temp dir and temp dir on the host after the module run
@@ -90,6 +94,7 @@ def cfg_teardown(duthost):
         os.system("rm -rf {}".format(TMP_DIR))
     duthost.shell("rm -rf {}".format(DUT_RUN_DIR))
 
+
 @pytest.fixture(scope='class')
 def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
@@ -103,7 +108,7 @@ def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     setup_info = setup_pfc_test
-    pfc_wd_test_port = setup_info['test_ports'].keys()[0]
+    pfc_wd_test_port = list(setup_info['test_ports'].keys())[0]
     logger.info("Creating json templates for all config tests")
     cfg_params = generate_cfg_templates(pfc_wd_test_port)
     logger.info("Copying templates over to the DUT")
@@ -115,32 +120,6 @@ def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     logger.info("--- Clean up config dir from DUT ---")
     cfg_teardown(duthost)
 
-
-def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
-    """
-    Set default_pfcwd_status in the specified file with parameter default_pfcwd_value
-    The path is expected to be one of:
-    - /etc/sonic/init_cfg.json
-    - /etc/sonic/config_db.json
-
-    Args:
-        duthost (AnsibleHost): instance
-        default_pfcwd_value: value of default_pfcwd_status, enable or disable
-
-    Returns:
-        original value of default_pfcwd_status
-    """
-    output = duthost.shell("cat {} | grep default_pfcwd_status".format(filepath))['stdout']
-    matched = re.search('"default_pfcwd_status": "(.*)"', output)
-    if matched:
-        original_value = matched.group(1)
-    else:
-        pytest.fail("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
-
-    sed_command = "sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' {}".format(original_value, default_pfcwd_value, filepath)
-    duthost.shell(sed_command)
-
-    return original_value
 
 @pytest.fixture(scope='class')
 def mg_cfg_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -166,6 +145,7 @@ def mg_cfg_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     if original_pfcwd_value == 'disable':
         update_pfcwd_default_state(duthost, '/etc/sonic/init_cfg.json', 'disable')
         config_reload(duthost, config_source='minigraph')
+
 
 @pytest.fixture(scope='function', autouse=True)
 def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -257,7 +237,8 @@ class TestPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        self.execute_test(duthost, "pfc_wd_invalid_detect_time", None, [CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE], True)
+        self.execute_test(duthost, "pfc_wd_invalid_detect_time", None,
+                          [CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE], True)
 
     def test_low_detect_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
@@ -296,7 +277,8 @@ class TestPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        self.execute_test(duthost, "pfc_wd_invalid_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
+        self.execute_test(duthost, "pfc_wd_invalid_restore_time", None,
+                          [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
 
     def test_low_restore_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
@@ -324,6 +306,7 @@ class TestPfcConfig(object):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         self.execute_test(duthost, "pfc_wd_high_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
 
+
 @pytest.mark.usefixtures('mg_cfg_setup')
 class TestDefaultPfcConfig(object):
     def test_default_cfg_after_load_mg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -341,8 +324,8 @@ class TestDefaultPfcConfig(object):
         # sleep 20 seconds to make sure configuration is loaded
         time.sleep(20)
         res = duthost.command('pfcwd show config')
-        for l in res['stdout_lines']:
-            if "ethernet" in l.lower():
+        for port_config in res['stdout_lines']:
+            if "ethernet" in port_config.lower():
                 return
         # If no ethernet port existing in stdout, failed this case.
         pytest.fail("Failed to start pfcwd after load_minigraph")

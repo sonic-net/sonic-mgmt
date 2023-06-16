@@ -1,12 +1,7 @@
 import logging
-import random
-import re
-import time
 
 import pytest
-import yaml
 
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, fan_drawer
 
 from platform_api_test_base import PlatformApiTestBase
@@ -14,10 +9,10 @@ from platform_api_test_base import PlatformApiTestBase
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = basestring
+    STRING_TYPE = basestring    # noqa: F821
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -47,7 +42,7 @@ class TestFanDrawerApi(PlatformApiTestBase):
         if self.num_fan_drawers is None:
             try:
                 self.num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
-            except:
+            except Exception:
                 pytest.fail("num_fan_drawers is not an integer")
             else:
                 if self.num_fan_drawers == 0:
@@ -68,9 +63,11 @@ class TestFanDrawerApi(PlatformApiTestBase):
                     expected_value = len(expected_fan_drawers[fan_drawer_idx].get("fans"))
 
         if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for fan drawer {}".format(key, fan_drawer_idx)):
+                       "Unable to get expected value for '{}' from platform.json file for fan drawer {}"
+                       .format(key, fan_drawer_idx)):
             self.expect(value == expected_value,
-                        "'{}' value is incorrect. Got '{}', expected '{}' for fan drawer {}".format(key, value, expected_value, fan_drawer_idx))
+                        "'{}' value is incorrect. Got '{}', expected '{}' for fan drawer {}"
+                        .format(key, value, expected_value, fan_drawer_idx))
 
     def get_fan_drawer_facts(self, duthost, fan_drawer_idx, def_value, *keys):
         if duthost.facts.get("chassis"):
@@ -140,15 +137,18 @@ class TestFanDrawerApi(PlatformApiTestBase):
     def test_get_position_in_parent(self, platform_api_conn):
         for i in range(self.num_fan_drawers):
             position = fan_drawer.get_position_in_parent(platform_api_conn, i)
-            if self.expect(position is not None, "Failed to perform get_position_in_parent for fan drawer {}".format(i)):
-                self.expect(isinstance(position, int), "Position value must be an integer value for fan drawer {}".format(i))
+            if self.expect(position is not None,
+                           "Failed to perform get_position_in_parent for fan drawer {}".format(i)):
+                self.expect(isinstance(position, int),
+                            "Position value must be an integer value for fan drawer {}".format(i))
         self.assert_expectations()
 
     def test_is_replaceable(self, platform_api_conn):
         for i in range(self.num_fan_drawers):
             replaceable = fan_drawer.is_replaceable(platform_api_conn, i)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for fan drawer {}".format(i)):
-                self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for fan drawer {}".format(i))
+                self.expect(isinstance(replaceable, bool),
+                            "Replaceable value must be a bool value for fan drawer {}".format(i))
         self.assert_expectations()
 
     #
@@ -160,7 +160,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
             num_fans = fan_drawer.get_num_fans(platform_api_conn, i)
             if self.expect(num_fans is not None, "Unable to retrieve fan_drawer {} number of fans".format(i)):
-                self.expect(isinstance(num_fans, int), "fan drawer {} number of fans appear to be incorrect".format(i))
+                self.expect(isinstance(num_fans, int),
+                            "fan drawer {} number of fans appear to be incorrect".format(i))
                 self.compare_value_with_platform_facts(duthost, 'num_fans', num_fans, i)
         self.assert_expectations()
 
@@ -169,7 +170,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
             fans_list = fan_drawer.get_all_fans(platform_api_conn, i)
             if self.expect(fans_list is not None, "Unable to retrieve fan_drawer {} all fans".format(i)):
-                self.expect(isinstance(fans_list, list), "fan drawer {} list of fans appear to be incorrect".format(i))
+                self.expect(isinstance(fans_list, list),
+                            "fan drawer {} list of fans appear to be incorrect".format(i))
         self.assert_expectations()
 
     def test_set_fan_drawers_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
@@ -213,7 +215,9 @@ class TestFanDrawerApi(PlatformApiTestBase):
                     if led_supported_colors:
                         led_type = set(led_type) & set(led_supported_colors)
                         if not led_type:
-                            logger.warning("test_status_led: Skipping fandrawer {} set status_led to {} (No supported colors)".format(i, LED_COLOR_TYPES_DICT[index]))
+                            logger.warning(
+                                "test_status_led: Skipping fandrawer {} set status_led to {} (No supported colors)"
+                                .format(i, LED_COLOR_TYPES_DICT[index]))
                             led_type_skipped += 1
                             continue
 
@@ -226,10 +230,13 @@ class TestFanDrawerApi(PlatformApiTestBase):
                             continue
                         color_actual = fan_drawer.get_status_led(platform_api_conn, i)
                         if self.expect(color_actual is not None, "Failed to retrieve status_led"):
-                            if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                                self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan_drawer {})".format(
-                                    color, color_actual, i))
-                    self.expect(led_type_result is True, "Failed to set status_led for fan_drawer {} to {}".format(i, LED_COLOR_TYPES_DICT[index]))
+                            if self.expect(isinstance(color_actual, STRING_TYPE),
+                                           "Status LED color appears incorrect"):
+                                self.expect(color == color_actual,
+                                            "Status LED color incorrect (expected: {}, actual: {} for fan_drawer {})"
+                                            .format(color, color_actual, i))
+                    self.expect(led_type_result is True, "Failed to set status_led for fan_drawer {} to {}"
+                                .format(i, LED_COLOR_TYPES_DICT[index]))
 
                 if led_type_skipped == len(LED_COLOR_TYPES):
                     logger.info("test_status_led: Skipping fandrawer {} (no supported colors for all types)".format(i))
@@ -244,7 +251,8 @@ class TestFanDrawerApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_maximum_consumed_power(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                                        localhost, platform_api_conn):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         max_power_skipped = 0
 

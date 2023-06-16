@@ -7,20 +7,27 @@ def is_cisco_device(dut):
     return dut.facts["asic_type"] == "cisco-8000"
 
 
+def is_model_json_format(duthost):
+    model_json_platforms = ['x86_64-8102_64h_o-r0']
+    return duthost.facts['platform'] in model_json_platforms
+
+
 def get_markings_config_file(duthost):
     """
         Get the config file where the ECN markings are enabled or disabled.
     """
-    platform = duthost.facts['platform']
-    if platform != 'x86_64-8102_64h_o-r0':
+    if duthost.facts["asic_type"] != "cisco-8000":
         raise RuntimeError("This is applicable only to cisco platforms.")
-
+    platform = duthost.facts['platform']
     hwsku = duthost.facts['hwsku']
-    match = re.search(r"\-([^-_]+)_", platform)
-    if match:
-        model = match.group(1)
+    if is_model_json_format(duthost):
+        match = re.search(r"\-([^-_]+)_", platform)
+        if match:
+            model = match.group(1)
+        else:
+            raise RuntimeError("Couldn't get the model from platform:{}".format(platform))
     else:
-        raise RuntimeError("Couldn't get the model from platform:{}".format(platform))
+        model = "serdes"
     config_file = "/usr/share/sonic/device/{}/{}/{}.json".format(platform, hwsku, model)
     return config_file
 
@@ -35,20 +42,12 @@ def get_markings_dut(duthost, key_list=['ecn_dequeue_marking', 'ecn_latency_mark
     local_file = contents['dest']
     with open(local_file) as fd:
         json_contents = json.load(fd)
-    required_entry = None
-    for i in range(len(json_contents['devices'])):
-        try:
-            json_contents['devices'][i].get('id')
-            required_entry = i
-        except KeyError:
-            continue
-
-    if required_entry is None:
-        raise RuntimeError("Couldnot find the required entry(id) in the config file:{}".format(config_file))
-    original_values = {}
+    markings_dict = {}
+    # Getting markings from first device.
+    device = json_contents['devices'][0]
     for key in key_list:
-        original_values[key] = json_contents['devices'][i][key]
-    return original_values
+        markings_dict[key] = device['device_property'][key]
+    return markings_dict
 
 
 def setup_markings_dut(duthost, localhost, **kwargs):
@@ -62,22 +61,12 @@ def setup_markings_dut(duthost, localhost, **kwargs):
     local_file = contents['dest']
     with open(local_file) as fd:
         json_contents = json.load(fd)
-    required_entry = None
-    for i in range(len(json_contents['devices'])):
-        try:
-            json_contents['devices'][i].get('id')
-            required_entry = i
-        except KeyError:
-            continue
-
-    if required_entry is None:
-        raise RuntimeError("Couldnot find the required entry(id) in the config file:{}".format(config_file))
     reboot_required = False
-    for k, v in kwargs.iteritems():
-        if json_contents['devices'][required_entry][k] != v:
-            reboot_required = True
-            json_contents['devices'][required_entry][k] = v
-
+    for device in json_contents['devices']:
+        for k, v in list(kwargs.items()):
+            if device['device_property'][k] != v:
+                reboot_required = True
+                device['device_property'][k] = v
     if reboot_required:
         duthost.copy(content=json.dumps(json_contents, sort_keys=True, indent=4), dest=config_file)
         reboot(duthost, localhost)

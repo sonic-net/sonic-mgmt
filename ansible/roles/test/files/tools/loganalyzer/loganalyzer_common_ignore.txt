@@ -167,7 +167,13 @@ r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
 # https://msazure.visualstudio.com/One/_workitems/edit/16703529
 r, ".* ERR CCmisApi:.*system_service.*Broken pipe.*"
 
+r, ".* ERR CCmisApi:.*system_service_Map_base::at.*"
+
 r, ".*ERR kernel: \[.*\] AMD-Vi: Event logged \[IO_PAGE_FAULT device=00:13.1 domain=0x0009 address=0x0 flags=0x0000\].*"
 
 r, ".*WARNING kernel: .*linux_knet_cb.*linux_bcm_knet.*linux_user_bde.*linux_kernel_bde.*xt_TCPMSS.*8021q.*garp.*mrp.*dummy.*"
 r, ".* ERR .*CounterCheck: Invalid port oid.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/17617756
+# https://msazure.visualstudio.com/One/_workitems/edit/17863895
+r, ".* ERR syncd\d*#syncd.*SAI_API_ACL:_brcm_sai_acl_entry_bind.*"

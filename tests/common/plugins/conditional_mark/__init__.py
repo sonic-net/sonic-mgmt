@@ -88,7 +88,7 @@ def load_conditions(session):
             with open(conditions_file) as f:
                 logger.debug('Loaded test mark conditions file: {}'.format(conditions_file))
                 conditions = yaml.safe_load(f)
-                for key, value in conditions.items():
+                for key, value in list(conditions.items()):
                     conditions_list.append({key: value})
     except Exception as e:
         logger.error('Failed to load {}, exception: {}'.format(conditions_files, repr(e)), exc_info=True)
@@ -113,11 +113,11 @@ def read_asic_name(hwsku):
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
 
-        for key, value in asic_name.copy().items():
+        for key, value in list(asic_name.copy().items()):
             if ('td' not in key) and ('th' not in key) and ('spc' not in key):
                 asic_name.pop(key)
 
-        for name, hw in asic_name.items():
+        for name, hw in list(asic_name.items()):
             if hwsku in hw:
                 return name.split('_')[1]
 
@@ -178,6 +178,41 @@ def get_basic_facts(session):
         if not basic_facts_cached:
             basic_facts = load_basic_facts(session)
             session.config.cache.set('BASIC_FACTS', basic_facts)
+
+
+def get_http_proxies(inv_name):
+    INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(inv_name)
+    PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
+    base_path = os.path.dirname(__file__)
+    inv_env_path = os.path.join(base_path, INV_ENV_FILE)
+    public_env_path = os.path.join(base_path, PUBLIC_ENV_FILE)
+    proxies = {}
+
+    if os.path.isfile(public_env_path):
+        try:
+            with open(public_env_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    proxies = {'http': http_proxy, 'https': http_proxy}
+                else:
+                    proxies = {'http': '', 'https': ''}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(public_env_path, repr(e)))
+
+    if os.path.isfile(inv_env_path):
+        try:
+            with open(inv_env_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    proxies = {'http': http_proxy, 'https': http_proxy}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(inv_env_path, repr(e)))
+
+    return proxies
 
 
 def load_minigraph_facts(inv_name, dut_name):
@@ -327,37 +362,42 @@ def load_basic_facts(session):
     dut_name = tbinfo['duts'][0]
     if session.config.option.customize_inventory_file:
         inv_name = session.config.option.customize_inventory_file
-    elif 'inv_name' in tbinfo.keys():
+    elif 'inv_name' in list(tbinfo.keys()):
         inv_name = tbinfo['inv_name']
     else:
         inv_name = 'lab'
+    proxies = get_http_proxies(inv_name)
+    session.config.cache.set('PROXIES', proxies)
 
-    # Load DUT basic facts
-    _facts = load_dut_basic_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+    # Since internal repo add vendor test support, add check to see if it's sonic-os, other wise skip load facts.
+    vendor = session.config.getoption("--dut_vendor", "sonic")
+    if vendor == "sonic":
+        # Load DUT basic facts
+        _facts = load_dut_basic_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load minigraph basic facts
-    _facts = load_minigraph_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load minigraph basic facts
+        _facts = load_minigraph_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load config basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load config basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load switch capabilities basic facts
-    _facts = load_switch_capabilities_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load switch capabilities basic facts
+        _facts = load_switch_capabilities_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load console basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load console basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load possible other facts here
+        # Load possible other facts here
 
     return results
 
@@ -410,10 +450,11 @@ def update_issue_status(condition_str, session):
         return condition_str
 
     issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+    proxies = session.config.cache.get('PROXIES', {})
 
     unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
     if unknown_issues:
-        results = check_issues(unknown_issues)
+        results = check_issues(unknown_issues, proxies=proxies)
         issue_status_cache.update(results)
         session.config.cache.set('ISSUE_STATUS', issue_status_cache)
 
@@ -548,7 +589,7 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in longest_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
-                for mark_name, mark_details in list(match.values())[0].items():
+                for mark_name, mark_details in list(list(match.values())[0].items()):
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
                     if not mark_details:

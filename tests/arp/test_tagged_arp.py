@@ -6,9 +6,16 @@ import logging
 import pprint
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list, utils_vlan_ports_list   # noqa F401
 from tests.common.helpers.assertions import pytest_require
-
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
+from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
+from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F401
+from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
+from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
+from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +38,14 @@ def skip_dualtor(tbinfo):
 @pytest.fixture(scope="module")
 def cfg_facts(duthosts, rand_one_dut_hostname, skip_dualtor):
     duthost = duthosts[rand_one_dut_hostname]
-    return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
 
 def enable_arp(duthost, cfg_facts, enable):
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
     on_cmd = "echo 1 > /proc/sys/net/ipv4/conf/%s/arp_accept"
     off_cmd = "echo 0 > /proc/sys/net/ipv4/conf/%s/arp_accept"
-    for vlan in vlan_members.keys():
+    for vlan in list(vlan_members.keys()):
         if enable:
             logger.info("Enable ARP for %s" % vlan)
             duthost.shell(on_cmd % vlan)
@@ -53,7 +60,8 @@ def arp_cleanup(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_arp(duthosts, rand_one_dut_hostname, cfg_facts):
+def setup_arp(duthosts, rand_one_dut_hostname, ptfhost, rand_selected_dut, ptfadapter,
+                ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, setup_po2vlan, cfg_facts): # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
@@ -80,7 +88,9 @@ def build_arp_packet(vlan_id, neighbor_mac, dst_mac, neighbor_ip):
 
 
 @pytest.mark.bsl
-def test_tagged_arp_pkt(ptfadapter, utils_vlan_ports_list, duthosts, rand_one_dut_hostname):    # noqa F811
+@pytest.mark.po2vlan
+def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
+                        rand_selected_dut, tbinfo, ports_list): # noqa F811
     """
     Send tagged GARP packets from each port.
     Verify packets egress without tag from ports whose PVID same with ingress port.
@@ -89,7 +99,8 @@ def test_tagged_arp_pkt(ptfadapter, utils_vlan_ports_list, duthosts, rand_one_du
     """
     duthost = duthosts[rand_one_dut_hostname]
     router_mac = duthost.facts['router_mac']
-    for vlan_port in utils_vlan_ports_list:
+    vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
+    for vlan_port in vlan_ports_list:
         port_index = vlan_port["port_index"][0]
         # Send GARP packets to switch to populate the arp table with dummy MACs for each port
         # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
@@ -135,6 +146,7 @@ def test_tagged_arp_pkt(ptfadapter, utils_vlan_ports_list, duthosts, rand_one_du
                     else:
                         assert ifname == vlan_port["dev"]
                     assert vlan_id == permit_vlanid
-                assert arp_cnt == DUMMY_ARP_COUNT
+                assert arp_cnt == DUMMY_ARP_COUNT, "Expect {} entries, but {} found".format(DUMMY_ARP_COUNT, arp_cnt)
             except Exception as detail:
                 logger.error("Except: {}".format(detail))
+                raise

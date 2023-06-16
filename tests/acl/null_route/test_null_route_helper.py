@@ -117,7 +117,7 @@ def remove_acl_table(duthost):
 
 def get_neighbor_ports(mg_facts, neighbor_name):
     neighbor_ports = []
-    for key, value in mg_facts["minigraph_neighbors"].items():
+    for key, value in list(mg_facts["minigraph_neighbors"].items()):
         if neighbor_name in value["name"]:
             neighbor_ports.append(key)
     return neighbor_ports
@@ -134,7 +134,7 @@ def create_acl_table(rand_selected_dut, tbinfo):
         ports = ",".join(neighbor_ports)
     else:
         # Get the list of LAGs
-        ports = ",".join(mg_facts["minigraph_portchannels"].keys())
+        ports = ",".join(list(mg_facts["minigraph_portchannels"].keys()))
     cmds = [
         "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME_V4, ports),
         "config acl add table {} L3V6 -p {}".format(ACL_TABLE_NAME_V6, ports)
@@ -248,7 +248,7 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
         ptf_interfaces = [mg_facts['minigraph_ptf_indices'][port] for port in neighbor_ports]
     else:
         portchannel_members = []
-        for _, v in mg_facts["minigraph_portchannels"].items():
+        for _, v in list(mg_facts["minigraph_portchannels"].items()):
             portchannel_members += v['members']
 
         ptf_interfaces = []

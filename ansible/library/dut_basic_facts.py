@@ -10,8 +10,8 @@ except ImportError:
     sys.path.append('..')
     from module_utils.parse_utils import parse_tabular_output
 
-from ansible.module_utils.basic import *
-
+from ansible.module_utils.basic import AnsibleModule
+from sonic_py_common import device_info
 
 DOCUMENTATION = '''
 ---
@@ -29,8 +29,6 @@ EXAMPLES = '''
 - name: Gathering DUT basic facts
   dut_basic_facts:
 '''
-
-from sonic_py_common import device_info
 
 
 def main():
@@ -65,7 +63,8 @@ def main():
         command_list = ['show feature status', 'show features']
         try:
             for cmd in command_list:
-                rc, out, err = module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
+                rc, out, err = module.run_command(
+                    cmd, executable='/bin/bash', use_unsafe_shell=True)
                 if rc == 0:
                     break
         except Exception as e:
@@ -80,7 +79,9 @@ def main():
 
         module.exit_json(ansible_facts={'dut_basic_facts': results})
     except Exception as e:
-        module.fail_json(msg='Gather DUT facts failed, exception: {}'.format(repr(e)))
+        module.fail_json(
+            msg='Gather DUT facts failed, exception: {}'.format(repr(e)))
+
 
 if __name__ == '__main__':
     main()

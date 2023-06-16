@@ -41,6 +41,7 @@ class PFCStorm(object):
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")
         self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
+        self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
         self.peer_info = kwargs.pop('peer_info')
         self._validate_params(expected_args=['pfc_fanout_interface', 'peerdevice'])
         if 'hwsku' not in self.peer_info:
@@ -62,7 +63,7 @@ class PFCStorm(object):
         Validate if all the needed keys are present
         """
         expected_args = params.get('expected_args')
-        peer_info_keys = self.peer_info.keys()
+        peer_info_keys = list(self.peer_info.keys())
         if not all(elem in peer_info_keys for elem in expected_args):
             raise MissingInputError("Peer_info does not contain all the keys,"
                                     "Expected args: {}".format(expected_args))
@@ -135,7 +136,8 @@ class PFCStorm(object):
             "pfc_frames_number": self.pfc_frames_number,
             "pfc_fanout_interface": self.peer_info['pfc_fanout_interface'],
             "ansible_eth0_ipv4_addr": self.ip_addr,
-            "peer_hwsku": self.peer_info['hwsku']
+            "peer_hwsku": self.peer_info['hwsku'],
+            "send_pfc_frame_interval": self.send_pfc_frame_interval
             }
         if self.peer_device.os in self._PFC_GEN_DIR:
             self.extra_vars['pfc_gen_dir'] = \
