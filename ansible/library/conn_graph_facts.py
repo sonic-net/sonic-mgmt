@@ -5,7 +5,7 @@ import yaml
 import os
 import logging
 import traceback
-import ipaddr as ipaddress
+import ipaddr
 from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
@@ -203,7 +203,7 @@ class Parse_Lab_Graph():
                     management_ip = l3info.find(
                         'ManagementIPInterface').attrib['Prefix']
                     deviceinfo[hostname]['ManagementIp'] = management_ip
-                    mgmtip = ipaddress.IPNetwork(management_ip)
+                    mgmtip = ipaddr.IPNetwork(management_ip)
                     deviceinfo[hostname]['mgmtip'] = str(mgmtip.ip)
                     management_gw = str(mgmtip.network+1)
                     deviceinfo[hostname]['ManagementGw'] = management_gw
@@ -239,7 +239,7 @@ class Parse_Lab_Graph():
                         deviceinfo[hostname]['Os'] = attributes.get('Os')
                         mgmt_ip = attributes.get('ManagementIp')
                         management_gw = str(
-                            ipaddress.IPNetwork(mgmt_ip).network+1)
+                            ipaddr.IPNetwork(mgmt_ip).network+1)
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
                         deviceinfo[hostname]['ManagementGw'] = management_gw
                         self.consolelinks[hostname] = {}
@@ -295,7 +295,7 @@ class Parse_Lab_Graph():
                         deviceinfo[hostname]['Os'] = attributes.get('Os')
                         mgmt_ip = attributes.get('ManagementIp')
                         management_gw = str(
-                            ipaddress.IPNetwork(mgmt_ip).network+1)
+                            ipaddr.IPNetwork(mgmt_ip).network+1)
                         deviceinfo[hostname]['ManagementIp'] = mgmt_ip
                         deviceinfo[hostname]['ManagementGw'] = management_gw
                         self.bmclinks[hostname] = {}
