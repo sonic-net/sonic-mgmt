@@ -195,7 +195,10 @@ class Parse_Lab_Graph():
         if devicel3s is not None:
             for l3info in devicel3s:
                 hostname = l3info.attrib['Hostname']
-                if hostname is not None:
+                if (
+                    hostname is not None
+                    and l3info.find('ManagementIPInterface') is not None
+                ):
                     deviceinfo[hostname]["Hostname"] = hostname
                     management_ip = l3info.find(
                         'ManagementIPInterface').attrib['Prefix']
