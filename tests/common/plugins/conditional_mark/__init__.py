@@ -270,6 +270,7 @@ def update_issue_status(condition_str, session):
         return condition_str
 
     issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+    proxies = session.config.cache.get('PROXIES', {})
 
     unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
     if unknown_issues:
