@@ -973,7 +973,6 @@ class TestShowIP():
             of the spine ports
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
         static_route_intf = dict()
         static_route_intf['interface'] = list()
         static_route_intf['alias'] = list()
@@ -993,7 +992,7 @@ class TestShowIP():
                     ip_version = '-6'
                     dst_ip = '::/0'
                 if namespace:
-                    duthost.shell("ip netns exec {} ip {} route add {}  via {} dev {}".\
+                    duthost.shell("ip netns exec {} ip {} route add {}  via {} dev {}".
                                   format(namespace, ip_version, dst_ip, gw_ip, dev))
                 else:
                     duthost.shell("ip {} route add {}  via {} dev {}".format(ip_version, dst_ip, gw_ip, dev))
@@ -1014,7 +1013,7 @@ class TestShowIP():
                     ip_version = '-6'
                     dst_ip = '::/0'
                 if namespace:
-                    duthost.shell("ip netns exec {} ip {} route del {}  via {} dev {}".\
+                    duthost.shell("ip netns exec {} ip {} route del {}  via {} dev {}".
                                   format(namespace, ip_version, dst_ip, gw_ip, dev))
                 else:
                     duthost.shell("ip {} route del {}  via {} dev {}".format(ip_version, dst_ip, gw_ip, dev))
