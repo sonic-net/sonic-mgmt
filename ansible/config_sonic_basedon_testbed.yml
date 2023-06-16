@@ -192,7 +192,7 @@
 
   - name: gather hwsku for LeafRouter that supports dualtor deployment
     set_fact:
-      hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
+      hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64', 'Cisco-8102-C64', 'Cisco-8101-O8C48']"
 
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:
