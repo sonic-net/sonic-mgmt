@@ -6,6 +6,7 @@ import os
 import logging
 import traceback
 import ipaddr
+import ipaddress
 from operator import itemgetter
 from itertools import groupby
 from collections import defaultdict
@@ -59,6 +60,7 @@ options:
 Ansible_facts:
     device_info: The device(host) type and hwsku
     device_conn: each physical connection of the device(host)
+    device_lag_conn: each LAG connection of the device(host)
     device_vlan_range: all configured vlan range for the device(host)
     device_port_vlans: detailed vlanids for each physical port and switchport mode
     server_links: each server port vlan ids
@@ -129,6 +131,7 @@ class Parse_Lab_Graph():
         self.vlanport = {}
         self.vlanrange = {}
         self.links = {}
+        self.lags = {}
         self.consolelinks = {}
         self.bmclinks = {}
         self.pdulinks = {}
@@ -176,6 +179,7 @@ class Parse_Lab_Graph():
                         'HwSkuType', 'predefined')
                     deviceinfo[hostname]['Os'] = attributes.get('Os')
                     self.links[hostname] = {}
+                    self.lags[hostname] = {}
         devicel2info = {}
         devicel3s = self.root.find(self.dpgtag).findall('DevicesL3Info')
         devicel2s = self.root.find(self.dpgtag).findall('DevicesL2Info')
@@ -222,6 +226,58 @@ class Parse_Lab_Graph():
                         'peerdevice': link.attrib['StartDevice'], 'peerport': link.attrib['StartPort'],
                         'speed': link.attrib['BandWidth']}
         console_root = self.root.find(self.csgtag)
+        if devicel3s is not None:
+            # Parse LAGs info
+            for l3info in devicel3s:
+                hostname = l3info.attrib['Hostname']
+                # Collect LAGs IPs
+                lags_ipv4 = {}
+                lags_ipv6 = {}
+                for ip_intf_info in l3info.findall("IPInterface"):
+                    lag = ip_intf_info.attrib["AttachTo"]
+                    if "PortChannel" not in lag:
+                        continue
+                    ip = ipaddress.ip_interface(ip_intf_info.attrib["Prefix"])
+                    if type(ip) == ipaddress.IPv4Interface:
+                        lags_ipv4[lag] = str(ip)
+                    else:
+                        lags_ipv6[lag] = str(ip)
+                # Collect LAG info
+                for lag_entry in l3info.findall("PortChannelInterface"):
+                    intfs = lag_entry.attrib["AttachTo"].split(";")
+                    lag = lag_entry.attrib["Name"]
+                    self.lags[hostname][lag] = {
+                        "ipv4": lags_ipv4.get(lag),
+                        "ipv6": lags_ipv6.get(lag),
+                        "members": intfs
+                    }
+                    # Add LAG to member interfaces info
+                    for intf in intfs:
+                        self.links[hostname][intf]["lag"] = lag
+            # Add peer LAG info to self.lags and self.links. Note that the peer
+            # LAG info in self.links[peer_device] is not guaranteed to be
+            # available when collecting the hostname LAG info
+            # (self.lags[hostname]) in the previous for loop, hence we need to
+            # add peer LAG info to self.lags and self.links in a separate loop
+            for device in self.lags:
+                for lag, lag_info in self.lags[device].items():
+                    # Get peer device and peer lag from a member interface info
+                    member_intf = lag_info["members"][0]
+                    member_intf_info = self.links[device][member_intf]
+                    peer_device = member_intf_info["peerdevice"]
+                    peer_intf = member_intf_info["peerport"]
+                    peer_lag = self.links[peer_device][peer_intf]["lag"]
+                    # Add LAG info to peer LAG
+                    self.lags[peer_device][peer_lag].update({
+                        "peer_ipv4": lag_info["ipv4"],
+                        "peer_ipv6": lag_info["ipv6"],
+                        "peer_members": lag_info["members"],
+                        "peer_lag": lag,
+                        "peer_device": device
+                    })
+                    # Add LAG info to peer member interfaces
+                    for intf in self.lags[peer_device][peer_lag]["members"]:
+                        self.links[peer_device][intf]["peer_lag"] = lag
         if console_root:
             devicecsgroot = console_root.find('DevicesConsoleInfo')
             devicescsg = devicecsgroot.findall('DeviceConsoleInfo')
@@ -429,6 +485,12 @@ class Parse_Lab_Graph():
         """
         return self.links.get(hostname)
 
+    def get_host_lag_connections(self, hostname):
+        """
+        return the given hostname device each individual connection
+        """
+        return self.lags.get(hostname)
+
     def contains_hosts(self, hostnames, part):
         if not part:
             return set(hostnames) <= set(self.devices)
@@ -593,6 +655,7 @@ def build_results(lab_graph, hostnames, ignore_error=False):
     """
     device_info = {}
     device_conn = {}
+    device_lag_conn = {}
     device_port_vlans = {}
     device_vlan_range = {}
     device_vlan_list = {}
@@ -611,6 +674,7 @@ def build_results(lab_graph, hostnames, ignore_error=False):
             return (False, msg)
         device_info[hostname] = dev
         device_conn[hostname] = lab_graph.get_host_connections(hostname)
+        device_lag_conn[hostname] = lab_graph.get_host_lag_connections(hostname)
         host_vlan = lab_graph.get_host_vlan(hostname)
         port_vlans = lab_graph.get_host_port_vlans(hostname)
         # for multi-DUTs, must ensure all have vlan configured.
