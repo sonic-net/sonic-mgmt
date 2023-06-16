@@ -6,7 +6,8 @@ import tempfile
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
-from scapy.all import Packet, ByteField, ShortField, MACField, XStrFixedLenField, ConditionalField
+from tests.common.utilities import wait_until
+from scapy.all import Packet, ByteField, ShortField, MACField, XStrFixedLenField, ConditionalField, MultipleTypeField
 from scapy.all import split_layers, bind_layers, rdpcap
 import scapy.contrib.lacp
 import scapy.layers.l2
@@ -54,13 +55,26 @@ class LACPRetryCount(Packet):
         ConditionalField(XStrFixedLenField("partner_retry_count_reserved", "", 1), lambda pkt:pkt.version == 0xf1),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
-        ConditionalField(XStrFixedLenField("reserved", "", 42), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(XStrFixedLenField("reserved", "", 50), lambda pkt:pkt.version != 0xf1),
+        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt:pkt.version == 0xf1)],
+                          XStrFixedLenField("reserved", "", 50)),
     ]
 
 
+def verify_retry_count(hosts, expected_retry_count):
+    for host in hosts:
+        cfg_facts = host.config_facts(host=host.hostname, source="running")["ansible_facts"]
+        port_channels = cfg_facts["PORTCHANNEL"].keys()
+        for port_channel in port_channels:
+            port_channel_status = host.get_port_channel_status(port_channel)
+            for _, status in list(port_channel_status["ports"].items()):
+                if status["runner"]["partner_retry_count"] != expected_retry_count:
+                    return False
+
+    return True
+
+
 @pytest.fixture(scope="class")
-def higher_retry_count_on_peers(request, nbrhosts):
+def higher_retry_count_on_peers(request, duthost, nbrhosts):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Only supported with SONiC neighbor")
 
@@ -73,7 +87,8 @@ def higher_retry_count_on_peers(request, nbrhosts):
         nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count set PortChannel1 5")
 
     # Wait for retry count info to be updated
-    time.sleep(5)
+    pytest_assert(wait_until(5, 1, 0, verify_retry_count, [duthost], 5),
+                  "Retry count on DUT has not been changed to 5.")
 
     yield
 
@@ -81,11 +96,12 @@ def higher_retry_count_on_peers(request, nbrhosts):
         nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count set PortChannel1 3")
 
     # Wait for retry count info to be updated
-    time.sleep(90)
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
+                  "Retry count on DUT has not been changed to 3.")
 
 
 @pytest.fixture(scope="class")
-def higher_retry_count_on_dut(request, duthost):
+def higher_retry_count_on_dut(request, duthost, nbrhosts):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Only supported with SONiC neighbor")
 
@@ -100,7 +116,8 @@ def higher_retry_count_on_dut(request, duthost):
         duthost.shell("sudo config portchannel retry-count set {} 5".format(port_channel))
 
     # Wait for retry count info to be updated
-    time.sleep(5)
+    pytest_assert(wait_until(5, 1, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 5),
+                  "Retry count on neighbors has not been changed to 5.")
 
     yield
 
@@ -108,11 +125,15 @@ def higher_retry_count_on_dut(request, duthost):
         duthost.shell("sudo config portchannel retry-count set {} 3".format(port_channel))
 
     # Wait for retry count info to be updated
-    time.sleep(90)
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
+                  "Retry count on neighbors has not been changed to 3.")
 
 
 @pytest.fixture(scope="function")
 def config_reload_on_cleanup(request, nbrhosts, duthost):
+    if request.config.getoption("enable_macsec"):
+        pytest.skip("Skip for now, since config reload will disable macsec for future test cases")
+
     yield
 
     for nbr in list(nbrhosts.keys()):
@@ -179,12 +200,13 @@ def check_lacpdu_packet_version(duthost):
 
 
 @pytest.fixture(scope="function")
-def disable_retry_count_on_peer(request, nbrhosts, higher_retry_count_on_peers):
+def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers):
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature false")
 
     # Wait 90 seconds for retry count to get updated on the DUT
-    time.sleep(90)
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
+                  "Retry count on neighbors has not been reset to 3.")
 
     yield
 
@@ -193,13 +215,14 @@ def disable_retry_count_on_peer(request, nbrhosts, higher_retry_count_on_peers):
 
 
 @pytest.fixture(scope="function")
-def disable_retry_count_on_dut(request, duthost, higher_retry_count_on_dut):
+def disable_retry_count_on_dut(duthost, nbrhosts, higher_retry_count_on_dut):
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
         duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature false".format(port_channel))
 
     # Wait 90 seconds for retry count to get updated on the peers
-    time.sleep(90)
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
+                  "Retry count on neighbors has not been reset to 3.")
 
     yield
 
@@ -214,9 +237,8 @@ class TestNeighborRetryCount:
         """
         for nbr in list(nbrhosts.keys()):
             port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
-            pytest_assert(port_channel_status["runner"]["retry_count"] == 5, "retry count on neighbor is incorrect")
             pytest_assert(port_channel_status["runner"]["retry_count"] == 5,
-                          "retry count on DUT is incorrect; expected 5, but is {}"
+                          "retry count on neighbor is incorrect; expected 5, but is {}"
                           .format(port_channel_status["runner"]["retry_count"]))
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
