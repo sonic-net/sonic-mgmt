@@ -17,7 +17,8 @@
     "helper_data": {
         "rdma_config_update_validator": {
             "mellanox_asics": {
-                "spc1": [ "ACS-MSN2700", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2010", "Mellanox-SN2700", "Mellanox-SN2700-D48C8" ]
+                "spc1": [ "ACS-MSN2700", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2010", "Mellanox-SN2700", "Mellanox-SN2700-D48C8" ],
+                "spc3": [ "ACS-MSN4600C", "Mellanox-SN4600C-C64", "Mellanox-SN4600C-D48C40", "Mellanox-SN4600C-D100C12S2", "Mellanox-SN4600C-D112C8"]
             },
             "broadcom_asics": {
                 "th": [ "Force10-S6100", "Arista-7060CX-32S-C32", "Arista-7060CX-32S-C32-T1", "Arista-7060CX-32S-D48C8", "Celestica-DX010-C32", "Seastone-DX010" ],
@@ -42,6 +43,7 @@
                         "operations": ["remove", "add", "replace"],
                         "platforms": {
                             "spc1": "20181100",
+                            "spc3": "20181100",
                             "td2": "20181100",
                             "th": "20181100",
                             "th2": "20181100",

@@ -308,10 +308,11 @@ def get_asic_name(duthost):
     elif asic_type == 'mellanox' or asic_type == 'vs' or asic_type == 'broadcom':
         hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
         if asic_type == 'mellanox' or asic_type == 'vs':
-            spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
-            if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
-                asic = "spc1"
-                return asic
+            mlnx_asics = asic_mapping["mellanox_asics"]
+            for asic_shorthand, hwskus in mlnx_asics.items():
+                if hwsku.lower() in [hwsku_cur.lower() for hwsku_cur in hwskus]:
+                    asic = asic_shorthand
+                    break
         if asic_type == 'broadcom' or asic_type == 'vs':
             broadcom_asics = asic_mapping["broadcom_asics"]
             for asic_shorthand, hwskus in broadcom_asics.items():
