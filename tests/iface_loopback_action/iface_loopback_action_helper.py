@@ -128,9 +128,9 @@ def get_all_up_ports(config_facts):
     :return: List of ports which is up
     """
     split_port_alias_pattern = r"etp\d+[a-z]"
-    split_up_ports = [p for p, v in config_facts['PORT'].items() if v.get('admin_status', None) == 'up' and
+    split_up_ports = [p for p, v in list(config_facts['PORT'].items()) if v.get('admin_status', None) == 'up' and
                       not re.match(split_port_alias_pattern, v['alias'])]
-    non_split_up_ports = [p for p, v in config_facts['PORT'].items() if v.get('admin_status', None) == 'up' and
+    non_split_up_ports = [p for p, v in list(config_facts['PORT'].items()) if v.get('admin_status', None) == 'up' and
                           re.match(split_port_alias_pattern, v['alias'])]
     return split_up_ports + non_split_up_ports
 
@@ -142,7 +142,7 @@ def get_portchannel_of_port(config_facts, port):
     :param port: the port which need to check
     :return: portchannel or None
     """
-    portchannels = config_facts['PORTCHANNEL'].keys() if 'PORTCHANNEL' in config_facts else []
+    portchannels = list(config_facts['PORTCHANNEL'].keys()) if 'PORTCHANNEL' in config_facts else []
     for portchannel in portchannels:
         portchannel_members = config_facts['PORTCHANNEL'][portchannel].get('members')
         if port in portchannel_members:
@@ -156,9 +156,9 @@ def get_vlan_of_port(config_facts, port):
     :param port: the port which need to check
     :return: vlan or None
     """
-    vlan_dict = config_facts['VLAN'].items() if 'VLAN' in config_facts else {}
+    vlan_dict = list(config_facts['VLAN'].items()) if 'VLAN' in config_facts else {}
     for vlan_name, vlan in vlan_dict:
-        if port in config_facts['VLAN_MEMBER'][vlan_name].keys():
+        if port in list(config_facts['VLAN_MEMBER'][vlan_name].keys()):
             return vlan['vlanid']
     return None
 
@@ -169,7 +169,7 @@ def remove_orig_dut_port_config(duthost, orig_ports_configuration):
     :param duthost: DUT host object
     :param orig_ports_configuration: original ports configuration parameters
     """
-    for _, port_dict in orig_ports_configuration.items():
+    for _, port_dict in list(orig_ports_configuration.items()):
         port = port_dict['port']
         if port_dict['vlan']:
             remove_dut_vlan_member(duthost, port, port_dict['vlan'])
@@ -193,7 +193,7 @@ def get_portchannel_peer_port_map(duthost, orig_ports_configuration, tbinfo, nbr
     peer_ports_map = {}
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vm_neighbors = mg_facts['minigraph_neighbors']
-    for _, port_dict in orig_ports_configuration.items():
+    for _, port_dict in list(orig_ports_configuration.items()):
         port = port_dict['port']
         if port_dict['portchannel']:
             vm_host, peer_port = get_peer_port_info(nbrhosts, vm_neighbors, port)
@@ -258,7 +258,7 @@ def apply_dut_config(duthost, ports_configuration):
     :param duthost: DUT host object
     :param ports_configuration: ports configuration parameters
     """
-    for _, port_conf in ports_configuration.items():
+    for _, port_conf in list(ports_configuration.items()):
         port = port_conf['port']
         port_type = port_conf['type']
         ip_addr = port_conf['ip_addr']
@@ -280,7 +280,7 @@ def apply_ptf_config(ptfhost, ports_configuration):
     :param ptfhost: PTF host object
     :param ports_configuration: ports configuration parameters
     """
-    for _, port_conf in ports_configuration.items():
+    for _, port_conf in list(ports_configuration.items()):
         port_type = port_conf['type']
         ptf_port = port_conf['ptf_port']
 
@@ -297,7 +297,7 @@ def remove_ptf_config(ptfhost, ports_configuration):
     :param ptfhost: PTF host object
     :param ports_configuration: ports configuration parameters
     """
-    for _, port_conf in ports_configuration.items():
+    for _, port_conf in list(ports_configuration.items()):
         port_type = port_conf['type']
         ptf_port = port_conf['ptf_port']
         if port_type == PO_SUB_PORT_RIF or port_type == PO_RIF:

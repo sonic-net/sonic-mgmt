@@ -22,6 +22,7 @@ all:
           - t0
           - t0-16
           - t0-56
+          - t0-56-d48c8
           - t0-52
           - ptf32
           - ptf64
@@ -42,6 +43,7 @@ all:
           - dualtor-mixed-56
           - dualtor-mixed-120
           - m0
+          - m0-2vlan
           - mc0
           - mx
       children:

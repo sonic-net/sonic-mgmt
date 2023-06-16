@@ -101,13 +101,13 @@ x86_64-8102_64h_o-r0:
     greater_timeout: 6553
     too_big_timeout: 6554
 
-x86_64-8800_rp_o-r0:    
+x86_64-8800_rp_o-r0:
   default:
     valid_timeout: 10
     greater_timeout: 6553
     too_big_timeout: 6554
 
-x86_64-88_lc0_36fh_mo-r0:    
+x86_64-88_lc0_36fh_mo-r0:
   default:
     valid_timeout: 10
     greater_timeout: 6553
@@ -118,7 +118,31 @@ x86_64-8800_lc_48h_o-r0:
     valid_timeout: 10
     greater_timeout: 6553
     too_big_timeout: 6554
-    
+
+x86_64-88_lc0_36fh_m-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-88_lc0_36fh-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8800_lc_48h-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8800_rp-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
 # Cisco-Churchill-Mono watchdog
 x86_64-8101_32fh_o-r0:
   default:

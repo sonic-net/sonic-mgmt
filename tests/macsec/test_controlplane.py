@@ -2,16 +2,12 @@ from time import sleep
 import pytest
 import logging
 import re
-import scapy.all as scapy
-import ptf.testutils as testutils
-from collections import Counter
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from tests.common import config_reload
-from macsec_helper import *
-from macsec_config_helper import *
-from macsec_platform_helper import *
+from .macsec_helper import check_wpa_supplicant_process, check_appl_db, check_mka_session,\
+                           get_mka_session, get_sci, get_appl_db, get_ipnetns_prefix
+from .macsec_platform_helper import get_platform, get_macsec_ifname
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +20,7 @@ pytestmark = [
 class TestControlPlane():
     def test_wpa_supplicant_processes(self, duthost, ctrl_links):
         def _test_wpa_supplicant_processes():
-            for port_name, nbr in ctrl_links.items():
+            for port_name, nbr in list(ctrl_links.items()):
                 check_wpa_supplicant_process(duthost, port_name)
                 if isinstance(nbr["host"], EosHost):
                     continue
@@ -40,7 +36,7 @@ class TestControlPlane():
             # If the DUT isn't a virtual switch that cannot support "get mka session" by "ip macsec show"
             # So, skip this test for physical switch
             # TODO: Support "get mka session" in the physical switch
-            if u"x86_64-kvm_x86_64" not in get_platform(duthost):
+            if "x86_64-kvm_x86_64" not in get_platform(duthost):
                 # TODO: add check mka session later, now wait some time for session ready
                 sleep(30)
                 logging.info(
@@ -48,7 +44,7 @@ class TestControlPlane():
                 return True
             dut_mka_session = get_mka_session(duthost)
             assert len(dut_mka_session) == len(ctrl_links)
-            for port_name, nbr in ctrl_links.items():
+            for port_name, nbr in list(ctrl_links.items()):
                 if isinstance(nbr["host"], EosHost):
                     assert nbr["host"].iface_macsec_ok(nbr["port"])
                     continue
@@ -71,7 +67,7 @@ class TestControlPlane():
             pytest.skip("If the rekey period is 0 which means rekey by period isn't active.")
         assert len(ctrl_links) > 0
         # Only pick one link to test
-        port_name, nbr = ctrl_links.items()[0]
+        port_name, nbr = list(ctrl_links.items())[0]
         _, _, _, last_dut_egress_sa_table, last_dut_ingress_sa_table = get_appl_db(
             duthost, port_name, nbr["host"], nbr["port"])
         up_link = upstream_links[port_name]

@@ -1,6 +1,7 @@
 import crypt
 import logging
 import re
+import binascii
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release
@@ -9,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 
-# per-command authorization and accounting feature not avaliable in following versions
+# per-command authorization and accounting feature not available in following versions
 per_command_check_skip_versions = ["201811", "201911", "202012", "202106"]
 
 
@@ -27,13 +28,20 @@ def check_all_services_status(ptfhost):
 
 
 def start_tacacs_server(ptfhost):
+    def tacacs_running(ptfhost):
+        out = ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout"]
+        return "tacacs+ running" in out
+
     ptfhost.command("service tacacs_plus restart", module_ignore_errors=True)
-    return "tacacs+ running" in ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout_lines"]
+    return wait_until(5, 1, 0, tacacs_running, ptfhost)
 
 
 def stop_tacacs_server(ptfhost):
-    ptfhost.service(name="tacacs_plus", state="stopped")
-    check_all_services_status(ptfhost)
+    def tacacs_not_running(ptfhost):
+        out = ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout"]
+        return "tacacs+ apparently not running" in out
+    ptfhost.shell("service tacacs_plus stop")
+    return wait_until(5, 1, 0, tacacs_not_running, ptfhost)
 
 
 def setup_local_user(duthost, tacacs_creds):
@@ -186,9 +194,10 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     # Find ld lib symbolic link target, and fix the tac_plus config file
     fix_ld_path_in_config(duthost, ptfhost)
 
+    # config TACACS+ to use debug flag: '-d 2058', so received data will write to /var/log/tac_plus.log
     ptfhost.lineinfile(
         path="/etc/default/tacacs+",
-        line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"",
+        line="DAEMON_OPTS=\"-d 2058 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"",
         regexp='^DAEMON_OPTS=.*'
     )
     check_all_services_status(ptfhost)
@@ -236,3 +245,37 @@ def remove_all_tacacs_server(duthost):
         tacacs_server = tacacs_server.rstrip()
         if tacacs_server:
             duthost.shell("sudo config tacacs delete %s" % tacacs_server)
+
+
+def check_server_received(ptfhost, data):
+    """
+        Check if tacacs server received the data.
+    """
+    hex = binascii.hexlify(data.encode('ascii'))
+    hex_string = hex.decode()
+
+    """
+      Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string:
+            1. tac_plus server start with '-d 2058' parameter to log received data in following format in tac_plus.log:
+                    Thu Mar  9 06:26:16 2023 [75483]: data[140] = 0xf8, xor'ed with hash[12] = 0xab -> 0x53
+                    Thu Mar  9 06:26:16 2023 [75483]: data[141] = 0x8d, xor'ed with hash[13] = 0xc2 -> 0x4f
+                In above log, the 'data[140] = 0xf8' is received data.
+
+            2. Following sed command will extract the received data from tac_plus.log:
+                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa W605
+
+            3. Following set command will join all received data to hex string:
+                    sed ':a; N; $!ba; s/\\n//g'
+
+            4. Then the grep command will check if the received hex data containes expected hex string.
+                    grep '{0}'".format(hex_string)
+
+      Also suppress following Flake8 error/warning:
+            W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
+            E501 : Line too long. Following sed command difficult to split to multiple line.
+    """
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
+    res = ptfhost.shell(sed_command)
+    logger.info(sed_command)
+    logger.info(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) > 0)

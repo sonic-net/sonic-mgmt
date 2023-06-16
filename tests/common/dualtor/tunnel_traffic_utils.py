@@ -98,7 +98,7 @@ def queue_stats_check(dut, exp_queue, packet_count):
     queue_counter = dut.shell('show queue counters | grep "UC"')['stdout']
     logging.debug('queue_counter:\n{}'.format(queue_counter))
     # In case of other noise packets
-    DIFF = 0.1
+    DIFF = max(10, packet_count * 0.1)
 
     """
     regex search will look for following pattern in queue_counter outpute
@@ -111,7 +111,7 @@ def queue_stats_check(dut, exp_queue, packet_count):
 
     if result:
         for number in result:
-            if int(number) <= packet_count * (1 + DIFF) and int(number) >= packet_count:
+            if int(number) <= packet_count + DIFF and int(number) >= packet_count:
                 logging.info("the expected Queue : {} received expected numbers of packet {}"
                              .format(exp_queue, number))
 
@@ -135,7 +135,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
         def _get_t1_ptf_port_indexes(dut, tbinfo):
             """Get the port indexes of those ptf port connecting to T1 switches."""
             pc_ports = dual_tor_utils.get_t1_ptf_pc_ports(dut, tbinfo)
-            return [int(_.strip("eth")) for _ in reduce(operator.add, pc_ports.values(), [])]
+            return [int(_.strip("eth")) for _ in reduce(operator.add, list(pc_ports.values()), [])]
 
         @staticmethod
         def _find_ipv4_lo_addr(config_facts):
@@ -268,7 +268,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 self.active_tor_lo_addr = self._find_ipv4_lo_addr(active_tor_cfg_facts)
             else:
                 self.active_tor_lo_addr = [
-                    _["address_ipv4"] for _ in standby_tor_cfg_facts["PEER_SWITCH"].values()
+                    _["address_ipv4"] for _ in list(standby_tor_cfg_facts["PEER_SWITCH"].values())
                 ][0]
 
             self.existing = existing

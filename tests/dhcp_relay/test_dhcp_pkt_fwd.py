@@ -59,7 +59,7 @@ class DhcpPktFwdBase:
                 break
 
         lags = [mgFacts["minigraph_ptf_indices"][testPort]]
-        for portchannelConfig in mgFacts["minigraph_portchannels"].values():
+        for portchannelConfig in list(mgFacts["minigraph_portchannels"].values()):
             if testPort in portchannelConfig["members"]:
                 for lag in portchannelConfig["members"]:
                     if testPort != lag:
@@ -114,7 +114,7 @@ class DhcpPktFwdBase:
 
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
-        for dutPort, neigh in mgFacts["minigraph_neighbors"].items():
+        for dutPort, neigh in list(mgFacts["minigraph_neighbors"].items()):
             if "t1" in topo_name and "T0" in neigh["name"] or topo_name == "m0" and "MX" in neigh["name"]:
                 downstreamPorts.append(dutPort)
             elif "t1" in topo_name and "T2" in neigh["name"] or topo_name == "m0" and "M1" in neigh["name"]:

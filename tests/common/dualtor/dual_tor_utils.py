@@ -11,6 +11,7 @@ import ptf
 import re
 import string
 import sys
+import six
 
 from collections import defaultdict
 from datetime import datetime
@@ -26,13 +27,14 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa F401
 from tests.common.dualtor.dual_tor_common import mux_config                                             # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route
-from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address, wait_until
 from tests.ptf_runner import ptf_runner
 
 
@@ -166,7 +168,7 @@ def get_t1_ptf_pc_ports(dut, tbinfo):
     mg_facts = dut.get_extended_minigraph_facts(tbinfo)
 
     pc_ports = {}
-    for pc in config_facts['PORTCHANNEL'].keys():
+    for pc in list(config_facts['PORTCHANNEL'].keys()):
         pc_ports[pc] = []
         for intf in config_facts["PORTCHANNEL"][pc]["members"]:
             ptf_port_index = mg_facts["minigraph_ptf_indices"][intf]
@@ -207,7 +209,7 @@ def get_t1_active_ptf_ports(dut, tbinfo):
 
     up_portchannels = dut.get_up_ip_ports()
     ptf_portchannel_intfs = {}
-    for k, v in config_facts['PORTCHANNEL'].items():
+    for k, v in list(config_facts['PORTCHANNEL'].items()):
         if k in up_portchannels:
             ptf_portchannel_intfs[k] = []
             for member in v['members']:
@@ -228,7 +230,7 @@ def get_t1_bgp_up_ptf_ports(dut, tbinfo):
     bgp_facts = dut.bgp_facts()['ansible_facts']
     ip_interfaces = dut.shell('show ip interface')['stdout_lines'][2:]
     portchannels = []
-    for k, v in bgp_facts['bgp_neighbors'].items():
+    for k, v in list(bgp_facts['bgp_neighbors'].items()):
         if v['state'] == 'established':
             for line in ip_interfaces:
                 if k in line:
@@ -236,7 +238,7 @@ def get_t1_bgp_up_ptf_ports(dut, tbinfo):
                     break
 
     ptf_portchannel_intfs = {}
-    for k, v in config_facts['PORTCHANNEL'].items():
+    for k, v in list(config_facts['PORTCHANNEL'].items()):
         if k in portchannels:
             ptf_portchannel_intfs[k] = []
             for member in v['members']:
@@ -261,7 +263,7 @@ def update_mux_configs_and_config_reload(dut, state):
 
     # Update mux_cable state and dump to a temp file
     mux_cable_config_json = json.loads(mux_cable_config)
-    for _, config in mux_cable_config_json.items():
+    for _, config in list(mux_cable_config_json.items()):
         config['state'] = state
     mux_cable_config_json = {"MUX_CABLE": mux_cable_config_json}
     TMP_FILE = "/tmp/mux_config.json"
@@ -345,7 +347,7 @@ def _get_tor_fanouthosts(tor_host, fanouthosts):
         dict: Key is fanout hostname, value is fanout host object.
     """
     hosts = {}
-    for fanout_hostname, fanout_host in fanouthosts.items():
+    for fanout_hostname, fanout_host in list(fanouthosts.items()):
         if tor_host.hostname in fanout_host.dut_hostnames:
             hosts[fanout_hostname] = fanout_host
     if not hosts:
@@ -406,7 +408,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
         # If no interface is specified, shutdown all VLAN ports
         vlan_intfs = []
         vlan_member_table = tor_host.get_running_config_facts()['VLAN_MEMBER']
-        for vlan_members in vlan_member_table.values():
+        for vlan_members in list(vlan_member_table.values()):
             vlan_intfs.extend(list(vlan_members.keys()))
 
         dut_intfs = vlan_intfs
@@ -414,8 +416,8 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
     dut_intfs = natsorted(dut_intfs)
 
     full_dut_fanout_port_map = {}
-    for fanout_host in tor_fanouthosts.values():
-        for encoded_dut_intf, fanout_intf in fanout_host.host_to_fanout_port_map.items():
+    for fanout_host in list(tor_fanouthosts.values()):
+        for encoded_dut_intf, fanout_intf in list(fanout_host.host_to_fanout_port_map.items()):
             full_dut_fanout_port_map[encoded_dut_intf] = {
                 'fanout_host': fanout_host,
                 'fanout_intf': fanout_intf
@@ -434,7 +436,7 @@ def _shutdown_fanout_tor_intfs(tor_host, tor_fanouthosts, tbinfo, dut_intfs=None
         else:
             logger.error('No dut intf "{}" in full_dut_fanout_port_map'.format(encoded_dut_intf))
 
-    for fanout_host, intf_list in fanout_shut_intfs.items():
+    for fanout_host, intf_list in list(fanout_shut_intfs.items()):
         fanout_host.shutdown(intf_list)
         fanout_intfs_to_recover[fanout_host].extend(intf_list)
 
@@ -470,7 +472,7 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
 
     logger.info('Recover fanout ports connected to upper_tor')
 
-    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+    for fanout_host, intf_list in list(fanout_intfs_to_recover.items()):
         fanout_host.no_shutdown(intf_list)
     fanout_intfs_to_recover.clear()
 
@@ -504,7 +506,7 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
     logger.info('Recover fanout ports connected to lower_tor')
 
-    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+    for fanout_host, intf_list in list(fanout_intfs_to_recover.items()):
         fanout_host.no_shutdown(intf_list)
     fanout_intfs_to_recover.clear()
 
@@ -548,7 +550,7 @@ def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_h
     yield shutdown
 
     logger.info('Recover fanout ports connected to tor')
-    for fanout_host, intf_list in fanout_intfs_to_recover.items():
+    for fanout_host, intf_list in list(fanout_intfs_to_recover.items()):
         fanout_host.no_shutdown(intf_list)
     fanout_intfs_to_recover.clear()
 
@@ -584,10 +586,10 @@ def _shutdown_t1_tor_intfs(tor_host, nbrhosts, tbinfo, vm_names=None):
             else:
                 logger.error('Unknown vm_name: "{}"'.format(vm_name))
 
-    for vm_name in natsorted(target_vms.keys()):
+    for vm_name in natsorted(list(target_vms.keys())):
         eos_host = target_vms[vm_name]['host']
         vm_intfs = tbinfo['topo']['properties']['configuration'][vm_name]['interfaces']
-        for vm_intf in natsorted(vm_intfs.keys()):
+        for vm_intf in natsorted(list(vm_intfs.keys())):
             intf_detail = vm_intfs[vm_intf]
             if 'dut_index' in intf_detail:
                 if intf_detail['dut_index'] == tor_index:
@@ -698,7 +700,7 @@ def _shutdown_tor_downlink_intfs(tor_host, dut_intfs=None):
         # If no interface is specified, shutdown all VLAN ports
         vlan_intfs = []
         vlan_member_table = tor_host.get_running_config_facts()['VLAN_MEMBER']
-        for vlan_members in vlan_member_table.values():
+        for vlan_members in list(vlan_member_table.values()):
             vlan_intfs.extend(list(vlan_members.keys()))
 
         dut_intfs = vlan_intfs
@@ -832,7 +834,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     """
 
     def _generate_hashed_ipv4_packet(src_mac, dst_mac, dst_ip, hash_key):
-        SRC_IP_RANGE = [u'1.0.0.0', u'200.255.255.255']
+        SRC_IP_RANGE = ['1.0.0.0', '200.255.255.255']
         src_ip = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
         sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
         dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
@@ -877,7 +879,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
     def _generate_hashed_ipv6_packet(src_mac, dst_mac, dst_ip, hash_key):
-        SRC_IP_RANGE = [u'20D0:A800:0:00::', u'20D0:FFFF:0:00::FFFF']
+        SRC_IP_RANGE = ['20D0:A800:0:00::', '20D0:FFFF:0:00::FFFF']
         src_ip = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
         sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
         dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
@@ -929,7 +931,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     if len(generate_hashed_packet_to_server.packets_cache[call_signature]) < count:
         pkt_num = count - len(generate_hashed_packet_to_server.packets_cache[call_signature])
         for _ in range(pkt_num):
-            if ipaddress.ip_address(target_server_ip.decode()).version == 4:
+            if ipaddress.ip_address(six.text_type(target_server_ip)).version == 4:
                 pkt_t = _generate_hashed_ipv4_packet(src_mac, dst_mac, target_server_ip, hash_key)
             else:
                 pkt_t = _generate_hashed_ipv6_packet(src_mac, dst_mac, target_server_ip, hash_key)
@@ -986,7 +988,7 @@ def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
     expected_uplink_ports = list()
     expected_uplink_portchannels = list()
     portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
-    for pc, intfs in portchannel_ports.items():
+    for pc, intfs in list(portchannel_ports.items()):
         expected_uplink_portchannels.append(pc)
         for member in intfs:
             expected_uplink_ports.append(int(member.strip("eth")))
@@ -1007,7 +1009,7 @@ def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
                                                          timeout=0.1,
                                                          count=1)
 
-        for ptf_idx, pkt_count in ptf_port_count.items():
+        for ptf_idx, pkt_count in list(ptf_port_count.items()):
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
 
     logging.info("Received packets in ports: {}".format(str(port_packet_count)))
@@ -1032,7 +1034,7 @@ def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
         pkt_num_lo = expect_packet_num * (1.0 - 0.25)
         pkt_num_hi = expect_packet_num * (1.0 + 0.25)
         # Step 3: Check if uplink distribution (hierarchical ECMP) is balanced
-        for pc, intfs in portchannel_ports.items():
+        for pc, intfs in list(portchannel_ports.items()):
             count = 0
             # Collect the packets count within a single portchannel
             for member in intfs:
@@ -1093,7 +1095,7 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=1
 
     port_channels = get_t1_ptf_pc_ports(host, tbinfo)
     rx_ports = []
-    for v in port_channels.values():
+    for v in list(port_channels.values()):
         rx_ports += v
     rx_ports = [int(x.strip('eth')) for x in rx_ports]
 
@@ -1137,7 +1139,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_fu
     res = {}
     res['ptfhost'] = ptfhost
     res['standby_tor_mac'] = standby_tor.facts['router_mac']
-    vlan_name = standby_tor_mg_facts['minigraph_vlans'].keys()[0]
+    vlan_name = list(standby_tor_mg_facts['minigraph_vlans'].keys())[0]
     res['vlan_mac'] = standby_tor.get_dut_iface_mac(vlan_name)
     res['standby_tor_ip'] = _get_iface_ip(standby_tor_mg_facts, 'Loopback0')
 
@@ -1152,7 +1154,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_fu
         res['ptf_portchannel_indices'] = get_t1_bgp_up_ptf_ports(standby_tor, tbinfo)
 
     servers = mux_cable_server_ip(standby_tor)
-    random_server_iface = random.choice(servers.keys())
+    random_server_iface = random.choice(list(servers.keys()))
 
     res['selected_port'] = random_server_iface
     res['target_server_ip'] = servers[random_server_iface]['server_ipv4'].split('/')[0]
@@ -1215,7 +1217,7 @@ def rand_selected_interface(rand_selected_dut):
     """Select a random interface to test."""
     tor = rand_selected_dut
     server_ips = mux_cable_server_ip(tor)
-    iface = str(random.choice(server_ips.keys()))
+    iface = str(random.choice(list(server_ips.keys())))
     logging.info("select DUT interface %s to test.", iface)
     return iface, server_ips[iface]
 
@@ -1228,7 +1230,7 @@ def show_muxcable_status(duthost):
     output = json.loads(duthost.shell(command)["stdout"])
 
     ret = {}
-    for port, muxcable in output['MUX_CABLE'].items():
+    for port, muxcable in list(output['MUX_CABLE'].items()):
         ret[port] = {'status': muxcable['STATUS'], 'health': muxcable['HEALTH']}
 
     return ret
@@ -1236,8 +1238,8 @@ def show_muxcable_status(duthost):
 
 def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
     """Build ipv4 packet and expected mask packet destinated to server."""
-    pkt_dscp = random.choice(range(0, 33))
-    pkt_ttl = random.choice(range(3, 65))
+    pkt_dscp = random.choice(list(range(0, 33)))
+    pkt_ttl = random.choice(list(range(3, 65)))
     pkt = testutils.simple_ip_packet(
         eth_dst=duthost.facts["router_mac"],
         eth_src=ptfadapter.dataplane.get_mac(0, 0),
@@ -1262,8 +1264,8 @@ def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
 
 def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
     """Build ipv6 packet and expected mask packet destinated to server."""
-    pkt_dscp = random.choice(range(0, 33))
-    pkt_hl = random.choice(range(3, 65))
+    pkt_dscp = random.choice(list(range(0, 33)))
+    pkt_hl = random.choice(list(range(3, 65)))
     pktlen = 100
     pkt_tc = testutils.ip_make_tos(0, 0, pkt_dscp)
     pkt = Ether(src=ptfadapter.dataplane.get_mac(0, 0), dst=duthost.facts["router_mac"])
@@ -1312,7 +1314,7 @@ def get_ptf_server_intf_index(tor, tbinfo, iface):
 
 def get_interface_server_map(torhost, count):
     server_ips = mux_cable_server_ip(torhost)
-    interfaces = [str(_) for _ in server_ips.keys()]
+    interfaces = [str(_) for _ in list(server_ips.keys())]
     interfaces = interfaces[:count]
     iface_server_map = {_: server_ips[_] for _ in interfaces}
     logging.info("select DUT interface %s to test.", iface_server_map)
@@ -1325,9 +1327,9 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     The function is similar with fixture apply_dual_tor_peer_switch_route, but we can't use the fixture directly
     """
     logging.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
-    bgp_neighbors = standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys()
+    bgp_neighbors = list(standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys())
 
-    route_dst = ipaddress.ip_address(route_dst.decode())
+    route_dst = ipaddress.ip_address(six.text_type(route_dst))
     ip_neighbors = []
     for neighbor in bgp_neighbors:
         if ipaddress.ip_address(neighbor).version == route_dst.version:
@@ -1353,7 +1355,7 @@ def remove_static_routes(duthost, route_dst):
     """
     Remove static routes for duthost
     """
-    route_dst = ipaddress.ip_address(route_dst.decode())
+    route_dst = ipaddress.ip_address(six.text_type(route_dst))
     subnet_mask_len = 32 if route_dst.version == 4 else 128
 
     logger.info("Removing dual ToR peer switch static route:  {}/{}".format(str(route_dst), subnet_mask_len))
@@ -1442,7 +1444,7 @@ def is_tunnel_qos_remap_enabled(duthost):
     """
     try:
         tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
-                                                module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+                                                module_ignore_errors=True)["stdout_lines"][0]
     except IndexError:
         return False
     return "enabled" == tunnel_qos_remap_status
@@ -1460,7 +1462,7 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
     arp_responder_conf = {}
     tor_to_ptf_intf_map = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
 
-    for tor_intf, config_vals in mux_config.items():
+    for tor_intf, config_vals in list(mux_config.items()):
         ptf_intf = "eth{}".format(tor_to_ptf_intf_map[tor_intf])
         arp_responder_conf[ptf_intf] = [
             str(ipaddress.ip_interface(config_vals["SERVER"]["IPv4"]).ip),
@@ -1475,4 +1477,94 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
 
     yield
 
-    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+
+
+@pytest.fixture
+def validate_active_active_dualtor_setup(
+    duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa F811
+    """Validate that both ToRs are active for active-active mux ports."""
+
+    def check_active_active_port_status(duthost, ports, status):
+        logging.debug("Check mux status for ports {} is {}".format(ports, status))
+        show_mux_status_ret = show_muxcable_status(duthost)
+        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
+        for port in ports:
+            if port not in show_mux_status_ret:
+                return False
+            elif show_mux_status_ret[port]['status'] != status:
+                return False
+        return True
+
+    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
+        return
+
+    if not all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
+        restart_nic_simulator()
+        ptfhost.shell("supervisorctl restart icmp_responder")
+
+    # verify icmp_responder is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
+    pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
+
+    # verify both ToRs are active
+    for duthost in duthosts:
+        pt_assert(
+            wait_until(30, 5, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
+            "Not all active-active mux ports are active on device %s" % duthost.hostname
+        )
+
+    return
+
+
+@pytest.fixture
+def config_active_active_dualtor_active_standby(
+    duthosts, active_active_ports, tbinfo, validate_active_active_dualtor_setup                         # noqa F811
+):
+    """Config the active-active dualtor that one ToR as active and the other as standby."""
+    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
+        yield
+        return
+
+    def check_active_active_port_status(duthost, ports, status):
+        logging.debug("Check mux status for ports {} is {}".format(ports, status))
+        show_mux_status_ret = show_muxcable_status(duthost)
+        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
+        for port in ports:
+            if port not in show_mux_status_ret:
+                return False
+            elif show_mux_status_ret[port]['status'] != status:
+                return False
+        return True
+
+    def _config_the_active_active_dualtor(active_tor, standby_tor, ports):
+        active_side_commands = []
+        standby_side_commands = []
+        for port in ports:
+            if port not in active_active_ports:
+                raise ValueError("Port {} is not in the active-active ports".format(port))
+            active_side_commands.append("config mux mode active {}".format(port))
+            standby_side_commands.append("config mux mode standby {}".format(port))
+
+        if not check_active_active_port_status(active_tor, ports, 'active'):
+            active_tor.shell_cmds(cmds=active_side_commands)
+        standby_tor.shell_cmds(cmds=standby_side_commands)
+
+        pt_assert(wait_until(30, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
+                  "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
+        pt_assert(wait_until(30, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
+                  "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+
+        ports_to_restore.extend(ports)
+
+    ports_to_restore = []
+
+    yield _config_the_active_active_dualtor
+
+    if ports_to_restore:
+        restore_cmds = []
+        for port in ports_to_restore:
+            restore_cmds.append("config mux mode auto {}".format(port))
+
+        for duthost in duthosts:
+            duthost.shell_cmds(cmds=restore_cmds)

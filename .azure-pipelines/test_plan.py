@@ -1,17 +1,21 @@
 from __future__ import print_function, division
 
 import argparse
+import ast
 import json
 import os
 import sys
 import time
+from datetime import datetime, timedelta
 
 import requests
 import yaml
 from enum import Enum
 
+__metaclass__ = type
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
+TOKEN_EXPIRE_HOURS = 6
 
 
 class TestPlanStatus(Enum):
@@ -72,22 +76,22 @@ class AbstractStatus():
 
 class InitStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.INIT)
+        super(InitStatus, self).__init__(TestPlanStatus.INIT)
 
 
 class LockStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.LOCK_TESTBED)
+        super(LockStatus, self).__init__(TestPlanStatus.LOCK_TESTBED)
 
 
 class PrePareStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.PREPARE_TESTBED)
+        super(PrePareStatus, self).__init__(TestPlanStatus.PREPARE_TESTBED)
 
 
 class ExecutingStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.EXECUTING)
+        super(ExecutingStatus, self).__init__(TestPlanStatus.EXECUTING)
 
     def print_logs(self, test_plan_id, resp_data, start_time):
         print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
@@ -97,55 +101,103 @@ class ExecutingStatus(AbstractStatus):
 
 class KvmDumpStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.KVMDUMP)
+        super(KvmDumpStatus, self).__init__(TestPlanStatus.KVMDUMP)
 
 
 class FailedStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.FAILED)
+        super(FailedStatus, self).__init__(TestPlanStatus.FAILED)
 
 
 class CancelledStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.CANCELLED)
+        super(CancelledStatus, self).__init__(TestPlanStatus.CANCELLED)
 
 
 class FinishStatus(AbstractStatus):
     def __init__(self):
-        super().__init__(TestPlanStatus.FINISHED)
+        super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
+
+
+def get_scope(testbed_tools_url):
+    scope = "api://sonic-testbed-tools-dev/.default"
+    if testbed_tools_url in [
+        "http://sonic-testbed2-scheduler-backend.azurewebsites.net",
+        "https://sonic-testbed2-scheduler-backend.azurewebsites.net",
+        "http://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net",
+        "https://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net"
+    ]:
+        scope = "api://sonic-testbed-tools-prod/.default"
+    return scope
+
+
+def parse_list_from_str(s):
+    # Since Azure Pipeline doesn't support to receive an empty parameter,
+    # We use ' ' as a magic code for empty parameter.
+    # So we should consider ' ' as en empty input.
+    if isinstance(s, str):
+        s = s.strip()
+    if not s:
+        return None
+    return [single_str.strip() for single_str in s.split(',')]
 
 
 class TestPlanManager(object):
 
-    def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
+    def __init__(self, url, frontend_url, tenant_id=None, client_id=None, client_secret=None, ):
         self.url = url
+        self.frontend_url = frontend_url
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
+        self.with_auth = False
+        self._token = None
+        self._token_generate_time = None
         if self.tenant_id and self.client_id and self.client_secret:
-            self._get_token(url)
+            self.with_auth = True
+            self.get_token()
 
-    def _get_token(self, testbed_tools_url):
+    def get_token(self):
+        token_generate_time_valid = \
+            self._token_generate_time is not None and \
+            (datetime.utcnow() - self._token_generate_time) < timedelta(hours=TOKEN_EXPIRE_HOURS)
+
+        if self._token is not None and token_generate_time_valid:
+            return self._token
+
         token_url = "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.tenant_id)
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
         }
+
         payload = {
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": "api://sonic-testbed-tools-prod/.default" if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net" else "api://sonic-testbed-tools-dev/.default"
+            "scope": get_scope(self.url)
         }
         try:
             resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
-            self.token = resp["access_token"]
-        except Exception as e:
-            raise Exception("Get token failed with exception: {}".format(repr(e)))
+            self._token = resp["access_token"]
+            self._token_generate_time = datetime.utcnow()
+            return self._token
+        except Exception as exception:
+            raise Exception("Get token failed with exception: {}".format(repr(exception)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", scripts=[], output=None,
+               min_worker=1, max_worker=2, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
+        testbed_name = parse_list_from_str(kwargs.get("testbed_name", None))
+        image_url = kwargs.get("image_url", None)
+        hwsku = kwargs.get("hwsku", None)
+        test_plan_type = kwargs.get("test_plan_type", "PR")
+        platform = kwargs.get("platform", "kvm")
+        scripts = parse_list_from_str(kwargs.get("scripts", None))
+        features = parse_list_from_str(kwargs.get("features", None))
+        scripts_exclude = parse_list_from_str(kwargs.get("scripts_exclude", None))
+        features_exclude = parse_list_from_str(kwargs.get("features_exclude", None))
+
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
         print("Test scripts to be covered in this test plan:")
@@ -158,30 +210,35 @@ class TestPlanManager(object):
         payload = json.dumps({
             "name": test_plan_name,
             "testbed": {
-                "platform": "kvm",
+                "platform": platform,
+                "name": testbed_name,
                 "topology": topology,
+                "image_url": image_url,
+                "hwsku": hwsku,
                 "min": min_worker,
                 "max": max_worker
             },
             "test_option": {
-                "stop_on_failure": True,
-                "retry_times": 2,
+                "stop_on_failure": kwargs.get("stop_on_failure", True),
+                "retry_times": kwargs.get("retry_times", 2),
                 "test_cases": {
-                    "features": [],
+                    "features": features,
                     "scripts": scripts,
-                    "features_exclude": [],
-                    "scripts_exclude": []
+                    "features_exclude": features_exclude,
+                    "scripts_exclude": scripts_exclude
                 },
                 "common_params": common_params,
                 "specified_params": json.loads(kwargs['specified_params']),
                 "deploy_mg_params": deploy_mg_extra_params
             },
+            "type": test_plan_type,
             "extra_params": {
                 "pull_request_id": pr_id,
                 "build_id": build_id,
-                "source_repo": repo_name,
+                "source_repo": kwargs.get("source_repo"),
                 "kvm_build_id": kvm_build_id,
-                "dump_kvm_if_fail": True,
+                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", 2),
                 "mgmt_branch": kwargs["mgmt_branch"],
                 "testbed": {
                     "num_asic": kwargs["num_asic"],
@@ -193,11 +250,11 @@ class TestPlanManager(object):
                 }
             },
             "priority": 10,
-            "requester": "pull request"
+            "requester": kwargs.get("requester", "Pull Request")
         })
         print('Creating test plan with payload: {}'.format(payload))
         headers = {
-            "Authorization": "Bearer {}".format(self.token),
+            "Authorization": "Bearer {}".format(self.get_token()),
             "scheduler-site": "PRTest",
             "Content-Type": "application/json"
         }
@@ -231,7 +288,7 @@ class TestPlanManager(object):
 
         payload = json.dumps({})
         headers = {
-            "Authorization": "Bearer {}".format(self.token),
+            "Authorization": "Bearer {}".format(self.get_token()),
             "scheduler-site": "PRTest",
             "Content-Type": "application/json"
         }
@@ -250,8 +307,8 @@ class TestPlanManager(object):
         print(str(resp["data"]))
 
     def poll(self, test_plan_id, interval=60, timeout=-1, expected_state=""):
-        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
-              .format(test_plan_id))
+        print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
+              .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
 
         poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
@@ -262,6 +319,8 @@ class TestPlanManager(object):
         http_exception_times = 0
         while (timeout < 0 or (time.time() - start_time) < timeout):
             try:
+                if self.with_auth:
+                    headers["Authorization"] = "Bearer {}".format(self.get_token())
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
                 print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
@@ -293,9 +352,11 @@ class TestPlanManager(object):
                     steps = None
                     step_status = None
                     extra_params = resp_data.get("extra_params", None)
-
-                    if extra_params:
+                    runtime = resp_data.get("runtime", None)
+                    if extra_params and "steps" in extra_params:
                         steps = extra_params.get("steps", None)
+                    else:
+                        steps = runtime.get("steps", None)
                     if steps:
                         for step in steps:
                             if step.get("step") == expected_state:
@@ -305,8 +366,9 @@ class TestPlanManager(object):
                     # Other status such as "SKIPPED", "CANCELED" are considered successful.
                     if step_status == "FAILED":
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
-                                        "Check https://www.testbed-tools.org/scheduler/testplan/{} for test plan status"
+                                        "Check {}/scheduler/testplan/{} for test plan status"
                                         .format(test_plan_id, step_status, result, time.time() - start_time,
+                                                self.frontend_url,
                                                 test_plan_id))
                     else:
                         print("Current status is {}".format(step_status))
@@ -397,6 +459,8 @@ if __name__ == "__main__":
         "--mgmt-branch",
         type=str,
         dest="mgmt_branch",
+        nargs='?',
+        const="master",
         default="master",
         required=False,
         help="Branch of sonic-mgmt repo to run the test"
@@ -462,9 +526,154 @@ if __name__ == "__main__":
         "--repo-name",
         type=str,
         dest="repo_name",
-        default="",
+        nargs='?',
+        const=None,
+        default=None,
         required=False,
-        help="Repository name from Azure Pipelines"
+        help="Repository name"
+    )
+    parser_create.add_argument(
+        "--testbed-name",
+        type=str,
+        dest="testbed_name",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Testbed name, Split by ',', like: 'testbed1, testbed2'"
+    )
+    parser_create.add_argument(
+        "--image_url",
+        type=str,
+        dest="image_url",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Image url"
+    )
+    parser_create.add_argument(
+        "--hwsku",
+        type=str,
+        dest="hwsku",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Hardware SKU."
+    )
+    parser_create.add_argument(
+        "--test-plan-type",
+        type=str,
+        dest="test_plan_type",
+        nargs='?',
+        const='PR',
+        default="PR",
+        required=False,
+        choices=['PR', 'NIGHTLY'],
+        help="Test plan type. Optional: ['PR', 'NIGHTLY']"
+    )
+    parser_create.add_argument(
+        "--platform",
+        type=str,
+        dest="platform",
+        nargs='?',
+        const='kvm',
+        default="kvm",
+        required=False,
+        help="Testbed platform."
+    )
+    parser_create.add_argument(
+        "--features",
+        type=str,
+        dest="features",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Test features, Split by ',', like: 'bgp, lldp'"
+    )
+    parser_create.add_argument(
+        "--scripts",
+        type=str,
+        dest="scripts",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Test scripts, Split by ',', like: 'bgp/test_bgp_fact.py, test_feature.py'"
+    )
+    parser_create.add_argument(
+        "--scripts-exclude",
+        type=str,
+        dest="scripts_exclude",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Exclude test scripts, Split by ',', like: 'bgp/test_bgp_fact.py, test_feature.py'"
+    )
+    parser_create.add_argument(
+        "--features-exclude",
+        type=str,
+        dest="features_exclude",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Exclude test features, Split by ',', like: 'bgp, lldp'"
+    )
+    parser_create.add_argument(
+        "--stop-on-failure",
+        type=ast.literal_eval,
+        dest="stop_on_failure",
+        nargs='?',
+        const='True',
+        default='True',
+        required=False,
+        choices=[True, False],
+        help="Stop whole test plan if test failed."
+    )
+    parser_create.add_argument(
+        "--retry-times",
+        type=int,
+        dest="retry_times",
+        nargs='?',
+        const=2,
+        default=2,
+        required=False,
+        help="Retry times after tests failed."
+    )
+    parser_create.add_argument(
+        "--dump-kvm-if-fail",
+        type=ast.literal_eval,
+        dest="dump_kvm_if_fail",
+        nargs='?',
+        const='True',
+        default='True',
+        required=False,
+        choices=[True, False],
+        help="Dump KVM DUT if test plan failed, only supports KVM test plan."
+    )
+    parser_create.add_argument(
+        "--requester",
+        type=str,
+        dest="requester",
+        nargs='?',
+        const='Pull Request',
+        default="Pull Request",
+        required=False,
+        help="Requester of the test plan."
+    )
+    parser_create.add_argument(
+        "--max-execute-seconds",
+        type=int,
+        dest="max_execute_seconds",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Max execute seconds of the test plan."
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -527,6 +736,7 @@ if __name__ == "__main__":
         "tenant_id": os.environ.get("TENANT_ID"),
         "client_id": os.environ.get("CLIENT_ID"),
         "client_secret": os.environ.get("CLIENT_SECRET"),
+        "frontend_url": os.environ.get("FRONTEND_URL", "https://www.testbed-tools.org"),
     }
     env_missing = [k.upper() for k, v in env.items() if k.upper() in required_env and not v]
     if env_missing:
@@ -536,6 +746,7 @@ if __name__ == "__main__":
     try:
         tp = TestPlanManager(
             env["testbed_tools_url"],
+            env["frontend_url"],
             env["tenant_id"],
             env["client_id"],
             env["client_secret"])
@@ -556,9 +767,13 @@ if __name__ == "__main__":
                     build_id=build_id,
                     job_name=job_name
                 ).replace(' ', '_')
-            if args.test_set is None or args.test_set == "":
-                # Use topology as default test set if not passed
-                args.test_set = args.topology
+
+            scripts = args.scripts
+            # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
+            if args.platform == "kvm":
+                args.test_set = args.test_set if args.test_set else args.topology
+                scripts = ",".join(get_test_scripts(args.test_set))
+
             tp.create(
                 args.topology,
                 test_plan_name=test_plan_name,
@@ -567,15 +782,29 @@ if __name__ == "__main__":
                 min_worker=args.min_worker,
                 max_worker=args.max_worker,
                 pr_id=pr_id,
-                scripts=get_test_scripts(args.test_set),
+                scripts=scripts,
+                features=args.features,
+                scripts_exclude=args.scripts_exclude,
+                features_exclude=args.features_exclude,
                 output=args.output,
+                source_repo=repo_name,
                 mgmt_branch=args.mgmt_branch,
                 common_extra_params=args.common_extra_params,
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 vm_type=args.vm_type,
                 azp_access_token=args.azp_access_token,
-                azp_repo_access_token=args.azp_repo_access_token
+                azp_repo_access_token=args.azp_repo_access_token,
+                testbed_name=args.testbed_name,
+                image_url=args.image_url,
+                hwsku=args.hwsku,
+                test_plan_type=args.test_plan_type,
+                platform=args.platform,
+                stop_on_failure=args.stop_on_failure,
+                retry_times=args.retry_times,
+                dump_kvm_if_fail=args.dump_kvm_if_fail,
+                requester=args.requester,
+                max_execute_seconds=args.max_execute_seconds,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)

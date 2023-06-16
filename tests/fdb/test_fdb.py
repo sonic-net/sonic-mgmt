@@ -3,7 +3,7 @@ import pytest
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from ptf.mask import Mask
-
+from collections import defaultdict
 import time
 import itertools
 import logging
@@ -11,14 +11,24 @@ import pprint
 import re
 import random
 
-from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging           # noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby     # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup            # noqa F401
 from tests.common.dualtor.mux_simulator_control import mux_server_url, \
                                                        toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
+from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
+from .utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
+from tests.common.fixtures.duthost_utils import ports_list            # noqa F401
+from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F401
+from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
+from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
@@ -272,10 +282,32 @@ def record_mux_status(request, rand_selected_dut, tbinfo):
         logger.warning("fdb test failed. Mux status are \n {}".format(mux_status))
 
 
+@pytest.fixture(params=PKT_TYPES)
+def pkt_type(request):
+    """Packet type to test."""
+    return request.param
+
+
+@pytest.fixture
+def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
+                              pkt_type, config_active_active_dualtor_active_standby,                        # noqa F811
+                              validate_active_active_dualtor_setup):                                        # noqa F811
+    if active_active_ports and pkt_type == "ethernet":
+        # for active-active dualtor, the upstream traffic is ECMPed to both ToRs, so let's
+        # config the unselected ToR as standby to ensure all ethernet type packets are
+        # forwarded to the selected ToR.
+        logger.info("Configuring {} as active".format(rand_selected_dut.hostname))
+        logger.info("Configuring {} as standby".format(rand_unselected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
+
+    return
+
+
 @pytest.mark.bsl
-@pytest.mark.parametrize("pkt_type", PKT_TYPES)
+@pytest.mark.po2vlan
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
-             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status, get_dummay_mac_count):   # noqa F811
+             toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa F811
+             setup_active_active_ports, get_dummay_mac_count):                                  # noqa F811
 
     # Perform FDB clean up before each test and at the end of the final test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
@@ -287,20 +319,20 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     2. verify show mac command on DUT for learned mac.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    conf_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
 
     router_mac = duthost.facts['router_mac']
 
-    port_index_to_name = {v: k for k, v in conf_facts['port_index_map'].items()}
+    port_index_to_name = {v: k for k, v in list(conf_facts['port_index_map'].items())}
 
     configured_dummay_mac_count = get_dummay_mac_count
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
     available_ports_idx = []
-    for idx, name in ptf_ports_available_in_topo.items():
+    for idx, name in list(ptf_ports_available_in_topo.items()):
         if idx in port_index_to_name and \
                 conf_facts['PORT'][port_index_to_name[idx]].get('admin_status', 'down') == 'up':
             available_ports_idx.append(idx)
@@ -309,11 +341,11 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     interface_table = defaultdict(set)
     config_portchannels = conf_facts.get('PORTCHANNEL', {})
 
-    for name, vlan in conf_facts['VLAN'].items():
+    for name, vlan in list(conf_facts['VLAN'].items()):
         vlan_id = int(vlan['vlanid'])
         vlan_table[vlan_id] = []
 
-        for ifname in conf_facts['VLAN_MEMBER'][name].keys():
+        for ifname in list(conf_facts['VLAN_MEMBER'][name].keys()):
             if 'tagging_mode' not in conf_facts['VLAN_MEMBER'][name][ifname]:
                 continue
             tagging_mode = conf_facts['VLAN_MEMBER'][name][ifname]['tagging_mode']
@@ -330,7 +362,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             if port_index:
                 vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
 
-    vlan_member_count = sum([len(members) for members in vlan_table.values()])
+    vlan_member_count = sum([len(members) for members in list(vlan_table.values())])
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:
@@ -352,7 +384,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     dummy_mac_count = 0
     total_mac_count = 0
-    for k, vl in fdb_fact.items():
+    for k, vl in list(fdb_fact.items()):
         assert validate_mac(k) is True
         for v in vl:
             assert v['port'] in interface_table
@@ -369,7 +401,6 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     assert dummy_mac_count == configured_dummay_mac_count * vlan_member_count
 
 
-@pytest.mark.parametrize("pkt_type", PKT_TYPES)
 def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type,
                              toggle_all_simulator_ports_to_rand_selected_tor_m, tbinfo):    # noqa F811
     """

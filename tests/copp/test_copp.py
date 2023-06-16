@@ -24,6 +24,7 @@ import logging
 import pytest
 import json
 import random
+import time
 from collections import namedtuple
 
 from tests.copp import copp_utils
@@ -321,13 +322,13 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
         # get the port_index_map using the ptf_indicies to support multi DUT topologies
         port_index_map.update({
            k: v
-           for k, v in mg_facts["minigraph_ptf_indices"].items()
+           for k, v in list(mg_facts["minigraph_ptf_indices"].items())
            if k in mg_facts["minigraph_ports"] and
            not duthost.is_backend_port(k, mg_facts) and
            mg_facts["minigraph_neighbors"][k]["name"] in bgp_peer_name_set
         })
     # use randam sonic interface for testing
-    nn_target_interface = random.choice(port_index_map.keys())
+    nn_target_interface = random.choice(list(port_index_map.keys()))
     # get the  ptf port for choosen port
     nn_target_port = port_index_map[nn_target_interface]
     myip = None
@@ -347,7 +348,7 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                 is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
                 if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
                     nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
-            break
+                break
 
     logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}"
                  .format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
@@ -398,6 +399,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
 
     # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
     upStreamDuthost.command("sudo config bgp shutdown all")
+    time.sleep(30)
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
                                test_params.nn_target_namespace, test_params.nn_target_vlanid,

@@ -1,7 +1,7 @@
-from tests.common.snappi.snappi_fixtures import (
+from tests.common.snappi.snappi_fixtures import (                           # noqa F401
     cvg_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
-from files.bgp_test_gap_helper import run_bgp_convergence_performance
-from tests.common.fixtures.conn_graph_facts import (
+from .files.bgp_test_gap_helper import run_bgp_convergence_performance
+from tests.common.fixtures.conn_graph_facts import (                        # noqa F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
@@ -13,15 +13,14 @@ pytestmark = [pytest.mark.topology('tgen')]
 @pytest.mark.parametrize('routes_step', [500])
 @pytest.mark.parametrize('stop_routes', [16000])
 @pytest.mark.parametrize('route_type', ['IPv4'])
-def test_bgp_convergence_performance(cvg_api,
+def test_bgp_convergence_performance(cvg_api,               # noqa F811
                                      duthost,
-                                     tgen_ports,
+                                     tgen_ports,            # noqa F811
                                      multipath,
                                      start_routes,
                                      routes_step,
                                      stop_routes,
                                      route_type,):
-
     """
     Topo:
     TGEN1 --- DUT --- TGEN(2..N)

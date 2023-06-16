@@ -1,25 +1,47 @@
-#
-# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
-#
+"""
+        ptf --test-dir ptftests fast-reboot \
+            --qlen=1000 \
+            --platform remote \
+            -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;\
+                portchannel_ports_file="/tmp/portchannel_interfaces.json";\
+                vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";\
+                peer_ports_file="/tmp/peer_ports.json";dut_mac="4c:76:25:f5:48:80";\
+                default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";\
+                arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' \
+            --platform-dir ptftests \
+            --disable-vxlan \
+            --disable-geneve \
+            --disable-erspan \
+            --disable-mpls \
+            --disable-nvgre
+
+"""
 #
 # This test checks that DUT is able to make FastReboot procedure
 #
 # This test supposes that fast-reboot/warm-reboot initiates by running /usr/bin/{fast,warm}-reboot command.
 #
 # The test uses "pings". The "pings" are packets which are sent through dataplane in two directions
-# 1. From one of vlan interfaces to T1 device. The source ip, source interface, and destination IP are chosen randomly from valid choices. Number of packet is 100.
-# 2. From all of portchannel ports to all of vlan ports. The source ip, source interface, and destination IP are chosed sequentially from valid choices.
+# 1. From one of vlan interfaces to T1 device. The source ip, source interface,
+#    and destination IP are chosen randomly from valid choices. Number of packet is 100.
+# 2. From all of portchannel ports to all of vlan ports. The source ip, source interface,
+#    and destination IP are chosed sequentially from valid choices.
 #    Currently we have 500 distrinct destination vlan addresses. Our target to have 1000 of them.
 #
 # The test sequence is following:
-# 1. Check that DUT is stable. That means that "pings" work in both directions: from T1 to servers and from servers to T1.
+# 1. Check that DUT is stable. That means that "pings" work in both directions:
+#    from T1 to servers and from servers to T1.
 # 2. If DUT is stable the test starts continiously pinging DUT in both directions.
-# 3. The test runs '/usr/bin/{fast,warm}-reboot' on DUT remotely. The ssh key supposed to be uploaded by ansible before the test
-# 4. As soon as it sees that ping starts failuring in one of directions the test registers a start of dataplace disruption
-# 5. As soon as the test sees that pings start working for DUT in both directions it registers a stop of dataplane disruption
+# 3. The test runs '/usr/bin/{fast,warm}-reboot' on DUT remotely.
+#    The ssh key supposed to be uploaded by ansible before the test
+# 4. As soon as it sees that ping starts failuring in one of directions
+#    the test registers a start of dataplace disruption
+# 5. As soon as the test sees that pings start working for DUT in both directions
+#    it registers a stop of dataplane disruption
 # 6. If the length of the disruption is less than 30 seconds (if not redefined by parameter) - the test passes
 # 7. If there're any drops, when control plane is down - the test fails
-# 8. When test start reboot procedure it connects to all VM (which emulates T1) and starts fetching status of BGP and LACP
+# 8. When test start reboot procedure it connects to all VM (which emulates T1)
+#    and starts fetching status of BGP and LACP
 #    LACP is supposed to be down for one time only, if not - the test fails
 #    if default value of BGP graceful restart timeout is less than 120 seconds the test fails
 #    if BGP graceful restart is not enabled on DUT the test fails
@@ -30,77 +52,67 @@
 # That helper propagate a link state from fanout switch port to corresponding VM port
 #
 
-import ptf
-from ptf.base_tests import BaseTest
-from ptf import config
-import ptf.testutils as testutils
-from ptf.testutils import *
-from ptf.dataplane import match_exp_pkt
-import datetime
-import time
-import subprocess
-from ptf.mask import Mask
-import socket
-import ptf.packet as scapy
-import thread
-import threading
-from multiprocessing.pool import ThreadPool, TimeoutError
 import os
-import signal
 import random
 import struct
-import socket
-from pprint import pprint
-from fcntl import ioctl
-import sys
+import datetime
+import time
 import json
-import re
-from collections import defaultdict
-import json
-import Queue
-import pickle
-from operator import itemgetter
-import scapy.all as scapyall
-import itertools
-from device_connection import DeviceConnection
+import subprocess
+import threading
+import traceback
 import multiprocessing
+import itertools
 import ast
+import socket
 
-from arista import Arista
+import ptf
+import ptf.testutils as testutils
+import ptf.packet as scapy
+import scapy.all as scapyall
+
 import sad_path as sp
+
+from ptf import config
+from ptf.base_tests import BaseTest
+from ptf.testutils import simple_tcp_packet, simple_icmp_packet, simple_arp_packet
+from ptf.mask import Mask
+
+from six.moves import _thread as thread
+from six.moves import queue as Queue
+from multiprocessing.pool import ThreadPool, TimeoutError
+from fcntl import ioctl
+from collections import defaultdict
+from device_connection import DeviceConnection
+from host_device import HostDevice
 
 
 class StateMachine():
     def __init__(self, init_state='init'):
         self.state_lock = threading.RLock()
-        self.state_time = {} # Recording last time when entering a state
-        self.state      = None
-        self.flooding   = False
+        self.state_time = {}  # Recording last time when entering a state
+        self.state = None
+        self.flooding = False
         self.set(init_state)
-
 
     def set(self, state):
         with self.state_lock:
-            self.state             = state
+            self.state = state
             self.state_time[state] = datetime.datetime.now()
-
 
     def get(self):
         with self.state_lock:
             cur_state = self.state
         return cur_state
 
-
     def get_state_time(self, state):
         with self.state_lock:
             time = self.state_time[state]
         return time
 
-
     def set_flooding(self, flooding):
         with self.state_lock:
             self.flooding = flooding
-
 
     def is_flooding(self):
         with self.state_lock:
@@ -138,6 +150,8 @@ class ReloadTest(BaseTest):
         self.check_param('portchannel_ports_file', '', required=True)
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
+        self.check_param('peer_ports_file', '', required=False)
+        self.check_param('dut_mux_status', '', required=False)
         self.check_param('dut_mac', '', required=True)
         self.check_param('vlan_mac', '', required=True)
         self.check_param('default_ip_range', '', required=True)
@@ -149,9 +163,12 @@ class ReloadTest(BaseTest):
         self.check_param('warm_up_timeout_secs', 300, required=False)
         self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required=False)
-        self.check_param('preboot_oper', None, required=False) # preboot sad path to inject before warm-reboot
-        self.check_param('inboot_oper', None, required=False) # sad path to inject during warm-reboot
-        self.check_param('nexthop_ips', [], required=False) # nexthops for the routes that will be added during warm-reboot
+        # preboot sad path to inject before warm-reboot
+        self.check_param('preboot_oper', None, required=False)
+        # sad path to inject during warm-reboot
+        self.check_param('inboot_oper', None, required=False)
+        # nexthops for the routes that will be added during warm-reboot
+        self.check_param('nexthop_ips', [], required=False)
         self.check_param('allow_vlan_flooding', False, required=False)
         self.check_param('allow_mac_jumping', False, required=False)
         self.check_param('sniff_time_incr', 300, required=False)
@@ -161,10 +178,13 @@ class ReloadTest(BaseTest):
         self.check_param('bgp_v4_v6_time_diff', 40, required=False)
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
+        self.check_param('neighbor_type', 'eos', required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
             self.test_params['inboot_oper'] = None
+
+        self.dataplane_loss_checked_successfully = False
 
         # initialize sad oper
         if self.test_params['preboot_oper']:
@@ -182,11 +202,13 @@ class ReloadTest(BaseTest):
         else:
             reboot_log_prefix = self.test_params['reboot_type']
         if self.logfile_suffix:
-           self.log_file_name = '/tmp/%s-%s.log' % (reboot_log_prefix, self.logfile_suffix)
-           self.report_file_name = '/tmp/%s-%s-report.json' % (reboot_log_prefix, self.logfile_suffix)
+            self.log_file_name = '/tmp/%s-%s.log' % (
+                reboot_log_prefix, self.logfile_suffix)
+            self.report_file_name = '/tmp/%s-%s-report.json' % (
+                reboot_log_prefix, self.logfile_suffix)
         else:
-           self.log_file_name = '/tmp/%s.log' % reboot_log_prefix
-           self.report_file_name = '/tmp/%s-report.json' % reboot_log_prefix
+            self.log_file_name = '/tmp/%s.log' % reboot_log_prefix
+            self.report_file_name = '/tmp/%s-report.json' % reboot_log_prefix
         self.report = dict()
         self.log_fp = open(self.log_file_name, 'w')
 
@@ -198,47 +220,52 @@ class ReloadTest(BaseTest):
         # a flag whether to populate FDB by sending traffic from simulated servers
         # usually ARP responder will make switch populate its FDB table, but Mellanox on 201803 has
         # no L3 ARP support, so this flag is used to W/A this issue
-        self.setup_fdb_before_test = self.test_params.get('setup_fdb_before_test', False)
+        self.setup_fdb_before_test = self.test_params.get(
+            'setup_fdb_before_test', False)
 
         # Default settings
-        self.ping_dut_pkts  = 10
-        self.arp_ping_pkts  = 1
-        self.nr_pc_pkts     = 100
-        self.nr_tests       = 3
-        self.reboot_delay   = 10
-        self.task_timeout   = 300   # Wait up to 5 minutes for tasks to complete
-        self.max_nr_vl_pkts = 500 # FIXME: should be 1000.
-                                  # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
+        self.ping_dut_pkts = 10
+        self.arp_ping_pkts = 1
+        self.nr_pc_pkts = 100
+        self.nr_tests = 3
+        self.reboot_delay = 10
+        self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
+        self.max_nr_vl_pkts = 500  # FIXME: should be 1000.
+        # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
         self.timeout_thr = None
 
-        self.time_to_listen = 240.0 # Listen for more then 240 seconds, to be used in sniff_in_background method.
+        # Listen for more then 240 seconds, to be used in sniff_in_background method.
+        self.time_to_listen = 240.0
         #   Inter-packet interval, to be used in send_in_background method.
         #   Improve this interval to gain more precision of disruptions.
         self.send_interval = 0.0035
-        self.packets_to_send = min(int(self.time_to_listen / (self.send_interval + 0.0015)), 45000) # How many packets to be sent in send_in_background method
+        # How many packets to be sent in send_in_background method
+        self.packets_to_send = min(
+            int(self.time_to_listen / (self.send_interval + 0.0015)), 45000)
 
         # Thread pool for background watching operations
         self.pool = ThreadPool(processes=3)
 
         # State watcher attributes
-        self.watching            = False
-        self.cpu_state           = StateMachine('init')
-        self.asic_state          = StateMachine('init')
-        self.vlan_state          = StateMachine('init')
-        self.vlan_lock           = threading.RLock()
-        self.asic_state_time     = {} # Recording last asic state entering time
-        self.asic_vlan_reach     = [] # Recording asic vlan reachability
-        self.recording           = False # Knob for recording asic_vlan_reach
+        self.watching = False
+        self.cpu_state = StateMachine('init')
+        self.asic_state = StateMachine('init')
+        self.vlan_state = StateMachine('init')
+        self.vlan_lock = threading.RLock()
+        self.asic_state_time = {}  # Recording last asic state entering time
+        self.asic_vlan_reach = []  # Recording asic vlan reachability
+        self.recording = False  # Knob for recording asic_vlan_reach
         # light_probe:
         #    True : when one direction probe fails, don't probe another.
         #    False: when one direction probe fails, continue probe another.
-        self.light_probe         = False
+        self.light_probe = False
         # We have two data plane traffic generators which are mutualy exclusive
         # one is the reachability_watcher thread
         # second is the fast send_in_background
-        self.dataplane_io_lock   = threading.Lock()
+        self.dataplane_io_lock = threading.Lock()
 
-        self.allow_vlan_flooding = bool(self.test_params['allow_vlan_flooding'])
+        self.allow_vlan_flooding = bool(
+            self.test_params['allow_vlan_flooding'])
 
         self.dut_connection = DeviceConnection(
             self.test_params['dut_hostname'],
@@ -247,8 +274,12 @@ class ReloadTest(BaseTest):
             alt_password=self.test_params.get('alt_password')
         )
 
+        self.sender_thr = threading.Thread(target=self.send_in_background)
+        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
+
         # Check if platform type is kvm
-        stdout, stderr, return_code = self.dut_connection.execCommand("show platform summary | grep Platform | awk '{print $2}'")
+        stdout, stderr, return_code = self.dut_connection.execCommand(
+            "show platform summary | grep Platform | awk '{print $2}'")
         platform_type = str(stdout[0]).replace('\n', '')
         if platform_type == 'x86_64-kvm_x86_64-r0':
             self.kvm_test = True
@@ -259,24 +290,39 @@ class ReloadTest(BaseTest):
             self.check_param('service_data', None, required=True)
             self.service_data = self.test_params['service_data']
             for service_name in self.test_params['service_list']:
-                cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(service_name)
+                cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(
+                    service_name)
                 stdout, _, _ = self.dut_connection.execCommand(cmd)
                 if service_name not in self.service_data:
                     self.service_data[service_name] = {}
-                self.service_data[service_name]['service_start_time'] = str(stdout[0]).strip()
-                self.log("Service start time for {} is {}".format(service_name, self.service_data[service_name]['service_start_time']))
+                self.service_data[service_name]['service_start_time'] = str(
+                    stdout[0]).strip()
+                self.log("Service start time for {} is {}".format(
+                    service_name, self.service_data[service_name]['service_start_time']))
         return
 
     def read_json(self, name):
         with open(self.test_params[name]) as fp:
-          content = json.load(fp)
+            content = json.load(fp)
 
         return content
 
     def read_port_indices(self):
         port_indices = self.read_json('ports_file')
+        peer_port_indices = {}
+        if self.is_dualtor:
+            peer_port_indices = self.read_json('peer_ports_file')
 
-        return port_indices
+        return port_indices, peer_port_indices
+
+    def read_mux_status(self):
+        active_port_indices = []
+        mux_status = self.read_json('dut_mux_status')
+        for intf, port in self.port_indices.items():
+            if intf in mux_status and mux_status[intf]['status'] == 'active':
+                active_port_indices.append(port)
+
+        return active_port_indices
 
     def read_vlan_portchannel_ports(self):
         portchannel_content = self.read_json('portchannel_ports_file')
@@ -302,11 +348,22 @@ class ReloadTest(BaseTest):
         pc_ifaces = []
         for pc in portchannel_content.values():
             if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
-                pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
+                pc_ifaces.extend([self.port_indices[member]
+                                 for member in pc['members']])
 
-        return ports_per_vlan, pc_ifaces
+        dualtor_pc_ifaces = []
+        if self.is_dualtor:
+            peer_active_portchannels = list()
+            for neighbor_info in list(self.peer_vm_dut_map.values()):
+                peer_active_portchannels.append(neighbor_info["dut_portchannel"])
+            dualtor_pc_ifaces.extend(pc_ifaces)
+            for pc in portchannel_content.values():
+                if not pc['name'] in pc_in_vlan and pc['name'] in peer_active_portchannels:
+                    dualtor_pc_ifaces.extend([self.peer_port_indices[member] for member in pc['members']])
 
-    def check_param(self, param, default, required = False):
+        return ports_per_vlan, pc_ifaces, dualtor_pc_ifaces
+
+    def check_param(self, param, default, required=False):
         if param not in self.test_params:
             if required:
                 raise Exception("Test parameter '%s' is required" % param)
@@ -322,7 +379,8 @@ class ReloadTest(BaseTest):
         src_addr, mask = net_ip.split('/')
         n_hosts = 2**(32 - int(mask))
         if host_number > (n_hosts - 2):
-            raise Exception("host number %d is greater than number of hosts %d in the network %s" % (host_number, n_hosts - 2, net_ip))
+            raise Exception("host number %d is greater than number of hosts %d in the network %s" % (
+                host_number, n_hosts - 2, net_ip))
         src_addr_n = struct.unpack(">I", socket.inet_aton(src_addr))[0]
         net_addr_n = src_addr_n & (2**32 - n_hosts)
         host_addr_n = net_addr_n + host_number
@@ -337,7 +395,7 @@ class ReloadTest(BaseTest):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.log_lock:
             if verbose and self.test_params['verbose'] or not verbose:
-                print "%s : %s" % (current_time, message)
+                print("%s : %s" % (current_time, message))
             self.log_fp.write("%s : %s\n" % (current_time, message))
             self.log_fp.flush()
 
@@ -348,10 +406,11 @@ class ReloadTest(BaseTest):
         try:
             res = async_res.get(timeout=seconds)
         except Exception as err:
+            traceback_msg = traceback.format_exc()
             # TimeoutError and Exception's from func
             # captured here
             signal.set()
-            raise type(err)(message)
+            raise type(err)("{}: {}".format(message, traceback_msg))
         return res
 
     def generate_vlan_servers(self):
@@ -364,17 +423,19 @@ class ReloadTest(BaseTest):
             _, mask = prefix.split('/')
             n_hosts = min(2**(32 - int(mask)) - 3, self.max_nr_vl_pkts)
 
-            for counter, i in enumerate(xrange(2, n_hosts + 2)):
+            for counter, i in enumerate(range(2, n_hosts + 2)):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
-                port = self.ports_per_vlan[vlan][i % len(self.ports_per_vlan[vlan])]
+                port = self.ports_per_vlan[vlan][i %
+                                                 len(self.ports_per_vlan[vlan])]
                 addr = self.host_ip(prefix, i)
 
                 vlan_host_map[port][addr] = mac
 
             for counter, i in enumerate(
-                xrange(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
+                    range(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
-                port = self.ports_per_vlan[vlan][i % len(self.ports_per_vlan[vlan])]
+                port = self.ports_per_vlan[vlan][i %
+                                                 len(self.ports_per_vlan[vlan])]
                 addr = self.host_ip(prefix, i)
                 self.vlan_host_ping_map[port][addr] = mac
 
@@ -386,8 +447,10 @@ class ReloadTest(BaseTest):
         arp_responder_conf = {}
         for port in vlan_host_map:
             arp_responder_conf['eth{}'.format(port)] = {}
-            arp_responder_conf['eth{}'.format(port)].update(vlan_host_map[port])
-            arp_responder_conf['eth{}'.format(port)].update(self.vlan_host_ping_map[port])
+            arp_responder_conf['eth{}'.format(
+                port)].update(vlan_host_map[port])
+            arp_responder_conf['eth{}'.format(port)].update(
+                self.vlan_host_ping_map[port])
 
         return arp_responder_conf
 
@@ -407,6 +470,9 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[key]['dut_ports'] = []
                 self.vm_dut_map[key]['neigh_ports'] = []
                 self.vm_dut_map[key]['ptf_ports'] = []
+                if self.is_dualtor:
+                    self.peer_vm_dut_map[key] = dict()
+                    self.peer_vm_dut_map[key]['dut_ports'] = []
 
     def get_portchannel_info(self):
         content = self.read_json('portchannel_ports_file')
@@ -416,6 +482,8 @@ class ReloadTest(BaseTest):
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
+                        if self.is_dualtor:
+                            self.peer_vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         break
 
     def get_neigh_port_info(self):
@@ -425,6 +493,8 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
                 self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
+                if self.is_dualtor:
+                    self.peer_vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
 
     def build_peer_mapping(self):
         '''
@@ -438,6 +508,7 @@ class ReloadTest(BaseTest):
                                     }
         '''
         self.vm_dut_map = {}
+        self.peer_vm_dut_map = {}
         for file in self.test_params['preboot_files'].split(','):
             self.test_params[file] = '/tmp/' + file + '.json'
         self.get_peer_dev_info()
@@ -469,8 +540,9 @@ class ReloadTest(BaseTest):
         sad_oper can be represented in the following ways
            eg. 'preboot_oper' - a single VM will be selected and preboot_oper will be applied to it
                'neigh_bgp_down:2' - 2 VMs will be selected and preboot_oper will be applied to the selected 2 VMs
-               'neigh_lag_member_down:3:1' - this case is used for lag member down operation only. This indicates that
-                                             3 VMs will be selected and 1 of the lag members in the porchannel will be brought down
+               'neigh_lag_member_down:3:1' - this case is used for lag member down operation only.
+                   This indicates that 3 VMs will be selected and 1 of
+                   the lag members in the porchannel will be brought down
                'inboot_oper' - represents a routing change during warm boot (add or del of multiple routes)
                'routing_add:10' - adding 10 routes during warm boot
         '''
@@ -479,10 +551,13 @@ class ReloadTest(BaseTest):
             msg = 'Sad oper: %s ' % self.sad_oper
             if ':' in self.sad_oper:
                 oper_list = self.sad_oper.split(':')
-                msg = 'Sad oper: %s ' % oper_list[0] # extract the sad oper_type
+                # extract the sad oper_type
+                msg = 'Sad oper: %s ' % oper_list[0]
                 if len(oper_list) > 2:
-                    # extract the number of VMs and the number of LAG members. sad_oper will be of the form oper:no of VMS:no of lag members
-                    msg += 'Number of sad path VMs: %s Lag member down in a portchannel: %s' % (oper_list[-2], oper_list[-1])
+                    # extract the number of VMs and the number of LAG members.
+                    # sad_oper will be of the form oper:no of VMS:no of lag members
+                    msg += 'Number of sad path VMs: %s Lag member down in a portchannel: %s' % (
+                        oper_list[-2], oper_list[-1])
                 else:
                     # inboot oper
                     if 'routing' in self.sad_oper:
@@ -496,8 +571,10 @@ class ReloadTest(BaseTest):
     def init_sad_oper(self):
         if self.sad_oper:
             self.log("Preboot/Inboot Operations:")
-            self.sad_handle = sp.SadTest(self.sad_oper, self.ssh_targets, self.portchannel_ports, self.vm_dut_map, self.test_params, self.vlan_ports, self.ports_per_vlan)
-            (self.ssh_targets, self.portchannel_ports, self.neigh_vm, self.vlan_ports, self.ports_per_vlan), (log_info, fails) = self.sad_handle.setup()
+            self.sad_handle = sp.SadTest(self.sad_oper, self.ssh_targets, self.portchannel_ports,
+                                         self.vm_dut_map, self.test_params, self.vlan_ports, self.ports_per_vlan)
+            (self.ssh_targets, self.portchannel_ports, self.neigh_vm, self.vlan_ports,
+             self.ports_per_vlan), (log_info, fails) = self.sad_handle.setup()
             self.populate_fail_info(fails)
             for log in log_info:
                 self.log(log)
@@ -551,10 +628,20 @@ class ReloadTest(BaseTest):
 
     def setUp(self):
         self.fails['dut'] = set()
-        self.port_indices = self.read_port_indices()
+        self.dut_mac = self.test_params['dut_mac']
+        self.vlan_mac = self.test_params['vlan_mac']
+        self.lo_prefix = self.test_params['lo_prefix']
+        if self.vlan_mac != self.dut_mac:
+            self.is_dualtor = True
+        else:
+            self.is_dualtor = False
+        self.port_indices, self.peer_port_indices = self.read_port_indices()
+        if self.is_dualtor:
+            self.active_port_indices = self.read_mux_status()
         self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
         self.build_peer_mapping()
-        self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
+        self.ports_per_vlan, self.portchannel_ports, self.dualtor_portchannel_ports = \
+            self.read_vlan_portchannel_ports()
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
             self.vlan_ports += ports
@@ -563,13 +650,11 @@ class ReloadTest(BaseTest):
 
         self.default_ip_range = self.test_params['default_ip_range']
 
-        self.limit = datetime.timedelta(seconds=self.test_params['reboot_limit_in_seconds'])
+        self.limit = datetime.timedelta(
+            seconds=self.test_params['reboot_limit_in_seconds'])
         self.reboot_type = self.test_params['reboot_type']
         if self.reboot_type in ['soft-reboot', 'reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
-        self.dut_mac = self.test_params['dut_mac']
-        self.vlan_mac = self.test_params['vlan_mac']
-        self.lo_prefix = self.test_params['lo_prefix']
 
         if self.kvm_test:
             self.log("This test is for KVM platform")
@@ -590,18 +675,20 @@ class ReloadTest(BaseTest):
         self.init_sad_oper()
 
         self.vlan_host_map = self.generate_vlan_servers()
-        arp_responder_conf = self.generate_arp_responder_conf(self.vlan_host_map)
+        arp_responder_conf = self.generate_arp_responder_conf(
+            self.vlan_host_map)
         self.dump_arp_responder_config(arp_responder_conf)
 
-        self.random_vlan           = random.choice(self.vlan_ports)
-        self.from_server_src_port  = self.random_vlan
-        self.from_server_src_addr  = random.choice(self.vlan_host_map[self.random_vlan].keys())
-        self.from_server_src_mac   = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
-        self.from_server_dst_addr  = self.random_ip(self.test_params['default_ip_range'])
-        self.from_server_dst_ports = self.portchannel_ports
+        self.random_vlan = random.choice(self.vlan_ports)
+        self.from_server_src_port = self.random_vlan
+        self.from_server_src_addr = random.choice(self.vlan_host_map[self.random_vlan].keys())
+        self.from_server_src_mac = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
+        self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
+        self.from_server_dst_ports = self.dualtor_portchannel_ports if self.is_dualtor else self.portchannel_ports
 
         self.log("Test params:")
-        self.log("DUT ssh: %s@%s" % (self.test_params['dut_username'], self.test_params['dut_hostname']))
+        self.log("DUT ssh: %s@%s" %
+                 (self.test_params['dut_username'], self.test_params['dut_hostname']))
         self.log("DUT reboot limit in seconds: %s" % self.limit)
         self.log("DUT mac address: %s" % self.dut_mac)
         self.log("DUT vlan mac address: %s" % self.vlan_mac)
@@ -627,15 +714,17 @@ class ReloadTest(BaseTest):
         generate_start = datetime.datetime.now()
         if not self.vnet:
             self.generate_bidirectional()
-        self.log("%d packets are ready after: %s" % (len(self.packets_list), str(datetime.datetime.now() - generate_start)))
+        self.log("%d packets are ready after: %s" % (
+            len(self.packets_list), str(datetime.datetime.now() - generate_start)))
 
         self.dataplane = ptf.dataplane_instance
         for p in self.dataplane.ports.values():
             port = p.get_packet_source()
-            port.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.SOCKET_RECV_BUFFER_SIZE)
+            port.socket.setsockopt(
+                socket.SOL_SOCKET, socket.SO_RCVBUF, self.SOCKET_RECV_BUFFER_SIZE)
 
         self.dataplane.flush()
-        if config["log_dir"] != None:
+        if config["log_dir"] is not None:
             filename = os.path.join(config["log_dir"], str(self)) + ".pcap"
             self.dataplane.start_pcap(filename)
 
@@ -674,13 +763,13 @@ class ReloadTest(BaseTest):
         # Stop watching DUT
         self.watching = False
 
-        if config["log_dir"] != None:
+        if config["log_dir"] is not None:
             self.dataplane.stop_pcap()
         self.log_fp.close()
 
     def get_if(self, iff, cmd):
         s = socket.socket()
-        ifreq = ioctl(s, cmd, struct.pack("16s16x",iff))
+        ifreq = ioctl(s, cmd, struct.pack("16s16x", iff))
         s.close()
 
         return ifreq
@@ -701,7 +790,8 @@ class ReloadTest(BaseTest):
                 dst_addr = server_ip
 
                 # generate source MAC address for traffic based on LAG_BASE_MAC_PATTERN
-                mac_addr = self.hex_to_mac(self.LAG_BASE_MAC_PATTERN.format(counter))
+                mac_addr = self.hex_to_mac(
+                    self.LAG_BASE_MAC_PATTERN.format(counter))
 
                 packet = simple_tcp_packet(eth_src=mac_addr,
                                            eth_dst=self.dut_mac,
@@ -714,9 +804,9 @@ class ReloadTest(BaseTest):
 
         # expect any packet with dport 5000
         exp_packet = simple_tcp_packet(
-                      ip_src="0.0.0.0",
-                      ip_dst="0.0.0.0",
-                      tcp_dport=5000,
+            ip_src="0.0.0.0",
+            ip_dst="0.0.0.0",
+            tcp_dport=5000,
         )
 
         self.from_t1_exp_packet = Mask(exp_packet)
@@ -730,18 +820,18 @@ class ReloadTest(BaseTest):
 
     def generate_from_vlan(self):
         packet = simple_tcp_packet(
-                      eth_src=self.from_server_src_mac,
-                      eth_dst=self.vlan_mac,
-                      ip_src=self.from_server_src_addr,
-                      ip_dst=self.from_server_dst_addr,
-                      tcp_dport=5000
-                 )
+            eth_src=self.from_server_src_mac,
+            eth_dst=self.vlan_mac,
+            ip_src=self.from_server_src_addr,
+            ip_dst=self.from_server_dst_addr,
+            tcp_dport=5000
+        )
         exp_packet = simple_tcp_packet(
-                      ip_src=self.from_server_src_addr,
-                      ip_dst=self.from_server_dst_addr,
-                      ip_ttl=63,
-                      tcp_dport=5000,
-                     )
+            ip_src=self.from_server_src_addr,
+            ip_dst=self.from_server_dst_addr,
+            ip_ttl=63,
+            tcp_dport=5000,
+        )
 
         self.from_vlan_exp_packet = Mask(exp_packet)
         self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
@@ -752,9 +842,11 @@ class ReloadTest(BaseTest):
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
         dut_lo_ipv4 = self.lo_prefix.split('/')[0]
-        for src_port in self.vlan_host_ping_map:
+
+        for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
-            src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
+            src_mac = self.hex_to_mac(
+                self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
                                         eth_dst=self.vlan_mac,
                                         ip_src=src_addr,
@@ -766,8 +858,8 @@ class ReloadTest(BaseTest):
                                         icmp_type='echo-reply')
 
         self.ping_dut_macjump_packet = simple_icmp_packet(eth_dst=self.dut_mac,
-                                    ip_src=self.from_server_src_addr,
-                                    ip_dst=dut_lo_ipv4)
+                                                          ip_src=self.from_server_src_addr,
+                                                          ip_dst=dut_lo_ipv4)
 
         self.ping_dut_exp_packet = Mask(exp_packet)
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
@@ -780,20 +872,24 @@ class ReloadTest(BaseTest):
         vlan_ip_range = self.vlan_ip_range[vlan]
 
         vlan_port_canadiates = range(len(self.ports_per_vlan[vlan]))
-        vlan_port_canadiates.remove(0) # subnet prefix
-        vlan_port_canadiates.remove(1) # subnet IP on dut
-        src_idx  = random.choice(vlan_port_canadiates)
+        vlan_port_canadiates.remove(0)  # subnet prefix
+        vlan_port_canadiates.remove(1)  # subnet IP on dut
+        src_idx = random.choice(vlan_port_canadiates)
         vlan_port_canadiates.remove(src_idx)
-        dst_idx  = random.choice(vlan_port_canadiates)
+        dst_idx = random.choice(vlan_port_canadiates)
         src_port = self.ports_per_vlan[vlan][src_idx]
         dst_port = self.ports_per_vlan[vlan][dst_idx]
         src_addr = self.host_ip(vlan_ip_range, src_idx)
         dst_addr = self.host_ip(vlan_ip_range, dst_idx)
-        src_mac  = self.hex_to_mac(self.vlan_host_map[src_port][src_addr])
-        packet   = simple_arp_packet(eth_src=src_mac, arp_op=1, ip_snd=src_addr, ip_tgt=dst_addr, hw_snd=src_mac)
-        expect   = simple_arp_packet(eth_dst=src_mac, arp_op=2, ip_snd=dst_addr, ip_tgt=src_addr, hw_tgt=src_mac)
-        self.log("ARP ping: src idx %d port %d mac %s addr %s" % (src_idx, src_port, src_mac, src_addr))
-        self.log("ARP ping: dst idx %d port %d addr %s" % (dst_idx, dst_port, dst_addr))
+        src_mac = self.hex_to_mac(self.vlan_host_map[src_port][src_addr])
+        packet = simple_arp_packet(
+            eth_src=src_mac, arp_op=1, ip_snd=src_addr, ip_tgt=dst_addr, hw_snd=src_mac)
+        expect = simple_arp_packet(
+            eth_dst=src_mac, arp_op=2, ip_snd=dst_addr, ip_tgt=src_addr, hw_tgt=src_mac)
+        self.log("ARP ping: src idx %d port %d mac %s addr %s" %
+                 (src_idx, src_port, src_mac, src_addr))
+        self.log("ARP ping: dst idx %d port %d addr %s" %
+                 (dst_idx, dst_port, dst_addr))
         self.arp_ping = str(packet)
         self.arp_resp = Mask(expect)
         self.arp_resp.set_do_not_care_scapy(scapy.Ether, 'src')
@@ -814,9 +910,9 @@ class ReloadTest(BaseTest):
         from_t1_iter = itertools.cycle(self.from_t1)
         sent_count_vlan_to_t1 = 0
         sent_count_t1_to_vlan = 0
-        for i in xrange(self.packets_to_send):
+        for i in range(self.packets_to_send):
             payload = '0' * 60 + str(i)
-            if (i % 5) == 0 :   # From vlan to T1.
+            if (i % 5) == 0:   # From vlan to T1.
                 packet = scapyall.Ether(self.from_vlan_packet)
                 packet.load = payload
                 from_port = self.from_server_src_port
@@ -853,7 +949,8 @@ class ReloadTest(BaseTest):
         for addr in self.ssh_targets:
             q = Queue.Queue(1)
             self.lacp_session_pause[addr] = None
-            thr = threading.Thread(target=self.peer_state_check, kwargs={'ip': addr, 'queue': q})
+            thr = threading.Thread(target=self.peer_state_check, kwargs={
+                                   'ip': addr, 'queue': q})
             thr.setDaemon(True)
             self.ssh_jobs.append((thr, q))
             thr.start()
@@ -863,21 +960,28 @@ class ReloadTest(BaseTest):
             self.setup_fdb()
 
         self.log("Starting reachability state watch thread...")
-        self.watching    = True
+        self.watching = True
         self.light_probe = False
-        self.watcher_is_stopped = threading.Event() # Waiter Event for the Watcher state is stopped.
-        self.watcher_is_running = threading.Event() # Waiter Event for the Watcher state is running.
-        self.watcher_is_stopped.set()               # By default the Watcher is not running.
-        self.watcher_is_running.clear()             # By default its required to wait for the Watcher started.
+        # Waiter Event for the Watcher state is stopped.
+        self.watcher_is_stopped = threading.Event()
+        # Waiter Event for the Watcher state is running.
+        self.watcher_is_running = threading.Event()
+        # By default the Watcher is not running.
+        self.watcher_is_stopped.set()
+        # By default its required to wait for the Watcher started.
+        self.watcher_is_running.clear()
         # Give watch thread some time to wind up
-        watcher = self.pool.apply_async(self.reachability_watcher)
+        watcher = self.pool.apply_async(self.reachability_watcher)      # noqa F841
         time.sleep(5)
 
     def get_warmboot_finalizer_state(self):
-        stdout, stderr, _ = self.dut_connection.execCommand('sudo systemctl is-active warmboot-finalizer.service')
+        stdout, stderr, _ = self.dut_connection.execCommand(
+            'sudo systemctl is-active warmboot-finalizer.service')
         if stderr:
-            self.fails['dut'].add("Error collecting Finalizer state. stderr: {}, stdout:{}".format(str(stderr), str(stdout)))
-            raise Exception("Error collecting Finalizer state. stderr: {}, stdout:{}".format(str(stderr), str(stdout)))
+            self.fails['dut'].add("Error collecting Finalizer state. stderr: {}, stdout:{}".format(
+                str(stderr), str(stdout)))
+            raise Exception("Error collecting Finalizer state. stderr: {}, stdout:{}".format(
+                str(stderr), str(stdout)))
         if not stdout:
             self.log('Finalizer state not returned from DUT')
             return ''
@@ -886,13 +990,18 @@ class ReloadTest(BaseTest):
         return finalizer_state
 
     def get_now_time(self):
-        stdout, stderr, _ = self.dut_connection.execCommand('date +"%Y-%m-%d %H:%M:%S"')
+        stdout, stderr, _ = self.dut_connection.execCommand(
+            'date +"%Y-%m-%d %H:%M:%S"')
         if stderr:
-            self.fails['dut'].add("Error collecting current date from DUT. stderr: {}, stdout:{}".format(str(stderr), str(stdout)))
-            raise Exception("Error collecting current date from DUT. stderr: {}, stdout:{}".format(str(stderr), str(stdout)))
+            self.fails['dut'].add("Error collecting current date from DUT. stderr: {}, stdout:{}".format(
+                str(stderr), str(stdout)))
+            raise Exception("Error collecting current date from DUT. stderr: {}, stdout:{}".format(
+                str(stderr), str(stdout)))
         if not stdout:
-            self.fails['dut'].add('Error collecting current date from DUT: empty value returned')
-            raise Exception('Error collecting current date from DUT: empty value returned')
+            self.fails['dut'].add(
+                'Error collecting current date from DUT: empty value returned')
+            raise Exception(
+                'Error collecting current date from DUT: empty value returned')
         return datetime.datetime.strptime(stdout[0].strip(), "%Y-%m-%d %H:%M:%S")
 
     def check_warmboot_finalizer(self, finalizer_timeout):
@@ -904,9 +1013,11 @@ class ReloadTest(BaseTest):
         while finalizer_state != 'activating':
             time.sleep(1)
             dut_datetime_after_ssh = self.get_now_time()
-            time_passed = float(dut_datetime_after_ssh.strftime("%s")) - float(dut_datetime.strftime("%s"))
+            time_passed = float(dut_datetime_after_ssh.strftime(
+                "%s")) - float(dut_datetime.strftime("%s"))
             if time_passed > finalizer_timeout:
-                self.fails['dut'].add('warmboot-finalizer never reached state "activating"')
+                self.fails['dut'].add(
+                    'warmboot-finalizer never reached state "activating"')
                 raise TimeoutError
             finalizer_state = self.get_warmboot_finalizer_state()
 
@@ -919,14 +1030,16 @@ class ReloadTest(BaseTest):
             self.log('warmboot finalizer service state {}'.format(finalizer_state))
             time.sleep(10)
             if count * 10 > int(self.test_params['warm_up_timeout_secs']):
-                self.fails['dut'].add('warmboot-finalizer.service did not finish')
+                self.fails['dut'].add(
+                    'warmboot-finalizer.service did not finish')
                 raise TimeoutError
             count += 1
         self.log('warmboot-finalizer service finished')
 
     def wait_until_control_plane_down(self):
         self.log("Wait until Control plane is down")
-        self.timeout(self.wait_until_cpu_port_down, self.task_timeout, "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
+        self.timeout(self.wait_until_cpu_port_down, self.task_timeout,
+                     "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
         if self.reboot_type == 'fast-reboot':
             self.light_probe = True
         else:
@@ -937,9 +1050,11 @@ class ReloadTest(BaseTest):
 
     def wait_until_control_plane_up(self):
         self.log("Wait until Control plane is up")
-        self.timeout(self.wait_until_cpu_port_up, self.task_timeout, "DUT hasn't come back up in {} seconds".format(self.task_timeout))
+        self.timeout(self.wait_until_cpu_port_up, self.task_timeout,
+                     "DUT hasn't come back up in {} seconds".format(self.task_timeout))
         self.no_control_stop = datetime.datetime.now()
-        self.log("Dut reboots: control plane up at %s" % str(self.no_control_stop))
+        self.log("Dut reboots: control plane up at %s" %
+                 str(self.no_control_stop))
 
     def wait_until_service_restart(self):
         self.log("Wait until sevice restart")
@@ -950,7 +1065,8 @@ class ReloadTest(BaseTest):
             for service_name in self.test_params['service_list']:
                 if service_name not in service_set:
                     continue
-                cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(service_name)
+                cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(
+                    service_name)
                 stdout, _, _ = self.dut_connection.execCommand(cmd)
                 if self.service_data[service_name]['service_start_time'] != str(stdout[0]).strip():
                     service_set.remove(service_name)
@@ -960,7 +1076,8 @@ class ReloadTest(BaseTest):
             time.sleep(10)
 
         if service_set:
-            self.fails['dut'].add("Container {} hasn't come back up in {} seconds".format(','.join(service_set), wait_time))
+            self.fails['dut'].add("Container {} hasn't come back up in {} seconds".format(
+                ','.join(service_set), wait_time))
             raise TimeoutError
 
         # TODO: add timestamp
@@ -968,7 +1085,8 @@ class ReloadTest(BaseTest):
 
     def handle_fast_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
-        self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
+        self.fails['dut'].add(
+            "Data plane has a forwarding problem after CPU went down")
         self.check_alive()
         self.fails['dut'].clear()
 
@@ -978,44 +1096,59 @@ class ReloadTest(BaseTest):
         # Stop watching DUT
         self.watching = False
         self.log("Stopping reachability state watch thread.")
-        self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
+        # Wait for the Watcher stopped.
+        self.watcher_is_stopped.wait(timeout=10)
 
         examine_start = datetime.datetime.now()
-        self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
+        self.log("Packet flow examine started %s after the reboot" %
+                 str(examine_start - self.reboot_start))
         self.examine_flow()
-        self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
+        self.log("Packet flow examine finished after %s" %
+                 str(datetime.datetime.now() - examine_start))
 
         if self.lost_packets:
-            self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
-            self.log("Dataplane disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
-            self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
-                (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
+            self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(
+                self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
+            self.log("Dataplane disruption lasted %.3f seconds. %d packet(s) lost." % (
+                self.max_disrupt_time, self.max_lost_id))
+            self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" %
+                     (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
         else:
             self.no_routing_start = self.reboot_start
-            self.no_routing_stop  = self.reboot_start
+            self.no_routing_stop = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
+        # wait until sniffer and sender threads have started
+        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+            time.sleep(1)
+
+        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
         # Stop watching DUT
         self.watching = False
         self.log("Stopping reachability state watch thread.")
-        self.watcher_is_stopped.wait(timeout = 10)  # Wait for the Watcher stopped.
+        # Wait for the Watcher stopped.
+        self.watcher_is_stopped.wait(timeout=10)
 
         examine_start = datetime.datetime.now()
-        self.log("Packet flow examine started %s after the reboot" % str(examine_start - self.reboot_start))
+        self.log("Packet flow examine started %s after the reboot" %
+                 str(examine_start - self.reboot_start))
         self.examine_flow()
-        self.log("Packet flow examine finished after %s" % str(datetime.datetime.now() - examine_start))
+        self.log("Packet flow examine finished after %s" %
+                 str(datetime.datetime.now() - examine_start))
 
         if self.lost_packets:
-            self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
-            self.log("The longest disruption lasted %.3f seconds. %d packet(s) lost." % (self.max_disrupt_time, self.max_lost_id))
-            self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" % \
-                (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
+            self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(
+                self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
+            self.log("The longest disruption lasted %.3f seconds. %d packet(s) lost." % (
+                self.max_disrupt_time, self.max_lost_id))
+            self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" %
+                     (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
         else:
             self.no_routing_start = self.reboot_start
-            self.no_routing_stop  = self.reboot_start
+            self.no_routing_stop = self.reboot_start
 
     def handle_post_reboot_health_check(self):
         # wait until all bgp session are established
@@ -1031,20 +1164,24 @@ class ReloadTest(BaseTest):
             for thr, _ in self.ssh_jobs:
                 thr.join()
 
-        self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
+        self.timeout(wait_for_ssh_threads, self.task_timeout,
+                     "SSH threads haven't finished for %d seconds" % self.task_timeout)
 
-        self.log("Data plane works again. Start time: %s" % str(self.no_routing_stop))
+        self.log("Data plane works again. Start time: %s" %
+                 str(self.no_routing_stop))
         self.log("")
 
         if self.no_routing_stop - self.no_routing_start > self.limit:
-            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
-                    % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
+            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s"
+                                  % (self.test_params['reboot_limit_in_seconds'],
+                                     str(self.no_routing_stop - self.no_routing_start)))
         if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
-            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
+            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (
+                self.reboot_type, self.test_params['graceful_limit']))
 
         if self.total_disrupt_time > self.limit.total_seconds():
-            self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
-                % (str(self.limit), str(self.total_disrupt_time)))
+            self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s"
+                                  % (str(self.limit), str(self.total_disrupt_time)))
 
         if 'warm-reboot' in self.reboot_type:
             # after the data plane is up, check for routing changes
@@ -1064,15 +1201,19 @@ class ReloadTest(BaseTest):
     def handle_advanced_reboot_health_check_kvm(self):
         self.log("Wait until data plane stops")
         forward_stop_signal = multiprocessing.Event()
-        async_forward_stop = self.pool.apply_async(self.check_forwarding_stop, args=(forward_stop_signal,))
+        async_forward_stop = self.pool.apply_async(
+            self.check_forwarding_stop, args=(forward_stop_signal,))
 
         self.log("Wait until control plane up")
         port_up_signal = multiprocessing.Event()
-        async_cpu_up = self.pool.apply_async(self.wait_until_cpu_port_up, args=(port_up_signal,))
+        async_cpu_up = self.pool.apply_async(
+            self.wait_until_cpu_port_up, args=(port_up_signal,))
 
         try:
-            self.no_routing_start, _ = async_forward_stop.get(timeout=self.task_timeout)
-            self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(self.no_routing_start))
+            self.no_routing_start, _ = async_forward_stop.get(
+                timeout=self.task_timeout)
+            self.log("Data plane was stopped, Waiting until it's up. Stop time: %s" % str(
+                self.no_routing_start))
         except TimeoutError:
             forward_stop_signal.set()
             self.log("Data plane never stop")
@@ -1081,17 +1222,18 @@ class ReloadTest(BaseTest):
             async_cpu_up.get(timeout=self.task_timeout)
             no_control_stop = self.cpu_state.get_state_time('up')
             self.log("Control plane down stops %s" % str(no_control_stop))
-        except TimeoutError as e:
+        except TimeoutError:
             port_up_signal.set()
             self.log("DUT hasn't bootup in %d seconds" % self.task_timeout)
-            self.fails['dut'].add("DUT hasn't booted up in %d seconds" % self.task_timeout)
+            self.fails['dut'].add(
+                "DUT hasn't booted up in %d seconds" % self.task_timeout)
             raise
 
         # Wait until data plane up if it stopped
         if self.no_routing_start is not None:
             self.no_routing_stop, _ = self.timeout(self.check_forwarding_resume,
-                    self.task_timeout,
-                    "DUT hasn't started to work for %d seconds" % self.task_timeout)
+                                                   self.task_timeout,
+                                                   "DUT hasn't started to work for %d seconds" % self.task_timeout)
         else:
             self.no_routing_stop = datetime.datetime.min
             self.no_routing_start = datetime.datetime.min
@@ -1112,16 +1254,20 @@ class ReloadTest(BaseTest):
             for thr, _ in self.ssh_jobs:
                 thr.join()
 
-        self.timeout(wait_for_ssh_threads, self.task_timeout, "SSH threads haven't finished for %d seconds" % self.task_timeout)
+        self.timeout(wait_for_ssh_threads, self.task_timeout,
+                     "SSH threads haven't finished for %d seconds" % self.task_timeout)
 
-        self.log("Data plane works again. Start time: %s" % str(self.no_routing_stop))
+        self.log("Data plane works again. Start time: %s" %
+                 str(self.no_routing_stop))
         self.log("")
 
         if self.no_routing_stop - self.no_routing_start > self.limit:
-            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s" \
-                    % (self.test_params['reboot_limit_in_seconds'], str(self.no_routing_stop - self.no_routing_start)))
+            self.fails['dut'].add("Longest downtime period must be less then %s seconds. It was %s"
+                                  % (self.test_params['reboot_limit_in_seconds'],
+                                     str(self.no_routing_stop - self.no_routing_start)))
         if self.no_routing_stop - self.reboot_start > datetime.timedelta(seconds=self.test_params['graceful_limit']):
-            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (self.reboot_type, self.test_params['graceful_limit']))
+            self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (
+                self.reboot_type, self.test_params['graceful_limit']))
 
     def handle_post_reboot_test_reports(self):
         # Stop watching DUT
@@ -1141,11 +1287,11 @@ class ReloadTest(BaseTest):
         self.log("LACP/BGP were down for (extracted from cli):")
         self.log("-"*50)
         for ip in sorted(self.cli_info.keys()):
-            self.log("    %s - lacp: %7.3f (%d) po_events: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)" \
-                        % (ip, self.cli_info[ip]['lacp'][1],   self.cli_info[ip]['lacp'][0], \
-                            self.cli_info[ip]['po'][1], \
-                            self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],\
-                            self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
+            self.log("    %s - lacp: %7.3f (%d) po_events: (%d) bgp v4: %7.3f (%d) bgp v6: %7.3f (%d)"
+                     % (ip, self.cli_info[ip]['lacp'][1],   self.cli_info[ip]['lacp'][0],
+                        self.cli_info[ip]['po'][1],
+                        self.cli_info[ip]['bgp_v4'][1], self.cli_info[ip]['bgp_v4'][0],
+                        self.cli_info[ip]['bgp_v6'][1], self.cli_info[ip]['bgp_v6'][0]))
 
         self.log("-"*50)
         self.log("Extracted from VM logs:")
@@ -1153,7 +1299,7 @@ class ReloadTest(BaseTest):
         for ip in sorted(self.logs_info.keys()):
             self.log("Extracted log info from %s" % ip)
             for msg in sorted(self.logs_info[ip].keys()):
-                if not msg in [ 'error', 'route_timeout' ]:
+                if msg not in ['error', 'route_timeout']:
                     self.log("    %s : %d" % (msg, self.logs_info[ip][msg]))
                 else:
                     self.log("    %s" % self.logs_info[ip][msg])
@@ -1163,13 +1309,16 @@ class ReloadTest(BaseTest):
         self.log("-"*50)
 
         if self.no_routing_stop:
-            self.log("Longest downtime period was %s" % str(self.no_routing_stop - self.no_routing_start))
-            reboot_time = "0:00:00" if self.routing_always else str(self.no_routing_stop - self.reboot_start)
+            self.log("Longest downtime period was %s" %
+                     str(self.no_routing_stop - self.no_routing_start))
+            reboot_time = "0:00:00" if self.routing_always else str(
+                self.no_routing_stop - self.reboot_start)
             self.log("Reboot time was %s" % reboot_time)
             self.log("Expected downtime is less then %s" % self.limit)
 
         if self.reboot_type == 'fast-reboot' and self.no_cp_replies:
-            self.log("How many packets were received back when control plane was down: %d Expected: %d" % (self.no_cp_replies, self.nr_vl_pkts))
+            self.log("How many packets were received back when control plane was down: %d Expected: %d" % (
+                self.no_cp_replies, self.nr_vl_pkts))
 
         has_info = any(len(info) > 0 for info in self.info.values())
         if has_info:
@@ -1198,24 +1347,27 @@ class ReloadTest(BaseTest):
         self.log("="*50)
 
         if self.no_routing_stop and self.no_routing_start:
-            dataplane_downtime = (self.no_routing_stop - self.no_routing_start).total_seconds()
+            dataplane_downtime = (self.no_routing_stop -
+                                  self.no_routing_start).total_seconds()
         else:
             dataplane_downtime = ""
         if self.total_disrupt_time:
             # Add total downtime (calculated in physical warmboot test using packet disruptions)
             dataplane_downtime = self.total_disrupt_time
         dataplane_report = dict()
+        dataplane_report["checked_successfully"] = self.dataplane_loss_checked_successfully
         dataplane_report["downtime"] = str(dataplane_downtime)
         dataplane_report["lost_packets"] = str(self.total_disrupt_packets) \
             if self.total_disrupt_packets is not None else ""
         controlplane_report = dict()
 
         if self.no_control_stop and self.no_control_start:
-            controlplane_downtime = (self.no_control_stop - self.no_control_start).total_seconds()
+            controlplane_downtime = (
+                self.no_control_stop - self.no_control_start).total_seconds()
         else:
             controlplane_downtime = ""
         controlplane_report["downtime"] = str(controlplane_downtime)
-        controlplane_report["arp_ping"] = "" # TODO
+        controlplane_report["arp_ping"] = ""  # TODO
         controlplane_report["lacp_sessions"] = self.lacp_session_pause
         self.report["dataplane"] = dataplane_report
         self.report["controlplane"] = controlplane_report
@@ -1233,7 +1385,8 @@ class ReloadTest(BaseTest):
             self.fails['dut'].clear()
 
             self.clear_dut_counters()
-            self.log("Schedule to reboot the remote switch in %s sec" % self.reboot_delay)
+            self.log("Schedule to reboot the remote switch in %s sec" %
+                     self.reboot_delay)
             thr = threading.Thread(target=self.reboot_dut)
             thr.setDaemon(True)
             thr.start()
@@ -1244,9 +1397,10 @@ class ReloadTest(BaseTest):
                 self.wait_until_service_restart()
 
             if 'warm-reboot' in self.reboot_type:
-                finalizer_timeout = 60 + self.test_params['reboot_limit_in_seconds']
-                thr = threading.Thread(target=self.check_warmboot_finalizer,\
-                    kwargs={'finalizer_timeout': finalizer_timeout})
+                finalizer_timeout = 60 + \
+                    self.test_params['reboot_limit_in_seconds']
+                thr = threading.Thread(target=self.check_warmboot_finalizer,
+                                       kwargs={'finalizer_timeout': finalizer_timeout})
                 thr.setDaemon(True)
                 thr.start()
                 self.warmboot_finalizer_thread = thr
@@ -1256,7 +1410,8 @@ class ReloadTest(BaseTest):
                 self.handle_post_reboot_health_check_kvm()
             else:
                 if self.reboot_type == 'fast-reboot':
-                    thr = threading.Thread(target=self.wait_until_control_plane_up)
+                    thr = threading.Thread(
+                        target=self.wait_until_control_plane_up)
                     thr.setDaemon(True)
                     thr.start()
                     self.handle_fast_reboot_health_check()
@@ -1266,19 +1421,22 @@ class ReloadTest(BaseTest):
                 self.handle_post_reboot_health_check()
 
             if 'warm-reboot' in self.reboot_type:
-                total_timeout = finalizer_timeout + self.test_params['warm_up_timeout_secs']
+                total_timeout = finalizer_timeout + \
+                    self.test_params['warm_up_timeout_secs']
                 start_time = datetime.datetime.now()
                 # Wait until timeout happens OR the IO test completes
                 while ((datetime.datetime.now() - start_time).seconds < total_timeout) and\
-                    self.warmboot_finalizer_thread.is_alive():
-                        time.sleep(0.5)
+                        self.warmboot_finalizer_thread.is_alive():
+                    time.sleep(0.5)
                 if self.warmboot_finalizer_thread.is_alive():
-                    self.fails['dut'].add("Warmboot Finalizer hasn't finished for {} seconds. Finalizer state: {}".format(total_timeout, self.get_warmboot_finalizer_state()))
+                    self.fails['dut'].add("Warmboot Finalizer hasn't finished for {} seconds. Finalizer state: {}"
+                                          .format(total_timeout, self.get_warmboot_finalizer_state()))
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
-        except Exception as e:
-            self.fails['dut'].add(e)
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.fails['dut'].add(traceback_msg)
         finally:
             self.handle_post_reboot_test_reports()
 
@@ -1287,7 +1445,10 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.neigh_handle = Arista(neigh, None, self.test_params)
+            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                         if x['mgmt_addr'] == neigh]
+            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
+                                                                 None, self.test_params)
             self.neigh_handle.connect()
             fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
             self.neigh_handle.disconnect()
@@ -1295,52 +1456,68 @@ class ReloadTest(BaseTest):
             if not flap_cnt:
                 self.log("No LAG flaps seen on %s after warm boot" % neigh)
             else:
-                self.fails[neigh].add("LAG flapped %s times on %s after warm boot" % (flap_cnt, neigh))
+                self.fails[neigh].add(
+                    "LAG flapped %s times on %s after warm boot" % (flap_cnt, neigh))
 
     def check_sonic_version_after_reboot(self):
         # Check sonic version after reboot
         target_version = self.test_params['target_version']
         if target_version:
-            stdout, stderr, return_code = self.dut_connection.execCommand("sudo sonic_installer list | grep Current | awk '{print $2}'")
+            stdout, stderr, return_code = self.dut_connection.execCommand(
+                "sudo sonic_installer list | grep Current | awk '{print $2}'")
             current_version = ""
             if stdout != []:
                 current_version = str(stdout[0]).replace('\n', '')
-            self.log("Current={} Target={}".format(current_version, target_version))
+            self.log("Current={} Target={}".format(
+                current_version, target_version))
             if current_version != target_version:
-                raise Exception("Sonic upgrade failed. Target={} Current={}".format(\
+                raise Exception("Sonic upgrade failed. Target={} Current={}".format(
                     target_version, current_version))
 
     def extract_no_cpu_replies(self, arr):
-      """
-      This function tries to extract number of replies from dataplane, when control plane is non working
-      """
-      # remove all tail zero values
-      non_zero = filter(lambda x : x > 0, arr)
+        """
+        This function tries to extract number of replies from dataplane, when control plane is non working
+        """
+        # remove all tail zero values
+        non_zero = filter(lambda x: x > 0, arr)
 
-      # check that last value is different from previos
-      if len(non_zero) > 1 and non_zero[-1] < non_zero[-2]:
-          return non_zero[-2]
-      else:
-          return non_zero[-1]
+        # check that last value is different from previos
+        if len(non_zero) > 1 and non_zero[-1] < non_zero[-2]:
+            return non_zero[-2]
+        else:
+            return non_zero[-1]
 
     def reboot_dut(self):
         time.sleep(self.reboot_delay)
 
         if not self.kvm_test and\
-            (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type or 'service-warm-restart' in self.reboot_type):
-            self.sender_thr = threading.Thread(target = self.send_in_background)
-            self.sniff_thr = threading.Thread(target = self.sniff_in_background)
-            self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
+                (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
+                 self.reboot_type or 'service-warm-restart' in self.reboot_type):
+            # Event for the sniff_in_background status.
+            self.sniffer_started = threading.Event()
             self.sniff_thr.start()
             self.sender_thr.start()
 
         self.log("Rebooting remote side")
         if self.reboot_type != 'service-warm-restart' and self.test_params['other_vendor_flag'] is False:
-            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+            # Check to see if the warm-reboot script knows about the retry count feature
+            stdout, stderr, return_code = self.dut_connection.execCommand(
+                "sudo " + self.reboot_type + " -h", timeout=5)
+            if "retry count" in stdout:
+                if self.test_params['neighbor_type'] == "sonic":
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -N", timeout=30)
+                else:
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -n", timeout=30)
+            else:
+                stdout, stderr, return_code = self.dut_connection.execCommand(
+                    "sudo " + self.reboot_type, timeout=30)
 
         elif self.test_params['other_vendor_flag'] is True:
             ignore_db_integrity_check = " -d"
-            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type + ignore_db_integrity_check, timeout=30)
+            stdout, stderr, return_code = self.dut_connection.execCommand(
+                "sudo " + self.reboot_type + ignore_db_integrity_check, timeout=30)
 
         else:
             self.restart_service()
@@ -1350,10 +1527,13 @@ class ReloadTest(BaseTest):
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
         if stderr != []:
             self.log("stderr from %s: %s" % (self.reboot_type, str(stderr)))
-            self.fails['dut'].add("{} failed with error {}".format(self.reboot_type, stderr))
+            self.fails['dut'].add(
+                "{} failed with error {}".format(self.reboot_type, stderr))
             thread.interrupt_main()
-            raise Exception("{} failed with error {}".format(self.reboot_type, stderr))
-        self.log("return code from %s: %s" % (self.reboot_type, str(return_code)))
+            raise Exception("{} failed with error {}".format(
+                self.reboot_type, stderr))
+        self.log("return code from %s: %s" %
+                 (self.reboot_type, str(return_code)))
 
         # Note: a timeout reboot in ssh session will return a 255 code
         if return_code not in [0, 255]:
@@ -1364,25 +1544,35 @@ class ReloadTest(BaseTest):
     def restart_service(self):
         for service_name in self.test_params['service_list']:
             if 'image_path_on_dut' in self.service_data[service_name]:
-                stdout, stderr, return_code = self.dut_connection.execCommand("sudo sonic-installer upgrade-docker {} {} -y --warm".format(service_name, self.service_data[service_name]['image_path_on_dut']), timeout=30)
+                stdout, stderr, return_code = self.dut_connection.execCommand(
+                    "sudo sonic-installer upgrade-docker {} {} -y --warm"
+                    .format(service_name, self.service_data[service_name]['image_path_on_dut']), timeout=30)
             else:
-                self.dut_connection.execCommand('sudo config warm_restart enable {}'.format(service_name))
+                self.dut_connection.execCommand(
+                    'sudo config warm_restart enable {}'.format(service_name))
                 self.pre_service_warm_restart(service_name)
-                stdout, stderr, return_code = self.dut_connection.execCommand('sudo service {} restart'.format(service_name))
+                stdout, stderr, return_code = self.dut_connection.execCommand(
+                    'sudo service {} restart'.format(service_name))
 
             if stdout != []:
-                self.log("stdout from %s %s: %s" % (self.reboot_type, service_name, str(stdout)))
+                self.log("stdout from %s %s: %s" %
+                         (self.reboot_type, service_name, str(stdout)))
             if stderr != []:
-                self.log("stderr from %s %s: %s" % (self.reboot_type, service_name, str(stderr)))
-                self.fails['dut'].add("service warm restart {} failed with error {}".format(service_name, stderr))
+                self.log("stderr from %s %s: %s" %
+                         (self.reboot_type, service_name, str(stderr)))
+                self.fails['dut'].add(
+                    "service warm restart {} failed with error {}".format(service_name, stderr))
                 thread.interrupt_main()
-                raise Exception("{} failed with error {}".format(self.reboot_type, stderr))
-            self.log("return code from %s %s: %s" % (self.reboot_type, service_name, str(return_code)))
+                raise Exception("{} failed with error {}".format(
+                    self.reboot_type, stderr))
+            self.log("return code from %s %s: %s" %
+                     (self.reboot_type, service_name, str(return_code)))
             if return_code not in [0, 255]:
                 thread.interrupt_main()
 
     def pre_service_warm_restart(self, service_name):
-        """Copy from src/sonic-utilities/sonic_installer/main.py to do some special operation for particular containers
+        """
+        Copy from src/sonic-utilities/sonic_installer/main.py to do some special operation for particular containers
         """
         if service_name == 'swss':
             cmd = 'docker exec -i swss orchagent_restart_check -w 2000 -r 5'
@@ -1390,12 +1580,15 @@ class ReloadTest(BaseTest):
             if return_code != 0:
                 self.log('stdout from {}: {}'.format(cmd, str(stdout)))
                 self.log('stderr from {}: {}'.format(cmd, str(stderr)))
-                self.log('orchagent is not in clean state, RESTARTCHECK failed: {}'.format(return_code))
+                self.log(
+                    'orchagent is not in clean state, RESTARTCHECK failed: {}'.format(return_code))
         elif service_name == 'bgp':
-            self.dut_connection.execCommand('docker exec -i bgp pkill -9 zebra')
+            self.dut_connection.execCommand(
+                'docker exec -i bgp pkill -9 zebra')
             self.dut_connection.execCommand('docker exec -i bgp pkill -9 bgpd')
         elif service_name == 'teamd':
-            self.dut_connection.execCommand('docker exec -i teamd pkill -USR1 teamd > /dev/null')
+            self.dut_connection.execCommand(
+                'docker exec -i teamd pkill -USR1 teamd > /dev/null')
 
     def cmd(self, cmds):
         process = subprocess.Popen(cmds,
@@ -1409,28 +1602,39 @@ class ReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
-        ssh = Arista(ip, queue, self.test_params, log_cb=self.log)
+        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                     if x['mgmt_addr'] == ip]
+        ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
+                                               self.test_params, log_cb=self.log)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
-        lacp_pdu_down_times = lacp_pdu_times.get("lacp_down")
-        lacp_pdu_up_times = lacp_pdu_times.get("lacp_up")
-        self.log('lacp_pdu_down_times: IP:{}: {}'.format(ip, lacp_pdu_down_times))
-        self.log('lacp_pdu_up_times: IP:{}: {}'.format(ip, lacp_pdu_up_times))
-        lacp_pdu_before_reboot = float(lacp_pdu_down_times[-1]) if\
-            lacp_pdu_down_times and len(lacp_pdu_down_times) > 0 else None
-        lacp_pdu_after_reboot = float(lacp_pdu_up_times[0]) if\
-            lacp_pdu_up_times and len(lacp_pdu_up_times) > 0 else None
-        if ('warm-reboot' in self.reboot_type or 'service-warm-restart' in self.reboot_type) and lacp_pdu_before_reboot and lacp_pdu_after_reboot:
-            lacp_time_diff = lacp_pdu_after_reboot - lacp_pdu_before_reboot
-            if lacp_time_diff >= 90 and not self.kvm_test:
-                self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +\
-                    " post-reboot lacpdu came after {}s of lacpdu pre-boot".format(lacp_time_diff))
-        else:
-            lacp_time_diff = None
-        self.lacp_session_pause[ip] = lacp_time_diff
+        lacp_pdu_all_times = lacp_pdu_times.get("lacp_all")
 
+        self.log('lacp_pdu_all_times: IP:{}: {}'.format(ip, lacp_pdu_all_times))
+
+        # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
+        max_lacp_session_wait = None
+        if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
+            lacp_pdu_all_times.sort()
+            max_lacp_session_wait = 0
+            prev_time = lacp_pdu_all_times[0]
+            for new_time in lacp_pdu_all_times[1:]:
+                lacp_session_wait = new_time - prev_time
+                if lacp_session_wait > max_lacp_session_wait:
+                    max_lacp_session_wait = lacp_session_wait
+                prev_time = new_time
+
+        if 'warm-reboot' in self.reboot_type:
+            if max_lacp_session_wait and max_lacp_session_wait >= 90 and not self.kvm_test:
+                self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +
+                                      " post-reboot lacpdu came after {}s of lacpdu pre-boot"
+                                      .format(max_lacp_session_wait))
+            elif not max_lacp_session_wait and not self.kvm_test:
+                self.fails['dut'].add("LACP session timing not captured")
+
+        self.lacp_session_pause[ip] = max_lacp_session_wait
 
     def wait_until_cpu_port_down(self, signal):
         while not signal.is_set():
@@ -1457,7 +1661,7 @@ class ReloadTest(BaseTest):
             port = p.get_packet_source()
             scapyall.attach_filter(port.socket, filter_expression)
 
-    def send_in_background(self, packets_list = None, interval = None):
+    def send_in_background(self, packets_list=None, interval=None):
         """
         This method sends predefined list of packets with predefined interval.
         """
@@ -1469,94 +1673,168 @@ class ReloadTest(BaseTest):
         with self.dataplane_io_lock:
             sent_packet_count = 0
             # While running fast data plane sender thread there are two reasons for filter to be applied
-            #  1. filter out data plane traffic which is tcp to free up the load on PTF socket (sniffer thread is using a different one)
+            #  1. filter out data plane traffic which is tcp to free up the load
+            #     on PTF socket (sniffer thread is using a different one)
             #  2. during warm neighbor restoration DUT will send a lot of ARP requests which we are not interested in
             # This is essential to get stable results
-            self.apply_filter_all_ports('not (arp and ether src {}) and not tcp'.format(self.test_params['dut_mac']))
+            self.apply_filter_all_ports(
+                'not (arp and ether src {}) and not tcp'.format(self.test_params['dut_mac']))
             sender_start = datetime.datetime.now()
             self.log("Sender started at %s" % str(sender_start))
             for entry in packets_list:
                 time.sleep(interval)
                 if self.vnet:
-                    testutils.send_packet(self, entry[0], entry[1].decode("base64"))
+                    testutils.send_packet(
+                        self, entry[0], entry[1].decode("base64"))
                 else:
                     testutils.send_packet(self, *entry)
                 sent_packet_count += 1
-            self.log("Sender has been running for %s" % str(datetime.datetime.now() - sender_start))
+            self.log("Sender has been running for %s" %
+                     str(datetime.datetime.now() - sender_start))
             self.log("Total sent packets by sender: {}".format(sent_packet_count))
 
             # Signal sniffer thread to allow early finish.
             # Without this signalling mechanism, the sniffer thread can continue for a hardcoded max time.
             # Sometimes this max time is too long and sniffer keeps running too long after sender finishes.
-            # Other times, sniffer finishes too early (when max time is less) while the sender is still sending packets.
+            # Other times, sniffer finishes too early (when max time is less)
+            # while the sender is still sending packets.
             # So now:
             # 1. sniffer max timeout is increased (to prevent sniffer finish before sender)
             # 2. and sender can signal sniffer to end after all packets are sent.
             time.sleep(1)
-            kill_sniffer_cmd = "pkill -SIGINT -f {}".format(self.ptf_sniffer)
-            subprocess.Popen(kill_sniffer_cmd.split())
-            self.apply_filter_all_ports('')
+            self.kill_sniffer = True
 
-    def sniff_in_background(self, wait = None):
+    def sniff_in_background(self, wait=None):
         """
         This function listens on all ports, in both directions, for the TCP src=1234 dst=5000 packets, until timeout.
         Once found, all packets are dumped to local pcap file,
-        and all packets are saved to self.packets as scapy type.
-        The native scapy.snif() is used as a background thread, to allow delayed start for the send_in_background().
+        and all packets are saved to self.packets as scapy type(pcap format).
         """
         if not wait:
             wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
-        scapy_sniffer = threading.Thread(target=self.scapy_sniff,
-            kwargs={'wait': wait, 'sniff_filter': sniff_filter})
-        scapy_sniffer.start()
-        time.sleep(2)               # Let the scapy sniff initialize completely.
-        self.sniffer_started.set()  # Unblock waiter for the send_in_background.
-        scapy_sniffer.join()
-        self.log("Sniffer has been running for %s" % str(datetime.datetime.now() - sniffer_start))
+        sniffer = threading.Thread(target=self.tcpdump_sniff, kwargs={
+                                   'wait': wait, 'sniff_filter': sniff_filter})
+        sniffer.start()
+        # Let the scapy sniff initialize completely.
+        time.sleep(2)
+        # Unblock waiter for the send_in_background.
+        self.sniffer_started.set()
+        sniffer.join()
+        self.log("Sniffer has been running for %s" %
+                 str(datetime.datetime.now() - sniffer_start))
         self.sniffer_started.clear()
 
-    def scapy_sniff(self, wait=300, sniff_filter=''):
+    def tcpdump_sniff(self, wait=300, sniff_filter=''):
         """
         @summary: PTF runner -  runs a sniffer in PTF container.
         Args:
             wait (int): Duration in seconds to sniff the traffic
-            sniff_filter (str): Filter that Scapy will use to collect only relevant packets
+            sniff_filter (str): Filter that tcpdump will use to collect only relevant packets
         """
-        capture_pcap = "/tmp/capture_%s.pcap" % self.logfile_suffix if self.logfile_suffix is not None else "/tmp/capture.pcap"
-        capture_log = "/tmp/capture.log"
-        self.ptf_sniffer = "/root/ptftests/advanced_reboot_sniffer.py"
-        sniffer_command = ["python", self.ptf_sniffer, "-f", "'{}'".format(sniff_filter), "-p",\
-        capture_pcap, "-l", capture_log, "-t" , str(wait)]
-        subprocess.call(["rm", "-rf", capture_pcap]) # remove old capture
-        subprocess.call(sniffer_command)
+        capture_pcap = ("/tmp/capture_%s.pcap" % self.logfile_suffix
+                        if self.logfile_suffix is not None else "/tmp/capture.pcap")
+        subprocess.call(["rm", "-rf", capture_pcap])  # remove old capture
+        self.kill_sniffer = False
+        self.start_sniffer(capture_pcap, sniff_filter, wait)
+        self.create_single_pcap(capture_pcap)
         self.packets = scapyall.rdpcap(capture_pcap)
         self.log("Number of all packets captured: {}".format(len(self.packets)))
 
-    def send_and_sniff(self):
+    def start_sniffer(self, pcap_path, tcpdump_filter, timeout):
         """
-        This method starts two background threads in parallel:
-        one for sending, another for collecting the sent packets.
+        Star tcpdump sniffer on all data interfaces
         """
-        self.sender_thr = threading.Thread(target = self.send_in_background)
-        self.sniff_thr = threading.Thread(target = self.sniff_in_background)
-        self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
-        self.sniff_thr.start()
-        self.sender_thr.start()
-        self.sniff_thr.join()
-        self.sender_thr.join()
+        self.tcpdump_data_ifaces = [
+            iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
+        processes_list = []
+        for iface in self.tcpdump_data_ifaces:
+            process = multiprocessing.Process(
+                target=self.start_dump_process,
+                kwargs={'iface': iface, 'pcap_path': pcap_path, 'tcpdump_filter': tcpdump_filter})
+            process.start()
+            processes_list.append(process)
+
+        time_start = time.time()
+        while not self.kill_sniffer:
+            time.sleep(1)
+            curr_time = time.time()
+            if curr_time - time_start > timeout:
+                break
+            time_start = curr_time
+
+        self.log("Going to kill all tcpdump processes by SIGINT")
+        subprocess.call(['killall', '-s', 'SIGINT', 'tcpdump'])
+
+        for process in processes_list:
+            process.join()
+
+    def start_dump_process(self, iface, pcap_path, tcpdump_filter):
+        """
+        Start tcpdump on specific interface and save data to pcap file
+        """
+        iface_pcap_path = '{}_{}'.format(pcap_path, iface)
+        cmd = ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path]
+        self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
+        subprocess.call(cmd)
+
+    def create_single_pcap(self, pcap_path):
+        """
+        Merge all pcaps from each interface into single pcap file
+        """
+        pcapng_full_capture = self.merge_pcaps(
+            pcap_path, self.tcpdump_data_ifaces)
+        self.convert_pcapng_to_pcap(pcap_path, pcapng_full_capture)
+        self.log('Pcap files merged into single pcap file: {}'.format(pcap_path))
+
+    def merge_pcaps(self, pcap_path, data_ifaces):
+        """
+        Merge all pcaps into one, format: pcapng
+        """
+        pcapng_full_capture = '{}.pcapng'.format(pcap_path)
+        cmd = ['mergecap', '-w', pcapng_full_capture]
+        ifaces_pcap_files_list = []
+        for iface in data_ifaces:
+            pcap_file_path = '{}_{}'.format(pcap_path, iface)
+            if os.path.exists(pcap_file_path):
+                cmd.append(pcap_file_path)
+                ifaces_pcap_files_list.append(pcap_file_path)
+
+        self.log('Starting merge pcap files')
+        subprocess.call(cmd)
+        self.log('Pcap files merged into tmp pcapng file')
+
+        # Remove pcap files created per interface
+        for pcap_file in ifaces_pcap_files_list:
+            subprocess.call(['rm', '-f', pcap_file])
+
+        return pcapng_full_capture
+
+    def convert_pcapng_to_pcap(self, pcap_path, pcapng_full_capture):
+        """
+        Convert pcapng file into pcap. We can't just merge all in pcap,
+        mergecap can merge multiple files only into pcapng format
+        """
+        cmd = ['mergecap', '-F', 'pcap', '-w', pcap_path, pcapng_full_capture]
+        self.log('Converting pcapng file into pcap file')
+        subprocess.call(cmd)
+        self.log('Pcapng file converted into pcap file')
+        # Remove tmp pcapng file
+        subprocess.call(['rm', '-f', pcapng_full_capture])
 
     def check_tcp_payload(self, packet):
         """
         This method is used by examine_flow() method.
-        It returns True if a packet is not corrupted and has a valid TCP sequential TCP Payload, as created by generate_bidirectional() method'.
+        It returns True if a packet is not corrupted and has a valid TCP sequential TCP Payload,
+        as created by generate_bidirectional() method'.
         """
         try:
-            int(str(packet[scapyall.TCP].payload)) in range(self.packets_to_send)
+            int(str(packet[scapyall.TCP].payload)
+                ) in range(self.packets_to_send)
             return True
-        except Exception as err:
+        except Exception:
             return False
 
     def no_flood(self, packet):
@@ -1564,19 +1842,21 @@ class ReloadTest(BaseTest):
         This method filters packets which are unique (i.e. no floods).
         """
         if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and \
-        (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac):
+                (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac):
             # This is a unique (no flooded) received packet.
-            # for dualtor, t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
+            # for dualtor, t1->server rcvd pkt will have src MAC as vlan_mac,
+            # and server->t1 rcvd pkt will have src MAC as dut_mac
             self.unique_id.append(int(str(packet[scapyall.TCP].payload)))
             return True
         elif packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
             # This is a sent packet.
-            # for dualtor, t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
+            # for dualtor, t1->server sent pkt will have dst MAC as dut_mac,
+            # and server->t1 sent pkt will have dst MAC as vlan_mac
             return True
         else:
             return False
 
-    def examine_flow(self, filename = None):
+    def examine_flow(self, filename=None):
         """
         This method examines pcap file (if given), or self.packets scapy file.
         The method compares TCP payloads of the packets one by one (assuming all payloads are consecutive integers),
@@ -1593,39 +1873,42 @@ class ReloadTest(BaseTest):
             self.fails['dut'].add("Filename and self.packets are not defined")
             return None
         # Filter out packets and remove floods:
-        self.unique_id = list()     # This list will contain all unique Payload ID, to filter out received floods.
-        filtered_packets = [ pkt for pkt in all_packets if
-            scapyall.TCP in pkt and
-            not scapyall.ICMP in pkt and
-            pkt[scapyall.TCP].sport == 1234 and
-            pkt[scapyall.TCP].dport == 5000 and
-            self.check_tcp_payload(pkt) and
-            self.no_flood(pkt)
-            ]
+        # This list will contain all unique Payload ID, to filter out received floods.
+        self.unique_id = list()
+        filtered_packets = [pkt for pkt in all_packets if
+                            scapyall.TCP in pkt and
+                            scapyall.ICMP not in pkt and
+                            pkt[scapyall.TCP].sport == 1234 and
+                            pkt[scapyall.TCP].dport == 5000 and
+                            self.check_tcp_payload(pkt) and
+                            self.no_flood(pkt)
+                            ]
 
         if self.vnet:
-            decap_packets = [ scapyall.Ether(str(pkt.payload.payload.payload)[8:]) for pkt in all_packets if
-                scapyall.UDP in pkt and
-                pkt[scapyall.UDP].sport == 1234
-                ]
-            filtered_decap_packets = [ pkt for pkt in decap_packets if
-                scapyall.TCP in pkt and
-                not scapyall.ICMP in pkt and
-                pkt[scapyall.TCP].sport == 1234 and
-                pkt[scapyall.TCP].dport == 5000 and
-                self.check_tcp_payload(pkt) and
-                self.no_flood(pkt)
-                ]
+            decap_packets = [scapyall.Ether(str(pkt.payload.payload.payload)[8:]) for pkt in all_packets if
+                             scapyall.UDP in pkt and
+                             pkt[scapyall.UDP].sport == 1234
+                             ]
+            filtered_decap_packets = [pkt for pkt in decap_packets if
+                                      scapyall.TCP in pkt and
+                                      scapyall.ICMP not in pkt and
+                                      pkt[scapyall.TCP].sport == 1234 and
+                                      pkt[scapyall.TCP].dport == 5000 and
+                                      self.check_tcp_payload(pkt) and
+                                      self.no_flood(pkt)
+                                      ]
             filtered_packets = filtered_packets + filtered_decap_packets
 
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
-        packets = sorted(filtered_packets, key = lambda packet: (int(str(packet[scapyall.TCP].payload)), packet.time ))
+        packets = sorted(filtered_packets, key=lambda packet: (
+            int(str(packet[scapyall.TCP].payload)), packet.time))
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
         self.fails['dut'].add("Sniffer failed to capture any traffic")
         self.assertTrue(packets, "Sniffer failed to capture any traffic")
         self.fails['dut'].clear()
+        prev_payload = None
         if packets:
             prev_payload, prev_time = 0, 0
             sent_payload = 0
@@ -1640,7 +1923,8 @@ class ReloadTest(BaseTest):
                 if packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
                     # This is a sent packet - keep track of it as payload_id:timestamp.
                     # for dualtor both MACs are needed:
-                    #   t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
+                    #   t1->server sent pkt will have dst MAC as dut_mac,
+                    #   and server->t1 sent pkt will have dst MAC as vlan_mac
                     sent_payload = int(str(packet[scapyall.TCP].payload))
                     sent_packets[sent_payload] = packet.time
                     sent_counter += 1
@@ -1648,10 +1932,11 @@ class ReloadTest(BaseTest):
                 if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:
                     # This is a received packet.
                     # for dualtor both MACs are needed:
-                    #   t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
+                    #   t1->server rcvd pkt will have src MAC as vlan_mac,
+                    #   and server->t1 rcvd pkt will have src MAC as dut_mac
                     received_time = packet.time
                     received_payload = int(str(packet[scapyall.TCP].payload))
-                    if (received_payload % 5) == 0 :   # From vlan to T1.
+                    if (received_payload % 5) == 0:   # From vlan to T1.
                         received_vlan_to_t1 += 1
                     else:
                         received_t1_to_vlan += 1
@@ -1665,23 +1950,32 @@ class ReloadTest(BaseTest):
                     # Packets in a row are missing, a disruption.
                     self.log("received_payload: {}, prev_payload: {}, sent_counter: {}, received_counter: {}".format(
                         received_payload, prev_payload, sent_counter, received_counter))
-                    lost_id = (received_payload -1) - prev_payload # How many packets lost in a row.
-                    disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
+                    # How many packets lost in a row.
+                    lost_id = (received_payload - 1) - prev_payload
+                    # How long disrupt lasted.
+                    disrupt = (
+                        sent_packets[received_payload] - sent_packets[prev_payload + 1])
                     # Add disrupt to the dict:
-                    self.lost_packets[prev_payload] = (lost_id, disrupt, received_time - disrupt, received_time)
-                    self.log("Disruption between packet ID %d and %d. For %.4f " % (prev_payload, received_payload, disrupt))
+                    self.lost_packets[prev_payload] = (
+                        lost_id, disrupt, received_time - disrupt, received_time)
+                    self.log("Disruption between packet ID %d and %d. For %.4f " % (
+                        prev_payload, received_payload, disrupt))
                     for lost_index in range(prev_payload + 1, received_payload):
-                        if (lost_index % 5) == 0 :   # lost received for packet sent from vlan to T1.
+                        # lost received for packet sent from vlan to T1.
+                        if (lost_index % 5) == 0:
                             missed_vlan_to_t1 += 1
                         else:
                             missed_t1_to_vlan += 1
                     self.log("")
                     if not self.disruption_start:
-                        self.disruption_start = datetime.datetime.fromtimestamp(prev_time)
-                    self.disruption_stop = datetime.datetime.fromtimestamp(received_time)
+                        self.disruption_start = datetime.datetime.fromtimestamp(
+                            prev_time)
+                    self.disruption_stop = datetime.datetime.fromtimestamp(
+                        received_time)
                 prev_payload = received_payload
                 prev_time = received_time
-            self.log("**************** Packet received summary: ********************")
+            self.log(
+                "**************** Packet received summary: ********************")
             self.log("*********** Sent packets captured - {}".format(sent_counter))
             self.log("*********** received packets captured - t1-to-vlan - {}".format(received_t1_to_vlan))
             self.log("*********** received packets captured - vlan-to-t1 - {}".format(received_vlan_to_t1))
@@ -1689,26 +1983,62 @@ class ReloadTest(BaseTest):
             self.log("*********** Missed received packets - vlan-to-t1 - {}".format(missed_vlan_to_t1))
             self.log("**************************************************************")
         self.fails['dut'].add("Sniffer failed to filter any traffic from DUT")
-        self.assertTrue(received_counter, "Sniffer failed to filter any traffic from DUT")
+        self.assertTrue(received_counter,
+                        "Sniffer failed to filter any traffic from DUT")
         self.fails['dut'].clear()
-        self.disrupts_count = len(self.lost_packets) # Total disrupt counter.
+        self.disrupts_count = len(self.lost_packets)  # Total disrupt counter.
         if self.lost_packets:
             # Find the longest loss with the longest time:
-            max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time, self.no_routing_start, self.no_routing_stop) = \
-                max(self.lost_packets.items(), key = lambda item:item[1][0:2])
-            self.total_disrupt_packets = sum([item[0] for item in self.lost_packets.values()])
-            self.total_disrupt_time = sum([item[1] for item in self.lost_packets.values()])
-            self.log("Disruptions happen between %s and %s after the reboot." % \
-                (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
+            max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time,
+                                  self.no_routing_start, self.no_routing_stop) = \
+                max(self.lost_packets.items(), key=lambda item: item[1][0:2])
+            self.total_disrupt_packets = sum(
+                [item[0] for item in self.lost_packets.values()])
+            self.total_disrupt_time = sum(
+                [item[1] for item in self.lost_packets.values()])
+            self.log("Disruptions happen between %s and %s after the reboot." %
+                     (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
         else:
             self.max_lost_id = 0
             self.max_disrupt_time = 0
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
+
+        self.dataplane_loss_checked_successfully = True
+
+        if self.reboot_type == "fast-reboot" and not self.lost_packets:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Data traffic loss not found but reboot test type is '%s' which "
+                                  "must have data traffic loss" % self.reboot_type)
+
+        if len(self.packets_list) > sent_counter:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Not all sent packets counted by receiver process. "
+                                  "Could be issue with sniffer performance")
+
+        total_validation_packets = received_t1_to_vlan + \
+            received_vlan_to_t1 + missed_t1_to_vlan + missed_vlan_to_t1
+        # In some cases DUT may flood original packet to all members of VLAN, we do check that we do not flood too much
+        allowed_number_of_flooded_original_packets = 150
+        if (sent_counter - total_validation_packets) > allowed_number_of_flooded_original_packets:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Unexpected count of sent packets available in pcap file. "
+                                  "Could be issue with DUT flooding for original packets which was sent to DUT")
+
+        if prev_payload != (self.packets_to_send - 1):
+            # Specific case when packet loss started but final lost packet not detected
+            self.dataplane_loss_checked_successfully = False
+            message = "Unable to calculate the dataplane traffic loss time. The traffic did not restore after " \
+                      "performing reboot for the pre-defined test checker period. Note: the traffic could possibly " \
+                      "restore after too long time, this could be checked manually."
+            self.log(message)
+            self.fails["dut"].add(message)
+
         self.log("Total incoming packets captured %d" % received_counter)
         if packets:
-            filename = '/tmp/capture_filtered.pcap' if self.logfile_suffix is None else "/tmp/capture_filtered_%s.pcap" % self.logfile_suffix
+            filename = ('/tmp/capture_filtered.pcap' if self.logfile_suffix is None
+                        else "/tmp/capture_filtered_%s.pcap" % self.logfile_suffix)
             scapyall.wrpcap(filename, packets)
             self.log("Filtered pcap dumped to %s" % filename)
 
@@ -1722,7 +2052,6 @@ class ReloadTest(BaseTest):
             if state == 'down':
                 break
             time.sleep(self.TIMEOUT)
-
 
         self.asic_stop_recording_vlan_reachability()
         return self.asic_state.get_state_time(state), self.get_asic_vlan_reachability()
@@ -1753,17 +2082,17 @@ class ReloadTest(BaseTest):
 
         fail = None
 
-        dut_stabilize_secs   = int(self.test_params['dut_stabilize_secs'])
+        dut_stabilize_secs = int(self.test_params['dut_stabilize_secs'])
         warm_up_timeout_secs = int(self.test_params['warm_up_timeout_secs'])
 
         start_time = datetime.datetime.now()
-        up_time    = None
+        up_time = None
 
         # First wait until DUT data/control planes are up
         while True:
             dataplane = self.asic_state.get()
             ctrlplane = self.cpu_state.get()
-            elapsed   = (datetime.datetime.now() - start_time).total_seconds()
+            elapsed = (datetime.datetime.now() - start_time).total_seconds()
             if dataplane == 'up' and ctrlplane == 'up':
                 if not up_time:
                     up_time = datetime.datetime.now()
@@ -1775,7 +2104,8 @@ class ReloadTest(BaseTest):
                 up_time = None
 
             if elapsed > warm_up_timeout_secs:
-                raise Exception("IO didn't come up within warm up timeout. Control plane: {}, Data plane: {}".format(ctrlplane, dataplane))
+                raise Exception("IO didn't come up within warm up timeout. Control plane: {}, Data plane: {}".format(
+                    ctrlplane, dataplane))
             time.sleep(1)
 
         # check until flooding is over. Flooding happens when FDB entry of
@@ -1789,7 +2119,8 @@ class ReloadTest(BaseTest):
             if elapsed > warm_up_timeout_secs:
                 if self.allow_vlan_flooding:
                     break
-                raise Exception("Data plane didn't stop flooding within warm up timeout")
+                raise Exception(
+                    "Data plane didn't stop flooding within warm up timeout")
             time.sleep(1)
 
         dataplane = self.asic_state.get()
@@ -1800,15 +2131,17 @@ class ReloadTest(BaseTest):
             fail = "Control plane"
 
         if fail is not None:
-            raise Exception("{} went down while waiting for flooding to stop".format(fail))
+            raise Exception(
+                "{} went down while waiting for flooding to stop".format(fail))
 
         if self.asic_state.get_state_time('up') > uptime:
             fail = "Data plane"
-        elif self.cpu_state.get_state_time('up')  > uptime:
+        elif self.cpu_state.get_state_time('up') > uptime:
             fail = "Control plane"
 
         if fail is not None:
-           raise Exception("{} flapped while waiting for the warm up".format(fail))
+            raise Exception(
+                "{} flapped while waiting for the warm up".format(fail))
 
         # Everything is good
 
@@ -1816,12 +2149,12 @@ class ReloadTest(BaseTest):
         # Clear the counters after the WARM UP is complete
         # this is done so that drops can be accurately calculated
         # after reboot test is finished
-        clear_counter_cmds = [ "sonic-clear counters",
-        "sonic-clear queuecounters",
-        "sonic-clear dropcounters",
-        "sonic-clear rifcounters",
-        "sonic-clear pfccounters"
-        ]
+        clear_counter_cmds = ["sonic-clear counters",
+                              "sonic-clear queuecounters",
+                              "sonic-clear dropcounters",
+                              "sonic-clear rifcounters",
+                              "sonic-clear pfccounters"
+                              ]
         if 'broadcom' in self.test_params['asic_type']:
             clear_counter_cmds.append("bcmcmd 'clear counters'")
         for cmd in clear_counter_cmds:
@@ -1851,7 +2184,7 @@ class ReloadTest(BaseTest):
             time.sleep(2)
 
         # wait, until FDB entries are populated
-        for _ in range(self.nr_tests * 10): # wait for some time
+        for _ in range(self.nr_tests * 10):  # wait for some time
             if self.asic_state.is_flooding():
                 time.sleep(2)
             else:
@@ -1859,27 +2192,22 @@ class ReloadTest(BaseTest):
         else:
             raise Exception("DUT is flooding")
 
-
     def get_asic_vlan_reachability(self):
         return self.asic_vlan_reach
-
 
     def asic_start_recording_vlan_reachability(self):
         with self.vlan_lock:
             self.asic_vlan_reach = []
-            self.recording       = True
-
+            self.recording = True
 
     def asic_stop_recording_vlan_reachability(self):
         with self.vlan_lock:
             self.recording = False
 
-
     def try_record_asic_vlan_recachability(self, t1_to_vlan):
         with self.vlan_lock:
             if self.recording:
                 self.asic_vlan_reach.append(t1_to_vlan)
-
 
     def log_asic_state_change(self, reachable, partial=False, t1_to_vlan=0, flooding=False):
         old = self.asic_state.get()
@@ -1894,9 +2222,9 @@ class ReloadTest(BaseTest):
         self.asic_state.set_flooding(flooding)
 
         if old != state:
-            self.log("Data plane state transition from %s to %s (%d)" % (old, state, t1_to_vlan))
+            self.log("Data plane state transition from %s to %s (%d)" %
+                     (old, state, t1_to_vlan))
             self.asic_state.set(state)
-
 
     def log_cpu_state_change(self, reachable, partial=False, flooding=False):
         old = self.cpu_state.get()
@@ -1909,9 +2237,9 @@ class ReloadTest(BaseTest):
         self.cpu_state.set_flooding(flooding)
 
         if old != state:
-            self.log("Control plane state transition from %s to %s" % (old, state))
+            self.log("Control plane state transition from %s to %s" %
+                     (old, state))
             self.cpu_state.set(state)
-
 
     def log_vlan_state_change(self, reachable):
         old = self.vlan_state.get()
@@ -1925,44 +2253,46 @@ class ReloadTest(BaseTest):
             self.log("VLAN ARP state transition from %s to %s" % (old, state))
             self.vlan_state.set(state)
 
-
     def reachability_watcher(self):
         # This function watches the reachability of the CPU port, and ASIC. It logs the state
         # changes for future analysis
-        self.watcher_is_stopped.clear() # Watcher is running.
+        self.watcher_is_stopped.clear()  # Watcher is running.
         while self.watching:
             if self.dataplane_io_lock.acquire(False):
                 vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
-                reachable              = (t1_to_vlan  > self.nr_vl_pkts * 0.7 and
-                                        vlan_to_t1  > self.nr_pc_pkts * 0.7)
-                partial                = (reachable and
-                                        (t1_to_vlan < self.nr_vl_pkts or
-                                        vlan_to_t1 < self.nr_pc_pkts))
-                flooding               = (reachable and
-                                        (t1_to_vlan  > self.nr_vl_pkts or
-                                        vlan_to_t1  > self.nr_pc_pkts))
-                self.log_asic_state_change(reachable, partial, t1_to_vlan, flooding)
+                reachable = (t1_to_vlan > self.nr_vl_pkts * 0.7 and
+                             vlan_to_t1 > self.nr_pc_pkts * 0.7)
+                partial = (reachable and
+                           (t1_to_vlan < self.nr_vl_pkts or
+                            vlan_to_t1 < self.nr_pc_pkts))
+                flooding = (reachable and
+                            (t1_to_vlan > self.nr_vl_pkts or
+                             vlan_to_t1 > self.nr_pc_pkts))
+                self.log_asic_state_change(
+                    reachable, partial, t1_to_vlan, flooding)
                 self.dataplane_io_lock.release()
-            total_rcv_pkt_cnt      = self.pingDut()
-            reachable              = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
-            partial                = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
-            flooding                = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
+            total_rcv_pkt_cnt = self.pingDut()
+            reachable = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
+            partial = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
+            flooding = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
             self.log_cpu_state_change(reachable, partial, flooding)
-            total_rcv_pkt_cnt      = self.arpPing()
-            reachable              = total_rcv_pkt_cnt >= self.arp_ping_pkts
+            total_rcv_pkt_cnt = self.arpPing()
+            reachable = total_rcv_pkt_cnt >= self.arp_ping_pkts
             self.log_vlan_state_change(reachable)
             self.watcher_is_running.set()   # Watcher is running.
         self.watcher_is_stopped.set()       # Watcher has stopped.
         self.watcher_is_running.clear()     # Watcher has stopped.
 
-
     def pingFromServers(self):
-        for i in xrange(self.nr_pc_pkts):
-            testutils.send_packet(self, self.from_server_src_port, self.from_vlan_packet)
+        for i in range(self.nr_pc_pkts):
+            testutils.send_packet(
+                self, self.from_server_src_port, self.from_vlan_packet)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
+            self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT)
 
-        self.log("Send %5d Received %5d servers->t1" % (self.nr_pc_pkts, total_rcv_pkt_cnt), True)
+        self.log("Send %5d Received %5d servers->t1" %
+                 (self.nr_pc_pkts, total_rcv_pkt_cnt), True)
 
         return total_rcv_pkt_cnt
 
@@ -1970,35 +2300,42 @@ class ReloadTest(BaseTest):
         for entry in self.from_t1:
             testutils.send_packet(self, *entry)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.from_t1_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
+            self, self.from_t1_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
-        self.log("Send %5d Received %5d t1->servers" % (self.nr_vl_pkts, total_rcv_pkt_cnt), True)
+        self.log("Send %5d Received %5d t1->servers" %
+                 (self.nr_vl_pkts, total_rcv_pkt_cnt), True)
 
         return total_rcv_pkt_cnt
 
     def pingDut(self):
         if "allow_mac_jumping" in self.test_params and self.test_params['allow_mac_jumping']:
-            for i in xrange(self.ping_dut_pkts):
-                testutils.send_packet(self, self.random_port(self.vlan_ports), self.ping_dut_macjump_packet)
+            for i in range(self.ping_dut_pkts):
+                testutils.send_packet(self, self.random_port(
+                    self.vlan_ports), self.ping_dut_macjump_packet)
         else:
-            for i in xrange(self.ping_dut_pkts):
+            for i in range(self.ping_dut_pkts):
                 src_port, packet = random.choice(self.ping_dut_packets)
                 testutils.send_packet(self, src_port, packet)
 
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
+            self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
-        if self.vlan_mac != self.dut_mac:
+        if self.is_dualtor:
             # handle two-for-one icmp reply for dual tor (when vlan and dut mac are diff):
             # icmp_responder will also generate a response for this ICMP req, ignore that reply
             total_rcv_pkt_cnt = total_rcv_pkt_cnt - self.ping_dut_pkts
 
-        self.log("Send %5d Received %5d ping DUT" % (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
+        self.log("Send %5d Received %5d ping DUT" %
+                 (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
 
         return total_rcv_pkt_cnt
 
     def arpPing(self):
-        for i in xrange(self.arp_ping_pkts):
+        for i in range(self.arp_ping_pkts):
             testutils.send_packet(self, self.arp_src_port, self.arp_ping)
-        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.arp_resp, [self.arp_src_port], timeout=self.PKT_TOUT)
-        self.log("Send %5d Received %5d arp ping" % (self.arp_ping_pkts, total_rcv_pkt_cnt), True)
+        total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
+            self, self.arp_resp, [self.arp_src_port], timeout=self.PKT_TOUT)
+        self.log("Send %5d Received %5d arp ping" %
+                 (self.arp_ping_pkts, total_rcv_pkt_cnt), True)
         return total_rcv_pkt_cnt

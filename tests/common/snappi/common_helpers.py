@@ -80,13 +80,13 @@ def get_egress_lossless_buffer_size(host_ans):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "BUFFER_POOL" not in config_facts.keys():
+    if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
     profile_name = 'egress_lossless_pool'
 
-    if profile_name not in buffer_pools.keys():
+    if profile_name not in list(buffer_pools.keys()):
         return None
 
     egress_lossless_pool = buffer_pools[profile_name]
@@ -106,13 +106,13 @@ def get_lossless_buffer_size(host_ans):
                                          source="running")['ansible_facts']
     is_cisco_8102 = True if ('Cisco' or 'cisco') and '8102' in host_ans.facts['platform'] else False
 
-    if "BUFFER_POOL" not in config_facts.keys():
+    if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
     profile_name = 'ingress_lossless_pool' if is_cisco_8102 else 'egress_lossless_pool'
 
-    if profile_name not in buffer_pools.keys():
+    if profile_name not in list(buffer_pools.keys()):
         return None
 
     lossless_pool = buffer_pools[profile_name]
@@ -388,7 +388,7 @@ def get_wred_profiles(host_ans):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "WRED_PROFILE" in config_facts.keys():
+    if "WRED_PROFILE" in list(config_facts.keys()):
         return config_facts['WRED_PROFILE']
     else:
         return None
@@ -499,7 +499,7 @@ def config_ingress_lossless_buffer_alpha(host_ans, alpha_log2):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if "BUFFER_PROFILE" not in config_facts.keys():
+    if "BUFFER_PROFILE" not in list(config_facts.keys()):
         return False
 
     buffer_profiles = config_facts['BUFFER_PROFILE']
@@ -536,7 +536,7 @@ def get_pfcwd_config_attr(host_ans, config_scope, attr):
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
-    if 'PFC_WD' not in config_facts.keys():
+    if 'PFC_WD' not in list(config_facts.keys()):
         return None
 
     pfcwd_config = config_facts['PFC_WD']
@@ -679,3 +679,46 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
         ipv6_list.append(str(address))
 
     return ipv6_list
+
+
+def sec_to_nanosec(secs):
+    """ Convert seconds to nanoseconds """
+    return secs * 1e9
+
+
+def get_pfc_frame_count(duthost, port, priority, is_tx=False):
+    """
+    Get the PFC frame count for a given port and priority from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        priority (int): priority of flow
+        is_tx (bool): if the PFC pause frame count is for Tx or Rx
+    Returns:
+        int: PFC pause frame count
+    """
+    if is_tx:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {}".format(port))['stdout']
+    else:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep {}".format(port))['stdout']
+
+    pause_frame_count = raw_out.split()[priority + 1]
+
+    return int(pause_frame_count.replace(',', ''))
+
+
+def get_egress_queue_count(duthost, port, priority):
+    """
+    Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
+    This is the equivalent of the "show queue counters" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        priority (int): priority of flow
+    Returns:
+        tuple (int, int): total count of packets and bytes in the queue
+    """
+    raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
+    total_pkts = raw_out.split()[2]
+    total_bytes = raw_out.split()[3]
+    return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))

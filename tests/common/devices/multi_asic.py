@@ -23,13 +23,16 @@ class MultiAsicSonicHost(object):
 
     _DEFAULT_SERVICES = ["pmon", "snmp", "lldp", "database"]
 
-    def __init__(self, ansible_adhoc, hostname):
+    def __init__(self, ansible_adhoc, hostname, duthosts, topo_type):
         """ Initializing a MultiAsicSonicHost.
 
         Args:
             ansible_adhoc : The pytest-ansible fixture
             hostname: Name of the host in the ansible inventory
         """
+        self.duthosts = duthosts
+        self.topo_type = topo_type
+        self.loganalyzer = None
         self.sonichost = SonicHost(ansible_adhoc, hostname)
         self.asics = [SonicAsic(self.sonichost, asic_index) for asic_index in self.sonichost.facts[ASICS_PRESENT]]
 
@@ -455,8 +458,10 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
-            # TODO: https://github.com/sonic-net/sonic-mgmt/issues/5970
-            if self.sonichost.is_multi_asic and docker == "gbsyncd":
+            # This is to avoid gbsyncd check fo VS test_disable_rsyslog_rate_limit
+            # we are still getting whatever enabled feature in test_disable_rsyslog_rate_limit
+            # and gbsyncd feature will be added to services
+            if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
@@ -507,7 +512,7 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             bgp_neigh[asic.namespace] = {}
             bgp_info = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
-            for k, v in bgp_info.items():
+            for k, v in list(bgp_info.items()):
                 if v["state"] != state:
                     bgp_info.pop(k)
             bgp_neigh[asic.namespace].update(bgp_info)
@@ -526,7 +531,7 @@ class MultiAsicSonicHost(object):
 
         for asic in self.asics:
             bgp_facts = asic.bgp_facts()['ansible_facts']
-            for k, v in bgp_facts['bgp_neighbors'].items():
+            for k, v in list(bgp_facts['bgp_neighbors'].items()):
                 if v['state'] == state:
                     if k.lower() in neigh_ips:
                         neigh_ok.append(k)
@@ -546,7 +551,7 @@ class MultiAsicSonicHost(object):
         """
         for asic in self.asics:
             if asic.namespace in bgp_neighbors:
-                neigh_ips = [k.lower() for k, v in bgp_neighbors[asic.namespace].items() if v["state"] == state]
+                neigh_ips = [k.lower() for k, v in list(bgp_neighbors[asic.namespace].items()) if v["state"] == state]
                 if not asic.check_bgp_session_state(neigh_ips, state):
                     return False
         return True
@@ -718,7 +723,7 @@ class MultiAsicSonicHost(object):
         )['ansible_facts']
         neighbors = mg_facts['minigraph_neighbors']
         mapping = dict()
-        for neigh in neighbors.values():
+        for neigh in list(neighbors.values()):
             mapping[neigh['name']] = neigh['namespace']
         return mapping
 
@@ -748,4 +753,4 @@ class MultiAsicSonicHost(object):
                 list of ports on this dut
         """
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)
-        return mg_facts['ansible_facts']['minigraph_ports'].keys()
+        return list(mg_facts['ansible_facts']['minigraph_ports'].keys())

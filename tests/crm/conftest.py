@@ -3,7 +3,8 @@ import time
 import json
 import logging
 
-from test_crm import RESTORE_CMDS, CRM_POLLING_INTERVAL
+from test_crm import RESTORE_CMDS
+from tests.common.helpers.crm import CRM_POLLING_INTERVAL
 from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ def pytest_runtest_teardown(item, nextitem):
             # Restore default CRM thresholds
             item.funcargs["duthost"].command(cmd)
 
-        test_name = item.function.func_name
+        test_name = item.function.__name__
         duthosts = item.funcargs['duthosts']
         hostname = item.funcargs['enum_rand_one_per_hwsku_frontend_hostname']
         dut = None
@@ -71,7 +72,7 @@ def pytest_runtest_teardown(item, nextitem):
 def crm_thresholds(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     cmd = "sonic-db-cli CONFIG_DB hget \"CRM|Config\" {threshold_name}_{type}_threshold"
-    crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor", "ipv6_neighbor"
+    crm_res_list = ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor", "ipv6_neighbor",
                     "nexthop_group_member", "nexthop_group", "acl_counter", "acl_entry", "fdb_entry"]
     res = {}
     for item in crm_res_list:

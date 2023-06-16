@@ -2,7 +2,7 @@ import logging
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from .files.pfcwd_helper import start_wd_on_ports
@@ -14,6 +14,7 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(scope='module', autouse=True)
 def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -27,6 +28,7 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
+
 @pytest.fixture(autouse=True)
 def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """
@@ -38,15 +40,19 @@ def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, log
     """
     if loganalyzer:
         ignoreRegex = [
-            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*",
-            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs, bug.*"
+            (".*ERR syncd#syncd: :- process_on_fdb_event: "
+             "invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"),
+            (".*ERR syncd#syncd: :- process_on_fdb_event: "
+             "FDB notification was not sent since it contain invalid OIDs, bug.*")
         ]
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
     yield
 
+
 @pytest.fixture(scope='class', autouse=True)
-def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa F811
+                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
@@ -87,14 +93,15 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
                  to_destination="{}:514".format(syslog_ip))
 
     logger.info("--- Pfcwd Timer Testrun ---")
-    yield { 'timers' : timers,
-            'storm_handle': storm_handle
-          }
+    yield {'timers': timers,
+           'storm_handle': storm_handle
+           }
 
     logger.info("--- Pfcwd timer test cleanup ---")
     dut.iptables(table="nat", flush="yes")
     dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=0, sysctl_set=True)
     storm_handle.stop_storm()
+
 
 def populate_peer_info(neighbors, fanout_info, port):
     """
@@ -113,8 +120,9 @@ def populate_peer_info(neighbors, fanout_info, port):
     peer_info = {'peerdevice': peer_dev,
                  'hwsku': fanout_info[peer_dev]['device_info']['HwSku'],
                  'pfc_fanout_interface': peer_port
-                }
+                 }
     return peer_info
+
 
 def set_storm_params(dut, fanout_info, fanout, peer_params):
     """
@@ -133,7 +141,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     pfc_queue_index = 4
     pfc_frames_count = 1000000
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
-                           pfc_frames_number=pfc_frames_count, peer_info=peer_params)
+                            pfc_frames_number=pfc_frames_count, peer_info=peer_params)
     storm_handle.deploy_pfc_gen()
     return storm_handle
 
@@ -208,12 +216,13 @@ class TestPfcwdAllTimer(object):
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
         cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg =self.dut.shell(cmd)['stdout']
+        syslog_msg = self.dut.shell(cmd)['stdout']
         timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
         timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
         return int(timestamp_ms)
 
-    def test_pfcwd_timer_accuracy(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, pfcwd_timer_setup_restore):
+    def test_pfcwd_timer_accuracy(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                  pfcwd_timer_setup_restore):
         """
         Tests PFCwd timer accuracy
 
@@ -229,7 +238,7 @@ class TestPfcwdAllTimer(object):
         self.all_detect_time = list()
         self.all_restore_time = list()
         try:
-            for i in xrange(1, 20):
+            for i in range(1, 20):
                 logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                 self.run_test()
             self.verify_pfcwd_timers()
