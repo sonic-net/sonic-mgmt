@@ -12,6 +12,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import skip_release
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import skip_release_for_platform
+from tests.platform_tests.cli.util import get_skip_mod_list
 from platform_api_test_base import PlatformApiTestBase
 
 ###################################################
@@ -407,7 +408,8 @@ class TestChassisApi(PlatformApiTestBase):
                 pytest.skip("No thermals found on device")
 
         if duthost.facts.get("chassis"):
-            expected_num_thermals = len(duthost.facts.get("chassis").get('thermals'))
+            thermal_skip_list = get_skip_mod_list(duthost, ['thermals'])
+            expected_num_thermals = len(duthost.facts.get("chassis").get('thermals')) - len(thermal_skip_list)
             pytest_assert(num_thermals == expected_num_thermals,
                           "Number of thermals ({}) does not match expected number ({})"
                           .format(num_thermals, expected_num_thermals))

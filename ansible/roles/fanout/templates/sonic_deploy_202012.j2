@@ -116,6 +116,107 @@
         }
     },
 
+{% if 'mellanox' in fanout_sonic_version["asic_type"] %}
+    "BUFFER_PG": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}|0-7": {
+            "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+    "BUFFER_POOL": {
+        "egress_lossless_pool": {
+            "mode": "dynamic",
+            "size": "13945824",
+            "type": "egress"
+        },
+        "egress_lossy_pool": {
+            "mode": "dynamic",
+            "size": "10177536",
+            "type": "egress"
+        },
+        "ingress_lossless_pool": {
+            "mode": "dynamic",
+            "size": "10177536",
+            "type": "ingress",
+            "xoff": "688128"
+        },
+        "ingress_zero_pool": {
+            "mode": "static",
+            "size": "0",
+            "type": "ingress"
+        }
+    },
+    "BUFFER_PROFILE": {
+        "egress_lossless_profile": {
+            "dynamic_th": "7",
+            "pool": "[BUFFER_POOL|egress_lossless_pool]",
+            "size": "0"
+        },
+        "egress_lossless_zero_profile": {
+            "dynamic_th": "-8",
+            "pool": "[BUFFER_POOL|egress_lossless_pool]",
+            "size": "0"
+        },
+        "egress_lossy_profile": {
+            "dynamic_th": "7",
+            "pool": "[BUFFER_POOL|egress_lossy_pool]",
+            "size": "9216"
+        },
+        "egress_lossy_zero_profile": {
+            "dynamic_th": "-8",
+            "pool": "[BUFFER_POOL|egress_lossy_pool]",
+            "size": "0"
+        },
+        "ingress_lossless_profile": {
+            "dynamic_th": "7",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "0"
+        },
+        "ingress_lossless_zero_profile": {
+            "dynamic_th": "-8",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "0"
+        },
+        "ingress_lossy_pg_zero_profile": {
+            "pool": "[BUFFER_POOL|ingress_zero_pool]",
+            "size": "0",
+            "static_th": "0"
+        },
+        "ingress_lossy_profile": {
+            "dynamic_th": "3",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "0"
+        },
+        "pg_lossless_100000_5m_profile": {
+            "dynamic_th": "0",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "19456",
+            "xoff": "23552",
+            "xon": "19456"
+        },
+        "pg_lossless_100000_40m_profile": {
+            "dynamic_th": "0",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "19456",
+            "xoff": "29696",
+            "xon": "19456"
+        },
+        "q_lossy_profile": {
+            "dynamic_th": "3",
+            "pool": "[BUFFER_POOL|egress_lossy_pool]",
+            "size": "0"
+        }
+    },
+    "BUFFER_QUEUE": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}|0-7": {
+            "profile": "[BUFFER_PROFILE|q_lossy_profile]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+{% endif %}
+
     "VERSIONS": {
         "DATABASE": {
             "VERSION": "version_1_0_1"
