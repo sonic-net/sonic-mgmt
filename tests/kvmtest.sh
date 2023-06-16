@@ -200,11 +200,11 @@ test_t0() {
 }
 
 test_t0_sonic() {
-    # Run tests_1vlan on vlab-01 virtual switch
     # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
     tgname=t0-sonic
     tests="\
       bgp/test_bgp_fact.py \
+      pc/test_retry_count.py \
       macsec"
 
     pushd $SONIC_MGMT_DIR/tests
