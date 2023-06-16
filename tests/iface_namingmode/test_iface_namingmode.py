@@ -981,7 +981,7 @@ class TestShowIP():
         if not setup['physical_interfaces']:
             pytest.skip('No non-portchannel member interface present')
 
-        for mg_intf in  setup['minigraph_facts'][u'minigraph_interfaces']:
+        for mg_intf in setup['minigraph_facts'][u'minigraph_interfaces']:
             if mg_intf[u'attachto'] == setup['physical_interfaces'][0]:
                 dev = mg_intf[u'attachto']
                 namespace = setup['minigraph_facts']['minigraph_neighbors'][dev]['namespace']
@@ -990,17 +990,18 @@ class TestShowIP():
                     ip_version = ''
                     dst_ip = '192.168.1.1'
                 else:
-                    ip_version =  '-6'
+                    ip_version = '-6'
                     dst_ip = '::/0'
                 if namespace:
-                    duthost.shell("ip netns exec {} ip {} route add {}  via {} dev {}".format(namespace, ip_version, dst_ip, gw_ip, dev))
+                    duthost.shell("ip netns exec {} ip {} route add {}  via {} dev {}".\
+                                  format(namespace, ip_version, dst_ip, gw_ip, dev))
                 else:
                     duthost.shell("ip {} route add {}  via {} dev {}".format(ip_version, dst_ip, gw_ip, dev))
                 static_route_intf['interface'].append(dev)
                 static_route_intf['alias'].append(setup['port_name_map'][dev])
 
         yield static_route_intf
-        for mg_intf in  setup['minigraph_facts'][u'minigraph_interfaces']:
+        for mg_intf in setup['minigraph_facts'][u'minigraph_interfaces']:
             if mg_intf[u'attachto'] == setup['physical_interfaces'][0]:
                 dev = mg_intf[u'attachto']
                 namespace = setup['minigraph_facts']['minigraph_neighbors'][dev]['namespace']
@@ -1010,10 +1011,11 @@ class TestShowIP():
                     ip_version = ''
                     dst_ip = '192.168.1.1'
                 else:
-                    ip_version =  '-6'
+                    ip_version = '-6'
                     dst_ip = '::/0'
                 if namespace:
-                    duthost.shell("ip netns exec {} ip {} route del {}  via {} dev {}".format(namespace, ip_version, dst_ip, gw_ip, dev))
+                    duthost.shell("ip netns exec {} ip {} route del {}  via {} dev {}".\
+                                  format(namespace, ip_version, dst_ip, gw_ip, dev))
                 else:
                     duthost.shell("ip {} route del {}  via {} dev {}".format(ip_version, dst_ip, gw_ip, dev))
 
