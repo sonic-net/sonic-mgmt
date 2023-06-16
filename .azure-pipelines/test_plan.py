@@ -352,9 +352,11 @@ class TestPlanManager(object):
                     steps = None
                     step_status = None
                     extra_params = resp_data.get("extra_params", None)
-
-                    if extra_params:
+                    runtime = resp_data.get("runtime", None)
+                    if extra_params and "steps" in extra_params:
                         steps = extra_params.get("steps", None)
+                    else:
+                        steps = runtime.get("steps", None)
                     if steps:
                         for step in steps:
                             if step.get("step") == expected_state:
