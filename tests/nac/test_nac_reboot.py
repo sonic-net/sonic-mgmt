@@ -1,10 +1,12 @@
-import pytest
-import math
-import paramiko
 import logging
 import os
 import time
+import paramiko
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+#To print and validate show nac output
 def parse_colon_speparated_lines(lines):
     """
     @summary: Helper function for parsing lines which consist of key-value pairs
@@ -20,6 +22,7 @@ def parse_colon_speparated_lines(lines):
         res[fields[0].strip()] = fields[1].strip()
     return res
 
+#To print validate show nac interface table output
 def show_and_parse_tabledata(stdout_lines):
     table_data = []
     result = []
@@ -35,6 +38,7 @@ def show_and_parse_tabledata(stdout_lines):
                 row_map.update({key_data[i]: value})
             result.append(row_map)
         return result
+
 
 def test_nac_functionality():
     ip_address1 = '172.30.25.67'
@@ -85,27 +89,30 @@ def test_nac_functionality():
 
         summary_output_lines = cmd_show_nac_output
         #logging.info("Parse Show output")
-        summary_dict = parse_colon_speparated_lines(summary_output_lines)
+        summary_dict = parse_colon_speparated_lines(cmd_show_nac_output.split('\n'))
         logging.info("Parse Output- {}".format(summary_dict))
         for k, v in summary_dict.items():
             logging.info("Key - {}, Value - {}".format(k, v))
             err_list = []
-        if 'NAC Authentication Type' in summary_dict:
-            if summary_dict['NAC Authentication Type'] != 'local':
-                err_list.append("NAC Authentication Type observed value - {}, expected value as local".format(summary_dict['NAC Authentication Type']))
-        else:
+            if 'NAC Authentication Type' not in summary_dict:
                 err_list.append("NAC Authentication Type not in the show nac response")
-        if 'NAC Admin State' in summary_dict:
-            if summary_dict['NAC Admin State'] != 'up':
-                err_list.append("NAC Admin State observed value - {}, expected value as up".format(summary_dict['NAC Admin State']))
-        else:
+            elif summary_dict['NAC Authentication Type'] != 'local':
+                err_list.append("NAC Authentication Type observed value - {}, expected value as local".format(summary_dict['NAC Authentication Type']))
+            if 'NAC Admin State' not in summary_dict:
                 err_list.append("NAC Admin State not in the show nac response")
-        if 'NAC Type' in summary_dict:
-            if summary_dict['NAC Type'] != 'port':
+            elif summary_dict['NAC Admin State'] != 'up':
+                err_list.append("NAC Admin State observed value - {}, expected value as up".format(summary_dict['NAC Admin State']))
+            if 'NAC Type' not in summary_dict:
+                err_list.append("NAC Type not in the show nac response")
+            elif summary_dict['NAC Type'] != 'port':
                 err_list.append("NAC Type observed value - {}, expected value as port".format(summary_dict['NAC Type']))
-        else:
-            err_list.append("NAC Type not in the show nac response")
-        #assert len(err_list) == 0, ', '.join([str(err) for err in err_list])
+            if len(err_list) > 0:
+                logging.error("Errors found:")
+                for err in err_list:
+                    logging.error(err)
+        print("Summary Dictionary:", summary_dict)
+        print("Errors:", err_list)
+        assert len(err_list) == 0, ', '.join([str(err) for err in err_list])
 
         # To enable NAC Interface
         cmd_enable_int = "sudo config nac interface enable Ethernet16"
@@ -124,33 +131,28 @@ def test_nac_functionality():
         logging.info(nac_enable_data)
         err_list = []
         for row in nac_enable_data:
-            if 'InterfaceName' in row:
-                if row['InterfaceName'] != 'Ethernet116':
-                    err_list.append("InterfaceName observed value - {}, expected value as local".format(row['InterfaceName']))
-            else:
+            if 'InterfaceName' not in row:
                 err_list.append("InterfaceName not in the show interface nac response")
-            if 'NAC AdminState' in row:
-                if row['NAC AdminState'] != 'up':
-                    err_list.append("NAC AdminState observed value - {}, expected value as up".format(row['NAC AdminState']))
-            else:
+            elif row['InterfaceName'] != 'Ethernet116':
+                err_list.append("InterfaceName observed value - {}, expected value as Ethernet116".format(row['InterfaceName']))
+            if 'NAC AdminState' not in row:
                 err_list.append("NAC AdminState not in the show nac interface response")
-            if 'Authorization State' in row:
-                if row['Authorization State'] != 'unauthorized':
-                    err_list.append("Authorization State observed value - {}, expected value as port".format(row['Authorization State']))
-            else:
+            elif row['NAC AdminState'] != 'up':
+                err_list.append("NAC AdminState observed value - {}, expected value as up".format(row['NAC AdminState']))
+            if 'Authorization State' not in row:
                 err_list.append("Authorization State not in the show nac interface response")
-            if 'Mapped Profile' in row:
-                if row['Mapped Profile'] != '':
-                    err_list.append("Mapped Profile observed value - {}, expected value as local".format(row['Mapped Profile']))
-            else:
+            elif row['Authorization State'] != 'unauthorized':
+                err_list.append("Authorization State observed value - {}, expected value as unauthorized".format(row['Authorization State']))
+            if 'Mapped Profile' not in row:
                 err_list.append("Mapped Profile not in the show nac interface response")
-                #assert len(err_list) == 0, ', '.join([str(err) for err in err_list])
-
+            elif row['Mapped Profile'] != '':
+                err_list.append("Mapped Profile observed value - {}, expected value as empty".format(row['Mapped Profile']))
+        assert len(err_list) == 0, ', '.join([str(err) for err in err_list])
   
         cmd_goto_root_user = "sudo su"
         stdin, stdout, stderr = client1.exec_command(cmd_goto_root_user)
         # To start the Supplicant
-        cmd_sup_start = "sudo wpa_supplicant -c./wpa_supplicant.conf -Dwired -ienp7s0f3 > trigger_sup2.txt" 
+        cmd_sup_start = "sudo wpa_supplicant -c./wpa_supplicant.conf -Dwired -ienp7s0f3 > reboot_sup1.txt" 
         _, stdout, stderr = client1.exec_command(cmd_sup_start, timeout=15)
         #cmd_sup_start_output = stdout.read().decode()
         #print("To start the supplicant: " + cmd_sup_start_output)
@@ -175,27 +177,24 @@ def test_nac_functionality():
         logging.info(nac_enable_data)
         err_list = []
         for row in nac_enable_data:
-            if 'InterfaceName' in row:
-                if row['InterfaceName'] != 'Ethernet116':
-                    err_list.append("InterfaceName observed value - {}, expected value as local".format(row['InterfaceName']))
-            else:
+            if 'InterfaceName' not in row:
                 err_list.append("InterfaceName not in the show interface nac response")
-            if 'NAC AdminState' in row:
-                if row['NAC AdminState'] != 'up':
-                    err_list.append("NAC AdminState observed value - {}, expected value as up".format(row['NAC AdminState']))
-            else:
+            elif row['InterfaceName'] != 'Ethernet116':
+                err_list.append("InterfaceName observed value - {}, expected value as Ethernet116".format(row['InterfaceName']))
+            if 'NAC AdminState' not in row:
                 err_list.append("NAC AdminState not in the show nac interface response")
-            if 'Authorization State' in row:
-                if row['Authorization State'] != 'authorized':
-                    err_list.append("Authorization State observed value - {}, expected value as port".format(row['Authorization State']))
-            else:
+            elif row['NAC AdminState'] != 'up':
+                err_list.append("NAC AdminState observed value - {}, expected value as up".format(row['NAC AdminState']))
+            if 'Authorization State' not in row:
                 err_list.append("Authorization State not in the show nac interface response")
-            if 'Mapped Profile' in row:
-                if row['Mapped Profile'] != '':
-                    err_list.append("Mapped Profile observed value - {}, expected value as local".format(row['Mapped Profile'])) 
-            else:
+            elif row['Authorization State'] != 'unauthorized':
+                err_list.append("Authorization State observed value - {}, expected value as unauthorized".format(row['Authorization State']))
+            if 'Mapped Profile' not in row:
                 err_list.append("Mapped Profile not in the show nac interface response")
-                #assert len(err_list) == 0, ', '.join([str(err) for err in err_list])
+            elif row['Mapped Profile'] != '':
+                err_list.append("Mapped Profile observed value - {}, expected value as empty".format(row['Mapped Profile']))
+        assert len(err_list) == 0, ', '.join([str(err) for err in err_list])
+
 
         #Connect to the third device (Ping receiver)
         client3.connect(ip_address3, username=username3, password=password3)
@@ -210,7 +209,7 @@ def test_nac_functionality():
         print(cmd_show_int1_output)
 
         # To check ping
-        cmd_ping_check = "ping 70.0.0.20 > trigger1.txt"
+        cmd_ping_check = "ping 70.0.0.20 > reboot1.txt"
         _, stdout, stderr = client1.exec_command(cmd_ping_check, timeout=7)
         file_name = "output.txt"
         if os.access(file_name, os.R_OK):
@@ -223,19 +222,15 @@ def test_nac_functionality():
         
 
         client2.connect(ip_address2, username=username2, password=password2)
-        # To disable NAC Globally
-        cmd_enable_global = "sudo config nac disable"
-        stdin, stdout, stderr = client2.exec_command(cmd_enable_global)
-        cmd_enable_global = stdout.read().decode()
-        print(cmd_enable_global)
-        cmd_show_nac = "sudo show nac"
-        stdin, stdout, stderr = client2.exec_command(cmd_show_nac)
-        cmd_show_nac_output = stdout.read().decode()
-        print(cmd_show_nac_output)
+        cmd_reboot = "sudo reboot"
+        stdin, stdout, stderr = client2.exec_command(cmd_reboot)
+        cmd_reboot = stdout.read().decode()
+        client2.close()
+        time.sleep(180)
 
         client2.connect(ip_address2, username=username2, password=password2)
         # To enable NAC Globally
-        cmd_enable_global = "sudo config nac disable"
+        cmd_enable_global = "sudo config nac enable"
         stdin, stdout, stderr = client2.exec_command(cmd_enable_global)
         cmd_enable_global = stdout.read().decode()
         print(cmd_enable_global)
@@ -244,14 +239,47 @@ def test_nac_functionality():
         cmd_show_nac_output = stdout.read().decode()
         print(cmd_show_nac_output)
         
+        # To enable NAC Interface
+        cmd_enable_int = "sudo config nac interface enable Ethernet16"
+        stdin, stdout, stderr = client2.exec_command(cmd_enable_int)
+        cmd_enable_int = stdout.read().decode()
+        print(cmd_enable_int)
+        
+        cmd_show_enable_int = "sudo show nac interface Ethernet16"
+        stdin, stdout, stderr = client2.exec_command(cmd_show_enable_int)
+        cmd_show_enable_int_output = stdout.read().decode()
+        print(cmd_show_enable_int_output)
+        
+        summary_output_lines = cmd_show_enable_int_output
+        #logging.info(summary_output_lines)
+        nac_enable_data = show_and_parse_tabledata(summary_output_lines)
+        logging.info(nac_enable_data)
+        err_list = []
+        for row in nac_enable_data:
+            if 'InterfaceName' not in row:
+                err_list.append("InterfaceName not in the show interface nac response")
+            elif row['InterfaceName'] != 'Ethernet116':
+                err_list.append("InterfaceName observed value - {}, expected value as Ethernet116".format(row['InterfaceName']))
+            if 'NAC AdminState' not in row:
+                err_list.append("NAC AdminState not in the show nac interface response")
+            elif row['NAC AdminState'] != 'up':
+                err_list.append("NAC AdminState observed value - {}, expected value as up".format(row['NAC AdminState']))
+            if 'Authorization State' not in row:
+                err_list.append("Authorization State not in the show nac interface response")
+            elif row['Authorization State'] != 'unauthorized':
+                err_list.append("Authorization State observed value - {}, expected value as unauthorized".format(row['Authorization State']))
+            if 'Mapped Profile' not in row:
+                err_list.append("Mapped Profile not in the show nac interface response")
+            elif row['Mapped Profile'] != '':
+                err_list.append("Mapped Profile observed value - {}, expected value as empty".format(row['Mapped Profile']))
+        assert len(err_list) == 0, ', '.join([str(err) for err in err_list])
+
 
         cmd_goto_root_user = "sudo su"
         stdin, stdout, stderr = client1.exec_command(cmd_goto_root_user)
         # To start the Supplicant
-        cmd_sup_start = "sudo wpa_supplicant -c./wpa_supplicant.conf -Dwired -ienp7s0f3 > trigger_sup2.txt"
-        _, stdout, stderr = client1.exec_command(cmd_sup_start, timeout=15)
-        #cmd_sup_start_output = stdout.read().decode()
-        #print("To start the supplicant: " + cmd_sup_start_output)
+        cmd_sup_start = "sudo wpa_supplicant -c./wpa_supplicant.conf -Dwired -ienp7s0f3 > reboot_sup2.txt"
+        _, stdout, stderr = client1.exec_command(cmd_sup_start, timeout=30)
         file_name = "output.txt"
         if os.access(file_name, os.R_OK):
             with open(file_name, "r") as file:
@@ -273,7 +301,7 @@ def test_nac_functionality():
         # Print the output
         print(cmd_show_enable_int_output)
 
-        cmd_ping_check = "ping 70.0.0.20 > trigger2.txt"
+        cmd_ping_check = "ping 70.0.0.20 > reboot2.txt"
         _, stdout, stderr = client1.exec_command(cmd_ping_check, timeout=7)
         file_name = "output.txt"
         if os.access(file_name, os.R_OK):
