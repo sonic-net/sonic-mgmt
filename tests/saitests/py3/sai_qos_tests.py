@@ -2299,7 +2299,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, int(pkt_cnt))
 
-                time.sleep(8)   # wait pfc counter refresh
+            time.sleep(8)  # wait pfc counter refresh and show the counters
+            for i in range(0, self.pgs_num):
+                if self.pkts_num_trig_pfc:
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc
+                else:
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
+
+                pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
                 self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                     'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
@@ -2356,7 +2363,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     # queue_counters value is not of our interest here
                     recv_counters, _ = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
-                time.sleep(8)   # wait pfc counter refresh
+
+                if platform_asic and platform_asic == "broadcom-dnx":
+                    pass
+                else:
+                    time.sleep(8)   # wait pfc counter refresh
                 self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                     'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
@@ -2403,8 +2414,10 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial // self.pkt_size_factor
                 send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
                 # allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(8)
 
+            time.sleep(8)
+            for i in range(0, self.pgs_num):
+                pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial // self.pkt_size_factor
                 self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                     'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
