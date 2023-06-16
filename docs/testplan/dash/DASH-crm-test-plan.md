@@ -76,7 +76,7 @@ Verify "ENI Ethernet Addresses" CRM resource.
 	* Set low and high thresholds to default values.
 	* Verify that "CLEAR" message is logged (using log analyzer).
 
-### Test case # 5 – IPv4 Inbound Routes 
+### Test case # 5 – IPv4 Inbound Routes
 #### Test objective
 Verify "IPv4 Inbound Routes" CRM resource.
 #### Test steps
@@ -87,7 +87,7 @@ Verify "IPv4 Inbound Routes" CRM resource.
 	* Set low and high thresholds to default values.
 	* Verify that "CLEAR" message is logged (using log analyzer).
 
-### Test case # 6 – IPv6 Inbound Routes 
+### Test case # 6 – IPv6 Inbound Routes
 #### Test objective
 Verify "IPv6 Inbound Routes" CRM resource.
 #### Test steps
@@ -98,7 +98,7 @@ Verify "IPv6 Inbound Routes" CRM resource.
 	* Set low and high thresholds to default values.
 	* Verify that "CLEAR" message is logged (using log analyzer).
 
-### Test case # 7 – IPv4 Outbound Routes 
+### Test case # 7 – IPv4 Outbound Routes
 #### Test objective
 Verify "IPv4 Outbound Routes" CRM resource.
 #### Test steps
@@ -109,7 +109,7 @@ Verify "IPv4 Outbound Routes" CRM resource.
 	* Set low and high thresholds to default values.
 	* Verify that "CLEAR" message is logged (using log analyzer).
 
-### Test case # 8 – IPv6 Outbound Routes 
+### Test case # 8 – IPv6 Outbound Routes
 #### Test objective
 Verify "IPv6 Outbound Routes" CRM resource.
 #### Test steps
