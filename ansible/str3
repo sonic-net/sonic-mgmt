@@ -29,6 +29,8 @@ all:
           ansible_host: 10.64.246.38
         vms62-2:
           ansible_host: 10.64.246.39
+        vms62-3:
+          ansible_host: 10.64.246.41
         vms63-1:
           ansible_host: 10.64.247.42
         vms63-2:
@@ -929,7 +931,7 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.58
-    
+
 
 sonic_arista32_100:
   hosts:

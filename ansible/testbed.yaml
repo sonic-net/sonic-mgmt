@@ -1607,13 +1607,32 @@
 
 - conf-name: vms62-t2-7800-1
   group-name: vms62-1
-  topo: t2
+  topo: t2_2lc_min_ports-masic
   ptf_image_name: docker-ptf
   ptf: vms62-1
   ptf_ip: 10.64.246.38/23
   ptf_ipv6:
   server: server_62
   vm_base: VM62000
+  dut:
+    - str3-7800-lc9-1
+    - str3-7800-lc10-1
+    - str3-7808-sup-1
+
+  inv_name: str3
+  auto_recover: 'True'
+  comment: deepsinghal
+
+
+- conf-name: vms62-t2-7800-2
+  group-name: vms62-2
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: vms62-2
+  ptf_ip: 10.64.246.39/23
+  ptf_ipv6:
+  server: server_62
+  vm_base: VM62008
   dut:
     - str3-7800-lc3-1
     - str3-7800-lc5-1
@@ -1624,25 +1643,26 @@
   auto_recover: 'True'
   comment: deepsinghal
 
-
-- conf-name: vms62-t2-7800-2
-  group-name: vms62-2
-  topo: t2_2lc_min_ports-masic
+- conf-name: vms62-t2-7800-3
+  group-name: vms62-3
+  topo: t2_5lc-mixed-96
   ptf_image_name: docker-ptf
-  ptf: vms62-2
-  ptf_ip: 10.64.246.39/23
+  ptf: vms62-3
+  ptf_ip: 10.64.246.41/23
   ptf_ipv6:
   server: server_62
-  vm_base: VM62072
+  vm_base: VM62008
   dut:
-    - str3-7800-lc9-1
-    - str3-7800-lc10-1
+    - str3-7800-lc3-1
+    - str3-7800-lc4-1
+    - str3-7800-lc5-1
+    - str3-7800-lc6-1
+    - str3-7800-lc7-1
     - str3-7808-sup-1
 
   inv_name: str3
   auto_recover: 'True'
   comment: deepsinghal
-
 
 - conf-name: vmsvc3-t2-7250-1
   group-name: svc3-1
