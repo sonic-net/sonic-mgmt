@@ -383,6 +383,7 @@ def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num
                                                     src_port_id, pkt, queue, asic_type)
             # tx enable
             test_case.sai_thrift_port_tx_enable(test_case.dst_client, asic_type, [dst_port_id])
+            time.sleep(1)
             # tx disable
             test_case.sai_thrift_port_tx_disable(test_case.dst_client, asic_type, [dst_port_id])
 
@@ -437,11 +438,14 @@ def overflow_egress(test_case, src_port_id, pkt, queue, asic_type):
             pg_cntrs=sai_thrift_read_pg_occupancy(
                 test_case.src_client, port_list['src'][src_port_id])
             if pg_cntrs[queue] > pg_cntrs_base[queue]:
-                print("get_pkts_num_egr_mem: Success, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
+                print("overflow_egress: Success, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
                     (cycle_i + 1) * 500, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
                 pkts_num_egr_mem = cycle_i * 500
                 extra_bytes_occupied = pg_cntrs[queue] - pg_cntrs_base[queue]
                 break
+        if pg_cntrs[queue] <= pg_cntrs_base[queue]:
+            raise RuntimeError("overflow_egress: Fail, sent %d packets, SQ occupancy bytes remained at %d" % (
+                               (cycle_i + 1) * 500, pg_cntrs_base[queue]))
     return pkts_num_egr_mem, extra_bytes_occupied
 
 
@@ -1930,7 +1934,10 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         # For cisco-8000, if src and dst port in different linecard, dynamic fill_egress
         if 'cisco-8000' in asic_type:
             if src_dut_index != dst_dut_index:
-                pkts_num_egr_mem = 0
+                self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+                pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(self, src_port_id,
+                                                         pkt, int(self.test_params['pg']), asic_type)
+                self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
         step_id = 1
         step_desc = 'disable TX for dst_port_id, dst_port_2_id, dst_port_3_id'
