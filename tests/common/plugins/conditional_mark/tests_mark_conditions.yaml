@@ -52,7 +52,7 @@ bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
     conditions:
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0']"
+      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0'])"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
@@ -1138,9 +1138,9 @@ vxlan/test_vnet_vxlan.py:
 
 vxlan/test_vxlan_ecmp.py:
   skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0'])"
 
 #######################################
 #####           wan_lacp          #####
