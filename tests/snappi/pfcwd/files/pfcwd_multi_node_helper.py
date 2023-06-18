@@ -478,7 +478,7 @@ def __gen_pause_flow(testbed_config,
     """
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
-    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
+    pause_dur = 1 * 64 * 8.0 / (speed_gbps * 1e9)
     pps = int(2 / pause_dur)
     pkt_cnt = pps * flow_dur_sec
 
