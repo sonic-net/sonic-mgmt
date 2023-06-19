@@ -182,13 +182,13 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
 
         return result.port
 
-    print ("Need : {} flows total, {} sources, {} packets per port".format(len(src_details)*packets_per_port, len(src_details), packets_per_port))
+    print ("Need : {} flows total, {} sources, {} packets per port".format(
+        len(src_details)*packets_per_port, len(src_details), packets_per_port))
     all_pkts = {}
     for src_tuple in src_details:
         num_of_pkts = 0
         while (num_of_pkts < packets_per_port):
             ip_Addr = next(IP_ADDR)
-            print("Trying {} => {}, src_ip:{} dstip:{}".format(src_tuple[0], dst_id, ip_Addr, dst_ip), file=sys.stderr)
             pkt_args = {
                 'ip_ecn':ecn,
                 'ip_ttl':ttl,
@@ -357,6 +357,38 @@ def fill_leakout_plus_one(
             " dst_port_id:{}, pkt:{}, queue:{}".format(
             src_port_id, dst_port_id, pkt.__repr__()[0:180], queue))
     return False
+
+
+def overflow_egress(test_case, src_port_id, pkt, queue, asic_type):
+    # Attempts to queue 1 packet while compensating for a varying packet
+    # leakout and egress queues. Returns pkts_num_egr_mem: number of packets
+    # short of filling egress memory and leakout.
+    # Returns extra_bytes_occupied:
+    #    extra number of bytes occupied in source port
+    pkts_num_egr_mem = 0
+    extra_bytes_occupied = 0
+    if asic_type not in ['cisco-8000']:
+        return pkts_num_egr_mem, extra_bytes_occupied
+
+    pg_cntrs_base=sai_thrift_read_pg_occupancy(
+        test_case.src_client, port_list['src'][src_port_id])
+    max_cycles = 1000
+    for cycle_i in range(max_cycles):
+        send_packet(test_case, src_port_id, pkt, 1000)
+        pg_cntrs=sai_thrift_read_pg_occupancy(
+            test_case.src_client, port_list['src'][src_port_id])
+        if pg_cntrs[queue] > pg_cntrs_base[queue]:
+            print("get_pkts_num_egr_mem: Success, sent %d packets, "
+                "SQ occupancy bytes rose from %d to %d" % (
+                (cycle_i + 1) * 1000, pg_cntrs_base[queue],
+                    pg_cntrs[queue]), file=sys.stderr)
+            pkts_num_egr_mem = cycle_i * 1000
+            extra_bytes_occupied = pg_cntrs[queue] - pg_cntrs_base[queue]
+            print("overflow_egress:pkts_num_egr_mem:{}, extra_bytes_occupied:{}".format(
+                pkts_num_egr_mem, extra_bytes_occupied))
+            return pkts_num_egr_mem, extra_bytes_occupied
+    raise RuntimeError("Couldn't overflow the egress memory after 1000 iterations.")
+
 
 def get_peer_addresses(data):
     def get_peer_addr(data, addr):
@@ -3384,24 +3416,18 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = construct_ip_pkt(packet_length,
-                               pkt_dst_mac,
-                               src_port_mac,
-                               src_port_ip,
-                               dst_port_ip,
-                               dscp,
-                               src_port_vlan,
-                               ecn=ecn,
-                               ttl=ttl)
-
-        print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
-              (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
-        # in case dst_port_id is part of LAG, find out the actual dst port
-        # for given IP parameters
-        dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
-        )
-        print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
+        pkt = get_multiple_flows(
+                self,
+                pkt_dst_mac,
+                dst_port_id,
+                dst_port_ip,
+                None,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                [(src_port_id, src_port_ip)],
+                packets_per_port=1)[src_port_id][0][0]
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
@@ -3416,15 +3442,18 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
 
-        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
+        # For TH3/cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        else:
+            pkts_num_egr_mem = None
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
         dst_pg_cntrs_base = sai_thrift_read_pg_counters(self.dst_client, port_list['dst'][dst_port_id])
         pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type, port_list['src'][src_port_id])
         dst_pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.dst_client, asic_type, port_list['dst'][dst_port_id])
+        print("Initial watermark:{}".format(pg_shared_wm_res_base))
 
         # send packets
         try:
@@ -3445,7 +3474,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
-                    self, src_port_id, dst_port_id, pkt, pg, asic_type)
+                    self, src_port_id, dst_port_id, pkt, pg, asic_type, pkts_num_egr_mem)
             else:
                 pg_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
@@ -3506,7 +3535,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
-                print("pkts num to send: %d, total pkts: %d, pg shared: %d" %
+                print("pkts num to send: %d, expected wm: %d, pg shared: %d" %
                       (pkts_num, expected_wm, total_shared), file=sys.stderr)
 
                 send_packet(self, src_port_id, pkt,int(pkts_num))
@@ -3539,11 +3568,11 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     assert (pg_shared_wm_res[pg] <=
                             ((pkts_num_leak_out + pkts_num_fill_min + expected_wm + margin) * (packet_length + internal_hdr_size)))
                 else:
-                    print("lower bound: %d, actual value: %d, upper bound (+%d): %d" % (expected_wm * cell_size,
-                                 pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size),file=sys.stderr)
-                    assert(pg_shared_wm_res[pg] <= (
-                            expected_wm + margin) * cell_size)
-                    assert(expected_wm * cell_size <= pg_shared_wm_res[pg])
+                    msg = "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (expected_wm * cell_size,
+                                 pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size)
+                    assert pg_shared_wm_res[pg] <= (
+                            expected_wm + margin) * cell_size, msg
+                    assert expected_wm * cell_size <= pg_shared_wm_res[pg], msg
 
                 pkts_num = pkts_inc
 
@@ -3770,6 +3799,8 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_trig_ingr_drp=int(self.test_params['pkts_num_trig_ingr_drp'])
         iterations=int(self.test_params['iterations'])
         margin=int(self.test_params['pkts_num_margin'])
+        cell_size=int(self.test_params.get('cell_size', 0))
+        is_multi_asic = (self.src_client != self.dst_client)
 
         pkt_dst_mac=router_mac if router_mac != '' else dst_port_mac
         dst_port_id=get_rx_port(
@@ -3801,14 +3832,21 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pg_dropped_cntrs_base=sai_thrift_read_pg_drop_counters(
                     self.src_client, port_list['src'][src_port_id])
+                pkt_num = pkts_num_trig_pfc
+
+                # Fill egress memory and leakout
+                if 'cisco-8000' in asic_type and is_multi_asic:
+                    pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(self,
+                                                    src_port_id, pkt, pg, asic_type)
+                    pkt_num -= extra_bytes_occupied // cell_size
 
                 # Send packets to trigger PFC
                 print("Iteration {}/{}, sending {} packets to trigger PFC".format(
                     test_i + 1, iterations, pkts_num_trig_pfc), file=sys.stderr)
-                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+                send_packet(self, src_port_id, pkt, pkt_num)
 
                 # Account for leakout
-                if 'cisco-8000' in asic_type:
+                if 'cisco-8000' in asic_type and not is_multi_asic:
                     queue_counters=sai_thrift_read_queue_occupancy(
                         self.dst_client, "dst", dst_port_id)
                     occ_pkts=queue_counters[queue] // (packet_length + 24)
@@ -4197,9 +4235,14 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         buffer_pool_wm_base=0
         if 'cisco-8000' in asic_type:
+            # We use dst client for cisco 8000.
+            client_to_use = self.dst_client
             # Some small amount of memory is always occupied
             buffer_pool_wm_base=sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid)
+                client_to_use, buf_pool_roid)
+        else:
+            client_to_use = self.src_client
+        print("Initial watermark: {}".format(buffer_pool_wm_base))
 
         # Prepare TCP packet data
         tos=dscp << 2
@@ -4213,13 +4256,19 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt=simple_tcp_packet(pktlen=packet_length,
-                                eth_dst=router_mac if router_mac != '' else dst_port_mac,
-                                eth_src=src_port_mac,
-                                ip_src=src_port_ip,
-                                ip_dst=dst_port_ip,
-                                ip_tos=tos,
-                                ip_ttl=ttl)
+        pkt = get_multiple_flows(
+                self,
+                router_mac if router_mac != '' else dst_port_mac,
+                dst_port_id,
+                dst_port_ip,
+                None,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                [(src_port_id, src_port_ip)],
+                packets_per_port=1)[src_port_id][0][0]
+
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -4257,7 +4306,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             print("Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % (
                 (pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, buffer_pool_wm), file=sys.stderr)
             if pkts_num_fill_min:
@@ -4302,7 +4351,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
                 time.sleep(8)
                 buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                    self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                    client_to_use, buf_pool_roid) - buffer_pool_wm_base
                 print("lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
                       * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size), file=sys.stderr)
                 assert(buffer_pool_wm <= (expected_wm + \
@@ -4322,10 +4371,19 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 send_packet(self, src_port_id, pkt, pkts_num_to_send)
 
+            buffer_pool_wm_before_tx_enable = sai_thrift_read_buffer_pool_watermark(
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
+            if (self.src_client != self.dst_client and
+                    asic_type == "cisco-8000"):
+                # Due to the presence of fabric, there may be more packets
+                # held up in fabric, and they add to the watermark after
+                # tx_enabled. So we use the watermark before tx is enabled.
+                buffer_pool_wm = buffer_pool_wm_before_tx_enable
+
             print("exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
                 pkts_num, (expected_wm * cell_size), buffer_pool_wm), file=sys.stderr)
             assert(expected_wm == total_shared)
@@ -4503,7 +4561,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             # Enable tx on dest port
             self.sai_thrift_port_tx_enable(
-                self.client, asic_type, [dst_port_id])
+                self.dst_client, asic_type, [dst_port_id])
 
 
 class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
