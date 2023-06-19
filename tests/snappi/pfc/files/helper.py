@@ -3,14 +3,14 @@ import logging
 import uuid
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts # noqa F401
 from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import get_queue_count, pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt
-from tests.common.snappi.port import select_ports, select_tx_port
-from tests.common.snappi.snappi_helpers import wait_for_arp
+    get_pfc_frame_count, packet_capture, config_capture_pkt # noqa F401
+from tests.common.snappi.port import select_ports, select_tx_port # noqa F401
+from tests.common.snappi.snappi_helpers import wait_for_arp # noqa F401
 from tests.common.snappi.traffic_generation import setup_base_traffic_config, generate_test_flows,\
     generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow,\
     verify_background_flow, verify_pause_frame_count, verify_egress_queue_frame_count, verify_in_flight_buffer_pkts,\
