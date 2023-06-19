@@ -539,9 +539,6 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # TTL changes on multi ASIC platforms,
             # add 2 for additional backend and frontend routing
             ip_ttl = ip_ttl if test_dst_port_name is None else ip_ttl + 2
-            masic = self.clients['src'] != self.clients['dst']
-            ip_ttl = ip_ttl + 1 if masic else ip_ttl
-
 
             for dscp in range(0, 64):
                 tos = (dscp << 2)
