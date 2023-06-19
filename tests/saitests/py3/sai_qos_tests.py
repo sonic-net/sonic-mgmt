@@ -32,8 +32,7 @@ from switch import (switch_init,
                     sai_thrift_read_pg_shared_watermark,
                     sai_thrift_read_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
-                    sai_thrift_read_queue_occupancy,
-                    sai_thrift_read_pg_occupancy
+                    sai_thrift_read_queue_occupancy
                    )
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
@@ -358,30 +357,6 @@ def fill_leakout_plus_one(
             " dst_port_id:{}, pkt:{}, queue:{}".format(
             src_port_id, dst_port_id, pkt.__repr__()[0:180], queue))
     return False
-
-
-def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num_egr_mem):
-    # Attempts to queue 1 packet while compensating for a varying packet leakout and egress queues.
-    # pkts_num_egr_mem is the number of packets in full egress queues, to provide an initial filling boost
-    # Returns whether 1 packet was successfully enqueued.
-    first = time.time()
-    if asic_type not in ['cisco-8000']:
-        return False
-    pg_cntrs_base=sai_thrift_read_pg_occupancy(
-        test_case.src_client, port_list['src'][src_port_id])
-    send_packet(test_case, src_port_id, pkt, pkts_num_egr_mem)
-    max_packets = 500
-    for packet_i in range(max_packets):
-        send_packet(test_case, src_port_id, pkt, 1)
-        pg_cntrs=sai_thrift_read_pg_occupancy(
-            test_case.src_client, port_list['src'][src_port_id])
-        if pg_cntrs[queue] > pg_cntrs_base[queue]:
-            print("fill_egress_plus_one: Success, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
-                pkts_num_egr_mem + packet_i + 1, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
-            return True
-    raise RuntimeError("fill_egress_plus_one: Fail: src_port_id:{}"
-        " pkts_num_egr_mem:{}, pkt:{}, queue:{}".format(
-        src_port_id, pkts_num_egr_mem, pkt.__repr__()[0:180], queue))
 
 
 def get_peer_addresses(data):
