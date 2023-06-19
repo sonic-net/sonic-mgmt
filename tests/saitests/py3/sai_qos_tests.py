@@ -505,7 +505,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         leaf_downstream = self.test_params.get('leaf_downstream', None)
         asic_type = self.test_params['sonic_asic_type']
         exp_ip_id = 101
-        exp_ttl = 61
+        exp_ttl = 63
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         print("dst_port_id: %d, src_port_id: %d" %
               (dst_port_id, src_port_id), file=sys.stderr)
