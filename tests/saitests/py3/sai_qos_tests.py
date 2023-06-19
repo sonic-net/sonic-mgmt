@@ -359,6 +359,63 @@ def fill_leakout_plus_one(
     return False
 
 
+def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num_egr_mem=0, dst_port_id=None, pkt2=None):
+    # Attempts to queue 1 packet while compensating for a varying packet leakout and egress queues.
+    # pkts_num_egr_mem is the number of packets in full egress queues, to provide an initial filling boost
+    # Returns whether 1 packet was successfully enqueued.
+    #
+    # pkts_num_egr_mem=0 is not applicable for multi-src-port cases
+    # for multi-src-port case, get pkts_num_egr_mem via overflow_egress(),
+    # then call fill_egress_plus_one() with pkts_num_egr_mem
+    if asic_type in ['cisco-8000']:
+        # if pkts_num_egr_mem unknown, get estimated pkts_num_egr_mem
+        if pkts_num_egr_mem == 0:
+            if dst_port_id == None:
+                print("fill_egress_plus_one: please input pkts_num_egr_mem or dst_port_id", file=sys.stderr)
+                return False
+            pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(test_case,
+                                                    src_port_id, pkt, queue, asic_type)
+            # tx enable
+            test_case.sai_thrift_port_tx_enable(test_case.dst_client, asic_type, [dst_port_id])
+            # tx disable
+            test_case.sai_thrift_port_tx_disable(test_case.dst_client, asic_type, [dst_port_id])
+
+        pkt_list = [pkt]
+        if pkt2:
+            pkt_list.append(pkt2)
+        for packet in pkt_list:
+            # send 1 packet, if pg occupancy increases, return
+            pg_cntrs_base=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            send_packet(test_case, src_port_id, packet, 1)
+            pg_cntrs=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            if pg_cntrs[queue] > pg_cntrs_base[queue]:
+                print("fill_egress_plus_one: Success, sent 1 packets, SQ occupancy bytes rose from %d to %d" % (
+                    pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                continue
+
+            # fill egress plus one
+            pg_cntrs_base=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            send_packet(test_case, src_port_id, packet, pkts_num_egr_mem)
+            max_packets = 1000
+            for packet_i in range(max_packets):
+                send_packet(test_case, src_port_id, packet, 1)
+                pg_cntrs=sai_thrift_read_pg_occupancy(
+                    test_case.src_client, port_list['src'][src_port_id])
+                if pg_cntrs[queue] > pg_cntrs_base[queue]:
+                    print("fill_egress_plus_one: Success, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
+                        pkts_num_egr_mem + packet_i + 1, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                    break
+            if pg_cntrs[queue] <= pg_cntrs_base[queue]:
+                print("fill_egress_plus_one: Failure, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
+                        pkts_num_egr_mem + max_packets, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                return False
+
+    return True
+
+
 def overflow_egress(test_case, src_port_id, pkt, queue, asic_type):
     # Attempts to queue 1 packet while compensating for a varying packet
     # leakout and egress queues. Returns pkts_num_egr_mem: number of packets
