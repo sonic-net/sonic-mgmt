@@ -4351,7 +4351,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
                 time.sleep(8)
                 buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                    self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                    client_to_use, buf_pool_roid) - buffer_pool_wm_base
                 msg = "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
                       * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size)
                 print(msg, file=sys.stderr)
@@ -4375,7 +4375,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             if (self.src_client != self.dst_client and
                     asic_type == "cisco-8000"):
                 # Due to the presence of fabric, there may be more packets
