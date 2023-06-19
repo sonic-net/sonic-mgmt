@@ -266,7 +266,7 @@ class Ecmp_Utils(object):
             # If the given address is "net.1", the return address is "net.101"
             # THE ASSUMPTION HERE IS THAT THE DUT ADDRESSES ARE ENDING IN ".1".
             # addr.decode is only in python2.7
-            ptf_ip = str(ip_address(addr.decode())+100)
+            ptf_ip = str(ip_address(addr)+100)
 
             if "Ethernet" in intf:
                 return_dict[intf] = ptf_ip
@@ -569,8 +569,8 @@ class Ecmp_Utils(object):
             netid  : The first octet.
         '''
         third_octet = self.Address_Count % 255
-        second_octet = (self.Address_Count / 255) % 255
-        first_octet = netid + (self.Address_Count / 65025)
+        second_octet = int(self.Address_Count / 255) % 255
+        first_octet = netid + int(self.Address_Count / 65025)
         self.Address_Count = self.Address_Count + 1
         if af == 'v4':
             return "{}.{}.{}.{}".format(
