@@ -463,9 +463,12 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: 'replace_fec ethernet test is not supported on virtual switch'
+    reason: '1. replace_fec ethernet test is not supported on virtual switch
+             2. Skip on M0 and Mx topo due to DUT interfaces do not support config fec'
+    conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-kvm_x86_64-r0']"
+      - "topo_type in ['m0', 'mx'] and https://github.com/sonic-net/sonic-mgmt/issues/8600"
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
