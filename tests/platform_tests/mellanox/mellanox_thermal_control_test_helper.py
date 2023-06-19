@@ -650,7 +650,7 @@ class FanData:
             return 'red'
 
         return 'green'
-    
+
     def mock_psu_fan_dir(self, direction):
         try:
             dir_file = 'psu{}_fan_dir'.format(self.index)
@@ -658,7 +658,7 @@ class FanData:
             return 'intake' if direction == 1 else 'exhaust'
         except SysfsNotExistError:
             return NOT_AVAILABLE
-            
+
 
 class TemperatureData:
     """
