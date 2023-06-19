@@ -637,42 +637,6 @@ stages:
               TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
               AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN)
 
-          - ${{ if in(parameters.TESTBED_NAME, 'vms21-t1-8102-01', 'vms28-t1-8102-02', 'vms28-dual-t0-8102') }}:
-            - task: Bash@3
-              displayName: Upload test results to Cisco Kusto Cluster
-              timeoutInMinutes: 20
-              inputs:
-                targetType: 'inline'
-                script: |
-                  set -x
-
-                  if [[ ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }} == True ]]; then
-                      echo "SKIP_TEST_RESULTS_UPLOADING=True, skip uploading test results to Kusto"
-                      exit 0
-                  fi
-
-                  echo "Activate python3 virtual environment"
-                  source /var/AzDevOps/env-python3/bin/activate
-
-                  # Non-secret variables in variable group KUSTO_SECRETS are automatically exported as environment
-                  # variables by Azure Pipeline. They cannot be override by value passed in from the "env" option
-                  # of task. The workaround is to explicitly override the environment variables in bash here:
-                  export TEST_REPORT_INGEST_KUSTO_CLUSTER=$(CISCO_INGEST_KUSTO_CLUSTER)
-                  export TEST_REPORT_AAD_TENANT_ID=$(CISCO_AAD_TENANT_ID)
-                  export TEST_REPORT_AAD_CLIENT_ID=$(CISCO_AAD_CLIENT_ID)
-
-                  cd test_reporting
-
-                  # temporary workaround to allow reboot timing data upload
-                  # After recent test change, the file names get DUT name in them
-                  # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
-                  report_upload_files="../results $(find ../results -type f -regex '.*test_.*_reboot_\(summary\|report\).json')"
-
-                  python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files CiscoTestData
-              condition: always()
-              env:
-                TEST_REPORT_AAD_CLIENT_KEY: $(CISCO_AAD_CLIENT_KEY)
-
           - task: Bash@3
             displayName: Cleanup Test Results
             inputs:
