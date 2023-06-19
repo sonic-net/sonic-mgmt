@@ -1,6 +1,5 @@
-import time
 import logging
-import uuid
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts # noqa F401
