@@ -189,9 +189,11 @@ copp/test_copp.py::TestCOPP::test_remove_trap:
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
-    reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
+    conditions_logical_operator: or
+    reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
+      - "build_version > '20220531.27' and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -454,12 +456,6 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
-generic_config_updater/test_eth_interface.py:
-  xfail:
-    reason: 'Xfail this script due to many failures found'
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8143
-
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'replace_fec ethernet test is not supported on virtual switch'
@@ -471,6 +467,12 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
     reason: "Skip asym pfc on unsupported platforms"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+generic_config_updater/test_eth_interface.py::test_update_speed:
+  xfail:
+    reason: 'Xfail this script due to this not being a production scenario and misleading StateDB output for valid speed'
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
 generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
   skip:
@@ -654,6 +656,12 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
     reason: "Only support t1-lag and t2 topology"
     conditions:
         - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
+
+pc/test_lag_member.py:
+  skip:
+    reason: "Not support dualtor topo"
+    conditions:
+        - "'dualtor' in topo_name"
 
 pc/test_po_cleanup.py:
   skip:
@@ -929,6 +937,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
+  skip:
+    reason: "All Port Watermark test is verified only on Cisco Platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####         restapi             #####
 #######################################
@@ -957,6 +971,19 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 #######################################
 #####      show_techsupport       #####
 #######################################
+show_techsupport/test_auto_techsupport.py:
+  skip:
+    reason: "auto techsupport on multi asic platforms doesnt work"
+    strict: True
+    conditions:
+      - (is_multi_asic==True)
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
+  skip:
+    reason: "Test supported only on Nvidia(Mellanox) devices"
+    conditions:
+      - "asic_type not in ['mellanox']"
+
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
     reason: "Generic internal image issue"

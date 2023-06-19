@@ -197,6 +197,39 @@ def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
 
 
+def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
+    # Get internal bgp ips for later filtering
+    internal_bgp_ips = duthost.get_internal_bgp_peers().keys()
+    dev_port = None
+    route_to_ping = None
+    for dst_prefix in dst_prefix_set:
+        if dev_port:
+            break
+        route_to_ping = dst_prefix.route
+        cmd = ' -c "show ip route {} json"'.format(route_to_ping)
+        if duthost.is_multi_asic:
+            for asic in duthost.frontend_asics:
+                if dev_port:
+                    break
+                dev = json.loads(asic.run_vtysh(cmd)['stdout'])
+                for per_hop in dev[route_to_ping][0]['nexthops']:
+                    if 'interfaceName' not in per_hop.keys():
+                        continue
+                    if 'ip' not in per_hop.keys():
+                        continue
+                    if per_hop['ip'] in internal_bgp_ips:
+                        continue
+                    dev_port = per_hop['interfaceName']
+        else:
+            dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
+            for per_hop in dev[route_to_ping][0]['nexthops']:
+                if 'interfaceName' not in per_hop.keys():
+                    continue
+                dev_port = per_hop['interfaceName']
+    pytest_assert(dev_port, "dev_port not exist")
+    return dev_port, route_to_ping
+
+
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes,
                     enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
@@ -244,29 +277,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             dst_prefix_set.add(entry)
     pytest_assert(dst_prefix_set, "dst_prefix_set is empty")
 
-    dev_port = None
-    for dst_prefix in dst_prefix_set:
-        if dev_port:
-            break
-        route_to_ping = dst_prefix.route
-        cmd = ' -c "show ip route {} json"'.format(route_to_ping)
-        if duthost.is_multi_asic:
-            for asic in duthost.frontend_asics:
-                if dev_port:
-                    break
-                dev = json.loads(asic.run_vtysh(cmd)['stdout'])
-                for per_hop in dev[route_to_ping][0]['nexthops']:
-                    if 'interfaceName' in per_hop.keys() and 'IB' not in per_hop['interfaceName']:
-                        dev_port = per_hop['interfaceName']
-                        break
-        else:
-            dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
-            for per_hop in dev[route_to_ping][0]['nexthops']:
-                if 'interfaceName' in per_hop.keys() and 'IB' not in per_hop['interfaceName']:
-                    dev_port = per_hop['interfaceName']
-                    break
-
-    pytest_assert(dev_port, "dev_port not exist")
+    dev_port, route_to_ping = get_dev_port_and_route(duthost, asichost, dst_prefix_set)
     route_nums = len(dst_prefix_set)
     logger.info("route_nums = %d" % route_nums)
 

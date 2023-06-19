@@ -720,7 +720,7 @@ class QosSaiBase(QosBase):
             else:
                 intf_map = src_mgFacts["minigraph_interfaces"]
 
-            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(src_dut, dut_qos_maps)
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(dut_qos_maps)
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
@@ -757,7 +757,7 @@ class QosSaiBase(QosBase):
 
             # T1 is supported only for 'single_asic' or 'single_dut_multi_asic'.
             # So use src_dut as the dut
-            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(src_dut, dut_qos_maps)
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(dut_qos_maps)
             dutPortIps[src_dut_index] = {}
             testPortIds[src_dut_index] = {}
             for dut_asic in get_src_dst_asic_and_duts['all_asics']:
@@ -1461,6 +1461,11 @@ class QosSaiBase(QosBase):
         dut_asic = get_src_dst_asic_and_duts['src_asic']
         duthost = get_src_dst_asic_and_duts['src_dut']
 
+        # This is not needed in T2.
+        if dutTestParams["topo"] in ['t2']:
+            yield
+            return
+
         dut_asic.command('sonic-clear fdb all')
         dut_asic.command('sonic-clear arp')
 
@@ -1486,6 +1491,8 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+        yield
+        return
 
     @pytest.fixture(scope='class', autouse=True)
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host):
@@ -1839,3 +1846,114 @@ class QosSaiBase(QosBase):
         logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
 
         return dualtor_ports_set
+
+    @pytest.fixture(scope='function', autouse=True)
+    def set_static_route(
+            self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
+        # Get portchannels.
+        # find the one that is backplane based.
+        # set a static route through that portchannel.
+        # remove when done.
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+
+        try:
+            if not (
+                src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
+                and dutTestParams['topo'] == 't2'):
+                yield
+                return
+        except KeyError:
+            yield
+            return
+
+        dst_keys = []
+        for k in dutConfig["testPorts"].keys():
+            if re.search("dst_port.*ip", k):
+                dst_keys.append(k)
+
+        for k in dst_keys:
+            dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
+                dst_asic.asic_index,
+                dutConfig["testPorts"][k]), module_ignore_errors=True)
+
+        ip_address_mapping = self.get_interface_ip(dst_asic)
+        for intf in ip_address_mapping.keys():
+            if ip_address_mapping[intf]['peer_addr'] != '':
+                dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
+                    dst_asic.asic_index,
+                    ip_address_mapping[intf]['peer_addr']), module_ignore_errors=True)
+
+        if src_asic == dst_asic:
+            yield
+            return
+
+        portchannels = dst_asic.command(
+            "show interface portchannel -n asic{} -d all".format(
+                dst_asic.asic_index))['stdout']
+        regx = re.compile("(PortChannel[0-9]+)")
+        bp_portchannels= []
+        for l in portchannels.split("\n"):
+            if "-BP" in l:
+                match = regx.search(l)
+                if match:
+                    bp_portchannels.append(match.group(1))
+        if not bp_portchannels:
+            raise RuntimeError(
+                "Couldn't find the backplane porchannels from {}".format(
+                    bp_portchannels))
+
+        non_bp_intfs = set(list(ip_address_mapping.keys())) \
+            - set(bp_portchannels)
+        addresses_to_ping = []
+        for dst_key in dst_keys:
+            addresses_to_ping.append(dutConfig["testPorts"][dst_key])
+
+        for dst_intf in non_bp_intfs:
+            if ip_address_mapping[dst_intf]['peer_addr'] != '':
+                addresses_to_ping.append(
+                    ip_address_mapping[dst_intf]['peer_addr'])
+
+        addresses_to_ping = list(set(addresses_to_ping))
+        no_of_bp_pcs = len(bp_portchannels)
+
+        for dst_index in range(len(addresses_to_ping)):
+            gw = ip_address_mapping[
+                bp_portchannels[dst_index%no_of_bp_pcs]]['addr']
+            src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
+                src_asic.asic_index, gw))
+            src_asic.shell("ip netns exec asic{} route add {} gw {}".format(
+                src_asic.asic_index,
+                addresses_to_ping[dst_index],
+                gw))
+        yield
+        for dst_index in range(len(addresses_to_ping)):
+            gw = ip_address_mapping[
+                bp_portchannels[dst_index%no_of_bp_pcs]]['addr']
+            src_asic.shell("ip netns exec asic{} route del {} gw {}".format(
+                src_asic.asic_index,
+                addresses_to_ping[dst_index],
+                gw))
+
+    def get_interface_ip(self, dut_asic):
+        """
+            Parse the output of "show ip int -n asic0 -d all" into a dict:
+            interface => ip address.
+        """
+        mapping = {}
+        all_opt = ""
+        ip_address_out = dut_asic.command(
+            "show ip interface -n asic{} -d all".format(
+            dut_asic.asic_index, all_opt))['stdout']
+        re_pattern = re.compile(
+            "^([^ ]*) [ ]*([0-9\.]*)\/[0-9]*  *[^ ]*  *[^ ]*  *([0-9\.]*)")
+        for line in ip_address_out.split("\n"):
+            match = re_pattern.search(line)
+            if match:
+                mapping[match.group(1)] = {
+                    'addr' : match.group(2),
+                    'peer_addr' : match.group(3),
+                }
+
+        return mapping
+
