@@ -109,6 +109,7 @@ class KustoConnector(ReportDBConnector):
     REBOOT_TIMING_TABLE = "RebootTimingData"
     TEST_CASE_TABLE = "TestCases"
     EXPECTED_TEST_RUNS_TABLE = "ExpectedTestRuns"
+    TEST_CASE_NUMBERS_TABLE = "TestCaseNumbers"
     PIPELINE_TABLE = "TestReportPipeline"
     CASE_INVOC_TABLE = "CaseInvocationCoverage"
     SAI_HEADER_INVOC_TABLE = "SAIHeaderDefinition"
@@ -126,6 +127,7 @@ class KustoConnector(ReportDBConnector):
         REBOOT_TIMING_TABLE: DataFormat.MULTIJSON,
         TEST_CASE_TABLE: DataFormat.JSON,
         EXPECTED_TEST_RUNS_TABLE: DataFormat.JSON,
+        TEST_CASE_NUMBERS_TABLE: DataFormat.JSON,
         PIPELINE_TABLE: DataFormat.JSON,
         CASE_INVOC_TABLE: DataFormat.MULTIJSON,
         SAI_HEADER_INVOC_TABLE: DataFormat.MULTIJSON,
@@ -144,6 +146,7 @@ class KustoConnector(ReportDBConnector):
         REBOOT_TIMING_TABLE: "RebootTimingDataMapping",
         TEST_CASE_TABLE: "TestCasesMappingV1",
         EXPECTED_TEST_RUNS_TABLE: "ExpectedTestRunsV1",
+        TEST_CASE_NUMBERS_TABLE: "TestCaseNumbersV1",
         PIPELINE_TABLE: "FlatPipelineMappingV1",
         CASE_INVOC_TABLE: "CaseInvocationCoverageMapping",
         SAI_HEADER_INVOC_TABLE: "SAIHeaderDefinitionMapping",
@@ -285,6 +288,9 @@ class KustoConnector(ReportDBConnector):
 
     def upload_expected_runs(self, expected_runs: List) -> None:
         self._ingest_data(self.EXPECTED_TEST_RUNS_TABLE, expected_runs)
+
+    def upload_case_numbers(self, case_numbers: List) -> None:
+        self._ingest_data(self.TEST_CASE_NUMBERS_TABLE, case_numbers)
 
     def _upload_swss_log_file(self, swss_file: str) -> None:
         self._ingest_data_file(self.SWSSDATA_TABLE, swss_file)
