@@ -592,7 +592,6 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
-        all_src_ports = dutConfig["testPortIps"][src_dut_index][src_asic_index]
         # Swapping the src_port_*_id with dst_port_*_id since the src_port* are
         # not available in this structure anymore.
         testParams.update({
