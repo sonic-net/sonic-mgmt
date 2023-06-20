@@ -1515,7 +1515,7 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(self, src_details[i][0], all_pkts[src_details[i][0]][0][0], npkts)
 
             # allow enough time for counters to update
-            time.sleep(2)
+            time.sleep(8)
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             counter_details_3 = collect_counters()
