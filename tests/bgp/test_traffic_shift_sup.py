@@ -22,6 +22,7 @@ This test file is specific to T2 chassis topology.
 It tests TSA/B functionality from supervisor 
 """
 
+
 class TestTrafficShiftOnSup:
     def setup_dutinfo(self, duthosts, enum_supervisor_dut_hostname, creds):
         self.duthosts = duthosts
@@ -40,7 +41,7 @@ class TestTrafficShiftOnSup:
             if host.is_supervisor_node():
                 continue
             pytest_assert(ts_state == get_traffic_shift_state(host, "TSC no-stats"),
-                        "Linecard {} is not in {} state".format(host, state))
+                          "Linecard {} is not in {} state".format(host, state))
 
     def run_cmd_on_sup(self, cmd):
         try:
@@ -92,7 +93,7 @@ class TestTrafficShiftOnSup:
             self.run_cmd_on_sup("sudo TSA") 
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
 
-             # Recover to Normal state
+            # Recover to Normal state
             self.run_cmd_on_sup("sudo TSB")            
             # Verify DUT is in normal state.
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
