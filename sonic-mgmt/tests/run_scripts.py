@@ -62,11 +62,11 @@ def generate_allure_report(build_id, current_result_file):
         allure_server_obj = AllureServer(ALLURE_SERVER_IP, ALLURE_SERVER_PORT, ALLURE_DIR, build_id)
         report_url = allure_server_obj.generate_allure_report()
         print("Allure report generated, url is: ", report_url)
-        current_result_file.write("Allure report generated, url is: {}".format(report_url))
+        current_result_file.write("Allure report generated, url is: {}\n".format(report_url))
         current_result_file.flush()
     except Exception as e:
-        print("Error while generating allure report! e: ", e)
-        current_result_file.write("Error while generating allure report! Error: ".format(e))
+        print("Error while generating allure report! Error: ", e)
+        current_result_file.write("Error while generating allure report! Error: {}\n".format(e))
         current_result_file.flush()
 
 def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None):
