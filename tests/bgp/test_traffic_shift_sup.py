@@ -18,8 +18,8 @@ TS_INCONSISTENT = "System Mode: Not consistent"
 TS_NO_NEIGHBORS = "System Mode: No external neighbors"
 
 """
-This test file is specific to T2 chassis topology. 
-It tests TSA/B functionality from supervisor 
+This test file is specific to T2 chassis topology
+It tests TSA/B functionality from supervisor
 """
 
 
@@ -62,7 +62,7 @@ class TestTrafficShiftOnSup:
             else:
                 time.sleep(30)
         except Exception as e:
-            logger.error("Exception caught while executing cmd {}. Error message: {}".format(cmd, e))        
+            logger.error("Exception caught while executing cmd {}. Error message: {}".format(cmd, e))
 
     def test_TSA(self, duthosts, enum_supervisor_dut_hostname, creds):
         """
@@ -72,7 +72,7 @@ class TestTrafficShiftOnSup:
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT
-            self.run_cmd_on_sup("sudo TSA")            
+            self.run_cmd_on_sup("sudo TSA")
             # Verify DUT is in maintenance state.
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
         except Exception as e:
@@ -80,7 +80,7 @@ class TestTrafficShiftOnSup:
             logger.error("Exception caught in TSB test. Error message: {}".format(e))
         finally:
             # Issue TSB on DUT to recover the chassis
-            self.run_cmd_on_sup("sudo TSB")   
+            self.run_cmd_on_sup("sudo TSB")
 
     def test_TSB(self, duthosts, enum_supervisor_dut_hostname, creds):
         """
@@ -89,13 +89,13 @@ class TestTrafficShiftOnSup:
         """
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
-            # Issue TSA on DUT to move chassis to maintenance          
-            self.run_cmd_on_sup("sudo TSA") 
+            # Issue TSA on DUT to move chassis to maintenance
+            self.run_cmd_on_sup("sudo TSA")
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
 
             # Recover to Normal state
-            self.run_cmd_on_sup("sudo TSB")            
-            # Verify DUT is in normal state.
+            self.run_cmd_on_sup("sudo TSB")
+            # Verify DUT is in normal state
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
         except Exception as e:
             # Log exception
@@ -110,8 +110,8 @@ class TestTrafficShiftOnSup:
         """
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
-            # Issue TSA on DUT to move chassis to maintenance          
-            self.run_cmd_on_sup("sudo TSA") 
+            # Issue TSA on DUT to move chassis to maintenance
+            self.run_cmd_on_sup("sudo TSA")
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
 
             # Save config and perform config reload on all LCs
@@ -122,6 +122,6 @@ class TestTrafficShiftOnSup:
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
         finally:
             # Recover to Normal state
-            self.run_cmd_on_sup("sudo TSB") 
+            self.run_cmd_on_sup("sudo TSB")
             # Verify DUT is in normal state.
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
