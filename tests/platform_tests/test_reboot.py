@@ -217,7 +217,7 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                         localhost, conn_graph_facts, set_max_time_for_interfaces, xcvr_skip_list, tbinfo):      # noqa F811
+                         localhost, conn_graph_facts, set_max_time_for_interfaces, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
@@ -228,13 +228,7 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if "" != watchdogutil_status_result["stderr"] or "" == watchdogutil_status_result["stdout"]:
         pytest.skip(
             "Watchdog is not supported on this DUT, skip this test case")
-    output = duthost.shell("dmidecode -s bios-version")["stdout"]
-    bios = output.split('-')
-    bios_version = bios[1]
-    topo = tbinfo["topo"]["type"]
-    platform = duthost.facts['platform']
-    if bios_version < "218" and topo == "t1" and platform == "x86_64-8102_64h_o-r0":
-        pytest.skip("Skip test if BIOS ver <218 and topo is T1 and platform is M64")
+
     reboot_and_check(localhost, duthost,
                      conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_WATCHDOG)
 
