@@ -5,6 +5,7 @@
       <Device Hostname="str3-acs-serv-61" HwSku="TestServ" Os="" Type="Server"/>
       <Device Hostname="str3-acs-serv-62" HwSku="TestServ" Os="" Type="Server"/>
       <Device Hostname="str3-acs-serv-63" HwSku="TestServ" Os="" Type="Server"/>
+      <Device Hostname="str3-acs-serv-64" HwSku="TestServ" Os="" Type="Server"/>
       <Device Hostname="str3-7260cx3-acs-fan-01" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-02" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-03" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
@@ -84,6 +85,7 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-7060-acs-fan-01" EndPort="Ethernet25/1" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet22/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-dx010-acs-1" EndPort="Ethernet124" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet24/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-acs-serv-63" EndPort="ens4f0" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet25/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-acs-serv-64" EndPort="ens4f0" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet59/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-05" EndPort="etp31" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet26/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-8101-fanout-06" EndPort="etp31" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet27/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet252" StartDevice="str3-7260cx3-acs-root03" StartPort="Ethernet32/1"/>
@@ -1748,6 +1750,9 @@
       <InterfaceVlan mode="Access" portname="Ethernet58/1" vlanids="1087"/>
       <InterfaceVlan mode="Access" portname="Ethernet59/1" vlanids="1088"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="str3-acs-serv-64">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.247.46/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8102-06">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.78/23"/>
     </DevicesL3Info>
@@ -1851,6 +1856,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet22/1" vlanids="1157-1598,1601-1612"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet24/1" vlanids="1669-1698"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids="1157-1796,1801-1928,1929-1992"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet59/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids="1701-1764"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet27/1" vlanids="1765-1796"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1801-1863"/>
