@@ -57,13 +57,17 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         ssh.close()
 
 # Generate allure report using data in ALLURE_DIR
-def generate_allure_report(build_id):
+def generate_allure_report(build_id, current_result_file):
     try:
         allure_server_obj = AllureServer(ALLURE_SERVER_IP, ALLURE_SERVER_PORT, ALLURE_DIR, build_id)
         report_url = allure_server_obj.generate_allure_report()
         print("Allure report generated, url is: ", report_url)
+        current_result_file.write("Allure report generated, url is: {}\n".format(report_url))
+        current_result_file.flush()
     except Exception as e:
-        print("Error while generating allure report! e: ", e)
+        print("Error while generating allure report! Error: ", e)
+        current_result_file.write("Error while generating allure report! Error: {}\n".format(e))
+        current_result_file.flush()
 
 def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None):
     if drop_version is not None:
@@ -155,7 +159,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         report_file.flush()
         # Use previous test results to generate Allure report
         if create_allure_report:
-            generate_allure_report(build_id)
+            generate_allure_report(build_id, current_result_file)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
     current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file)) 
@@ -212,7 +216,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     if create_allure_report:
-        generate_allure_report(build_id)
+        generate_allure_report(build_id, current_result_file)
 
     current_result_file.write("Total TCs: {},          {} Pass, {} Fail, {} Skipped, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
     current_result_file.close()
@@ -309,7 +313,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         report_file.flush()
         # Use previous test results to generate Allure report
         if create_allure_report:
-            generate_allure_report(build_id)
+            generate_allure_report(build_id, current_result_file)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
     current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file))
@@ -348,7 +352,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     if create_allure_report:
-        generate_allure_report(build_id)
+        generate_allure_report(build_id, current_result_file)
 
     current_result_file.close()
     report_file.close()
