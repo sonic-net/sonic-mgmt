@@ -976,6 +976,7 @@ class TestShowIP():
         static_route_intf = dict()
         static_route_intf['interface'] = list()
         static_route_intf['alias'] = list()
+        gw_ip_list = []
 
         if not setup['physical_interfaces']:
             pytest.skip('No non-portchannel member interface present')
@@ -998,25 +999,25 @@ class TestShowIP():
                     duthost.shell("ip {} route add {}  via {} dev {}".format(ip_version, dst_ip, gw_ip, dev))
                 static_route_intf['interface'].append(dev)
                 static_route_intf['alias'].append(setup['port_name_map'][dev])
+                gw_ip_list.append((gw_ip, namespace))
 
         yield static_route_intf
-        for mg_intf in setup['minigraph_facts'][u'minigraph_interfaces']:
-            if mg_intf[u'attachto'] == setup['physical_interfaces'][0]:
-                dev = mg_intf[u'attachto']
-                namespace = setup['minigraph_facts']['minigraph_neighbors'][dev]['namespace']
-                gw_ip = mg_intf['peer_addr']
+
+        for gw_ip_ns in gw_ip_list:
+            gw_ip, namespace = gw_ip_ns
+            if ipaddress.ip_address(gw_ip).version == 4:
+                ip_version = ''
                 dst_ip = '192.168.1.1'
-                if ipaddress.ip_address(gw_ip).version == 4:
-                    ip_version = ''
-                    dst_ip = '192.168.1.1'
-                else:
-                    ip_version = '-6'
-                    dst_ip = '::/0'
-                if namespace:
-                    duthost.shell("ip netns exec {} ip {} route del {}  via {} dev {}".
-                                  format(namespace, ip_version, dst_ip, gw_ip, dev))
-                else:
-                    duthost.shell("ip {} route del {}  via {} dev {}".format(ip_version, dst_ip, gw_ip, dev))
+            else:
+                ip_version = '-6'
+                dst_ip = '::/0'
+
+            if namespace:
+                duthost.shell("ip netns exec {} ip {} route del {} via {}".
+                              format(namespace, ip_version, dst_ip, gw_ip))
+            else:
+                duthost.shell("ip {} route del {} via {}".
+                              format(ip_version, dst_ip, gw_ip))
 
     def test_show_ip_interface(self, setup, setup_config_mode):
         """
