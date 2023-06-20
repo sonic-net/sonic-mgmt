@@ -803,7 +803,7 @@ class QosSaiBase(QosBase):
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
                 testPortIps.update(dutPortIps)
 
-        elif tbinfo["topo"]["type"] == "t2":
+        elif "t2" in tbinfo["topo"]["type"]:
             src_asic = get_src_dst_asic_and_duts['src_asic']
             dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
             dst_asic = get_src_dst_asic_and_duts['dst_asic']
@@ -875,7 +875,7 @@ class QosSaiBase(QosBase):
 
         dutTopo = "topo-"
 
-        if dutAsic == "gb" and topo == "t2":
+        if dutAsic == "gb" and "t2" in topo:
             if get_src_dst_asic_and_duts['src_asic'] == \
                     get_src_dst_asic_and_duts['dst_asic']:
                 dutTopo = dutTopo + "any"
@@ -917,7 +917,7 @@ class QosSaiBase(QosBase):
         })
         dutinterfaces = {}
 
-        if tbinfo["topo"]["type"] == "t2":
+        if "t2" in tbinfo["topo"]["type"]:
             #dutportIps={0: {0: {0: {'peer_addr': u'10.0.0.1', 'port': u'Ethernet8'}, 2: {'peer_addr': u'10.0.0.5', 'port': u'Ethernet17'}}}}
             # { 0: 'Ethernet8', 2: 'Ethernet17' }
             for dut_index,dut_val in dutPortIps.items():
