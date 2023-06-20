@@ -150,3 +150,11 @@ wan-pub:
   - tacacs/test_ro_disk.py
   - tacacs/test_authorization.py
   - tacacs/test_accounting.py
+
+specific_param:
+  t0-sonic:
+  - name: bgp/test_bgp_fact.py
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+#  all the test modules under macsec directory
+  - name: macsec
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
