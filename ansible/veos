@@ -23,7 +23,7 @@ all:
         vm_host_61:
         vm_host_62:
         vm_host_63:
-        vm_host_64
+        vm_host_64:
         vm_svc_host_1:
         vm_svc_host_3:
         vm_svc_host_5:
