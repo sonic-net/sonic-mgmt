@@ -1,0 +1,77 @@
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "35 2 * * *"
+    displayName: Count Test Cases
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: UPLOAD_TO_KUSTO
+    type: boolean
+    default: True
+    displayName: "Upload to Kusto"
+
+
+stages:
+
+  - stage: CountTestCases
+    jobs:
+
+      - job: count_test_cases
+        timeoutInMinutes: 30
+        pool: nightly
+        variables:
+          - name: skipComponentGovernanceDetection
+            value: true
+          - group: KUSTO_SECRETS
+
+        steps:
+
+          - task: Bash@3
+            displayName: Count test cases
+            timeoutInMinutes: 10
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -ex
+
+                pwd
+
+                cd tests
+                pytest --inventory ../ansible/veos_vtb --host-pattern all \
+                  --testbed_file vtestbed.yaml --testbed vms-kvm-t0 \
+                  --ignore saitests --ignore ptftests --ignore acstests \
+                  --ignore scripts --ignore k8s --ignore sai_qualify --ignore common \
+                  --ignore-conditional-mark \
+                  --color=no --collect-only --continue-on-collection-errors | tee test_cases.txt
+
+                total_count=$(cat test_cases.txt | grep -E "^collected ([0-9]+) items$" | awk '{print $2}')
+                timestamp=$(date -u +"%Y-%m-%d %H:%M:%S")
+                rm -f count.json || true
+                echo "[{\"count\": \"$total_count\", \"branch\": \"$(Build.SourceBranch)\", \"timestamp\": \"$timestamp\"}]" | jq > count.json
+                cat count.json
+
+          - ${{ if eq(parameters.UPLOAD_TO_KUSTO, True) }}:
+            - task: Bash@3
+              displayName: Upload to Kusto
+              timeoutInMinutes: 10
+              inputs:
+                targetType: 'inline'
+                script: |
+                  set -ex
+
+                  source /var/AzDevOps/env-python3/bin/activate
+
+                  export TEST_REPORT_INGEST_KUSTO_CLUSTER=$(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+                  export TEST_REPORT_AAD_TENANT_ID=$(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+                  export TEST_REPORT_AAD_CLIENT_ID=$(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+                  export TEST_REPORT_AAD_CLIENT_KEY=$(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
+
+                  python3 test_reporting/report_uploader.py -c case_numbers tests/count.json SonicTestData
