@@ -511,8 +511,9 @@ if __name__ == "__main__":
         "--common-extra-params",
         type=str,
         dest="common_extra_params",
+        nargs='?',
+        const="",
         default="",
-        nargs='*',
         required=False,
         help="Run test common extra params"
     )
