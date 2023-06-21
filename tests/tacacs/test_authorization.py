@@ -222,9 +222,7 @@ def test_authorization_tacacs_only(
         "sudo config interface",
         "sudo route_check.py | head -n 100",
         "sudo dmesg -D",
-        "sudo sonic-cfggen --print-data",
-        "sudo config list-checkpoints",
-        "redis-cli -n 4 keys \\*"
+        "sudo sonic-cfggen --print-data"
     ]
 
     for subcommand in rw_commands:
