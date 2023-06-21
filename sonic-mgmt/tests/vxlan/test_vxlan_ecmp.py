@@ -151,6 +151,10 @@ def fixture_setUp(duthosts,
     else:
         raise RuntimeError("Pls update this script for your platform.")
 
+    platform = duthosts[rand_one_dut_hostname].facts['platform']
+    if platform == 'x86_64-mlnx_msn2700-r0' and encap_type in ['v4_in_v6', 'v6_in_v6']:
+        pytest.skip("Skipping test. v6 underlay is not supported on Mlnx 2700")
+
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \
         request.config.option.keep_temp_files
