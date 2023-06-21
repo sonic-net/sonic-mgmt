@@ -2,6 +2,7 @@ import logging
 import os
 import time
 import paramiko
+import json
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -41,16 +42,17 @@ def show_and_parse_tabledata(stdout_lines):
 
 
 def test_nac_functionality():
-    ip_address1 = '172.30.25.67'
-    username1 = 'sonic'
-    password1 = 'admin123'
-    ip_address2 = '172.30.25.102'
-    username2 = 'admin'
-    password2 = 'YourPaSsWoRd'
-    ip_address3 = '172.30.25.93'
-    username3 = 'sonic'
-    password3 = 'admin123'
-
+    with open('credentials.json') as f:
+        data = json.load(f)
+    ip_address1 = data['ip_address1']
+    username1 = data['username1']
+    password1 = data['password1']
+    ip_address2 = data['ip_address2']
+    username2 = data['username2']
+    password2 = data['password2']
+    ip_address3 = data['ip_address3']
+    username3 = data['username3']
+    password3 = data['password3']
 
     client1 = paramiko.SSHClient()
     client1.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -154,14 +156,12 @@ def test_nac_functionality():
         # To start the Supplicant
         cmd_sup_start = "sudo wpa_supplicant -c./wpa_supplicant.conf -Dwired -ienp7s0f3 > reboot_sup1.txt" 
         _, stdout, stderr = client1.exec_command(cmd_sup_start, timeout=15)
-        #cmd_sup_start_output = stdout.read().decode()
-        #print("To start the supplicant: " + cmd_sup_start_output)
-        file_name = "output.txt"
+        file_name = "reboot_sup1.txt"
         if os.access(file_name, os.R_OK):
             with open(file_name, "r") as file:
                 file_content = file.read()
                 if "CTRL-EVENT-EAP-SUCCESS EAP authentication completed successfully" in file_content:
-                    print("Yes")
+                    print("Authentication Successful")
                 else:
                     print("Authentication Failed")
 
@@ -211,14 +211,14 @@ def test_nac_functionality():
         # To check ping
         cmd_ping_check = "ping 70.0.0.20 > reboot1.txt"
         _, stdout, stderr = client1.exec_command(cmd_ping_check, timeout=7)
-        file_name = "output.txt"
+        file_name = "reboot1.txt"
         if os.access(file_name, os.R_OK):
             with open(file_name, "r") as file:
                 file_content = file.read()
                 if "Destination Host Unreachable" in file_content:
                     print("Ping Failed")
                 else:
-                    pass
+                    print("Ping Passed")
         
 
         client2.connect(ip_address2, username=username2, password=password2)
@@ -280,12 +280,12 @@ def test_nac_functionality():
         # To start the Supplicant
         cmd_sup_start = "sudo wpa_supplicant -c./wpa_supplicant.conf -Dwired -ienp7s0f3 > reboot_sup2.txt"
         _, stdout, stderr = client1.exec_command(cmd_sup_start, timeout=30)
-        file_name = "output.txt"
+        file_name = "reboot_sup2.txt"
         if os.access(file_name, os.R_OK):
             with open(file_name, "r") as file:
                 file_content = file.read()
                 if "CTRL-EVENT-EAP-SUCCESS EAP authentication completed successfully" in file_content:
-                    print("Yes")
+                    print("Authentication Passed")
                 else:
                     print("Authentication Failed")
                     cmd_show_enable_int = "sudo show nac interface Ethernet16"
@@ -303,14 +303,14 @@ def test_nac_functionality():
 
         cmd_ping_check = "ping 70.0.0.20 > reboot2.txt"
         _, stdout, stderr = client1.exec_command(cmd_ping_check, timeout=7)
-        file_name = "output.txt"
+        file_name = "reboot2.txt"
         if os.access(file_name, os.R_OK):
             with open(file_name, "r") as file:
                 file_content = file.read()
                 if "Destination Host Unreachable" in file_content:
                     print("Ping Failed")
                 else:
-                    pass
+                    print("Ping Passed")
 
 
     finally:
