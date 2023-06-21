@@ -4,7 +4,9 @@ skip_testbeds_list = [
     '3164',
     '8101',
     'ec9516',
-    '-t2-'
+    '-t2-',
+    'testbed-bjw-can-720dt-3',
+    'vms61-dual-mixed-8102'
 ]
 
 curr_convert_to_trusty_images_dict = {
