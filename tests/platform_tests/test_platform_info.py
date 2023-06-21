@@ -168,7 +168,7 @@ def get_healthy_psu_num(duthost):
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
         fields = iter.split()
-        if fields[2] == 'OK':
+        if 'OK' in fields:
             healthy_psus += 1
 
     return healthy_psus
