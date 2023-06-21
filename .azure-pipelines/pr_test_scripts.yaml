@@ -80,6 +80,8 @@ t0-sonic:
   - macsec/test_deployment.py
   - macsec/test_fault_handling.py
   - macsec/test_interop_protocol.py
+  - pc/test_retry_count.py
+#  - platform_tests/test_advanced_reboot.py::test_warm_reboot
 
 dualtor:
   - arp/test_arp_extended.py
@@ -150,3 +152,11 @@ wan-pub:
   - tacacs/test_ro_disk.py
   - tacacs/test_authorization.py
   - tacacs/test_accounting.py
+
+specific_param:
+  t0-sonic:
+  - name: bgp/test_bgp_fact.py
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+#  all the test modules under macsec directory
+  - name: macsec
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
