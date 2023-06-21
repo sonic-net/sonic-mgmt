@@ -961,7 +961,7 @@ class TestShowIP():
         if not setup['physical_interfaces']:
             pytest.skip('No non-portchannel member interface present')
 
-    @pytest.fixture
+    @pytest.fixture(scope='class')
     def static_route_intf(self,  duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tbinfo):
         """
         Returns the alias and names of the spine ports
