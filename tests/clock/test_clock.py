@@ -87,7 +87,8 @@ def test_config_clock_timezone(duthosts, init_timezone):
 
     with allure.step('Verify command failure'):
         logging.info('Verify command failure')
-        ClockUtils.verify_command(cmd_output=output, should_succeed=False, expected_err=ClockConsts.ERR_BAD_TIMEZONE.format(invalid_timezone))
+        ClockUtils.verify_command(cmd_output=output, should_succeed=False, expected_err=ClockConsts.ERR_BAD_TIMEZONE
+                                  .format(invalid_timezone))
 
     with allure.step('Verify timezone has not changed'):
         logging.info('Verify timezone has not changed')
@@ -148,7 +149,8 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         errors = {
             '': ClockConsts.ERR_MISSING_DATE,
             rand_str: ClockConsts.ERR_MISSING_TIME,
-            rand_str + ' ' + rand_str: ClockConsts.ERR_BAD_DATE.format(rand_str) + '\n' + ClockConsts.ERR_BAD_TIME.format(rand_str),
+            rand_str + ' ' + rand_str: ClockConsts.ERR_BAD_DATE.format(rand_str) + '\n' + ClockConsts.ERR_BAD_TIME
+            .format(rand_str),
             rand_str + ' ' + new_time: ClockConsts.ERR_BAD_DATE.format(rand_str),
             new_date + ' ' + rand_str: ClockConsts.ERR_BAD_TIME.format(rand_str)
         }
@@ -180,7 +182,8 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
 
                 with allure.step('Verify date'):
                     logging.info('Verify date')
-                    ClockUtils.verify_value(expected=show_clock_dict_before[ClockConsts.DATE], actual=show_clock_dict_after[ClockConsts.DATE])
+                    ClockUtils.verify_value(expected=show_clock_dict_before[ClockConsts.DATE],
+                                            actual=show_clock_dict_after[ClockConsts.DATE])
 
                 with allure.step('Verify time'):
                     logging.info('Verify time')

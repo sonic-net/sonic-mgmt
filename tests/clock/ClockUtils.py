@@ -165,21 +165,26 @@ class ClockUtils:
 
             with allure.step('Get timezone from timedatectl linux command'):
                 logging.info('Get timezone from timedatectl linux command')
-                timedatectl_output = ClockUtils.parse_linux_cmd_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_TIMEDATECTL))
+                timedatectl_output = \
+                    ClockUtils.parse_linux_cmd_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_TIMEDATECTL))
                 timedatectl_timezone = timedatectl_output[ClockConsts.TIME_ZONE]
                 timedatectl_tz_name = timedatectl_timezone.split()[0]
                 timedatectl_tz_abbreviation = timedatectl_timezone.split(' ')[1].split(',')[0].replace('(', '')
                 logging.info('Timezone in timedatectl: "{}"\nTimezone name: "{}"\nTimezone abbreviation: "{}"'
                              .format(timedatectl_timezone, timedatectl_tz_name, timedatectl_tz_abbreviation))
 
-            with allure.step('Verify timezone name "{}" from timedatectl is in valid timezones'.format(timedatectl_tz_name)):
-                logging.info('Verify timezone name "{}" from timedatectl is in valid timezones'.format(timedatectl_tz_name))
+            with allure.step('Verify timezone name "{}" from timedatectl is in valid timezones'
+                             .format(timedatectl_tz_name)):
+                logging.info('Verify timezone name "{}" from timedatectl is in valid timezones'
+                             .format(timedatectl_tz_name))
                 valid_timezones = ClockUtils.get_valid_timezones(duthosts)
                 pytest_assert(timedatectl_tz_name in valid_timezones,
                               'Error: string "{}" is not in the valid timezones list'.format(timezone_str))
 
-            with allure.step('Verify that the given timezone "{}" equals to timezone abbreviation in timedatectl "{}"'.format(timezone_str, timedatectl_tz_abbreviation)):
-                logging.info('Verify that the given timezone "{}" equals to timezone abbreviation in timedatectl "{}"'.format(timezone_str, timedatectl_tz_abbreviation))
+            with allure.step('Verify that the given timezone "{}" equals to timezone abbreviation in timedatectl "{}"'
+                             .format(timezone_str, timedatectl_tz_abbreviation)):
+                logging.info('Verify that the given timezone "{}" equals to timezone abbreviation in timedatectl "{}"'
+                             .format(timezone_str, timedatectl_tz_abbreviation))
                 ClockUtils.verify_value(expected=timedatectl_tz_abbreviation, actual=timezone_str)
 
     @staticmethod
@@ -194,13 +199,17 @@ class ClockUtils:
         actual_to_print = "''" if actual == '' else actual
 
         if should_be_equal:
-            with allure.step('Verify that actual value - {} is as expected - {}'.format(expected_to_print, actual_to_print)):
-                logging.info('Verify that actual value - {} is as expected - {}'.format(expected_to_print, actual_to_print))
+            with allure.step('Verify that actual value - {} is as expected - {}'
+                             .format(expected_to_print, actual_to_print)):
+                logging.info('Verify that actual value - {} is as expected - {}'
+                             .format(expected_to_print, actual_to_print))
                 pytest_assert(actual == expected, 'Error: Values are not equal.\nExpected: {}\t{}\nActual: {}\t{}'
                               .format(expected_to_print, type(expected), actual_to_print, type(actual)))
         else:
-            with allure.step('Verify that actual value - {} is different than expected - {}'.format(expected_to_print, actual_to_print)):
-                logging.info('Verify that actual value - {} is different than expected - {}'.format(expected_to_print, actual_to_print))
+            with allure.step('Verify that actual value - {} is different than expected - {}'
+                             .format(expected_to_print, actual_to_print)):
+                logging.info('Verify that actual value - {} is different than expected - {}'
+                             .format(expected_to_print, actual_to_print))
                 pytest_assert(actual != expected, 'Error: Values are equal.\nExpected: {}\t{}\nActual: {}\t{}'
                               .format(expected_to_print, type(expected), actual_to_print, type(actual)))
 
@@ -250,24 +259,31 @@ class ClockUtils:
         @param tz_name: The expected timezone
         @param tz_abbreviation: The actual given timezone abbreviation
         """
-        with allure.step('Verify that given timezone abbreviation "{}" matches to expected timezone "{}"'.format(tz_abbreviation, tz_name)):
-            logging.info('Verify that given timezone abbreviation "{}" matches to expected timezone "{}"'.format(tz_abbreviation, tz_name))
+        with allure.step('Verify that given timezone abbreviation "{}" matches to expected timezone "{}"'
+                         .format(tz_abbreviation, tz_name)):
+            logging.info('Verify that given timezone abbreviation "{}" matches to expected timezone "{}"'
+                         .format(tz_abbreviation, tz_name))
 
             with allure.step('Get timezone details from timedatectl command'):
                 logging.info('Get timezone details from timedatectl command')
-                timedatectl_output = ClockUtils.parse_linux_cmd_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_TIMEDATECTL))
+                timedatectl_output = \
+                    ClockUtils.parse_linux_cmd_output(ClockUtils.run_cmd(duthosts, ClockConsts.CMD_TIMEDATECTL))
                 timedatectl_timezone = timedatectl_output[ClockConsts.TIME_ZONE]
                 timedatectl_tz_name = timedatectl_timezone.split()[0]
                 timedatectl_tz_abbreviation = timedatectl_timezone.split(' ')[1].split(',')[0].replace('(', '')
                 logging.info('Timezone in timedatectl: "{}"\nTimezone name: "{}"\nTimezone abbreviation: "{}"'
                              .format(timedatectl_timezone, timedatectl_tz_name, timedatectl_tz_abbreviation))
 
-            with allure.step('Check that given timezone "{}" equals to timezone in timedatectl "{}"'.format(tz_name, timedatectl_tz_name)):
-                logging.info('Check that given timezone "{}" equals to timezone in timedatectl "{}"'.format(tz_name, timedatectl_tz_name))
+            with allure.step('Check that given timezone "{}" equals to timezone in timedatectl "{}"'
+                             .format(tz_name, timedatectl_tz_name)):
+                logging.info('Check that given timezone "{}" equals to timezone in timedatectl "{}"'
+                             .format(tz_name, timedatectl_tz_name))
                 ClockUtils.verify_value(expected=timedatectl_tz_name, actual=tz_name)
 
-            with allure.step('Check that given timezone abbreviation "{}" matches the expected timezone "{}"'.format(tz_abbreviation, tz_name)):
-                logging.info('Check that given timezone abbreviation "{}" matches the expected timezone "{}"'.format(tz_abbreviation, tz_name))
+            with allure.step('Check that given timezone abbreviation "{}" matches the expected timezone "{}"'
+                             .format(tz_abbreviation, tz_name)):
+                logging.info('Check that given timezone abbreviation "{}" matches the expected timezone "{}"'
+                             .format(tz_abbreviation, tz_name))
                 ClockUtils.verify_value(expected=timedatectl_tz_abbreviation, actual=tz_abbreviation)
 
     @ staticmethod
@@ -351,8 +367,10 @@ class ClockUtils:
         @param actual: actual given time value
         @param allowed_margin: allowed margin between two times (in seconds)
         """
-        with allure.step('Verify that diff between "{}" and "{}" (in seconds) is no longer than {}'.format(expected, actual, allowed_margin)):
-            logging.info('Verify that diff between "{}" and "{}" (in seconds) is no longer than {}'.format(expected, actual, allowed_margin))
+        with allure.step('Verify that diff between "{}" and "{}" (in seconds) is no longer than {}'
+                         .format(expected, actual, allowed_margin)):
+            logging.info('Verify that diff between "{}" and "{}" (in seconds) is no longer than {}'
+                         .format(expected, actual, allowed_margin))
 
             with allure.step('Calculate diff between "{}" and "{}" in seconds'.format(expected, actual)):
                 logging.info('Calculate diff between "{}" and "{}" in seconds'.format(expected, actual))

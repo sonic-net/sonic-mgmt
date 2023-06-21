@@ -59,7 +59,8 @@ def restore_time(duthosts, ntp_server):
     if match:
         polling_time_seconds = int(match.group(1))
     else:
-        logging.info('Could not match the regex.\nPattern: "{}"\nShow ntp output string: "{}"'.format(ClockConsts.REGEX_NTP_POLLING_TIME, show_ntp_output))
+        logging.info('Could not match the regex.\nPattern: "{}"\nShow ntp output string: "{}"'
+                     .format(ClockConsts.REGEX_NTP_POLLING_TIME, show_ntp_output))
         polling_time_seconds = ClockConsts.RANDOM_NUM
     logging.info('Polling time (in seconds): {}'.format(polling_time_seconds + 1))
 
