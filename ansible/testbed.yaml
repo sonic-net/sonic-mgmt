@@ -2089,7 +2089,7 @@
 
 - conf-name: testbed-bjw-can-720dt-4
   group-name: bjw12-3
-  topo: m0
+  topo: m0-2vlan
   ptf_image_name: docker-ptf
   ptf: bjw12-3
   ptf_ip: 10.150.23.59/23
