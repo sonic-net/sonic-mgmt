@@ -2,8 +2,8 @@ import logging
 import random
 import datetime
 import allure
-import pytest
 import time
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.clock.ClockConsts import ClockConsts
 from tests.common.errors import RunAnsibleModuleFail

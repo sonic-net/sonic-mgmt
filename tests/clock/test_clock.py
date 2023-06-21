@@ -1,11 +1,9 @@
 import logging
 import random
 import string
-
 import pytest
 import allure
-from datetime import datetime
-from tests.common.helpers.assertions import pytest_assert
+
 from tests.clock.ClockUtils import ClockUtils
 from tests.clock.ClockConsts import ClockConsts
 
