@@ -199,7 +199,7 @@ def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
 def test_replace_fec(duthost, ensure_dut_readiness, fec):
     json_patch = [
         {
-            "op": "replace",
+            "op": "add",
             "path": "/PORT/Ethernet0/fec",
             "value": "{}".format(fec)
         }
