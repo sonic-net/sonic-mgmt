@@ -28,7 +28,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-2700-1"
+    default: "testbed-bjw-can-2700-1, testbed-bjw-can-2700-3"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
@@ -108,8 +108,8 @@ stages:
     - template: ../../run-test-scheduler-template.yml
       parameters:
         TOPOLOGY: t0
-        MIN_WORKER: 1
-        MAX_WORKER: 1
+        MIN_WORKER: 2
+        MAX_WORKER: 2
         TEST_PLAN_TYPE: NIGHTLY
         PLATFORM: PHYSICAL
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
