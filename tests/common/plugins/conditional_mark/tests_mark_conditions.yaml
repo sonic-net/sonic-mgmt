@@ -458,12 +458,10 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: '1. replace_fec ethernet test is not supported on virtual switch
-             2. Skip on M0 and Mx topo due to DUT interfaces do not support config fec'
-    conditions_logical_operator: OR
+    reason: 'replace_fec ethernet test depends on StateDB values. GCU needs to be updated to consider StateDB'
     conditions:
-      - "platform in ['x86_64-kvm_x86_64-r0']"
-      - "topo_type in ['m0', 'mx'] and https://github.com/sonic-net/sonic-mgmt/issues/8600"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8600
+
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -472,8 +470,8 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
       - "asic_type in ['cisco-8000']"
 
 generic_config_updater/test_eth_interface.py::test_update_speed:
-  xfail:
-    reason: 'Xfail this script due to this not being a production scenario and misleading StateDB output for valid speed'
+  skip:
+    reason: 'Skip this script due to this not being a production scenario and misleading StateDB output for valid speed'
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
