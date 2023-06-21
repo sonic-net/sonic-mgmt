@@ -22,7 +22,7 @@ def do_check(duthost, intf_count, check_type, localhost, ptfhost, config, ptf_in
     try:
         with loganalyzer:
             if check_type == "config_reload":
-                config_reload(duthost, safe_reload=True)
+                config_reload(duthost)
             elif check_type == "reboot":
                 reboot(duthost, localhost, reboot_type="cold")
             else:
