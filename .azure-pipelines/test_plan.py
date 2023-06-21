@@ -795,6 +795,7 @@ if __name__ == "__main__":
                 ).replace(' ', '_')
 
             scripts = args.scripts
+            specific_param = []
             # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
             if args.platform == "kvm":
                 args.test_set = args.test_set if args.test_set else args.topology
