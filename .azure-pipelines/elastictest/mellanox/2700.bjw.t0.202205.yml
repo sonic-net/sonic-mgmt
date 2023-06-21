@@ -64,7 +64,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "vrf, sflow, nat, sub_port_interfaces, platform_tests, copp, show_techport, acl, everflow, drop_packets"
+    default: "vrf, sflow, nat, sub_port_interfaces"
     displayName: "Features to be excluded"
 
   # Test timeout
