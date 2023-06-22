@@ -2,6 +2,7 @@ import logging
 import pexpect
 import pytest
 import time
+import pkgutil
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
 from test_traffic_shift import get_traffic_shift_state
@@ -69,6 +70,9 @@ class TestTrafficShiftOnSup:
         Test TSA
         Verify all linecards transition to maintenance state after TSA on supervisor
         """
+        if pkgutil.find_loader('rcli') is None:
+            pytest.skip("rcli package not installed. TSA from supervisor is not supported in this image")
+
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT
@@ -87,6 +91,9 @@ class TestTrafficShiftOnSup:
         Test TSB
         Verify all linecards transition back to normal state from maintenance after TSB on supervisor
         """
+        if pkgutil.find_loader('rcli') is None:
+            pytest.skip("rcli package not installed. TSA from supervisor is not supported in this image")
+
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT to move chassis to maintenance
@@ -108,6 +115,9 @@ class TestTrafficShiftOnSup:
         Verify all linecards remain in Maintenance state after TSA and config reload on supervisor
         Verify all linecards remain in Normal state after TSB and config reload on supervisor
         """
+        if pkgutil.find_loader('rcli') is None:
+            pytest.skip("rcli package not installed. TSA from supervisor is not supported in this image")
+
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT to move chassis to maintenance
