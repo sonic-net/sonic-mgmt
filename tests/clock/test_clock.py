@@ -2,7 +2,6 @@ import logging
 import random
 import string
 import pytest
-
 from tests.clock.ClockUtils import ClockUtils, allure_step
 from tests.clock.ClockConsts import ClockConsts
 
@@ -55,7 +54,7 @@ def test_config_clock_timezone(duthosts, init_timezone):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, new_timezone)
 
     with allure_step('Verify command success'):
-        ClockUtils.verify_command(cmd_output=output, should_succeed=True)
+        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
     with allure_step(f'Verify timezone changed to "{new_timezone}"'):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
@@ -70,8 +69,11 @@ def test_config_clock_timezone(duthosts, init_timezone):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, invalid_timezone)
 
     with allure_step('Verify command failure'):
-        ClockUtils.verify_command(cmd_output=output, should_succeed=False, expected_err=ClockConsts.ERR_BAD_TIMEZONE
-                                  .format(invalid_timezone))
+        expected_err = ClockConsts.ERR_BAD_TIMEZONE.format(invalid_timezone)
+        assert expected_err in output, \
+            f'Error: The given string does not contain the expected substring.\n' \
+            f'Expected substring: "{expected_err}"\n' \
+            f'Given (whole) string: "{output}"'
 
     with allure_step('Verify timezone has not changed'):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
@@ -97,7 +99,7 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)
 
     with allure_step('Verify command success'):
-        ClockUtils.verify_command(cmd_output=output, should_succeed=True)
+        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
     with allure_step(f'Verify date and time changed to "{new_datetime}"'):
         with allure_step('Get datetime from show clock'):
@@ -138,7 +140,10 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
                 show_clock_output_after = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
 
             with allure_step('Verify command failure'):
-                ClockUtils.verify_command(cmd_output=output, should_succeed=False, expected_err=err_msg)
+                assert err_msg in output, \
+                    f'Error: The given string does not contain the expected substring.\n' \
+                    f'Expected substring: "{err_msg}"\n' \
+                    f'Given (whole) string: "{output}"'
 
             with allure_step(f'Verify date and time have not changed (still "{new_datetime}")'):
                 show_clock_dict_before = ClockUtils.verify_and_parse_show_clock_output(show_clock_output_before)

@@ -6,7 +6,6 @@ import pytest
 import allure
 
 from contextlib import contextmanager
-from tests.common.helpers.assertions import pytest_assert
 from tests.clock.ClockConsts import ClockConsts
 from tests.common.errors import RunAnsibleModuleFail
 
@@ -121,7 +120,7 @@ class ClockUtils:
             logging.info(f'rows: {rows}')
             res_dict = {}
             for row in rows:
-                logging.info(f'row: "{row}"')
+                logging.debug(f'row: "{row}"')
                 row_split = row.split(':', 1)
                 res_dict[row_split[0]] = row_split[1].strip()
             logging.info(f'Result dict:\n{res_dict}')
@@ -137,62 +136,6 @@ class ClockUtils:
         """
         with allure_step('Get list of valid timezones from show clock timezones command'):
             return ClockUtils.run_cmd(duthosts=duthosts, cmd=ClockConsts.CMD_SHOW_CLOCK_TIMEZONES).split()
-
-    @staticmethod
-    def verify_value(expected, actual, should_be_equal=True):
-        """
-        @summary:
-            Asserts a given value is as expected
-        @param expected: expected value
-        @param actual: actual given value
-        @param should_be_equal: whether the values should be equal or not
-        """
-        expected_to_print = "''" if expected == '' else expected
-        actual_to_print = "''" if actual == '' else actual
-
-        if should_be_equal:
-            with allure_step(f'Verify that actual value - {expected_to_print} is as expected - {actual_to_print}'):
-                pytest_assert(actual == expected, f'Error: Values are not equal.\n'
-                                                  f'Expected: {expected_to_print}\t{type(expected)}\n'
-                                                  f'Actual: {actual_to_print}\t{type(actual)}')
-        else:
-            with allure_step(f'Verify that actual value - {expected_to_print} '
-                             f'is different than expected - {actual_to_print}'):
-                pytest_assert(actual != expected, f'Error: Values are equal.\n'
-                                                  f'Expected: {expected_to_print}\t{type(expected)}\n'
-                                                  f'Actual: {actual_to_print}\t{type(actual)}')
-
-    @staticmethod
-    def verify_substring(expected_substr, whole_str):
-        """
-        @summary:
-            Asserts that a given string contains an expected substring
-        @param expected_substr: expected substring
-        @param whole_str: the whole string
-        """
-        with allure_step(f'Verify that string "{whole_str}" contains the substring "{expected_substr}"'):
-            pytest_assert(expected_substr in whole_str,
-                          f'Error: The given string does not contain the expected substring.\n'
-                          f'Expected substring: "{expected_substr}"\n'
-                          f'Given (whole) string: "{whole_str}"')
-
-    @staticmethod
-    def verify_command(cmd_output, should_succeed=True, expected_err=''):
-        """
-        @summary:
-            Verify command success/failure
-            * doesn't apply on show command
-            * in case of failure, user can specify an expected error message to be contained in the output
-        @param cmd_output: the command's output
-        @param should_succeed: whether the command should succeed or not
-        @param expected_err: expected error message
-        """
-        if should_succeed:
-            with allure_step('Verify that command succeeded'):
-                ClockUtils.verify_value(expected=ClockConsts.OUTPUT_CMD_SUCCESS, actual=cmd_output)
-        else:
-            with allure_step(f'Verify that command failed and output contains "{expected_err}"'):
-                ClockUtils.verify_substring(expected_substr=expected_err, whole_str=cmd_output)
 
     @staticmethod
     def verify_timezone_value(duthosts, expected_tz_name):
@@ -216,11 +159,12 @@ class ClockUtils:
 
             with allure_step(f'Compare timezone abbreviations of show clock ({show_clock_tz_abbr}) '
                              f'and timedatectl ({timedatectl_tz_abbr})'):
-                ClockUtils.verify_value(timedatectl_tz_abbr, show_clock_tz_abbr)
+                assert timedatectl_tz_abbr == show_clock_tz_abbr, \
+                    f'Expected: {timedatectl_tz_abbr} == {show_clock_tz_abbr}'
 
             with allure_step(f'Compare timezone name from timedatectl ({timedatectl_tz_name}) '
                              f'to the expected ({expected_tz_name})'):
-                ClockUtils.verify_value(expected=expected_tz_name, actual=timedatectl_tz_name)
+                assert timedatectl_tz_name == expected_tz_name, f'Expected: {timedatectl_tz_name} == {expected_tz_name}'
 
     @staticmethod
     def select_random_date():
@@ -280,4 +224,4 @@ class ClockUtils:
                 diff_seconds = abs((datetime_obj2 - datetime_obj1).total_seconds())
 
             with allure_step(f'Verify that actual diff {diff_seconds} is not larger than {allowed_margin}'):
-                ClockUtils.verify_value(True, diff_seconds <= allowed_margin)
+                assert diff_seconds <= allowed_margin, f'Expected: {diff_seconds} <= {allowed_margin}'

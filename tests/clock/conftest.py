@@ -2,7 +2,6 @@ import re
 import time
 import pytest
 import logging
-
 from tests.clock.ClockConsts import ClockConsts
 from tests.clock.ClockUtils import ClockUtils
 
@@ -50,8 +49,11 @@ def restore_time(duthosts, ntp_server):
     logging.info(f'Reset time after test. Sync with NTP server: {ntp_server}')
 
     logging.info(f'Sync with NTP server: {ntp_server}')
-    ClockUtils.verify_substring(ClockConsts.OUTPUT_CMD_NTP_ADD_SUCCESS.format(ntp_server),
-                                ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_ADD, ntp_server))
+    output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_ADD, ntp_server)
+    assert ClockConsts.OUTPUT_CMD_NTP_ADD_SUCCESS.format(ntp_server) in output, \
+        f'Error: The given string does not contain the expected substring.\n' \
+        f'Expected substring: "{ClockConsts.OUTPUT_CMD_NTP_ADD_SUCCESS.format(ntp_server)}"\n' \
+        f'Given (whole) string: "{output}"'
 
     logging.info('Check polling time')
     show_ntp_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_NTP)
@@ -68,5 +70,8 @@ def restore_time(duthosts, ntp_server):
     time.sleep(polling_time_seconds)
 
     logging.info(f'Delete NTP server: {ntp_server}')
-    ClockUtils.verify_substring(ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(ntp_server),
-                                ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_DEL, ntp_server))
+    output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_DEL, ntp_server)
+    assert ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(ntp_server) in output, \
+        f'Error: The given string does not contain the expected substring.\n' \
+        f'Expected substring: "{ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(ntp_server)}"\n' \
+        f'Given (whole) string: "{output}"'
