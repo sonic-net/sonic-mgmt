@@ -185,7 +185,7 @@ class ReloadTest(BaseTest):
         #   Inter-packet interval, to be used in send_in_background method.
         #   Improve this interval to gain more precision of disruptions.
         self.send_interval = 0.0035
-        self.check_param('num_of_packets', int(self.time_to_listen / (self.send_interval + 0.0015)) , required=False)
+        self.check_param('num_of_packets', int(self.time_to_listen / (self.send_interval + 0.0015)), required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
