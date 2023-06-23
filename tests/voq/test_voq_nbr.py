@@ -954,8 +954,9 @@ def pick_ports(cfg_facts):
 
 class TestNeighborLinkFlap(LinkFlap):
 
-    def test_front_panel_admindown_port(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
-                                        all_cfg_facts, setup, teardown, nbrhosts, nbr_macs, established_arp):
+    def test_front_panel_admindown_port(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                        enum_rand_one_frontend_asic_index, all_cfg_facts, setup, teardown,
+                                        nbrhosts, nbr_macs, established_arp, fanouthosts):
         """
         Verify tables, databases, and kernel routes are correctly deleted when the DUT port is admin down/up.
 
