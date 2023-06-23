@@ -126,7 +126,7 @@ if __name__ == "__main__":
 - python3 ssh_session_gen.py -i lab t2_lab -n vms-.* -o /data/sessions/testbeds -p some_securecrt_session.ini
 - python3 ssh_session_gen.py -i your_own_inv -t your_own_testbed.yaml -n .*some_tests.* -o /data/sessions/testbeds -p some_securecrt_session.ini
 
-To generate the SSH session files for SecureCRT, we need to provide a few information:
+To generate the SSH session files for SecureCRT, we need to do a few things first:
 1. Install pycryptodome package. We can do it via pip3: pip3 install pycryptodome.
 2. Prepare an existing session file as template (passed by -p). Since our dev machine might not have direct access to your testbed machines, this
    allows us to inherit the session settings from the template file, such as SSH proxies, fonts and etc. This is te some_securecrt_session.ini file
