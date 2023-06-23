@@ -131,7 +131,7 @@ if __name__ == "__main__":
 To generate the SSH session files for SecureCRT, we need to do a few things first:
 1. Install pycryptodome package. We can do it via pip3: pip3 install pycryptodome.
 2. Prepare an existing session file as template (passed by -p). Since our dev machine might not have direct access
-   to your testbed machines, this allows us to inherit the session settings from the template file, such as SSH 
+   to your testbed machines, this allows us to inherit the session settings from the template file, such as SSH
    proxies, fonts and etc. This is te some_securecrt_session.ini file in the examples above.
 3. Setup the `secrets.json` file under `ansible/group_vars/all`. This allows us to get the SSH credentials for the
    testbed nodes.
