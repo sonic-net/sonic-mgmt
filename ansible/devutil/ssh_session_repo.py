@@ -252,7 +252,7 @@ class SecureCRTCryptoV2:
     '''
     SecureCRT password encryption V2 implementation.
 
-    Credit: https://github.com/HyperSine/how-does-SecureCRT-encrypt-password/blob/master/python3/SecureCRTCipher.py
+    Credit: https://github.com/HyperSine/how-does-SecureCRT-encrypt-password/blob/b9b39d26e54fba4c70fe23909e0e8e19b3ddddbb/python3/SecureCRTCipher.py
     '''
     def __init__(self, ConfigPassphrase: str = ''):
         '''

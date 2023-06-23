@@ -122,10 +122,19 @@ def main(args):
 if __name__ == "__main__":
     # Parse arguments
     example_text = """Examples:
-
 - python3 ssh_session_gen.py -i inventory -o /data/sessions/testbeds -p some_securecrt_session.ini
 - python3 ssh_session_gen.py -i lab t2_lab -n vms-.* -o /data/sessions/testbeds -p some_securecrt_session.ini
 - python3 ssh_session_gen.py -i your_own_inv -t your_own_testbed.yaml -n .*some_tests.* -o /data/sessions/testbeds -p some_securecrt_session.ini
+
+To generate the SSH session files for SecureCRT, we need to provide a few information:
+1. Install pycryptodome package. We can do it via pip3: pip3 install pycryptodome.
+2. Prepare an existing session file as template (passed by -p). Since our dev machine might not have direct access to your testbed machines, this
+   allows us to inherit the session settings from the template file, such as SSH proxies, fonts and etc. This is te some_securecrt_session.ini file
+   in the examples above.
+3. Setup the `secrets.json` file under `ansible/group_vars/all`. This allows us to get the SSH credentials for the testbed nodes.
+
+Please also note that, sonic-mgmt ansible playbook support multiple credentials for the same host. However, SecureCRT only supports one credential,
+so we will use the first one in the list. If you see SSH login failures, please check the `secrets.json` file and use the alternative credentials.
 """
     parser = argparse.ArgumentParser(
         description="Generate SSH session files for console access to devices.",
