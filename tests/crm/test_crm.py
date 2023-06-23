@@ -936,9 +936,14 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
                             .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
 
     global crm_stats_checker
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
+    if duthost.facts["asic_type"] == "marvell":
+        crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
                                    crm_stats_acl_entry_used,
                                    crm_stats_acl_entry_available, "==", ">=")
+    else:
+        crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
+                                   crm_stats_acl_entry_used,
+                                   crm_stats_acl_entry_available)
 
 
 def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
