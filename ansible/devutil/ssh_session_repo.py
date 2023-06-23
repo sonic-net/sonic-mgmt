@@ -8,6 +8,7 @@ import os
 from Crypto.Hash import SHA256
 from Crypto.Cipher import AES
 
+
 class SshSessionRepoGenerator(object):
     """Base class for ssh session repo generator."""
 
@@ -65,12 +66,14 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
         """
         if template_file is None:
             raise ValueError("SSH session template file is not specified.")
-        
+
         if not os.path.isfile(template_file):
-            raise ValueError("SSH session template file {} does not exist.".format(template_file))
-        
+            raise ValueError(
+                "SSH session template file {} does not exist.".format(template_file)
+            )
+
         template = ""
-        with open(template_file, "r", encoding='utf-8-sig') as f:
+        with open(template_file, "r", encoding="utf-8-sig") as f:
             for line in f:
                 if line.startswith('S:"Username"='):
                     template += 'S:"Username"=%USERNAME%\n'
@@ -104,7 +107,7 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
         ssh_session_file_content = self._generate_ssh_session_file_content(
             ssh_session_name, ssh_ip, ssh_user, ssh_pass
         )
-        with open(ssh_session_file_path, 'w') as ssh_session_file:
+        with open(ssh_session_file_path, "w") as ssh_session_file:
             ssh_session_file.write(ssh_session_file_content)
 
         # Add newly created session file into current folder data
@@ -209,9 +212,13 @@ class SecureCRTRepoFolderData(object):
         with open(self.ini_path, "r") as ini_file:
             for line in ini_file:
                 if line.startswith('S:"Folder List"='):
-                    self.folder_list = set([e for e in line.split("=")[1].strip().split(":") if e])
+                    self.folder_list = set(
+                        [e for e in line.split("=")[1].strip().split(":") if e]
+                    )
                 elif line.startswith('S:"Session List"='):
-                    self.session_list = set([e for e in line.split("=")[1].strip().split(":") if e])
+                    self.session_list = set(
+                        [e for e in line.split("=")[1].strip().split(":") if e]
+                    )
                 elif line.startswith('S:"Is Expanded"='):
                     self.is_expanded = bool(int(line.split("=")[1].strip()))
 
@@ -242,30 +249,38 @@ class SecureCRTRepoFolderData(object):
     def save(self):
         """Write to __FolderData__.ini file."""
         with open(self.ini_path, "w") as ini_file:
-            ini_file.write('S:"Folder List"=' + ":".join(sorted(self.folder_list)) + ":\r\n")
-            ini_file.write('S:"Session List"=' + ":".join(sorted(self.session_list)) + ":\r\n")
             ini_file.write(
-                'S:"Is Expanded"=' + "00000001" if self.is_expanded else "00000000" + "\r\n"
+                'S:"Folder List"=' + ":".join(sorted(self.folder_list)) + ":\r\n"
+            )
+            ini_file.write(
+                'S:"Session List"=' + ":".join(sorted(self.session_list)) + ":\r\n"
+            )
+            ini_file.write(
+                'S:"Is Expanded"=' + "00000001"
+                if self.is_expanded
+                else "00000000" + "\r\n"
             )
 
+
 class SecureCRTCryptoV2:
-    '''
+    """
     SecureCRT password encryption V2 implementation.
 
     Credit: https://github.com/HyperSine/how-does-SecureCRT-encrypt-password/blob/b9b39d26e54fba4c70fe23909e0e8e19b3ddddbb/python3/SecureCRTCipher.py
-    '''
-    def __init__(self, ConfigPassphrase: str = ''):
-        '''
+    """
+
+    def __init__(self, ConfigPassphrase: str = ""):
+        """
         Initialize SecureCRTCryptoV2 object.
 
         Args:
             ConfigPassphrase: The config passphrase that SecureCRT uses. Leave it empty if config passphrase is not set.
-        '''
-        self.IV = b'\x00' * AES.block_size
-        self.Key = SHA256.new(ConfigPassphrase.encode('utf-8')).digest()
+        """
+        self.IV = b"\x00" * AES.block_size
+        self.Key = SHA256.new(ConfigPassphrase.encode("utf-8")).digest()
 
     def encrypt(self, Plaintext: str):
-        '''
+        """
         Encrypt plaintext and return corresponding ciphertext.
 
         Args:
@@ -273,17 +288,18 @@ class SecureCRTCryptoV2:
 
         Returns:
             Hexlified ciphertext string.
-        '''
-        plain_bytes = Plaintext.encode('utf-8')
-        if len(plain_bytes) > 0xffffffff:
-            raise OverflowError('Plaintext is too long.')
-        
-        plain_bytes = \
-            len(plain_bytes).to_bytes(4, 'little') + \
-            plain_bytes + \
-            SHA256.new(plain_bytes).digest()
-        padded_plain_bytes = \
-            plain_bytes + \
-            os.urandom(AES.block_size - len(plain_bytes) % AES.block_size)
-        cipher = AES.new(self.Key, AES.MODE_CBC, iv = self.IV)
+        """
+        plain_bytes = Plaintext.encode("utf-8")
+        if len(plain_bytes) > 0xFFFFFFFF:
+            raise OverflowError("Plaintext is too long.")
+
+        plain_bytes = (
+            len(plain_bytes).to_bytes(4, "little")
+            + plain_bytes
+            + SHA256.new(plain_bytes).digest()
+        )
+        padded_plain_bytes = plain_bytes + os.urandom(
+            AES.block_size - len(plain_bytes) % AES.block_size
+        )
+        cipher = AES.new(self.Key, AES.MODE_CBC, iv=self.IV)
         return cipher.encrypt(padded_plain_bytes).hex()

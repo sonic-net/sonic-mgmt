@@ -6,6 +6,7 @@ import os
 import re
 import yaml
 
+
 class TestBed(object):
     """Data model that represents a testbed object."""
 
@@ -89,7 +90,11 @@ class TestBedNode(object):
                 self.ssh_user = host_vars["creds"]["username"]
                 self.ssh_pass = host_vars["creds"]["password"][0]
             except Exception as e:
-                print("Error: Failed to get host vars for {}: {}".format(self.name, str(e)))
+                print(
+                    "Error: Failed to get host vars for {}: {}".format(
+                        self.name, str(e)
+                    )
+                )
                 self.ssh_ip = None
                 self.ssh_user = None
                 self.ssh_pass = None
