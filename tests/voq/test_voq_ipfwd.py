@@ -688,7 +688,10 @@ class TestVoqIPFwd(object):
         check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld='my_ip', src_ip_fld='nbr_lb',
                      dev=vm_host_to_A, size=size, ttl=ttl, ttl_change=0)
 
-    @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456), (1, 1456)])
+    @pytest.mark.parametrize('ttl, size', [(2, 64),
+                                           pytest.param(128, 64, marks=pytest.mark.express),
+                                           (255, 1456),
+                                           (1, 1456)])  # (1, 1500), ,(255, 1500), (128, 64), (128, 9000) (1, 1456)
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
     def test_voq_inband_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
