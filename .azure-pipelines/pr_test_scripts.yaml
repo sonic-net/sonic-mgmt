@@ -37,7 +37,7 @@ t0:
   - override_config_table/test_override_config_table.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
-  - platform_tests/test_advanced_reboot.py::test_warm_reboot
+  - platform_tests/test_advanced_reboot.py::test_warm_reboot 
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - radv/test_radv_ipv6_ra.py
