@@ -23,11 +23,12 @@ pytestmark = [
 ]
 
 
-def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts, xcvr_skip_list):       # noqa F811
+def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
+                              conn_graph_facts, xcvr_skip_list):       # noqa F811
     """
     @summary: This test case is to reload the configuration and check platform status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
     asic_type = duthost.facts["asic_type"]
 
@@ -78,12 +79,12 @@ def check_database_status(duthost):
     return True
 
 
-def test_reload_configuration_checks(duthosts, rand_one_dut_hostname,
+def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
                                      localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to test various system checks in config reload
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     if not config_force_option_supported(duthost):
         return
