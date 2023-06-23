@@ -841,6 +841,9 @@ class LinkFlap(object):
         logging.info("status: %s", status)
         return status[dut_intf]['oper_state'] == exp_status
 
+    def check_fanout_link_state(self, fanout, fanout_port):
+        return fanout.check_intf_link_state(fanout_port)
+
     def linkflap_down(self, fanout, fanport, dut, dut_intf):
         """
         Brings down an interface on a fanout and polls the DUT for the interface to be operationally down.
@@ -883,6 +886,8 @@ class LinkFlap(object):
             sleep_time = 90
         pytest_assert(wait_until(sleep_time, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
+        pytest_assert(wait_until(30, 1, 0, self.check_fanout_link_state, fanout, fanport),
+                      "fanout port {} on {} didn't go up as expected".format(fanport, fanout.hostname))
 
     def localport_admindown(self, dut, asic, dut_intf):
         """
@@ -902,7 +907,7 @@ class LinkFlap(object):
         pytest_assert(wait_until(30, 1, 0, self.check_intf_status, dut, dut_intf, 'down'),
                       "dut port {} didn't go down as expected".format(dut_intf))
 
-    def localport_adminup(self, dut, asic, dut_intf):
+    def localport_adminup(self, dut, asic, dut_intf, fanouthosts):
         """
         Admins up a port on the DUT and polls for oper status to be up.
 
@@ -919,6 +924,13 @@ class LinkFlap(object):
         asic.startup_interface(dut_intf)
         pytest_assert(wait_until(30, 1, 0, self.check_intf_status, dut, dut_intf, 'up'),
                       "dut port {} didn't go up as expected".format(dut_intf))
+        if "portchannel" not in dut_intf.lower():
+            # Wait for fanout port to be operationally up as well.
+            fanout, fanport = fanout_switch_port_lookup(fanouthosts, dut.hostname, dut_intf)
+            pytest_assert(wait_until(30, 1, 0, self.check_fanout_link_state, fanout, fanport),
+                          "fanout port {} on {} didn't go up as expected".format(fanport, fanout.hostname))
+
+        time.sleep(2)
 
 
 
@@ -1009,7 +1021,7 @@ class TestNeighborLinkFlap(LinkFlap):
             try:
                 check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, neighbors)
             finally:
-                self.localport_adminup(per_host, asic, intf)
+                self.localport_adminup(per_host, asic, intf, fanouthosts)
 
             for neighbor in neighbors:
                 sonic_ping(asic, neighbor, verbose=True)

@@ -199,6 +199,10 @@ def delete_lag_members_ip(duthost, asic, portchannel_members,
     """
     deletes lag members and ip
     """
+    if portchannel_ip:
+        duthost.shell("config interface {} ip remove {} {}"
+                      .format(asic.cli_ns_option, portchannel, portchannel_ip))
+
     logging.info('Deleting lag members {} from lag {} on dut {}'
                  .format(portchannel_members, portchannel, duthost.hostname))
     for member in portchannel_members:
@@ -206,10 +210,7 @@ def delete_lag_members_ip(duthost, asic, portchannel_members,
                       .format(asic.cli_ns_option, portchannel, member))
 
     if portchannel_ip:
-        duthost.shell("config interface {} ip remove {} {}"
-                      .format(asic.cli_ns_option, portchannel, portchannel_ip))
-
-        pytest_assert(wait_until(30,5, 0, verify_lag_interface, duthost, asic, portchannel, expected=False),
+        pytest_assert(wait_until(30, 5, 0, verify_lag_interface, duthost, asic, portchannel, expected=False),
                       'For deleted Portchannel {} ip link is not down'.format(portchannel))
 
 
