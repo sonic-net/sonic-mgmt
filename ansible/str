@@ -665,7 +665,7 @@ sonic_arista32_100:
         "0x27": "03.00"
         "0x28": "x86_64-arista_7060_cx32s"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal6-6.1.2-4757975"
+        "0x2E": "Aboot-norcal6-6.1.1-3490684"
         "0x2F": "JPE17052064"
     str-a7060cx-acs-1:
       ansible_host: 10.64.247.14

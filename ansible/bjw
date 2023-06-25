@@ -196,7 +196,7 @@ sonic_arista_7050qx_32s_q32:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal4-4.1.0-3037060"
         "0x2F": "JPE18402553"
-        "0xFE": "0xDEADBEEF"
+        "0xFE": "0xdeadbeef"
 
 sonic_arista_7050qx_32s_s4q31:
   vars:
