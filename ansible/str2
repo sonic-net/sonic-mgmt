@@ -794,7 +794,7 @@ sonic_arista_QX:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal4-4.0.4-2086886"
         "0x2F": "JPE15072340"
-        "0xFE": "0xDEADBEEF"
+        "0xFE": "0xdeadbeef"
     str2-7050qx-32s-acs-02:
       ansible_host: 10.64.247.28
       hwsku: Arista-7050-QX-32S
