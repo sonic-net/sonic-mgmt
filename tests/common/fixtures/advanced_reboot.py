@@ -221,19 +221,22 @@ class AdvancedReboot:
                 break
 
     def __checkBgpRouterId(self):
-            check_bgo_router_id_cmd = r"show ip bgp sum"
-            bgp_sum_result = self.duthost.shell(check_bgo_router_id_cmd, module_ignore_errors=True)
-            if bgp_sum_result["rc"] == 0:
-                match = re.search(r'BGP router identifier (\d+\.\d+\.\d+\.\d+)', bgp_sum_result["stdout"])
-                if match:
-                    bgp_router_id = match.group(1)
-                    self.log("BGP router identifier: %s" % bgp_router_id)
-                else:
-                    self.log("Failed to get BGP router identifier")
+        """
+        Check bgp router ID is same as Loopback0
+        """
+        check_bgo_router_id_cmd = r"show ip bgp sum"
+        bgp_sum_result = self.duthost.shell(check_bgo_router_id_cmd, module_ignore_errors=True)
+        if bgp_sum_result["rc"] == 0:
+            match = re.search(r'BGP router identifier (\d+\.\d+\.\d+\.\d+)', bgp_sum_result["stdout"])
+            if match:
+                bgp_router_id = match.group(1)
+                self.log("BGP router identifier: %s" % bgp_router_id)
+            else:
+                self.log("Failed to get BGP router identifier")
 
-            loopback0 = str(self.mgFacts['minigraph_lo_interfaces'][0]['addr'])
+        loopback0 = str(self.mgFacts['minigraph_lo_interfaces'][0]['addr'])
 
-            return bgp_router_id == loopback0
+        return bgp_router_id == loopback0
 
     def __updateNextHopIps(self):
         """
