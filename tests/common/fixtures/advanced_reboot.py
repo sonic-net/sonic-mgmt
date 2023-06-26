@@ -220,6 +220,21 @@ class AdvancedReboot:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
                 break
 
+    def __checkBgpRouterId(self):
+            check_bgo_router_id_cmd = r"show ip bgp sum"
+            bgp_sum_result = self.duthost.shell(check_bgo_router_id_cmd, module_ignore_errors=True)
+            if bgp_sum_result["rc"] == 0:
+                match = re.search(r'BGP router identifier (\d+\.\d+\.\d+\.\d+)', bgp_sum_result["stdout"])
+                if match:
+                    bgp_router_id = match.group(1)
+                    self.log("BGP router identifier: %s" % bgp_router_id)
+                else:
+                    self.log("Failed to get BGP router identifier")
+
+            loopback0 = str(self.mgFacts['minigraph_lo_interfaces'][0]['addr'])
+
+            return bgp_router_id == loopback0
+
     def __updateNextHopIps(self):
         """
         Update next hop IPs
@@ -552,6 +567,7 @@ class AdvancedReboot:
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
+                self.__checkBgpRouterId()
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()
