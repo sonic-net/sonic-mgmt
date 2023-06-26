@@ -13,7 +13,13 @@ import yaml
 from enum import Enum
 
 __metaclass__ = type
+BUILDIMAGE_REPO_FLAG = "buildimage"
+MGMT_REPO_FLAG = "sonic-mgmt"
+INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int"]
+GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
+INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
+SPECIFIC_PARAM_KEYWORD = "specific_param"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
 TOKEN_EXPIRE_HOURS = 6
 
@@ -34,7 +40,10 @@ def get_test_scripts(test_set):
     pr_test_scripts_file = os.path.join(os.path.dirname(_self_path), PR_TEST_SCRIPTS_FILE)
     with open(pr_test_scripts_file) as f:
         pr_test_scripts = yaml.safe_load(f)
-        return pr_test_scripts.get(test_set, [])
+
+        test_script_list = pr_test_scripts.get(test_set, [])
+        specific_param_list = pr_test_scripts.get(SPECIFIC_PARAM_KEYWORD, {}).get(test_set, [])
+        return test_script_list, specific_param_list
 
 
 def test_plan_status_factory(status):
@@ -69,7 +78,7 @@ class AbstractStatus():
         status = resp_data.get("status", None)
         current_status = test_plan_status_factory(status).get_status()
 
-        if(current_status == self.get_status()):
+        if current_status == self.get_status():
             print("Test plan id: {}, status: {},  elapsed: {:.0f} seconds"
                   .format(test_plan_id, resp_data.get("status", None), time.time() - start_time))
 
@@ -203,9 +212,22 @@ class TestPlanManager(object):
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
 
-        common_params = ["--completeness_level=confident", "--allow_recover"]
-        for param in common_extra_params:
-            common_params.append(param)
+        common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
+
+        # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
+        sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
+        if kwargs.get("source_repo") in INTERNAL_REPO_LIST:
+            sonic_mgmt_repo_url = INTERNAL_SONIC_MGMT_REPO
+
+        # If triggered by mgmt repo, use pull request id as the code base
+        sonic_mgmt_pull_request_id = ""
+        if MGMT_REPO_FLAG in kwargs.get("source_repo"):
+            sonic_mgmt_pull_request_id = pr_id
+
+        # If triggered by buildimage repo, use image built from the buildId
+        kvm_image_build_id = kvm_build_id
+        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
+            kvm_image_build_id = build_id
 
         payload = json.dumps({
             "name": test_plan_name,
@@ -213,10 +235,11 @@ class TestPlanManager(object):
                 "platform": platform,
                 "name": testbed_name,
                 "topology": topology,
-                "image_url": image_url,
                 "hwsku": hwsku,
                 "min": min_worker,
-                "max": max_worker
+                "max": max_worker,
+                "nbr_type": kwargs["vm_type"],
+                "asic_num": kwargs["num_asic"]
             },
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
@@ -227,30 +250,36 @@ class TestPlanManager(object):
                     "features_exclude": features_exclude,
                     "scripts_exclude": scripts_exclude
                 },
-                "common_params": common_params,
-                "specified_params": json.loads(kwargs['specified_params']),
-                "deploy_mg_params": deploy_mg_extra_params
+                "image": {
+                    "url": image_url,
+                    "release": "",
+                    "kvm_image_build_id": kvm_image_build_id
+                },
+                "sonic_mgmt": {
+                    "repo_url": sonic_mgmt_repo_url,
+                    "branch": kwargs["mgmt_branch"],
+                    "pull_request_id": sonic_mgmt_pull_request_id
+                },
+                "common_param": common_extra_params,
+                "specific_param": kwargs.get("specific_param", []),
+                "deploy_mg_param": deploy_mg_extra_params,
+                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
             },
             "type": test_plan_type,
-            "extra_params": {
-                "pull_request_id": pr_id,
-                "build_id": build_id,
+            "trigger": {
+                "requester": kwargs.get("requester", "Pull Request"),
                 "source_repo": kwargs.get("source_repo"),
-                "kvm_build_id": kvm_build_id,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
-                "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", 2),
-                "mgmt_branch": kwargs["mgmt_branch"],
-                "testbed": {
-                    "num_asic": kwargs["num_asic"],
-                    "vm_type": kwargs["vm_type"]
-                },
+                "pull_request_id": pr_id,
+                "build_id": build_id
+            },
+            "extra_params": {
                 "secrets": {
                     "azp_access_token": kwargs["azp_access_token"],
                     "azp_repo_access_token": kwargs["azp_repo_access_token"],
                 }
             },
-            "priority": 10,
-            "requester": kwargs.get("requester", "Pull Request")
+            "priority": 10
         })
         print('Creating test plan with payload: {}'.format(payload))
         headers = {
@@ -351,11 +380,8 @@ class TestPlanManager(object):
                 elif expected_status.get_status() < current_status.get_status():
                     steps = None
                     step_status = None
-                    extra_params = resp_data.get("extra_params", None)
                     runtime = resp_data.get("runtime", None)
-                    if extra_params and "steps" in extra_params:
-                        steps = extra_params.get("steps", None)
-                    else:
+                    if runtime:
                         steps = runtime.get("steps", None)
                     if steps:
                         for step in steps:
@@ -485,8 +511,9 @@ if __name__ == "__main__":
         "--common-extra-params",
         type=str,
         dest="common_extra_params",
+        nargs='?',
+        const="",
         default="",
-        nargs='*',
         required=False,
         help="Run test common extra params"
     )
@@ -769,10 +796,12 @@ if __name__ == "__main__":
                 ).replace(' ', '_')
 
             scripts = args.scripts
+            specific_param = []
             # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
             if args.platform == "kvm":
                 args.test_set = args.test_set if args.test_set else args.topology
-                scripts = ",".join(get_test_scripts(args.test_set))
+                scripts, specific_param = get_test_scripts(args.test_set)
+                scripts = ",".join(scripts)
 
             tp.create(
                 args.topology,
@@ -792,6 +821,7 @@ if __name__ == "__main__":
                 common_extra_params=args.common_extra_params,
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
+                specific_param=specific_param,
                 vm_type=args.vm_type,
                 azp_access_token=args.azp_access_token,
                 azp_repo_access_token=args.azp_repo_access_token,
