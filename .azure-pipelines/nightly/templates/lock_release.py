@@ -98,23 +98,22 @@ def lock_release(testbed, action, hours, user, reason, force, absolute):
                              headers=headers).json()
 
         if 'failed' in resp and resp['failed']:
-            print('[Elastictest] {} testbed {} failed'.format(action, testbed))
+            print('[Elastictest] {} {} testbed {} failed'.format(user, action, testbed))
             if 'msg' in resp:
                 print(resp['msg'])
             return 2
         else:
             if not resp['success']:
-                print('[Elastictest] Lock testbeds failed with error: {}'.format(resp['errmsg']))
+                print('[Elastictest] {} {} testbeds failed with error: {}'.format(user, action, resp['errmsg']))
                 return 2
-            if action == "lock":
-                if resp['data'] is None or (len(resp['data']) < lock_tb_num):
-                    print("[Elastictest] Lock testbed failed, can't lock expected testbed")
-                    return 2
-            print('[Elastictest] {} testbed {} succeeded'.format(action, testbed))
+            if resp['data'] is None or (len(resp['data']) < lock_tb_num):
+                print("[Elastictest] {} {} testbed failed. {}".format(user, action, resp['errmsg']))
+                return 2
+            print('[Elastictest] {} {} testbed {} succeeded'.format(user, action, testbed))
             return 0
 
     except Exception as e:
-        print('[Elastictest] {} testbed {} failed with exception: {}'.format(action, testbed, repr(e)))
+        print('[Elastictest] {} {} testbed {} failed with exception: {}'.format(user, action, testbed, repr(e)))
         return 3
 
 
@@ -185,13 +184,6 @@ if __name__ == '__main__':
         build_id = os.environ.get('BUILD_BUILDID')
         user = '{}_{}'.format(build_name, build_id)
         args.user = user
-
-    client_id = os.environ.get('TBSHARE_AAD_CLIENT_ID')
-    client_secret = os.environ.get('TBSHARE_AAD_CLIENT_SECRET')
-
-    if not client_id or not client_secret:
-        print('Need environment variables: TBSHARE_AAD_CLIENT_ID, TBSHARE_AAD_CLIENT_SECRET')
-        sys.exit(1)
 
     proxies = {
         'http': os.environ.get('http_proxy'),
