@@ -1,4 +1,18 @@
+acl/test_acl.py::TestAclWithPortToggle::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithPortToggle::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithPortToggle::test_icmp_match_forwarded[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -12,7 +26,21 @@ acl/test_acl.py::TestAclWithPortToggle::test_icmp_match_forwarded[ipv6-egress-up
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithPortToggle::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithPortToggle::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithPortToggle::test_ip_proto_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -26,7 +54,21 @@ acl/test_acl.py::TestAclWithPortToggle::test_ip_proto_match_dropped[ipv6-egress-
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithPortToggle::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithPortToggle::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithPortToggle::test_l4_dport_range_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -40,7 +82,21 @@ acl/test_acl.py::TestAclWithPortToggle::test_l4_dport_range_match_dropped[ipv6-e
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithPortToggle::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithPortToggle::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithPortToggle::test_l4_sport_range_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -54,7 +110,21 @@ acl/test_acl.py::TestAclWithPortToggle::test_l4_sport_range_match_dropped[ipv6-e
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithPortToggle::test_rules_priority_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithPortToggle::test_rules_priority_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithPortToggle::test_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -68,7 +138,21 @@ acl/test_acl.py::TestAclWithPortToggle::test_source_ip_match_dropped[ipv6-egress
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithPortToggle::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithPortToggle::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithPortToggle::test_udp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -82,7 +166,21 @@ acl/test_acl.py::TestAclWithPortToggle::test_udp_source_ip_match_dropped[ipv6-eg
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithReboot::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithReboot::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -96,7 +194,21 @@ acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-egress-uplink
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithReboot::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithReboot::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithReboot::test_ip_proto_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -110,7 +222,21 @@ acl/test_acl.py::TestAclWithReboot::test_ip_proto_match_dropped[ipv6-egress-upli
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithReboot::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithReboot::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithReboot::test_l4_dport_range_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -124,7 +250,21 @@ acl/test_acl.py::TestAclWithReboot::test_l4_dport_range_match_dropped[ipv6-egres
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithReboot::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithReboot::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithReboot::test_l4_sport_range_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -138,7 +278,21 @@ acl/test_acl.py::TestAclWithReboot::test_l4_sport_range_match_dropped[ipv6-egres
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithReboot::test_rules_priority_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithReboot::test_rules_priority_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithReboot::test_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -152,7 +306,21 @@ acl/test_acl.py::TestAclWithReboot::test_source_ip_match_dropped[ipv6-egress-upl
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithReboot::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestAclWithReboot::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestAclWithReboot::test_udp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -166,7 +334,21 @@ acl/test_acl.py::TestAclWithReboot::test_udp_source_ip_match_dropped[ipv6-egress
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -180,7 +362,21 @@ acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded[ipv6-egress-uplink->dow
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestBasicAcl::test_ip_proto_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -194,7 +390,21 @@ acl/test_acl.py::TestBasicAcl::test_ip_proto_match_dropped[ipv6-egress-uplink->d
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestBasicAcl::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestBasicAcl::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestBasicAcl::test_l4_dport_range_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -208,7 +418,21 @@ acl/test_acl.py::TestBasicAcl::test_l4_dport_range_match_dropped[ipv6-egress-upl
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestBasicAcl::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestBasicAcl::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -222,7 +446,21 @@ acl/test_acl.py::TestBasicAcl::test_l4_sport_range_match_dropped[ipv6-egress-upl
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestBasicAcl::test_rules_priority_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestBasicAcl::test_rules_priority_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestBasicAcl::test_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -236,7 +474,21 @@ acl/test_acl.py::TestBasicAcl::test_source_ip_match_dropped[ipv6-egress-uplink->
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestBasicAcl::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -250,7 +502,21 @@ acl/test_acl.py::TestBasicAcl::test_udp_source_ip_match_dropped[ipv6-egress-upli
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestIncrementalAcl::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestIncrementalAcl::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestIncrementalAcl::test_icmp_match_forwarded[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -264,7 +530,21 @@ acl/test_acl.py::TestIncrementalAcl::test_icmp_match_forwarded[ipv6-egress-uplin
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestIncrementalAcl::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestIncrementalAcl::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestIncrementalAcl::test_ip_proto_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -278,7 +558,21 @@ acl/test_acl.py::TestIncrementalAcl::test_ip_proto_match_dropped[ipv6-egress-upl
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestIncrementalAcl::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestIncrementalAcl::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestIncrementalAcl::test_l4_dport_range_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -292,7 +586,21 @@ acl/test_acl.py::TestIncrementalAcl::test_l4_dport_range_match_dropped[ipv6-egre
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestIncrementalAcl::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestIncrementalAcl::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestIncrementalAcl::test_l4_sport_range_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -306,7 +614,21 @@ acl/test_acl.py::TestIncrementalAcl::test_l4_sport_range_match_dropped[ipv6-egre
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestIncrementalAcl::test_rules_priority_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestIncrementalAcl::test_rules_priority_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestIncrementalAcl::test_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
@@ -320,7 +642,21 @@ acl/test_acl.py::TestIncrementalAcl::test_source_ip_match_dropped[ipv6-egress-up
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestIncrementalAcl::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-default]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
 acl/test_acl.py::TestIncrementalAcl::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario]:
+  xfail:
+    reason: "Egress issue in Nokia"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestIncrementalAcl::test_udp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
