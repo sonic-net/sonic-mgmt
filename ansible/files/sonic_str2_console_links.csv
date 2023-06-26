@@ -16,14 +16,14 @@ console-199,5,str2-7260cx3-acs-9,ssh,admin
 console-199,12,str2-msn2700-spy-1,ssh,admin
 console-199,14,str2-msn2700-spy-2,ssh,admin
 console-80,45,str2-n3164-acs-1,ssh,admin
-console-194,2022,str2-n3164-acs-3,ssh,admin
-console-194,2021,str2-n3164-acs-4,ssh,admin
+console-194,22,str2-n3164-acs-3,ssh,admin
+console-194,21,str2-n3164-acs-4,ssh,admin
 console-212,10,str2-sn3800-02,ssh,admin
 console-212,13,str2-sn3800-azd,ssh,admin
 console-199,8,str2-z9332f-05,ssh,admin
 console-199,7,str2-z9332f-02,ssh,admin
-console-194,2010,str2-dx010-acs-6,ssh,admin
-console-194,2031,str2-dx010-acs-7,ssh,admin
+console-194,10,str2-dx010-acs-6,ssh,admin
+console-194,31,str2-dx010-acs-7,ssh,admin
 console-194,24,str2-msn4600c-acs-01,ssh,admin
 console-194,33,str2-msn4600c-acs-02,ssh,admin
 console-212,35,str2-msn4600c-acs-03,ssh,admin
@@ -32,7 +32,6 @@ console-212,32,str2-7050cx3-acs-04,ssh,admin
 console-199,32,str2-7050qx-32s-acs-02,ssh,admin
 console-199,33,str2-7050qx-32s-acs-03,ssh,admin
 console-199,3,str2-7215-acs-1,ssh,admin
-console-212,2037,str2-7215-acs-2,ssh,admin
 console-212,37,str2-7215-acs-3,ssh,admin
 console-212,38,str2-7215-acs-4,ssh,admin
 console-199,24,str2-7260cx3-acs-10,ssh,admin

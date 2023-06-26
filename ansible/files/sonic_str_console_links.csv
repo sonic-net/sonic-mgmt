@@ -1,5 +1,5 @@
 StartDevice,StartPort,EndDevice,Console_type,Proxy
-console-194,2018,str-sn3800-01,ssh,admin
+console-194,18,str-sn3800-01,ssh,admin
 console-82,10,str-7170-acs-01,ssh,admin
 console-82,32,str-7170-acs-02,ssh,admin
 console-82,30,str-7260cx3-acs-1,ssh,admin
@@ -12,10 +12,10 @@ console-82,36,str-a7060cx-acs-1,ssh,admin
 console-82,18,str-a7060cx-acs-10,ssh,admin
 console-82,8,str-agc7648-acs-1,ssh,admin
 console-212,15,str-dcs-7050cx3m-32s-01,ssh,admin
-console-194,2030,str-s5232f-on-1,ssh,admin
+console-194,30,str-s5232f-on-1,ssh,admin
 console-194,7,str-nokia-acs-1,ssh,admin
-console-194,2032,str-dx010-acs-5,ssh,admin
-console-194,2013,str-dx010-acs-4,ssh,admin
+console-194,32,str-dx010-acs-5,ssh,admin
+console-194,13,str-dx010-acs-4,ssh,admin
 console-194,1,str-e1031-acs-1,ssh,admin
 console-82,25,str-e1031-acs-2,ssh,admin
 console-194,19,str-e1031-acs-3,ssh,admin
@@ -54,4 +54,3 @@ console-82,40,str-s6100-acs-4,ssh,admin
 console-80,5,str-s6100-acs-5,ssh,admin
 console-212,16,str-dcs-7050cx3m-32s-02,ssh,admin
 console-82,20,str-z9100-acs-2,ssh,admin
-

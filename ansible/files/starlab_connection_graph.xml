@@ -4999,7 +4999,7 @@
       <DeviceConsoleInfo Hostname="console-212" HwSku="Cisco" ManagementIp="10.3.145.212" Os="" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-sn3800-01" Proxy="admin" StartDevice="console-194" StartPort="2018"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-sn3800-01" Proxy="admin" StartDevice="console-194" StartPort="18"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7170-acs-01" Proxy="admin" StartDevice="console-82" StartPort="10"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7170-acs-02" Proxy="admin" StartDevice="console-82" StartPort="32"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-7260cx3-acs-1" Proxy="admin" StartDevice="console-82" StartPort="30"/>
@@ -5012,10 +5012,10 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-a7060cx-acs-10" Proxy="admin" StartDevice="console-82" StartPort="18"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-agc7648-acs-1" Proxy="admin" StartDevice="console-82" StartPort="8"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-dcs-7050cx3m-32s-01" Proxy="admin" StartDevice="console-212" StartPort="15"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-s5232f-on-1" Proxy="admin" StartDevice="console-194" StartPort="2030"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-s5232f-on-1" Proxy="admin" StartDevice="console-194" StartPort="30"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-nokia-acs-1" Proxy="admin" StartDevice="console-194" StartPort="7"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-dx010-acs-5" Proxy="admin" StartDevice="console-194" StartPort="2032"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-dx010-acs-4" Proxy="admin" StartDevice="console-194" StartPort="2013"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-dx010-acs-5" Proxy="admin" StartDevice="console-194" StartPort="32"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-dx010-acs-4" Proxy="admin" StartDevice="console-194" StartPort="13"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-e1031-acs-1" Proxy="admin" StartDevice="console-194" StartPort="1"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-e1031-acs-2" Proxy="admin" StartDevice="console-82" StartPort="25"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-e1031-acs-3" Proxy="admin" StartDevice="console-194" StartPort="19"/>
@@ -5026,7 +5026,7 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-04" Proxy="admin" StartDevice="console-81" StartPort="22"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-06" Proxy="admin" StartDevice="console-81" StartPort="34"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-20" Proxy="admin" StartDevice="console-179" StartPort="28"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-22" Proxy="admin" StartDevice="console-199" StartPort="20"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn2700-22" Proxy="admin" StartDevice="console-212" StartPort="14"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-msn4600c-acs-02" Proxy="admin" StartDevice="console-194" StartPort="33"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-n3132-acs-1" Proxy="admin" StartDevice="console-80" StartPort="13"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-n3132-acs-2" Proxy="admin" StartDevice="console-81" StartPort="2"/>

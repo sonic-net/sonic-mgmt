@@ -933,7 +933,7 @@
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
     <DevicesConsoleInfo>
-      <DeviceConsoleInfo Hostname="console-5" HwSku="" ManagementIp="10.206.144.5" Protocol="ssh" Type="ConsoleServer"/>
+      <DeviceConsoleInfo Hostname="console-5" HwSku="Cisco" ManagementIp="10.206.144.5" Protocol="ssh" Type="ConsoleServer"/>
     </DevicesConsoleInfo>
     <ConsoleLinksInfo>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="svcstr-n3164-acs-1" Proxy="admin" StartDevice="console-5" StartPort="9"/>
