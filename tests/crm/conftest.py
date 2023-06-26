@@ -142,8 +142,7 @@ def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     # Get polling interval
     output = duthost.command('crm show summary')['stdout']
     parsed = re.findall(r'Polling Interval: +(\d+) +second', output)
-    if parsed:
-        original_polling_interval = int(parsed[0])
+    original_polling_interval = int(parsed[0])
 
     # Set CRM polling interval to 1 second
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
