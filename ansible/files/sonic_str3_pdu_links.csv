@@ -86,3 +86,7 @@ pdu-120,34,str3-7060-acs-fan-01,PSU1
 pdu-119,33,str3-7060-acs-fan-01,PSU2
 pdu-120,36,str3-dx010-acs-1,PSU1
 pdu-119,36,str3-dx010-acs-1,PSU2
+pdu-115,19,str3-msn4700-01,PSU1
+pdu-116,19,str3-msn4700-01,PSU2
+pdu-116,38,str3-msn4700-fanout-01,PSU1
+pdu-116,39,str3-msn4700-fanout-01,PSU2

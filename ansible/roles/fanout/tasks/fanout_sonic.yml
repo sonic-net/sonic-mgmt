@@ -50,4 +50,4 @@
       include_tasks:
         sonic/fanout_sonic_dry_run_202205.yml
       when: dry_run is defined
-  when: "'20220531' in fanout_sonic_version['build_version']"
+  when: "'20220531' in fanout_sonic_version['build_version'] or 'internal' in fanout_sonic_version['build_version']"

@@ -77,3 +77,5 @@ str3-7060-acs-2,10.3.146.242,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str3-7060-acs-3,10.3.146.243,Arista-7060CX-32S-C32,DevSonic,,sonic
 str3-7060-acs-fan-01,10.3.146.241,Arista-7060CX-32S,FanoutLeaf,,
 str3-dx010-acs-1,10.3.146.236/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
+str3-msn4700-01,10.3.146.207,Mellanox-SN4700-O8C48,DevSonic,,sonic
+str3-msn4700-fanout-01,10.3.147.208,Mellanox-SN4700-O8C48,FanoutLeafSonic,,sonic

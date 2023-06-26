@@ -151,7 +151,7 @@ class PortConfigGenerator(object):
         with open(filepath) as fd:
             lines = fd.readlines()
             data_index = 0
-            while lines[data_index].startswith("#"):
+            while lines[data_index].startswith("#") or lines[data_index] == "\n":
                 data_index = data_index + 1
             header = lines[data_index-1].strip("#\n ")
             keys = header.split()

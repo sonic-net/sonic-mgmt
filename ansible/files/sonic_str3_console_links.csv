@@ -35,3 +35,5 @@ console-212,7,str3-7060-acs-1,ssh,admin
 console-212,4,str3-7060-acs-2,ssh,admin
 console-212,5,str3-7060-acs-3,ssh,admin
 console-212,3,str3-dx010-acs-1,ssh,admin
+console-194,5,str3-msn4700-01,ssh,admin
+console-194,30,str3-msn4700-fanout-01,ssh,admin

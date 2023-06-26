@@ -1070,7 +1070,7 @@
   group-name: vms63-8
   topo: t1-64-lag
   ptf_image_name: docker-ptf
-  ptf: vms63-7
+  ptf: vms63-8
   ptf_ip: 10.64.247.63/23
   ptf_ipv6:
   server: server_63
@@ -1080,6 +1080,21 @@
   inv_name: str3
   auto_recover: 'True'
   comment: v-saidia
+
+- conf-name: vms64-t1-4700-1
+  group-name: vms64-1
+  topo: t1-56-lag
+  ptf_image_name: docker-ptf
+  ptf: vms64-1
+  ptf_ip: 10.64.247.64/23
+  ptf_ipv6:
+  server: server_64
+  vm_base: VM64000
+  dut:
+    - str3-msn4700-01
+  inv_name: str3
+  auto_recover: 'True'
+  comment: bingwang
 
 - conf-name: testbed-str2-7215-acs-3
   group-name: vms21-9

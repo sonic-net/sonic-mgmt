@@ -47,6 +47,8 @@ all:
           ansible_host: 10.64.247.62
         vms63-8:
           ansible_host: 10.64.247.63
+        vms64-1:
+          ansible_host: 10.64.247.64
 
     pdu:
       hosts:
@@ -158,6 +160,9 @@ fanout:
     str3-msn4600c-acs-06:
       ansible_host: 10.3.146.146
       os: sonic
+    str3-msn4700-fanout-01:
+      ansible_host: 10.3.147.208
+      os: sonic
 
 sonic:
   vars:
@@ -176,6 +181,7 @@ sonic:
     sonic_arista_7800_lc_400G:
     sonic_arista32_100:
     sonic_mlnx_4600C:
+    sonic_mlnx_4700:
 
 sonic_mlnx_4600C:
   vars:
@@ -991,6 +997,25 @@ sonic_arista32_100:
         "0x2F": "SGD20436388"
   vars:
     iface_speed: 100000
+
+sonic_mlnx_4700:
+  hosts:
+    str3-msn4700-01:
+      ansible_host: 10.3.146.207
+      hwsku: Mellanox-SN4700-O8C48
+      model: MSN4700-WS2FO
+      serial: MT2102X08020
+      base_mac: 1C:34:DA:2D:E8:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2FO"
+        "0x23": "MT2102X08020"
+        "0x24": "1C:34:DA:2D:E8:00"
+        "0x25": "01/11/2021 21:49:02"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2019.11-5.2.0020-115200"
+        "0x2B": "Mellanox"
 
 server:
   hosts:
