@@ -991,7 +991,7 @@ class TestShowIP():
                     dst_ip = '192.168.1.1'
                 else:
                     ip_version = '-6'
-                    dst_ip = '::/0'
+                    dst_ip = 'fd0a::1'
                 if namespace:
                     duthost.shell("ip netns exec {} ip {} route add {}  via {} dev {}".
                                   format(namespace, ip_version, dst_ip, gw_ip, dev))
@@ -1010,7 +1010,7 @@ class TestShowIP():
                 dst_ip = '192.168.1.1'
             else:
                 ip_version = '-6'
-                dst_ip = '::/0'
+                dst_ip = 'fd0a::1'
 
             if namespace:
                 duthost.shell("ip netns exec {} ip {} route del {} via {}".
@@ -1083,7 +1083,8 @@ class TestShowIP():
         as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ipv6 route ::/0'.format(ifmode))['stdout']
+        dip = 'fd0a::1'
+        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ipv6 route {}'.format(ifmode, dip))['stdout']
         logger.info('route:\n{}'.format(route))
 
         if mode == 'alias':
