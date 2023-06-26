@@ -205,7 +205,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
     if len(pc_members) > 1:
         # Update min_links
         min_link_cmd = "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel)
-        rand_selected_dut.shell_cmds(cmds=min_link_cmd)
+        rand_selected_dut.shell(min_link_cmd)
         # Delete to min_links
         cmds = "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1])
         rand_selected_dut.shell_cmds(cmds=cmds)
