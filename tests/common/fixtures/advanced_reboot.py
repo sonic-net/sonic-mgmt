@@ -230,9 +230,9 @@ class AdvancedReboot:
             match = re.search(r'BGP router identifier (\d+\.\d+\.\d+\.\d+)', bgp_sum_result["stdout"])
             if match:
                 bgp_router_id = match.group(1)
-                self.log("BGP router identifier: %s" % bgp_router_id)
+                logger.info("BGP router identifier: %s" % bgp_router_id)
             else:
-                self.log("Failed to get BGP router identifier")
+                logger.info("Failed to get BGP router identifier")
 
         loopback0 = str(self.mgFacts['minigraph_lo_interfaces'][0]['addr'])
 
