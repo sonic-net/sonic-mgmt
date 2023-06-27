@@ -103,7 +103,7 @@ class Sonic(host_device.HostDevice):
             lacp_thread.setDaemon(True)
             lacp_thread.start()
 
-        while not (quit_enabled and v4_routing_ok and v6_routing_ok):
+        while not (quit_enabled and v4_routing_ok):
             cmd = None
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok

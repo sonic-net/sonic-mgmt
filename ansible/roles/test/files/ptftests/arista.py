@@ -148,7 +148,7 @@ class Arista(host_device.HostDevice):
             'interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
 
-        while not (quit_enabled and v4_routing_ok and v6_routing_ok):
+        while not (quit_enabled and v4_routing_ok):
             cmd = None
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok
