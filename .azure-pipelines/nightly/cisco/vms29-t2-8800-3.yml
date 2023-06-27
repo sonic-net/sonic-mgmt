@@ -24,7 +24,7 @@ parameters:
   # Testbed specific parameters
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S ""'
+    default: '-S "qos voq"'
     displayName: "Testbed specific"
 
   # Test Parameters
