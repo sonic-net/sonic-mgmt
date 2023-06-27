@@ -1876,6 +1876,17 @@ def __dut_reload(duts_data, node=None, results=None):
 
     config_reload(node, wait_before_force_reload=300)
 
+def compare_running_config(pre_running_config, cur_running_config):
+    if pre_running_config == cur_running_config:
+        return True
+    if type(pre_running_config) != type(cur_running_config):
+        return False
+    if sorted(pre_running_config.keys()) != sorted(cur_running_config.keys()):
+        return False
+    for key in pre_running_config.keys():
+        if not compare_running_config(pre_running_config[key], cur_running_config[key]):
+            return False
+        return True
 
 @pytest.fixture(scope="module", autouse=True)
 def core_dump_and_config_check(duthosts, tbinfo, request):
@@ -2050,7 +2061,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                                         }
                                     }
                                 )
-                    elif pre_running_config[key] != cur_running_config[key]:
+                    elif not compare_running_config(pre_running_config[key], cur_running_config[key]):
                         inconsistent_config[duthost.hostname][cfg_context].update(
                             {
                                 key: {
