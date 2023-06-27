@@ -17,6 +17,8 @@ Based on test need there may be multiple topologies possible as shown below :
 - Multiple IxNetwork Topology
 ![](img/multiple-ixnetwork.PNG)
 
+## Virtual Topology
+![](img/IxNetwork_Virtual_Topology.png)
 ## Topology Description
 
 ### Ixia Chassis (IxNetwork)
@@ -91,3 +93,148 @@ Note : The folders within /opt/container/one/ should to be created with read and
 ```
 
 6. Launch IxNetworkWeb using browser `https://container ip`
+
+
+## For Virtual Topology next steps are required
+### Deploy Ixia_Virtual_Chassis
+
+1. Download Ixia_Virtual_Chassis image from:
+https://downloads.ixiacom.com/support/downloads_and_updates/public/IxVM/9.30/9.30.0.328/Ixia_Virtual_Chassis_9.30_KVM.qcow2.tar.bz2
+2. Start the VMs:
+
+Example is for the image located in /vms 
+ ```
+ cd /vms
+ sudo tar xjf Ixia_Virtual_Chassis_9.30_KVM.qcow2.tar.bz2
+ virt-install --name IxChassis --memory 16000 --vcpus 8 --disk /vms/Ixia_Virtual_Chassis_9.30_KVM.qcow2,bus=sata --import --os-variant centos7.0 --network bridge=br1,model=virtio --noautoconsole
+ 
+ ```
+3. If a dhcp server is present we can observe the IP assigned
+```
+  Welcome to Ixia Virtual Chassis
+  CentOS Linux 7  
+  Kernel 3.10 on x86_64
+  Management IPv4: 10.36.78.217/22
+  IxOS Version: 9.30.3001.12
+  IxNetwork Protocol Version: 9.30.2212.1
+```
+Note: If the Ixia Virtual Chassis dont take the ip from DHCP server this solutions might help you:
+- Disable firewall
+``` 
+sudo ufw disable
+```
+- Instead of command in step 2
+```
+virt-install --name IxChassis --memory 16000 --vcpus 8 --disk /vms/Ixia_Virtual_Chassis_9.30_KVM.qcow2,bus=sata --import --os-variant centos7.0 --network bridge=br1,model=virtio --noautoconsole
+```
+Try to use this 
+```
+virt-install --name IxChassis --memory 16000 --vcpus 8 --disk /vms/Ixia_Virtual_Chassis_9.30_KVM.qcow2,bus=sata --import --osinfo detect=on,require=off --network bridge=br1,model=virtio --noautoconsole
+```
+
+### Deploy two Ixia Virtual Load Module
+#### Prerequisite  
+1. For PCI forwarding the SR-IOV and IOMMU must be enabled in BIOS
+2. In ubuntu server the file /etc/default/grub must be edited. Add the arguments "intel_iommu=on iommu=pt" for the GRUB_CMDLINE_LINUX_DEFAULT line
+```
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash intel_iommu=on iommu=pt"
+```
+Example of file:
+```
+GRUB_DEFAULT=0
+GRUB_TIMEOUT_STYLE=hidden
+GRUB_TIMEOUT=0
+GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo Debian`
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash intel_iommu=on iommu=pt"
+GRUB_CMDLINE_LINUX=""
+```
+
+#### Identify the PCI device designated for passthrough to the Load Modules
+1. Get the pci number of the device designated for passthrough
+```
+lspci | grep Ethernet
+```
+Output example
+```
+04:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
+05:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
+21:00.0 Ethernet controller: Mellanox Technologies MT27700 Family [ConnectX-4]
+21:00.1 Ethernet controller: Mellanox Technologies MT27700 Family [ConnectX-4]
+```
+So in this case the device designated for passthrough to the Load Modules are:
+
+21:00.0 for Load Module 1 (virt-install require the different syntax 21:00.0 -> pci_0000_21_00_0)
+
+21:00.1 for Load Module 2 (virt-install require the different syntax 21:00.1 -> pci_0000_21_00_1)
+
+
+#### Load Module 1 
+1. Download Ixia_Load_Module image from:
+   https://downloads.ixiacom.com/support/downloads_and_updates/public/IxVM/9.30/9.30.0.328/Ixia_Virtual_Load_Module_IXN_9.30_KVM.qcow2.tar.bz2
+3. Start the VMs:
+
+Example is for the image located in /vms
+```
+cd /vms
+sudo tar xjf Ixia_Virtual_Load_Module_IXN_9.30_KVM.qcow2.tar.bz2
+mv Ixia_Virtual_Load_Module_IXN_9.30_KVM.qcow2 IxLM1.qcow2
+
+sudo virt-install --name IxLM1 \
+--ram 4096 \
+--vcpus 4 \
+--network bridge=br1,model=virtio \
+--host-device=pci_0000_21_00_0 \      #Change the pci_0000_21_00_0 to yours from "Identify the PCI device designated for passthrough to the Load Modules" section
+--serial pty \
+--serial unix,path=/tmp/Virtual_Load_Module_1 \
+--disk path=/vms/IxLM1.qcow2,device=disk,bus=sata,format=qcow2 \
+--channel unix,target_type=virtio,name=org.qemu.guest_agent.0 \
+--boot hd \
+--vnc \
+--noautoconsole \
+--osinfo detect=on,require=off \
+--force
+
+```
+3. If a dhcp server is present we can observe the IP assigned
+```
+Welcome to Ixia Virtual Load Module
+CentOS Linux 7
+Kernel 3.10 on x86_64
+Management IPv4: 10.36.78.31/22
+IxOS Version: 9.30.3001.12
+IxVM Status: Active: activating (start) since Fri 2023-06-16 13:54:35 PDT; 1s ago
+```
+
+#### Load Module 2 
+1. Start the VMs:
+
+Example is for the image located in /vms
+```
+cd /vms
+sudo tar xjf Ixia_Virtual_Load_Module_IXN_9.30_KVM.qcow2.tar.bz2
+mv Ixia_Virtual_Load_Module_IXN_9.30_KVM.qcow2 IxLM2.qcow2
+
+sudo virt-install --name IxLM2 \
+--ram 4096 \
+--vcpus 4 \
+--network bridge=br1,model=virtio \
+--host-device=pci_0000_21_00_1 \       #Change the pci_0000_21_00_1 to yours from "Identify the PCI device designated for passthrough to the Load Modules" section
+--serial pty \
+--serial unix,path=/tmp/Virtual_Load_Module_2 \
+--disk path=/vms/IxLM2.qcow2,device=disk,bus=sata,format=qcow2 \
+--channel unix,target_type=virtio,name=org.qemu.guest_agent.0 \
+--boot hd \
+--vnc \
+--noautoconsole \
+--osinfo detect=on,require=off \
+--force
+```
+2. If a dhcp server is present we can observe the IP assigned
+```
+Welcome to Ixia Virtual Load Module
+CentOS Linux 7
+Kernel 3.10 on x86_64
+Management IPv4: 10.36.78.219/22
+IxOS Version: 9.30.3001.12
+IxVM Status: Active: activating (start) since Fri 2023-06-16 16:42:40 PDT; 1s ago
+```
