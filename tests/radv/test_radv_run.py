@@ -23,7 +23,7 @@ def test_radv_deployment_id(duthost):
     # Need to generate supervisord.conf
     docker_cmd = 'docker exec radv sonic-cfggen -d -t \
 /usr/share/sonic/templates/docker-router-advertiser.supervisord.conf.j2,/etc/supervisor/conf.d/supervisord.conf'
-    restart_cmd = 'docker restart radv'
+    restart_cmd = 'systemctl reset-failed radv; systemctl restart radv'
     origin_id = duthost.shell(get_cmd)['stdout']
     duthost.shell(set_cmd.format(PO2VLAN_DEPLOYMENT_ID))
     duthost.shell(docker_cmd)
