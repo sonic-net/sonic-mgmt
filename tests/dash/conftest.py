@@ -81,11 +81,13 @@ def get_intf_from_ip(local_ip, config_facts):
 
 @pytest.fixture(params=["no-underlay-route", "with-underlay-route"])
 def use_underlay_route(request):
+    if request.param == "with-underlay-route":
+        pytest.skip("Underlay route not supported yet")
     return request.param == "with-underlay-route"
 
 
 @pytest.fixture(scope="function")
-def dash_config_info(duthost, config_facts, minigraph_facts, use_underlay_route):
+def dash_config_info(duthost, config_facts, minigraph_facts):
     dash_info = {
         ENI: "F4939FEFC47E",
         VM_VNI: 4321,
@@ -120,19 +122,11 @@ def dash_config_info(duthost, config_facts, minigraph_facts, use_underlay_route)
                 dash_info[REMOTE_PA_PREFIX] = str(intf_ip.network)
                 break
 
-    if use_underlay_route:
-        dash_info[REMOTE_PA_IP] = u"30.30.30.30"
-        dash_info[REMOTE_PA_PREFIX] = "30.30.30.30/32"
-
-    logger.info("Testing with config {}".format(dash_info))
     return dash_info
 
 
 @pytest.fixture(scope="function")
-def apply_config(duthost, skip_config, skip_cleanup, use_underlay_route):
-    if not use_underlay_route:
-        duthost.shell("config bgp shutdown all")
-
+def apply_config(duthost, skip_config, skip_cleanup):
     configs = []
     op = "SET"
 
@@ -155,26 +149,56 @@ def apply_config(duthost, skip_config, skip_cleanup, use_underlay_route):
         for config_info in reversed(configs):
             _apply_config(config_info)
 
-    if not use_underlay_route:
-        duthost.shell("config bgp startup all")
+
+@pytest.fixture(scope="function")
+def dash_inbound_configs(dash_config_info, use_underlay_route, minigraph_facts):
+    if use_underlay_route:
+        dash_config_info[LOCAL_PA_IP] = u"30.30.30.30"
+        dash_config_info[LOCAL_PTF_INTF] = list(minigraph_facts["minigraph_ptf_indices"].values())
+    else:
+        dash_config_info[LOCAL_PTF_INTF] = [dash_config_info[LOCAL_PTF_INTF]]
+
+    logger.info("Testing with config {}".format(dash_config_info))
+    return dash_config_info
 
 
 @pytest.fixture(scope="function")
-def apply_vnet_configs(dash_config_info, apply_config):
-    dash_config_info[ROUTING_ACTION] = "vnet"
-    apply_config(dash_config_info)
+def apply_inbound_configs(dash_inbound_configs, apply_config):
+    dash_inbound_configs[ROUTING_ACTION] = "vnet"
+    apply_config(dash_inbound_configs)
 
 
 @pytest.fixture(scope="function")
-def apply_vnet_direct_configs(dash_config_info, apply_config):
-    dash_config_info[ROUTING_ACTION] = "vnet_direct"
-    dash_config_info[ROUTING_ACTION_TYPE] = "maprouting"
-    dash_config_info[LOOKUP_OVERLAY_IP] = "1.1.1.1"
-    apply_config(dash_config_info)
+def dash_outbound_configs(dash_config_info, use_underlay_route, minigraph_facts):
+    if use_underlay_route:
+        dash_config_info[REMOTE_PA_IP] = u"30.30.30.30"
+        dash_config_info[REMOTE_PA_PREFIX] = "30.30.30.30/32"
+        dash_config_info[REMOTE_PTF_INTF] = list(minigraph_facts["minigraph_ptf_indices"].values())
+    else:
+        dash_config_info[REMOTE_PTF_INTF] = [dash_config_info[REMOTE_PTF_INTF]]
+
+    logger.info("Testing with config {}".format(dash_config_info))
+    return dash_config_info
 
 
 @pytest.fixture(scope="function")
-def apply_direct_configs(dash_config_info, apply_config):
-    dash_config_info[ROUTING_ACTION] = "direct"
-    del dash_config_info[VNET2_NAME]
-    apply_config(dash_config_info)
+def apply_vnet_configs(dash_outbound_configs, apply_config):
+    dash_outbound_configs[ROUTING_ACTION] = "vnet"
+    apply_config(dash_outbound_configs)
+
+
+@pytest.fixture(scope="function")
+def apply_vnet_direct_configs(dash_outbound_configs, apply_config):
+    dash_outbound_configs[ROUTING_ACTION] = "vnet_direct"
+    dash_outbound_configs[ROUTING_ACTION_TYPE] = "maprouting"
+    dash_outbound_configs[LOOKUP_OVERLAY_IP] = "1.1.1.1"
+
+    apply_config(dash_outbound_configs)
+
+
+@pytest.fixture(scope="function")
+def apply_direct_configs(dash_outbound_configs, apply_config):
+    dash_outbound_configs[ROUTING_ACTION] = "direct"
+    del dash_outbound_configs[VNET2_NAME]
+
+    apply_config(dash_outbound_configs)
