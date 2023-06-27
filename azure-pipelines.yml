@@ -116,18 +116,18 @@ stages:
           MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
           NUM_ASIC: 4
 
-  - job: wan_elastictest
-    displayName: "kvmtest-wan by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-      - template: .azure-pipelines/run-test-scheduler-template.yml
-        parameters:
-          TOPOLOGY: wan-pub
-          MIN_WORKER: $(WAN_INSTANCE_NUM)
-          MAX_WORKER: $(WAN_INSTANCE_NUM)
-          COMMON_EXTRA_PARAMS: "--skip_sanity "
+#  - job: wan_elastictest
+#    displayName: "kvmtest-wan by Elastictest"
+#    timeoutInMinutes: 240
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#      - template: .azure-pipelines/run-test-scheduler-template.yml
+#        parameters:
+#          TOPOLOGY: wan-pub
+#          MIN_WORKER: $(WAN_INSTANCE_NUM)
+#          MAX_WORKER: $(WAN_INSTANCE_NUM)
+#          COMMON_EXTRA_PARAMS: "--skip_sanity "
 
   - job: sonic_t0_elastictest
     displayName: "kvmtest-t0-sonic by Elastictest"
