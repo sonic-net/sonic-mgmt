@@ -99,6 +99,7 @@ t1-lag:
   - container_checker/test_container_checker.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - http/test_http_copy.py
+  - iface_namingmode/test_iface_namingmode.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
   - monit/test_monit_status.py
