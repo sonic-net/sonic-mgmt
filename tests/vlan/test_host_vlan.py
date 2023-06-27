@@ -98,8 +98,6 @@ def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, ve
 
     yield
 
-    duthost.shell('redis-cli -n 4 hmset "VLAN|%s" mac %s' % (vlan_intf["attachto"], dut_vlan_mac))
-
     del_vlan_json = json.loads("""
             [{
                 "VLAN":{
