@@ -1,44 +1,42 @@
 import datetime
 import glob
-import ipaddress
-import logging
 import os
 import random
-import socket
 import sys
-import struct
-import ipaddress
-import re
+import time
 
 import ptf
 import ptf.packet as scapy
-import ptf.dataplane as dataplane
 import scapy as sc
 
-from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 from ptf.testutils import add_filter, reset_filters, dp_poll, simple_udp_packet, send_packet, test_params_get
+
 
 def udp_filter(pkt_str):
     try:
         pkt = scapy.Ether(pkt_str)
         return scapy.UDP in pkt
 
-    except:
+    except Exception:
         return False
+
 
 def capture_matched_packets(test, exp_packet, port, device_number=0, timeout=1):
     """
     Receive all packets on the port and return all the received packets.
-    As soon as the packets stop arriving, the function waits for the timeout value and returns the received packets. Therefore, this function requires a positive timeout value.
+    As soon as the packets stop arriving, the function waits for the timeout value and returns the received packets.
+    Therefore, this function requires a positive timeout value.
     """
     if timeout <= 0:
-        raise Exception("%s() requires positive timeout value." % sys._getframe().f_code.co_name)
+        raise Exception("%s() requires positive timeout value." %
+                        sys._getframe().f_code.co_name)
 
     pkts = list()
     while True:
-        result = dp_poll(test, device_number=device_number, port_number=port, timeout=timeout)
+        result = dp_poll(test, device_number=device_number,
+                         port_number=port, timeout=timeout)
         if isinstance(result, test.dataplane.PollSuccess):
             if ptf.dataplane.match_exp_pkt(exp_packet, result.packet):
                 pkts.append(result.packet)
@@ -46,6 +44,7 @@ def capture_matched_packets(test, exp_packet, port, device_number=0, timeout=1):
             break
 
     return pkts
+
 
 class PfcPauseTest(BaseTest):
     def __init__(self):
@@ -74,8 +73,8 @@ class PfcPauseTest(BaseTest):
         self.testbed_type = self.test_params.get('testbed_type', None)
 
     def construct_pkt(self, sport, dport):
-        tos = self.dscp<<2
-        tos_bg = self.dscp_bg<<2
+        tos = self.dscp << 2
+        tos_bg = self.dscp_bg << 2
 
         pkt_args = {
             'eth_dst': self.mac_dst,
@@ -130,7 +129,7 @@ class PfcPauseTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
         if 'backend' in self.testbed_type:
-             masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
 
         return pkt, pkt_bg, masked_exp_pkt
 
@@ -160,6 +159,7 @@ class PfcPauseTest(BaseTest):
         send_packet(self, self.port_dst, pkt, 5)
 
     def runTest(self):
+        tos_bg = self.dscp_bg << 2
         pass_cnt = 0
         if self.debug:
             # remove previous debug files
@@ -167,7 +167,8 @@ class PfcPauseTest(BaseTest):
             for file in files:
                 os.remove(file)
             current_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-            log_file = open("/tmp/pfc_pause_{}_{}".format(self.dscp, current_time), "w")
+            log_file = open(
+                "/tmp/pfc_pause_{}_{}".format(self.dscp, current_time), "w")
         """ If DUT needs to learn MAC addresses """
         if not self.dut_has_mac:
             self.populate_fdb()
@@ -184,7 +185,8 @@ class PfcPauseTest(BaseTest):
 
             if self.debug:
                 for i, pkt in enumerate(pkts):
-                    dump_msg = "Iteration {}:\n Pkt num {}:\n Hex dump: {}\n\n".format(x, i, sc.utils.hexstr(pkt))
+                    dump_msg = "Iteration {}:\n Pkt num {}:\n Hex dump: {}\n\n".format(
+                        x, i, sc.utils.hexstr(pkt))
                     log_file.write(dump_msg)
 
             time.sleep(self.pkt_intvl)
@@ -192,9 +194,12 @@ class PfcPauseTest(BaseTest):
             """ If the queue is paused, we should only receive the background packet """
             if self.queue_paused:
                 if 'backend' in self.testbed_type:
-                    filter_expr = (hex(scapy.Ether(pkts[0]).type) == '0x8100' and int(scapy.Ether(pkts[0])[scapy.Dot1Q].prio) == self.dscp_bg and int(scapy.Ether(pkts[0])[scapy.Dot1Q].vlan) == self.vlan_id)
+                    filter_expr = (hex(scapy.Ether(pkts[0]).type) == '0x8100' and
+                                   int(scapy.Ether(pkts[0])[scapy.Dot1Q].prio) == self.dscp_bg and
+                                   int(scapy.Ether(pkts[0])[scapy.Dot1Q].vlan) == self.vlan_id)
                 else:
-                    filter_expr = (scapy.Ether(pkts[0])[scapy.IP].tos == tos_bg)
+                    filter_expr = (scapy.Ether(pkts[0])[
+                                   scapy.IP].tos == tos_bg)
                 pass_cnt += int(len(pkts) == 1 and filter_expr)
 
             else:
@@ -202,7 +207,7 @@ class PfcPauseTest(BaseTest):
 
         if self.debug:
             log_file.close()
-        print "Passes: %d / %d" % (pass_cnt, self.pkt_count)
+        print("Passes: %d / %d" % (pass_cnt, self.pkt_count))
 
     def tearDown(self):
         reset_filters()

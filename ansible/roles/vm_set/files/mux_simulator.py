@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import traceback
+import time
 
 from collections import defaultdict
 from logging.handlers import RotatingFileHandler
@@ -42,14 +43,21 @@ DROP = 'drop'
 app = Flask(__name__)
 
 g_muxes = None              # Global variable holding instance of the class Muxes
+g_get_mux_counter = 0
+g_start_time = time.time()
 
-################################################## Error Handlers ####################################################
+if sys.version_info[0] >= 3:
+    unicode = str
+
+
+# ============================================ Error Handlers ============================================ #
 
 @app.errorhandler(Exception)
 def handle_exception(e):
     """Register exception handler.
 
-    For simplicity, we don't use too much try...except in code. Any uncaught exception will be handled by this function.
+    For simplicity, we don't use too much try...except in code.
+    Any uncaught exception will be handled by this function.
 
     Exceptions handled by this hander:
         * 4XX HTTP client side issue
@@ -70,13 +78,15 @@ def handle_exception(e):
         res.update({'traceback': tb.splitlines()})
     return res, err_code
 
-###################################################### Utils #########################################################
+
+# ==================================================== Utils ==================================================== #
 
 def adaptive_name(template, vm_set, index):
     """
     A helper function for interface/bridge name calculation.
     Since the name of interface must be less than 15 bytes. This util is to adjust the template automatically
-    according to the length of vm_set name and port index. The leading characters (inje, muxy, mbr) will be shorten if necessary
+    according to the length of vm_set name and port index.
+    The leading characters (inje, muxy, mbr) will be shorten if necessary
     e.g.
     port 21 on vms7-6 -> inje-vms7-6-21
     port 121 on vms21-1 -> inj-vms21-1-121
@@ -104,7 +114,7 @@ def run_cmd(cmdline):
     """
     app.logger.debug(cmdline)
     process = subprocess.Popen(
-        shlex.split(cmdline),                          # lgtm [py/command-line-injection]
+        shlex.split(cmdline),
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE)
@@ -137,14 +147,15 @@ def config_logging(http_port):
     rfh = RotatingFileHandler(
         '/tmp/mux_simulator_{}.log'.format(http_port),
         maxBytes=10*1024*1024,  # 10MB
-        backupCount=3)
+        backupCount=15)
     fmt = logging.Formatter('%(asctime)s %(levelname)s #%(lineno)d: %(message)s')
     rfh.setFormatter(fmt)
     rfh.setLevel(logging.DEBUG)
     app.logger.addHandler(rfh)
     app.logger.removeHandler(default_handler)
 
-###################################################### Models ########################################################
+
+# ==================================================== Models ==================================================== #
 
 class Mux(object):
     '''Object represents a single mux bridge
@@ -248,7 +259,7 @@ class Mux(object):
             tor_ports[1]: LOWER_TOR
         }
 
-        self.info('Sides map: {}'.format(self.sides, indent=2))
+        self.info('Sides map: {}'.format(self.sides))
         return True
 
     def _active_standby_state_helper(self, active_side):
@@ -280,12 +291,15 @@ class Mux(object):
 
         Example output of the 'ovs-ofctl dump-flows' command:
         azure@str2-acs-serv-17:~$ sudo ovs-ofctl --names dump-flows mbr-vms17-8-0
-        cookie=0x0, duration=86737.831s, table=0, n_packets=446, n_bytes=44412, in_port="muxy-vms17-8-0" actions=output:"enp59s0f1.3216",output:"enp59s0f1.3272"
-        cookie=0x0, duration=86737.819s, table=0, n_packets=10251, n_bytes=1179053, in_port="enp59s0f1.3216" actions=output:"muxy-vms17-8-0"
+        cookie=0x0, duration=86737.831s, table=0, n_packets=446, n_bytes=44412,
+            in_port="muxy-vms17-8-0" actions=output:"enp59s0f1.3216",output:"enp59s0f1.3272"
+        cookie=0x0, duration=86737.819s, table=0, n_packets=10251, n_bytes=1179053,
+            in_port="enp59s0f1.3216" actions=output:"muxy-vms17-8-0"
 
         Example result of parsing the output using regex:
-        >>> re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)
-        [('muxy-vms17-8-0', 'output:"enp59s0f1.3216",output:"enp59s0f1.3272"'), ('enp59s0f1.3216', 'output:"muxy-vms17-8-0"')]
+        >>> re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)     # noqa W605
+        [('muxy-vms17-8-0', 'output:"enp59s0f1.3216",output:"enp59s0f1.3272"'),
+         ('enp59s0f1.3216', 'output:"muxy-vms17-8-0"')]
         """
 
         # By default, there are only two flows per bridge:
@@ -315,12 +329,14 @@ class Mux(object):
             if self.sides[in_port] == NIC:
                 # From NIC to TORs, upstream flow
                 self.flows['upstream']['in_side'] = NIC
-                self.flows['upstream']['out_sides'] = [self.sides[out_port] for out_port, action in flows[in_port].items() if action == OUTPUT]
+                self.flows['upstream']['out_sides'] = [self.sides[out_port] for out_port, action in
+                                                       flows[in_port].items() if action == OUTPUT]
             else:
                 # From TOR to NIC, downstream flow
                 self._active_standby_state_helper(self.sides[in_port])
                 self.flows['downstream']['in_side'] = self.sides[in_port]
-                self.flows['downstream']['out_sides'] = [self.sides[out_port] for out_port, action in flows[in_port].items() if action == OUTPUT]
+                self.flows['downstream']['out_sides'] = [self.sides[out_port] for out_port, action in
+                                                         flows[in_port].items() if action == OUTPUT]
 
     @property
     def status(self):
@@ -333,14 +349,16 @@ class Mux(object):
             # Transform mux flows to json expected by mux simulator client
             flows = {}
             flows[self.ports[NIC]] = [
-                {'action': OUTPUT, 'out_port': self.ports[out_side]} for out_side in self.flows['upstream']['out_sides']
+                {'action': OUTPUT, 'out_port': self.ports[out_side]}
+                for out_side in self.flows['upstream']['out_sides']
             ]
 
             if self.flows['downstream']['in_side'] is not None:
                 in_side = self.flows['downstream']['in_side']
                 in_port = self.ports[in_side]
                 flows[in_port] = [
-                    {'action': OUTPUT, 'out_port': self.ports[out_side]} for out_side in self.flows['downstream']['out_sides']
+                    {'action': OUTPUT, 'out_port': self.ports[out_side]}
+                    for out_side in self.flows['downstream']['out_sides']
                 ]
 
             healthy = True
@@ -375,7 +393,8 @@ class Mux(object):
                 new_active_side = random.choice([UPPER_TOR, LOWER_TOR])
 
             if self.active_side == new_active_side:
-                self.info('current active_side={}, new_active_side={}, no need to change. <<<<<<'.format(self.active_side, new_active_side))
+                self.info('current active_side={}, new_active_side={}, no need to change. <<<<<<'
+                          .format(self.active_side, new_active_side))
                 return
 
             # Need to toggle active side
@@ -449,7 +468,8 @@ class Mux(object):
             self.flows['downstream']['in_side'] = active_side
             self.flows['downstream']['out_sides'] = [NIC]
 
-        self.debug('updated downstream flow, new_action={}, flows={}'.format(new_action, json.dumps(self.flows, indent=2)))
+        self.debug('updated downstream flow, new_action={}, flows={}'
+                   .format(new_action, json.dumps(self.flows, indent=2)))
 
     def _update_upstream_flow(self, new_action, out_sides=[]):
         """Update upstream flow. Apply new action to sides specified in out_sides.
@@ -466,7 +486,8 @@ class Mux(object):
 
         # Figure out target upstream out_sides
         if new_action == DROP:
-            target_out_sides = [out_side for out_side in self.flows['upstream']['out_sides'] if out_side not in out_sides]
+            target_out_sides = [out_side for out_side in self.flows['upstream']['out_sides']
+                                if out_side not in out_sides]
         else:
             target_out_sides = list(set(self.flows['upstream']['out_sides'] + out_sides))
 
@@ -502,7 +523,8 @@ class Mux(object):
                     self.ports[NIC],
                     action_desc))
             self.flows['upstream']['out_sides'] = target_out_sides
-        self.debug('updated upstream flow, new_action={}, out_sides={}, flows={}'.format(new_action, out_sides, json.dumps(self.flows, indent=2)))
+        self.debug('updated upstream flow, new_action={}, out_sides={}, flows={}'
+                   .format(new_action, out_sides, json.dumps(self.flows, indent=2)))
 
     def update_flows(self, new_action, out_sides):
         """
@@ -511,7 +533,8 @@ class Mux(object):
         Item in out_sides could be any of: 'nic', 'upper_tor', 'lower_tor'.
         """
         with self.lock:
-            self.info('>>>>> calling update_flows, new_action={}, out_sides={}, current flow:\n{}'.format(new_action, out_sides, json.dumps(self.flows, indent=2)))
+            self.info('>>>>> calling update_flows, new_action={}, out_sides={}, current flow:\n{}'
+                      .format(new_action, out_sides, json.dumps(self.flows, indent=2)))
             if NIC in out_sides:
                 self._update_downstream_flow(new_action)
             tor_sides = [out_side for out_side in out_sides if out_side != NIC]
@@ -551,7 +574,7 @@ class Muxes(object):
         Returns:
             list: List of bridges belong to self.vm_set
         """
-        pattern = '{}[^-]*-{}-[\d]+'.format(MUX_BRIDGE_PREFIX, self.vm_set)
+        pattern = r'{}[^-]*-{}-[\d]+'.format(MUX_BRIDGE_PREFIX, self.vm_set)
         return [intf for intf in os.listdir('/sys/class/net') if re.search(pattern, intf)]
 
     def _port_to_mux(self, port_index):
@@ -618,7 +641,7 @@ def create_muxes(vm_set):
     app.logger.info('####################### COLLECTING BRIDGE STATUS DONE #######################')
 
 
-###################################################### Views #########################################################
+# ===================================================== Views ===================================================== #
 
 def _validate_posted_data(request):
     """Validate json data in POST request.
@@ -633,7 +656,7 @@ def _validate_posted_data(request):
         dict: Return the posted data dict.
     """
     data = request.get_json()
-    if not data or not 'active_side' in data or not data['active_side'] in [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]:
+    if not data or 'active_side' not in data or data['active_side'] not in [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]:
         msg = 'Bad posted data, expected: {"active_side": "upper_tor|lower_tor|toggle|random"}'
         abort(400, description='remote_addr={} method={} url={} data={} msg={}'.format(
                 request.remote_addr,
@@ -664,12 +687,23 @@ def mux_status(vm_set, port_index):
     Returns:
         object: Return a flask response object.
     """
+    global g_get_mux_counter
+    global g_start_time
     _validate_vm_set(vm_set)
     if not g_muxes.has_mux(port_index):
         abort(404, 'Unknown bridge, vm_set={}, port_index={}'.format(vm_set, port_index))
 
     if request.method == 'GET':
-        return g_muxes.get_mux_status(port_index)
+        response = g_muxes.get_mux_status(port_index)
+        g_get_mux_counter += 1
+        elapsed_time = time.time() - g_start_time
+        if elapsed_time > 60 or g_get_mux_counter % 100 == 0:
+            app.logger.info('===== No.{} GET method since last log ====='.format(g_get_mux_counter))
+            app.logger.info('===== {} GET {} with port {} ====='.format(request.remote_addr, request.url, port_index))
+            app.logger.info('===== GET port {} with response {} ====='.format(port_index, response))
+            g_get_mux_counter = 0
+            g_start_time = time.time()
+        return response
     elif request.method == 'POST':
         # Set the active side of mux
         data = _validate_posted_data(request)
@@ -694,7 +728,10 @@ def all_mux_status(vm_set):
     """
     _validate_vm_set(vm_set)
     if request.method == 'GET':
-        return g_muxes.get_mux_status()
+        response = g_muxes.get_mux_status()
+        app.logger.info('===== {} GET {} with all ports ====='.format(request.remote_addr, request.url))
+        app.logger.info('===== GET all ports with response {} ====='.format(response))
+        return response
     elif request.method == 'POST':
         # Set the active side for all mux bridges
         data = _validate_posted_data(request)
@@ -716,9 +753,9 @@ def _validate_out_sides(request):
     data = request.get_json()
     supported_out_sides = [NIC, UPPER_TOR, LOWER_TOR]
     msg = 'Invalid posted data: {}, expected: {"out_sides": ["nic|upper_tor|lower_tor", ...]}'
-    if not data or not 'out_sides' in data \
-        or not isinstance(data['out_sides'], list) \
-        or len([port for port in data['out_sides'] if port not in supported_out_sides]) > 0:
+    if not data or 'out_sides' not in data \
+            or not isinstance(data['out_sides'], list) \
+            or len([port for port in data['out_sides'] if port not in supported_out_sides]) > 0:
         abort(400, description='remote_addr={} method={} url={} data={} msg={}'.format(
             request.remote_addr,
             request.method,
@@ -799,9 +836,9 @@ def clear_flap_counter_handler(vm_set):
     _validate_vm_set(vm_set)
     data = request.get_json()
     msg = 'Invalid posted data: {}, expected: {"port_to_clear": "0|1|2..."} or {"port_to_clear": "all"}'
-    if not data or not 'port_to_clear' in data \
-        or not (isinstance(data['port_to_clear'], str) or isinstance(data['port_to_clear'], unicode)) \
-        or (data['port_to_clear']!='all' and not re.match('^\d+(\|\d+)*$', data['port_to_clear'])):
+    if not data or 'port_to_clear' not in data \
+            or not (isinstance(data['port_to_clear'], str) or isinstance(data['port_to_clear'], unicode)) \
+            or (data['port_to_clear'] != 'all' and not re.match(r'^\d+(\|\d+)*$', data['port_to_clear'])):
         abort(400, description='remote_addr={} method={} url={} data={} msg={}'.format(
             request.remote_addr,
             request.method,
@@ -841,7 +878,7 @@ def log_message(vm_set):
     """
     _validate_vm_set(vm_set)
     data = request.get_json()
-    if not data or not 'message' in data:
+    if not data or 'message' not in data:
         abort(400, description='remote_addr={} method={} url={} data={} msg={}'.format(
             request.remote_addr,
             request.method,
@@ -876,13 +913,13 @@ if __name__ == '__main__':
     config_logging(http_port)
     MUX_LOGO = '\n'.join([
         '',
-        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',
-        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',
-        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',
-        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',
-        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',
-        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',
-        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',
+        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',      # noqa E501
+        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',      # noqa E501
+        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',      # noqa E501
+        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',      # noqa E501
+        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',      # noqa E501
+        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',      # noqa E501
+        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',      # noqa E501
         '',
     ])
     app.logger.info(MUX_LOGO)

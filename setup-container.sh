@@ -106,6 +106,7 @@ function show_help_and_exit() {
     echo "  -p <port>            publish container port to the host"
     echo "  -f                   automatically remove the container when it exits"
     echo "  -v                   explain what is being done"
+    echo "  -x                   show execution details"
     echo "  -h                   display this help and exit"
     echo
     echo "Examples:"
@@ -194,9 +195,12 @@ fi
 
 # User configuration
 RUN if getent passwd {{ USER_NAME }}; \
-then usermod -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} {{ USER_NAME }}; \
-else useradd -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} -s /bin/bash {{ USER_NAME }}; \
+# Usermod will hang when user_id is large (https://github.com/moby/moby/issues/5419), and it can not work around this issue itself.
+# So, we first delete the user and use `useradd -l` to work around this issue.
+#then usermod -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} {{ USER_NAME }}; \
+then userdel {{ USER_NAME }}; \
 fi
+RUN useradd -o -l -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} -s /bin/bash {{ USER_NAME }};
 
 # Docker configuration
 RUN if getent group {{ DGROUP_NAME }}; \
@@ -204,10 +208,11 @@ then groupmod -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
 else groupadd -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
 fi
 
-# Environment configuration
+# Environment configuration, skip python virtual environments
 RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ]; then \
-/bin/bash -c 'cp -a -f /var/AzDevOps/* /home/{{ USER_NAME }}/'; \
-/bin/bash -c 'cp -a -f /var/AzDevOps/{.profile,.local,.ssh} /home/{{ USER_NAME }}/'; \
+/bin/bash -O extglob -c 'cp -a -f /var/AzDevOps/!(env-*) /home/{{ USER_NAME }}/'; \
+for hidden_stuff in '.profile .local .ssh'; do \
+/bin/bash -c 'cp -a -f /var/AzDevOps/$hidden_stuff /home/{{ USER_NAME }}/ || true'; done \
 fi
 
 # Permissions configuration
@@ -237,6 +242,14 @@ RUN chmod 0600 ${HOME}/.ssh/authorized_keys
 
 WORKDIR ${HOME}
 
+# Setup python3 virtual env
+RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ] && [ -d /var/AzDevOps/env-python3 ]; then \
+/bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install pip --upgrade'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
+/bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze)'; \
+fi
+
 EOF
 
     log_info "prepare an environment file: ${TMP_DIR}/data.env"
@@ -257,7 +270,14 @@ EOF
     log_error "failed to generate a Dockerfile: ${TMP_DIR}/Dockerfile"
 
     log_info "building docker image from ${TMP_DIR}: ${LOCAL_IMAGE} ..."
-    eval "docker build -t \"${LOCAL_IMAGE}\" \"${TMP_DIR}\" ${SILENT_HOOK}" || \
+    build_args=""
+    if [[ -n ${http_proxy} ]]; then
+        build_args="--build-arg http_proxy=${http_proxy}"
+    fi
+    if [[ -n ${https_proxy} ]]; then
+        build_args="${build_args} --build-arg https_proxy=${https_proxy}"
+    fi
+    eval "docker build -t \"${LOCAL_IMAGE}\" \"${TMP_DIR}\" ${SILENT_HOOK} ${build_args}" || \
     log_error "failed to build docker image: ${LOCAL_IMAGE}"
 
     log_info "cleanup a temporary dir: ${TMP_DIR}"
@@ -271,7 +291,7 @@ EOF
 function start_local_container() {
     log_info "creating a container: ${CONTAINER_NAME} ..."
 
-    eval "docker run -d -t ${PUBLISH_PORTS} \
+    eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
     -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
     --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
     exit_failure "failed to start a container: ${CONTAINER_NAME}"
@@ -312,7 +332,7 @@ if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:p:fvh" opt; do
+while getopts "n:i:d:m:p:fvxh" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
@@ -335,6 +355,9 @@ while getopts "n:i:d:m:p:fvh" opt; do
         v )
             VERBOSE_LEVEL="${VERBOSE_MAX}"
             SILENT_HOOK=""
+            ;;
+        x )
+            set -x
             ;;
         h )
             show_help_and_exit "${EXIT_SUCCESS}"

@@ -1,0 +1,357 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "default_pfcwd_status": "disable",
+            "hwsku": "{{ fanout_hwsku }}",
+            "hostname": "{{ inventory_hostname }}"
+        }
+    },
+
+    "PORT": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}": {
+            "alias": "{{ fanout_port_config[port_name]['alias'] }}",
+            "speed" : "{{ fanout_port_config[port_name]['speed'] | default('100000') }}",
+            "index": "{{ fanout_port_config[port_name]['index'] }}",
+            "lanes": "{{ fanout_port_config[port_name]['lanes'] }}",
+            "pfc_asym": "off",
+            "mtu": "9100",
+    {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
+            "fec" : "rs",
+    {% endif %}
+    {% if 'broadcom' in fanout_sonic_version["asic_type"] or 'marvell' in fanout_sonic_version["asic_type"] %}
+        {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"].lower() == "access" %}
+            "tpid": "0x9100",
+        {% endif %}
+    {% endif %}
+    {% if 'peerdevice' in fanout_port_config[port_name] %}
+            "admin_status": "up"
+    {% else %}
+            "admin_status": "down"
+    {% endif %}
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+
+    "VLAN": {
+    {% for vlanid in device_vlan_list[inventory_hostname] | unique %}
+        "Vlan{{ vlanid }}": {
+            "vlanid": "{{ vlanid }}"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+
+    {% set ns = {'firstPrinted': False} %}
+    "VLAN_MEMBER": {
+    {% for port_name in device_port_vlans[inventory_hostname] %}
+    {% if device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'access' %}
+    {% if ns.firstPrinted %},{% endif %}
+        "Vlan{{ device_port_vlans[inventory_hostname][port_name]['vlanids'] }}|{{ fanout_port_config[port_name]['name'] }}": {
+            "tagging_mode" : "untagged"
+        }
+    {% if ns.update({'firstPrinted': True}) %} {% endif %}
+    {% elif device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'trunk' %}
+    {% for vlanid in device_port_vlans[inventory_hostname][port_name]['vlanlist'] %}
+    {% if ns.firstPrinted %},{% endif %}
+        "Vlan{{ vlanid }}|{{ fanout_port_config[port_name]['name'] }}": {
+            "tagging_mode" : "tagged"
+        }
+    {% if ns.update({'firstPrinted': True}) %} {% endif %}
+    {% endfor %}
+    {% endif %}
+    {% endfor %}
+    },
+
+    "MGMT_INTERFACE": {
+        "eth0|{{ device_info[inventory_hostname]["ManagementIp"] }}": {
+            "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
+        }
+    },
+    "MGMT_PORT": {
+        "eth0": {
+            "admin_status": "up",
+            "alias": "eth0"
+        }
+    },
+
+    "VERSIONS": {
+        "DATABASE": {
+            "VERSION": "version_1_0_1"
+        }
+    },
+
+{% if fanout_hwsku in ("Nokia-7215", "Arista-720DT-G48S4") %}
+
+    "FLEX_COUNTER_TABLE": {
+        "ACL": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "BUFFER_POOL_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PFCWD": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PG_DROP": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PG_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PORT": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PORT_BUFFER_DROP": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "QUEUE": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "QUEUE_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "RIF": {
+            "FLEX_COUNTER_STATUS": "disable"
+        }
+    },
+
+{% else %}
+
+    "FLEX_COUNTER_TABLE": {
+        "PFCWD": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PORT": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "QUEUE": {
+            "FLEX_COUNTER_STATUS": "enable"
+        }
+    },
+
+    "QUEUE": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}|0": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        },
+        "{{ port_name }}|1": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        },
+        "{{ port_name }}|2": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        },
+        "{{ port_name }}|3": {
+            "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+            "scheduler": "[SCHEDULER|scheduler.1]"
+        },
+        "{{ port_name }}|4": {
+            "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+            "scheduler": "[SCHEDULER|scheduler.1]"
+        },
+        "{{ port_name }}|5": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        },
+        "{{ port_name }}|6": {
+            "scheduler": "[SCHEDULER|scheduler.0]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+
+    "CABLE_LENGTH": {
+        "AZURE": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}": "300m"{% if not loop.last %},{% endif %}
+    {% endfor %}
+        }
+    },
+
+    "PFC_WD": {
+        "GLOBAL": {
+            "POLL_INTERVAL": "200"
+        }
+    },
+
+    "SCHEDULER": {
+        "scheduler.0": {
+            "type": "DWRR",
+            "weight": "14"
+        },
+        "scheduler.1": {
+            "type": "DWRR",
+            "weight": "15"
+        }
+    },
+
+    "WRED_PROFILE": {
+        "AZURE_LOSSLESS": {
+            "red_max_threshold": "2097152",
+            "red_drop_probability": "5",
+            "wred_green_enable": "true",
+            "ecn": "ecn_all",
+            "green_min_threshold": "250000",
+            "red_min_threshold": "1048576",
+            "wred_yellow_enable": "true",
+            "yellow_min_threshold": "1048576",
+            "green_max_threshold": "2097152",
+            "green_drop_probability": "5",
+            "yellow_max_threshold": "2097152",
+            "yellow_drop_probability": "5",
+            "wred_red_enable": "true"
+        }
+    },
+
+    "SCHEDULER": {
+        "scheduler.0": {
+            "type": "DWRR",
+            "weight": "14"
+        },
+        "scheduler.1": {
+            "type": "DWRR",
+            "weight": "15"
+        }
+    },
+
+{% endif %}
+
+    "FEATURE": {
+        "acms": {
+            "auto_restart": "disabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        },
+        "mux": {
+            "auto_restart": "disabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        },
+        "bgp": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": false,
+            "has_per_asic_scope": true,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "database": {
+            "state": "always_enabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": true,
+            "auto_restart": "always_enabled",
+            "high_mem_alert": "disabled"
+        },
+        "dhcp_relay": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "lldp": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": true,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "pmon": {
+            "state": "enabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "enabled",
+            "high_mem_alert": "disabled"
+        },
+        "radv": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "snmp": {
+            "state": "enabled",
+            "has_timer": true,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "enabled",
+            "high_mem_alert": "disabled"
+        },
+        "swss": {
+            "state": "enabled",
+            "has_timer": false,
+            "has_global_scope": false,
+            "has_per_asic_scope": true,
+            "auto_restart": "enabled",
+            "high_mem_alert": "disabled"
+        },
+        "syncd": {
+            "state": "enabled",
+            "has_timer": false,
+            "has_global_scope": false,
+            "has_per_asic_scope": true,
+            "auto_restart": "enabled",
+            "high_mem_alert": "disabled"
+        },
+        "teamd": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": false,
+            "has_per_asic_scope": true,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "mgmt-framework": {
+            "state": "disabled",
+            "has_timer": true,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "nat": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "sflow": {
+            "state": "disabled",
+            "has_timer": false,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "telemetry": {
+            "state": "disabled",
+            "has_timer": true,
+            "has_global_scope": true,
+            "has_per_asic_scope": false,
+            "auto_restart": "disabled",
+            "high_mem_alert": "disabled"
+        },
+        "restapi": {
+            "auto_restart": "disabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        }
+    }
+}

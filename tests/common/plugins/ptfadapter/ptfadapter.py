@@ -10,6 +10,7 @@ from ptf.dataplane import DataPlane, DataPlanePortNN
 from tests.common.utilities import wait_until
 import logging
 
+
 class PtfAdapterNNConnectionError(Exception):
 
     def __init__(self, remote_sock_addr):
@@ -37,7 +38,7 @@ class PtfTestAdapter(BaseTest):
         :param ptf_port_set: PTF ports
         :return:
         """
-        self.runTest = lambda : None # set a no op runTest attribute to satisfy BaseTest interface
+        self.runTest = lambda: None    # set a no op runTest attribute to satisfy BaseTest interface
         super(PtfTestAdapter, self).__init__()
         self.payload_pattern = ""
         self.connected = False
@@ -59,7 +60,7 @@ class PtfTestAdapter(BaseTest):
         sock = nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)
         sock.connect(socket_addr)
         try:
-            return wait_until(10, 0.2, 0, lambda:sock.get_statistic(self.NN_STAT_CURRENT_CONNECTIONS) == 1)
+            return wait_until(10, 0.2, 0, lambda: sock.get_statistic(self.NN_STAT_CURRENT_CONNECTIONS) == 1)
         finally:
             sock.close()
 
@@ -104,7 +105,7 @@ class PtfTestAdapter(BaseTest):
 
         # TODO: in case of multi PTF hosts topologies we'll have to provide custom platform that supports that
         # and initialize port_map specifying mapping between tcp://<host>:<port> and port tuple (device_id, port_id)
-        for id, ifname in ptf.config['port_map'].items():
+        for id, ifname in list(ptf.config['port_map'].items()):
             device_id, port_id = id
             ptf.dataplane_instance.port_add(ifname, device_id, port_id)
         self.connected = True
@@ -114,11 +115,11 @@ class PtfTestAdapter(BaseTest):
         """ Close dataplane socket and kill data plane thread """
         if self.connected:
             self.dataplane.kill()
-            
-            for injector in DataPlanePortNN.packet_injecters.values():
+
+            for injector in list(DataPlanePortNN.packet_injecters.values()):
                 injector.socket.close()
             DataPlanePortNN.packet_injecters.clear()
-        
+
         self.connected = False
 
     def reinit(self, ptf_config=None):
@@ -182,7 +183,7 @@ class PtfTestAdapter(BaseTest):
             if len_new >= len_old:
                 return self.payload_pattern[:len_old]
             else:
-                factor = len_old/len_new + 1
+                factor = int(len_old/len_new) + 1
                 new_payload = self.payload_pattern * factor
                 return new_payload[:len_old]
         else:

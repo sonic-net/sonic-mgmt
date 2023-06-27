@@ -36,12 +36,12 @@ def config_module_logging(module_name, log_path='/tmp', log_level=logging.DEBUG)
     """
 
     # Cleanup old log files to rotate
-    pattern = re.compile('{}_[\d\-T:\.]+\.log'.format(module_name))
+    pattern = re.compile(r'{}_[\d\-T:\.]+\.log'.format(module_name))
     existing_log_files = sorted([f for f in os.listdir(log_path) if pattern.match(f)])
     old_log_files = existing_log_files[:-(MAX_LOG_FILES_PER_MODULE-1)]
     try:
         [os.remove(os.path.join(log_path, f)) for f in old_log_files]
-    except Exception as e:
+    except Exception:
         pass
 
     # Configure logging to file

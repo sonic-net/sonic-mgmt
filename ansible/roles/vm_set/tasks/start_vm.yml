@@ -22,6 +22,11 @@
   when: (vm_type | lower) == "vsonic"
 
 - set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}.img"
+    vm_xml_template: "cisco.xml.j2"
+  when: (vm_type | lower) == "vcisco"
+
+- set_fact:
     disk_image: "{{ disk_image_dir }}/{{ disk_image_name }}"
 
 - set_fact:
@@ -35,7 +40,7 @@
   stat: path={{ disk_image }}
   register: file_stat
 
-- name: Copy arista disk image for {{ hostname }}
+- name: Copy {{ vm_type }} disk image for {{ hostname }}
   copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
   when: not file_stat.stat.exists
 

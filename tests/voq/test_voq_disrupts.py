@@ -2,21 +2,22 @@ import pytest
 import logging
 import time
 
-from voq_helpers import sonic_ping
-from voq_helpers import eos_ping
+from .voq_helpers import sonic_ping
+from .voq_helpers import eos_ping
 
-from test_voq_ipfwd import pick_ports
-from test_voq_ipfwd import check_packet
+from .test_voq_ipfwd import pick_ports
+from .test_voq_ipfwd import check_packet
 
-from test_voq_init import check_voq_interfaces
-from voq_helpers import dump_and_verify_neighbors_on_asic
+from .test_voq_init import check_voq_interfaces
+from .voq_helpers import dump_and_verify_neighbors_on_asic
 
 from tests.common import reboot
 from tests.common import config_reload
-from tests.common.utilities import wait_until
 
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ pytestmark = [
 ]
 
 
-def check_bgp_neighbors(duthosts):
+def check_bgp_neighbors(duthosts, excluded_ips=[]):
     """
     Validates neighbors are established
 
@@ -42,7 +43,8 @@ def check_bgp_neighbors(duthosts):
             bgp_facts = asic.bgp_facts()['ansible_facts']
 
             for address in bgp_facts['bgp_neighbors']:
-                if bgp_facts['bgp_neighbors'][address]['state'] != "established":
+                if address.lower() not in excluded_ips and \
+                        bgp_facts['bgp_neighbors'][address]['state'] != "established":
                     logger.info("BGP neighbor: %s is down: %s." % (
                         address, bgp_facts['bgp_neighbors'][address]['state']))
                     down_nbrs += 1
@@ -68,15 +70,8 @@ def poll_bgp_restored(duthosts, timeout=900, delay=20):
 
     """
     logger.info("Poll for BGP to recover.")
-    restored = False
-    endtime = time.time() + timeout
-    while not restored and time.time() < endtime:
-        restored = check_bgp_neighbors(duthosts)
-        if restored:
-            break
-        time.sleep(delay)
-    else:
-        raise AssertionError("BGP was never restored.")
+    pytest_assert(wait_until(timeout, 10, 0, check_bgp_neighbors, duthosts),
+                  "All BGP's are not established after config reload from original minigraph")
 
 
 def check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
@@ -124,7 +119,8 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
                 check_packet(sonic_ping, ports, 'portB', 'portA', size=size, ttl=ttl, ttl_change=0)
 
                 # local neighbors
-                check_packet(sonic_ping, ports, 'portA', 'portA', dst_ip_fld='nbr_ip', size=size, ttl=ttl, ttl_change=0)
+                check_packet(sonic_ping, ports, 'portA', 'portA',
+                             dst_ip_fld='nbr_ip', size=size, ttl=ttl, ttl_change=0)
 
                 vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
 
@@ -160,8 +156,7 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
                              dev=vm_host_to_A, size=size, ttl=ttl)
 
 
-@pytest.mark.skip(reason="Not yet implemented - reboot of supervisor does not reset line cards.")
-def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
+def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     """
     Tests the system after supervisor reset, all cards should reboot and interfaces/neighbors should be in sync across
     the system.
@@ -178,14 +173,15 @@ def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_mac
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
     logger.info("=" * 80)
     logger.info("Coldboot on node: %s", duthosts.supervisor_nodes[0].hostname)
     logger.info("-" * 80)
 
-    reboot(duthosts.supervisor_nodes[0], localhost, wait=600)
-    assert wait_until(300, 20, duthosts.supervisor_nodes[0].critical_services_fully_started), "Not all critical services are fully started"
+    reboot(duthosts.supervisor_nodes[0], localhost, wait=240)
+    assert wait_until(300, 20, 2, duthosts.supervisor_nodes[0].critical_services_fully_started),\
+        "Not all critical services are fully started"
 
     poll_bgp_restored(duthosts)
 
@@ -194,10 +190,10 @@ def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_mac
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
 
-def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
+def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     """
     Tests the system after all cards are explicitly reset, interfaces/neighbors should be in sync across the system.
 
@@ -212,7 +208,7 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
     @reset_ansible_local_tmp
     def reboot_node(lh, node=None, results=None):
         node_results = []
-        node_results.append(reboot(node, lh, wait=600))
+        node_results.append(reboot(node, lh, wait=120))
         results[node.hostname] = node_results
 
     logger.info("=" * 80)
@@ -220,7 +216,7 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
     logger.info("=" * 80)
     logger.info("Coldboot on all nodes")
@@ -231,7 +227,8 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
     parallel_run(reboot_node, [localhost], {}, duthosts.nodes, timeout=1000)
 
     for node in duthosts.nodes:
-        assert wait_until(300, 20, node.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(300, 20, 2, node.critical_services_fully_started),\
+            "Not all critical services are fully started"
 
     poll_bgp_restored(duthosts)
 
@@ -247,10 +244,10 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs):
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
 
-def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
+def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     """
     Tests the system after a config reload on a linecard, interfaces/neighbors should be in sync across the system.
 
@@ -265,17 +262,17 @@ def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     logger.info("-" * 80)
 
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)
 
     logger.info("=" * 80)
     logger.info("Config reload on node: %s", duthosts.frontend_nodes[0].hostname)
     logger.info("-" * 80)
 
-    config_reload(duthosts.frontend_nodes[0], config_source='config_db', wait=600)
+    config_reload(duthosts.frontend_nodes[0], config_source='config_db', safe_reload=True, check_intf_up_ports=True)
     poll_bgp_restored(duthosts)
 
     logger.info("=" * 80)
     logger.info("Postcheck")
     logger.info("-" * 80)
     check_intfs_and_nbrs(duthosts, all_cfg_facts, nbrhosts, nbr_macs)
-    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts)
+    check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo)

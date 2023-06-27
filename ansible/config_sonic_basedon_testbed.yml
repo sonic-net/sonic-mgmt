@@ -65,12 +65,27 @@
       set_fact:
         ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
 
+    - name: check if testbed is an ixia testbed
+      set_fact:
+        is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
+
     - name: set vm
       set_fact:
         vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
-  - topo_facts: topo={{ topo }} hwsku={{ hwsku }}
+  - name: find supervisor dut of testbed
+    set_fact:
+      sup_dut: "{{ item | default(None) }}"
+    when: hostvars[item]['card_type'] is defined and hostvars[item]['card_type'] == 'supervisor'
+    loop: "{{ testbed_facts['duts'] }}"
+
+  - name: Get asics_present of supervisor dut
+    set_fact:
+      asics_present: "{{ hostvars[sup_dut]['asics_present'] | default([]) }}"
+    when: sup_dut is defined and hostvars[sup_dut]['asics_present'] is defined
+
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
   - name: get connection graph if defined for dut (ignore any errors)
@@ -153,6 +168,7 @@
   - name: set default dualtor facts
     set_fact:
       dual_tor_facts: {}
+      mux_cable_facts: {}
     when: "'dualtor' not in topo"
 
   - name: gather dual ToR information
@@ -166,11 +182,26 @@
     delegate_to: localhost
     when: "'dualtor' in topo or 'cable' in topo"
 
+  - name: gather mux cable information
+    mux_cable_facts:
+      topo_name: "{{ topo }}"
+    delegate_to: localhost
+    when: "'dualtor' in topo"
+
   - name: generate y_cable simulator driver
     include_tasks: dualtor/config_simulated_y_cable.yml
     vars:
       restart_pmon: no
     when: "'dualtor' in topo"
+
+  - name: gather hwsku for LeafRouter that supports dualtor deployment
+    set_fact:
+      hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
+
+  - name: enable tunnel_qos_remap for T1 in dualtor deployment
+    set_fact:
+      enable_tunnel_qos_remap: true
+    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
 
   - name: set default vm file path
     set_fact:
@@ -230,6 +261,7 @@
   - name: find all interface asic names
     set_fact:
       vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
     with_subelements:
       - "{{ interface_to_vms }}"
       - "ports"
@@ -370,7 +402,7 @@
         pause:
           seconds: 60
     become: true
-    when: proxy_env is defined
+    when: proxy_env is defined and deploy is defined and deploy|bool == true
 
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
@@ -479,6 +511,10 @@
         become: true
         shell: systemctl start topology.service
         when: start_topo_service is defined and start_topo_service|bool == true
+        register: result
+        retries: 3
+        delay: 10
+        until: result is not failed
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
@@ -496,23 +532,150 @@
           timeout: 600
         changed_when: false
 
+      - name: Sync DUT system time with NTP server
+        block:
+          - name: Wait for ntp.service restart after reload minigraph
+            become: true
+            service: name=ntp state=started
+
+          - name: Stop ntp.service on DUT
+            become: true
+            service: name=ntp state=stopped
+
+          - name: Sync DUT system time with NTP server
+            become: true
+            command: ntpd -gq
+            ignore_errors: true
+            async: 60
+            poll: 10
+
+          - name: Start ntp.service on DUT
+            become: true
+            service: name=ntp state=restarted enabled=true
+
+      - name: config static route for trex traffic passthrough
+        become: true
+        command: "{{ item }}"
+        with_items:
+          - config route add prefix 48.0.0.0/8 nexthop 10.0.0.59
+          - config route add prefix 16.0.0.0/8 nexthop 10.0.0.57
+        when: topo == "wan-3link-tg"
+
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: Configure TACACS
+        become: true
+        shell: "{{ tacacs_config_cmd }}"
+        loop:
+          - config tacacs passkey {{ tacacs_passkey }}
+          - config tacacs authtype pap
+          - config aaa authentication login tacacs+
+        loop_control:
+          loop_var: tacacs_config_cmd
+        ignore_errors: true
+        when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
 
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
         shell: bash "/etc/sonic/apply_clet.sh"
         when: stat_result.stat.exists is defined and stat_result.stat.exists
 
+      - block:
+         - name: create isis config file for SONiC device
+           template: src=templates/isis_config.j2
+                     dest=/etc/sonic/isis_config.json
+           become: true
+
+         - name: active isis config
+           become: true
+           shell: sonic-cfggen -j /etc/sonic/isis_config.json -w
+
+         #will remove below task, after isisd issue got fixed
+         - name: restart bgp container
+           become: true
+           shell: docker restart bgp
+        when: topo == "wan-ecmp" or topo == "wan-pub-isis"
+
+      - block:
+        - name: set the default grpc credential file path
+          set_fact:
+            grpc_credential_file: /etc/sonic/grpc_secrets.json
+
+        - name: check if grpc credential file exists
+          stat:
+            path: "{{ grpc_credential_file }}"
+          register: stat_result
+
+        - block:
+          - name: collect initial grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse initial grpc credentials
+            set_fact:
+              grpc_secrets_before: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: use insecure grpc for testing
+            shell: "sed -E -i 's/\"type\": \"secure\"/\"type\": \"insecure\"/' {{ grpc_credential_file }}"
+            become: true
+
+          - name: collect current grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse current grpc credentials
+            set_fact:
+              grpc_secrets_after: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: show original grpc setting
+            debug:
+              var: grpc_secrets_before
+
+          - name: show new grpc setting
+            debug:
+              var: grpc_secrets_after
+
+          - name: restart the pmon service
+            service:
+              name: pmon
+              state: restarted
+            become: true
+
+          when: stat_result.stat.exists
+
+        when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
+
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
         shell: config save -y
         when: save is defined and save|bool == true
 
+      - name: remove running golden config file if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config.json
+              state=absent
+
+      - name: remove running golden config files for all the asics if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config{{ item }}.json
+              state=absent
+        with_sequence: start=0 end={{ num_asics - 1 }}
+        when: num_asics > 1
+
       - name: cleanup all cached facts
         shell: python ../tests/common/cache/facts_cache.py
         delegate_to: localhost
         ignore_errors: true
+
+      # In pr https://github.com/sonic-net/sonic-buildimage/pull/12109, it decrease the sshd timeout
+      # which may cause timeout when executing `generate_dump -s yesterday`.
+      # Increase this time during deploying minigraph
+      - name: Reset sshd timeout
+        become: True
+        shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
 
     when: deploy is defined and deploy|bool == true

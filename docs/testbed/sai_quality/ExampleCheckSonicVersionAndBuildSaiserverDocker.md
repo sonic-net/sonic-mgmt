@@ -15,13 +15,13 @@ In this article, you will get known how to get a saiserver docker and get a buil
 
       *ps. sonic-buildimage is a repository which used to build sonic images and docker images. SAI is a submodule in sonic-buildimage(/sonic-buildimage/tree/master/src/sonic-sairedis). The commit id in sonic-buildimage can be used to get all the submodule for its submodule, like sai.*
 
-      In your dev envrironment, install prerequirment lib, e.g. pip and jinja, re-located code to that tag and resident on a new branch, 
-      here we use repository [sonic-buildimage](https://github.com/Azure/sonic-buildimage)
-      Follow the doc at [Check SAI header version and SONiC branch](https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/sai_quality/CheckSAIHeaderVersionAndSONiCBranch.md)
+      In your dev envrironment, install prerequirment lib, e.g. pip and jinja, re-located code to that tag and resident on a new branch,
+      here we use repository [sonic-buildimage](https://github.com/sonic-net/sonic-buildimage)
+      Follow the doc at [Check SAI header version and SONiC branch](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/sai_quality/CheckSAIHeaderVersionAndSONiCBranch.md)
 
    - Get commit id from tag.
 
-      ```	
+      ```
       # git checkout tags/<tag> -b <branch>
       # Example:
       git checkout tags/20201231.39 -b richardyu/20201231-39
@@ -32,8 +32,8 @@ In this article, you will get known how to get a saiserver docker and get a buil
       ```
       #Get image name
       docker images
-      REPOSITORY                                        TAG                                  IMAGE ID            CREATED             SIZE   
-      ...   
+      REPOSITORY                                        TAG                                  IMAGE ID            CREATED             SIZE
+      ...
       docker-orchagent                                  latest                               99d39d932020        6 weeks ago         443MB
       ```
       Check image information
@@ -48,7 +48,7 @@ In this article, you will get known how to get a saiserver docker and get a buil
                 "Tag": "master.39085-bc06c6fcb",
 
       ```
-      **bc06c6fcb is the commit id in sonic-buildimage** 
+      **bc06c6fcb is the commit id in sonic-buildimage**
 
    *note: Check submodule recursively*
    ```
@@ -60,7 +60,7 @@ In this article, you will get known how to get a saiserver docker and get a buil
    ```
    *Note: Follow the resource to get how to build a binary and docker*
 
-   [GitHub - Azure/sonic-buildimage: Scripts which perform an installable binary image build for SONiC](https://github.com/Azure/sonic-buildimage)
+   [GitHub - sonic-net/sonic-buildimage: Scripts which perform an installable binary image build for SONiC](https://github.com/sonic-net/sonic-buildimage)
 
 3. Start a local build
    ```
@@ -78,7 +78,7 @@ In this article, you will get known how to get a saiserver docker and get a buil
    **You can get this build target by running command like(adjust as needed): NOSTRETCH=y NOJESSIE=y ENABLE_SYNCD_RPC=y make list**
 
 
-4. Wait for the build process 
+4. Wait for the build process
 5. In the end, you will get something like this, and prompt as below (inside docker)
    ```
    # Check if thrift installed
@@ -91,9 +91,9 @@ In this article, you will get known how to get a saiserver docker and get a buil
  - Check the docker, the builder appears with the name as sonic-slave-***, it always the recently created one
    ```
    docker ps
-   CONTAINER ID   IMAGE                                                 COMMAND                  CREATED          STATUS          
+   CONTAINER ID   IMAGE                                                 COMMAND                  CREATED          STATUS
    PORTS                                     NAMES
-   e1df2df072c4   sonic-slave-buster-richardyu:86ef76a28e6              "bash -c 'make -f sl…"   36 minutes ago   Up 36 minutes   
+   e1df2df072c4   sonic-slave-buster-richardyu:86ef76a28e6              "bash -c 'make -f sl…"   36 minutes ago   Up 36 minutes
    22/tcp                                         condescending_lovelace
    ```
  - Commit that docker as a saiserver-docker builder for other bugging or related resource building usages.

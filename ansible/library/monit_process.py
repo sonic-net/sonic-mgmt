@@ -40,7 +40,7 @@ def monit_process(module, interval, iterations):
     def _monit_processes_with_top(module, interval, iterations):
         cmd = 'top -d {interval} -n {iterations} -b -E k'.format(
             interval=interval, iterations=(iterations + 1)
-            )
+        )
         rc, stdout, _ = module.run_command(args=cmd)
 
         monit_results = []
@@ -69,7 +69,7 @@ def monit_process(module, interval, iterations):
             elif proc_section:
                 process = dict(
                     zip(proc_attrs, proc_attrs_getter(line.split()))
-                    )
+                )
                 process['cpu_percent'] = float(process['cpu_percent'])
                 process['memory_percent'] = float(process['memory_percent'])
                 process['pid'] = int(process['pid'])
@@ -83,6 +83,7 @@ def monit_process(module, interval, iterations):
             time.sleep(interval)
             processes = []
             for proc in psutil.process_iter(['pid', 'name',
+                                             'cmdline',
                                              'cpu_percent',
                                              'memory_percent',
                                              'status']):
@@ -122,7 +123,7 @@ def main():
     module.exit_json(
         monit_results=monit_process(module, interval, iterations),
         changed=False
-        )
+    )
 
 
 if __name__ == "__main__":

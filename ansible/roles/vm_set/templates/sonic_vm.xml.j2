@@ -1,7 +1,7 @@
 <domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
   <name>{{ vm_name }}</name>
-  <memory unit='KiB'>2097152</memory>
-  <currentMemory unit='KiB'>2097152</currentMemory>
+  <memory unit='GiB'>4</memory>
+  <currentMemory unit='GiB'>4</currentMemory>
   <vcpu placement='static'>2</vcpu>
   <resource>
     <partition>/machine</partition>
@@ -43,6 +43,10 @@
       <virtualport type='openvswitch'/>
     </interface>
 {% endfor %}
+    <interface type='ethernet'>
+      <model type='virtio'/>
+      <target dev='{{ backplane_tap }}'/>
+    </interface>
     <controller type='usb' index='0'/>
     <memballoon model='virtio'>
       <alias name='balloon0'/>

@@ -2,9 +2,16 @@
 # This ansible module is for gathering basic facts from DUT of specified testbed.
 #
 # Example output:
+try:
+    from ansible.module_utils.parse_utils import parse_tabular_output
+except ImportError:
+    # Add parent dir for using outside Ansible
+    import sys
+    sys.path.append('..')
+    from module_utils.parse_utils import parse_tabular_output
 
-from ansible.module_utils.basic import *
-
+from ansible.module_utils.basic import AnsibleModule
+from sonic_py_common import device_info
 
 DOCUMENTATION = '''
 ---
@@ -23,8 +30,6 @@ EXAMPLES = '''
   dut_basic_facts:
 '''
 
-from sonic_py_common import device_info
-
 
 def main():
 
@@ -37,6 +42,10 @@ def main():
         results['is_multi_asic'] = device_info.is_multi_npu()
         results['num_asic'] = device_info.get_num_npus()
         results.update(device_info.get_sonic_version_info())
+        results['kernel_version'] = results['kernel_version'].split('-')[0]
+        results['is_supervisor'] = False
+        if hasattr(device_info, 'is_supervisor'):
+            results['is_supervisor'] = device_info.is_supervisor()
 
         # In case a image does not have /etc/sonic/sonic_release, guess release from 'build_version'
         if 'release' not in results or not results['release'] or results['release'] == 'none':
@@ -50,9 +59,29 @@ def main():
                 else:
                     results['release'] = 'unknown'
 
+        # get dut feature status
+        command_list = ['show feature status', 'show features']
+        try:
+            for cmd in command_list:
+                rc, out, err = module.run_command(
+                    cmd, executable='/bin/bash', use_unsafe_shell=True)
+                if rc == 0:
+                    break
+        except Exception as e:
+            module.fail_json(msg=str(e))
+
+        result = parse_tabular_output(out.split('\n'))
+
+        results["feature_status"] = {}
+
+        for state in result:
+            results["feature_status"][state["feature"]] = state["state"]
+
         module.exit_json(ansible_facts={'dut_basic_facts': results})
     except Exception as e:
-        module.fail_json(msg='Gather DUT facts failed, exception: {}'.format(repr(e)))
+        module.fail_json(
+            msg='Gather DUT facts failed, exception: {}'.format(repr(e)))
+
 
 if __name__ == '__main__':
     main()

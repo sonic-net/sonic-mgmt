@@ -23,9 +23,10 @@ zero_profiles_to_normal_profiles = {
     }
 logger = Logger()
 
+
 def _replace_buffer_profile_lists(config_db, table):
     ingress_profile_lists = config_db.get_table(table)
-    for key, profile_list in ingress_profile_lists.items():
+    for key, profile_list in list(ingress_profile_lists.items()):
         if re.search(zero_profile_name_pattern, profile_list['profile_list']):
             zero_profiles = profile_list['profile_list'].split(',')
             normal_profiles = ''
@@ -57,7 +58,7 @@ def stop_traditional_buffer_model(config_db):
     pgs = config_db.get_table('BUFFER_PG')
     lossless_pgs = {}
     zero_pgs = []
-    for key, pg in pgs.items():
+    for key, pg in list(pgs.items()):
         if re.search(lossless_profile_name_pattern, pg['profile']):
             config_db.set_entry('BUFFER_PG', key, None)
             pg['profile'] = 'NULL'
@@ -71,12 +72,13 @@ def stop_traditional_buffer_model(config_db):
                 config_db.set_entry('BUFFER_PG', key, pg)
                 zero_pgs.append(key)
 
-    logger.log_notice("Lossless PGs have been removed from BUFFER_PG and will be applied after dynamic buffer manager starts {}".format(lossless_pgs))
+    logger.log_notice("Lossless PGs have been removed from BUFFER_PG and \
+                      will be applied after dynamic buffer manager starts {}".format(lossless_pgs))
     logger.log_notice("Zero PGs have been replaced by normal profile {}".format(zero_pgs))
 
     queues = config_db.get_table('BUFFER_QUEUE')
     zero_queues = []
-    for key, queue in queues.items():
+    for key, queue in list(queues.items()):
         if re.search(zero_profile_name_pattern, queue['profile']):
             normal_profile = zero_profiles_to_normal_profiles.get(queue['profile'])
             if normal_profile:
@@ -84,7 +86,8 @@ def stop_traditional_buffer_model(config_db):
                 config_db.set_entry('BUFFER_QUEUE', key, queue)
                 zero_queues.append(key)
 
-    logger.log_notice("Queues referencing zero profiles have been removed from BUFFER_QUEUE and will be replaced by normal profile: {}".format(zero_queues))
+    logger.log_notice("Queues referencing zero profiles have been removed from BUFFER_QUEUE and \
+                      will be replaced by normal profile: {}".format(zero_queues))
 
     _replace_buffer_profile_lists(config_db, 'BUFFER_PORT_INGRESS_PROFILE_LIST')
     _replace_buffer_profile_lists(config_db, 'BUFFER_PORT_EGRESS_PROFILE_LIST')
@@ -93,7 +96,7 @@ def stop_traditional_buffer_model(config_db):
     profiles = config_db.get_table('BUFFER_PROFILE')
     dynamic_profile = []
     zero_profile = []
-    for key, profile in profiles.items():
+    for key, profile in list(profiles.items()):
         if re.search(lossless_profile_name_pattern, key):
             config_db.set_entry('BUFFER_PROFILE', key, None)
             dynamic_profile.append(key)
@@ -101,11 +104,12 @@ def stop_traditional_buffer_model(config_db):
             config_db.set_entry('BUFFER_PROFILE', key, None)
             zero_profile.append(key)
 
-    logger.log_notice("Dynamically generated profiles and zero profiles have been removed from BUFFER_PROFILE: {} {}".format(dynamic_profile, zero_profile))
+    logger.log_notice("Dynamically generated profiles and zero profiles have been removed from BUFFER_PROFILE: {} {}"
+                      .format(dynamic_profile, zero_profile))
 
     pools = config_db.get_table('BUFFER_POOL')
     zero_pool = []
-    for key, pool in pools.items():
+    for key, pool in list(pools.items()):
         if re.search(zero_pool_name_pattern, key):
             config_db.set_entry('BUFFER_POOL', key, None)
             zero_pool.append(key)
@@ -119,7 +123,7 @@ def stop_traditional_buffer_model(config_db):
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     _, err = proc.communicate()
     if err:
-        print("Failed to stop buffermgrd {}".format(err))
+        print(("Failed to stop buffermgrd {}".format(err)))
         exit(1)
 
     logger.log_notice("Daemon buffermgrd has been stopped")
@@ -151,13 +155,13 @@ def start_dynamic_buffer_model(config_db, lossless_pgs, metadata):
     # By default, all pools except egress_lossless_pool are dynamic size pools
     dynamic_size_pools = ['ingress_lossless_pool', 'ingress_lossy_pool', 'egress_lossy_pool']
     pools = config_db.get_table('BUFFER_POOL')
-    shared_headroom_pool = False;
-    for key, pool in pools.items():
+    shared_headroom_pool = False
+    for key, pool in list(pools.items()):
         if key in dynamic_size_pools:
             config_db.set_entry('BUFFER_POOL', key, None)
-            if 'size' in pool.keys():
+            if 'size' in list(pool.keys()):
                 pool.pop('size')
-            if 'xoff' in pool.keys():
+            if 'xoff' in list(pool.keys()):
                 pool.pop('xoff')
                 shared_headroom_pool = True
             config_db.set_entry('BUFFER_POOL', key, pool)
@@ -166,9 +170,9 @@ def start_dynamic_buffer_model(config_db, lossless_pgs, metadata):
 
     # Create lossless PGs
     if lossless_pgs:
-        for key, pg in lossless_pgs.items():
+        for key, pg in list(lossless_pgs.items()):
             config_db.set_entry('BUFFER_PG', key, pg)
-        logger.log_notice("Lossless PGs have been created for {}".format(lossless_pgs.keys()))
+        logger.log_notice("Lossless PGs have been created for {}".format(list(lossless_pgs.keys())))
     else:
         # The lossless_pgs can be None if this script is called immediately after reloading minigraph
         # because the lossless PGs hasn't been inserted into CONFIG_DB by traditional buffer manager
@@ -201,7 +205,7 @@ def start_dynamic_buffer_model(config_db, lossless_pgs, metadata):
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     _, err = proc.communicate()
     if err:
-        print("Failed to start buffermgrd {}".format(err))
+        print(("Failed to start buffermgrd {}".format(err)))
         exit(1)
 
     logger.log_notice("Daemon buffermgrd has been started")

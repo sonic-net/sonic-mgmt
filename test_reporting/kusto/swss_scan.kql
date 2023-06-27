@@ -1,0 +1,26 @@
+###############################################################################
+# SwssInvocationReport TABLE SETUP                                            #
+# 1. Create a SwssInvocationReport table to store swss log                    #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table SwssInvocationReport
+(device: string, header_file: string, log: string, log_file: string, log_time: datetime, sai_feature: string,sai_api: string, sai_obj: string,sai_op: string,sai_obj_key: string,sai_obj_attr_key: string,sai_obj_attr_value: string, os_version: string,ngsdevice_type: string,deployment_type: string,deployment_subtype: string)
+
+.create table SwssInvocationReport ingestion json mapping
+'SwssInvocationReportMapping' '['
+'{"column":"device","Properties":{"path":"$.device"}},'
+'{"column":"header_file","Properties":{"path":"$.header_file"}},'
+'{"column":"log","Properties":{"path":"$.log"}},'
+'{"column":"log_file","Properties":{"path":"$.log_file"}},'
+'{"column":"log_time","Properties":{"path":"$.log_time"}},'
+'{"column":"sai_feature","Properties":{"path":"$.sai_feature"}},'
+'{"column":"sai_obj","Properties":{"path":"$.sai_obj"}},'
+'{"column":"os_version","Properties":{"path":"$.os_version"}},'
+'{"column":"sai_op","Properties":{"path":"$.sai_op"}},'
+'{"column":"sai_api","Properties":{"path":"$.sai_api"}},'
+'{"column":"sai_obj_key","Properties":{"path":"$.sai_object_key"}},'
+'{"column":"ngsdevice_type","Properties":{"path":"$.ngsdevice_type"}},'
+'{"column":"deployment_type","Properties":{"path":"$.deployment_type"}},'
+'{"column":"deployment_subtype","Properties":{"path":"$.deployment_subtype"}},'
+'{"column":"sai_obj_attr_key","Properties":{"path":"$.sai_obj_attr_key"}},'
+'{"column":"sai_obj_attr_value","Properties":{"path":"$.sai_obj_attr_value"}}]'

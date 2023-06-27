@@ -39,7 +39,7 @@ def test_fun(duthosts, rand_one_dut_hostname):
     - Default: `False`
 
 ## Expected Output
-Will return a dictionary describing either status or counters depending on argument provided. 
+Will return a dictionary describing either status or counters depending on argument provided.
 
 ### status
 

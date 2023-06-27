@@ -1,5 +1,17 @@
 #!/usr/bin/python
 
+from ansible.module_utils.basic import AnsibleModule
+from functools import cmp_to_key
+import datetime
+import traceback
+import logging.handlers
+import logging
+import hashlib
+import sys
+import re
+import gzip
+import os
+import locale
 DOCUMENTATION = '''
 module:  extract_log
 version_added:  "1.0"
@@ -73,20 +85,9 @@ EXAMPLES = '''
     flat: yes
 '''
 
-import os
-import gzip
-import re
-import sys
-import hashlib
-import logging
-import logging.handlers
-import traceback
-from datetime import datetime
-from functools import cmp_to_key
-from ansible.module_utils.basic import *
-
 
 logger = logging.getLogger('ExtractLog')
+
 
 def extract_lines(directory, filename, target_string):
     path = os.path.join(directory, filename)
@@ -103,7 +104,8 @@ def extract_lines(directory, filename, target_string):
         # Prehandle lines to remove these sub-strings
         dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
         sz = os.path.getsize(path)
-        result = [(filename, dt, line.replace('\x00', ''), sz) for line in file if target_string in line and 'extract_log' not in line]
+        result = [(filename, dt, line.replace('\x00', ''), sz)
+                  for line in file if target_string in line and 'extract_log' not in line]
 
     return result
 
@@ -135,22 +137,31 @@ def convert_date(fct, s):
         # but we still perform some wrap around test to avoid the race condition
         # 183 is the number of days in half year, just a reasonable choice
         if (dt - fct).days > 183:
-            dt.replace(year = dt.year - 1)
+            dt.replace(year=dt.year - 1)
     else:
-        re_result = re.findall(r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
-        str_date = re_result[0]
-        dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
+        re_result = re.findall(
+            r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}', s)
+        if len(re_result) > 0:
+            str_date = re_result[0]
+            str_date = str_date.replace("T", " ")
+            dt = datetime.datetime.strptime(str_date, '%Y-%m-%d %X.%f')
+        else:
+            re_result = re.findall(
+                r'^\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d{6}', s)
+            if len(re_result) > 0:
+                str_date = re_result[0]
+                dt = datetime.datetime.strptime(str_date, '%Y-%m-%d.%X.%f')
     locale.setlocale(locale.LC_ALL, loc)
 
     return dt
 
 
-def comparator(l, r):
-    nl = extract_number(l[0])
-    nr = extract_number(r[0])
+def comparator(left, right):
+    nl = extract_number(left[0])
+    nr = extract_number(right[0])
     if nl == nr:
-        dl = convert_date(l[1], l[2])
-        dr = convert_date(r[1], r[2])
+        dl = convert_date(left[1], left[2])
+        dr = convert_date(right[1], right[2])
         if dl == dr:
             return 0
         elif dl < dr:
@@ -163,14 +174,14 @@ def comparator(l, r):
         return 1
 
 
-def filename_comparator(l, r):
+def filename_comparator(left, right):
     """Compares log filenames, assumes file with greater number is
     older, e.g syslog.2 is older than syslog.1. This is how logrotate is currently configured.
     Returns 0 if log files l and r are the same,
     1 if log file l is older then r and -1 if l is newer then r"""
 
-    nl = extract_number(l)
-    nr = extract_number(r)
+    nl = extract_number(left)
+    nr = extract_number(right)
     if nl == nr:
         return 0
     elif nl > nr:
@@ -186,10 +197,10 @@ def list_files(directory, prefixname):
 
     if sys.version_info < (3, 0):
         return sorted([filename for filename in os.listdir(directory)
-            if filename.startswith(prefixname)], cmp=filename_comparator)
+                       if filename.startswith(prefixname)], cmp=filename_comparator)
     else:
         return sorted([filename for filename in os.listdir(directory)
-            if filename.startswith(prefixname)], key=cmp_to_key(filename_comparator))
+                       if filename.startswith(prefixname)], key=cmp_to_key(filename_comparator))
 
 
 def extract_latest_line_with_string(directory, filenames, start_string):
@@ -212,7 +223,8 @@ def extract_latest_line_with_string(directory, filenames, start_string):
             target = line
 
     if target is None:
-        raise Exception("{} was not found in {}".format(start_string, directory))
+        raise Exception("{} was not found in {}".format(
+            start_string, directory))
 
     return target
 
@@ -231,7 +243,8 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
             path = os.path.join(directory, filename)
             dt = datetime.datetime.fromtimestamp(os.path.getctime(path))
             sz = os.path.getsize(path)
-            logger.debug("extract_log combine_logs from file {} create time {}, size {}".format(path, dt, sz))
+            logger.debug(
+                "extract_log combine_logs from file {} create time {}, size {}".format(path, dt, sz))
             file = None
             if 'gz' in path:
                 file = gzip.open(path, mode='rt')
@@ -241,7 +254,7 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
             with file:
                 for line in file:
                     line_processed += 1
-                    if do_copy == False:
+                    if do_copy is False:
                         if line == start_string or target_string in line:
                             do_copy = True
                             fp.write(line)
@@ -250,20 +263,25 @@ def combine_logs_and_save(directory, filenames, start_string, target_string, tar
                         fp.write(line)
                         line_copied += 1
 
-            logger.debug("extract_log combine_logs from file {}, {} lines processed, {} lines copied".format(path, line_processed, line_copied))
+            logger.debug("extract_log combine_logs from file {}, {} lines processed, {} lines copied".format(
+                path, line_processed, line_copied))
 
 
 def extract_log(directory, prefixname, target_string, target_filename):
-    logger.debug("extract_log for start string {}".format(target_string.replace("start-", "")))
+    logger.debug("extract_log for start string {}".format(
+        target_string.replace("start-", "")))
     filenames = list_files(directory, prefixname)
     logger.debug("extract_log from files {}".format(filenames))
-    file_with_latest_line, file_create_time, latest_line, file_size = extract_latest_line_with_string(directory, filenames, target_string)
+    file_with_latest_line, file_create_time, latest_line, file_size = extract_latest_line_with_string(
+        directory, filenames, target_string)
     m = hashlib.md5()
     m.update(latest_line.encode('utf-8'))
-    logger.debug("extract_log start file {} size {}, ctime {}, latest line md5sum {}".format(file_with_latest_line, file_size, file_create_time, m.hexdigest()))
+    logger.debug("extract_log start file {} size {}, ctime {}, latest line md5sum {}".format(
+        file_with_latest_line, file_size, file_create_time, m.hexdigest()))
     files_to_copy = calculate_files_to_copy(filenames, file_with_latest_line)
     logger.debug("extract_log subsequent files {}".format(files_to_copy))
-    combine_logs_and_save(directory, files_to_copy, latest_line, target_string, target_filename)
+    combine_logs_and_save(directory, files_to_copy,
+                          latest_line, target_string, target_filename)
     filenames = list_files(directory, prefixname)
     logger.debug("extract_log check logs files {}".format(filenames))
 
@@ -282,11 +300,12 @@ def main():
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
-    p = module.params;
+    p = module.params
 
     try:
-        extract_log(p['directory'], p['file_prefix'], p['start_string'], p['target_filename'])
-    except:
+        extract_log(p['directory'], p['file_prefix'],
+                    p['start_string'], p['target_filename'])
+    except Exception:
         tb = traceback.format_exc()
         module.fail_json(msg=tb)
     module.exit_json()

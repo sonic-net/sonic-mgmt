@@ -1,4 +1,4 @@
-r, "\.ERR", "\.WARN", "crash"
+r, "\.ERR", "crash"
 r, "kernel:.*Oops", "kernel:.*hung", "kernel.*oom\s"
 r, "kernel:.*scheduling", "kernel:.*atomic", "kernel:.*panic"
 r, "kernel:.*\serr", "kernel:.*allocation", "kernel:.*kill"

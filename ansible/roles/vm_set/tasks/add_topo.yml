@@ -86,6 +86,7 @@
             ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
             ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
             ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+            ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
             mgmt_bridge: "{{ mgmt_bridge }}"
             vm_names: ""
           become: yes
@@ -138,6 +139,7 @@
         ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
         ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
         ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+        ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
         ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
         ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
         mgmt_bridge: "{{ mgmt_bridge }}"
@@ -164,8 +166,8 @@
       capabilities:
         - net_admin
       privileged: yes
-      memory: 8G
-      memory_swap: 8G
+      memory: 16G
+      memory_swap: 32G
     become: yes
 
   - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
@@ -208,6 +210,7 @@
       ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
       ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
       ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+      ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
       ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
       ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
       mgmt_bridge: "{{ mgmt_bridge }}"
@@ -216,6 +219,7 @@
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
+      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces
@@ -247,6 +251,12 @@
     vars:
       mux_simulator_action: start
     when: "'dualtor' in topo"
+
+  - name: Start nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: start
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
   when: container_type == "PTF"
 

@@ -16,6 +16,9 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from collections import defaultdict
+from ansible.module_utils.basic import AnsibleModule
+import six
 DOCUMENTATION = '''
 ---
 module: snmp_facts
@@ -95,139 +98,159 @@ EXAMPLES = '''
     privkey=def6789
 '''
 
-from ansible.module_utils.basic import *
-from collections import defaultdict
 
 try:
     from pysnmp.proto import rfc1902
     from pysnmp.entity.rfc3413.oneliner import cmdgen
     from pyasn1.type import univ
     has_pysnmp = True
-except:
+except Exception:
     has_pysnmp = False
+
 
 class DefineOid(object):
 
-    def __init__(self,dotprefix=False):
+    def __init__(self, dotprefix=False):
         if dotprefix:
             dp = "."
         else:
             dp = ""
 
         # From SNMPv2-MIB
-        self.sysDescr    = dp + "1.3.6.1.2.1.1.1.0"
+        self.sysDescr = dp + "1.3.6.1.2.1.1.1.0"
         self.sysObjectId = dp + "1.3.6.1.2.1.1.2.0"
-        self.sysUpTime   = dp + "1.3.6.1.2.1.1.3.0"
-        self.sysContact  = dp + "1.3.6.1.2.1.1.4.0"
-        self.sysName     = dp + "1.3.6.1.2.1.1.5.0"
+        self.sysUpTime = dp + "1.3.6.1.2.1.1.3.0"
+        self.sysContact = dp + "1.3.6.1.2.1.1.4.0"
+        self.sysName = dp + "1.3.6.1.2.1.1.5.0"
         self.sysLocation = dp + "1.3.6.1.2.1.1.6.0"
 
         # From IF-MIB
-        self.ifIndex       = dp + "1.3.6.1.2.1.2.2.1.1"
-        self.ifDescr       = dp + "1.3.6.1.2.1.2.2.1.2"
-        self.ifType        = dp + "1.3.6.1.2.1.2.2.1.3"
-        self.ifMtu         = dp + "1.3.6.1.2.1.2.2.1.4"
-        self.ifSpeed       = dp + "1.3.6.1.2.1.2.2.1.5"
+        self.ifIndex = dp + "1.3.6.1.2.1.2.2.1.1"
+        self.ifDescr = dp + "1.3.6.1.2.1.2.2.1.2"
+        self.ifType = dp + "1.3.6.1.2.1.2.2.1.3"
+        self.ifMtu = dp + "1.3.6.1.2.1.2.2.1.4"
+        self.ifSpeed = dp + "1.3.6.1.2.1.2.2.1.5"
         self.ifPhysAddress = dp + "1.3.6.1.2.1.2.2.1.6"
         self.ifAdminStatus = dp + "1.3.6.1.2.1.2.2.1.7"
-        self.ifOperStatus  = dp + "1.3.6.1.2.1.2.2.1.8"
-        self.ifHighSpeed   = dp + "1.3.6.1.2.1.31.1.1.1.15"
-        self.ifAlias       = dp + "1.3.6.1.2.1.31.1.1.1.18"
+        self.ifOperStatus = dp + "1.3.6.1.2.1.2.2.1.8"
+        self.ifHighSpeed = dp + "1.3.6.1.2.1.31.1.1.1.15"
+        self.ifAlias = dp + "1.3.6.1.2.1.31.1.1.1.18"
 
-        self.ifInDiscards  = dp + "1.3.6.1.2.1.2.2.1.13"
+        self.ifInDiscards = dp + "1.3.6.1.2.1.2.2.1.13"
         self.ifOutDiscards = dp + "1.3.6.1.2.1.2.2.1.19"
-        self.ifInErrors    = dp + "1.3.6.1.2.1.2.2.1.14"
-        self.ifOutErrors   = dp + "1.3.6.1.2.1.2.2.1.20"
-        self.ifHCInOctets  = dp + "1.3.6.1.2.1.31.1.1.1.6"
+        self.ifInErrors = dp + "1.3.6.1.2.1.2.2.1.14"
+        self.ifOutErrors = dp + "1.3.6.1.2.1.2.2.1.20"
+        self.ifHCInOctets = dp + "1.3.6.1.2.1.31.1.1.1.6"
         self.ifHCOutOctets = dp + "1.3.6.1.2.1.31.1.1.1.10"
         self.ifInUcastPkts = dp + "1.3.6.1.2.1.2.2.1.11"
-        self.ifOutUcastPkts= dp + "1.3.6.1.2.1.2.2.1.17"
+        self.ifOutUcastPkts = dp + "1.3.6.1.2.1.2.2.1.17"
 
         # From entity table MIB
-        self.entPhysDescr       = dp + "1.3.6.1.2.1.47.1.1.1.1.2"
+        self.entPhysDescr = dp + "1.3.6.1.2.1.47.1.1.1.1.2"
         self.entPhysContainedIn = dp + "1.3.6.1.2.1.47.1.1.1.1.4"
-        self.entPhysClass       = dp + "1.3.6.1.2.1.47.1.1.1.1.5"
+        self.entPhysClass = dp + "1.3.6.1.2.1.47.1.1.1.1.5"
         self.entPhyParentRelPos = dp + "1.3.6.1.2.1.47.1.1.1.1.6"
-        self.entPhysName        = dp + "1.3.6.1.2.1.47.1.1.1.1.7"
-        self.entPhysHwVer       = dp + "1.3.6.1.2.1.47.1.1.1.1.8"
-        self.entPhysFwVer       = dp + "1.3.6.1.2.1.47.1.1.1.1.9"
-        self.entPhysSwVer       = dp + "1.3.6.1.2.1.47.1.1.1.1.10"
-        self.entPhysSerialNum   = dp + "1.3.6.1.2.1.47.1.1.1.1.11"
-        self.entPhysMfgName     = dp + "1.3.6.1.2.1.47.1.1.1.1.12"
-        self.entPhysModelName   = dp + "1.3.6.1.2.1.47.1.1.1.1.13"
-        self.entPhysIsFRU       = dp + "1.3.6.1.2.1.47.1.1.1.1.16"
+        self.entPhysName = dp + "1.3.6.1.2.1.47.1.1.1.1.7"
+        self.entPhysHwVer = dp + "1.3.6.1.2.1.47.1.1.1.1.8"
+        self.entPhysFwVer = dp + "1.3.6.1.2.1.47.1.1.1.1.9"
+        self.entPhysSwVer = dp + "1.3.6.1.2.1.47.1.1.1.1.10"
+        self.entPhysSerialNum = dp + "1.3.6.1.2.1.47.1.1.1.1.11"
+        self.entPhysMfgName = dp + "1.3.6.1.2.1.47.1.1.1.1.12"
+        self.entPhysModelName = dp + "1.3.6.1.2.1.47.1.1.1.1.13"
+        self.entPhysIsFRU = dp + "1.3.6.1.2.1.47.1.1.1.1.16"
 
         # From entity sensor MIB
-        self.entPhySensorType           = dp + "1.3.6.1.2.1.99.1.1.1.1"
-        self.entPhySensorScale          = dp + "1.3.6.1.2.1.99.1.1.1.2"
-        self.entPhySensorPrecision      = dp + "1.3.6.1.2.1.99.1.1.1.3"
-        self.entPhySensorValue          = dp + "1.3.6.1.2.1.99.1.1.1.4"
-        self.entPhySensorOperStatus     = dp + "1.3.6.1.2.1.99.1.1.1.5"
+        self.entPhySensorType = dp + "1.3.6.1.2.1.99.1.1.1.1"
+        self.entPhySensorScale = dp + "1.3.6.1.2.1.99.1.1.1.2"
+        self.entPhySensorPrecision = dp + "1.3.6.1.2.1.99.1.1.1.3"
+        self.entPhySensorValue = dp + "1.3.6.1.2.1.99.1.1.1.4"
+        self.entPhySensorOperStatus = dp + "1.3.6.1.2.1.99.1.1.1.5"
 
         # From IP-MIB
-        self.ipAdEntAddr    = dp + "1.3.6.1.2.1.4.20.1.1"
+        self.ipAdEntAddr = dp + "1.3.6.1.2.1.4.20.1.1"
         self.ipAdEntIfIndex = dp + "1.3.6.1.2.1.4.20.1.2"
         self.ipAdEntNetMask = dp + "1.3.6.1.2.1.4.20.1.3"
 
         # From LLDP-MIB: lldpLocalSystemData
-        self.lldpLocChassisIdSubtype    = dp + "1.0.8802.1.1.2.1.3.1"
-        self.lldpLocChassisId           = dp + "1.0.8802.1.1.2.1.3.2"
-        self.lldpLocSysName             = dp + "1.0.8802.1.1.2.1.3.3"
-        self.lldpLocSysDesc             = dp + "1.0.8802.1.1.2.1.3.4"
+        self.lldpLocChassisIdSubtype = dp + "1.0.8802.1.1.2.1.3.1"
+        self.lldpLocChassisId = dp + "1.0.8802.1.1.2.1.3.2"
+        self.lldpLocSysName = dp + "1.0.8802.1.1.2.1.3.3"
+        self.lldpLocSysDesc = dp + "1.0.8802.1.1.2.1.3.4"
 
         # From LLDP-MIB: lldpLocPortTable
-        self.lldpLocPortIdSubtype       = dp + "1.0.8802.1.1.2.1.3.7.1.2" # + .ifindex
-        self.lldpLocPortId              = dp + "1.0.8802.1.1.2.1.3.7.1.3" # + .ifindex
-        self.lldpLocPortDesc            = dp + "1.0.8802.1.1.2.1.3.7.1.4" # + .ifindex
+        self.lldpLocPortIdSubtype = dp + "1.0.8802.1.1.2.1.3.7.1.2"  # + .ifindex
+        self.lldpLocPortId = dp + "1.0.8802.1.1.2.1.3.7.1.3"  # + .ifindex
+        self.lldpLocPortDesc = dp + "1.0.8802.1.1.2.1.3.7.1.4"  # + .ifindex
 
         # From LLDP-MIB: lldpLocManAddrTables
-        self.lldpLocManAddrLen          = dp + "1.0.8802.1.1.2.1.3.8.1.3" # + .subtype + .man addr
-        self.lldpLocManAddrIfSubtype    = dp + "1.0.8802.1.1.2.1.3.8.1.4" # + .subtype + .man addr
-        self.lldpLocManAddrIfId         = dp + "1.0.8802.1.1.2.1.3.8.1.5" # + .subtype + .man addr
-        self.lldpLocManAddrOID          = dp + "1.0.8802.1.1.2.1.3.8.1.6" # + .subtype + .man addr
+        self.lldpLocManAddrLen = dp + "1.0.8802.1.1.2.1.3.8.1.3"  # + .subtype + .man addr
+        self.lldpLocManAddrIfSubtype = dp + \
+            "1.0.8802.1.1.2.1.3.8.1.4"  # + .subtype + .man addr
+        self.lldpLocManAddrIfId = dp + "1.0.8802.1.1.2.1.3.8.1.5"  # + .subtype + .man addr
+        self.lldpLocManAddrOID = dp + "1.0.8802.1.1.2.1.3.8.1.6"  # + .subtype + .man addr
 
         # From LLDP-MIB: lldpRemTable
-        self.lldpRemChassisIdSubtype    = dp + "1.0.8802.1.1.2.1.4.1.1.4" # + .time mark + .ifindex + .rem index
-        self.lldpRemChassisId           = dp + "1.0.8802.1.1.2.1.4.1.1.5" # + .time mark + .ifindex + .rem index
-        self.lldpRemPortIdSubtype       = dp + "1.0.8802.1.1.2.1.4.1.1.6" # + .time mark + .ifindex + .rem index
-        self.lldpRemPortId              = dp + "1.0.8802.1.1.2.1.4.1.1.7" # + .time mark + .ifindex + .rem index
-        self.lldpRemPortDesc            = dp + "1.0.8802.1.1.2.1.4.1.1.8" # + .time mark + .ifindex + .rem index
-        self.lldpRemSysName             = dp + "1.0.8802.1.1.2.1.4.1.1.9" # + .time mark + .ifindex + .rem index
-        self.lldpRemSysDesc             = dp + "1.0.8802.1.1.2.1.4.1.1.10" # + .time mark + .ifindex + .rem index
-        self.lldpRemSysCapSupported     = dp + "1.0.8802.1.1.2.1.4.1.1.11" # + .time mark + .ifindex + .rem index
-        self.lldpRemSysCapEnabled       = dp + "1.0.8802.1.1.2.1.4.1.1.12" # + .time mark + .ifindex + .rem index
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemChassisIdSubtype = dp + "1.0.8802.1.1.2.1.4.1.1.4"
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemChassisId = dp + "1.0.8802.1.1.2.1.4.1.1.5"
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemPortIdSubtype = dp + "1.0.8802.1.1.2.1.4.1.1.6"
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemPortId = dp + "1.0.8802.1.1.2.1.4.1.1.7"
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemPortDesc = dp + "1.0.8802.1.1.2.1.4.1.1.8"
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemSysName = dp + "1.0.8802.1.1.2.1.4.1.1.9"
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemSysDesc = dp + "1.0.8802.1.1.2.1.4.1.1.10"
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemSysCapSupported = dp + "1.0.8802.1.1.2.1.4.1.1.11"
+        # + .time mark + .ifindex + .rem index
+        self.lldpRemSysCapEnabled = dp + "1.0.8802.1.1.2.1.4.1.1.12"
 
         # From LLDP-MIB: lldpRemManAddrTable
-        self.lldpRemManAddrIfSubtype    = dp + "1.0.8802.1.1.2.1.4.2.1.3" # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
-        self.lldpRemManAddrIfId         = dp + "1.0.8802.1.1.2.1.4.2.1.4" # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
-        self.lldpRemManAddrOID          = dp + "1.0.8802.1.1.2.1.4.2.1.5" # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        self.lldpRemManAddrIfSubtype = dp + "1.0.8802.1.1.2.1.4.2.1.3"
+        # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        self.lldpRemManAddrIfId = dp + "1.0.8802.1.1.2.1.4.2.1.4"
+        # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        self.lldpRemManAddrOID = dp + "1.0.8802.1.1.2.1.4.2.1.5"
 
         # From Dell Private MIB
         self.ChStackUnitCpuUtil5sec = dp + "1.3.6.1.4.1.6027.3.10.1.2.9.1.2.1"
 
         # Memory Check
-        self.sysTotalMemery         = dp + "1.3.6.1.4.1.2021.4.5.0"
-        self.sysTotalFreeMemery     = dp + "1.3.6.1.4.1.2021.4.6.0"
-        self.sysTotalSharedMemory   = dp + "1.3.6.1.4.1.2021.4.13.0"
-        self.sysTotalBuffMemory     = dp + "1.3.6.1.4.1.2021.4.14.0"
-        self.sysCachedMemory        = dp + "1.3.6.1.4.1.2021.4.15.0"
+        self.sysTotalMemory = dp + "1.3.6.1.4.1.2021.4.5.0"
+        self.sysTotalFreeMemory = dp + "1.3.6.1.4.1.2021.4.6.0"
+        self.sysTotalSharedMemory = dp + "1.3.6.1.4.1.2021.4.13.0"
+        self.sysTotalBuffMemory = dp + "1.3.6.1.4.1.2021.4.14.0"
+        self.sysCachedMemory = dp + "1.3.6.1.4.1.2021.4.15.0"
+
+        # Swap Info
+        self.sysTotalSwap = dp + "1.3.6.1.4.1.2021.4.3.0"
+        self.sysTotalFreeSwap = dp + "1.3.6.1.4.1.2021.4.4.0"
 
         # From Cisco private MIB (PFC and queue counters)
-        self.cpfcIfRequests         = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1" # + .ifindex
-        self.cpfcIfIndications      = dp + "1.3.6.1.4.1.9.9.813.1.1.1.2" # + .ifindex
-        self.requestsPerPriority    = dp + "1.3.6.1.4.1.9.9.813.1.2.1.2" # + .ifindex.prio
-        self.indicationsPerPriority = dp + "1.3.6.1.4.1.9.9.813.1.2.1.3" # + .ifindex.prio
-        self.csqIfQosGroupStats     = dp + "1.3.6.1.4.1.9.9.580.1.5.5.1.4" # + .ifindex.IfDirection.QueueID
+        self.cpfcIfRequests = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1"  # + .ifindex
+        self.cpfcIfIndications = dp + "1.3.6.1.4.1.9.9.813.1.1.1.2"  # + .ifindex
+        self.requestsPerPriority = dp + "1.3.6.1.4.1.9.9.813.1.2.1.2"  # + .ifindex.prio
+        self.indicationsPerPriority = dp + "1.3.6.1.4.1.9.9.813.1.2.1.3"  # + .ifindex.prio
+        # + .ifindex.IfDirection.QueueID
+        self.csqIfQosGroupStats = dp + "1.3.6.1.4.1.9.9.580.1.5.5.1.4"
 
         # From Cisco private MIB (PSU)
-        self.cefcFRUPowerOperStatus = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1.2" # + .psuindex
+        self.cefcFRUPowerOperStatus = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1.2"  # + .psuindex
 
         # ipCidrRouteTable MIB
-        self.ipCidrRouteEntry = dp + "1.3.6.1.2.1.4.24.4.1.1.0.0.0.0.0.0.0.0.0" # + .next hop IP
-        self.ipCidrRouteStatus = dp + "1.3.6.1.2.1.4.24.4.1.16.0.0.0.0.0.0.0.0.0" # + .next hop IP
+        self.ipCidrRouteEntry = dp + \
+            "1.3.6.1.2.1.4.24.4.1.1.0.0.0.0.0.0.0.0.0"  # + .next hop IP
+        self.ipCidrRouteStatus = dp + \
+            "1.3.6.1.2.1.4.24.4.1.16.0.0.0.0.0.0.0.0.0"  # + .next hop IP
 
         # Dot1q MIB
-        self.dot1qTpFdbEntry = dp + "1.3.6.1.2.1.17.7.1.2.2.1.2" # + .VLAN.MAC
+        self.dot1qTpFdbEntry = dp + "1.3.6.1.2.1.17.7.1.2.2.1.2"  # + .VLAN.MAC
+
 
 def decode_hex(hexstring):
 
@@ -238,6 +261,7 @@ def decode_hex(hexstring):
     else:
         return hexstring
 
+
 def decode_mac(hexstring):
 
     if len(hexstring) != 14:
@@ -247,52 +271,70 @@ def decode_mac(hexstring):
     else:
         return hexstring
 
+
 def lookup_adminstatus(int_adminstatus):
     adminstatus_options = {
-                            1: 'up',
-                            2: 'down',
-                            3: 'testing'
-                          }
+        1: 'up',
+        2: 'down',
+        3: 'testing'
+    }
     if int_adminstatus in adminstatus_options.keys():
         return adminstatus_options[int_adminstatus]
     else:
         return ""
 
+
 def lookup_operstatus(int_operstatus):
     operstatus_options = {
-                           1: 'up',
-                           2: 'down',
-                           3: 'testing',
-                           4: 'unknown',
-                           5: 'dormant',
-                           6: 'notPresent',
-                           7: 'lowerLayerDown'
-                         }
+        1: 'up',
+        2: 'down',
+        3: 'testing',
+        4: 'unknown',
+        5: 'dormant',
+        6: 'notPresent',
+        7: 'lowerLayerDown'
+    }
     if int_operstatus in operstatus_options.keys():
         return operstatus_options[int_operstatus]
     else:
         return ""
 
+
 def decode_type(module, current_oid, val):
-    tagMap = {
-         rfc1902.Counter32.tagSet: long,
-         rfc1902.Gauge32.tagSet: long,
-         rfc1902.Integer32.tagSet: long,
-         rfc1902.IpAddress.tagSet: str,
-         univ.Null.tagSet: str,
-         univ.ObjectIdentifier.tagSet: str,
-         rfc1902.OctetString.tagSet: str,
-         rfc1902.TimeTicks.tagSet: long,
-         rfc1902.Counter64.tagSet: long
-         }
+    if six.PY3:
+        tagMap = {
+            rfc1902.Counter32.tagSet: int,
+            rfc1902.Gauge32.tagSet: int,
+            rfc1902.Integer32.tagSet: int,
+            rfc1902.IpAddress.tagSet: str,
+            univ.Null.tagSet: str,
+            univ.ObjectIdentifier.tagSet: str,
+            rfc1902.OctetString.tagSet: str,
+            rfc1902.TimeTicks.tagSet: int,
+            rfc1902.Counter64.tagSet: int
+        }
+    else:
+        tagMap = {
+            rfc1902.Counter32.tagSet: long,     # noqa F821
+            rfc1902.Gauge32.tagSet: long,       # noqa F821
+            rfc1902.Integer32.tagSet: long,     # noqa F821
+            rfc1902.IpAddress.tagSet: str,
+            univ.Null.tagSet: str,
+            univ.ObjectIdentifier.tagSet: str,
+            rfc1902.OctetString.tagSet: str,
+            rfc1902.TimeTicks.tagSet: long,     # noqa F821
+            rfc1902.Counter64.tagSet: long      # noqa F821
+        }
 
     if val is None or not val:
-        module.fail_json(msg="Unable to convert ASN1 type to python type. No value was returned for OID %s" % current_oid)
+        module.fail_json(
+            msg="Unable to convert ASN1 type to python type. No value was returned for OID %s" % current_oid)
 
     try:
         pyVal = tagMap[val.tagSet](val)
-    except KeyError as e:
-        module.fail_json(msg="KeyError: Unable to convert ASN1 type to python type. Value: %s" % val)
+    except KeyError:
+        module.fail_json(
+            msg="KeyError: Unable to convert ASN1 type to python type. Value: %s" % val)
 
     return pyVal
 
@@ -312,8 +354,10 @@ def main():
             privkey=dict(required=False),
             is_dell=dict(required=False, default=False, type='bool'),
             is_eos=dict(required=False, default=False, type='bool'),
+            include_swap=dict(required=False, default=False, type='bool'),
             removeplaceholder=dict(required=False)),
-            required_together = ( ['username','level','integrity','authkey'],['privacy','privkey'],),
+        required_together=(['username', 'level', 'integrity', 'authkey'], [
+                           'privacy', 'privkey'],),
         supports_check_mode=False)
 
     m_args = module.params
@@ -325,16 +369,16 @@ def main():
 
     # Verify that we receive a community when using snmp v2
     if m_args['version'] == "v2" or m_args['version'] == "v2c":
-        if m_args['community'] == False:
+        if m_args['community'] is False:
             module.fail_json(msg='Community not set when using snmp version 2')
 
     if m_args['version'] == "v3":
-        if m_args['username'] == None:
+        if m_args['username'] is None:
             module.fail_json(msg='Username not set when using snmp version 3')
 
-        if m_args['level'] == "authPriv" and m_args['privacy'] == None:
-            module.fail_json(msg='Privacy algorithm not set when using authPriv')
-
+        if m_args['level'] == "authPriv" and m_args['privacy'] is None:
+            module.fail_json(
+                msg='Privacy algorithm not set when using authPriv')
 
         if m_args['integrity'] == "sha":
             integrity_proto = cmdgen.usmHMACSHAAuthProtocol
@@ -352,18 +396,21 @@ def main():
 
     # Use SNMP Version 3 with authNoPriv
     elif m_args['level'] == "authNoPriv":
-        snmp_auth = cmdgen.UsmUserData(m_args['username'], authKey=m_args['authkey'], authProtocol=integrity_proto)
+        snmp_auth = cmdgen.UsmUserData(
+            m_args['username'], authKey=m_args['authkey'], authProtocol=integrity_proto)
 
     # Use SNMP Version 3 with authPriv
     else:
-        snmp_auth = cmdgen.UsmUserData(m_args['username'], authKey=m_args['authkey'], privKey=m_args['privkey'], authProtocol=integrity_proto, privProtocol=privacy_proto)
+        snmp_auth = cmdgen.UsmUserData(m_args['username'], authKey=m_args['authkey'],
+                                       privKey=m_args['privkey'], authProtocol=integrity_proto,
+                                       privProtocol=privacy_proto)
 
     # Use p to prefix OIDs with a dot for polling
     p = DefineOid(dotprefix=True)
     # Use v without a prefix to use with return values
     v = DefineOid(dotprefix=False)
 
-    Tree = lambda: defaultdict(Tree)
+    def Tree(): return defaultdict(Tree)
 
     results = Tree()
 
@@ -371,12 +418,15 @@ def main():
     # (e.g. S6000) when cpu utilization is high, increse timeout to tolerate the delay.
     errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
         snmp_auth,
-        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
+        cmdgen.UdpTransportTarget(
+            (m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.MibVariable(p.sysDescr,),
+        lookupMib=False,
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying system description.')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying system description.')
 
     for oid, val in varBinds:
         current_oid = oid.prettyPrint()
@@ -396,7 +446,8 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying system infomation.')
 
     for oid, val in varBinds:
         current_oid = oid.prettyPrint()
@@ -432,7 +483,8 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying interface details')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying interface details')
 
     interface_indexes = []
 
@@ -461,13 +513,16 @@ def main():
                 results['snmp_interfaces'][ifIndex]['speed'] = current_val
             if v.ifPhysAddress in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['mac'] = decode_mac(current_val)
+                results['snmp_interfaces'][ifIndex]['mac'] = decode_mac(
+                    current_val)
             if v.ifAdminStatus in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['adminstatus'] = lookup_adminstatus(int(current_val))
+                results['snmp_interfaces'][ifIndex]['adminstatus'] = lookup_adminstatus(
+                    int(current_val))
             if v.ifOperStatus in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_interfaces'][ifIndex]['operstatus'] = lookup_operstatus(int(current_val))
+                results['snmp_interfaces'][ifIndex]['operstatus'] = lookup_operstatus(
+                    int(current_val))
             if v.ifHighSpeed in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['ifHighSpeed'] = current_val
@@ -503,7 +558,8 @@ def main():
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying interface counters')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying interface counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -549,6 +605,7 @@ def main():
         cmdgen.MibVariable(p.entPhysMfgName,),
         cmdgen.MibVariable(p.entPhysModelName,),
         cmdgen.MibVariable(p.entPhysIsFRU, ),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -563,13 +620,16 @@ def main():
                 results['snmp_physical_entities'][entity_oid]['entPhysDescr'] = current_val
             if v.entPhysContainedIn in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysContainedIn'] = int(current_val)
+                results['snmp_physical_entities'][entity_oid]['entPhysContainedIn'] = int(
+                    current_val)
             if v.entPhysClass in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysClass'] = int(current_val)
+                results['snmp_physical_entities'][entity_oid]['entPhysClass'] = int(
+                    current_val)
             if v.entPhyParentRelPos in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhyParentRelPos'] = int(current_val)
+                results['snmp_physical_entities'][entity_oid]['entPhyParentRelPos'] = int(
+                    current_val)
             if v.entPhysName in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_physical_entities'][entity_oid]['entPhysName'] = current_val
@@ -593,8 +653,8 @@ def main():
                 results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val
             if v.entPhysIsFRU in current_oid:
                 entity_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_physical_entities'][entity_oid]['entPhysIsFRU'] = int(current_val)
-
+                results['snmp_physical_entities'][entity_oid]['entPhysIsFRU'] = int(
+                    current_val)
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
@@ -604,6 +664,7 @@ def main():
         cmdgen.MibVariable(p.entPhySensorPrecision,),
         cmdgen.MibVariable(p.entPhySensorValue,),
         cmdgen.MibVariable(p.entPhySensorOperStatus,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -618,7 +679,8 @@ def main():
                 results['snmp_sensors'][sensor_oid]['entPhySensorType'] = current_val
             if v.entPhySensorScale in current_oid:
                 sensor_oid = int(current_oid.rsplit('.', 1)[-1])
-                results['snmp_sensors'][sensor_oid]['entPhySensorScale'] = int(current_val)
+                results['snmp_sensors'][sensor_oid]['entPhySensorScale'] = int(
+                    current_val)
             if v.entPhySensorPrecision in current_oid:
                 sensor_oid = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_sensors'][sensor_oid]['entPhySensorPrecision'] = current_val
@@ -633,17 +695,18 @@ def main():
     for ipv4_network in ipv4_networks:
         current_interface = ipv4_networks[ipv4_network]['interface']
         current_network = {
-                            'address':  ipv4_networks[ipv4_network]['address'],
-                            'netmask':  ipv4_networks[ipv4_network]['netmask']
-                          }
-        if not current_interface in interface_to_ipv4:
+            'address':  ipv4_networks[ipv4_network]['address'],
+            'netmask':  ipv4_networks[ipv4_network]['netmask']
+        }
+        if current_interface not in interface_to_ipv4:
             interface_to_ipv4[current_interface] = []
             interface_to_ipv4[current_interface].append(current_network)
         else:
             interface_to_ipv4[current_interface].append(current_network)
 
     for interface in interface_to_ipv4:
-        results['snmp_interfaces'][int(interface)]['ipv4'] = interface_to_ipv4[interface]
+        results['snmp_interfaces'][int(
+            interface)]['ipv4'] = interface_to_ipv4[interface]
 
     results['ansible_all_ipv4_addresses'] = all_ipv4_addresses
 
@@ -656,13 +719,15 @@ def main():
         )
 
         if errorIndication:
-            module.fail_json(msg=str(errorIndication) + ' querying CPU busy indeces')
+            module.fail_json(msg=str(errorIndication) +
+                             ' querying CPU busy indeces')
 
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             if current_oid == v.ChStackUnitCpuUtil5sec:
-                results['ansible_ChStackUnitCpuUtil5sec'] = decode_type(module, current_oid, val)
+                results['ansible_ChStackUnitCpuUtil5sec'] = decode_type(
+                    module, current_oid, val)
 
     errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
         snmp_auth,
@@ -671,10 +736,12 @@ def main():
         cmdgen.MibVariable(p.lldpLocChassisId,),
         cmdgen.MibVariable(p.lldpLocSysName,),
         cmdgen.MibVariable(p.lldpLocSysDesc,),
+        lookupMib=False,
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying  lldp local system infomation.')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying  lldp local system infomation.')
 
     for oid, val in varBinds:
         current_oid = oid.prettyPrint()
@@ -694,10 +761,12 @@ def main():
         cmdgen.MibVariable(p.lldpLocPortIdSubtype,),
         cmdgen.MibVariable(p.lldpLocPortId,),
         cmdgen.MibVariable(p.lldpLocPortDesc,),
+        lookupMib=False,
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying lldpLocPortTable counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -720,26 +789,24 @@ def main():
         cmdgen.MibVariable(p.lldpLocManAddrIfSubtype,),
         cmdgen.MibVariable(p.lldpLocManAddrIfId,),
         cmdgen.MibVariable(p.lldpLocManAddrOID,),
+        lookupMib=False,
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying lldpLocPortTable counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
             if v.lldpLocManAddrLen in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrLen'] = current_val
             if v.lldpLocManAddrIfSubtype in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrIfSubtype'] = current_val
             if v.lldpLocManAddrIfId in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
             if v.lldpLocManAddrOID in current_oid:
-                address = '.'.join(current_oid.split('.')[13:])
                 results['snmp_lldp']['lldpLocManAddrOID'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
@@ -754,10 +821,12 @@ def main():
         cmdgen.MibVariable(p.lldpRemSysDesc,),
         cmdgen.MibVariable(p.lldpRemSysCapSupported,),
         cmdgen.MibVariable(p.lldpRemSysCapEnabled,),
+        lookupMib=False,
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying lldpLocPortTable counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -797,10 +866,12 @@ def main():
         cmdgen.MibVariable(p.lldpRemManAddrIfSubtype,),
         cmdgen.MibVariable(p.lldpRemManAddrIfId,),
         cmdgen.MibVariable(p.lldpRemManAddrOID,),
+        lookupMib=False,
     )
 
     if errorIndication:
-        module.fail_json(msg=str(errorIndication) + ' querying lldpLocPortTable counters')
+        module.fail_json(msg=str(errorIndication) +
+                         ' querying lldpLocPortTable counters')
 
     for varBinds in varTable:
         for oid, val in varBinds:
@@ -808,15 +879,12 @@ def main():
             current_val = val.prettyPrint()
             if v.lldpRemManAddrIfSubtype in current_oid:
                 ifIndex = int(current_oid.split('.')[12])
-                address = '.'.join(current_oid.split('.')[16:])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfSubtype'] = current_val
             if v.lldpRemManAddrIfId in current_oid:
                 ifIndex = int(current_oid.split('.')[12])
-                address = '.'.join(current_oid.split('.')[16:])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
             if v.lldpRemManAddrOID in current_oid:
                 ifIndex = int(current_oid.split('.')[12])
-                address = '.'.join(current_oid.split('.')[16:])
                 results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
@@ -826,6 +894,7 @@ def main():
         cmdgen.MibVariable(p.cpfcIfIndications,),
         cmdgen.MibVariable(p.requestsPerPriority,),
         cmdgen.MibVariable(p.indicationsPerPriority,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -854,6 +923,7 @@ def main():
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.csqIfQosGroupStats,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -874,6 +944,7 @@ def main():
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.cefcFRUPowerOperStatus,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -892,6 +963,7 @@ def main():
         cmdgen.UdpTransportTarget((m_args['host'], 161)),
         cmdgen.MibVariable(p.ipCidrRouteEntry,),
         cmdgen.MibVariable(p.ipCidrRouteStatus,),
+        lookupMib=False,
     )
 
     if errorIndication:
@@ -913,8 +985,8 @@ def main():
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((m_args['host'], 161)),
-            cmdgen.MibVariable(p.sysTotalMemery,),
-            cmdgen.MibVariable(p.sysTotalFreeMemery,),
+            cmdgen.MibVariable(p.sysTotalMemory,),
+            cmdgen.MibVariable(p.sysTotalFreeMemory,),
             cmdgen.MibVariable(p.sysTotalSharedMemory,),
             cmdgen.MibVariable(p.sysTotalBuffMemory,),
             cmdgen.MibVariable(p.sysCachedMemory,),
@@ -922,25 +994,54 @@ def main():
         )
 
         if errorIndication:
-            module.fail_json(msg=str(errorIndication) + ' querying system infomation.')
+            module.fail_json(msg=str(errorIndication) +
+                             ' querying system infomation.')
 
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
-            if current_oid == v.sysTotalMemery:
-                results['ansible_sysTotalMemery'] = decode_type(module, current_oid, val)
-            elif current_oid == v.sysTotalFreeMemery:
-                results['ansible_sysTotalFreeMemery'] = decode_type(module, current_oid, val)
+            if current_oid == v.sysTotalMemory:
+                results['ansible_sysTotalMemory'] = decode_type(
+                    module, current_oid, val)
+            elif current_oid == v.sysTotalFreeMemory:
+                results['ansible_sysTotalFreeMemory'] = decode_type(
+                    module, current_oid, val)
             elif current_oid == v.sysTotalSharedMemory:
-                results['ansible_sysTotalSharedMemory'] = decode_type(module, current_oid, val)
+                results['ansible_sysTotalSharedMemory'] = decode_type(
+                    module, current_oid, val)
             elif current_oid == v.sysTotalBuffMemory:
-                results['ansible_sysTotalBuffMemory'] = decode_type(module, current_oid, val)
+                results['ansible_sysTotalBuffMemory'] = decode_type(
+                    module, current_oid, val)
             elif current_oid == v.sysCachedMemory:
-                results['ansible_sysCachedMemory'] = decode_type(module, current_oid, val)
+                results['ansible_sysCachedMemory'] = decode_type(
+                    module, current_oid, val)
+
+        if m_args['include_swap']:
+            errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+                snmp_auth,
+                cmdgen.UdpTransportTarget((m_args['host'], 161)),
+                cmdgen.MibVariable(p.sysTotalSwap,),
+                cmdgen.MibVariable(p.sysTotalFreeSwap,),
+                lookupMib=False, lexicographicMode=False
+            )
+
+            if errorIndication:
+                module.fail_json(msg=str(errorIndication) +
+                                 ' querying system infomation.')
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                if current_oid == v.sysTotalSwap:
+                    results['ansible_sysTotalSwap'] = decode_type(
+                        module, current_oid, val)
+                elif current_oid == v.sysTotalFreeSwap:
+                    results['ansible_sysTotalFreeSwap'] = decode_type(
+                        module, current_oid, val)
 
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((m_args['host'], 161)),
             cmdgen.MibVariable(p.dot1qTpFdbEntry,),
+            lookupMib=False,
         )
 
         if errorIndication:
@@ -952,7 +1053,8 @@ def main():
                 current_val = val.prettyPrint()
                 if v.dot1qTpFdbEntry in current_oid:
                     # extract fdb info from oid
-                    items = current_oid.split(v.dot1qTpFdbEntry + ".")[1].split(".")
+                    items = current_oid.split(
+                        v.dot1qTpFdbEntry + ".")[1].split(".")
                     # VLAN + MAC(6)
                     if len(items) != 7:
                         continue
@@ -963,5 +1065,6 @@ def main():
                     results['snmp_fdb'][key] = current_val
 
     module.exit_json(ansible_facts=results)
+
 
 main()

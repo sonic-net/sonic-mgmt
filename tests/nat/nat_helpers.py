@@ -3,6 +3,7 @@ import os
 import time
 import logging
 import json
+import copy
 from collections import namedtuple
 from netaddr import IPAddress
 
@@ -13,6 +14,8 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from jinja2 import Environment, FileSystemLoader
 from tests.common.config_reload import config_reload
+from tests.common.pkt_filter.filter_pkt_in_buffer import FilterPktBuffer
+from tests.common.pkt_filter.filter_pkt_in_buffer import convert_pkt_to_dict
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -41,17 +44,16 @@ ACL_TABLE_GLOBAL_NAME = "test_acl_table"
 DYNAMIC_BINDING_NAME = "test_binding"
 ACL_SUBNET = "192.168.0.0/24"
 BR_MAC = ["22:22:22:22:22:21"]
-VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": "PortChannel0001", "port_id": {"t0": ["28"],
-                                                                                                                        "t0-64": ["0", "1"],
-                                                                                                                        "t0-64-32": ["0", "1"]
-                                                                                                                       }
-              },
+PORT_CHANNEL_TEMP = 'PortChannel10{}'
+VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": PORT_CHANNEL_TEMP.format(1),
+               "port_id": {"t0": ["28"], "t0-64": ["0", "1"], "t0-64-32": ["0", "1"]}
+               },
        "blue": {"ip": "192.168.0.101", "id": "2", "mask": "24", "gw": "192.168.0.1", "port_id": "6"},
        "yellow": {"ip": "192.168.0.201", "id": "3", "mask": "24", "gw": "192.168.0.1", "port_id": "7"}
-      }
+       }
 SETUP_CONF = {"loopback": {"vrf": VRF, "acl_subnet": ACL_SUBNET},
               "port_in_lag": {"vrf": VRF, "acl_subnet": ACL_SUBNET}
-             }
+              }
 DIRECTION_PARAMS = ['host-tor', 'leaf-tor']
 FULL_CONE_TEST_IP = "172.20.1.2"
 FULL_CONE_TEST_SUBNET = "172.20.1.0/24"
@@ -82,7 +84,8 @@ def configure_nat_over_cli(duthost, action, nat_type, global_ip, local_ip, proto
     """
     action_type_map = {'add': '-nat_type dnat', 'remove': ''}
     if nat_type == 'static_nat':
-        duthost.command("sudo config nat {} static basic {} {} {}".format(action, global_ip, local_ip, action_type_map[action]))
+        duthost.command("sudo config nat {} static basic {} {} {}"
+                        .format(action, global_ip, local_ip, action_type_map[action]))
         return {
             global_ip: {'local_ip': local_ip, 'nat_type': 'dnat'}
             }
@@ -95,7 +98,7 @@ def configure_nat_over_cli(duthost, action, nat_type, global_ip, local_ip, proto
             "{}|{}|{}".format(global_ip, proto.upper(), global_port): {'local_ip': local_ip,
                                                                        'local_port': "{}".format(local_port),
                                                                        'nat_type': 'dnat'
-                                                                      }
+                                                                       }
             }
     return "Unkown NAT type"
 
@@ -144,12 +147,11 @@ def dut_nat_iptables_status(duthost):
     index_prerouting = [i for i in range(0, len(entries)) if "PREROUTING" in entries[i]][0] + 2
     index_input = [i for i in range(0, len(entries)) if "INPUT" in entries[i]][0]
     index_postrouting = [i for i in range(0, len(entries)) if 'POSTROUTING' in entries[i]][0] + 2
-    index_output = [i for i in range(0, len(entries)) if "OUTPUT" in entries[i]][0]
     if any(['DOCKER' in entry for entry in entries]):
         index_docker = [i for i in range(0, len(entries)) if 'DOCKER' in entries[i]][0]
         postrouting = [el for el in entries[index_postrouting:index_docker] if len(el) > 1]
     else:
-        postrouting = [el for el in entries[index_postrouting:index_output] if len(el) > 1]
+        postrouting = [el for el in entries[index_postrouting:] if len(el) > 1]
     prerouting = [el for el in entries[index_prerouting:index_input] if len(el) > 0]
     nat_table_status["prerouting"] = [" ".join([s.strip() for s in el.split() if len(el) > 0])
                                       for el in prerouting]
@@ -165,7 +167,9 @@ def dut_interface_status(duthost, interface_name):
     :param interface_name: string interface to configure
     :return : string formatted CLI output with interface current operstatus
     """
-    return duthost.show_interface(command='status', interfaces=interface_name)['ansible_facts']['int_status'][interface_name]['oper_state']
+    return duthost.show_interface(command='status',
+                                  interfaces=interface_name
+                                  )['ansible_facts']['int_status'][interface_name]['oper_state']
 
 
 def dut_interface_control(duthost, action, interface_name, ip_addr=""):
@@ -180,7 +184,7 @@ def dut_interface_control(duthost, action, interface_name, ip_addr=""):
                          "enable": "startup {}".format(interface_name),
                          "ip remove": "{} {}".format(action, ip_addr),
                          "ip add": "{} {}".format(action, ip_addr)
-                        }
+                         }
     expected_operstatus = {"disable": "down", "enable": "up", "ip remove": "up", "ip add": "up"}
     output_cli = exec_command(duthost, ["sudo config interface {}".format(interface_actions[action])])
     if output_cli["rc"]:
@@ -237,7 +241,7 @@ def crud_operations_basic(duthost, crud_operation):
     :return : dict with rule parameters
     """
     nat_type = "static_nat"
-    for key in crud_operation.keys():
+    for key in list(crud_operation.keys()):
         output = configure_nat_over_cli(duthost, crud_operation[key]["action"], nat_type,
                                         crud_operation[key]["global_ip"], crud_operation[key]["local_ip"])
     return output
@@ -251,7 +255,7 @@ def crud_operations_napt(duthost, crud_operation):
     :return : dict with rule parameters
     """
     nat_type = 'static_napt'
-    for key in crud_operation.keys():
+    for key in list(crud_operation.keys()):
         output = configure_nat_over_cli(duthost, crud_operation[key]["action"], nat_type,
                                         crud_operation[key]["global_ip"], crud_operation[key]["local_ip"],
                                         proto=crud_operation[key]["proto"],
@@ -346,7 +350,8 @@ def apply_static_nat_config(duthost, ptfadapter, ptfhost, setup_data,
     pytest_assert(private_ip == static_nat[0]['local ip'], "Local IP does not match {}".format(private_ip))
     if nat_entry == 'static_napt':
         pytest_assert(protocol_type == static_nat[0]['ip protocol'], "Protocol does not match {}".format(protocol_type))
-        pytest_assert(str(global_port) == static_nat[0]['global port'], "Global Port does not match {}".format(global_port))
+        pytest_assert(str(global_port) == static_nat[0]['global port'], "Global Port does not match {}"
+                      .format(global_port))
         pytest_assert(str(local_port) == static_nat[0]['local port'], "Local Port does not match {}".format(local_port))
     else:
         pytest_assert('all' == static_nat[0]['ip protocol'])
@@ -476,7 +481,7 @@ def setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, 
     ptfhost.shell("ip rule add iif {} table {}".format(vrf_name, vrf_id))
     ptfhost.shell("ip rule add oif {} table {}".format(vrf_name, vrf_id))
     ptfhost.shell("ip route add 0.0.0.0/0 via {} table {}".format(gw_ip, vrf_id))
-    if "dut_iface" in setup_info[interface_type]["vrf_conf"][key].keys():
+    if "dut_iface" in list(setup_info[interface_type]["vrf_conf"][key].keys()):
         dut_iface = setup_info[interface_type]["vrf_conf"][key]["dut_iface"]
         pch_ip = setup_info["pch_ips"][dut_iface]
         pch_mask = setup_info["pch_masks"][dut_iface]
@@ -540,14 +545,14 @@ def conf_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, t
         if teardown:
             teardown_ptf_interfaces(testbed, ptfhost, gw_ip, vrf_id, ip_address, mask, port_id, vrf_name)
         else:
-            setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, vrf_id, vrf_name, port_id, ip_address,
-                                 mask, gw_ip, key)
+            setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, vrf_id, vrf_name,
+                                 port_id, ip_address, mask, gw_ip, key)
     if not teardown:
         ptfhost.shell('supervisorctl restart ptf_nn_agent')
 
 
 def expected_mask_nated_packet(pkt, protocol_type, ip_dst, ip_src,
-                               src_port=None, dst_port=None, icmp_id=None):
+                               src_port=None, dst_port=None):
     """
     Generate expected packet
     :param pkt: packet to be sent
@@ -556,7 +561,6 @@ def expected_mask_nated_packet(pkt, protocol_type, ip_dst, ip_src,
     :param ip_dst: expected destination IP
     :param src_port: source L4 expected port
     :param dst_port: destination L4 expected port
-    :param icmp_id: id for specify ICMP dynamic connection
     :return: expected packet
     """
     # Set up all fields
@@ -567,8 +571,6 @@ def expected_mask_nated_packet(pkt, protocol_type, ip_dst, ip_src,
     if protocol_type in ["TCP", "UDP"]:
         exp_pkt[protocol_type].sport = src_port
         exp_pkt[protocol_type].dport = dst_port
-    if protocol_type == "ICMP":
-        exp_pkt[protocol_type].id = icmp_id
     exp_pkt = mask.Mask(exp_pkt)
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
@@ -664,7 +666,8 @@ def get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type
     # Get public and private IPs for NAT configuration
     public_ip = get_public_ip(setup_info, interface_type)
     private_ip = get_src_ip(setup_info, direction, interface_type, nat_type, second_port)
-    return PTF_NETWORK_DATA(outer_ports, inner_ports, eth_dst, eth_src, ip_src, ip_dst, public_ip, private_ip, exp_src_ip, exp_dst_ip)
+    return PTF_NETWORK_DATA(outer_ports, inner_ports, eth_dst, eth_src, ip_src, ip_dst,
+                            public_ip, private_ip, exp_src_ip, exp_dst_ip)
 
 
 def perform_handshake(ptfhost, setup_info, protocol_type, direction,
@@ -706,8 +709,8 @@ def perform_handshake(ptfhost, setup_info, protocol_type, direction,
     ptfhost.command(echo_cmd)
 
 
-def generate_and_verify_traffic(duthost, ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type, second_port=False,
-                                src_port=None, dst_port=None, exp_src_port=None, exp_dst_port=None):
+def generate_and_verify_traffic(duthost, ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type,
+                                second_port=False, src_port=None, dst_port=None, exp_src_port=None, exp_dst_port=None):
     """
     Generates TCP/UDP traffic and checks that traffic is translated due to NAT types/rules
 
@@ -726,7 +729,8 @@ def generate_and_verify_traffic(duthost, ptfadapter, setup_info, interface_type,
             exp_dst_port: L4 destination port in expected packet
     """
     # Define network data and L4 ports
-    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type, second_port=second_port)
+    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type,
+                                    second_port=second_port)
     if nat_type != 'dynamic':
         l4_ports = get_static_l4_ports(protocol_type, direction, nat_type)
     else:
@@ -755,8 +759,9 @@ def generate_and_verify_traffic(duthost, ptfadapter, setup_info, interface_type,
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=network_data.outer_ports)
 
 
-def generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type, nat_type, second_port=False,
-                                               ip_src=None, ip_dst=None, exp_ip_src=None, exp_ip_dst=None):
+def generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface_type, direction, protocol_type,
+                                               nat_type, second_port=False, ip_src=None, ip_dst=None,
+                                               exp_ip_src=None, exp_ip_dst=None):
     """
     Generates TCP/UDP traffic and checks that traffic is not translated due to NAT types/rules
 
@@ -774,7 +779,8 @@ def generate_and_verify_not_translated_traffic(ptfadapter, setup_info, interface
             exp_ip_dst: IP destination in expected packet
     """
     # Define network data and L4 ports
-    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type, second_port=second_port)
+    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type,
+                                    second_port=second_port)
     src_port, dst_port = get_l4_default_ports(protocol_type)
     if ip_src is None:
         ip_src = network_data.ip_src
@@ -818,7 +824,8 @@ def generate_and_verify_traffic_dropped(ptfadapter, setup_info, interface_type, 
             second_port: boolean if second port id needs to be returned
     """
     # Define network data and L4 ports
-    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type, second_port=second_port)
+    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type,
+                                    second_port=second_port)
     # Create packet to send
     pkt = create_packet(network_data.eth_dst, network_data.eth_src,
                         network_data.ip_dst, network_data.ip_src,
@@ -835,7 +842,8 @@ def generate_and_verify_traffic_dropped(ptfadapter, setup_info, interface_type, 
     testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=network_data.outer_ports)
 
 
-def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type, second_port=False, icmp_id=None):
+def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type, second_port=False,
+                                     icmp_id_start=None, icmp_id_end=None):
     """
     Generates ICMP traffic and checks that traffic is translated due to NAT types/rules.
 
@@ -846,36 +854,51 @@ def generate_and_verify_icmp_traffic(ptfadapter, setup_info, interface_type, dir
             direction: string with current flow direction
             nat_type: string with static napt/nat/dynamic types
             second_port: boolean if second port id needs to be returned
-            icmp_id: id for specify ICMP dynamic connection
+            icmp_id_start: id range start for specify ICMP dynamic connection
+            icmp_id_end: id range end for specify ICMP dynamic connection
     """
     protocol_type = 'ICMP'
     # Define network data
-    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type, second_port=second_port)
+    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type,
+                                    second_port=second_port)
     # Create packet to send
-    pkt = create_packet(network_data.eth_dst, network_data.eth_src, network_data.ip_dst, network_data.ip_src, protocol_type)
+    pkt = create_packet(network_data.eth_dst, network_data.eth_src, network_data.ip_dst, network_data.ip_src,
+                        protocol_type)
     # Define expected packet(ICMP request)
-    exp_pkt_request = expected_mask_nated_packet(pkt, protocol_type, network_data.exp_dst_ip, network_data.exp_src_ip, icmp_id=icmp_id)
+    exp_pkt_request = create_packet(network_data.eth_dst, network_data.eth_src, network_data.exp_dst_ip,
+                                    network_data.exp_src_ip, protocol_type)
     # Reverse source and destination IPs for reply
     exp_dst_ip = get_src_ip(setup_info, direction, interface_type,
                             nat_type=nat_type, second_port=second_port)
     exp_src_ip = get_dst_ip(setup_info, direction, interface_type,
                             nat_type=nat_type)
     # Define expected packet(ICMP reply)
-    exp_pkt_reply = expected_mask_nated_packet(pkt, protocol_type, exp_dst_ip, exp_src_ip, icmp_id=0)
+    exp_pkt_reply = expected_mask_nated_packet(pkt, protocol_type, exp_dst_ip, exp_src_ip)
     exp_pkt_reply.exp_pkt[protocol_type].type = 0
+    exp_pkt_reply.exp_pkt[protocol_type].id = 0
     # clear buffer
     ptfadapter.dataplane.flush()
     # Send packet
     for port in network_data.inner_ports:
         testutils.send(ptfadapter, port, pkt, count=5)
     # Verify ICMP request packets arrive on outer ports
-    testutils.verify_packet_any_port(ptfadapter, exp_pkt_request, ports=network_data.outer_ports)
-    # Verify ICMP peply packets arrive on inner ports
+    pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
+                                 exp_pkt=exp_pkt_request,
+                                 dst_port_numbers=network_data.outer_ports,
+                                 match_fields=[("IP", "src"), ("IP", "dst")],
+                                 ignore_fields=[("Ether", "src"), ("Ether", "dst"), ("IP", "chksum"), ("IP", "ttl")])
+    pkt_filter.filter_pkt_in_buffer()
+    pkt_dict = convert_pkt_to_dict(pkt_filter.received_pkt)
+    # Verify icmp_id in arrived packet
+    if icmp_id_start is not None:
+        pytest_assert(int(pkt_dict['ICMP']['id']) in range(icmp_id_start, icmp_id_end+1),
+                      "icmp_id: {} not in pool range".format(pkt_dict['ICMP']['id']))
+    # Verify ICMP reply packets arrive on inner ports
     testutils.verify_packet_any_port(ptfadapter, exp_pkt_reply, ports=network_data.inner_ports)
 
 
-def generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type, second_port=False,
-                                                    ip_src=None, ip_dst=None, check_reply=True):
+def generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_info, interface_type, direction, nat_type,
+                                                    second_port=False, ip_src=None, ip_dst=None, check_reply=True):
     """
     Generates ICMP traffic and checks that traffic is not translated due to NAT types/rules.
 
@@ -892,7 +915,8 @@ def generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_info, inte
     """
     protocol_type = 'ICMP'
     # Define network data
-    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type, second_port=second_port)
+    network_data = get_network_data(ptfadapter, setup_info, direction, interface_type, nat_type=nat_type,
+                                    second_port=second_port)
     if ip_src is None:
         ip_src = network_data.ip_src
     if ip_dst is None:
@@ -912,7 +936,7 @@ def generate_and_verify_not_translated_icmp_traffic(ptfadapter, setup_info, inte
     # Verify ICMP request packets arrive on outer ports
     testutils.verify_packet_any_port(ptfadapter, exp_pkt_request, ports=network_data.outer_ports)
     if check_reply:
-        # Verify ICMP peply packets arrive on inner ports
+        # Verify ICMP reply packets arrive on inner ports
         testutils.verify_packet_any_port(ptfadapter, exp_pkt_reply, ports=network_data.inner_ports)
 
 
@@ -959,10 +983,10 @@ def get_dynamic_l4_ports(duthost, proto, direction, public_ip):
     return L4_PORTS_DATA(src_port, dst_port, exp_src_port, exp_dst_port)
 
 
-def configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interface_type, protocol_type, pool_name=DYNAMIC_POOL_NAME,
-                               public_ip=None, acl_table=ACL_TABLE_GLOBAL_NAME, ports_assigned=None, acl_rules=None,
-                               binding_name=DYNAMIC_BINDING_NAME, port_range=None,
-                               default=False, remove_bindings=False, handshake=False):
+def configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interface_type, protocol_type,
+                               pool_name=DYNAMIC_POOL_NAME, public_ip=None, acl_table=ACL_TABLE_GLOBAL_NAME,
+                               ports_assigned=None, acl_rules=None, binding_name=DYNAMIC_BINDING_NAME,
+                               port_range=None, default=False, remove_bindings=False, handshake=False):
     """
     method configure Dynamic NAT rules
     :param duthost: duthost fixture
@@ -992,13 +1016,16 @@ def configure_dynamic_nat_rule(duthost, ptfadapter, ptfhost, setup_info, interfa
     # Check that pool configuration was applied
     show_nat_pool = get_cli_show_nat_config_output(duthost, "pool")
     pytest_assert(pool_name == show_nat_pool[0]['pool name'], "Pool name was not set to {}".format(pool_name))
-    pytest_assert(public_ip == show_nat_pool[0]['global ip range'], "Global IP Range was not set to {}".format(public_ip))
-    pytest_assert(port_range == show_nat_pool[0]['global port range'], "Global Port Range was not set to {}".format(port_range))
+    pytest_assert(public_ip == show_nat_pool[0]['global ip range'], "Global IP Range was not set to {}"
+                  .format(public_ip))
+    pytest_assert(port_range == show_nat_pool[0]['global port range'], "Global Port Range was not set to {}"
+                  .format(port_range))
     # Add bindings
     duthost.command("sudo config nat add binding {0} {1} {2}".format(binding_name, pool_name, acl_table))
     # Check that binding configuration was applied
     show_nat_binding = get_cli_show_nat_config_output(duthost, "bindings")
-    pytest_assert(binding_name == show_nat_binding[0]['binding name'], "Binding Name was not set to {}".format(binding_name))
+    pytest_assert(binding_name == show_nat_binding[0]['binding name'], "Binding Name was not set to {}"
+                  .format(binding_name))
     pytest_assert(pool_name == show_nat_binding[0]['pool name'], "Pool Name was not set to {}".format(pool_name))
     pytest_assert(acl_table == show_nat_binding[0]['access-list'], "Access-List was not set to {}".format(acl_table))
     # Apply acl table and rule
@@ -1102,232 +1129,233 @@ def conf_dut_routes(duthost, setup_info, subnet, interface_type, teardown=False)
 
 
 def get_redis_val(duthost, db, key):
-        """
-        Returns dictionary of value for redis key.
-        :param duthost: DUT host object
-        :param db: database to be selected
-        :param key: key to be selected
-        """
-        try:
-            output = exec_command(duthost, ["redis-dump -d {} --pretty -k *{}*".format(db, key)])
-            if output["rc"]:
-                raise Exception('Return code is {} not 0'.format(output_cli["rc"]))
-            redis_dict = json.loads(output['stdout'])
-            for table in redis_dict:
-                if 'expireat' in redis_dict[table]:
-                    redis_dict[table].pop('expireat')
-                if 'ttl' in redis_dict[table]:
-                    redis_dict[table].pop('ttl')
-            return redis_dict
-        except Exception as e:
-            return e.__str__()
+    """
+    Returns dictionary of value for redis key.
+    :param duthost: DUT host object
+    :param db: database to be selected
+    :param key: key to be selected
+    """
+    try:
+        output = exec_command(duthost, ["redis-dump -d {} --pretty -k *{}*".format(db, key)])
+        if output["rc"]:
+            raise Exception('Return code is {} not 0'.format(output["rc"]))
+        redis_dict = json.loads(output['stdout'])
+        for table in redis_dict:
+            if 'expireat' in redis_dict[table]:
+                redis_dict[table].pop('expireat')
+            if 'ttl' in redis_dict[table]:
+                redis_dict[table].pop('ttl')
+        return redis_dict
+    except Exception as e:
+        return e.__str__()
 
 
-def get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, db_type, private_ip=None, public_ip=None, private_port=None,
-                 public_port=None, start_port=POOL_RANGE_START_PORT, end_port=POOL_RANGE_END_PORT, access_list=ACL_TABLE_GLOBAL_NAME, nat_pool=DYNAMIC_POOL_NAME,
-                 post_flag=False):
-        """
-        Returns dictionary of database rules.
-        :param duthost: DUT host object
-        :param ptfadapter: ptf adapter fixture
-        :param setup_test_env: fixture used to gather setup_info fixture and interface_type (Loopback, Portchannel etc)
-        :param protocol_type: type of protocol TCP/UDP
-        :param db_type: databyte type used to select which redis dump should be checked
-        :param private_ip: IP variable used to confirm proper configuration
-        :param public_ip: IP variable used to confirm proper configuration
-        :param private_port: port variable used to confirm proper configuration
-        :param public_port: port variable used to confirm proper configuration
-        :param start_port: port variable used to confirm proper configuration
-        :param end_port: port variable used to confirm proper configuration
-        :param access_list: ACL variable used to confirm proper configuration
-        :param nat_pool: pool variable used to confirm proper configuration
-        :param post_flag: boolean flag used to determine which redis dump template should be used (pre or post configuration)
-        """
-        interface_type, setup_info = setup_test_env
-        setup_data = copy.deepcopy(setup_info)
-        nat_type = 'static_napt'
-        direction = 'host-tor'
-        network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
-        secondary_protocol = {"TCP": "UDP", "UDP": "TCP"}[protocol_type]
-        global_port = {"TCP": TCP_GLOBAL_PORT, "UDP": UDP_GLOBAL_PORT}[protocol_type]
-        local_port = {"TCP": TCP_LOCAL_PORT, "UDP": UDP_LOCAL_PORT}[protocol_type]
-        db_rules = {}
-        # APP_DB timeout
-        if db_type == 'APP_DB timeout':
-            offset = {True: 200, False: 0}[post_flag]
-            db_rules = {"nat_timeout" : "{}".format(GLOBAL_NAT_TIMEOUT + offset),
-                        "admin_mode" : "enabled",
-                        "nat_udp_timeout" : "{}".format(GLOBAL_UDP_NAPT_TIMEOUT + offset),
-                        "nat_tcp_timeout" : "{}".format(GLOBAL_TCP_NAPT_TIMEOUT + offset * 25)
-                       }
-        # Pool CONFIG_DB
-        elif db_type == 'Pool CONFIG_DB':
-            db_rules = {"nat_ip": "{}".format(public_ip),
-                        "nat_port": "{}-{}".format(start_port, end_port)
-                       }
-        # Pool APP_DB
-        elif db_type == 'Pool APP_DB':
-            db_rules = {"port_range": "{}-{}".format(start_port, end_port)}
-        # Binding CONFIG_DB
-        elif db_type == 'Binding CONFIG_DB':
-            db_rules = {"access_list": access_list,
-                        "nat_pool": nat_pool,
-                        "nat_type": "snat",
-                        "twice_nat_id": "NULL"
-                       }
-        # NAPT APP_DB
-        elif db_type == 'NAPT APP_DB':
-            db_rules = {
-                "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.public_ip, global_port): {
-                    "type": "hash",
-                    "value": {
-                        "entry_type": "static",
-                        "nat_type": "dnat",
-                        "translated_ip": "{}".format(network_data.private_ip),
-                        "translated_l4_port": "{}".format(local_port)
+def get_db_rules(duthost, ptfadapter, setup_test_env, protocol_type, db_type, private_ip=None, public_ip=None,
+                 private_port=None, public_port=None, start_port=POOL_RANGE_START_PORT, end_port=POOL_RANGE_END_PORT,
+                 access_list=ACL_TABLE_GLOBAL_NAME, nat_pool=DYNAMIC_POOL_NAME, post_flag=False):
+    """
+    Returns dictionary of database rules.
+    :param duthost: DUT host object
+    :param ptfadapter: ptf adapter fixture
+    :param setup_test_env: fixture used to gather setup_info fixture and interface_type (Loopback, Portchannel etc)
+    :param protocol_type: type of protocol TCP/UDP
+    :param db_type: databyte type used to select which redis dump should be checked
+    :param private_ip: IP variable used to confirm proper configuration
+    :param public_ip: IP variable used to confirm proper configuration
+    :param private_port: port variable used to confirm proper configuration
+    :param public_port: port variable used to confirm proper configuration
+    :param start_port: port variable used to confirm proper configuration
+    :param end_port: port variable used to confirm proper configuration
+    :param access_list: ACL variable used to confirm proper configuration
+    :param nat_pool: pool variable used to confirm proper configuration
+    :param post_flag: boolean flag used to determine which redis dump template
+                      should be used (pre or post configuration)
+    """
+    interface_type, setup_info = setup_test_env
+    setup_data = copy.deepcopy(setup_info)
+    nat_type = 'static_napt'
+    direction = 'host-tor'
+    network_data = get_network_data(ptfadapter, setup_data, direction, interface_type, nat_type=nat_type)
+    secondary_protocol = {"TCP": "UDP", "UDP": "TCP"}[protocol_type]
+    global_port = {"TCP": TCP_GLOBAL_PORT, "UDP": UDP_GLOBAL_PORT}[protocol_type]
+    local_port = {"TCP": TCP_LOCAL_PORT, "UDP": UDP_LOCAL_PORT}[protocol_type]
+    db_rules = {}
+    # APP_DB timeout
+    if db_type == 'APP_DB timeout':
+        offset = {True: 200, False: 0}[post_flag]
+        db_rules = {"nat_timeout": "{}".format(GLOBAL_NAT_TIMEOUT + offset),
+                    "admin_mode": "enabled",
+                    "nat_udp_timeout": "{}".format(GLOBAL_UDP_NAPT_TIMEOUT + offset),
+                    "nat_tcp_timeout": "{}".format(GLOBAL_TCP_NAPT_TIMEOUT + offset * 25)
                     }
-                },
-                "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.private_ip, local_port): {
-                    "type": "hash",
-                    "value": {
-                        "entry_type": "static",
-                        "nat_type": "snat",
-                        "translated_ip": "{}".format(network_data.public_ip),
-                        "translated_l4_port": "{}".format(global_port)
+    # Pool CONFIG_DB
+    elif db_type == 'Pool CONFIG_DB':
+        db_rules = {"nat_ip": "{}".format(public_ip),
+                    "nat_port": "{}-{}".format(start_port, end_port)
                     }
+    # Pool APP_DB
+    elif db_type == 'Pool APP_DB':
+        db_rules = {"port_range": "{}-{}".format(start_port, end_port)}
+    # Binding CONFIG_DB
+    elif db_type == 'Binding CONFIG_DB':
+        db_rules = {"access_list": access_list,
+                    "nat_pool": nat_pool,
+                    "nat_type": "snat",
+                    "twice_nat_id": "NULL"
+                    }
+    # NAPT APP_DB
+    elif db_type == 'NAPT APP_DB':
+        db_rules = {
+            "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.public_ip, global_port): {
+                "type": "hash",
+                "value": {
+                    "entry_type": "static",
+                    "nat_type": "dnat",
+                    "translated_ip": "{}".format(network_data.private_ip),
+                    "translated_l4_port": "{}".format(local_port)
+                }
+            },
+            "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.private_ip, local_port): {
+                "type": "hash",
+                "value": {
+                    "entry_type": "static",
+                    "nat_type": "snat",
+                    "translated_ip": "{}".format(network_data.public_ip),
+                    "translated_l4_port": "{}".format(global_port)
                 }
             }
-        # NAPT CONFIG_DB
-        elif db_type == 'NAPT CONFIG_DB':
-            db_rules = {
-                "STATIC_NAPT|{}|{}|{}".format(network_data.public_ip, protocol_type, global_port): {
-                    "type": "hash",
-                    "value": {
-                        "local_ip": "{}".format(network_data.private_ip),
-                        "local_port": "{}".format(local_port),
-                        "nat_type": "dnat"
-                    }
+        }
+    # NAPT CONFIG_DB
+    elif db_type == 'NAPT CONFIG_DB':
+        db_rules = {
+            "STATIC_NAPT|{}|{}|{}".format(network_data.public_ip, protocol_type, global_port): {
+                "type": "hash",
+                "value": {
+                    "local_ip": "{}".format(network_data.private_ip),
+                    "local_port": "{}".format(local_port),
+                    "nat_type": "dnat"
                 }
             }
-        # NAPT APP_DB POST
-        elif db_type == 'NAPT APP_DB POST':
-            db_rules = {
-                "NAPT_TABLE:{}:{}:{}".format(protocol_type, public_ip, public_port): {
-                    "type": "hash",
-                    "value": {
-                        "entry_type": "static",
-                        "nat_type": "dnat",
-                        "translated_ip": "{}".format(private_ip),
-                        "translated_l4_port": "{}".format(private_port)
-                    }
-                },
-                "NAPT_TABLE:{}:{}:{}".format(protocol_type, private_ip, private_port): {
-                    "type": "hash",
-                    "value": {
-                        "entry_type": "static",
-                        "nat_type": "snat",
-                        "translated_ip": "{}".format(public_ip),
-                        "translated_l4_port": "{}".format(public_port)
-                    }
-                },
-                "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.public_ip, global_port): {
-                    "type": "hash",
-                    "value": {
-                        "entry_type": "static",
-                        "nat_type": "dnat",
-                        "translated_ip": "{}".format(network_data.private_ip),
-                        "translated_l4_port": "{}".format(local_port)
-                    }
-                },
-                "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.private_ip, local_port): {
-                    "type": "hash",
-                    "value": {
-                        "entry_type": "static",
-                        "nat_type": "snat",
-                        "translated_ip": "{}".format(network_data.public_ip),
-                        "translated_l4_port": "{}".format(global_port)
-                    }
-                },
-                "NAPT_TABLE:{}:{}:{}".format(secondary_protocol, public_ip, public_port): {
-                    "type": "hash",
-                    "value": {
-                        "entry_type": "static",
-                        "nat_type": "dnat",
-                        "translated_ip": "{}".format(private_ip),
-                        "translated_l4_port": "{}".format(private_port)
-                    }
-                },
-                "NAPT_TABLE:{}:{}:{}".format(secondary_protocol, private_ip, private_port): {
-                    "type": "hash",
-                    "value": {
-                        "entry_type": "static",
-                        "nat_type": "snat",
-                        "translated_ip": "{}".format(public_ip),
-                        "translated_l4_port": "{}".format(public_port)
-                    }
+        }
+    # NAPT APP_DB POST
+    elif db_type == 'NAPT APP_DB POST':
+        db_rules = {
+            "NAPT_TABLE:{}:{}:{}".format(protocol_type, public_ip, public_port): {
+                "type": "hash",
+                "value": {
+                    "entry_type": "static",
+                    "nat_type": "dnat",
+                    "translated_ip": "{}".format(private_ip),
+                    "translated_l4_port": "{}".format(private_port)
+                }
+            },
+            "NAPT_TABLE:{}:{}:{}".format(protocol_type, private_ip, private_port): {
+                "type": "hash",
+                "value": {
+                    "entry_type": "static",
+                    "nat_type": "snat",
+                    "translated_ip": "{}".format(public_ip),
+                    "translated_l4_port": "{}".format(public_port)
+                }
+            },
+            "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.public_ip, global_port): {
+                "type": "hash",
+                "value": {
+                    "entry_type": "static",
+                    "nat_type": "dnat",
+                    "translated_ip": "{}".format(network_data.private_ip),
+                    "translated_l4_port": "{}".format(local_port)
+                }
+            },
+            "NAPT_TABLE:{}:{}:{}".format(protocol_type, network_data.private_ip, local_port): {
+                "type": "hash",
+                "value": {
+                    "entry_type": "static",
+                    "nat_type": "snat",
+                    "translated_ip": "{}".format(network_data.public_ip),
+                    "translated_l4_port": "{}".format(global_port)
+                }
+            },
+            "NAPT_TABLE:{}:{}:{}".format(secondary_protocol, public_ip, public_port): {
+                "type": "hash",
+                "value": {
+                    "entry_type": "static",
+                    "nat_type": "dnat",
+                    "translated_ip": "{}".format(private_ip),
+                    "translated_l4_port": "{}".format(private_port)
+                }
+            },
+            "NAPT_TABLE:{}:{}:{}".format(secondary_protocol, private_ip, private_port): {
+                "type": "hash",
+                "value": {
+                    "entry_type": "static",
+                    "nat_type": "snat",
+                    "translated_ip": "{}".format(public_ip),
+                    "translated_l4_port": "{}".format(public_port)
                 }
             }
-        # NAPT CONFIG_DB POST
-        elif db_type == 'NAPT CONFIG_DB POST':
-            db_rules = {
-                "STATIC_NAPT|{}|{}|{}".format(public_ip, protocol_type, public_port): {
-                    "type": "hash",
-                    "value": {
-                        "local_ip": "{}".format(private_ip),
-                        "local_port": "{}".format(private_port),
-                        "nat_type": "dnat"
-                    }
-                },
-                "STATIC_NAPT|{}|{}|{}".format(public_ip, secondary_protocol, public_port): {
-                    "type": "hash",
-                    "value": {
-                        "local_ip": "{}".format(private_ip),
-                        "local_port": "{}".format(private_port),
-                        "nat_type": "dnat"
-                    }
-                },
-                "STATIC_NAPT|{}|{}|{}".format(network_data.public_ip, protocol_type, global_port): {
-                    "type": "hash",
-                    "value": {
-                        "local_ip": "{}".format(network_data.private_ip),
-                        "local_port": "{}".format(local_port),
-                        "nat_type": "dnat"
-                    }
+        }
+    # NAPT CONFIG_DB POST
+    elif db_type == 'NAPT CONFIG_DB POST':
+        db_rules = {
+            "STATIC_NAPT|{}|{}|{}".format(public_ip, protocol_type, public_port): {
+                "type": "hash",
+                "value": {
+                    "local_ip": "{}".format(private_ip),
+                    "local_port": "{}".format(private_port),
+                    "nat_type": "dnat"
+                }
+            },
+            "STATIC_NAPT|{}|{}|{}".format(public_ip, secondary_protocol, public_port): {
+                "type": "hash",
+                "value": {
+                    "local_ip": "{}".format(private_ip),
+                    "local_port": "{}".format(private_port),
+                    "nat_type": "dnat"
+                }
+            },
+            "STATIC_NAPT|{}|{}|{}".format(network_data.public_ip, protocol_type, global_port): {
+                "type": "hash",
+                "value": {
+                    "local_ip": "{}".format(network_data.private_ip),
+                    "local_port": "{}".format(local_port),
+                    "nat_type": "dnat"
                 }
             }
-        # ASIC_DB SRC status
-        elif db_type == 'ASIC_DB SRC':
-            db_rules = {
-                "SAI_NAT_ENTRY_ATTR_SRC_IP": "{}".format(network_data.public_ip),
-                "SAI_NAT_ENTRY_ATTR_L4_SRC_PORT": "{}".format(global_port)
-            }
-        # ASIC_DB DST status
-        elif db_type == 'ASIC_DB DST':
-            db_rules = {
-                "SAI_NAT_ENTRY_ATTR_DST_IP": "{}".format(network_data.private_ip),
-                "SAI_NAT_ENTRY_ATTR_L4_DST_PORT": "{}".format(local_port)
-            }
-        else:
-            raise Exception('Improper db_type selected')
-        return db_rules
+        }
+    # ASIC_DB SRC status
+    elif db_type == 'ASIC_DB SRC':
+        db_rules = {
+            "SAI_NAT_ENTRY_ATTR_SRC_IP": "{}".format(network_data.public_ip),
+            "SAI_NAT_ENTRY_ATTR_L4_SRC_PORT": "{}".format(global_port)
+        }
+    # ASIC_DB DST status
+    elif db_type == 'ASIC_DB DST':
+        db_rules = {
+            "SAI_NAT_ENTRY_ATTR_DST_IP": "{}".format(network_data.private_ip),
+            "SAI_NAT_ENTRY_ATTR_L4_DST_PORT": "{}".format(local_port)
+        }
+    else:
+        raise Exception('Improper db_type selected')
+    return db_rules
 
 
 def write_json(duthost, json_dict, feature):
-        """
-        Write NAT config json to dut
-        :param DUT host name
-        :param json dictionary with variables used by templates
-        :param feature used to select which template should be used
-        """
-        TEMP_FILE = "{}.json".format(feature)
-        curr_dir = os.path.dirname(os.path.abspath(__file__))
-        j2_template = Environment(loader=FileSystemLoader(curr_dir), trim_blocks=True)
-        if feature == "dynamic_binding":
-            j2_temp = j2_template.get_template(NAT_CONF_J2_TEMPLATE).render(nat=json_dict)
-        else:
-            raise AttributeError("Unexpected feature {}".format(feature))
-        exec_command(duthost, ["mkdir -p {}".format(DUT_TMP_DIR)])
-        exec_command(duthost, ["echo '{j2_temp}' > {dir}/{file}".
-                     format(j2_temp=j2_temp, dir=DUT_TMP_DIR, file=TEMP_FILE)])
-        exec_command(duthost, ["sudo config load {} -y".format(DUT_TMP_DIR+"/"+TEMP_FILE)])
-        exec_command(duthost, ["rm -rf {}".format(DUT_TMP_DIR)])
+    """
+    Write NAT config json to dut
+    :param DUT host name
+    :param json dictionary with variables used by templates
+    :param feature used to select which template should be used
+    """
+    TEMP_FILE = "{}.json".format(feature)
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+    j2_template = Environment(loader=FileSystemLoader(curr_dir), trim_blocks=True)
+    if feature == "dynamic_binding":
+        j2_temp = j2_template.get_template(NAT_CONF_J2_TEMPLATE).render(nat=json_dict)
+    else:
+        raise AttributeError("Unexpected feature {}".format(feature))
+    exec_command(duthost, ["mkdir -p {}".format(DUT_TMP_DIR)])
+    exec_command(duthost, ["echo '{j2_temp}' > {dir}/{file}"
+                 .format(j2_temp=j2_temp, dir=DUT_TMP_DIR, file=TEMP_FILE)])
+    exec_command(duthost, ["sudo config load {} -y".format(DUT_TMP_DIR+"/"+TEMP_FILE)])
+    exec_command(duthost, ["rm -rf {}".format(DUT_TMP_DIR)])

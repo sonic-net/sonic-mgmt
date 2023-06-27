@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 import pytest
@@ -10,17 +11,21 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
-YANG_IGNORED_OPTIONS    = "-i /FEATURE -i /QUEUE -i /SCHEDULER"
+GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
+GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
+
 
 def generate_tmpfile(duthost):
     """Generate temp file
     """
     return duthost.shell('mktemp')['stdout']
 
+
 def delete_tmpfile(duthost, tmpfile):
     """Delete temp file
     """
     duthost.file(path=tmpfile, state='absent')
+
 
 def apply_patch(duthost, json_data, dest_file):
     """Run apply-patch on target duthost
@@ -32,12 +37,13 @@ def apply_patch(duthost, json_data, dest_file):
     """
     duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
 
-    cmds = 'config apply-patch {} {}'.format(YANG_IGNORED_OPTIONS, dest_file)
+    cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
     output = duthost.shell(cmds, module_ignore_errors=True)
 
     return output
+
 
 def expect_op_success(duthost, output):
     """Expected success from apply-patch output
@@ -47,6 +53,7 @@ def expect_op_success(duthost, output):
         "Patch applied successfully" in output['stdout'],
         "Please check if json file is validate"
     )
+
 
 def expect_op_success_and_reset_check(duthost, output, service_name, timeout, interval, delay):
     """Add contianer reset check after op success
@@ -62,6 +69,7 @@ def expect_op_success_and_reset_check(duthost, output, service_name, timeout, in
     expect_op_success(duthost, output)
     if start_limit_hit(duthost, service_name):
         reset_start_limit_hit(duthost, service_name, timeout, interval, delay)
+
 
 def expect_res_success(duthost, output, expected_content_list, unexpected_content_list):
     """Check output success with expected and unexpected content
@@ -84,6 +92,7 @@ def expect_res_success(duthost, output, expected_content_list, unexpected_conten
             "{} is unexpected content".format(unexpected_content)
         )
 
+
 def expect_op_failure(output):
     """Expected failure from apply-patch output
     """
@@ -92,6 +101,7 @@ def expect_op_failure(output):
         output['rc'],
         "The command should fail with non zero return code"
     )
+
 
 def start_limit_hit(duthost, service_name):
     """If start-limit-hit is hit, the service will not start anyway.
@@ -110,6 +120,7 @@ def start_limit_hit(duthost, service_name):
             return True
 
     return False
+
 
 def reset_start_limit_hit(duthost, service_name, timeout, interval, delay):
     """Reset service if hit start-limit-hit
@@ -135,18 +146,19 @@ def reset_start_limit_hit(duthost, service_name, timeout, interval, delay):
         "{} systemctl start service fails"
     )
 
-    if not service_name in CONTAINER_SERVICES_LIST:
+    if service_name not in CONTAINER_SERVICES_LIST:
         return
 
     reset_service = wait_until(timeout,
-                        interval,
-                        delay,
-                        duthost.is_service_fully_started,
-                        service_name)
+                               interval,
+                               delay,
+                               duthost.is_service_fully_started,
+                               service_name)
     pytest_assert(
         reset_service,
         "Failed to reset service '{}' due to start-limit-hit".format(service_name)
     )
+
 
 def list_checkpoints(duthost):
     """List checkpoint on target duthost
@@ -167,11 +179,13 @@ def list_checkpoints(duthost):
 
     return output
 
+
 def verify_checkpoints_exist(duthost, cp):
     """Check if checkpoint file exist in duthost
     """
     output = list_checkpoints(duthost)
     return '"{}"'.format(cp) in output['stdout']
+
 
 def create_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """Run checkpoint on target duthost
@@ -191,6 +205,7 @@ def create_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
         and verify_checkpoints_exist(duthost, cp),
         "Failed to config a checkpoint file: {}".format(cp)
     )
+
 
 def delete_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """Run checkpoint on target duthost
@@ -214,19 +229,21 @@ def delete_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
         "Failed to delete a checkpoint file: {}".format(cp)
     )
 
+
 def rollback(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """Run rollback on target duthost
 
     Args:
         duthost: Device Under Test (DUT)
-        rb: rollback filename
+        cp: rollback filename
     """
-    cmds = 'config rollback {} {}'.format(YANG_IGNORED_OPTIONS, cp)
+    cmds = 'config rollback {}'.format(cp)
 
     logger.info("Commands: {}".format(cmds))
     output = duthost.shell(cmds, module_ignore_errors=True)
 
     return output
+
 
 def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """Run rollback on target duthost. config_reload if rollback failed.
@@ -236,12 +253,14 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """
     output = rollback(duthost, cp)
 
-    if output['rc'] or "Config rolled back successfull" not in output['stdout']:
+    if output['rc'] or "Config rolled back successfully" not in output['stdout']:
         config_reload(duthost)
         pytest.fail("config rollback failed. Restored by config_reload")
 
+
 def create_path(tokens):
     return JsonPointer.from_parts(tokens).path
+
 
 def check_show_ip_intf(duthost, intf_name, expected_content_list, unexpected_content_list, is_ipv4=True):
     """Check lo interface status by show command
@@ -258,6 +277,7 @@ def check_show_ip_intf(duthost, intf_name, expected_content_list, unexpected_con
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
+
 def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
     """Check ip route for specific vrf
 
@@ -268,5 +288,51 @@ def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
     address_family = "ip" if is_ipv4 else "ipv6"
     output = duthost.shell("show {} route vrf {} | grep -w {}".format(address_family, vrf_name, intf_name))
 
-    pytest_assert(not output['rc'],
-        "Route not found for {} in vrf {}".format(intf_name, vrf_name))
+    pytest_assert(not output['rc'], "Route not found for {} in vrf {}".format(intf_name, vrf_name))
+
+
+def get_gcu_field_operations_conf():
+    conf_path = os.path.join(os.path.dirname(__file__), GCU_FIELD_OPERATION_CONF_FILE)
+    with open(conf_path, 'r') as s:
+        gcu_conf = json.load(s)
+    return gcu_conf
+
+
+def get_asic_name(duthost):
+    asic_type = duthost.facts["asic_type"]
+    asic = "unknown"
+    gcu_conf = get_gcu_field_operations_conf()
+    asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
+    if asic_type == 'cisco-8000':
+        asic = "cisco-8000"
+    elif asic_type == 'mellanox' or asic_type == 'vs' or asic_type == 'broadcom':
+        hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
+        if asic_type == 'mellanox' or asic_type == 'vs':
+            spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
+            if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
+                asic = "spc1"
+                return asic
+        if asic_type == 'broadcom' or asic_type == 'vs':
+            broadcom_asics = asic_mapping["broadcom_asics"]
+            for asic_shorthand, hwskus in broadcom_asics.items():
+                for hwsku_cur in hwskus:
+                    if hwsku_cur.lower() in hwsku.lower():
+                        asic = asic_shorthand
+                        break
+                else:
+                    continue
+                break
+
+    return asic
+
+
+def is_valid_platform_and_version(duthost, table, scenario):
+    asic = get_asic_name(duthost)
+    os_version = duthost.os_version
+    if asic == "unknown":
+        return False
+    if "master" or "internal" in os_version:
+        return True
+    gcu_conf = get_gcu_field_operations_conf()
+    version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6]
+    return os_version >= version_required

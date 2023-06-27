@@ -2,23 +2,31 @@ import threading
 import time
 import re
 import logging
-from multiprocessing.pool import ThreadPool, TimeoutError
+import sys
+import os
+from multiprocessing.pool import ThreadPool
 from collections import deque
-from utilities import wait_until
+from .utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
 
 # SSH defines
-SONIC_SSH_PORT  = 22
+SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 REBOOT_TYPE_WARM = "warm"
+REBOOT_TYPE_SAI_WARM = "sai-warm"
 REBOOT_TYPE_COLD = "cold"
 REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
-REBOOT_TYPE_UNKNOWN  = "Unknown"
+REBOOT_TYPE_UNKNOWN = "Unknown"
+REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
+REBOOT_TYPE_CPU = "cpu"
+REBOOT_TYPE_BIOS = "bios"
+REBOOT_TYPE_ASIC = "asic"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -75,6 +83,32 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Watchdog",
         "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_SAI_WARM: {
+        "command": "/usr/bin/sai_warmboot.sh",
+        "timeout": 300,
+        "wait": 90,
+        "warmboot_finalizer_timeout": 30,
+        "cause": "warm-reboot",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_CPU: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "CPU",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_BIOS: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "BIOS",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_ASIC: {
+        "timeout": 300,
+        "wait": 120,
+        "cause": "ASIC",
+        "test_reboot_cause_only": True
     }
 }
 
@@ -86,6 +120,7 @@ REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
 MAX_RETRIES = 3
 RETRY_BACKOFF_TIME = 15
 
+
 def check_warmboot_finalizer_inactive(duthost):
     """
     Check if warmboot finalizer service is exited
@@ -93,57 +128,10 @@ def check_warmboot_finalizer_inactive(duthost):
     stdout = duthost.command('systemctl is-active warmboot-finalizer.service', module_ignore_errors=True)['stdout']
     return 'inactive' == stdout.strip()
 
-def reboot(duthost, localhost, reboot_type='cold', delay=10, \
-    timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,\
-    reboot_helper=None, reboot_kwargs=None):
-    """
-    reboots DUT
-    :param duthost: DUT host object
-    :param localhost:  local host object
-    :param reboot_type: reboot type (cold, fast, warm)
-    :param delay: delay between ssh availability checks
-    :param timeout: timeout for waiting ssh port state change
-    :param wait: time to wait for DUT to initialize
-    :param wait_for_ssh: Wait for SSH startup
-    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
-    :param reboot_helper: helper function to execute the power toggling
-    :param reboot_kwargs: arguments to pass to the reboot_helper
-    :return:
-    """
 
-    # pool for executing tasks asynchronously
-    pool = ThreadPool()
-    dut_ip = duthost.mgmt_ip
+def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
     hostname = duthost.hostname
-    try:
-        reboot_ctrl    = reboot_ctrl_dict[reboot_type]
-        reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
-        if timeout == 0:
-            timeout = reboot_ctrl['timeout']
-        if wait == 0:
-            wait = reboot_ctrl['wait']
-        if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
-            warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
-    except KeyError:
-        raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
-
-    def execute_reboot_command():
-        logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
-        return duthost.command(reboot_command)
-
-    def execute_reboot_helper():
-        logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
-        return reboot_helper(reboot_kwargs)
-
-    dut_datetime = duthost.get_now_time()
-    DUT_ACTIVE.clear()
-
-    if reboot_type != REBOOT_TYPE_POWEROFF:
-        reboot_res = pool.apply_async(execute_reboot_command)
-    else:
-        assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
-        reboot_res = pool.apply_async(execute_reboot_helper)
-
+    dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to drop on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
@@ -158,13 +146,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
             logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
-    if not wait_for_ssh:
-        return
 
+def wait_for_startup(duthost, localhost, delay, timeout):
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
-
+    hostname = duthost.hostname
+    dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to startup on {}'.format(hostname))
     res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
@@ -177,24 +165,97 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
         raise Exception('DUT {} did not startup'.format(hostname))
 
     logger.info('ssh has started up on {}'.format(hostname))
-    
+
+
+def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold'):
+    # pool for executing tasks asynchronously
+    hostname = duthost.hostname
+
+    def execute_reboot_command():
+        logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
+        return duthost.command(reboot_command)
+
+    def execute_reboot_helper():
+        logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
+        return reboot_helper(reboot_kwargs)
+
+    dut_datetime = duthost.get_now_time(utc_timezone=True)
+    DUT_ACTIVE.clear()
+
+    # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+    ignore_t2_syslog_msgs(duthost)
+
+    if reboot_type != REBOOT_TYPE_POWEROFF:
+        reboot_res = pool.apply_async(execute_reboot_command)
+    else:
+        assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
+        reboot_res = pool.apply_async(execute_reboot_helper)
+    return [reboot_res, dut_datetime]
+
+
+def reboot(duthost, localhost, reboot_type='cold', delay=10,
+           timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
+           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True):
+    """
+    reboots DUT
+    :param duthost: DUT host object
+    :param localhost:  local host object
+    :param reboot_type: reboot type (cold, fast, warm)
+    :param delay: delay between ssh availability checks
+    :param timeout: timeout for waiting ssh port state change
+    :param wait: time to wait for DUT to initialize
+    :param wait_for_ssh: Wait for SSH startup
+    :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
+    :param reboot_helper: helper function to execute the power toggling
+    :param reboot_kwargs: arguments to pass to the reboot_helper
+    :return:
+    """
+    pool = ThreadPool()
+    hostname = duthost.hostname
+    try:
+        tc_name = os.environ.get('PYTEST_CURRENT_TEST').split(' ')[0]
+        plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, reboot_type)
+        reboot_ctrl = reboot_ctrl_dict[reboot_type]
+        reboot_command = reboot_ctrl['command'] if reboot_type != REBOOT_TYPE_POWEROFF else None
+        if timeout == 0:
+            timeout = reboot_ctrl['timeout']
+        if wait == 0:
+            wait = reboot_ctrl['wait']
+        if plt_reboot_ctrl_overwrite and plt_reboot_ctrl:
+            # get 'wait' and 'timeout' from inventory if they are specified, otherwise use current values
+            wait = plt_reboot_ctrl.get('wait', wait)
+            timeout = plt_reboot_ctrl.get('timeout', timeout)
+        if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
+            warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
+    except KeyError:
+        raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
+
+    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
+
+    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+    # if wait_for_ssh flag is False, do not wait for dut to boot up
+    if not wait_for_ssh:
+        return
+    wait_for_startup(duthost, localhost, delay, timeout)
+
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
     time.sleep(wait)
-    
+
     # Wait warmboot-finalizer service
     if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
         logger.info('waiting for warmboot-finalizer service to finish on {}'.format(hostname))
         ret = wait_until(warmboot_finalizer_timeout, 5, 0, check_warmboot_finalizer_inactive, duthost)
         if not ret:
             raise Exception('warmboot-finalizer service timeout on DUT {}'.format(hostname))
-    
+
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
     pool.terminate()
-    dut_uptime = duthost.get_up_time()
+    dut_uptime = duthost.get_up_time(utc_timezone=True)
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot".format(hostname)
+    assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
+        format(hostname)
 
 
 def get_reboot_cause(dut):
@@ -202,11 +263,11 @@ def get_reboot_cause(dut):
     @summary: get the reboot cause on DUT.
     @param dut: The AnsibleHost object of DUT.
     """
-    logging.info('Getting reboot cause from dut {}'.format(dut.hostname))
+    logger.info('Getting reboot cause from dut {}'.format(dut.hostname))
     output = dut.shell('show reboot-cause')
-    cause  = output['stdout']
+    cause = output['stdout']
 
-    for type, ctrl in reboot_ctrl_dict.items():
+    for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):
             return type
 
@@ -220,14 +281,29 @@ def check_reboot_cause(dut, reboot_cause_expected):
     @param reboot_cause_expected: The expected reboot cause.
     """
     reboot_cause_got = get_reboot_cause(dut)
-    logging.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
+    logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
     return reboot_cause_got == reboot_cause_expected
+
 
 def sync_reboot_history_queue_with_dut(dut):
     """
     @summary: Sync DUT and internal history queues
     @param dut: The AnsibleHost object of DUT.
     """
+
+    global REBOOT_TYPE_HISTOYR_QUEUE
+    global MAX_NUM_REBOOT_CAUSE_HISTORY
+
+    # Initialize local deque for storing DUT reboot cause history
+    dut_reboot_history_queue = deque([], MAX_NUM_REBOOT_CAUSE_HISTORY)
+
+    # Skip this function if sonic image is 201811 or 201911
+    if "201811" in dut.os_version or "201911" in dut.os_version:
+        logger.info("Skip sync reboot-cause history for version before 202012")
+        return
+
+    # IF control is here it means the SONiC image version is > 201911
+    # Try and get the entire reboot-cause history from DUT
 
     # Retry logic for increased robustness
     dut_reboot_history_received = False
@@ -239,20 +315,23 @@ def sync_reboot_history_queue_with_dut(dut):
             dut_reboot_history_queue = dut.show_and_parse("show reboot-cause history")
             dut_reboot_history_received = True
             break
-        except Exception as e:
+        except Exception:
             e_type, e_value, e_traceback = sys.exc_info()
-            logging.info("Exception type: %s" % e_type.__name__)
-            logging.info("Exception message: %s" % e_value)
-            logging.info("Backing off for %d seconds before retrying", ((retry_count+1) * RETRY_BACKOFF_TIME))
-            
-            time.sleep(((retry_count+1) * RETRY_BACKOFF_TIME))
+            logger.info("Exception type: %s" % e_type.__name__)
+            logger.info("Exception message: %s" % e_value)
+            logger.info("Backing off for %d seconds before retrying", ((retry_count + 1) * RETRY_BACKOFF_TIME))
+
+            time.sleep(((retry_count + 1) * RETRY_BACKOFF_TIME))
             continue
 
-    # If retry logic did not yield reboot cause history from DUT, 
+    # If retry logic did not yield reboot cause history from DUT,
     # return without clearing the existing reboot history queue.
     if not dut_reboot_history_received:
+        logger.warn("Unable to sync reboot history queue")
         return
 
+    # If the reboot cause history is received from DUT,
+    # we sync the two queues. TO that end,
     # Clear the current reboot history queue
     REBOOT_TYPE_HISTOYR_QUEUE.clear()
 
@@ -260,14 +339,23 @@ def sync_reboot_history_queue_with_dut(dut):
     # iterate through every item in the reboot dict until
     # a "cause" match is found. Then add that key to the
     # reboot history queue REBOOT_TYPE_HISTOYR_QUEUE
+    # If no cause is found add 'Unknown' as reboot type.
+
     # NB: appendleft used because queue received from DUT
-    # NB: is in reverse-chronological order.
+    #     is in reverse-chronological order.
 
     for reboot_type in (dut_reboot_history_queue):
+        dict_iter_found = False
         for dict_iter in (reboot_ctrl_dict):
             if re.search(reboot_ctrl_dict[dict_iter]["cause"], reboot_type["cause"]):
+                logger.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(dict_iter))
                 REBOOT_TYPE_HISTOYR_QUEUE.appendleft(dict_iter)
+                dict_iter_found = True
                 break
+        if not dict_iter_found:
+            logger.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(REBOOT_TYPE_UNKNOWN))
+            REBOOT_TYPE_HISTOYR_QUEUE.appendleft(REBOOT_TYPE_UNKNOWN)
+
 
 def check_reboot_cause_history(dut, reboot_type_history_queue):
     """
@@ -288,26 +376,34 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     2021_09_09_13_24_17  reboot         Thu 09 Sep 2021 01:23:17 PM UTC  admin   N/A
     """
     reboot_cause_history_got = dut.show_and_parse("show reboot-cause history")
-    logging.debug("dut {} reboot-cause history {}. reboot type history queue is {}".format(
+    logger.debug("dut {} reboot-cause history {}. reboot type history queue is {}".format(
         dut.hostname, reboot_cause_history_got, reboot_type_history_queue))
 
-    logging.info("Verify reboot-cause history title")
+    logger.info("Verify reboot-cause history title")
     if reboot_cause_history_got:
         if not set(REBOOT_CAUSE_HISTORY_TITLE) == set(reboot_cause_history_got[0].keys()):
-            logging.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".format(
-                REBOOT_CAUSE_HISTORY_TITLE, reboot_cause_history_got[0].keys()))
+            logger.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".
+                         format(REBOOT_CAUSE_HISTORY_TITLE, list(reboot_cause_history_got[0].keys())))
             return False
 
-    logging.info("Verify reboot-cause output are sorted in reverse chronological order" )
+    logger.info("Verify reboot-cause output are sorted in reverse chronological order")
     reboot_type_history_len = len(reboot_type_history_queue)
     if reboot_type_history_len <= len(reboot_cause_history_got):
         for index, reboot_type in enumerate(reboot_type_history_queue):
-            logging.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" % (index, reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index-1]["cause"]))
-            if not re.search(reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index-1]["cause"]):
-                logging.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
-                    index, reboot_ctrl_dict[reboot_type]["cause"], reboot_cause_history_got[reboot_type_history_len-index]["cause"]))
+            if reboot_type not in reboot_ctrl_dict:
+                logger.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
+                            format(reboot_type))
+                continue
+            logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
+                        (index, reboot_ctrl_dict[reboot_type]["cause"],
+                         reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
+            if not re.search(reboot_ctrl_dict[reboot_type]["cause"],
+                             reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
+                logger.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
+                    index, reboot_ctrl_dict[reboot_type]["cause"],
+                    reboot_cause_history_got[reboot_type_history_len - index]["cause"]))
                 return False
         return True
-    logging.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
+    logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
         reboot_type_history_len, len(reboot_type_history_queue)))
     return False

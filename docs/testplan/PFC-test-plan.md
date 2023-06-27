@@ -24,7 +24,7 @@
       - [Test Objective](#test-objective-3)
       - [Test Configuration](#test-configuration-3)
       - [Test Steps](#test-steps-3)
-  
+
  Revision of the Document
 
 | Rev |     Date       |       Author         | Change Description               |
@@ -87,13 +87,13 @@ The PFC PAUSE frame :
 +-------------------------+                  +-------------------------------------+
 +-------------------------+
 | Time(0)                 |    2 octets
-+-------------------------+     
++-------------------------+
             |              -----+
 +-------------------------+     |
 | Time(n)                 |     | 12 ( 6X2 ) octets
 +-------------------------+     |
             |              -----+
-+-------------------------+     
++-------------------------+
 | Time(7)                 |    2 octets
 +-------------------------+
 +-------------------------+
@@ -103,7 +103,7 @@ The PFC PAUSE frame :
 |  CRC                    |    4 octets
 +-------------------------+
 
-Priority enable vector : e[n] = 1 => time (n) valid 
+Priority enable vector : e[n] = 1 => time (n) valid
                          e[n] =0 => time (n)invalid
 
 Time (n) is defined as the pause timer for priority n.
@@ -136,8 +136,8 @@ Keysight ports are connected with SONiC switch as shown in the illustration abov
 
 ### Device Under Test (DUT) configuration
 
-- [PFC watchdog](https://github.com/Azure/SONiC/wiki/PFC-Watchdog-Design) is disabled. We need to disable PFC watchdog as if a queue has been paused for long time (e.g., several hundreds of milliseconds), PFC watchdog will be triggered to disable PFC and drop packets. Since we will generate continuous PFC pause frames (which is unlikely to happen in production) to test PFC functionality, we decide to disable PFC watchdog.
-   
+- [PFC watchdog](https://github.com/sonic-net/SONiC/wiki/PFC-Watchdog-Design) is disabled. We need to disable PFC watchdog as if a queue has been paused for long time (e.g., several hundreds of milliseconds), PFC watchdog will be triggered to disable PFC and drop packets. Since we will generate continuous PFC pause frames (which is unlikely to happen in production) to test PFC functionality, we decide to disable PFC watchdog.
+
 
 ### Keysight configuration
 
@@ -255,7 +255,7 @@ Verify Device Under Test (DUT) processes the PFC PAUSE frame with lossy prioriti
    * Keysight Rx port should receive all the 'Background data traffic' as well as 'Test data traffic'. There should not be any loss observed.
 5. Stop the PFC PAUSE storm.
 6. Repeat the test with a different lossless priority value (!=Pi).
-   
+
 ### Test Case #4 - GLOBAL PAUSE (IEEE 802.3x link level Flow Control)
 
 <b>Note</b> : 802.3x link level Flow Control is different than IEEE 802.1Qbb PFC (Priority-based Flow Control)
@@ -268,7 +268,7 @@ Verify Device Under Test (DUT) processes the GLOBAL PAUSE frame.
 - Configure following traffic items on the Keysight device:
   1. Test data traffic: A traffic item from the Keysight Tx port to Rx port. The traffic item uses all the 64 DSCP values (0-63). PFC is enabled at all the 8 priorities of Tx port. The traffic demand is 100% line rate.
   2. GLOBAL PAUSE storm: Persistent Global pause frames from the Keysight Rx port to the connected DUT port. And the inter-frame transmission interval should be smaller than per-frame pause duration.
-   
+
 #### Test Steps
 
 1. Start GLOBAL PAUSE storm.
@@ -277,4 +277,3 @@ Verify Device Under Test (DUT) processes the GLOBAL PAUSE frame.
 4. Stop the GLOBAL PAUSE storm.
 5. Verify the following:
    * Keysight Rx port should receive all the 'Test data traffic'. There should not be any loss observed. Throughput should be close to link capacity.
-   
