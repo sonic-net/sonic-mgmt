@@ -154,7 +154,7 @@ def remove_dataacl_table(duthosts):
     yield
     # Recover DUT by reloading minigraph
     for duthost in duthosts:
-        config_reload(duthost, config_source="minigraph")
+        config_reload(duthost, config_source="running_golden_config")
 
 
 def get_t2_info(duthosts, tbinfo):
