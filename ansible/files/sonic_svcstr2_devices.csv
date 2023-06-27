@@ -6,8 +6,8 @@ svcstr2-z9332f-01,10.206.144.252/24,DellEMC-Z9332f-O32,FanoutLeafSonic
 svcstr2-e1031-c0-1,10.206.144.248/24,Celestica-E1031-T48S4,ConsoleSwitch
 svcstr2-e1031-acs-2,10.206.144.246/24,Celestica-E1031-T48S4,ManagementSwitch
 svcstr2-server-5,10.206.144.247/24,TestServ,Server
-svcstr2-8800-sup-1,10.206.144.119,8800-RP-O,DevSonic
-svcstr2-8800-lc1-1,10.206.144.120,88-LC0-36FH-MO,DevSonic
-svcstr2-8800-lc2-1,10.206.144.121,88-LC0-36FH-W,DevSonic
-svcstr2-8800-lc3-1,10.206.144.122,88-LC0-36FH-W,DevSonic
-svcstr2-8800-lc4-1,10.206.144.123,88-LC0-36FH-MO,DevSonic
+svcstr2-8800-sup-1,10.206.144.119,Cisco-8800-RP,DevSonic
+svcstr2-8800-lc1-1,10.206.144.120,Cisco-88-LC0-36FH-M-O36,DevSonic
+svcstr2-8800-lc2-1,10.206.144.121,Cisco-88-LC0-36FH-M-O36,DevSonic
+svcstr2-8800-lc3-1,10.206.144.122,Cisco-88-LC0-36FH-O36,DevSonic
+svcstr2-8800-lc4-1,10.206.144.123,Cisco-88-LC0-36FH-M-O36,DevSonic

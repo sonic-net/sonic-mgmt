@@ -8,11 +8,11 @@
       <Device Hostname="svcstr2-e1031-c0-1" HwSku="Celestica-E1031-T48S4" Type="ConsoleSwitch"/>
       <Device Hostname="svcstr2-e1031-acs-2" HwSku="Celestica-E1031-T48S4" Type="ManagementSwitch"/>
       <Device Hostname="svcstr2-server-5" HwSku="TestServ" Type="Server"/>
-      <Device Hostname="svcstr2-8800-sup-1" HwSku="8800-RP-O" Type="DevSonic"/>
-      <Device Hostname="svcstr2-8800-lc1-1" HwSku="88-LC0-36FH-MO" Type="DevSonic"/>
-      <Device Hostname="svcstr2-8800-lc2-1" HwSku="88-LC0-36FH-W" Type="DevSonic"/>
-      <Device Hostname="svcstr2-8800-lc3-1" HwSku="88-LC0-36FH-W" Type="DevSonic"/>
-      <Device Hostname="svcstr2-8800-lc4-1" HwSku="88-LC0-36FH-MO" Type="DevSonic"/>
+      <Device Hostname="svcstr2-8800-sup-1" HwSku="Cisco-8800-RP" Type="DevSonic"/>
+      <Device Hostname="svcstr2-8800-lc1-1" HwSku="Cisco-88-LC0-36FH-M-O36" Type="DevSonic"/>
+      <Device Hostname="svcstr2-8800-lc2-1" HwSku="Cisco-88-LC0-36FH-M-O36" Type="DevSonic"/>
+      <Device Hostname="svcstr2-8800-lc3-1" HwSku="Cisco-88-LC0-36FH-O36" Type="DevSonic"/>
+      <Device Hostname="svcstr2-8800-lc4-1" HwSku="Cisco-88-LC0-36FH-M-O36" Type="DevSonic"/>
     </Devices>
     <DeviceInterfaceLinks>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="svcstr2-7260cx3-acs-2" EndPort="Ethernet64/1" StartDevice="svcstr2-7260cx3-acs-1" StartPort="Ethernet63/1"/>
