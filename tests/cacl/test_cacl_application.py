@@ -423,13 +423,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     iptables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
     
-    #There are some hardcoded cacl rule for dualtor testbed
+    # There are some hardcoded cacl rule for dualtor testbed
     if "dualtor" in tbinfo['topo']['name']:
         rules_to_expect_for_dualtor = [
-        "-A INPUT -p udp -m udp --dport 67 -j DHCP",
-        "-A DHCP -j RETURN",
-        "-N DHCP"
-        ]
+                                       "-A INPUT -p udp -m udp --dport 67 -j DHCP",
+                                       "-A DHCP -j RETURN",
+                                       "-N DHCP"
+                                      ]
         iptables_rules.extend(rules_to_expect_for_dualtor)
 
     # On standby tor, it has expected dhcp mark iptables rules.
