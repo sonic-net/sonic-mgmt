@@ -105,9 +105,6 @@ parameters:
   type: number
   default: 480
 
-- name: SPECIFIED_PARAMS
-  type: string
-  default: "{}"
 
 steps:
   - script: |
@@ -121,7 +118,6 @@ steps:
       --test-set ${{ parameters.TEST_SET }} --kvm-build-id $(KVM_BUILD_ID) \
       --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
       --common-extra-params "${{ parameters.COMMON_EXTRA_PARAMS }}" \
-      --specified-params "${{ parameters.SPECIFIED_PARAMS }}" \
       --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
       --image_url ${{ parameters.IMAGE_URL }} \
       --hwsku ${{ parameters.HWSKU }} \
