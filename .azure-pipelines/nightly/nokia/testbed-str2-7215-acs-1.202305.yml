@@ -1,0 +1,83 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+schedules:
+  - cron: "1 11 * * 2,4,6"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: testbed-str2-7215-acs-1
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_MARVELL_202305)
+    displayName: "Image URL"
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_MARVELL_202012)
+    displayName: "py_saithrift URL"
+
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--no_dscp_uniform"
+    displayName: "Extra pytest params"
+
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "acl/test_stress_acl.py \
+              platform_tests/link_flap/test_cont_link_flap.py \
+              platform_tests/link_flap/test_link_flap.py \
+              platform_tests/test_reboot.py::test_continuous_reboot \
+              stress/test_stress_routes.py"
+    displayName: "Skip Scripts"
+
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
+  - name: SKIP_COLLECT_SHOW_TECHSUPPORT
+    type: boolean
+    default: false
+    displayName: "Skip collecting and uploading show techsupport results"
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    displayName: "Agent pool"
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+      SKIP_COLLECT_SHOW_TECHSUPPORT: ${{ parameters.SKIP_COLLECT_SHOW_TECHSUPPORT }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      NIGHTLY_TEST_TIMEOUT: 2160  # 36 hours
