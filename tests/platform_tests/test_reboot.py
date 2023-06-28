@@ -81,7 +81,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     logging.info("Append the latest reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
-    check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
+    check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
 
 
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
