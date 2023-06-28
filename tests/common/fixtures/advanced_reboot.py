@@ -238,7 +238,7 @@ class AdvancedReboot:
                 logger.info("Failed to get BGP router identifier")
 
         error_list.append("Failed to verify BGP router identifier is Loopback0 address on %s" \
-                                 % self.duthost.hostname)
+                          % self.duthost.hostname)
         return False
 
     def __updateNextHopIps(self):
