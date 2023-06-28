@@ -227,16 +227,17 @@ class AdvancedReboot:
         """
         check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json" | grep "routerId"'
         router_id_result = self.duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
+        loopback0 = str(self.mgFacts['minigraph_lo_interfaces'][0]['addr'])
         if router_id_result["rc"] == 0:
             match = re.search(r'"routerId":"([^"]+)"', router_id_result["stdout"])
             if match:
                 bgp_router_id = match.group(1)
                 logger.info("BGP router identifier: %s" % bgp_router_id)
+                return bgp_router_id == loopback0
             else:
                 logger.info("Failed to get BGP router identifier")
 
-        loopback0 = str(self.mgFacts['minigraph_lo_interfaces'][0]['addr'])
-        return bgp_router_id == loopback0
+        return False
 
     def __updateNextHopIps(self):
         """
