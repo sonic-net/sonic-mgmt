@@ -221,7 +221,7 @@ class AdvancedReboot:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
                 break
 
-    def __checkBgpRouterId(self):
+    def __checkBgpRouterId(self, error_list):
         """
         Check bgp router ID is same as Loopback0
         """
@@ -237,6 +237,8 @@ class AdvancedReboot:
             else:
                 logger.info("Failed to get BGP router identifier")
 
+        error_list.append("Failed to verify BGP router identifier is Loopback0 address on %s" \
+                                 % self.duthost.hostname)
         return False
 
     def __updateNextHopIps(self):
@@ -571,8 +573,7 @@ class AdvancedReboot:
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
-                if not self.__checkBgpRouterId():
-                    logger.error("Failed to verify BGP router identifier is Loopback0 address on %s" % self.duthost.hostname)
+                self.__checkBgpRouterId(test_results[test_case_name])
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()
