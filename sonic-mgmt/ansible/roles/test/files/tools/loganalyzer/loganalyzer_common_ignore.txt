@@ -56,6 +56,8 @@ r, ".* ERR syncd#syncd:.*SAI_API_PORT: Invalid port counter .*index.*"
 r, ".* ERR syncd#syncd:.*updateSupportedBufferPoolCounters: BUFFER_POOL_WATERMARK_STAT_COUNTER: counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool .* rv: SAI_STATUS_NOT_IMPLEMENTED.*"
 r, ".* ERR syncd#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code 45.*"
 r, ".* ERR syncd#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code 21.*"
+r, ".* ERR swss#orchagent:.*setPortFec: Unsupported mode fc on port .*"
+
 r, ".* ERR syncd#syncd:.*SAI_LOG|SAI_API_TUNNEL: VLAN to VNI not implemented yet.*"
 
 # White list below messages found on KVM for now. Need to address them later.
