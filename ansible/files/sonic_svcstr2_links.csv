@@ -1,6 +1,6 @@
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode
 svcstr2-7260cx3-acs-1,Ethernet63/1,svcstr2-7260cx3-acs-2,Ethernet64/1,100000,"233-291",Trunk
-svcstr2-7260cx3-acs-1,Ethernet64/1,svcstr2-7260cx3-acs-3,Ethernet64/1,100000,"292-296",Trunk
+svcstr2-7260cx3-acs-1,Ethernet64/1,svcstr2-7260cx3-acs-3,Ethernet64/1,100000,"201-232,292-296",Trunk
 svcstr2-7260cx3-acs-1,Ethernet65,svcstr2-z9332f-01,Ethernet256,10000,"201-232",Trunk
 svcstr2-7260cx3-acs-1,Ethernet1/1,svcstr2-server-5,ens4f1,100000,,Trunk
 svcstr2-8800-lc1-1,Ethernet0,svcstr2-z9332f-01,Ethernet0,400000,201,Access

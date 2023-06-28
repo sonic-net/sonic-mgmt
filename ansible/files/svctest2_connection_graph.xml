@@ -155,7 +155,7 @@
     </DevicesL3Info>
     <DevicesL2Info Hostname="svcstr2-7260cx3-acs-1">
       <InterfaceVlan mode="Trunk" portname="Ethernet63/1" vlanids="233-291"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="292-296"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="201-232,292-296" />
       <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="201-232"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet1/1" vlanids=""/>
     </DevicesL2Info>
@@ -163,7 +163,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.251/24"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="svcstr2-7260cx3-acs-3">
-      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="292-296"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="201-232,292-296"/>
       <InterfaceVlan mode="Access" portname="Ethernet59/1" vlanids="292"/>
       <InterfaceVlan mode="Access" portname="Ethernet60/1" vlanids="293"/>
       <InterfaceVlan mode="Access" portname="Ethernet61/1" vlanids="294"/>
