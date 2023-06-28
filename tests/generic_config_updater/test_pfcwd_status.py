@@ -105,7 +105,8 @@ def extract_pfcwd_config(duthost, start_pfcwd):
                       'restore_time' as the 2nd level keys
     """
     output = duthost.command('show pfcwd config')
-    pytest_assert('Ethernet' in output['stdout'], 'No ports found in the pfcwd config')
+    if 'Ethernet' not in output['stdout']:
+        pytest.skip('No ports found in the pfcwd config, skipping GCU PFCWD test')
 
     pfcwd_config = defaultdict()
     for line in output['stdout_lines']:
