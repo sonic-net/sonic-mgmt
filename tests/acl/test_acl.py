@@ -736,9 +736,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
                 if ((duthost.facts["hwsku"] == "Cisco-8111-O64") or
-                        (duthost.facts["hwsku"] == "Cisco-8111-O32") or
-                            (duthost.facts["hwsku"] == "Cisco-8111-C32") or
-                                (duthost.facts["hwsku"] == "Cisco-8111-O62C2")):
+                     (duthost.facts["hwsku"] == "Cisco-8111-O32") or
+                      (duthost.facts["hwsku"] == "Cisco-8111-C32") or
+                       (duthost.facts["hwsku"] == "Cisco-8111-O62C2")):
                     skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
