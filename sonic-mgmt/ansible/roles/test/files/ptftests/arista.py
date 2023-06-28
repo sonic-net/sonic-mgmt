@@ -148,7 +148,10 @@ class Arista(host_device.HostDevice):
             'interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
 
-        while not (quit_enabled and v4_routing_ok and v6_routing_ok):
+        # TODO: Disabling v6_routing_ok check due to IPv6 FRR issue. Re-add v6_routing_ok once either:
+        # * https://github.com/FRRouting/frr/issues/13587 is fixed and the fix gets merged into SONiC, or
+        # * https://github.com/sonic-net/sonic-buildimage/pull/12853 is reverted
+        while not (quit_enabled and v4_routing_ok):
             cmd = None
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok

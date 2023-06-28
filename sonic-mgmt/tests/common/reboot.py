@@ -195,7 +195,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
-           reboot_helper=None, reboot_kwargs=None):
+           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -221,9 +221,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             timeout = reboot_ctrl['timeout']
         if wait == 0:
             wait = reboot_ctrl['wait']
-        if plt_reboot_ctrl:
-            wait = plt_reboot_ctrl['wait']
-            timeout = plt_reboot_ctrl['timeout']
+        if plt_reboot_ctrl_overwrite and plt_reboot_ctrl:
+            # get 'wait' and 'timeout' from inventory if they are specified, otherwise use current values
+            wait = plt_reboot_ctrl.get('wait', wait)
+            timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
     except KeyError:

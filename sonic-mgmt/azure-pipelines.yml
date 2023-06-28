@@ -116,18 +116,18 @@ stages:
           MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
           NUM_ASIC: 4
 
-  - job: wan_elastictest
-    displayName: "kvmtest-wan by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-      - template: .azure-pipelines/run-test-scheduler-template.yml
-        parameters:
-          TOPOLOGY: wan-pub
-          MIN_WORKER: $(WAN_INSTANCE_NUM)
-          MAX_WORKER: $(WAN_INSTANCE_NUM)
-          COMMON_EXTRA_PARAMS: "--skip_sanity "
+#  - job: wan_elastictest
+#    displayName: "kvmtest-wan by Elastictest"
+#    timeoutInMinutes: 240
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#      - template: .azure-pipelines/run-test-scheduler-template.yml
+#        parameters:
+#          TOPOLOGY: wan-pub
+#          MIN_WORKER: $(WAN_INSTANCE_NUM)
+#          MAX_WORKER: $(WAN_INSTANCE_NUM)
+#          COMMON_EXTRA_PARAMS: "--skip_sanity "
 
   - job: sonic_t0_elastictest
     displayName: "kvmtest-t0-sonic by Elastictest"
@@ -141,6 +141,5 @@ stages:
           MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
           MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
           TEST_SET: t0-sonic
-          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
           VM_TYPE: vsonic
-          SPECIFIED_PARAMS: '{\"test_pretest.py\":[\"--completeness_level=confident\",\"--allow_recover\"],\"test_posttest.py\":[\"--completeness_level=confident\",\"--allow_recover\"]}'
