@@ -372,8 +372,7 @@ def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num
         # if pkts_num_egr_mem unknown, get estimated pkts_num_egr_mem
         if pkts_num_egr_mem == 0:
             if dst_port_id == None:
-                print("fill_egress_plus_one: please input pkts_num_egr_mem or dst_port_id", file=sys.stderr)
-                return False
+                raise RuntimeError("fill_egress_plus_one: please input pkts_num_egr_mem or dst_port_id", file=sys.stderr)
             pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(test_case,
                                                     src_port_id, pkt, queue, asic_type)
             # tx enable
