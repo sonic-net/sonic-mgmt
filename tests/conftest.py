@@ -1876,6 +1876,7 @@ def __dut_reload(duts_data, node=None, results=None):
 
     config_reload(node, wait_before_force_reload=300)
 
+
 def compare_running_config(pre_running_config, cur_running_config):
     if pre_running_config == cur_running_config:
         return True
@@ -1887,6 +1888,7 @@ def compare_running_config(pre_running_config, cur_running_config):
         if not compare_running_config(pre_running_config[key], cur_running_config[key]):
             return False
         return True
+
 
 @pytest.fixture(scope="module", autouse=True)
 def core_dump_and_config_check(duthosts, tbinfo, request):
