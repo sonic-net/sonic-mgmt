@@ -224,10 +224,10 @@ class AdvancedReboot:
         """
         Check bgp router ID is same as Loopback0
         """
-        check_bgo_router_id_cmd = r"show ip bgp sum"
-        bgp_sum_result = self.duthost.shell(check_bgo_router_id_cmd, module_ignore_errors=True)
-        if bgp_sum_result["rc"] == 0:
-            match = re.search(r'BGP router identifier (\d+\.\d+\.\d+\.\d+)', bgp_sum_result["stdout"])
+        check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json" | grep "routerId"'
+        router_id_result = self.duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
+        if router_id_result["rc"] == 0:
+            match = re.search(r'"routerId":"([^"]+)"', router_id_result["stdout"])
             if match:
                 bgp_router_id = match.group(1)
                 logger.info("BGP router identifier: %s" % bgp_router_id)
@@ -235,7 +235,6 @@ class AdvancedReboot:
                 logger.info("Failed to get BGP router identifier")
 
         loopback0 = str(self.mgFacts['minigraph_lo_interfaces'][0]['addr'])
-
         return bgp_router_id == loopback0
 
     def __updateNextHopIps(self):
@@ -570,7 +569,8 @@ class AdvancedReboot:
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
-                self.__checkBgpRouterId()
+                if not self.__checkBgpRouterId():
+                    logger.error("Failed to verify BGP router identifier is Loopback0 address on %s" % self.duthost.hostname)
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()
