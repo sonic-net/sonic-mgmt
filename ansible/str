@@ -333,39 +333,39 @@ sonic_dell64_40:
         "0xFE": "0x0D5679F6"
     str-s6100-acs-2:
       ansible_host: 10.64.247.225
-      model: 0F6N2R
-      serial: 44010Q2
-      base_mac: 54:BF:64:F2:A5:C1
+      model: 06N1J1
+      serial: CXTSG02
+      base_mac: D8:9E:F3:B9:62:20
       syseeprom_info:
         "0x21": "S6100-ON"
-        "0x22": "0F6N2R"
-        "0x23": "CN0F6N2RCES0088KI024"
-        "0x24": "54:BF:64:F2:A5:C1"
-        "0x25": "08/20/2018 14:00:05"
+        "0x22": "06N1J1"
+        "0x23": "CN06N1J1CES008230033"
+        "0x24": "D8:9E:F3:B9:62:20"
+        "0x25": "02/25/2018 15:32:49"
         "0x26": "1"
-        "0x27": "A11"
+        "0x27": "A04"
         "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.25.1.2-0"
+        "0x29": "3.15.1.0"
         "0x2A": "384"
         "0x2B": "CES00"
         "0x2C": "CN"
         "0x2D": "DELL"
         "0x2E": "3.25.4.1"
-        "0x2F": "44010Q2"
-        "0xFE": "0x59B2DD79"
+        "0x2F": "CXTSG02"
+        "0xFE": "0x4252C1B4"
     str-s6100-acs-4:
       ansible_host: 10.64.246.226
-      model: 0F6N2R
-      serial: 91LQG02
-      base_mac: 34:17:EB:3D:B6:80
+      model: 06N1J1
+      serial: DG9SG02
+      base_mac: D8:9E:F3:D4:5A:E0
       syseeprom_info:
         "0x21": "S6100-ON"
-        "0x22": "0F6N2R"
-        "0x23": "CN0F6N2RCES0078PI038"
-        "0x24": "34:17:EB:3D:B6:80"
-        "0x25": "09/20/2017 17:23:09"
+        "0x22": "06N1J1"
+        "0x23": "CN06N1J1CES008350097"
+        "0x24": "D8:9E:F3:D4:5A:E0"
+        "0x25": "03/08/2018 15:24:50"
         "0x26": "1"
-        "0x27": "A11"
+        "0x27": "A04"
         "0x28": "x86_64-dell_s6100_c2538-r0"
         "0x29": "3.15.1.0"
         "0x2A": "384"
@@ -373,30 +373,30 @@ sonic_dell64_40:
         "0x2C": "CN"
         "0x2D": "DELL"
         "0x2E": "3.25.4.1"
-        "0x2F": "91LQG02"
-        "0xFE": "0x7F2C83D9"
+        "0x2F": "DG9SG02"
+        "0xFE": "0xB6382E97"
     str-s6100-acs-5:
       ansible_host: 10.64.246.66
-      model: 0F6N2R
-      serial: 484RG02
-      base_mac: 4C:76:25:FB:75:80
+      model: 06N1J1
+      serial: DW2TG02
+      base_mac: D8:9E:F3:D8:72:E0
       syseeprom_info:
         "0x21": "S6100-ON"
-        "0x22": "0F6N2R"
-        "0x23": "CN0F6N2R7793169R0020"
-        "0x24": "4C:76:25:FB:75:80"
-        "0x25": "02/16/2022 19:23:44"
+        "0x22": "06N1J1"
+        "0x23": "CN06N1J1CES0083I0030"
+        "0x24": "D8:9E:F3:D8:72:E0"
+        "0x25": "03/19/2018 10:08:18"
         "0x26": "1"
-        "0x27": "A11"
+        "0x27": "A04"
         "0x28": "x86_64-dell_s6100_c2538-r0"
         "0x29": "3.15.1.0"
         "0x2A": "384"
-        "0x2B": "77931"
+        "0x2B": "CES00"
         "0x2C": "CN"
         "0x2D": "DELL"
         "0x2E": "3.25.4.1"
-        "0x2F": "484RG02"
-        "0xFE": "0xA9991A33"
+        "0x2F": "DW2TG02"
+        "0xFE": "0xE8DE916C"
       pdu_host: pdu-102
   vars:
     hwsku: Force10-S6100
