@@ -25,13 +25,15 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter 
 from openpyxl.styles import Font, colors, Alignment, PatternFill, Border, Side
 
+# from dateutil.tz import tzutc
+
 from nightly_hawk_autoRecovery_cfg import curr_convert_to_trusty_images_dict
 from nightly_hawk_autoRecovery_cfg import nightly_pipeline_internal
 from nightly_hawk_autoRecovery_cfg import nightly_pipeline_master
 from nightly_hawk_autoRecovery_cfg import nightly_pipeline_202012
 from nightly_hawk_autoRecovery_cfg import nightly_pipeline_202205
 
-from nightly_hawk_common import NightlyPipelineCheck, TbShare
+from nightly_hawk_common import NightlyPipelineCheck, TbShare, KustoChecker, KustoUploader
 
 NIGHTLY_HAWK_DIR = os.path.abspath(os.path.dirname(__file__))
 SONIC_MGMT_DIR = os.path.dirname(NIGHTLY_HAWK_DIR)
@@ -69,7 +71,32 @@ class Nightly_hawk_pipeline_analyzer(object):
             self.pipeline_date_list.append(str(datetime.date.today() - datetime.timedelta(days=i)))
         self.save_file_name = str(datetime.date.today()) + "_pipeline_parser.xlsx"
 
+        self.DATABASE = 'SonicTestData'
+        self.kusto_checker = self.create_kusto_checker()
         self.nightly_pipeline_check = NightlyPipelineCheck()
+        self.pipeline_build_case_result = {}
+
+        self.result_value_list = ['success', 'error', 'failure', 'skipped', 'xfail_expected', 'xfail_unexpected', 'xfail_forgive']
+        self.keys = ["StartTimeUTC", "TestbedName", "OSVersion", "Result", "BuildId", "FullTestPath", "Comments", "Summary", "StartTime", "Runtime", "ModulePath", "TestCase"]
+        
+
+    def create_kusto_checker(self):
+        # ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
+        # cluster = ingest_cluster.replace('ingest-', '')
+        # tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
+        # client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
+        # client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
+
+        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
+        cluster = ingest_cluster.replace('ingest-', '')
+        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
+        client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
+        client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+
+        if not all([cluster, tenant_id, client_id, client_key]):
+            raise RuntimeError('Could not load Kusto credentials from environment')
+
+        return KustoChecker(cluster, tenant_id, client_id, client_key, self.DATABASE)
 
 
     def sorted_key_dict(self, myDict):
@@ -327,6 +354,53 @@ class Nightly_hawk_pipeline_analyzer(object):
                 break
         return searched_pattern
 
+    def collect_pipeline_build_case_result_by_build_id(self, build_id):
+        """
+        Collects test results from Kusto based on build ID.
+        :param build_id: str - the ID of the build to retrieve test results for.
+        """
+        build_test_result = self.kusto_checker.query_build_test_result(build_id)
+        logger.debug("build_test_result {} ".format(build_test_result)) 
+
+        # result_header_list = ['StartTimeUTC', 'TestbedName', 'OSVersion', 'StartTime', 'Runtime', 'Result', 'BuildId', 'ModulePath', 'TestCase', 'FullTestPath', 'Summary']
+        # result_value_list = ['success', 'error', 'failure', 'skipped', 'xfail_expected', 'xfail_forgive']
+        result_dict = {result: {} for result in self.result_value_list}
+
+        # keys = ["StartTimeUTC", "TestbedName", "OSVersion", "Result", "BuildId", "FullTestPath", "Comments" "Summary", "StartTime", "Runtime", "ModulePath", "TestCase"]
+        index = 0
+        for row in build_test_result.primary_results[0].rows:
+            # logger.debug("index {} ".format(index)) 
+            if row['Result'] not in self.result_value_list:
+                logger.error("build id {} case {} result {} not expected".format(build_id, row['FullTestPath'], row['Result'])) 
+            else:
+                result_dict[row['Result']][index] = {}
+                # logger.info("row {} ".format(row))
+                for i, key in enumerate(self.keys):
+                    # logger.info("{}; key: {}, value: {}; ".format(i, key, str((list(row))[i])))
+                    result_dict[row['Result']][index][key] = str((list(row))[i])
+            index += 1
+
+        logger.info("Retrieved {} test results for build ID {} ".format(len(build_test_result.primary_results[0].rows), build_id))
+
+        for value in self.result_value_list:
+            logger.debug("{} cases count: {} ".format(value, len(result_dict[value].keys())))
+
+        return result_dict
+
+    def create_branch_verify_result_xls_file(self):
+        logger.info("save_file_name {}".format(self.save_file_name)) 
+        if os.path.exists(self.save_file_name):
+            os.system("rm -f {}".format(self.save_file_name))
+
+        wb = Workbook()
+
+        for build_id in self.branch_verify_result.keys():
+            logger.debug("build_id {} ".format(build_id)) 
+            self.build_id_result_excel_sheet_create(wb, build_id, self.branch_verify_result[build_id] )
+
+        wb.save(self.save_file_name)
+        return
+    
 
     def parser_pipeline_build_result_by_build_id(self, pipeline_id, build_id):
         get_build_records = self.nightly_pipeline_check.get_pipeline_build_result_by_build_id(pipeline_id, build_id)
@@ -368,17 +442,69 @@ class Nightly_hawk_pipeline_analyzer(object):
                                 pattern_list = ['pretest failed. Please check the detailed log', 'Sanity check failed. Please check the detailed log', 'The task has timed out']
                                 build_log_buffer = self.get_pipelines_build_log_buffer(get_build_records['records'][i]['log']['url'])
                                 result_output = self.pipelines_build_log_match(build_log_buffer, pattern_list)
-                                result_output = '{}\n{}'.format(result_output, self.parser_run_tests_logs(build_log_buffer))                                
+                                # result_output = '{}\n{}'.format(result_output, self.parser_run_tests_logs(build_log_buffer))                                
                                 self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = '{}{}\n{}'.format('failed run time: ', run_time, result_output)
+                        elif get_build_records['records'][i]['result'] == 'succeeded' :
+                            if parser_items[j] == 'Upgrade Image':
+                                pattern = 'current image:'
+                                build_log_buffer = self.get_pipelines_build_log_buffer(get_build_records['records'][i]['log']['url'])
+                                result_output = self.pipelines_build_log_serach(build_log_buffer, pattern)
+
+                                start_index = result_output.find("current image: ")
+                                if start_index != -1:
+                                    current_image = result_output[start_index:]
+                                else:
+                                    current_image = "No image found"
+                                self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = current_image
+
+                            elif parser_items[j] == 'Run Tests':
+                                build_result_dict = self.collect_pipeline_build_case_result_by_build_id(build_id)
+        
+                                for value in self.result_value_list:
+                                    logger.info("{} cases count: {} ".format(value, len(build_result_dict[value].keys())))
+
+                                self.result_value_list = ['success', 'error', 'failure', 'skipped', 'xfail_expected', 'xfail_unexpected', 'xfail_forgive']
+
+                                count_success_case = len(build_result_dict['success'].keys())
+                                count_error_case = len(build_result_dict['error'].keys())
+                                count_failure_case = len(build_result_dict['failure'].keys())
+                                count_skipped_case = len(build_result_dict['skipped'].keys())
+                                count_xfail_expected_case = len(build_result_dict['xfail_expected'].keys())
+                                count_xfail_unexpected_case = len(build_result_dict['xfail_unexpected'].keys())
+                                count_xfail_forgive_case = len(build_result_dict['xfail_forgive'].keys())
+                                count_total_cases = count_success_case + count_error_case + count_failure_case
+                                
+                                if count_total_cases == 0:
+                                    success_rate = 0
+                                else:
+                                    success_rate = count_success_case / count_total_cases
+                                    self.pipeline_build_case_result[build_id] = build_result_dict
+                                    
+                                # logger.info("success rate {:.2%} ".format(success_rate))
+                                start_time = datetime.datetime.strptime(get_build_records['records'][i]['startTime'][0:19], '%Y-%m-%dT%H:%M:%S')
+                                finish_time = datetime.datetime.strptime(get_build_records['records'][i]['finishTime'][0:19], '%Y-%m-%dT%H:%M:%S')
+                                run_time = finish_time - start_time
+                                logger.debug("record {} item {} run time {} start time {} finish time {} ".format(i, parser_items[j], run_time, get_build_records['records'][i]['startTime'][0:19], get_build_records['records'][i]['finishTime'][0:19])) 
+
+                                result = 'success: {}\t error: {}\t failure: {}\t skipped: {}\t xfail_expected: {}\t xfail_unexpected: {}\t xfail_forgive: {}\t pass rate: {:.2%}\t  run time: {} '.format(
+                                    count_success_case, count_error_case, count_failure_case, count_skipped_case, count_xfail_expected_case, count_xfail_unexpected_case, count_xfail_forgive_case, success_rate, run_time)
+                                logger.info("build_id {} \t result {}".format(build_id, result))
+                                logger.info("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.2%}\t{}\t".format(build_id, count_success_case, count_error_case, count_failure_case, count_skipped_case, count_xfail_expected_case, count_xfail_unexpected_case, count_xfail_forgive_case, success_rate, run_time))
+
+                                result_output = 'pass rate: {:.2%}\nsuccess: {}\nerror: {}\nfailure: {}\nskipped: {}\nxfail_expected: {}\nxfail_unexpected: {}\nxfail_forgive: {}\n '.format(
+                                    success_rate, count_success_case, count_error_case, count_failure_case, count_skipped_case, count_xfail_expected_case, count_xfail_unexpected_case, count_xfail_forgive_case)
+                                # logger.info("build_id {}; success rate {:.2%};  {} ".format(build_id, success_rate, result_output))
+                                self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = '{}{}\n{}'.format('run time: ', run_time, result_output)
         return
 
 
     def parser_pipeline_build_result(self):
         for pipeline_id in self.pipeline_build_result_dict.keys():
+            logger.info("pipeline_id {}  ".format(pipeline_id)) 
             for build_id in self.pipeline_build_result_dict[pipeline_id].keys():
                 logger.info("parser build result pipeline_id {} build_id {} ".format(pipeline_id, build_id))
                 for key, value in self.pipeline_build_result_dict[pipeline_id][build_id].items():
-                    # logger.info("pipeline_id {} build_id {} key {}: {} ".format(pipeline_id, build_id, key, value)) 
+                    logger.info("pipeline_id {} build_id {} key {}: {} ".format(pipeline_id, build_id, key, value)) 
                     if key == 'state':
                         state_result = value
                     elif key == 'result':
@@ -386,8 +512,8 @@ class Nightly_hawk_pipeline_analyzer(object):
                     # elif key == 'id':
                     #     build_id = value
 
-                logger.debug("pipeline_id {} build_id {} state {} result {}  ".format(pipeline_id, build_id, state_result, result_value))
-                if state_result == 'completed' and result_value != 'succeeded' :
+                logger.info("pipeline_id {} build_id {} state {} result {}  ".format(pipeline_id, build_id, state_result, result_value))
+                if state_result == 'completed' :
                     self.parser_pipeline_build_result_by_build_id(pipeline_id, build_id)
 
         logger.info("pipeline_build_result_dict {}".format(self.pipeline_build_result_dict))
@@ -585,6 +711,81 @@ class Nightly_hawk_pipeline_analyzer(object):
 
         wb.save(self.save_file_name)
 
+        return
+
+
+    def build_id_result_excel_sheet_create(self, wb, build_id, build_result_dict):
+        logger.info("excel_sheet_create {} - {}".format(self.save_file_name, build_id)) 
+
+        self.curr_row = 1
+        self.curr_col = 1
+
+        ws_sheet = wb.create_sheet(str(build_id))
+
+        # add date
+        ws_sheet.cell(row = self.curr_row, column = self.curr_col,     value = "Date: " + str(datetime.datetime.now()))
+        # ws_sheet.cell(row = self.curr_row, column = self.curr_col + 1, value = str(datetime.datetime.now()))
+        self.curr_row += 2
+
+        save_row = self.curr_row
+        
+        for value in self.result_value_list:
+            logger.info("{} cases count: {} ".format(value, len(build_result_dict[value].keys())))
+            ws_sheet.cell(row = self.curr_row, column = self.curr_col, value = "{} ".format(value))      
+            ws_sheet.cell(row = self.curr_row, column = self.curr_col + 1, value = "{} ".format(len(build_result_dict[value].keys())))
+            ws_sheet[get_column_letter(self.curr_col + 1)+str(self.curr_row)].alignment = Alignment(horizontal='right', vertical='bottom', wrap_text=True)
+            self.curr_row += 1
+            self.curr_col = 1
+
+        success_case_count = len(build_result_dict['success'].keys())
+        total_cases_count = success_case_count + len(build_result_dict['error'].keys()) + len(build_result_dict['failure'].keys())
+        if total_cases_count == 0:
+            success_rate = 0
+        else:
+            logger.info("success rate {:.2%} ".format(success_case_count / total_cases_count))
+            success_rate = success_case_count / total_cases_count
+        ws_sheet.cell(row = save_row, column = self.curr_col + 2, value = "{} ".format('success rate'))      
+        ws_sheet.cell(row = save_row, column = self.curr_col + 2 + 1, value = "{:.2%} ".format(success_rate))
+        ws_sheet[get_column_letter(save_row)+str(self.curr_col + 2 + 1)].alignment = Alignment(horizontal='right', vertical='bottom', wrap_text=True)
+        
+        self.curr_row += 1
+        self.curr_col = 1
+
+        logger.info("##### build_result_dict {}".format(build_result_dict.items()))
+
+        # keys = ["StartTimeUTC", "TestbedName", "OSVersion", "StartTime", "Runtime", "Result", "BuildId", "ModulePath", "TestCase", "FullTestPath", "Summary"]
+        for result_status, result_info in build_result_dict.items():
+            if result_status == 'success' or result_status == 'skipped':
+                continue
+            for index, case in result_info.items():
+                for i, key in enumerate(self.keys):
+                    value = case.get(key, "")
+                    # logger.debug("i {} item_key {}, value {}".format(i, key, value)) 
+                    ws_sheet.cell(row = self.curr_row, column = self.curr_col + i, value = value)
+                self.curr_row += 1
+                self.curr_col = 1
+
+        return
+    
+
+    def create_pipeline_build_case_result_xls_file(self):
+        logger.info("save_file_name {}".format(self.save_file_name)) 
+
+        name, ext = self.save_file_name.rsplit('.', 1)
+        new_name = '{}-{}'.format(name, 'build_result')
+        pipeline_case_result_file = '{}.{}'.format(new_name, ext)
+
+        
+        if os.path.exists(pipeline_case_result_file):
+            os.system("rm -f {}".format(pipeline_case_result_file))
+
+        wb = Workbook()
+
+        for build_id in sorted(self.pipeline_build_case_result.keys()):
+            logger.info("build_id {} ".format(build_id)) 
+            self.build_id_result_excel_sheet_create(wb, build_id, self.pipeline_build_case_result[build_id] )
+
+        wb.save(pipeline_case_result_file)
         return
 
 
@@ -801,6 +1002,9 @@ class Nightly_hawk_pipeline_analyzer(object):
                     if 'failed' in build_info['build_details'][build_result_details_list[i]] or 'canceled' in build_info['build_details'][build_result_details_list[i]]:
                         # ws_sheet[get_column_letter(self.curr_col + 1)+str(self.curr_row)].fill = PatternFill("solid", fgColor='FF0000')
                         ws_sheet[get_column_letter(self.curr_col + 1)+str(self.curr_row)].font = Font(size=12, color='FF0000')
+                    elif 'pass rate' in build_info['build_details'][build_result_details_list[i]] :
+                        # ws_sheet[get_column_letter(self.curr_col + 1)+str(self.curr_row)].fill = PatternFill("solid", fgColor='00ff00')
+                        ws_sheet[get_column_letter(self.curr_col + 1)+str(self.curr_row)].font = Font(size=12, color='00B050')
 
                     self.curr_row += 1
                     # self.curr_col = col_save
@@ -888,6 +1092,7 @@ if __name__ == '__main__':
         logger.info("parser_pipeline_info online ")
         pipeline_analyzer.pipeline_parser_analyzer_dict = pipeline_analyzer.nightly_pipeline_check.collect_nightly_build_pipelines()
 
+    # logger.info("pipeline_parser_analyzer_dict {} ".format(pipeline_analyzer.pipeline_parser_analyzer_dict))
 
     if not args.pipelineCustomer:
         nightly_pipeline_internal.clear()
@@ -911,6 +1116,9 @@ if __name__ == '__main__':
     
     logger.info("excel_create_file ")
     pipeline_analyzer.excel_create_file()
+
+    logger.info("create case result file ")
+    pipeline_analyzer.create_pipeline_build_case_result_xls_file()
 
     logger.info("Nightly_hawk_pipeline_analyzer complete ")
 

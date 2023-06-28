@@ -86,9 +86,10 @@ class KustoChecker(object):
         query_str = '''
             FlatTestReportViewLatest
             | where StartTimeUTC > ago(30d)
-            | where BuildId == {build_id}
-            | where Result in ("error", "failure", "success")
-            | distinct StartTimeUTC, TestbedName, StartTime, Runtime, Result, FullTestPath, Summary
+            | where BuildId == '{build_id}'
+            | extend Comments = " "
+            | distinct StartTimeUTC, TestbedName, OSVersion, BuildId, Result, FullTestPath, Comments, Summary, StartTime, Runtime, ModulePath, TestCase
+            | sort by StartTime asc 
             '''.format(build_id=build_id)
         return self.query(query_str)
 
@@ -130,11 +131,13 @@ class KustoUploader(object):
 class TbShare(object):
     def __init__(self):
         self.proxies = {'http': os.environ.get('http_proxy'), 'https': os.environ.get('http_proxy')}
-        self.token = self.get_token()
+        self.token = self.get_token_from_elastictest()
         if not self.token:
             raise RuntimeError('TbShare no token')
 
         logger.debug("init TbShare token {} ".format(self.token)) 
+
+
 
     def get_token(self):
         client_id = os.environ.get('TBSHARE_AAD_CLIENT_ID')
@@ -176,6 +179,35 @@ class TbShare(object):
             return None
 
 
+    def get_token_from_elastictest(self):
+        token_url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(os.environ.get('ELASTICTEST_MSAL_TENANT'))
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        payload = {
+            'grant_type': 'client_credentials',
+            'client_id': os.environ.get('ELASTICTEST_MSAL_CLIENT_ID'),
+            'client_secret': os.environ.get('ELASTICTEST_MSAL_SECRET_VALUE'),
+            'scope': os.environ.get('ELASTICTEST_MSAL_SCOPE')
+        }
+
+        logger.debug("get token token_url {} ".format(token_url))
+        logger.debug("get token headers {} ".format(headers))
+        logger.debug("get token payload {} ".format(payload))
+
+        try:
+            resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
+            
+            # resp = requests.post(token_url, headers=headers, data=payload, timeout=10)
+
+            logger.info("get return code {} ".format(resp))
+
+            return resp['access_token']
+        except Exception as e:
+            print('Get token failed with exception: {}'.format(repr(e)))
+        return None
+
+
     def get_testbed(self, testbed):
 
         url = 'https://tbshare.azurewebsites.net/api/testbed/{}'.format(testbed)
@@ -186,6 +218,7 @@ class TbShare(object):
         try:
             for i in range(10):
                 response = requests.get(url, headers=headers, proxies=self.proxies, timeout=30)
+                logger.info("get testbed info return code {} ".format(response.status_code))
                 if response.status_code == requests.codes.ok:
                     break
                 time.sleep(1)
@@ -194,7 +227,7 @@ class TbShare(object):
             if response.status_code == requests.codes.ok:
                 testbed_info = response.json()
             else:
-                logger.debug("get testbed info failed return code {} ".format(response.status_code))
+                logger.info("get testbed info failed return code {} ".format(response.status_code))
 
             return testbed_info
         except Exception as e:
@@ -202,49 +235,57 @@ class TbShare(object):
 
 
     def lock_release_api(self, testbed, action, hours, user, reason, force, absolute):
-        url = 'https://tbshare.azurewebsites.net/api/{}'.format(action)
-        headers = {
-            'Authorization': 'Bearer ' + self.token
-        }
-        params = {
-            'name': testbed,
-            'user': user,
-            'force': force
-        }
-        if action == 'lock':
-            # Extra params required only for lock
-            params.update({
-                'hours': hours,
-                'lock_reason': reason,
-                'absolute': absolute
-            })
 
-
+        logger.info('[Elastictest] {} testbed {} force {} absolute {} '.format(action, testbed, force, absolute))
         try:
-            for i in range(5):
-                response = requests.get(url, headers=headers, params=params, proxies=self.proxies, timeout=30)
-                if response.status_code == requests.codes.ok:
-                    logger.debug('{} testbed {} requests failed, try {} '.format(action, testbed, i))
-                    break
-                time.sleep(1)
+            lock_tb_num = 1
+            data = {
+                "testbed_requirement": {
+                    'platform': 'PHYSICAL',
+                    'name': [testbed],
+                    'min': lock_tb_num,
+                    'max': lock_tb_num
+                },
+                "hours": hours,
+                "requester_id": user,
+                'lock_reason': reason,
+                'absolute_lock': absolute,
+                'force_lock': force,
 
-            if response.status_code == requests.codes.ok:
-                result = response.json()
-                if 'failed' in result and result['failed']:
-                    logger.error('{} testbed {} failed'.format(action, testbed))
-                    if 'msg' in result:
-                        logger.debug(result['msg'])
-                    return 2
-                else:
-                    logger.debug('{} testbed {} succeeded'.format(action, testbed))
-                    return 0
+            }
+            if action == 'release':
+                data = {
+                    'testbed_names': [testbed],
+                    'force_release': force,
+                    "requester_id": user,
+                }
+
+            headers = {
+                'Authorization': 'Bearer {}'.format(self.get_token_from_elastictest())
+            }
+            resp = requests.post("{}/{}".format(os.environ.get("ELASTICTEST_MGMT_TESTBED_URL"), action),
+                                json=data,
+                                headers=headers).json()
+
+            if 'failed' in resp and resp['failed']:
+                logger.info('[Elastictest] {} testbed {} failed'.format(action, testbed))
+                if 'msg' in resp:
+                    print(resp['msg'])
+                return 2
             else:
-                logger.debug("{} {} failed return code {} ".format(action, testbed, response.status_code))
-                return 3
+                if not resp['success']:
+                    logger.info('[Elastictest] Lock testbeds failed with error: {}'.format(resp['errmsg']))
+                    return 2
+                if action == "lock":
+                    if resp['data'] is None or (len(resp['data']) < lock_tb_num):
+                        logger.info("[Elastictest] Lock testbed failed, can't lock expected testbed")
+                        return 2
+                logger.info('[Elastictest] {} testbed {} succeeded'.format(action, testbed))
+                return 0
 
         except Exception as e:
-            return 2
-
+            logger.info('[Elastictest] {} testbed {} failed with exception: {}'.format(action, testbed, repr(e)))
+            return 3
 
 
 class NightlyPipelineCheck(object):
@@ -356,7 +397,9 @@ class NightlyPipelineCheck(object):
         """
         request to get all pipeline IDs
         """
-        get_pipeline_ids_url = "https://dev.azure.com/mssonic/internal/_apis/pipelines/?api-version=6.0-preview.1"
+        # get_pipeline_ids_url = "https://dev.azure.com/mssonic/internal/_apis/pipelines/?api-version=6.0-preview.1"
+        get_pipeline_ids_url = "https://dev.azure.com/mssonic/internal/_apis//build/definitions"
+
         logger.debug("get pipeline build status, url {} ".format(get_pipeline_ids_url))
 
         # parser nightly pipeline build from azure
@@ -425,17 +468,18 @@ class NightlyPipelineCheck(object):
         pipeline_parser_analyzer_dict = {}
         # collect current nightly pipeline build 
         logger.info("pipeline build pipeline_ids_records count {}   ".format((pipeline_ids_records['count'])))
-        for i in range(pipeline_ids_records['count']):
-            if 'Nightly' in pipeline_ids_records['value'][i]['folder']:
-                logger.info("index {} name {} build ID {} folder {} url {}  ".format(i, pipeline_ids_records['value'][i]['name'], pipeline_ids_records['value'][i]['id'], pipeline_ids_records['value'][i]['folder'], pipeline_ids_records['value'][i]['_links']['web']['href']))
-                file_name, pipeline_name, path = self.get_pipelines_info(pipeline_ids_records['value'][i]['id'])
-
+        # for i in range(pipeline_ids_records['count']):
+        for pipeline_info in pipeline_ids_records['value']:
+            logger.warning("pipeline_info {} ".format(pipeline_info))
+            if 'path' in pipeline_info and pipeline_info['path'].startswith('\\Nightly') and not pipeline_info['path'].startswith('\\Nightly-Hawk') and not '\\Disabled' in pipeline_info['path']:
+                file_name, pipeline_name, path = self.get_pipelines_info(pipeline_info['id'])
                 if file_name == None and pipeline_name == None and path == None :
-                    logger.warning("get_pipelines_id {} failed ".format(pipeline_ids_records['value'][i]['id']))
+                    logger.warning("get_pipelines_id {} failed ".format(pipeline_info['id']))
                     continue
 
+                logger.warning("file_name {} pipeline_name {} path {} ".format(file_name, pipeline_name, path))
                 if file_name in nightly_pipelines_yml_dict.keys():
-                    pipeline_id = pipeline_ids_records['value'][i]['id']
+                    pipeline_id = pipeline_info['id']
 
                     testbed_name = nightly_pipelines_yml_dict[file_name]['testbed_name']
                     branch = nightly_pipelines_yml_dict[file_name]['branch']

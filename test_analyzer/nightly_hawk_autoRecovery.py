@@ -490,8 +490,9 @@ class Testbeds_auto_recovery(object):
                         logger.info("testbed {} priority {} add into build list".format(testbed, self.unhealthy_testbeds[testbed]['Priority']))
                     self.build_testbeds_list.append(testbed)
                 else :
-                    logger.info("{} testbed {} failed, status {}, prio {} {} ".format("lock", testbed, lock_statue, type(self.unhealthy_testbeds[testbed]['Priority']), self.unhealthy_testbeds[testbed]['Priority']))
-                    self.update_testbeds_ToCusto(testbed, False, None, None, None, None, "Lock failure", self.unhealthy_testbeds[testbed]['Priority'] + 1, lock_statue["lock"])
+                    # logger.info("{} testbed {} failed, status {}, prio {} {} ".format("lock", testbed, lock_statue, type(self.unhealthy_testbeds[testbed]['Priority']), self.unhealthy_testbeds[testbed]['Priority']))
+                    self.update_testbeds_ToCusto(testbed, False, None, None, None, None, "Lock failure", self.unhealthy_testbeds[testbed]['Priority'] + 1, 'fixme')
+                    # self.update_testbeds_ToCusto(testbed, False, None, None, None, None, "Lock failure", self.unhealthy_testbeds[testbed]['Priority'] + 1, lock_statue["lock"])
                     del self.unhealthy_testbeds[testbed]
             else :
                 break
@@ -765,38 +766,38 @@ class Testbeds_auto_recovery(object):
         if self.verbose :
             logger.info("{} testbed {} ".format(lock_release, testbed))
 
-        testbed_lock = {}
-        for count in range(5):
-            testbed_lock = self.tb_share.get_testbed(testbed)
-            if testbed_lock:
-                if testbed_lock.get('failed') == False:
-                    break
-            time.sleep(1)
-            logger.info("testbed {} get_testbed failed, try {} ".format(testbed, count + 1))
+        # testbed_lock = {}
+        # for count in range(5):
+        #     testbed_lock = self.tb_share.get_testbed(testbed)
+        #     if testbed_lock:
+        #         if testbed_lock.get('failed') == False:
+        #             break
+        #     time.sleep(1)
+        #     logger.info("testbed {} get_testbed failed, try {} ".format(testbed, count + 1))
 
-        logger.info("testbed {} {}".format(testbed, testbed_lock))
-        if testbed_lock:
-            if testbed_lock.get('failed', True):
-                logger.error('Failed to get testbed {} details {}'.format(testbed, testbed_lock))
-                lock_release_statue[lock_release] = "get testbed info failed"
-                return False, lock_release_statue
+        # logger.info("testbed {} {}".format(testbed, testbed_lock))
+        # if testbed_lock:
+        #     if testbed_lock.get('failed', True):
+        #         logger.error('Failed to get testbed {} details {}'.format(testbed, testbed_lock))
+        #         lock_release_statue[lock_release] = "get testbed info failed"
+        #         return False, lock_release_statue
 
         lock_statue = None
         if lock_release == "lock" :
-            if ((len(testbed_lock['testbed']['locked_by']) == 0 
-                    and len(testbed_lock['testbed']['lock_time']) == 0 
-                    and len(testbed_lock['testbed']['release_time']) == 0) 
-                or testbed_lock['testbed']['locked_by'] == self.lock_user) :
+            # if ((len(testbed_lock['testbed']['locked_by']) == 0 
+            #         and len(testbed_lock['testbed']['lock_time']) == 0 
+            #         and len(testbed_lock['testbed']['release_time']) == 0) 
+            #     or testbed_lock['testbed']['locked_by'] == self.lock_user) :
 
-                lock_statue = self.tb_share.lock_release_api(testbed, lock_release, self.lock_hours, self.lock_user, self.lock_reason, 'false', 'true')
+            lock_statue = self.tb_share.lock_release_api(testbed, lock_release, self.lock_hours, self.lock_user, self.lock_reason, False, True)
         else :
-            if (testbed_lock['testbed']['locked_by']) == self.lock_user :
-                lock_statue = self.tb_share.lock_release_api(testbed, lock_release, None, self.lock_user, None, 'true', 'false')
+            # if (testbed_lock['testbed']['locked_by']) == self.lock_user :
+            lock_statue = self.tb_share.lock_release_api(testbed, lock_release, None, self.lock_user, None, False, False)
 
 
         if lock_statue == None :
-            logger.error("{} testbed {} skip, locked by {} [{} ~ {}]".format(lock_release, testbed, testbed_lock['testbed']['locked_by'], testbed_lock['testbed']['lock_time'], testbed_lock['testbed']['release_time']))
-            lock_release_statue[lock_release] = "locked by {} [{} ~ {}]".format(testbed_lock['testbed']['locked_by'], testbed_lock['testbed']['lock_time'], testbed_lock['testbed']['release_time'])
+            # logger.error("{} testbed {} skip, locked by {} [{} ~ {}]".format(lock_release, testbed, testbed_lock['testbed']['locked_by'], testbed_lock['testbed']['lock_time'], testbed_lock['testbed']['release_time']))
+            # lock_release_statue[lock_release] = "locked by {} [{} ~ {}]".format(testbed_lock['testbed']['locked_by'], testbed_lock['testbed']['lock_time'], testbed_lock['testbed']['release_time'])
             return False, lock_release_statue
         elif lock_statue == 0 :
             if self.verbose :
