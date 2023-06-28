@@ -106,7 +106,7 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     """
     output = duthost.command('show pfcwd config')
     if 'Ethernet' not in output['stdout']:
-        pytest.skip('No ports found in the pfcwd config, skipping GCU PFCWD test')
+        pytest.skip('No ports found in the PFC_WD config, skipping GCU PFC_WD test')
 
     pfcwd_config = defaultdict()
     for line in output['stdout_lines']:
