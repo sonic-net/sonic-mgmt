@@ -10,8 +10,8 @@ from fcntl import ioctl
 import logging
 import ptf.packet as scapy
 import scapy.all as scapy2
+scapy2.conf.use_pcap = True        # Do not move this import. use_pcap import needs to be enabled before import pcapdnet
 import scapy.arch.pcapdnet # noqa F401
-scapy2.conf.use_pcap = True
 
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
