@@ -3416,18 +3416,38 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = get_multiple_flows(
-                self,
-                pkt_dst_mac,
-                dst_port_id,
-                dst_port_ip,
-                None,
-                dscp,
-                ecn,
-                ttl,
-                packet_length,
-                [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+        if asic_type in ['cisco-8000']:
+            pkt = get_multiple_flows(
+                    self,
+                    pkt_dst_mac,
+                    dst_port_id,
+                    dst_port_ip,
+                    None,
+                    dscp,
+                    ecn,
+                    ttl,
+                    packet_length,
+                    [(src_port_id, src_port_ip)],
+                    packets_per_port=1)[src_port_id][0][0]
+        else:
+            pkt = construct_ip_pkt(packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ecn=ecn,
+                                   ttl=ttl)
+
+            print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
+                  (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
+            # in case dst_port_id is part of LAG, find out the actual dst port
+            # for given IP parameters
+            dst_port_id = get_rx_port(
+                self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
+            )
+            print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
