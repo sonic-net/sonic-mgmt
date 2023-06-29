@@ -157,11 +157,12 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
         if lacp_sessions_dict and "lacp_sessions" in lacp_sessions_dict else None
     controlplane_summary = {"downtime": "",
                             "arp_ping": "", "lacp_session_max_wait": ""}
-    if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
-        max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
-        analyze_result.get(
-            "controlplane", controlplane_summary).update(
-                {"lacp_session_max_wait": max_lacp_session_wait})
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
+            max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+            analyze_result.get(
+                "controlplane", controlplane_summary).update(
+                    {"lacp_session_max_wait": max_lacp_session_wait})
 
     result_summary = {
         "reboot_type": "{}-{}".format(reboot_type, reboot_oper) if reboot_oper else reboot_type,
