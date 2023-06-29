@@ -105,7 +105,7 @@ def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, ve
             """ % (vlan_intf["attachto"], dut_vlan_mac))
     duthost.copy(content=json.dumps(del_vlan_json, indent=4), dest='/tmp/del_vlan_mac.json')
     duthost.shell("configlet -d -j {}".format("/tmp/del_vlan_mac.json"))
-    duthost.shell("rm -rf /tmp/del_vlan_mac.json")
+    duthost.shell("rm -f /tmp/del_vlan_mac.json")
 
     wait_until(10, 2, 2, lambda: duthost.get_dut_iface_mac(vlan_intf["attachto"]) == dut_vlan_mac)
 
