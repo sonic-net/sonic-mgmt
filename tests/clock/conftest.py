@@ -20,7 +20,7 @@ def ntp_server(request):
         logging.info('IP of NTP server was not given. Skipping the test')
         pytest.skip("IP of NTP server was not given. Skipping the test")
     else:
-        logging.info(f'NTP server ip from execution parameter: {ntp_server_ip}')
+        logging.info(f'NTP server ip from execution parameter: {str(ntp_server_ip)}')
     return ntp_server_ip
 
 
