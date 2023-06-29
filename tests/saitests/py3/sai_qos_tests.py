@@ -2278,7 +2278,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
                 self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
-                    'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+                    'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt,
+                                       sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
@@ -2320,7 +2321,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 else:
                     time.sleep(8)   # wait pfc counter refresh
                 self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
-                    'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+                    'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt,
+                                       sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 if pkt_cnt == 10:
                     sys.exit("Too many pkts needed to trigger pfc: %d" %
@@ -2370,9 +2372,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
             time.sleep(8)
             for i in range(0, self.pgs_num):
-                pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 else self.pkts_num_hdrm_partial // self.pkt_size_factor
+                pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - \
+                    1 else self.pkts_num_hdrm_partial // self.pkt_size_factor
                 self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
-                    'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+                    'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'.format(pkt_cnt,
+                                       sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
