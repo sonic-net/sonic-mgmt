@@ -1883,7 +1883,7 @@ def compare_running_config(pre_running_config, cur_running_config):
     if type(pre_running_config) != type(cur_running_config):
         return False
 
-    if type(pre_running_config) is not "dict":
+    if type(pre_running_config) is not dict:
         if set(pre_running_config) != set(cur_running_config):
             return False
         else:
