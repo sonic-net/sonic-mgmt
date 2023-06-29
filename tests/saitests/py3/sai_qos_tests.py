@@ -2313,7 +2313,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     # get a snapshot of counter values at recv and transmit ports
                     # queue_counters value is not of our interest here
                     recv_counters, _ = sai_thrift_read_port_counters(
-                        self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
+                        self.client, self.asic_type, port_list[self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
 
                 if platform_asic and platform_asic == "broadcom-dnx":
                     pass
