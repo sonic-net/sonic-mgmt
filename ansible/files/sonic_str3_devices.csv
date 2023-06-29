@@ -19,8 +19,11 @@ str3-7260cx3-acs-fan-38,10.3.147.121/23,Arista-7260CX3,FanoutLeaf,,
 str3-8101-fanout-01,10.3.146.195/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-02,10.3.146.193/23,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-03,10.3.146.192/23,Cisco-8101-O8C48,FanoutLeaf,,
-str3-8101-fanout-05,10.3.146.177/23,Cisco-8101-O32,FanoutLeaf,,
-str3-8101-fanout-06,10.3.146.178/23,Cisco-8101-O32,FanoutLeaf,,
+str3-8101-fanout-05,10.3.146.177/23,Cisco-8101-C64,FanoutLeaf,,
+str3-8101-fanout-06,10.3.146.178/23,Cisco-8101-C64,FanoutLeaf,,
+str3-8101-fanout-10,10.64.247.59/23,Cisco-8101-C64,FanoutLeaf,,
+str3-8101-fanout-11,10.64.247.60/23,Cisco-8101-C64,FanoutLeaf,,
+str3-8101-fanout-12,10.64.247.61/23,Cisco-8101-C64,FanoutLeaf,,
 str3-msn4600c-acs-06,10.3.146.146/23,ACS-MSN4600C,FanoutLeaf,,sonic
 str3-msn4600c-acs-05,10.3.146.222/23,ACS-MSN4600C,DevSonic,,sonic
 str3-msn4600c-acs-07,10.3.147.114/23,ACS-MSN4600C,DevSonic,,sonic
@@ -31,8 +34,10 @@ str3-8102-06,10.3.146.78/23,Cisco-8102-C64,DevSonic,,sonic
 str3-8101-32fh-01,10.3.146.189/23,Cisco-8101-O32,DevSonic,,sonic
 str3-8101-01,10.3.146.194/23,Cisco-8101-O8C48,DevSonic,,sonic
 str3-8101-02,10.3.146.191/23,Cisco-8101-O8C48,DevSonic,,sonic
-str3-8111-01,10.3.146.237/23,Cisco-8111-C32,DevSonic,,sonic
-str3-8111-02,10.3.146.238/23,Cisco-8111-C32,DevSonic,,sonic
+str3-8111-01,10.3.146.237/23,Cisco-8111-O64,DevSonic,,sonic
+str3-8111-02,10.3.146.238/23,Cisco-8111-O64,DevSonic,,sonic
+str3-8111-04,10.64.247.55/23,Cisco-8111-O64,DevSonic,,sonic
+str3-8111-05,10.64.247.57/23,Cisco-8111-O64,DevSonic,,sonic
 str3-8800-sup-1,10.3.147.95/23,8800-RP-O,DevSonic,,sonic
 str3-8800-sup-2,10.3.147.95/23,8800-RP-O,DevSonic,,sonic
 str3-8800-lc1-1,10.3.147.78/23,8800-LC-48H-O,DevSonic,,sonic
@@ -56,6 +61,8 @@ pdu-90,10.3.155.90,ApcRPDU,Pdu,snmp,
 pdu-91,10.3.155.91,Sentry,Pdu,snmp,
 pdu-92,10.3.155.92,ApcRPDU,Pdu,snmp,
 pdu-93,10.3.155.93,Sentry,Pdu,snmp,
+pdu-100,10.3.155.100,Sentry4,Pdu,snmp,
+pdu-101,10.3.155.101,Sentry4,Pdu,snmp,
 pdu-115,10.3.155.115,Sentry,Pdu,snmp,
 pdu-116,10.3.155.116,Sentry,Pdu,snmp,
 pdu-118,10.3.155.118,Sentry,Pdu,snmp,

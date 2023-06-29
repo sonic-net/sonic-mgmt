@@ -1023,7 +1023,7 @@
 
 - conf-name: vms63-t1-8111-01
   group-name: vms63-5
-  topo: t1-lag
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: vms63-5
   ptf_ip: 10.64.247.50/23
@@ -1038,15 +1038,45 @@
 
 - conf-name: vms63-t1-8111-02
   group-name: vms63-6
-  topo: t1-lag
+  topo: t1
   ptf_image_name: docker-ptf
   ptf: vms63-6
   ptf_ip: 10.64.247.51/23
   ptf_ipv6:
   server: server_63
-  vm_base: VM63080
+  vm_base: VM63132
   dut:
     - str3-8111-02
+  inv_name: str3
+  auto_recover: 'True'
+  comment: jcai
+
+- conf-name: vms63-t0-8111-04
+  group-name: vms63-9
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms63-9
+  ptf_ip: 10.64.247.56/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63164
+  dut:
+    - str3-8111-04
+  inv_name: str3
+  auto_recover: 'True'
+  comment: jcai
+
+- conf-name: vms63-t0-8111-05
+  group-name: vms63-10
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms63-10
+  ptf_ip: 10.64.247.58/23
+  ptf_ipv6:
+  server: server_63
+  vm_base: VM63228
+  dut:
+    - str3-8111-05
   inv_name: str3
   auto_recover: 'True'
   comment: jcai

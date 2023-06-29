@@ -47,6 +47,10 @@ all:
           ansible_host: 10.64.247.62
         vms63-8:
           ansible_host: 10.64.247.63
+        vms63-9:
+          ansible_host: 10.64.247.56
+        vms63-10:
+          ansible_host: 10.64.247.58
         vms64-1:
           ansible_host: 10.64.247.64
 
@@ -151,6 +155,15 @@ fanout:
       os: sonic
     str3-8101-fanout-06:
       ansible_host: 10.3.146.178
+      os: sonic
+    str3-8101-fanout-10:
+      ansible_host: 10.64.247.59
+      os: sonic
+    str3-8101-fanout-11:
+      ansible_host: 10.64.247.60
+      os: sonic
+    str3-8101-fanout-12:
+      ansible_host: 10.64.247.61
       os: sonic
     str3-7060-acs-fan-01:
       ansible_host: 10.3.146.241
@@ -439,11 +452,11 @@ sonic_cisco_8101_O8C48:
 
 sonic_cisco_8111:
   vars:
-    hwsku: Cisco-8111-C32
     iface_speed: 800000
   hosts:
     str3-8111-01:
       ansible_host: 10.3.146.237
+      hwsku: Cisco-8111-O64
       model: 8111-32EH-O
       serial: FLM27030BXM
       base_mac: 24:2A:04:FA:38:00
@@ -459,8 +472,22 @@ sonic_cisco_8111:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xB5781521"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 90
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
     str3-8111-02:
       ansible_host: 10.3.146.238
+      hwsku: Cisco-8111-O64
       model: 8111-32EH-O
       serial: FLM270208XX
       base_mac: 24:2A:04:FA:42:00
@@ -476,6 +503,82 @@ sonic_cisco_8111:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xB97A1525"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 90
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+    str3-8111-04:
+      ansible_host: 10.64.247.55
+      hwsku: Cisco-8111-O64
+      model: 8111-32EH-O
+      serial: FLM270401D2
+      base_mac: 24:2A:04:FA:3A:00
+      syseeprom_info:
+        "0x21": "8111-32EH-O"
+        "0x22": "477950"
+        "0x23": "FLM270401D2"
+        "0x24": "24:2A:04:FA:3A:00"
+        "0x26": "1"
+        "0x28": "x86_64-8111_32eh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x033F78B4"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 90
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+    str3-8111-05:
+      ansible_host: 10.64.247.57
+      hwsku: Cisco-8111-O64
+      model: 8111-32EH-O
+      serial: FLM27020B6M
+      base_mac: 24:2A:04:FA:46:00
+      syseeprom_info:
+        "0x21": "8111-32EH-O"
+        "0x22": "477950"
+        "0x23": "FLM27020B6M"
+        "0x24": "24:2A:04:FA:46:00"
+        "0x26": "1"
+        "0x28": "x86_64-8111_32eh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xD6FA6A00"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 90
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+
 sonic_cisco_lc_100G:
   vars:
     switch_type: chassis-packet
