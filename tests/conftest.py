@@ -1882,7 +1882,14 @@ def compare_running_config(pre_running_config, cur_running_config):
         return True
     if type(pre_running_config) != type(cur_running_config):
         return False
-    if sorted(pre_running_config.keys()) != sorted(cur_running_config.keys()):
+
+    if type(pre_running_config) is not "dict":
+        if set(pre_running_config) != set(cur_running_config):
+            return False
+        else:
+            return True
+
+    if set(pre_running_config.keys()) != set(cur_running_config.keys()):
         return False
     for key in pre_running_config.keys():
         if not compare_running_config(pre_running_config[key], cur_running_config[key]):
