@@ -86,7 +86,6 @@ scan_dbs = {
             "db_no": 4,
             "keys_to_compare": set(),
             "keys_to_skip_comp": {
-                "ACL_TABLE|DATAACL",
                 "BUFFER_PROFILE|pg_lossless_40000_5m_profile",
                 "FLEX_COUNTER_TABLE"
                 },
