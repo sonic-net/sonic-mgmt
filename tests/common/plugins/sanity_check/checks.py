@@ -209,19 +209,17 @@ def check_bgp(duthosts, tbinfo):
         def _check_bgp_router_id(tbinfo):
             duthost = kwargs['node']
             mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
-            check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json" | grep "routerId"'
-            router_id_result = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
+            check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+            bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
+            bgp_summary_json = json.loads(bgp_summary['stdout'])
+            router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
             loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
-            if router_id_result["rc"] == 0:
-                match = re.search(r'"routerId":"([^"]+)"', router_id_result["stdout"])
-                if match:
-                    bgp_router_id = match.group(1)
-                    logger.info("BGP router identifier: %s" % bgp_router_id)
-                    return bgp_router_id == loopback0
-                else:
-                    logger.info("Failed to get BGP router identifier")
-
-            return False
+            if router_id == loopback0:
+                logger.info("BGP router identifier: %s == Loopback0 address %s" % (router_id, loopback0))
+                return True
+            else:
+                logger.info("BGP router identifier %s != Loopback0 address %s" % (router_id, loopback0))
+                return False
 
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
