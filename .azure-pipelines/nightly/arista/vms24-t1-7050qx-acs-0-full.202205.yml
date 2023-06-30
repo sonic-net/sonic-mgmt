@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "copp qos"'
+    default: '-S "copp qos sub_port_interfaces"'
     displayName: Testbed specific
 
   # Custom skip scripts
