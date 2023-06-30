@@ -54,12 +54,11 @@ class TestTrafficShiftOnSup:
     def run_cmd_on_sup(self, cmd):
         try:
             # Issue TSA on DUT
-            client = pexpect.spawn("ssh {}@{}".format(self.dutuser, self.dutip), timeout=300)
-            sel = client.expect(["The authenticity .*", "admin@{}'s password:".format(self.dutip)])
-            if sel == 0:
-                client.sendline("yes")
-            else:
-                client.sendline(self.dutpass)
+            client = pexpect.spawn(
+                     "ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'".format(
+                         self.dutuser, self.dutip),
+                     timeout=300)
+            client.expect(["admin@{}'s password:".format(self.dutip)])
 
             client.sendline(cmd)
             client.expect("Password .*")
