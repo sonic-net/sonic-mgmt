@@ -143,8 +143,9 @@ def load_dut_basic_facts(inv_name, dut_name):
     logger.info('Getting dut basic facts')
     try:
         inv_full_path = os.path.join(os.path.dirname(__file__), '../../../../ansible', inv_name)
-        ansible_cmd = 'ansible -m dut_basic_facts -i {} {} -o'.format(inv_full_path, dut_name)
 
+        ansible_cmd = 'ansible -m dut_basic_facts -i {} {} -o'.format(inv_full_path, dut_name)
+        logger.error('ansible_cmd: {}'.format(ansible_cmd))
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw dut basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
