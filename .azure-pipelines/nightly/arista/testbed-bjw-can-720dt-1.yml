@@ -8,7 +8,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202205
+        - internal
     always: true
 
 variables:
@@ -24,7 +24,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_ABOOT_202205)
+    default: $(BJW_IMAGE_BRCM_ABOOT_202305)
     displayName: "Image URL"
 
   # Test Parameters
