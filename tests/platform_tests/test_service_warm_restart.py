@@ -102,4 +102,7 @@ def test_service_warm_restart(request, duthosts, rand_one_dut_hostname,
     advancedReboot = get_advanced_reboot(rebootType='service-warm-restart',
                                          service_list=candidate_service_list,
                                          advanceboot_loganalyzer=advanceboot_loganalyzer)
-    advancedReboot.runRebootTestcase()
+    try:
+        advancedReboot.runRebootTestcase()
+    finally:
+        advancedReboot.disable_service_warmrestart()
