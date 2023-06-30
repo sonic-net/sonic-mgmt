@@ -589,8 +589,8 @@ sonic_cisco_lc_100G:
     frontend_asics: [0,1]
   hosts:
     str3-8800-lc1-1:
-      hwsku: 8800-LC-48H-O
-      sonic_hwsku: 8800-LC-48H-O
+      hwsku: Cisco-8800-LC-48H-C48
+      sonic_hwsku: Cisco-8800-LC-48H-C48
       sonic_hw_platform:  x86_64-8800_lc_48h_o-r0
       slot_num: slot1
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
@@ -625,8 +625,8 @@ sonic_cisco_lc_100G:
           timeout: 300
           wait: 60
     str3-8800-lc2-1:
-      hwsku: 8800-LC-48H-O
-      sonic_hwsku: 8800-LC-48H-O
+      hwsku: Cisco-8800-LC-48H-C48
+      sonic_hwsku: Cisco-8800-LC-48H-C48
       sonic_hw_platform:  x86_64-8800_lc_48h_o-r0
       slot_num: slot2
       loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
@@ -661,8 +661,8 @@ sonic_cisco_lc_100G:
           timeout: 300
           wait: 60
     str3-8800-lc3-1:
-      hwsku: 8800-LC-48H-O
-      sonic_hwsku: 8800-LC-48H-O
+      hwsku: Cisco-8800-LC-48H-C48
+      sonic_hwsku: Cisco-8800-LC-48H-C48
       sonic_hw_platform:  x86_64-8800_lc_48h_o-r0
       slot_num: slot3
       loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
@@ -703,8 +703,8 @@ sonic_cisco_lc_400G:
     frontend_asics: [0,1,2]
   hosts:
     str3-8800-lc4-1:
-      hwsku: 88-LC0-36FH-MO
-      sonic_hwsku: 88-LC0-36FH-MO
+      hwsku: Cisco-88-LC0-36FH-M-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-M-O36
       sonic_hw_platform: x86_64-88_lc0_36fh_mo-r0
       slot_num: slot4
       loopback4096_ip: [3.3.3.9/32,3.3.3.10/32,3.3.3.11/32]
@@ -740,8 +740,8 @@ sonic_cisco_lc_400G:
           wait: 60
 sonic_cisco_sup:
   vars:
-    HwSku:  8800-RP-O
-    sonic_hwsku:  8800-RP-O
+    HwSku:  Cisco-8800-RP
+    sonic_hwsku:  Cisco-8800-RP
     sonic_hw_platform:  x86_64-8800_rp_o-r0
     slot_num: slot0
     card_type: supervisor
@@ -749,7 +749,7 @@ sonic_cisco_sup:
   hosts:
     str3-8800-sup-1:
       ansible_host: 10.3.147.95
-      hwsku: 8800-RP-O
+      hwsku: Cisco-8800-RP
       model: '8800-RP-O'
       num_asics: 16
       asic_name: Q200
@@ -814,7 +814,7 @@ sonic_cisco_sup:
           wait: 900
     str3-8800-sup-2:
       ansible_host: 10.3.147.95
-      hwsku: 8800-RP-O
+      hwsku: Cisco-8800-RP
       model: '8800-RP-O'
       num_asics: 16
       asic_name: Q200

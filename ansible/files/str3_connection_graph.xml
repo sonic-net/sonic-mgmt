@@ -42,12 +42,12 @@
       <Device Hostname="str3-8111-02" HwSku="Cisco-8111-O64" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-8111-04" HwSku="Cisco-8111-O64" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-8111-05" HwSku="Cisco-8111-O64" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str3-8800-sup-1" HwSku="8800-RP-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str3-8800-sup-2" HwSku="8800-RP-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str3-8800-lc1-1" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str3-8800-lc2-1" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str3-8800-lc3-1" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str3-8800-lc4-1" HwSku="88-LC0-36FH-MO" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-sup-1" HwSku="Cisco-8800-RP" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-sup-2" HwSku="Cisco-8800-RP" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc1-1" HwSku="Cisco-8800-LC-48H-C48-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc2-1" HwSku="Cisco-8800-LC-48H-C48-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc3-1" HwSku="Cisco-8800-LC-48H-C48-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-8800-lc4-1" HwSku="Cisco-88-LC0-36FH-M-O36" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-7808-sup-1" HwSku="Arista-7808R3A-FM" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-7800-lc3-1" HwSku="Arista-7800R3A-36DM2-D36" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-7800-lc4-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>

@@ -93,13 +93,13 @@
       <Device Hostname="str2-7804-lc5-1" HwSku="Arista-7800R3A-36DM2-C36" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-7804-lc6-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-7804-lc7-1" HwSku="Arista-7800R3-48CQ2-C48" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str2-8800-sup-2" HwSku="8800-RP-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str2-8800-lc1-2" HwSku="88-LC0-36FH-MO" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str2-8800-lc2-2" HwSku="88-LC0-36FH-MO" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str2-8800-sup-3" HwSku="8800-RP-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str2-8800-lc1-3" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str2-8800-lc2-3" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str2-8800-lc3-3" HwSku="8800-LC-48H-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-8800-sup-2" HwSku="Cisco-8800-RP" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-8800-lc1-2" HwSku="Cisco-88-LC0-36FH-M-O36" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-8800-lc2-2" HwSku="Cisco-88-LC0-36FH-M-O36" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-8800-sup-3" HwSku="Cisco-8800-RP" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-8800-lc1-3" HwSku="Cisco-8800-LC-48H-C48-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-8800-lc2-3" HwSku="Cisco-8800-LC-48H-C48-O" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-8800-lc3-3" HwSku="Cisco-8800-LC-48H-C48-O" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-7250-sup-1" HwSku="Nokia-IXR7250E-SUP-10" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-7250-lc1-1" HwSku="Nokia-IXR7250E-36x400G" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-7250-lc2-1" HwSku="Nokia-IXR7250E-36x400G" Os="sonic" Type="DevSonic"/>
