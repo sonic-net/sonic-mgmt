@@ -846,14 +846,14 @@ class BaseEverflowTest(object):
             if six.PY2:
                 payload = binascii.unhexlify("0" * 44) + str(payload)
             else:
-                payload = binascii.unhexlify("0" * 44) + str(payload).encode('utf-8')
+                payload = binascii.unhexlify("0" * 44) + bytes(payload)
 
         if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"] or duthost.facts.get(
                 "platform_asic") in ["broadcom-dnx"]:
             if six.PY2:
                 payload = binascii.unhexlify("0" * 24) + str(payload)
             else:
-                payload = binascii.unhexlify("0" * 24) + str(payload).encode('utf-8')
+                payload = binascii.unhexlify("0" * 24) + bytes(payload)
 
         expected_packet = testutils.simple_gre_packet(
             eth_src=setup[direction]["egress_router_mac"],

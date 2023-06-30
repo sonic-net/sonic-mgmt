@@ -362,7 +362,7 @@ class SonicAsic(object):
             raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
 
         self.sonichost.shell(
-            ("ssh -o StrictHostKeyChecking=no -fN"
+            ("ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -fN"
              " -L *:9092:{}:9092 localhost").format(ns_docker_if_ipv4))
 
     def command(self, cmdstr):
