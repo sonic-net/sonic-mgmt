@@ -202,7 +202,7 @@ crm/test_crm.py::test_crm_fdb_entry:
   skip:
     reason: "Unsupported topology, expected to run only on 'T0*' or 'M0/MX' topology"
     conditions:
-      - "'t0' not in topo_name and topo_name not in ['m0', 'mx']"
+      - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
 #######################################
 #####            decap            #####
@@ -254,7 +254,7 @@ drop_packets:
   skip:
     reason: "M0/MX topo does not support drop_packets"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####           dualtor           #####
@@ -513,7 +513,7 @@ iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   skip:
     reason: "M0/MX topo does not support TestShowPriorityGroup"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark:
   xfail:
@@ -533,7 +533,7 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue:
   skip:
     reason: "M0/MX topo does not support TestShowQueue"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####           mvrf              #####
@@ -542,7 +542,7 @@ mvrf:
   skip:
     reason: "M0/MX topo does not support mvrf"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####            ip               #####
@@ -620,15 +620,6 @@ mpls/test_mpls.py:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
     conditions:
       - "asic_type in ['barefoot']"
-
-#######################################
-#####           mvrf              #####
-#######################################
-mvrf:
-  skip:
-    reason: "M0 topo does not support mvrf"
-    conditions:
-      - "topo_name in ['m0']"
 
 #######################################
 #####           nat               #####
@@ -719,7 +710,7 @@ pfcwd:
   skip:
     reason: "Pfcwd tests skipped on m0/mx testbed."
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -809,7 +800,7 @@ qos:
   skip:
     reason: "M0/MX topo does not support qos"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 qos/test_buffer.py:
   skip:
@@ -1006,7 +997,7 @@ snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 snmp/test_snmp_queue.py:
   skip:
@@ -1014,7 +1005,7 @@ snmp/test_snmp_queue.py:
     conditions_logical_operator: 'OR'
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/13289 and asic_type in ['vs'] and hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs'] and '202205' in branch"
-      - "topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
+      - "topo_type in ['m0', 'mx'] or asic_type in ['barefoot']"
 
 #######################################
 #####            span             #####
