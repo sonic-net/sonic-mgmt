@@ -753,7 +753,7 @@ def determine_base_topo(topo_type, device_type):
     
     return base_topo_file, vEOS_count, ptf_intfcount
 
-def start_vxr(input_file, cicd, clean_sim):
+def start_vxr(input_file, cicd, clean_sim, topo_yaml):
     vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
     if input_file:
         return vxr_path, input_file
@@ -862,11 +862,11 @@ def main():
 
     print("USING BASE TOPO {}".format(base_topo_file))
     
-    delta1 = datetime.datetime.now()
+    vxr_start_begin = datetime.datetime.now()
     
-    vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim)
+    vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
 
-    delta2 = datetime.datetime.now()
+    vxr_start_end = datetime.datetime.now()
 
     with open(input_file) as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
@@ -882,13 +882,13 @@ def main():
 
     print_env_info(data, device_type, vEOS_count)
 
-    delta3 = datetime.datetime.now()
+    vcr_configure_end = datetime.datetime.now()
 
     if run_sanity:
         run_sanity(data,script_file,drop_version,log_dir,device_type,create_allure_report)
 
-    sim_time_delta = (delta2 - delta1).total_seconds()
-    profile_time_delta = (delta3 - delta2).total_seconds()
+    sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()
+    profile_time_delta = (vcr_configure_end - vxr_start_end).total_seconds()
 
     print("******************************************************************************************************************************************************************************\n")
     print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
