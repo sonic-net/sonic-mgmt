@@ -2255,3 +2255,18 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
+
+- conf-name: vms64-t1-7060dx5-1
+  group-name: vms64-1
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: vms64-1
+  ptf_ip:
+  ptf_ipv6:
+  server: server_64
+  vm_base: VM64132
+  dut:
+    - str3-a7060dx5-acs-1
+  inv_name: str
+  auto_recover: 'True'
+  comment: zitingguo

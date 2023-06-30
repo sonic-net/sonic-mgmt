@@ -23,6 +23,7 @@ console-197,20,str3-8101-02,ssh,admin
 console-197,25,str3-8101-fanout-01,ssh,admin
 console-197,22,str3-8101-fanout-02,ssh,admin
 console-197,21,str3-8101-fanout-03,ssh,admin
+console-197,38,str3-8101-fanout-04,ssh,admin
 console-199,9,str3-z9332f-01,ssh,admin
 console-199,10,str3-z9332f-04,ssh,admin
 console-197,14,str3-7260cx3-acs-fan-05,ssh,admin
@@ -39,6 +40,7 @@ console-212,6,str3-7060-acs-fan-01,ssh,admin
 console-212,7,str3-7060-acs-1,ssh,admin
 console-212,4,str3-7060-acs-2,ssh,admin
 console-212,5,str3-7060-acs-3,ssh,admin
+console-182,12,str3-a7060dx5-acs-1,ssh,admin
 console-212,3,str3-dx010-acs-1,ssh,admin
 console-194,5,str3-msn4700-01,ssh,admin
 console-194,30,str3-msn4700-fanout-01,ssh,admin

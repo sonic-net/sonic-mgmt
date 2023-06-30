@@ -150,6 +150,9 @@ fanout:
     str3-8101-fanout-03:
       ansible_host: 10.3.146.192
       os: sonic
+    str3-8101-fanout-04:
+      ansible_host: 10.3.146.219
+      os: sonic
     str3-8101-fanout-05:
       ansible_host: 10.3.146.177
       os: sonic
@@ -1119,6 +1122,17 @@ sonic_mlnx_4700:
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2019.11-5.2.0020-115200"
         "0x2B": "Mellanox"
+
+sonic_arista_400:
+  hosts:
+    str3-a7060dx5-acs-1:
+      ansible_host: 10.3.146.162
+      hwsku: Arista-7060DX5-32
+      model: DCS-7050-DX4-32
+      serial: JAS22510008
+      base_mac: 2c:dd:e9:bf:b5:7e
+  vars:
+    iface_speed: 400000
 
 server:
   hosts:

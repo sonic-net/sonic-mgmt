@@ -19,11 +19,13 @@ str3-7260cx3-acs-fan-38,10.3.147.121/23,Arista-7260CX3,FanoutLeaf,,
 str3-8101-fanout-01,10.3.146.195/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-02,10.3.146.193/23,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-03,10.3.146.192/23,Cisco-8101-O8C48,FanoutLeaf,,
+str3-8101-fanout-04,10.3.146.219/23,Cisco-8101-C32,FanoutLeaf,,
 str3-8101-fanout-05,10.3.146.177/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-06,10.3.146.178/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-10,10.64.247.59/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-11,10.64.247.60/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-12,10.64.247.61/23,Cisco-8101-C64,FanoutLeaf,,
+str3-a7060dx5-acs-1,10.3.146.162/23,Arista-7060DX5-32,DevSonic,,sonic
 str3-msn4600c-acs-06,10.3.146.146/23,ACS-MSN4600C,FanoutLeaf,,sonic
 str3-msn4600c-acs-05,10.3.146.222/23,ACS-MSN4600C,DevSonic,,sonic
 str3-msn4600c-acs-07,10.3.147.114/23,ACS-MSN4600C,DevSonic,,sonic
