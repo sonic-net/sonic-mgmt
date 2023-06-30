@@ -28,7 +28,7 @@ marvell_hwskus: [ "et6448m", "Nokia-7215" ]
 innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
 cisco_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8101-C64", "Cisco-8101-C48T8", "Cisco-8101-O8C48", "Cisco-8111-C32", "Cisco-8111-O64"]
-cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8101-C64", "Cisco-8101-C48T8", "Cisco-8101-O8C48", "Cisco-8111-C32", "Cisco-8111-O64"]
+cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8101-C64", "Cisco-8101-C48T8", "Cisco-8101-O8C48", "Cisco-8111-C32", "Cisco-8111-O64", "Cisco-88-LC0-36FH-O36", "Cisco-88-LC0-36FH-M-O36"]
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we

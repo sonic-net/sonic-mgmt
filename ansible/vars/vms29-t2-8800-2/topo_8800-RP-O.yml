@@ -5,21 +5,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth208-ASIC0
-          - Eth210-ASIC0
           - Eth212-ASIC0
-          - Eth214-ASIC0
         ASIC1:
           asic_intfs:
           - Eth232-ASIC0
-          - Eth234-ASIC0
           - Eth236-ASIC0
-          - Eth238-ASIC0
         ASIC2:
           asic_intfs:
           - Eth240-ASIC0
-          - Eth242-ASIC0
           - Eth244-ASIC0
-          - Eth246-ASIC0
         ASIC3:
           asic_intfs:
           - Eth184-ASIC0
@@ -53,21 +47,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC0
-          - Eth98-ASIC0
           - Eth100-ASIC0
-          - Eth102-ASIC0
         ASIC10:
           asic_intfs:
           - Eth104-ASIC0
-          - Eth106-ASIC0
           - Eth108-ASIC0
-          - Eth110-ASIC0
         ASIC11:
           asic_intfs:
           - Eth112-ASIC0
-          - Eth114-ASIC0
           - Eth116-ASIC0
-          - Eth118-ASIC0
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -77,21 +65,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth168-ASIC1
-          - Eth170-ASIC1
           - Eth172-ASIC1
-          - Eth174-ASIC1
         ASIC1:
           asic_intfs:
           - Eth176-ASIC1
-          - Eth178-ASIC1
           - Eth180-ASIC1
-          - Eth182-ASIC1
         ASIC2:
           asic_intfs:
           - Eth152-ASIC1
-          - Eth154-ASIC1
           - Eth156-ASIC1
-          - Eth158-ASIC1
         ASIC3:
           asic_intfs:
           - Eth208-ASIC1
@@ -131,21 +113,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC1
-          - Eth98-ASIC1
           - Eth100-ASIC1
-          - Eth102-ASIC1
         ASIC10:
           asic_intfs:
           - Eth104-ASIC1
-          - Eth106-ASIC1
           - Eth108-ASIC1
-          - Eth110-ASIC1
         ASIC11:
           asic_intfs:
           - Eth112-ASIC1
-          - Eth114-ASIC1
           - Eth116-ASIC1
-          - Eth118-ASIC1
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -155,21 +131,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth208-ASIC2
-          - Eth210-ASIC2
           - Eth212-ASIC2
-          - Eth214-ASIC2
         ASIC1:
           asic_intfs:
           - Eth232-ASIC2
-          - Eth234-ASIC2
           - Eth236-ASIC2
-          - Eth238-ASIC2
         ASIC2:
           asic_intfs:
           - Eth240-ASIC2
-          - Eth242-ASIC2
           - Eth244-ASIC2
-          - Eth246-ASIC2
         ASIC3:
           asic_intfs:
           - Eth184-ASIC2
@@ -203,21 +173,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC2
-          - Eth98-ASIC2
           - Eth100-ASIC2
-          - Eth102-ASIC2
         ASIC10:
           asic_intfs:
           - Eth104-ASIC2
-          - Eth106-ASIC2
           - Eth108-ASIC2
-          - Eth110-ASIC2
         ASIC11:
           asic_intfs:
           - Eth112-ASIC2
-          - Eth114-ASIC2
           - Eth116-ASIC2
-          - Eth118-ASIC2
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -227,21 +191,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth168-ASIC3
-          - Eth170-ASIC3
           - Eth172-ASIC3
-          - Eth174-ASIC3
         ASIC1:
           asic_intfs:
           - Eth176-ASIC3
-          - Eth178-ASIC3
           - Eth180-ASIC3
-          - Eth182-ASIC3
         ASIC2:
           asic_intfs:
           - Eth152-ASIC3
-          - Eth154-ASIC3
           - Eth156-ASIC3
-          - Eth158-ASIC3
         ASIC3:
           asic_intfs:
           - Eth208-ASIC3
@@ -281,21 +239,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC3
-          - Eth98-ASIC3
           - Eth100-ASIC3
-          - Eth102-ASIC3
         ASIC10:
           asic_intfs:
           - Eth104-ASIC3
-          - Eth106-ASIC3
           - Eth108-ASIC3
-          - Eth110-ASIC3
         ASIC11:
           asic_intfs:
           - Eth112-ASIC3
-          - Eth114-ASIC3
           - Eth116-ASIC3
-          - Eth118-ASIC3
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -305,21 +257,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth208-ASIC4
-          - Eth210-ASIC4
           - Eth212-ASIC4
-          - Eth214-ASIC4
         ASIC1:
           asic_intfs:
           - Eth232-ASIC4
-          - Eth234-ASIC4
           - Eth236-ASIC4
-          - Eth238-ASIC4
         ASIC2:
           asic_intfs:
           - Eth240-ASIC4
-          - Eth242-ASIC4
           - Eth244-ASIC4
-          - Eth246-ASIC4
         ASIC3:
           asic_intfs:
           - Eth184-ASIC4
@@ -353,21 +299,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC4
-          - Eth98-ASIC4
           - Eth100-ASIC4
-          - Eth102-ASIC4
         ASIC10:
           asic_intfs:
           - Eth104-ASIC4
-          - Eth106-ASIC4
           - Eth108-ASIC4
-          - Eth110-ASIC4
         ASIC11:
           asic_intfs:
           - Eth112-ASIC4
-          - Eth114-ASIC4
           - Eth116-ASIC4
-          - Eth118-ASIC4
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -377,21 +317,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth168-ASIC5
-          - Eth170-ASIC5
           - Eth172-ASIC5
-          - Eth174-ASIC5
         ASIC1:
           asic_intfs:
           - Eth176-ASIC5
-          - Eth178-ASIC5
           - Eth180-ASIC5
-          - Eth182-ASIC5
         ASIC2:
           asic_intfs:
           - Eth152-ASIC5
-          - Eth154-ASIC5
           - Eth156-ASIC5
-          - Eth158-ASIC5
         ASIC3:
           asic_intfs:
           - Eth208-ASIC5
@@ -431,21 +365,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC5
-          - Eth98-ASIC5
           - Eth100-ASIC5
-          - Eth102-ASIC5
         ASIC10:
           asic_intfs:
           - Eth104-ASIC5
-          - Eth106-ASIC5
           - Eth108-ASIC5
-          - Eth110-ASIC5
         ASIC11:
           asic_intfs:
           - Eth112-ASIC5
-          - Eth114-ASIC5
           - Eth116-ASIC5
-          - Eth118-ASIC5
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -455,21 +383,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth208-ASIC6
-          - Eth210-ASIC6
           - Eth212-ASIC6
-          - Eth214-ASIC6
         ASIC1:
           asic_intfs:
           - Eth232-ASIC6
-          - Eth234-ASIC6
           - Eth236-ASIC6
-          - Eth238-ASIC6
         ASIC2:
           asic_intfs:
           - Eth240-ASIC6
-          - Eth242-ASIC6
           - Eth244-ASIC6
-          - Eth246-ASIC6
         ASIC3:
           asic_intfs:
           - Eth184-ASIC6
@@ -503,21 +425,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC6
-          - Eth98-ASIC6
           - Eth100-ASIC6
-          - Eth102-ASIC6
         ASIC10:
           asic_intfs:
           - Eth104-ASIC6
-          - Eth106-ASIC6
           - Eth108-ASIC6
-          - Eth110-ASIC6
         ASIC11:
           asic_intfs:
           - Eth112-ASIC6
-          - Eth114-ASIC6
           - Eth116-ASIC6
-          - Eth118-ASIC6
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -527,21 +443,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth168-ASIC7
-          - Eth170-ASIC7
           - Eth172-ASIC7
-          - Eth174-ASIC7
         ASIC1:
           asic_intfs:
           - Eth176-ASIC7
-          - Eth178-ASIC7
           - Eth180-ASIC7
-          - Eth182-ASIC7
         ASIC2:
           asic_intfs:
           - Eth152-ASIC7
-          - Eth154-ASIC7
           - Eth156-ASIC7
-          - Eth158-ASIC7
         ASIC3:
           asic_intfs:
           - Eth208-ASIC7
@@ -581,21 +491,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC7
-          - Eth98-ASIC7
           - Eth100-ASIC7
-          - Eth102-ASIC7
         ASIC10:
           asic_intfs:
           - Eth104-ASIC7
-          - Eth106-ASIC7
           - Eth108-ASIC7
-          - Eth110-ASIC7
         ASIC11:
           asic_intfs:
           - Eth112-ASIC7
-          - Eth114-ASIC7
           - Eth116-ASIC7
-          - Eth118-ASIC7
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -605,21 +509,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth208-ASIC8
-          - Eth210-ASIC8
           - Eth212-ASIC8
-          - Eth214-ASIC8
         ASIC1:
           asic_intfs:
           - Eth232-ASIC8
-          - Eth234-ASIC8
           - Eth236-ASIC8
-          - Eth238-ASIC8
         ASIC2:
           asic_intfs:
           - Eth240-ASIC8
-          - Eth242-ASIC8
           - Eth244-ASIC8
-          - Eth246-ASIC8
         ASIC3:
           asic_intfs:
           - Eth184-ASIC8
@@ -653,21 +551,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC8
-          - Eth98-ASIC8
           - Eth100-ASIC8
-          - Eth102-ASIC8
         ASIC10:
           asic_intfs:
           - Eth104-ASIC8
-          - Eth106-ASIC8
           - Eth108-ASIC8
-          - Eth110-ASIC8
         ASIC11:
           asic_intfs:
           - Eth112-ASIC8
-          - Eth114-ASIC8
           - Eth116-ASIC8
-          - Eth118-ASIC8
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -677,21 +569,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth168-ASIC9
-          - Eth170-ASIC9
           - Eth172-ASIC9
-          - Eth174-ASIC9
         ASIC1:
           asic_intfs:
           - Eth176-ASIC9
-          - Eth178-ASIC9
           - Eth180-ASIC9
-          - Eth182-ASIC9
         ASIC2:
           asic_intfs:
           - Eth152-ASIC9
-          - Eth154-ASIC9
           - Eth156-ASIC9
-          - Eth158-ASIC9
         ASIC3:
           asic_intfs:
           - Eth208-ASIC9
@@ -731,21 +617,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC9
-          - Eth98-ASIC9
           - Eth100-ASIC9
-          - Eth102-ASIC9
         ASIC10:
           asic_intfs:
           - Eth104-ASIC9
-          - Eth106-ASIC9
           - Eth108-ASIC9
-          - Eth110-ASIC9
         ASIC11:
           asic_intfs:
           - Eth112-ASIC9
-          - Eth114-ASIC9
           - Eth116-ASIC9
-          - Eth118-ASIC9
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -755,21 +635,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth208-ASIC10
-          - Eth210-ASIC10
           - Eth212-ASIC10
-          - Eth214-ASIC10
         ASIC1:
           asic_intfs:
           - Eth232-ASIC10
-          - Eth234-ASIC10
           - Eth236-ASIC10
-          - Eth238-ASIC10
         ASIC2:
           asic_intfs:
           - Eth240-ASIC10
-          - Eth242-ASIC10
           - Eth244-ASIC10
-          - Eth246-ASIC10
         ASIC3:
           asic_intfs:
           - Eth184-ASIC10
@@ -803,21 +677,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC10
-          - Eth98-ASIC10
           - Eth100-ASIC10
-          - Eth102-ASIC10
         ASIC10:
           asic_intfs:
           - Eth104-ASIC10
-          - Eth106-ASIC10
           - Eth108-ASIC10
-          - Eth110-ASIC10
         ASIC11:
           asic_intfs:
           - Eth112-ASIC10
-          - Eth114-ASIC10
           - Eth116-ASIC10
-          - Eth118-ASIC10
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -827,21 +695,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth168-ASIC11
-          - Eth170-ASIC11
           - Eth172-ASIC11
-          - Eth174-ASIC11
         ASIC1:
           asic_intfs:
           - Eth176-ASIC11
-          - Eth178-ASIC11
           - Eth180-ASIC11
-          - Eth182-ASIC11
         ASIC2:
           asic_intfs:
           - Eth152-ASIC11
-          - Eth154-ASIC11
           - Eth156-ASIC11
-          - Eth158-ASIC11
         ASIC3:
           asic_intfs:
           - Eth208-ASIC11
@@ -881,21 +743,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC11
-          - Eth98-ASIC11
           - Eth100-ASIC11
-          - Eth102-ASIC11
         ASIC10:
           asic_intfs:
           - Eth104-ASIC11
-          - Eth106-ASIC11
           - Eth108-ASIC11
-          - Eth110-ASIC11
         ASIC11:
           asic_intfs:
           - Eth112-ASIC11
-          - Eth114-ASIC11
           - Eth116-ASIC11
-          - Eth118-ASIC11
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -905,21 +761,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth208-ASIC12
-          - Eth210-ASIC12
           - Eth212-ASIC12
-          - Eth214-ASIC12
         ASIC1:
           asic_intfs:
           - Eth232-ASIC12
-          - Eth234-ASIC12
           - Eth236-ASIC12
-          - Eth238-ASIC12
         ASIC2:
           asic_intfs:
           - Eth240-ASIC12
-          - Eth242-ASIC12
           - Eth244-ASIC12
-          - Eth246-ASIC12
         ASIC3:
           asic_intfs:
           - Eth184-ASIC12
@@ -953,21 +803,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC12
-          - Eth98-ASIC12
           - Eth100-ASIC12
-          - Eth102-ASIC12
         ASIC10:
           asic_intfs:
           - Eth104-ASIC12
-          - Eth106-ASIC12
           - Eth108-ASIC12
-          - Eth110-ASIC12
         ASIC11:
           asic_intfs:
           - Eth112-ASIC12
-          - Eth114-ASIC12
           - Eth116-ASIC12
-          - Eth118-ASIC12
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -977,21 +821,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth168-ASIC13
-          - Eth170-ASIC13
           - Eth172-ASIC13
-          - Eth174-ASIC13
         ASIC1:
           asic_intfs:
           - Eth176-ASIC13
-          - Eth178-ASIC13
           - Eth180-ASIC13
-          - Eth182-ASIC13
         ASIC2:
           asic_intfs:
           - Eth152-ASIC13
-          - Eth154-ASIC13
           - Eth156-ASIC13
-          - Eth158-ASIC13
         ASIC3:
           asic_intfs:
           - Eth208-ASIC13
@@ -1031,21 +869,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC13
-          - Eth98-ASIC13
           - Eth100-ASIC13
-          - Eth102-ASIC13
         ASIC10:
           asic_intfs:
           - Eth104-ASIC13
-          - Eth106-ASIC13
           - Eth108-ASIC13
-          - Eth110-ASIC13
         ASIC11:
           asic_intfs:
           - Eth112-ASIC13
-          - Eth114-ASIC13
           - Eth116-ASIC13
-          - Eth118-ASIC13
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -1055,21 +887,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth208-ASIC14
-          - Eth210-ASIC14
           - Eth212-ASIC14
-          - Eth214-ASIC14
         ASIC1:
           asic_intfs:
           - Eth232-ASIC14
-          - Eth234-ASIC14
           - Eth236-ASIC14
-          - Eth238-ASIC14
         ASIC2:
           asic_intfs:
           - Eth240-ASIC14
-          - Eth242-ASIC14
           - Eth244-ASIC14
-          - Eth246-ASIC14
         ASIC3:
           asic_intfs:
           - Eth184-ASIC14
@@ -1103,21 +929,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC14
-          - Eth98-ASIC14
           - Eth100-ASIC14
-          - Eth102-ASIC14
         ASIC10:
           asic_intfs:
           - Eth104-ASIC14
-          - Eth106-ASIC14
           - Eth108-ASIC14
-          - Eth110-ASIC14
         ASIC11:
           asic_intfs:
           - Eth112-ASIC14
-          - Eth114-ASIC14
           - Eth116-ASIC14
-          - Eth118-ASIC14
     configuration_properties:
       common:
         asic_type: BackEnd
@@ -1127,21 +947,15 @@ slot0:
         ASIC0:
           asic_intfs:
           - Eth168-ASIC15
-          - Eth170-ASIC15
           - Eth172-ASIC15
-          - Eth174-ASIC15
         ASIC1:
           asic_intfs:
           - Eth176-ASIC15
-          - Eth178-ASIC15
           - Eth180-ASIC15
-          - Eth182-ASIC15
         ASIC2:
           asic_intfs:
           - Eth152-ASIC15
-          - Eth154-ASIC15
           - Eth156-ASIC15
-          - Eth158-ASIC15
         ASIC3:
           asic_intfs:
           - Eth208-ASIC15
@@ -1181,21 +995,15 @@ slot0:
         ASIC9:
           asic_intfs:
           - Eth96-ASIC15
-          - Eth98-ASIC15
           - Eth100-ASIC15
-          - Eth102-ASIC15
         ASIC10:
           asic_intfs:
           - Eth104-ASIC15
-          - Eth106-ASIC15
           - Eth108-ASIC15
-          - Eth110-ASIC15
         ASIC11:
           asic_intfs:
           - Eth112-ASIC15
-          - Eth114-ASIC15
           - Eth116-ASIC15
-          - Eth118-ASIC15
     configuration_properties:
       common:
         asic_type: BackEnd
