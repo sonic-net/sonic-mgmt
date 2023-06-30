@@ -30,7 +30,7 @@ import subprocess
 import sys
 from jinja2 import Environment, FileSystemLoader
 import re
-from run_sanity import run_sanity
+from run_scripts_remote import run_scripts_remote
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -66,6 +66,8 @@ def _create_parser():
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
                       required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
+    parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
+                      required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
@@ -885,7 +887,17 @@ def main():
     vcr_configure_end = datetime.datetime.now()
 
     if run_sanity:
-        run_sanity(data,script_file,drop_version,log_dir,device_type,create_allure_report)
+        run_scripts_remote(
+            data['sonic_mgmt']['HostAgent'], 
+            "vxr", 
+            "cisco123", 
+            script_file,
+            drop_version,
+            log_dir,
+            device_type,
+            create_allure_report, 
+            ssh_port=data['sonic_mgmt']['xr_redir22']
+        )
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()
     profile_time_delta = (vcr_configure_end - vxr_start_end).total_seconds()

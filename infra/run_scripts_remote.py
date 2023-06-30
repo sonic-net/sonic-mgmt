@@ -3,13 +3,14 @@ import paramiko
 import time
 import os
 import re
+import argparse
 
-def upload_sanity_file(data,script_file):
+def upload_sanity_file(host, username, password,script_file, ssh_port=22):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(host, ssh_port, username, password)
     ftp_client=ssh.open_sftp()
-    ftp_client.put(script_file,'golden-code/sonic-test/sonic-mgmt/tests/{}'.format(script_file.rsplit('/', 1)[-1]))
+    ftp_client.put(script_file,'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_file.rsplit('/', 1)[-1]))
     ftp_client.close()
 
 def get_build_project_name():
@@ -43,11 +44,11 @@ def get_build_project_name():
 
     return build_project_name
 
-def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_report):
+def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt'):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(host, ssh_port, username, password)
     chan = ssh.invoke_shell()
     buff = ''
     while not buff.endswith(':~$ '):
@@ -56,7 +57,7 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+    chan.send('docker exec -it {} /bin/bash \n'.format(docker_mgmt_container))
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -81,9 +82,9 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_
     delta1 = datetime.datetime.now()
     tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
     if create_allure_report:
-        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_project_name))
+        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -g {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name))
     else:
-        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
+        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -g {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name))
     time.sleep(3)
     resp = chan.recv(9999)
 
@@ -137,10 +138,10 @@ def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_
     print("Total run time for sanity suite: {} mins".format(minutes))
     return run_status
 
-def create_report_html(data,log_dir):
+def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(host, ssh_port, username, password)
     
     chan = ssh.invoke_shell()
     buff = ''
@@ -150,28 +151,28 @@ def create_report_html(data,log_dir):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
-        --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{} > ~/golden-code/sonic-test/sonic-mgmt/tests/report.txt \n'.format(log_dir))
+    chan.send('python3 ~/{}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/{}/sonic-test/sonic-mgmt/tests/results.json \
+        --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, log_dir))
     time.sleep(3)
     
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
+    chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{} --merge ~/{}/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(sonic_test_dir, log_dir))
     time.sleep(3)
 
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
+    chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/{}/sonic-test/sonic-mgmt/tests/report.html\n'.format(sonic_test_dir, log_dir))
     time.sleep(3)
 
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
+    chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(sonic_test_dir, log_dir))
     time.sleep(3)
 
     ssh.close()
 
 
-def parse_report(data):
+def parse_report(host, username, password, sonic_test_dir, ssh_port=22):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(host, ssh_port, username, password)
     ftp_client=ssh.open_sftp()
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/report.txt','report.txt')
+    ftp_client.get('{}/sonic-test/sonic-mgmt/tests/report.txt'.format(sonic_test_dir),'report.txt')
     ftp_client.close()
     ssh.close()
 
@@ -203,22 +204,22 @@ def parse_report(data):
     report_file.close()
     return resp
 
-def get_report_file(data):
+def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(host, ssh_port, username, password)
     ftp_client=ssh.open_sftp()
-    #ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/full_report.txt','full_report.txt')
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/test-results.xml.html','test-results.xml.html')
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/report.html','report.html')
+    #ftp_client.get('{}/sonic-test/sonic-mgmt/tests/full_report.txt','full_report.txt')
+    ftp_client.get('{}/sonic-test/sonic-mgmt/tests/test-results.xml.html'.format(sonic_test_dir),'test-results.xml.html')
+    ftp_client.get('{}/sonic-test/sonic-mgmt/tests/report.html'.format(sonic_test_dir),'report.html')
     ftp_client.close() 
 
 
-def get_log_files(data,log_dir):
+def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    ssh.connect(host, ssh_port, username, password)
     chan = ssh.invoke_shell()
     buff = ''
     while not buff.endswith(':~$ '):
@@ -227,44 +228,44 @@ def get_log_files(data,log_dir):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send("cd golden-code/sonic-test/sonic-mgmt/tests/{} \n".format(log_dir))
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
+    chan.send("cd {}/sonic-test/sonic-mgmt/tests/{} \n".format(sonic_test_dir,log_dir))
+    while not buff.endswith(':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir,log_dir)):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
 
     chan.send("tar -cvf sanity_logs.tar * \n")
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
+    while not buff.endswith(':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir)):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
 
     chan.send("gzip sanity_logs.tar \n")
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
+    while not buff.endswith(':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir)):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
     time.sleep(3)
 
     ftp_client=ssh.open_sftp()
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/{}/sanity_logs.tar.gz'.format(log_dir),'sanity_logs.tar.gz')
+    ftp_client.get('{}/sonic-test/sonic-mgmt/tests/{}/sanity_logs.tar.gz'.format(sonic_test_dir, log_dir),'sanity_logs.tar.gz')
     ftp_client.close() 
     ssh.close()
 
-def run_sanity(data,script_file,drop_version,log_dir,device_type,create_allure_report):
+def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt'):
     sanity_start_time = datetime.datetime.now()
     print("Upload Sanity Script file")
-    upload_sanity_file(data,script_file)
+    upload_sanity_file(host, username, password, script_file)
     print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
-    run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
+    run_result = run_scripts(host, username, password, script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report, ssh_port, topo_name, docker_mgmt_container)
     sanity_end_time = datetime.datetime.now()
     if run_result:
-        create_report_html(data,log_dir)
-        parse_report(data)
-        get_report_file(data)
-        get_log_files(data,log_dir)
+        create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_port)
+        parse_report(host, username, password, sonic_test_dir, ssh_port)
+        get_report_file(host, username, password, sonic_test_dir, ssh_port)
+        get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port)
     else:
         report_file = open('full_report.txt', 'w')
         report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
@@ -276,3 +277,62 @@ def run_sanity(data,script_file,drop_version,log_dir,device_type,create_allure_r
     print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
     if not run_result:
         print("Sanity run unsuccesful !!!, Check log files for more details")
+    
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Reading ports file.')
+    parser.add_argument('-h', '--host_address', type=str, help='host address to ssh into',
+                      required=True,default=None)
+    parser.add_argument('-p', '--ssh_port', type=str, help='port_used for ssh',
+                      required=True,default=22)
+    parser.add_argument('-u', '--username', type=str, help='username for ssh',
+                      required=True,default=None)
+    parser.add_argument('-p', '--password', type=str, help='ssh password',
+                      required=True,default=None)
+    parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
+                      required=False,default='docker-ptf')
+    parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
+                      required=False,default='DT')
+    parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
+                      required=False,default='DT')
+    parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
+                      required=False,default='sanity-scripts/sanity_scripts.txt')
+    parser.add_argument('-v', '--topo_type', type=str, help='specify drop version',
+                      required=False,default='DT')
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd',
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd'])
+    parser.add_argument('-c', '--docker_mgmt_container', type=str, help='name of the docker management container',
+                      required=False,default='docker-sonic-mgmt')
+    parser.add_argument('-t', '--sonic_test_dir', action='store_true', help='Directory of sonic-test on DUT',
+                      required=False, default='golden-code')
+    parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
+                      default=False)
+                      
+    args = vars(parser.parse_args())
+    host_address = args['host_address']
+    ssh_port = args['ssh_port']
+    username = args['username']
+    password = args['password']
+    topo_name = args['topo_name']
+    drop_version = args['drop_version']
+    log_dir = args['log_dir']
+    script_file = args['script_file']
+    topo_type = args['topo_type']
+    device_type = args['device_type']
+    docker_mgmt_container = args['docker_mgmt_container']
+    sonic_test_dir = args['sonic_test_dir']
+    create_allure_report = args['create_allure_report']
+
+    run_scripts_remote(
+        host_address, 
+        username, 
+        password,  
+        script_file,
+        drop_version,
+        log_dir,
+        device_type,
+        create_allure_report, 
+        ssh_port,
+        topo_name,
+        sonic_test_dir,
+        docker_mgmt_container,
+    )
