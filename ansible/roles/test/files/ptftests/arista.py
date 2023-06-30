@@ -259,8 +259,8 @@ class Arista(host_device.HostDevice):
             data, "lacp",         "LACP session")
         cli_data['bgp_v4'] = self.check_series_status(
             data, "bgp_route_v4", "BGP v4 routes")
-        # TODO: same as above for v6_routing_ok
-        cli_data['bgp_v6'] = (1, 0)
+        cli_data['bgp_v6'] = self.check_series_status(
+            data, "bgp_route_v6", "BGP v6 routes")
         cli_data['po'] = self.check_change_time(
             samples, "po_changetime", "PortChannel interface")
 

@@ -191,8 +191,7 @@ class Sonic(host_device.HostDevice):
         # cli_data['lacp']   = self.check_series_status(data, "lacp",         "LACP session")
         cli_data['lacp'] = (0, 0)
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
-        # TODO: same as above for v6_routing_ok
-        cli_data['bgp_v6'] = (1, 0)
+        cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
         cli_data['po'] = self.check_lag_flaps("PortChannel1", log_lines, start_time)
 
         if 'route_timeout' in log_data:
