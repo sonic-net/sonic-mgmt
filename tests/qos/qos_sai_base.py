@@ -690,8 +690,7 @@ class QosSaiBase(QosBase):
         topo = tbinfo["topo"]["name"]
 
 
-        # LAG ports in T1 TOPO need to be removed in Mellanox devices
-        if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(src_dut):
+        if topo in self.SUPPORTED_T0_TOPOS:
             # Only single asic is supported for this scenario, so use src_dut and src_asic - which will be the same
             # as dst_dut and dst_asic
             pytest_assert(
@@ -706,9 +705,6 @@ class QosSaiBase(QosBase):
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
                                 for port in src_mgFacts["minigraph_ports"].keys())
             testPortIds[src_dut_index][src_asic_index] -= set(dutLagInterfaces)
-            if isMellanoxDevice(src_dut):
-                # The last port is used for up link from DUT switch
-                testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
             pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0, "Skip test since no ports are available for testing")
 
@@ -941,7 +937,7 @@ class QosSaiBase(QosBase):
             "dutTopo": dutTopo,
             "srcDutInstance" : src_dut,
             "dstDutInstance": get_src_dst_asic_and_duts['dst_dut'],
-            "dualTor": request.config.getoption("--qos_dual_tor"),
+            "dualTor": dualTor,
             "dualTorScenario": len(dualtor_ports_for_duts) != 0
         }
 
