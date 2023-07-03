@@ -5,7 +5,7 @@ import os
 import re
 import argparse
 
-def upload_sanity_file(host, username, password,script_file, ssh_port=22):
+def upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port=22):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
@@ -257,7 +257,10 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt'):
     sanity_start_time = datetime.datetime.now()
     print("Upload Sanity Script file")
-    upload_sanity_file(host, username, password, script_file)
+    print("Running scripts on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
+    print("Device type: {}, topo_name: {}".format(device_type, topo_name))
+    print("Script file: {}, drop version: {}, log_dir {}, sonic-test directory: {}, docker-mgmt container name: '{}', create-allure-report: {}".format(script_file, drop_version, log_dir, sonic_test_dir, docker_mgmt_container, create_allure_report))
+    upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
     print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
     run_result = run_scripts(host, username, password, script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report, ssh_port, topo_name, docker_mgmt_container)
     sanity_end_time = datetime.datetime.now()
