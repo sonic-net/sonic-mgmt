@@ -139,8 +139,8 @@ class TestInteropProtocol():
                 community = creds['snmp_rocommunity']
                 # Use LoopbackIP to query from vsonic neighbor
                 result = nbr["host"].config_facts(host=nbr["host"].hostname,
-                                                  source="running") \
-                                                  ["ansible_facts"].get(
+                                                  source="running")[
+                                                  "ansible_facts"].get(
                                                   "LOOPBACK_INTERFACE",
                                                   {}).get('Loopback0', {})
                 for ip in result:
