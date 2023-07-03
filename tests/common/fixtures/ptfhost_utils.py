@@ -33,7 +33,7 @@ ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
 GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
-PROBER_INTERVAL_MS = 1000
+PROBER_INTERVAL_MS = 2000
 
 
 @pytest.fixture(scope="session", autouse=True)
