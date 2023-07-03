@@ -139,6 +139,10 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     return run_status
 
 def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
+    print("Creating report html on remote host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
+    print("running command: ")
+    print('python3 ~/{}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/{}/sonic-test/sonic-mgmt/tests/results.json \
+        --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
@@ -152,13 +156,13 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
     time.sleep(3)
 
     chan.send('python3 ~/{}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/{}/sonic-test/sonic-mgmt/tests/results.json \
-        --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, log_dir))
+        --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
     time.sleep(3)
     
-    chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{} --merge ~/{}/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(sonic_test_dir, log_dir))
+    chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{} --merge ~/{}/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(sonic_test_dir, log_dir, sonic_test_dir))
     time.sleep(3)
 
-    chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/{}/sonic-test/sonic-mgmt/tests/report.html\n'.format(sonic_test_dir, log_dir))
+    chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/{}/sonic-test/sonic-mgmt/tests/report.html\n'.format(sonic_test_dir, log_dir, sonic_test_dir))
     time.sleep(3)
 
     chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(sonic_test_dir, log_dir))
