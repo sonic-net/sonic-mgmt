@@ -1,6 +1,7 @@
 import pytest
 import logging
 import re
+import ipaddress
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
@@ -132,11 +133,22 @@ class TestInteropProtocol():
                     commands=['show snmp community | include name'])
                 community = re.search(r'Community name: (\S+)',
                                       result['stdout'][0]).groups()[0]
+                nbr_ip = up_link["local_ipv4_addr"]
             else:  # vsonic neighbour
                 community = creds['snmp_rocommunity']
+                # Use LoopbackIP to query from vsonic neighbor
+                result = nbr["host"].config_facts(host=nbr["host"].hostname,
+                                     source="running")["ansible_facts"].get(
+                                     "LOOPBACK_INTERFACE", 
+                                     {}).get('Loopback0', {})
+                for ip in result:
+                    if isinstance(ipaddress.ip_address(ip.split('/')[0]),
+                                  ipaddress.IPv4Address):
+                        nbr_ip = ip.split('/')[0]
+                        break
 
             up_link = upstream_links[ctrl_port]
             sysDescr = ".1.3.6.1.2.1.1.1.0"
             command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
-                community, up_link["local_ipv4_addr"], sysDescr)
+                community, nbr_ip, sysDescr)
             assert not duthost.command(command)["failed"]
