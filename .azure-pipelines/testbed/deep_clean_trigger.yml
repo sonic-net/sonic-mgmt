@@ -53,6 +53,9 @@ parameters:
       server_bjw_6:
       server_29:
       server_svc_5:
+      server_61:
+        - vms61-t2-8800-1
+        - vms61-t2-8800-2
 
 jobs:
   - job: TriggerDeepClean
