@@ -870,13 +870,13 @@ numprocs=1
         time.sleep(3)
 
     def create_and_apply_priority_config(self,
-                                duthost,
-                                vnet,
-                                dest,
-                                mask,
-                                nhs,
-                                primary,
-                                op):
+                                         duthost,
+                                         vnet,
+                                         dest,
+                                         mask,
+                                         nhs,
+                                         primary,
+                                         op):
         '''
             Create a single destinatoin->endpoint list mapping, and configure
             it in the DUT.
@@ -913,5 +913,4 @@ numprocs=1
 
     def set_vnet_monitor_state(self, duthost, dest, mask, nh, state):
         duthost.shell("sonic-db-cli STATE_DB HSET 'VNET_MONITOR_TABLE|{}|{}/{}' 'state' '{}'"
-                              .format(nh, dest, mask, state))
-
+                      .format(nh, dest, mask, state))
