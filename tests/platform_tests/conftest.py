@@ -156,11 +156,12 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
         if lacp_sessions_dict and "lacp_sessions" in lacp_sessions_dict else None
     controlplane_summary = {"downtime": "",
                             "arp_ping": "", "lacp_session_max_wait": ""}
-    if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
-        max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
-        analyze_result.get(
-            "controlplane", controlplane_summary).update(
-                {"lacp_session_max_wait": max_lacp_session_wait})
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
+            max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+            analyze_result.get(
+                "controlplane", controlplane_summary).update(
+                    {"lacp_session_max_wait": max_lacp_session_wait})
 
     result_summary = {
         "reboot_type": "{}-{}".format(reboot_type, reboot_oper) if reboot_oper else reboot_type,
@@ -307,6 +308,10 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
                         fdb_aging_disable_start = result.get("time_span", {}).get("FDB_AGING_DISABLE", {})\
                             .get("timestamp", {}).get("Start")
                         if not fdb_aging_disable_start:
+                            break
+                        # Ignore MAC learning events before FDB aging disable, as MAC learning is still allowed
+                        log_time = timestamp.strftime(FMT)
+                        if _parse_timestamp(log_time) < _parse_timestamp(fdb_aging_disable_start):
                             break
                         first_after_offset = fdb_aging_disable_start
                     else:

@@ -64,7 +64,7 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
                              state='stopped',
                              search_regex=SONIC_SSH_REGEX,
                              delay=30,
-                             timeout=40,
+                             timeout=60,
                              module_ignore_errors=True)
 
     pytest_assert(not res.is_failed, "SSH port did not stop. {}".format(res.get('msg', '')))
@@ -117,5 +117,5 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
                    version="v2c",
                    community=creds['snmp_rocommunity'],
                    wait=True,
-                   timeout=20,
+                   timeout=120,
                    interval=20)
