@@ -190,11 +190,11 @@ sonic_arista_7050qx_32s_q32:
         "0x26": "01"
         "0x27": "02.00"
         "0x28": "x86_64-arista_7050_qx32s"
-        "0x2A": 65535
+        "0x2A": "0xffff"
         "0x2B": "Arista Networks"
         "0x2C": "US"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal4-4.1.0-3037060"
+        "0x2E": "Aboot-norcal4-4.1.1-13522936"
         "0x2F": "JPE18402553"
         "0xFE": "0xdeadbeef"
 
