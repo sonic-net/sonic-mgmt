@@ -157,6 +157,6 @@ class TestInteropProtocol():
                 community, nbr_ip, sysDescr)
             if not isinstance(nbr["host"], EosHost):
                 nbr["host"].command("sudo iptables -D INPUT -p udp \
-                                     --dport 161 -d {} -j ACCEPT".
-                                     format(nbr_ip))
+                                     --dport 161 -d {} -j \
+                                     ACCEPT".format(nbr_ip))
             assert not duthost.command(command)["failed"]
