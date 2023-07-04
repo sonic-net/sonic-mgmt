@@ -155,7 +155,7 @@ class TestInteropProtocol():
             sysDescr = ".1.3.6.1.2.1.1.1.0"
             command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
                 community, nbr_ip, sysDescr)
-            if isinstance(nbr["host"], SonicHost):
+            if not isinstance(nbr["host"], EosHost):
                 nbr["host"].command("sudo iptables -D INPUT -p udp \
                                      --dport 161 -d {} -j ACCEPT".
                                      format(nbr_ip))
