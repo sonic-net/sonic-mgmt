@@ -162,8 +162,10 @@ class ClockUtils:
                 assert timedatectl_tz_abbr == show_clock_tz_abbr, \
                     'Expected: {} == {}'.format(timedatectl_tz_abbr, show_clock_tz_abbr)
 
-            with allure_step('Compare timezone name from timedatectl ({}) to the expected ({})'.format(timedatectl_tz_name, expected_tz_name)):
-                assert timedatectl_tz_name == expected_tz_name, 'Expected: {} == {}'.format(timedatectl_tz_name, expected_tz_name)
+            with allure_step('Compare timezone name from timedatectl ({}) to the expected ({})'
+                             .format(timedatectl_tz_name, expected_tz_name)):
+                assert timedatectl_tz_name == expected_tz_name, 'Expected: {} == {}'\
+                    .format(timedatectl_tz_name, expected_tz_name)
 
     @staticmethod
     def select_random_date():
