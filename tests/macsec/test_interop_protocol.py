@@ -158,5 +158,5 @@ class TestInteropProtocol():
             if isinstance(nbr["host"], SonicHost):
                 nbr["host"].command("sudo iptables -D INPUT -p udp \
                                      --dport 161 -d {} -j ACCEPT".
-                                     format(nbr_ip)
+                                     format(nbr_ip))
             assert not duthost.command(command)["failed"]
