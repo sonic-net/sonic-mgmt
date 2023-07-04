@@ -105,7 +105,7 @@ logger -t cacltest "added cacl test rules"
 iptables -nL | logger -t cacltest
 
 # Sleep to allow Ansible playbook ample time to attempt to connect and timeout
-sleep 180
+sleep 150
 
 # Delete the test ACL config file
 rm -rf /tmp/testacl.json
