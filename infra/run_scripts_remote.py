@@ -8,7 +8,9 @@ import argparse
 def upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port=22):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    print("connect", (host, ssh_port, username, password))
     ssh.connect(host, ssh_port, username, password)
+    print("connected")
     ftp_client=ssh.open_sftp()
     ftp_client.put(script_file,'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_file.rsplit('/', 1)[-1]))
     ftp_client.close()
@@ -45,24 +47,24 @@ def get_build_project_name():
     return build_project_name
 
 def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt'):
-
+    print("starting run_scripts, params: ", host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port, topo_name, docker_mgmt_container)
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
+    print("connected to host {}".format(host))
     chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+    resp = ''
+    while ':~$ ' not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
     time.sleep(3)
 
+    print("Going into container '{}' to run tests".format(docker_mgmt_container))
     chan.send('docker exec -it {} /bin/bash \n'.format(docker_mgmt_container))
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+    resp = ''
+    while ':~$ ' not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
     time.sleep(3)
 
     chan.send('unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \n')
@@ -91,12 +93,11 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     chan.send('exit\n')
     time.sleep(10)
 
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+    chan.send('docker exec -it {} /bin/bash \n'.format(docker_mgmt_container))
+    resp = ''
+    while ':~$ ' not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
     time.sleep(3)
 
     result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
@@ -148,17 +149,17 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
     ssh.connect(host, ssh_port, username, password)
     
     chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+    resp = ''
+    while ':~$ ' not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
     time.sleep(3)
 
     chan.send('python3 ~/{}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/{}/sonic-test/sonic-mgmt/tests/results.json \
         --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
     time.sleep(3)
     
+    chan.send('pip3 install junit2html')
     chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{} --merge ~/{}/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(sonic_test_dir, log_dir, sonic_test_dir))
     time.sleep(3)
 
@@ -220,37 +221,30 @@ def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
 
 
 def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
-
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
     chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
     time.sleep(3)
-
     chan.send("cd {}/sonic-test/sonic-mgmt/tests/{} \n".format(sonic_test_dir,log_dir))
-    while not buff.endswith(':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir,log_dir)):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+    resp = ''
+    while ':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir,log_dir) not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
     time.sleep(3)
 
     chan.send("tar -cvf sanity_logs.tar * \n")
-    while not buff.endswith(':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir)):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+    resp = ''
+    while ':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir) not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
     time.sleep(3)
 
     chan.send("gzip sanity_logs.tar \n")
-    while not buff.endswith(':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir)):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
+    resp = ''
+    while ':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir) not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
     time.sleep(3)
 
     ftp_client=ssh.open_sftp()
@@ -285,11 +279,11 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     if not run_result:
         print("Sanity run unsuccesful !!!, Check log files for more details")
     
-if __name__ == '__main__':
+def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
-    parser.add_argument('-h', '--host_address', type=str, help='host address to ssh into',
+    parser.add_argument('-a', '--host_address', type=str, help='host address to ssh into',
                       required=True,default=None)
-    parser.add_argument('-p', '--ssh_port', type=str, help='port_used for ssh',
+    parser.add_argument('-r', '--ssh_port', type=str, help='port_used for ssh',
                       required=True,default=22)
     parser.add_argument('-u', '--username', type=str, help='username for ssh',
                       required=True,default=None)
@@ -303,16 +297,19 @@ if __name__ == '__main__':
                       required=False,default='DT')
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
-    parser.add_argument('-v', '--topo_type', type=str, help='specify drop version',
-                      required=False,default='DT')
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd'])
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'm64-zz-2'])
     parser.add_argument('-c', '--docker_mgmt_container', type=str, help='name of the docker management container',
                       required=False,default='docker-sonic-mgmt')
-    parser.add_argument('-t', '--sonic_test_dir', action='store_true', help='Directory of sonic-test on DUT',
+    parser.add_argument('-t', '--sonic_test_dir', type=str, help='Directory of sonic-test on DUT',
                       required=False, default='golden-code')
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
-                      default=False)
+                      default=False)           
+    return parser
+
+
+if __name__ == '__main__':
+    parser = _create_parser()
                       
     args = vars(parser.parse_args())
     host_address = args['host_address']
@@ -323,7 +320,6 @@ if __name__ == '__main__':
     drop_version = args['drop_version']
     log_dir = args['log_dir']
     script_file = args['script_file']
-    topo_type = args['topo_type']
     device_type = args['device_type']
     docker_mgmt_container = args['docker_mgmt_container']
     sonic_test_dir = args['sonic_test_dir']
