@@ -5,7 +5,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_testbed_config
-from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list
+from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
+from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from files.pfcwd_basic_helper import run_pfcwd_basic_test
@@ -300,6 +301,8 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd)
 
+    config_reload(duthost=duthost, config_source='minigraph', safe_reload=True)
+
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
@@ -359,3 +362,5 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,
                          prio_list=lossless_prio_list,
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd)
+
+    config_reload(duthost=duthost, config_source='minigraph', safe_reload=True)
