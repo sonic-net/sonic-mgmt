@@ -1,5 +1,0 @@
-test_announce_routes.py
-test_features.py
-test_interfaces.py
-snmp/test_snmp_loopback.py
-snmp/test_snmp_pfc_counters.py
