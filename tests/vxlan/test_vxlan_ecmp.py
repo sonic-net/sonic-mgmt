@@ -63,6 +63,7 @@ from tests.common.fixtures.ptfhost_utils \
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer 
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -1971,6 +1972,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_src_ip=True,
             tolerance=0.03)
 
+
 class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
     '''
         Class for all the Vxlan tunnel cases where primary and secondary next hops are configured.
@@ -2056,7 +2058,7 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
                                                 tc1_end_point_list[0],
                                                 tc1_new_dest,
                                                 ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)]))
-            assert result['stdout'] == u'25:35:45:55:65:75'
+            assert str(result['stdout']) == ecmp_utils.OVERLAY_DMAC
 
             self.dump_self_info_and_run_ptf("test1", encap_type, True)
 
@@ -2153,6 +2155,12 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
         if encap_type in ['v4_in_v6', 'v6_in_v6']:
             pytest.skip("Skipping test. v6 underlay is not supported in priority tunnels.")
         self.setup = setUp
+        
+        loganalyzer = LogAnalyzer(ansible_host=self.setup['duthost'],
+                                  marker_prefix="ignore Logic error: basic_string::_M_construct null")
+        loganalyzer.init()
+        # ignore this error as this is  caused by the case when we try to install a route with no endpoints.
+        loganalyzer.expect_regex.extend("doTask: Logic error: basic_string::_M_construct null not valid")
 
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
@@ -2288,7 +2296,7 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
             # Action: A is Up. B still Down | Result: NH=[A]
             # Primary takes precedence and is added to the NH. All the backups are removed.
             time.sleep(2)
-            inactive_list = list(primary_nhg[1])
+            inactive_list = list([primary_nhg[1]])
             inactive_list += secondary_nhg
             if isinstance(inactive_list, str):
                 inactive_list = [inactive_list]
@@ -2323,7 +2331,6 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
             time.sleep(10)
             self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
-           
             # Multiple primary backups. Multiple primary & backup all failure.
             # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
             # Action: All A, B, A`, B`, go down. | Result: NH=[]

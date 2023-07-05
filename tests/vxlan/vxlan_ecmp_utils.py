@@ -50,6 +50,8 @@ class Ecmp_Utils(object):
     # in the vnet routes.
     HOST_MASK = {'v4': 32, 'v6': 128}
 
+    OVERLAY_DMAC = "25:35:45:55:65:75"
+
     def create_vxlan_tunnel(self,
                             duthost,
                             minigraph_data,
@@ -317,8 +319,8 @@ class Ecmp_Utils(object):
                 "vxlan_tunnel": "{}",
                 {}"vni": "{}",
                 "peer_list": "",
-                "overlay_dmac" : "25:35:45:55:65:75"
-            }}'''.format(name, tunnel_name, scope_entry, vni))
+                "overlay_dmac" : "{}"
+            }}'''.format(name, tunnel_name, scope_entry, vni, self.OVERLAY_DMAC))
 
             full_config = '{\n"VNET": {' + ",\n".join(config_list) + '\n}\n}'
 
@@ -914,3 +916,4 @@ numprocs=1
     def set_vnet_monitor_state(self, duthost, dest, mask, nh, state):
         duthost.shell("sonic-db-cli STATE_DB HSET 'VNET_MONITOR_TABLE|{}|{}/{}' 'state' '{}'"
                       .format(nh, dest, mask, state))
+
