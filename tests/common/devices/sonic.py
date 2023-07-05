@@ -701,7 +701,7 @@ class SonicHost(AnsibleHostBase):
             # In this situation, service container status should be false
             # We can check status is valid or not
             # You can just add valid status str in this tuple if meet later
-            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF'):
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF', 'STARTING'):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
@@ -1273,6 +1273,10 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
         return True
 
+    def check_intf_link_state(self, interface_name):
+        intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
+        return intf_status[interface_name]['oper_state'] == 'up'
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
@@ -1663,6 +1667,8 @@ Totals               6450                 6449
             asic = "th3"
         elif "Cisco Systems Inc Device a001" in output:
             asic = "gb"
+        elif "Mellanox Technologies" in output:
+            asic = "spc"
 
         return asic
 
