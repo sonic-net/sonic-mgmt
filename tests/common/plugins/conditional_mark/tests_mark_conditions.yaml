@@ -801,9 +801,9 @@ platform_tests/test_auto_negotiation.py:
 
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Only supported on Mellanox"
+    reason: "Only supported on Mellanox. Skip the test on feature branches as it's not required for now"
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox'] or release in ['202205']"
 
 #######################################
 #####           qos               #####
