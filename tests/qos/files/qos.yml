@@ -3647,6 +3647,7 @@ qos_params:
                     pkt_count: 3000
                     pkts_num_margin: 1024
                     cell_size: 384
+                    packet_size: 1350
                 xon_1:
                     dscp: 3
                     ecn: 1
