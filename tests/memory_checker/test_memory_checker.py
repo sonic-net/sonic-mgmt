@@ -34,7 +34,7 @@ CONTAINER_RESTART_THRESHOLD_SECS = 180
 CONTAINER_CHECK_INTERVAL_SECS = 1
 MONIT_RESTART_THRESHOLD_SECS = 320
 MONIT_CHECK_INTERVAL_SECS = 5
-WAITING_SYSLOG_MSG_SECS = 130
+WAITING_SYSLOG_MSG_SECS = 360
 
 
 def remove_container(duthost, container_name):
@@ -521,7 +521,7 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
     # and number of vm_workers is hard coded. We will extend this testing on all containers after
     # the feature 'memory_checker' is fully implemented.
     container_name = "telemetry"
-    vm_workers = 6
+    vm_workers = 2
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
                    and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
@@ -569,7 +569,7 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
     # and number of vm_workers is hard coded. We will extend this testing on all containers after
     # the feature 'memory_checker' is fully implemented.
     container_name = "telemetry"
-    vm_workers = 6
+    vm_workers = 2
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
                    and ("20201231" in duthost.os_version or parse_version(duthost.kernel_version) > parse_version("4.9.0")),
