@@ -162,11 +162,10 @@ def dut_setup_teardown(rand_selected_front_end_dut, tbinfo, dut_lo_addr):
                  dest=BGPSENTINEL_CONFIG_FILE)
     duthost.shell("sonic-cfggen -j {} -w".format(BGPSENTINEL_CONFIG_FILE))
 
+    # Once https://github.com/sonic-net/sonic-buildimage/pull/14844 is merged into sonic 202205, we can remove this
     duthost.shell("vtysh -c \"configure terminal\" -c \"ipv6 nht resolve-via-default\"")
 
     yield lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6
-
-    duthost.shell("vtysh -c \"configure terminal\" -c \"no ipv6 nht resolve-via-default\"")
 
     # Cleanup bgp monitor
     duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
@@ -243,7 +242,7 @@ def common_setup_teardown(rand_selected_front_end_dut, ptf_setup_teardown, ptfho
     if ipv6_nh is not None:
         ibgp_sessions.append(ptf_bp_v6)
 
-    # wait for bgp sentinel and dut to establish ibgp session
+    # wait for bgp sentinel <-> dut to establish ibgp session
     pytest_assert(wait_until(30, 5, 5, is_bgp_sentinel_session_established, duthost, ibgp_sessions),
                   "BGP Sentinel session has not setup successfully")
 
@@ -290,7 +289,7 @@ def get_target_routes(duthost):
             break
 
     if v4_peer is None or v6_peer is None:
-        pytest.skip("No bgp session to T0 spine")
+        pytest.skip("No bgp route received from T0")
 
     bgp_v4_routes = json.loads(duthost.shell(
         "vtysh -c \'show bgp ipv4 neighbors {} received-routes json\'".format(v4_peer))['stdout'])
