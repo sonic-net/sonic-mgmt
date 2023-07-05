@@ -3,20 +3,17 @@
 import logging
 import os
 
-from run_event_tests import run_test
+from run_events_test import run_test
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-bgp"
 
 
-def test_event(duthost, ptfhost, data_dir, validate_yang):
-    test_bgp_state_event(duthost, ptfhost, data_dir, validate_yang)
-
-
-def test_bgp_state_event(duthost, ptfhost, data_dir, validate_yang):
+def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang): 
     logger.info("Beginning to test bgp-state event")
-    run_test(duthost, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
-            "bgp_state.json", "sonic-events-bgp:bgp-state", tag)
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang,
+             shutdown_bgp_neighbors, "bgp_state.json",
+             "sonic-events-bgp:bgp-state", tag)
 
 
 def shutdown_bgp_neighbors(duthost):

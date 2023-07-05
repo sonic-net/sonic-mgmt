@@ -38,16 +38,6 @@ def do_init(duthost):
     ret = duthost.copy(src="telemetry/validate_yang_events.py", dest="/tmp")
 
 
-def check_heartbeat(duthost, localhost):
-    op_file = os.path.join(DATA_DIR, "check_heartbeat.json")
-    logger.info("Validating sonic-events-eventd:heartbeat is working")
-    data = {}
-    with open(op_file, "r") as f:
-        data = json.load(f)
-    logger.info("events received: ({})".format(json.dumps(data, indent=4)))
-    assert len(data) > 0, "Failed to check heartbeat"
-
-
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema
@@ -62,5 +52,5 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
     for file in os.listdir(EVENTS_TESTS_PATH):
         if file.endswith("_events.py"):
             module = __import__(file[:len(file)-3])
-            module.test_event(duthost, localhost, run_cmd, DATA_DIR, validate_yang)
+            module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))

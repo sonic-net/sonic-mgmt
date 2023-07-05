@@ -1,5 +1,7 @@
 import logging
 import pytest
+import json
+
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
@@ -11,6 +13,7 @@ METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
 SUBMODE_SAMPLE = 2
+SUBMODE_ONCHANGE = 1
 
 
 def assert_equal(actual, expected, message):
@@ -74,31 +77,32 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
 
 def listen_for_event(ptfhost, cmd, results):
     ret = ptfhost.shell(cmd)
-    assert ret["rc"] != 0 , "PTF docker was not able to query EVENTS path"
-    results.append(ret["stdout"])
+    assert ret["rc"] == 0 , "PTF docker was not able to query EVENTS path"
+    results[0]= ret["stdout"] 
 
 
-def listen_for_events(ptfhost, filter_event_regex, op_file):
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=1, xpath="all[heartbeat=2]",
                               target="EVENTS", filter_event_regex=filter_event_regex)
-    results = []
+    results = [""]
     event_thread = threading.Thread(target=listen_for_event, args=(ptfhost, cmd, results,))
     event_thread.start()
-    event_thread.join(30)
-    assert len(results) > 0, "No output from PTF docker"
+    event_thread.join(30) # close thread after 30 sec, was not able to find event within reasonable time
+    logger.info("".join(results))
+    assert results[0] is not "", "No output from PTF docker"
     # regex logic and then to write to file
     result = results[0]
     match = re.findall('json_ietf_val: \"(.*)\"', result)
     assert len(match) > 0, "Not able to parse json from output"
     event_str = match[0]
     event_str = event_str.replace('\\', '')
-        event_json = json.loads(event_str)
-        with open(op_file, "w") as f:
-            f.write("[\n")
-            json.dump(event_json, f, indent=4)
-            f.write("\n]")
-            f.close()
+    event_json = json.loads(event_str)
+    with open(op_file, "w") as f:
+        f.write("[\n")
+        json.dump(event_json, f, indent=4)
+        f.write("\n]")
+        f.close()
 
 
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
