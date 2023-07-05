@@ -15,8 +15,7 @@ def run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json
     heartbeat = trigger is None
     if not heartbeat:  # no trigger for heartbeat
         trigger(duthost)  # add events to cache
-    # listen from cache
-    listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file)
+    listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file)  # listen from cache
     data = {}
     with open(op_file, "r") as f:
         data = json.load(f)
