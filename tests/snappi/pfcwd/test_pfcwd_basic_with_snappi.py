@@ -5,7 +5,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
 from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_testbed_config
-from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
+from tests.common.snappi.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
