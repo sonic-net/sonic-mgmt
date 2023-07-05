@@ -159,7 +159,6 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
         --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
     time.sleep(3)
     
-    chan.send('pip3 install junit2html')
     chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{} --merge ~/{}/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(sonic_test_dir, log_dir, sonic_test_dir))
     time.sleep(3)
 
@@ -167,6 +166,8 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
     time.sleep(3)
 
     chan.send('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(sonic_test_dir, log_dir))
+    resp = chan.recv(9999).decode("ascii")
+    print(resp)
     time.sleep(3)
 
     ssh.close()

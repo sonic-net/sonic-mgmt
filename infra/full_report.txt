@@ -1,0 +1,15 @@
+test_interfaces.py:test_interfaces[m64-zz-2-None], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+snmp/test_snmp_pfc_counters.py:test_snmp_pfc_counters[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+snmp/test_snmp_loopback.py:test_snmp_loopback[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+snmp/test_snmp_pfc_counters.py:test_snmp_pfc_counters[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+test_features.py:test_show_features[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+test_features.py:test_show_features[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+test_interfaces.py:test_interfaces[m64-zz-2-None], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+snmp/test_snmp_pfc_counters.py:test_snmp_pfc_counters[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+snmp/test_snmp_loopback.py:test_snmp_loopback[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+test_features.py:test_show_features[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+test_interfaces.py:test_interfaces[m64-zz-2-None], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+snmp/test_snmp_loopback.py:test_snmp_loopback[m64-zz-2], 1 total, 1 Pass, 0 Fail, 0 Skip, 0 Error, 0 xFail
+=================================================================
+Total TCs: 12, 12 Pass, 0 Fail, 0 Skipped, 0 Error, 0 xFail
+
