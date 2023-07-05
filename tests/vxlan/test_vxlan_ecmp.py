@@ -2144,12 +2144,19 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
             8) send packets to the route 1's prefix dst. packets are recieved at A`.
             9) bring A up.
             10) send packets to the route 1's prefix dst. packets are recieved at A.
-            11) bring B,C,C` up.
+            11) bring B, A`, B` up.
             12) send packets to the route 1's prefix dst. packets are recieved at A,B.
             13) Bring all endpoints down.
             14) no traffic being passed.
-            15) bring B,C,C` up.
+            15) bring A, B, A`,B` up.
             16) send packets to the route 1's prefix dst. packets are recieved at A,B.
+            17) Bring all endpoints down.
+            18) no traffic being passed.
+            19) bring A`,B` up.
+            20) send packets to the route 1's prefix dst. packets are recieved at A`,B`.
+            21) bring A,B up.
+            22) send packets to the route 1's prefix dst. packets are recieved at A, B.
+
             
         '''
         if encap_type in ['v4_in_v6', 'v6_in_v6']:
@@ -2292,7 +2299,7 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
             self.dump_self_info_and_run_ptf("test2", encap_type, True)
 
             # Multiple primary backups. Single primary recovery.
-            # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [B`] |
+            # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A`] |
             # Action: A is Up. B still Down | Result: NH=[A]
             # Primary takes precedence and is added to the NH. All the backups are removed.
             time.sleep(2)
@@ -2386,6 +2393,79 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
                                               tc2_new_dest,
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               secondary_nhg[1], "up")
+
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup all failure 2.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
+            # Action: All A, B, A`, B`, go down. | Result: NH=[]
+            # Route is removed, No traffic forwarded.
+            time.sleep(2)
+            inactive_list = list(tc2_end_point_list)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[0], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[1], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[0], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[1], "down")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup recovery of secondary.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
+            # Action: bring up  A` and B` | Result: NH=[A`, B`]
+            # Primary endpoints take precedence and are added to the NH.
+            time.sleep(2)
+            inactive_list = list(primary_nhg)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[0], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[1], "up")
+
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup recovery of primary after secondary.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A`, B`] |
+            # Action: bring up  A and B | Result: NH=[A, B]
+            # Primary endpoints take precedence and are added to the NH.
+            time.sleep(2)
+            inactive_list = list(secondary_nhg)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[0], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[1], "up")
 
             time.sleep(10)
             self.dump_self_info_and_run_ptf("test2", encap_type, True)
