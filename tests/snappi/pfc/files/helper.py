@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts # noqa F401
 from tests.common.snappi.snappi_helpers import get_dut_port_id
-from tests.common.snappi.common_helpers import get_queue_count, pfc_class_enable_vector,\
+from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt # noqa F401
