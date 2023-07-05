@@ -80,7 +80,7 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
 def listen_for_event(ptfhost, cmd, results):
     ret = ptfhost.shell(cmd)
     assert ret["rc"] == 0, "PTF docker was not able to query EVENTS path"
-    results[0] = ret["stdout"] 
+    results[0] = ret["stdout"]
 
 
 def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file):

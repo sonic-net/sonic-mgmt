@@ -27,7 +27,7 @@ def validate_yang(duthost, op_file="", yang_file=""):
     assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
 
 
-def do_init(duthost): 
+def do_init(duthost):
     for i in [BASE_DIR, DATA_DIR]:
         try:
             os.mkdir(i)
