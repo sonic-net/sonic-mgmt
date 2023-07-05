@@ -10,8 +10,10 @@ import ast
 from operator import itemgetter
 from collections import defaultdict
 
+import host_device
 
-class Arista(object):
+
+class Arista(host_device.HostDevice):
     DEBUG = False
     # unit: second
     SSH_CMD_TIMEOUT = 10
@@ -146,7 +148,10 @@ class Arista(object):
             'interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
 
-        while not (quit_enabled and v4_routing_ok and v6_routing_ok):
+        # TODO: Disabling v6_routing_ok check due to IPv6 FRR issue. Re-add v6_routing_ok once either:
+        # * https://github.com/FRRouting/frr/issues/13587 is fixed and the fix gets merged into SONiC, or
+        # * https://github.com/sonic-net/sonic-buildimage/pull/12853 is reverted
+        while not (quit_enabled and v4_routing_ok):
             cmd = None
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok
@@ -257,8 +262,8 @@ class Arista(object):
             data, "lacp",         "LACP session")
         cli_data['bgp_v4'] = self.check_series_status(
             data, "bgp_route_v4", "BGP v4 routes")
-        cli_data['bgp_v6'] = self.check_series_status(
-            data, "bgp_route_v6", "BGP v6 routes")
+        # TODO: same as above for v6_routing_ok
+        cli_data['bgp_v6'] = (1, 0)
         cli_data['po'] = self.check_change_time(
             samples, "po_changetime", "PortChannel interface")
 

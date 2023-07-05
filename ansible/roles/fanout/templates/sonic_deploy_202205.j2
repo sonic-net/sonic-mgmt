@@ -20,7 +20,7 @@
             "fec" : "rs",
     {% endif %}
     {% if 'broadcom' in fanout_sonic_version["asic_type"] or 'marvell' in fanout_sonic_version["asic_type"] %}
-        {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"] == "Access" %}
+        {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"].lower() == "access" %}
             "tpid": "0x9100",
         {% endif %}
     {% endif %}
@@ -44,13 +44,13 @@
     {% set ns = {'firstPrinted': False} %}
     "VLAN_MEMBER": {
     {% for port_name in device_port_vlans[inventory_hostname] %}
-    {% if device_port_vlans[inventory_hostname][port_name]['mode'] == 'Access' %}
+    {% if device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'access' %}
     {% if ns.firstPrinted %},{% endif %}
         "Vlan{{ device_port_vlans[inventory_hostname][port_name]['vlanids'] }}|{{ fanout_port_config[port_name]['name'] }}": {
             "tagging_mode" : "untagged"
         }
     {% if ns.update({'firstPrinted': True}) %} {% endif %}
-    {% elif device_port_vlans[inventory_hostname][port_name]['mode'] == 'Trunk' %}
+    {% elif device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'trunk' %}
     {% for vlanid in device_port_vlans[inventory_hostname][port_name]['vlanlist'] %}
     {% if ns.firstPrinted %},{% endif %}
         "Vlan{{ vlanid }}|{{ fanout_port_config[port_name]['name'] }}": {
@@ -65,6 +65,12 @@
     "MGMT_INTERFACE": {
         "eth0|{{ device_info[inventory_hostname]["ManagementIp"] }}": {
             "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
+        }
+    },
+    "MGMT_PORT": {
+        "eth0": {
+            "admin_status": "up",
+            "alias": "eth0"
         }
     },
 
