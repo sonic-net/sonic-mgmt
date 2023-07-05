@@ -53,8 +53,6 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     # Get first neighbor VM information
     nbr = nbrhosts[list(nbrhosts.keys())[0]]
 
-    # TODO: Fix snmp query over Management IPv6 adderess and add SNMP test over management IPv6 address.
-
     for ip in config_facts['LOOPBACK_INTERFACE']['Loopback0']:
         loip = ip.split('/')[0]
         result = get_snmp_output(loip, duthost, nbr, creds_all_duts)
