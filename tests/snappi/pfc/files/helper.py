@@ -7,7 +7,7 @@ from tests.common.snappi.snappi_helpers import get_dut_port_id
 from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt # noqa F401
+    get_pfc_frame_count # noqa F401
 from tests.common.snappi.port import select_ports, select_tx_port # noqa F401
 from tests.common.snappi.snappi_helpers import wait_for_arp # noqa F401
 from tests.common.snappi.traffic_generation import setup_base_traffic_config, generate_test_flows,\
