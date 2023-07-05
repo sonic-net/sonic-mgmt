@@ -1,6 +1,8 @@
 import logging
 import pytest
 import json
+import threading
+import re
 
 
 from pkg_resources import parse_version
@@ -77,8 +79,8 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
 
 def listen_for_event(ptfhost, cmd, results):
     ret = ptfhost.shell(cmd)
-    assert ret["rc"] == 0 , "PTF docker was not able to query EVENTS path"
-    results[0]= ret["stdout"] 
+    assert ret["rc"] == 0, "PTF docker was not able to query EVENTS path"
+    results[0] = ret["stdout"] 
 
 
 def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file):
@@ -88,9 +90,8 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file):
     results = [""]
     event_thread = threading.Thread(target=listen_for_event, args=(ptfhost, cmd, results,))
     event_thread.start()
-    event_thread.join(30) # close thread after 30 sec, was not able to find event within reasonable time
-    logger.info("".join(results))
-    assert results[0] is not "", "No output from PTF docker"
+    event_thread.join(30)  # close thread after 30 sec, was not able to find event within reasonable time
+    assert results[0] != "", "No output from PTF docker"
     # regex logic and then to write to file
     result = results[0]
     match = re.findall('json_ietf_val: \"(.*)\"', result)
@@ -118,6 +119,6 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                 subscribe_mode,
                 submode, intervalms,
                 update_count, create_connections)
-        if filter_event_regex is not "":
+        if filter_event_regex != "":
             cmd += " --filter_event_regex {}".format(filter_event_regex)
     return cmd

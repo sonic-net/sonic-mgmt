@@ -1,6 +1,5 @@
 import logging
 import pytest
-import json
 import os
 import sys
 
@@ -36,6 +35,7 @@ def do_init(duthost):
             logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
 
     ret = duthost.copy(src="telemetry/validate_yang_events.py", dest="/tmp")
+    assert ret["rc"] == 0, "Failed to copy yang validation script to /tmp"
 
 
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
