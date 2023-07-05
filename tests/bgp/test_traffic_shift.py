@@ -63,15 +63,15 @@ def verify_traffic_shift(host, outputs, match_result):
     return match_result
 
 
-def get_traffic_shift_state(host):
-    outputs = host.shell('TSC')['stdout_lines']
+def get_traffic_shift_state(host, cmd="TSC"):
+    outputs = host.shell(cmd)['stdout_lines']
     if verify_traffic_shift(host, outputs, TS_NORMAL) != "ERROR":
         return TS_NORMAL
     if verify_traffic_shift(host, outputs, TS_MAINTENANCE) != "ERROR":
         return TS_MAINTENANCE
     if verify_traffic_shift(host, outputs, TS_INCONSISTENT) != "ERROR":
         return TS_INCONSISTENT
-    pytest.fail("TSC return unexpected state {}".format("ERROR"))
+    pytest.fail("{} return unexpected state {}".format(cmd, "ERROR"))
 
 
 def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
