@@ -5,7 +5,7 @@ This module allows various snappi based tests to generate various traffic config
 import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi.common_helpers import get_queue_count, pfc_class_enable_vector,\
+from tests.common.snappi.common_helpers import get_egress_queue_count, pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     sec_to_nanosec, get_pfc_frame_count, packet_capture
 from tests.common.snappi.port import select_ports, select_tx_port
@@ -566,6 +566,6 @@ def verify_egress_queue_frame_count(duthost,
     if not set_class_enable_vec:
         for peer_port, prios in flow_port_config[1].items():
             for prio in range(len(prios)):
-                total_egress_packets, _ = get_queue_count(duthost, peer_port, prios[prio])
+                total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
                               "Queue counters should increment for invalid PFC pause frames")
