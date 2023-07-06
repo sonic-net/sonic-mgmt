@@ -256,31 +256,45 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
         self.test_port_ids = self.test_params.get("testPortIds", None)
         self.test_port_ips = self.test_params.get("testPortIps", None)
+        self.src_dut_index = self.test_params['src_dut_index']
+        self.src_asic_index = self.test_params.get('src_asic_index', None)
+        self.dst_dut_index = self.test_params['dst_dut_index']
+        self.dst_asic_index = self.test_params.get('dst_asic_index', None)
+        self.testbed_type = self.test_params['testbed_type']
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
-        # ARP Populate
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
-                                       1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
 
-        send_packet(self, self.src_port_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac,
+         # ARP Populate
+         #Arp packet sent to static IP address not relevant to T2
+        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
+             arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
+                                       1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
+             send_packet(self, self.src_port_id, arpreq_pkt)
+             arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac,
                                        1, self.dst_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan)
-        send_packet(self, self.dst_port_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1,
+             send_packet(self, self.dst_port_id, arpreq_pkt)
+             arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1,
                                        self.dst_port_2_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_2)
-        send_packet(self, self.dst_port_2_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
+             send_packet(self, self.dst_port_2_id, arpreq_pkt)
+             arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
                                        self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
-        send_packet(self, self.dst_port_3_id, arpreq_pkt)
+             send_packet(self, self.dst_port_3_id, arpreq_pkt)
 
         # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
-        if self.test_port_ids and self.test_port_ips:
-            for portid in self.test_port_ids:
-                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
-                                     'ping -q -c 3 {}'.format(self.test_port_ips[portid]['peer_addr']))
+        if self.test_port_ips:
+            #Include all neighbours of multi_asic devices
+            test_port_src_ip = self.test_port_ips[self.src_dut_index][self.src_asic_index]
+            if self.src_dut_index != self.dst_dut_index or self.src_asic_index != self.dst_asic_index:
+                test_port_dst_ip =self.test_port_ips[self.dst_dut_index][self.dst_asic_index]
+                for ip in get_peer_addresses(test_port_dst_ip):
+                    self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],self.test_params['dut_password'],
+                                         'sudo ip netns exec asic{} ping -q -c 3 {}'.format(self.dst_asic_index,ip))
+            for ip in get_peer_addresses(test_port_src_ip):
+                self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'], self.test_params['dut_password'],
+                                     'sudo ip netns exec asic{} ping -q -c 3 {}'.format(self.src_asic_index,ip))
 
         time.sleep(8)
 

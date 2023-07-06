@@ -1283,15 +1283,18 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if 'dualtor' in tbinfo['topo']['name']:
-            duthost = lower_tor_host
-        else:
-            duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
 
-        dut_asic.command('sonic-clear fdb all')
-        dut_asic.command('sonic-clear arp')
+        # This is not needed in T2.
+        if "t2" in dutTestParams["topo"]:
+            #Skip not needed for broadcom-dnx
+            if 'broadcom' not in duthost.facts['asic_type'].lower():
+                yield
+                return
+        #Clearing arp and fdb table for all asics selected for test
+        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+            dut_asic.command('sonic-clear fdb all')
+            dut_asic.command('sonic-clear arp')
 
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
@@ -1309,6 +1312,7 @@ class QosSaiBase(QosBase):
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
             testParams.update({
+                "testbed_type": dutTestParams["topo"],
                 "testPortIds": dutConfig["testPortIds"],
                 "testPortIps": dutConfig["testPortIps"]
             })
