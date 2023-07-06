@@ -608,7 +608,7 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
   skip:
     reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
     conditions:
-      - "'t2' in topo_name"
+      - "asic_subtype in ['broadcom-dnx']"
 
 macsec/test_macsec.py:
   skip:

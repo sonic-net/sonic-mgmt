@@ -684,6 +684,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         """
         acl_facts = defaultdict(dict)
         table_name = acl_table["table_name"]
+        skip_byte_accounting = False
         for duthost in duthosts:
             if duthost.is_supervisor_node():
                 continue
@@ -734,12 +735,20 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     continue
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
+                if (duthost.facts["hwsku"] == "Cisco-8111-O64" or
+                        duthost.facts["hwsku"] == "Cisco-8111-O32" or
+                        duthost.facts["hwsku"] == "Cisco-8111-C32" or
+                        duthost.facts["hwsku"] == "Cisco-8111-O62C2"):
+                    skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
                         .format(rule, pprint.pformat(counters_after)))
 
             assert counters_after[PACKETS_COUNT] > counters_before[PACKETS_COUNT]
-            assert counters_after[BYTES_COUNT] > counters_before[BYTES_COUNT]
+            if not skip_byte_accounting:
+                assert counters_after[BYTES_COUNT] > counters_before[BYTES_COUNT]
+            else:
+                logger.info("No byte counters for this hwsku\n")
 
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
     def direction(self, request):
