@@ -191,12 +191,12 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
         results[hostname] = routes
     try:
         all_routes = parallel_run(parse_routes_process, (), {}, list(
-            neigh_hosts.values()), timeout=180, concurrent_tasks=8)
+            neigh_hosts.values()), timeout=240, concurrent_tasks=8)
     except BaseException as err:
         logger.error(
             'Failed to get routes info from VMs. Got error: {}\n\nTrying one more time.'.format(err))
         all_routes = parallel_run(parse_routes_process, (), {}, list(
-            neigh_hosts.values()), timeout=180, concurrent_tasks=8)
+            neigh_hosts.values()), timeout=240, concurrent_tasks=8)
     return all_routes
 
 
