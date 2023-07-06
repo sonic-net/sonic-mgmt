@@ -285,7 +285,7 @@ def _create_parser():
     parser.add_argument('-a', '--host_address', type=str, help='host address to ssh into',
                       required=True,default=None)
     parser.add_argument('-r', '--ssh_port', type=str, help='port_used for ssh',
-                      required=True,default=22)
+                      required=False,default=22)
     parser.add_argument('-u', '--username', type=str, help='username for ssh',
                       required=True,default=None)
     parser.add_argument('-p', '--password', type=str, help='ssh password',
