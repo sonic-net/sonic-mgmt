@@ -1995,11 +1995,14 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             EXCLUDE_CONFIG_TABLE_NAMES = set([])
             # The keys that we don't care
             # Current skipped keys:
-            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder_session` fixture in dualtor-mixed
-            # to account for the lower performance of the ICMP responder/mux simulator,
-            # compared to real servers and mux cables. It's appropriate to persist this change
-            # since the testbed will always be using the ICMP responder and mux simulator in dualtor-mixed.
-            if "mixed" in tbinfo["topo"]["name"]:
+            # 1. "MUX_LINKMGR|LINK_PROBER"
+            # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
+            # to account for the lower performance of the ICMP responder/mux simulator compared to
+            # real servers and mux cables.
+            # Linkmgrd is the only service to consume this table so it should not affect other test cases.
+            # Let's keep this setting in db and we don't want any config reload caused by this key, so
+            # let's skip checking it.
+            if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
                     'MUX_LINKMGR|LINK_PROBER'
                 ]
