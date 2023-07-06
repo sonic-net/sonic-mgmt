@@ -137,20 +137,22 @@ class TestInteropProtocol():
                 nbr_ip = up_link["local_ipv4_addr"]
             else:  # vsonic neighbour
                 community = creds['snmp_rocommunity']
-                # Use LoopbackIP to query from vsonic neighbor
+                # Use Loopback0 IPv4 address to query from vsonic neighbor
                 result = nbr["host"].config_facts(host=nbr["host"].hostname,
                                                   source="running")[
                                                   "ansible_facts"].get(
                                                   "LOOPBACK_INTERFACE",
                                                   {}).get('Loopback0', {})
                 for ip in result:
-                    if isinstance(ipaddress.ip_address(ip.split('/')[0]),
-                                  ipaddress.IPv4Address):
+                    if isinstance(ipaddress.ip_network(ip),
+                                  ipaddress.IPv4Network):
                         nbr_ip = ip.split('/')[0]
                         nbr["host"].command("sudo iptables -I INPUT 1 -p udp \
                                             --dport 161 -d {} -j ACCEPT".
                                             format(nbr_ip))
                         break
+                else:
+                    pytest.fail("No Loopback0 IP address found for vsonic neighbor")
 
             sysDescr = ".1.3.6.1.2.1.1.1.0"
             command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
