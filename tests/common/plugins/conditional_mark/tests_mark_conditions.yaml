@@ -634,6 +634,18 @@ mvrf:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
+mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
+  skip:
+    reason: 'Warmboot is not supported on Cisco distributed chasiss for T2 profile'
+    conditions:
+      - "'t2' in topo_name and asic_type in ['cisco-8000']"
+
+mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
+  skip:
+    reason: 'Fastboot is not supported on Cisco distributed chasiss for T2 profile'
+    conditions:
+      - "'t2' in topo_name and asic_type in ['cisco-8000']"
+
 #######################################
 #####           nat               #####
 #######################################
