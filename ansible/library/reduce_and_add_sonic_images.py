@@ -176,14 +176,6 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
                      cmd="rm -f /host/old_config/config_db.json",
                      msg="Remove config_db.json in preference of minigraph.xml")
 
-def work_around_for_reboot(module):
-    # work around reboot for s6100
-    # replace reboot with soft-reboot
-    _, out, _   = exec_command(module, cmd="show platform summary", ignore_error=True)
-    if 'Force10-S6100' in out:
-        exec_command(module, cmd="sudo mv /usr/local/bin/reboot /usr/local/bin/reboot_bak", ignore_error=True)
-        exec_command(module, cmd="sudo ln -s /usr/local/bin/soft-reboot /usr/local/bin/reboot", ignore_error=True)
-
 def work_around_for_slow_disks(module):
     # Increase hung task timeout to 600 seconds to avoid kernel panic
     # while writing lots of data to a slow disk.
@@ -222,7 +214,6 @@ def main():
     save_as = module.params['save_as']
 
     try:
-        work_around_for_reboot(module)
         results["current_stage"] = "start"
         work_around_for_slow_disks(module)
         reduce_installed_sonic_images(module)
