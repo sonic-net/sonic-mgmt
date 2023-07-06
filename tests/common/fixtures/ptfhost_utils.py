@@ -234,9 +234,9 @@ icmp_responder_session_started = False
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
-    if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
+    if "dualtor" not in tbinfo["topo"]["name"]:
         logger.info("Skip running icmp_responder at session level, "
-                    "it is only for dualtor testbed with active-active mux ports.")
+                    "it is only for dualtor testbed.")
         yield
         return
 
@@ -268,8 +268,17 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     yield
 
-    # NOTE: Leave icmp_responder running for dualtor-mixed topology
-    return
+    if "dualtor-mixed" in tbinfo["topo"]["name"] or "dualtor-aa" in tbinfo["topo"]["name"]:
+        logger.info("Leave icmp_responder running for dualtor-mixed/dualtor-aa topology")
+        return
+
+    logger.info("Stop running icmp_responder")
+    ptfhost.shell("supervisorctl stop icmp_responder")
+    icmp_responder_session_started = False
+
+    logger.info("Recover linkmgrd probe interval")
+    recover_linkmgrd_probe_interval(duthosts, tbinfo)
+    duthosts.shell("config save -y")
 
 
 @pytest.fixture(scope="module", autouse=True)
