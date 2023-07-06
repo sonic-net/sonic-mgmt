@@ -2024,6 +2024,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                 ]
             else:
                 EXCLUDE_CONFIG_KEY_NAMES = []
+            # 2. DB version issue #2839 #2870.
+            # This difference will cause additional reload.
+            # We will revert this change after this issue is fixed.
+            EXCLUDE_CONFIG_KEY_NAMES.append('VERSIONS|DATABASE')
 
             def _remove_entry(table_name, key_name, config):
                 if table_name in config and key_name in config[table_name]:
