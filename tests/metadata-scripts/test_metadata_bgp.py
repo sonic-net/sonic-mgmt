@@ -279,7 +279,7 @@ def setup_teardown(duthosts, enum_frontend_dut_hostname):
     logger.info("Reload Config DB")
     config_reload(
         duthost,
-        config_source="running_golden_config",
+        config_source="config_db",
         safe_reload=True,
         check_intf_up_ports=True,
     )
