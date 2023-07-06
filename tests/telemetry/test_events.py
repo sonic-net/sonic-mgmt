@@ -34,8 +34,7 @@ def do_init(duthost):
         except OSError as e:
             logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
 
-    ret = duthost.copy(src="telemetry/validate_yang_events.py", dest="/tmp")
-    assert ret["rc"] == 0, "Failed to copy yang validation script to /tmp"
+    duthost.copy(src="telemetry/validate_yang_events.py", dest="/tmp")
 
 
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
