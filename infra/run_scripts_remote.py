@@ -12,7 +12,7 @@ def upload_sanity_file(host, username, password, script_file, sonic_test_dir, ss
     ssh.connect(host, ssh_port, username, password)
     print("connected")
     ftp_client=ssh.open_sftp()
-    ftp_client.put('{}/sonic-test/infra/sanity-scripts/{}'.format(sonic_test_dir, script_file.rsplit('/', 1)[-1]),'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_file.rsplit('/', 1)[-1]))
+    ftp_client.put('sanity-scripts/{}'.format(script_file.rsplit('/', 1)[-1]),'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_file.rsplit('/', 1)[-1]))
     ftp_client.close()
 
 def get_build_project_name():
