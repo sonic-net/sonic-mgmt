@@ -555,6 +555,8 @@ class QosSaiBase(QosBase):
             "dst_asic": dst_asic,
             "src_dut": src_dut,
             "dst_dut": dst_dut,
+            "single_asic_test": (src_dut == dst_dut and
+                src_asic == dst_asic),
             "all_asics": all_asics,
             "all_duts": all_duts
         }
@@ -720,7 +722,7 @@ class QosSaiBase(QosBase):
             else:
                 intf_map = src_mgFacts["minigraph_interfaces"]
 
-            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(src_dut, dut_qos_maps)
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(dut_qos_maps)
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
@@ -757,7 +759,7 @@ class QosSaiBase(QosBase):
 
             # T1 is supported only for 'single_asic' or 'single_dut_multi_asic'.
             # So use src_dut as the dut
-            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(src_dut, dut_qos_maps)
+            use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(dut_qos_maps)
             dutPortIps[src_dut_index] = {}
             testPortIds[src_dut_index] = {}
             for dut_asic in get_src_dst_asic_and_duts['all_asics']:
@@ -1462,7 +1464,7 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut']
 
         # This is not needed in T2.
-        if dutTestParams["topo"] in ['t2']:
+        if "t2" in dutTestParams["topo"]:
             yield
             return
 

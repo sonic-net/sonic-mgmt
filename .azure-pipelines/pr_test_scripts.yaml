@@ -37,7 +37,7 @@ t0:
   - override_config_table/test_override_config_table.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
-#  - platform_tests/test_advanced_reboot.py::test_warm_reboot
+  - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - radv/test_radv_ipv6_ra.py
@@ -130,3 +130,11 @@ multi-asic-t1-lag:
 t2:
   - test_vs_chassis_setup.py
   - voq/test_voq_init.py
+
+specific_param:
+  t0-sonic:
+  - name: bgp/test_bgp_fact.py
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+#  all the test modules under macsec directory
+  - name: macsec
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"

@@ -12,6 +12,7 @@ from jinja2 import Template
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_utils import check_link_status
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
 
@@ -511,9 +512,11 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
             active_dut_map[str(mux_status['port_index'])] = [active_dut_index]
         if active_active_ports_mux_status:
-            for port_index, port_status in active_active_ports_mux_status.items():
-                active_dut_map[str(port_index)] = [active_dut_index for active_dut_index in (0, 1)
-                                                   if port_status[active_dut_index]]
+            port_id_to_dut_index = {ActiveActivePortID.UPPER_TOR: 0, ActiveActivePortID.LOWER_TOR: 1}
+            for port_index, port_status in list(active_active_ports_mux_status.items()):
+                active_dut_map[str(port_index)] = [
+                    dut_index for port_id, dut_index in port_id_to_dut_index.items() if port_status[port_id]
+                ]
 
     disabled_ptf_ports = set()
     for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():

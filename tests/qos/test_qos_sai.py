@@ -577,6 +577,9 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        if not get_src_dst_asic_and_duts['single_asic_test']:
+             pytest.skip("This test needs to be revisited later, for the case "
+                 "where src and dst ASICs are different.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and \
                 'backend' not in dutTestParams['topo']:
@@ -757,7 +760,7 @@ class TestQosSai(QosSaiBase):
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
         dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
-        (src_port_ids, dst_portids) = check_skip_shared_res_test
+        (_, src_port_ids, dst_port_ids) = check_skip_shared_res_test
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1055,8 +1058,9 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("Lossy Queue Voq test is not supported")
+        if not get_src_dst_asic_and_duts['single_asic_test']:
+             pytest.skip("LossyQueueVoq: This test is skipped for now, will"
+                 " be re-enabled for RH cards.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
@@ -1121,7 +1125,7 @@ class TestQosSai(QosSaiBase):
         """
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
         duthost = get_src_dst_asic_and_duts['src_dut']
-        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
@@ -1170,7 +1174,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         # Only run this test on T1 testbed when separated DSCP_TO_TC_MAP is defined
-        if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if not separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
         if "dualtor" in dutTestParams['topo']:
             pytest.skip("Skip this test case on dualtor testbed")
@@ -1389,6 +1393,13 @@ class TestQosSai(QosSaiBase):
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
+            if not get_src_dst_asic_and_duts['single_asic_test'] and \
+                dutTestParams["basicParams"].get("platform_asic", None) \
+                    == "cisco-8000":
+                pytest.skip(
+                    "PGSharedWatermark: Lossy test is not applicable in "
+                    "multiple ASIC case in cisco-8000 platform.")
+
             pktsNumFillShared = int(qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
@@ -1524,21 +1535,13 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
-        pgDropKey = "pg_drop"
+        testParams.update(qosConfig['pg_drop'])
         testParams.update({
-            "dscp": qosConfig[pgDropKey]["dscp"],
-            "ecn": qosConfig[pgDropKey]["ecn"],
-            "pg": qosConfig[pgDropKey]["pg"],
-            "queue": qosConfig[pgDropKey]["queue"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_trig_pfc": qosConfig[pgDropKey]["pkts_num_trig_pfc"],
-            "pkts_num_trig_ingr_drp": qosConfig[pgDropKey]["pkts_num_trig_ingr_drp"],
-            "pkts_num_margin": qosConfig[pgDropKey]["pkts_num_margin"],
-            "iterations": qosConfig[pgDropKey]["iterations"],
             "hwsku":dutTestParams['hwsku']
         })
 
@@ -1583,6 +1586,12 @@ class TestQosSai(QosSaiBase):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_ingr_drp"]
         else:
+            if not get_src_dst_asic_and_duts['single_asic_test'] and \
+                dutTestParams["basicParams"].get("platform_asic", None) \
+                    == "cisco-8000":
+                pytest.skip(
+                    "Lossy test is not applicable in multiple ASIC case"
+                    " in cisco-8000 platform.")
             if queueProfile in dutQosConfig["param"][portSpeedCableLength].keys():
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             else:
@@ -1655,7 +1664,7 @@ class TestQosSai(QosSaiBase):
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
-        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
 
         testParams = dict()
@@ -1698,7 +1707,7 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if not separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is not applied")
         if "dualtor" in dutTestParams['topo']:
             pytest.skip("Skip this test case on dualtor testbed")
@@ -1821,9 +1830,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("This test is only supported on cisco-8000")
-
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         testPortIps = dutConfig["testPortIps"]
 
