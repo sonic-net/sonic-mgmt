@@ -72,6 +72,11 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
+    chan.send('rm -f /tmp/allure_results/* \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
     chan.send('cd /data/tests \n')
     time.sleep(3)
     resp = chan.recv(9999)
@@ -80,6 +85,16 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     build_project_name = get_build_project_name()
 
     print("calling run_scripts.py, the allure report build name is ", build_project_name)
+
+    result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
+    chan.send('rm run_script.log \n')
+    time.sleep(3)
+    chan.send('rm {} \n'.format(result_file))
+    time.sleep(3)
+    chan.send('rm -rf DT\n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
 
     delta1 = datetime.datetime.now()
     tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
@@ -100,7 +115,6 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         print(resp)
     time.sleep(3)
 
-    result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     later = datetime.datetime.now() + datetime.timedelta(hours=20)
     while True:
         chan.send('ps -ef | grep run_scripts.py\n')
@@ -186,9 +200,9 @@ def parse_report(host, username, password, sonic_test_dir, ssh_port=22):
     out = read_report.read().splitlines()
     total, passed, fail, skip, error, xfail = 0, 0, 0, 0, 0, 0
     for line in out:
+        print(line)
         if 'total' not in line.lower():
             continue
-        print(line)
         report_file.write(line + "\n")
         report_file.flush()
         tc = line.split(',')
@@ -210,6 +224,7 @@ def parse_report(host, username, password, sonic_test_dir, ssh_port=22):
     return resp
 
 def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
+    print("Getting report file")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
@@ -221,6 +236,7 @@ def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
 
 
 def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
+    print("Get log files")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
@@ -240,7 +256,7 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
         print(resp)
     time.sleep(3)
 
-    chan.send("gzip sanity_logs.tar \n")
+    chan.send("gzip -f sanity_logs.tar \n")
     resp = ''
     while ':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir) not in resp:
         resp = chan.recv(9999).decode("ascii")
