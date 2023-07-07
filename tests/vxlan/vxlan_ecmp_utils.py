@@ -916,4 +916,3 @@ numprocs=1
     def set_vnet_monitor_state(self, duthost, dest, mask, nh, state):
         duthost.shell("sonic-db-cli STATE_DB HSET 'VNET_MONITOR_TABLE|{}|{}/{}' 'state' '{}'"
                       .format(nh, dest, mask, state))
-
