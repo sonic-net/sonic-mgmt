@@ -84,6 +84,7 @@ def reboot_and_check(localhost, dut, duthosts, interfaces, xcvr_skip_list,
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
     if dut.is_supervisor_node():
         for lc in duthosts.frontend_nodes:
+            wait_for_startup(lc, localhost, delay=10, timeout=300)
             check_interfaces_and_services(lc, interfaces, xcvr_skip_list,
                                           reboot_type=reboot_type)
 
