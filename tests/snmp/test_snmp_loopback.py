@@ -2,15 +2,12 @@ import pytest
 import ipaddress
 from tests.common.helpers.snmp_helpers import get_snmp_facts, get_snmp_output
 from tests.common.devices.eos import EosHost
-try:  # python3
-    from shlex import quote
-except ImportError:  # python2
-    from pipes import quote
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
+
 
 @pytest.mark.bsl
 def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,

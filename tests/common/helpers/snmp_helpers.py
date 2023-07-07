@@ -73,7 +73,6 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
         iptables_cmd, ip)
     duthost.shell(ip_tbl_rule_add)
 
-
     if isinstance(nbr["host"], EosHost):
         eos_snmpget = "bash snmpget -v2c -c {} {} {}".format(
             creds_all_duts[duthost.hostname]['snmp_rocommunity'], ip, oid)

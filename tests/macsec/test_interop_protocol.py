@@ -1,6 +1,5 @@
 import pytest
 import logging
-import re
 import ipaddress
 
 from tests.common.utilities import wait_until
@@ -127,20 +126,21 @@ class TestInteropProtocol():
         if duthost.is_multi_asic:
             pytest.skip("The test is for Single ASIC devices")
 
-
         loopback0_ips = duthost.config_facts(host=duthost.hostname,
-                                          source="running")[
-                                          "ansible_facts"].get(
-                                          "LOOPBACK_INTERFACE",
-                                          {}).get('Loopback0', {})
+                                             source="running")[
+                                             "ansible_facts"].get(
+                                             "LOOPBACK_INTERFACE",
+                                             {}).get('Loopback0', {})
         for ip in loopback0_ips:
             if isinstance(ipaddress.ip_network(ip),
                           ipaddress.IPv4Network):
                 dut_loip = ip.split('/')[0]
                 break
         else:
-           pytest.fail("No Loopback0 IPv4 address for {}".format(duthost.hostname))
+            pytest.fail("No Loopback0 IPv4 address for {}".
+                        format(duthost.hostname))
         for ctrl_port, nbr in list(ctrl_links.items()):
             sysDescr = ".1.3.6.1.2.1.1.1.0"
-            result = get_snmp_output(dut_loip, duthost, nbr, creds_all_duts, sysDescr)   
+            result = get_snmp_output(dut_loip, duthost, nbr,
+                                     creds_all_duts, sysDescr)
             assert not result["failed"]
