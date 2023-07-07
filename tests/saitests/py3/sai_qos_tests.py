@@ -506,6 +506,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         time.sleep(10)
         # port_results is not of our interest here
         port_results, queue_results_base = sai_thrift_read_port_counters(self.dst_client, asic_type, sai_dst_port_id)
+        masic = self.clients['src'] != self.clients['dst']
 
         # DSCP Mapping test
         try:
@@ -513,6 +514,8 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # TTL changes on multi ASIC platforms,
             # add 2 for additional backend and frontend routing
             ip_ttl = ip_ttl if test_dst_port_name is None else ip_ttl + 2
+            if asic_type in ["cisco-8000"] and masic:
+                ip_ttl = ip_ttl + 1 if masic else ip_ttl
 
             for dscp in range(0, 64):
                 tos = (dscp << 2)
