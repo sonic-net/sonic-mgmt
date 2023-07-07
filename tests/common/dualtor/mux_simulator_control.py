@@ -120,7 +120,7 @@ def url(mux_server_url, duthost, tbinfo):
         """
         if not interface_name:
             if action:
-                # Only for flap_counter, clear_flap_counter, or reset
+                # For flap_counter, clear_flap_counter, drop(for all), output(for all) or reset
                 return mux_server_url + "/{}".format(action)
             return mux_server_url
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -208,6 +208,20 @@ def set_drop(url, recover_all_directions):
 
 
 @pytest.fixture(scope='function')
+def set_drop_all(url):
+    """
+    A helper function is returned to make fixture accept arguments
+    """    
+    def _set_drop_all(directions):
+        server_url = url(action=DROP)
+        data = {"out_sides": directions}
+        logger.info("Dropping all packets to {}".format(directions))
+        pytest_assert(_post(server_url, data), "Failed to set drop all on {}".format(directions))
+    
+    return _set_drop_all
+
+
+@pytest.fixture(scope='function')
 def set_output(url):
     """
     A helper function is returned to make fixture accept arguments
@@ -226,6 +240,20 @@ def set_output(url):
         pytest_assert(_post(server_url, data), "Failed to set output on {}".format(directions))
 
     return _set_output
+
+
+@pytest.fixture(scope='function')
+def set_output_all(url):
+    """
+    A helper function is returned to make fixture accept arguments
+    """    
+    def _set_output_all(directions):
+        server_url = url(action=OUTPUT)
+        data = {"out_sides": directions}
+        logger.info("Output all packets to {}".format(directions))
+        pytest_assert(_post(server_url, data), "Failed to set output all on {}".format(directions))
+    
+    return _set_output_all
 
 
 @pytest.fixture(scope='module')

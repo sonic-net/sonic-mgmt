@@ -52,6 +52,27 @@ def drop_flow_lower_tor(set_drop, set_output, active_standby_ports):            
     direction = "lower_tor"
     return _set_drop_factory(set_drop, direction, active_standby_ports)
 
+def _set_drop_all_factory(set_drop_all_func, direction, tor_mux_intfs):
+    """Factory to get set drop function for either upper_tor or lower_tor."""
+    def _set_drop_all_interfaces():
+        logging.debug("Start set drop all for %s at %s", direction, time.time())
+        set_drop_all_func([direction])
+    return _set_drop_all_interfaces
+
+
+@pytest.fixture(scope="function")
+def drop_all_flow_upper_tor(set_drop_all, set_output, active_standby_ports):                    # noqa F811
+    """Drop the flow to the upper ToR."""
+    direction = "upper_tor"
+    return _set_drop_all_factory(set_drop_all, direction, active_standby_ports)
+
+
+@pytest.fixture(scope="function")
+def drop_all_flow_lower_tor(set_drop_all, set_output, active_standby_ports):                    # noqa F811
+    """Drop the flow to the lower ToR."""
+    direction = "lower_tor"
+    return _set_drop_all_factory(set_drop_all, direction, active_standby_ports)
+
 
 @pytest.fixture(scope="function")
 def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_active):     # noqa F811
