@@ -1401,6 +1401,7 @@ class TestQosSai(QosSaiBase):
                 pytest.skip(
                     "PGSharedWatermark: Lossy test is not applicable in "
                     "multiple ASIC case in cisco-8000 platform.")
+
             pktsNumFillShared = int(qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
