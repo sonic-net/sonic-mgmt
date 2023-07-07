@@ -266,8 +266,14 @@ class Ecmp_Utils(object):
             # If the given address is "net.1", the return address is "net.101"
             # THE ASSUMPTION HERE IS THAT THE DUT ADDRESSES ARE ENDING IN ".1".
             # addr.decode is only in python2.7
-            ptf_ip = str(ip_address(addr.decode())+100)
-
+            ptf_ip = ""
+            if  hasattr(addr, 'decode'):
+                #python 2.7
+                ptf_ip = str(ip_address(addr.decode())+100)
+            else:
+                #python 3
+                ptf_ip = str(ip_address(addr)+100)
+            
             if "Ethernet" in intf:
                 return_dict[intf] = ptf_ip
             elif "PortChannel" in intf:
