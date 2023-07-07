@@ -140,7 +140,7 @@ stages:
 
       - job: NightlyTest
         pool: ${{ parameters.AGENT_POOL }}
-        timeoutInMinutes: 2400  # 40 hours
+        timeoutInMinutes: 2760  # 46 hours
         workspace:
           clean: all
         variables:
@@ -193,7 +193,8 @@ stages:
               INTERVAL=60
 
               wait_time=0
-              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock; do
+              lock_time=$(expr ${{ parameters.NIGHTLY_TEST_TIMEOUT }} / 60)
+              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o $lock_time; do
                   if (( $wait_time >= $TIMEOUT)); then
                       echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                       exit 1
