@@ -32,8 +32,8 @@ from switch import (switch_init,
                     sai_thrift_read_pg_shared_watermark,
                     sai_thrift_read_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
-                    sai_thrift_read_queue_occupancy
-                   )
+                    sai_thrift_read_queue_occupancy,
+                    sai_thrift_read_pg_occupancy)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
 from switch_sai_thrift.sai_headers import (SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID,
@@ -365,6 +365,62 @@ def fill_leakout_plus_one(
             " dst_port_id:{}, pkt:{}, queue:{}".format(
             src_port_id, dst_port_id, pkt.__repr__()[0:180], queue))
     return False
+
+
+def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num_egr_mem=0, dst_port_id=None, pkt2=None):
+    # Attempts to queue 1 packet while compensating for a varying packet leakout and egress queues.
+    # pkts_num_egr_mem is the number of packets in full egress queues, to provide an initial filling boost
+    # Returns whether 1 packet was successfully enqueued.
+    #
+    # pkts_num_egr_mem=0 is not applicable for multi-src-port cases
+    # for multi-src-port case, get pkts_num_egr_mem via overflow_egress(),
+    # then call fill_egress_plus_one() with pkts_num_egr_mem
+    if asic_type in ['cisco-8000']:
+        # if pkts_num_egr_mem unknown, get estimated pkts_num_egr_mem
+        if pkts_num_egr_mem == 0:
+            if dst_port_id == None:
+                raise RuntimeError("fill_egress_plus_one: please input pkts_num_egr_mem or dst_port_id", file=sys.stderr)
+            pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(test_case,
+                                                    src_port_id, pkt, queue, asic_type)
+            # tx enable
+            test_case.sai_thrift_port_tx_enable(test_case.dst_client, asic_type, [dst_port_id])
+            # tx disable
+            test_case.sai_thrift_port_tx_disable(test_case.dst_client, asic_type, [dst_port_id])
+
+        pkt_list = [pkt]
+        if pkt2:
+            pkt_list.append(pkt2)
+        for packet in pkt_list:
+            # send 1 packet, if pg occupancy increases, return
+            pg_cntrs_base=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            send_packet(test_case, src_port_id, packet, 1)
+            pg_cntrs=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            if pg_cntrs[queue] > pg_cntrs_base[queue]:
+                print("fill_egress_plus_one: Success, sent 1 packets, SQ occupancy bytes rose from %d to %d" % (
+                    pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                continue
+
+            # fill egress plus one
+            pg_cntrs_base=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            send_packet(test_case, src_port_id, packet, pkts_num_egr_mem)
+            max_packets = 1000
+            for packet_i in range(max_packets):
+                send_packet(test_case, src_port_id, packet, 1)
+                pg_cntrs=sai_thrift_read_pg_occupancy(
+                    test_case.src_client, port_list['src'][src_port_id])
+                if pg_cntrs[queue] > pg_cntrs_base[queue]:
+                    print("fill_egress_plus_one: Success, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
+                        pkts_num_egr_mem + packet_i + 1, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                    break
+            if pg_cntrs[queue] <= pg_cntrs_base[queue]:
+                print("fill_egress_plus_one: Failure, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
+                        pkts_num_egr_mem + max_packets, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                return False
+
+    return True
 
 
 def overflow_egress(test_case, src_port_id, pkt, queue, asic_type):
@@ -3441,18 +3497,38 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = get_multiple_flows(
-                self,
-                pkt_dst_mac,
-                dst_port_id,
-                dst_port_ip,
-                None,
-                dscp,
-                ecn,
-                ttl,
-                packet_length,
-                [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+        if asic_type in ['cisco-8000']:
+            pkt = get_multiple_flows(
+                    self,
+                    pkt_dst_mac,
+                    dst_port_id,
+                    dst_port_ip,
+                    None,
+                    dscp,
+                    ecn,
+                    ttl,
+                    packet_length,
+                    [(src_port_id, src_port_ip)],
+                    packets_per_port=1)[src_port_id][0][0]
+        else:
+            pkt = construct_ip_pkt(packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ecn=ecn,
+                                   ttl=ttl)
+
+            print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
+                  (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
+            # in case dst_port_id is part of LAG, find out the actual dst port
+            # for given IP parameters
+            dst_port_id = get_rx_port(
+                self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
+            )
+            print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress

@@ -22,6 +22,9 @@ from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.interface_utils import check_all_interface_information
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,8 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("any"),
 ]
+
+MAX_WAIT_TIME_FOR_INTERFACES = 360
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = "acl_test_dir"  # Keep it under home dir so it persists through reboot
@@ -389,7 +394,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
 def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
     if tbinfo["topo"]["type"] in ["t0"] and request.param == "ipv6":
-        pytest.skip("IPV6 ACL test not currently supported on t0/mx testbeds")
+        pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
 
     return request.param
 
@@ -585,7 +590,7 @@ class BaseAclTest(object):
         """
         pass
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):   # noqa F811
         """Perform actions after rules have been applied.
 
         Args:
@@ -614,7 +619,8 @@ class BaseAclTest(object):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo, ip_version):
+    def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo,
+                  ip_version, conn_graph_facts):   # noqa F811
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -641,7 +647,7 @@ class BaseAclTest(object):
                 with loganalyzer:
                     self.setup_rules(duthost, acl_table, ip_version)
 
-                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
+                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
 
                 assert self.check_rule_counters(duthost), "Rule counters should be ready!"
 
@@ -1185,7 +1191,7 @@ class TestAclWithReboot(TestBasicAcl):
     upon startup.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts): # noqa F811
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -1199,6 +1205,19 @@ class TestAclWithReboot(TestBasicAcl):
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
+
+        # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
+        if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
+            interfaces = conn_graph_facts["device_conn"][dut.hostname]
+            logging.info("Wait until all critical services are fully started")
+            wait_critical_processes(dut)
+
+            xcvr_skip_list = {dut.hostname: []}
+            result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
+                                xcvr_skip_list)
+            assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
+                MAX_WAIT_TIME_FOR_INTERFACES)
+
         populate_vlan_arp_entries()
 
 
@@ -1209,7 +1228,7 @@ class TestAclWithPortToggle(TestBasicAcl):
     Verify that ACLs still function as expected after links flap.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):  # noqa F811
         """Toggle ports after rules are applied.
 
         Args:

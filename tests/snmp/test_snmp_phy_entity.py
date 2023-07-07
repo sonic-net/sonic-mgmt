@@ -586,7 +586,7 @@ def _get_transceiver_sensor_data(duthost, name):
 
 
 @pytest.mark.disable_loganalyzer
-def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
                                          localhost, creds_all_duts,
                                          pdu_controller):
     """
@@ -597,7 +597,7 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_rand_one_per_hwsku_hostn
     :param pdu_controller: PDU controller
     :return:
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     if not pdu_controller:
         pytest.skip('psu_controller is None, skipping this test')
     outlet_status = pdu_controller.get_outlet_status()

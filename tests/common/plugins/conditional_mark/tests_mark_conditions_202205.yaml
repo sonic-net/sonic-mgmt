@@ -44,38 +44,6 @@ dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6658
 
-dualtor/test_orchagent_slb.py::test_orchagent_slb[ipv4-active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6660
-
-dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded[ipv4]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6660
-
-dualtor/test_orchagent_standby_tor_downstream.py::test_standby_tor_downstream_loopback_route_readded[ipv6]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6660
-
-dualtor_io/test_tor_bgp_failure.py::test_active_tor_shutdown_bgp_sessions_upstream[active-standby]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6659
-
 ipfwd/test_dir_bcast.py::test_dir_bcast:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
