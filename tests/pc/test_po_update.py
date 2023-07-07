@@ -55,7 +55,17 @@ def reload_testbed_on_failed(request, duthosts, enum_rand_one_per_hwsku_frontend
     if request.node.rep_call.failed:
         # if test case failed, means bgp session down or port channel status not recovered, execute config reload
         logging.info("Reloading config and restarting swss...")
-        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+        config_reload(duthost, safe_reload=True)
+
+
+def _wait_until_pc_members_removed(asichost, pc_names):
+    """
+    Wait until all port channel members are removed.
+    """
+    if not wait_until(30, 5, 5, lambda: not asichost.get_portchannel_members(pc_names)):
+        # Mark the test case as failed if port channel members are not removed.
+        # The fixture reload_testbed_on_failed will do config reload to restore the DUT.
+        pytest.fail("Portchannel members are not removed from {}".format(pc_names))
 
 
 def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo):
@@ -140,7 +150,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             for member in portchannel_members:
                 asichost.config_portchannel_member(tmp_portchannel, member, "del")
 
-        time.sleep(5)
+        _wait_until_pc_members_removed(asichost, tmp_portchannel)
         if create_tmp_portchannel:
             asichost.config_portchannel(tmp_portchannel, "del")
         if remove_portchannel_ip:
@@ -314,6 +324,7 @@ def test_po_update_io_no_loss(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             for member in pc_members:
                 asichost.config_portchannel_member(tmp_pc, member, "del")
             time.sleep(2)
+        _wait_until_pc_members_removed(asichost, tmp_pc)
         if create_tmp_pc:
             asichost.config_portchannel(tmp_pc, "del")
         pytest_assert(wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1))

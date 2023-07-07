@@ -130,3 +130,11 @@ multi-asic-t1-lag:
 t2:
   - test_vs_chassis_setup.py
   - voq/test_voq_init.py
+
+specific_param:
+  t0-sonic:
+  - name: bgp/test_bgp_fact.py
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+#  all the test modules under macsec directory
+  - name: macsec
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"

@@ -285,6 +285,10 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
                             .get("timestamp", {}).get("Start")
                         if not fdb_aging_disable_start:
                             break
+                        # Ignore MAC learning events before FDB aging disable, as MAC learning is still allowed
+                        log_time = timestamp.strftime(FMT)
+                        if _parse_timestamp(log_time) < _parse_timestamp(fdb_aging_disable_start):
+                            break
                         first_after_offset = fdb_aging_disable_start
                     else:
                         first_after_offset = result.get("reboot_time", {}).get("timestamp", {}).get("Start")

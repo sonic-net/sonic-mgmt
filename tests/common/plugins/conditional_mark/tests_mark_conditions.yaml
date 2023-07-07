@@ -189,9 +189,11 @@ copp/test_copp.py::TestCOPP::test_remove_trap:
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
-    reason: "'Add always_enabled field to coppmgr' is not merged into 202012 yet"
+    conditions_logical_operator: or
+    reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
+      - "build_version > '20220531.27' and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -456,9 +458,12 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: 'replace_fec ethernet test is not supported on virtual switch'
+    reason: '1. replace_fec ethernet test is not supported on virtual switch
+             2. Skip on M0 and Mx topo due to DUT interfaces do not support config fec'
+    conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-kvm_x86_64-r0']"
+      - "topo_type in ['m0', 'mx'] and https://github.com/sonic-net/sonic-mgmt/issues/8600"
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -932,6 +937,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_l
 qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
     reason: "Shared reservation size test is not supported."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
+  skip:
+    reason: "All Port Watermark test is verified only on Cisco Platforms."
     conditions:
       - "asic_type not in ['cisco-8000']"
 

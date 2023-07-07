@@ -450,8 +450,10 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
-            #TODO: https://github.com/sonic-net/sonic-mgmt/issues/5970
-            if self.sonichost.is_multi_asic and docker == "gbsyncd":
+            # This is to avoid gbsyncd check fo VS test_disable_rsyslog_rate_limit
+            # we are still getting whatever enabled feature in test_disable_rsyslog_rate_limit
+            # and gbsyncd feature will be added to services
+            if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
