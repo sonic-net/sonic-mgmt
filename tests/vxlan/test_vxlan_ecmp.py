@@ -63,7 +63,7 @@ from tests.common.fixtures.ptfhost_utils \
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer 
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -2116,7 +2116,7 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
                                               tc1_new_dest,
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               tc1_end_point_list[0], "down")
- 
+
             time.sleep(10)
             self.dump_self_info_and_run_ptf("test1", encap_type, True)
 
@@ -2157,12 +2157,11 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
             21) bring A,B up.
             22) send packets to the route 1's prefix dst. packets are recieved at A, B.
 
-            
         '''
         if encap_type in ['v4_in_v6', 'v6_in_v6']:
             pytest.skip("Skipping test. v6 underlay is not supported in priority tunnels.")
         self.setup = setUp
-        
+
         loganalyzer = LogAnalyzer(ansible_host=self.setup['duthost'],
                                   marker_prefix="ignore Logic error: basic_string::_M_construct null")
         loganalyzer.init()
