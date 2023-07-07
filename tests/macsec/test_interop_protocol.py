@@ -4,10 +4,10 @@ import re
 import ipaddress
 
 from tests.common.utilities import wait_until
-from tests.common.devices.eos import EosHost
 from .macsec_helper import getns_prefix
 from .macsec_config_helper import disable_macsec_port, enable_macsec_port
 from .macsec_platform_helper import find_portchannel_from_member, get_portchannel, get_lldp_list, sonic_db_cli
+from tests.common.helpers.snmp_helpers import get_snmp_output
 
 logger = logging.getLogger(__name__)
 
@@ -120,48 +120,27 @@ class TestInteropProtocol():
             assert wait_until(BGP_TIMEOUT, BGP_KEEPALIVE, BGP_HOLDTIME,
                               check_bgp_established, ctrl_port, upstream_links[ctrl_port])
 
-    def test_snmp(self, duthost, ctrl_links, upstream_links, creds, wait_mka_establish):
+    def test_snmp(self, duthost, ctrl_links, upstream_links, creds_all_duts, wait_mka_establish):
         '''
         Verify SNMP request/response works across interface with macsec configuration
         '''
         if duthost.is_multi_asic:
             pytest.skip("The test is for Single ASIC devices")
 
+
+        loopback0_ips = duthost.config_facts(host=duthost.hostname,
+                                          source="running")[
+                                          "ansible_facts"].get(
+                                          "LOOPBACK_INTERFACE",
+                                          {}).get('Loopback0', {})
+        for ip in loopback0_ips:
+            if isinstance(ipaddress.ip_network(ip),
+                          ipaddress.IPv4Network):
+                dut_loip = ip.split('/')[0]
+                break
+        else:
+           pytest.fail("No Loopback0 IPv4 address for {}".format(duthost.hostname))
         for ctrl_port, nbr in list(ctrl_links.items()):
-            if isinstance(nbr["host"], EosHost):
-                result = nbr["host"].eos_command(
-                    commands=['show snmp community | include name'])
-                community = re.search(r'Community name: (\S+)',
-                                      result['stdout'][0]).groups()[0]
-                up_link = upstream_links[ctrl_port]
-                nbr_ip = up_link["local_ipv4_addr"]
-            else:  # vsonic neighbour
-                community = creds['snmp_rocommunity']
-                # Use Loopback0 IPv4 address to query from vsonic neighbor
-                result = nbr["host"].config_facts(host=nbr["host"].hostname,
-                                                  source="running")[
-                                                  "ansible_facts"].get(
-                                                  "LOOPBACK_INTERFACE",
-                                                  {}).get('Loopback0', {})
-                for ip in result:
-                    if isinstance(ipaddress.ip_network(ip),
-                                  ipaddress.IPv4Network):
-                        nbr_ip = ip.split('/')[0]
-                        nbr["host"].command("sudo iptables -I INPUT 1 -p udp \
-                                            --dport 161 -d {} -j ACCEPT".
-                                            format(nbr_ip))
-                        break
-                else:
-                    pytest.fail("No Loopback0 IP address found for vsonic neighbor")
-
             sysDescr = ".1.3.6.1.2.1.1.1.0"
-            command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
-                community, nbr_ip, sysDescr)
-            result = duthost.command(command)
-
-            if not isinstance(nbr["host"], EosHost):
-                nbr["host"].command("sudo iptables -D INPUT -p udp \
-                                     --dport 161 -d {} -j \
-                                     ACCEPT".format(nbr_ip))
-
+            result = get_snmp_output(dut_loip, duthost, nbr, creds_all_duts, sysDescr)   
             assert not result["failed"]

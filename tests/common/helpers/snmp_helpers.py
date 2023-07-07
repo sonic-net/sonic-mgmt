@@ -1,8 +1,10 @@
 import logging
+import ipaddress
 
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.devices.eos import EosHost
 
 logger = logging.getLogger(__name__)
 
@@ -42,3 +44,47 @@ def get_snmp_facts(localhost, host, version, community, is_dell=False, module_ig
     pytest_assert(wait_until(timeout, interval, 0, _update_snmp_facts, localhost, host, version,
                              community, is_dell, include_swap), "Timeout waiting for SNMP facts")
     return global_snmp_facts
+
+
+def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
+    """
+    Get snmp output from duthost using specific ip to query 
+    snmp query is sent from neighboring ceos/vsonic
+
+     Args:
+        ip(str): IP of dut to be used to send SNMP query
+        duthost: duthost
+        nbr: from where the snmp query should be executed
+        creds_all_duts: creds to get snmp_rocommunity of duthost
+        oid: to query
+
+    Returns:
+        SNMP result
+    """ 
+    ipaddr = ipaddress.ip_address(ip)
+    iptables_cmd = "iptables"
+
+    # TODO : Fix snmp query over loopback v6 and remove this check and add IPv6 ACL table/rule.
+    if isinstance(ipaddr, ipaddress.IPv6Address):
+        iptables_cmd = "ip6tables"
+        return None
+
+    ip_tbl_rule_add = "sudo {} -I INPUT 1 -p udp --dport 161 -d {} -j ACCEPT".format(
+        iptables_cmd, ip)
+    duthost.shell(ip_tbl_rule_add)
+
+
+    if isinstance(nbr["host"], EosHost):
+        eos_snmpget = "bash snmpget -v2c -c {} {} {}".format(
+            creds_all_duts[duthost.hostname]['snmp_rocommunity'], ip, oid)
+        out = nbr['host'].eos_command(commands=[eos_snmpget])
+    else: 
+        command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
+                  creds_all_duts[duthost.hostname]['snmp_rocommunity'], ip, oid)
+        out = nbr['host'].command(command)
+
+    ip_tbl_rule_del = "sudo {} -D INPUT -p udp --dport 161 -d {} -j ACCEPT".format(
+        iptables_cmd, ip)
+    duthost.shell(ip_tbl_rule_del)
+
+    return out
