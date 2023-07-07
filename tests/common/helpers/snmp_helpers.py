@@ -48,7 +48,7 @@ def get_snmp_facts(localhost, host, version, community, is_dell=False, module_ig
 
 def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
     """
-    Get snmp output from duthost using specific ip to query 
+    Get snmp output from duthost using specific ip to query
     snmp query is sent from neighboring ceos/vsonic
 
      Args:
@@ -60,7 +60,7 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
 
     Returns:
         SNMP result
-    """ 
+    """
     ipaddr = ipaddress.ip_address(ip)
     iptables_cmd = "iptables"
 
@@ -77,7 +77,7 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
         eos_snmpget = "bash snmpget -v2c -c {} {} {}".format(
             creds_all_duts[duthost.hostname]['snmp_rocommunity'], ip, oid)
         out = nbr['host'].eos_command(commands=[eos_snmpget])
-    else: 
+    else:
         command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
                   creds_all_duts[duthost.hostname]['snmp_rocommunity'], ip, oid)
         out = nbr['host'].command(command)
