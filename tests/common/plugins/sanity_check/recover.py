@@ -107,7 +107,7 @@ def _neighbor_vm_recover_bgpd(node=None, results=None):
 
 def _neighbor_vm_recover_config(node=None, results=None):
     if isinstance(node["host"], SonicHost):
-        config_reload(node["host"])
+        config_reload(node["host"], is_dut=False)
     return results
 
 

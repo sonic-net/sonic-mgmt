@@ -22,6 +22,9 @@ from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.interface_utils import check_all_interface_information
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +33,8 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("any"),
 ]
+
+MAX_WAIT_TIME_FOR_INTERFACES = 360
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = "acl_test_dir"  # Keep it under home dir so it persists through reboot
@@ -85,17 +90,17 @@ DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
 }
 
 # Below M0_VLAN IPs are ip in vlan range
-DOWNSTREAM_DST_IP_M0_VLAN = {
+DOWNSTREAM_DST_IP_VLAN = {
     "ipv4": "192.168.0.253",
-    "ipv6": "20c0:a800::14"
+    "ipv6": "fc02:1000::5"
 }
-DOWNSTREAM_IP_TO_ALLOW_M0_VLAN = {
+DOWNSTREAM_IP_TO_ALLOW_VLAN = {
     "ipv4": "192.168.0.252",
-    "ipv6": "20c0:a800::1"
+    "ipv6": "fc02:1000::6"
 }
-DOWNSTREAM_IP_TO_BLOCK_M0_VLAN = {
+DOWNSTREAM_IP_TO_BLOCK_VLAN = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::9"
+    "ipv6": "fc02:1000::7"
 }
 
 DOWNSTREAM_IP_PORT_MAP = {}
@@ -254,12 +259,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # Need to refresh below constants for two scenarios of M0
     global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
 
+    if topo == "mx":
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
     # Announce routes for m0 is something different from t1/t0
     if topo_scenario == "m0_vlan_scenario":
         topo = "m0_vlan"
-        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_VLAN
-        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_VLAN
-        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_VLAN
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
     elif topo_scenario == "m0_l3_scenario":
         topo = "m0_l3"
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
@@ -383,11 +392,9 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
-def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname, topo_scenario):
-    if tbinfo["topo"]["type"] in ["t0", "mx"] and request.param == "ipv6":
-        pytest.skip("IPV6 ACL test not currently supported on t0/mx testbeds")
-    if topo_scenario == "m0_vlan_scenario" and request.param == "ipv6":
-        pytest.skip("IPV6 ACL test not currently supported on m0_vlan")
+def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
+    if tbinfo["topo"]["type"] in ["t0"] and request.param == "ipv6":
+        pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
 
     return request.param
 
@@ -435,6 +442,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
         for dut in duthosts:
             dut.command("sonic-clear fdb all")
             dut.command("sonic-clear arp")
+            dut.command("sonic-clear ndp")
             # Wait some time to ensure the async call of clear is completed
             time.sleep(20)
             for addr in addr_list:
@@ -449,6 +457,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
     duthost.command("sonic-clear fdb all")
     duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear ndp")
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
@@ -581,7 +590,7 @@ class BaseAclTest(object):
         """
         pass
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):   # noqa F811
         """Perform actions after rules have been applied.
 
         Args:
@@ -610,7 +619,8 @@ class BaseAclTest(object):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo, ip_version):
+    def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo,
+                  ip_version, conn_graph_facts):   # noqa F811
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -637,7 +647,7 @@ class BaseAclTest(object):
                 with loganalyzer:
                     self.setup_rules(duthost, acl_table, ip_version)
 
-                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
+                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
 
                 assert self.check_rule_counters(duthost), "Rule counters should be ready!"
 
@@ -916,8 +926,7 @@ class BaseAclTest(object):
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(7)
 
-    def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version,
-                                     topo_scenario):
+    def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_ALLOW[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_ALLOW[ip_version]
@@ -926,19 +935,23 @@ class BaseAclTest(object):
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
         # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
-            if topo_scenario == "m0_l3_scenario":
+            if setup["topo"] == "m0_l3":
                 if ip_version == "ipv6":
                     rule_id = 32
                 else:
                     rule_id = 30
+            elif setup["topo"] in ["m0_vlan", "mx"]:
+                if ip_version == "ipv6":
+                    rule_id = 34
+                else:
+                    rule_id = 2
             else:
                 rule_id = 2
         else:
             rule_id = 3
         counters_sanity_check.append(rule_id)
 
-    def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version,
-                                   topo_scenario):
+    def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_BLOCK[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_BLOCK[ip_version]
@@ -947,11 +960,16 @@ class BaseAclTest(object):
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
-            if topo_scenario == "m0_l3_scenario":
+            if setup["topo"] == "m0_l3":
                 if ip_version == "ipv6":
                     rule_id = 33
                 else:
                     rule_id = 31
+            elif setup["topo"] in ["m0_vlan", "mx"]:
+                if ip_version == "ipv6":
+                    rule_id = 35
+                else:
+                    rule_id = 15
             else:
                 rule_id = 15
         else:
@@ -1173,7 +1191,7 @@ class TestAclWithReboot(TestBasicAcl):
     upon startup.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts): # noqa F811
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -1187,6 +1205,19 @@ class TestAclWithReboot(TestBasicAcl):
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
+
+        # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
+        if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
+            interfaces = conn_graph_facts["device_conn"][dut.hostname]
+            logging.info("Wait until all critical services are fully started")
+            wait_critical_processes(dut)
+
+            xcvr_skip_list = {dut.hostname: []}
+            result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
+                                xcvr_skip_list)
+            assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
+                MAX_WAIT_TIME_FOR_INTERFACES)
+
         populate_vlan_arp_entries()
 
 
@@ -1197,7 +1228,7 @@ class TestAclWithPortToggle(TestBasicAcl):
     Verify that ACLs still function as expected after links flap.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):  # noqa F811
         """Toggle ports after rules are applied.
 
         Args:

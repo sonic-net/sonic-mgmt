@@ -7,8 +7,8 @@ import uuid
 import requests
 
 from tests.common import utilities
-from tests.common.dualtor.dual_tor_common import cable_type                             # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_common import mux_config                             # lgtm[py/unused-import]
+from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
+from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM, NIC, DROP, OUTPUT, FLAP_COUNTER, CLEAR_FLAP_COUNTER, RESET
@@ -224,7 +224,7 @@ def set_output(url):
     return _set_output
 
 @pytest.fixture(scope='module')
-def toggle_simulator_port_to_upper_tor(url, tbinfo):
+def toggle_simulator_port_to_upper_tor(url, tbinfo, active_standby_ports):
     """
     Returns _toggle_simulator_port_to_upper_tor to make fixture accept arguments
     """
@@ -236,7 +236,7 @@ def toggle_simulator_port_to_upper_tor(url, tbinfo):
             target: "upper_tor" or "lower_tor"
         """
         # Skip on non dualtor testbed
-        if 'dualtor' not in tbinfo['topo']['name']:
+        if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
             return
         server_url = url(interface_name)
         data = {"active_side": UPPER_TOR}
@@ -349,27 +349,37 @@ def toggle_all_simulator_ports(mux_server_url, tbinfo):
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo, cable_type):
+def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts, mux_server_url, tbinfo, cable_type):    # noqa F811
     """
     A function level fixture to toggle all active-standby ports to upper_tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
+        return
+
     if cable_type == CableType.active_standby:
-        _toggle_all_simulator_ports(mux_server_url, UPPER_TOR, tbinfo)
+        _toggle_all_simulator_ports_to_target_dut(duthosts[0].hostname, duthosts, mux_server_url, tbinfo)
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo, cable_type):
+def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts, mux_server_url, tbinfo, cable_type):    # noqa F811
     """
     A function level fixture to toggle all active-standby ports to lower_tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
+        return
+
     if cable_type == CableType.active_standby:
-        _toggle_all_simulator_ports(mux_server_url, LOWER_TOR, tbinfo)
+        _toggle_all_simulator_ports_to_target_dut(duthosts[1].hostname, duthosts, mux_server_url, tbinfo)
 
 
 def _probe_mux_ports(duthosts, ports):
@@ -436,7 +446,9 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
+def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
+                                                    tbinfo, rand_one_dut_hostname,
+                                                    active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly selected tor
 
@@ -444,7 +456,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url, tb
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
     # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
         return
 
     _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo)
@@ -479,15 +492,19 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, tbinfo, rand_one_dut_hostname):
+def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
+                                                      tbinfo, rand_one_dut_hostname,
+                                                      active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly selected tor.
 
     Before toggling, this fixture firstly sets all muxcables to 'manual' mode on all ToRs.
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
     """
-    # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    # Skip on non dualtor testbed or dualtor testbed without active-standby ports
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.debug('active_standby_ports: {}'.format(active_standby_ports))
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
         yield
         return
 
@@ -503,7 +520,9 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url, 
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(duthosts, enum_rand_one_per_hwsku_frontend_hostname, mux_server_url, tbinfo): # noqa F811
+def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, mux_server_url, tbinfo, active_standby_ports               # noqa F811
+):
     """
     A function level fixture to toggle all ports to enum_rand_one_per_hwsku_frontend_hostname.
 
@@ -511,7 +530,7 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(duthos
     After test is done, restore all mux cables to 'auto' mode on all ToRs in teardown phase.
     """
     # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         yield
         return
 
@@ -529,7 +548,7 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(duthos
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, mux_config):    # noqa F811
+def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mux_server_url, tbinfo, mux_config):    # noqa F811
     """
     A function level fixture to toggle all ports to a random side.
     """
@@ -593,7 +612,7 @@ def toggle_all_simulator_ports_to_random_side(duthosts, mux_server_url, tbinfo, 
             return False
         return True
 
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
     _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo)
@@ -617,7 +636,9 @@ def simulator_server_down(set_drop, set_output):
         set_drop(interface_name, [UPPER_TOR, LOWER_TOR])
 
     yield _drop_helper
-    set_output(tmp_list[0], [UPPER_TOR, LOWER_TOR])
+
+    for port in tmp_list:
+        set_output(port, [UPPER_TOR, LOWER_TOR])
 
 
 @pytest.fixture

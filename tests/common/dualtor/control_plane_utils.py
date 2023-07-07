@@ -11,15 +11,18 @@ logger = logging.getLogger(__name__)
 
 APP_DB = 0
 STATE_DB = 6
+CONFIG_DB = 4
 
 DB_NAME_MAP = {
     APP_DB: "APP_DB",
-    STATE_DB: "STATE_DB"
+    STATE_DB: "STATE_DB",
+    CONFIG_DB: "CONFIG_DB"
 }
 
 DB_SEPARATOR_MAP = {
     APP_DB: ":",
-    STATE_DB: "|"
+    STATE_DB: "|",
+    CONFIG_DB: "|"
 }
 
 APP_DB_MUX_STATE_FIELDS = {
@@ -166,10 +169,35 @@ class DBChecker:
 
         return not bool(mismatch_ports)
     
+    def _get_nbr_data(self, intf_name, dest_name):
+        """Fetch neighbor data"""
+        ipaddress = self._get_ipaddr(intf_name, dest_name)
+        if ipaddress == "":
+            logger.debug("Failed to fetch {}'s {} address in config db. ".format(intf_name, dest_name))
+
+            return False
+
+        cmd = "/bin/ip neigh show " + ipaddress
+        nbr_data = self.duthost.shell(cmd)['stdout']
+
+        logger.debug("Fetched neighbor entry data for {} {}: {}".format(intf_name, dest_name, nbr_data))
+        return nbr_data and nbr_data.startswith(ipaddress.split("/")[0])
+
+    def _get_ipaddr(self, intf_name, dest_name):
+        """Get IP address from mux cable table in config db"""
+        tbl_name = "MUX_CABLE" + DB_SEPARATOR_MAP[CONFIG_DB] + intf_name
+        db_dump = self._dump_db(CONFIG_DB, tbl_name)
+
+        if tbl_name in db_dump:
+            return db_dump[tbl_name]['value'].get(dest_name, "")
+        
+        return ""
+
     def _get_mux_tunnel_route(self):
         """Get output of show muxcable tunnel-route. """
         tunnel_route = json.loads(self.duthost.shell("show muxcable tunnel-route --json")['stdout'])
         
+        logger.debug(json.dumps(tunnel_route, indent=4))
         return tunnel_route
 
     def get_tunnel_route_mismatched_ports(self, stand_alone):
@@ -189,6 +217,10 @@ class DBChecker:
                     mismatch_ports[intf] = routes
             else:
                 for dest_name in expected.keys():
+                    if not self._get_nbr_data(intf, dest_name):
+                        logger.debug("Skipping tunnel_route check for {} {} due to non-existing neighbor entry. ".format(intf, dest_name))
+                        continue
+
                     if dest_name in routes: 
                         if not (int(routes[dest_name]["asic"]) == expected[dest_name]["asic"] 
                                     and int(routes[dest_name]["kernel"]) == expected[dest_name]["kernel"]):

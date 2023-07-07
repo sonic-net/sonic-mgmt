@@ -69,6 +69,10 @@ def get_ethernet_port_not_in_portchannel(duthost):
     port_name = ""
     ports = config_facts['PORT'].keys()
     port_channel_members = []
+    if 'PORTCHANNEL_MEMBER' not in config_facts:
+        if len(ports) > 0:
+            port_name = ports[0]
+        return port_name
     port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
     for port_channel in port_channel_member_facts.keys():
         for member in port_channel_member_facts[port_channel].keys():
@@ -195,7 +199,7 @@ def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
 def test_replace_fec(duthost, ensure_dut_readiness, fec):
     json_patch = [
         {
-            "op": "replace",
+            "op": "add",
             "path": "/PORT/Ethernet0/fec",
             "value": "{}".format(fec)
         }
@@ -212,16 +216,12 @@ def test_replace_fec(duthost, ensure_dut_readiness, fec):
         delete_tmpfile(duthost, tmpfile)
 
 
-@pytest.mark.parametrize("index, is_valid", [
-    ("33", True),
-    ("abc1", False)
-])
-def test_update_valid_invalid_index(duthost, ensure_dut_readiness, index, is_valid):
+def test_update_invalid_index(duthost, ensure_dut_readiness):
     json_patch = [
         {
             "op": "replace",
             "path": "/PORT/Ethernet0/index",
-            "value": "{}".format(index)
+            "value": "abc1"
         }
     ]
 
@@ -230,10 +230,43 @@ def test_update_valid_invalid_index(duthost, ensure_dut_readiness, index, is_val
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid:
-            expect_op_success(duthost, output)
-        else:
-            expect_op_failure(output)
+        expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_update_valid_index(duthost, ensure_dut_readiness):
+    output = duthost.shell('sonic-db-cli CONFIG_DB keys "PORT|"\\*')["stdout"]
+    interfaces = {}  # to be filled with two interfaces mapped to their indeces
+
+    for line in output.split('\n'):
+        if line.startswith('PORT|Ethernet'):
+            interface = line[line.index('Ethernet'):].strip()
+            index = duthost.shell('sonic-db-cli CONFIG_DB hget "PORT|{}" index'.format(interface))["stdout"]
+            interfaces[interface] = index
+            if len(interfaces) == 2:
+                break
+    pytest_assert(len(interfaces) == 2, "Failed to retrieve two interfaces to swap indeces in test")
+
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/PORT/{}/index".format(list(interfaces.keys())[0]),
+            "value": "{}".format(list(interfaces.values())[1])
+        },
+        {
+            "op": "replace",
+            "path": "/PORT/{}/index".format(list(interfaces.keys())[1]),
+            "value": "{}".format(list(interfaces.values())[0])
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
 

@@ -30,7 +30,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if is_python3:
         path_exists = host.stat(path="/root/env-python3/bin/ptf")
         if path_exists["stat"]["exists"]:
-            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
+            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir + '/py3', testname)
         else:
             error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\nPlease check and update docker-ptf image, make sure to use the correct one."
             logger.error("Exception caught while executing case: {}. Error message: {}"\
@@ -73,7 +73,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if hasattr(host, "macsec_enabled") and host.macsec_enabled:
         if not is_python3:
             logger.error("MACsec is only available in Python3")
-            raise Exception
+            raise Exception("MACsec is only available in Python3")
         host.create_macsec_info()
 
     try:
@@ -87,7 +87,6 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         if log_file:
             ptf_collect(host, log_file)
         traceback_msg = traceback.format_exc()
-        logger.error("Exception caught while executing case: {}. Error message: {}"\
-            .format(testname, traceback_msg))
-        raise Exception
+        logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))
+        raise
     return True

@@ -583,7 +583,6 @@ class AdvancedReboot:
 
         event_counters = {
             "SAI_CREATE_SWITCH": 1,
-            "INIT_VIEW": 1,
             "APPLY_VIEW": 1,
             "LAG_READY": len(self.mgFacts["minigraph_portchannels"]),
             "PORT_READY": len(self.mgFacts["minigraph_ports"]) - down_ports,
