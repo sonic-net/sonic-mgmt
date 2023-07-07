@@ -22,7 +22,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_reload_configuration(duthosts, rand_one_dut_hostname, conn_graph_facts, xcvr_skip_list):
+def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
+                              conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to reload the configuration and check platform status
     """
@@ -75,7 +76,8 @@ def check_database_status(duthost):
 
     return True
 
-def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
+                                     localhost, conn_graph_facts, xcvr_skip_list):
     """
     @summary: This test case is to test various system checks in config reload
     """
@@ -84,7 +86,8 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
     if not config_force_option_supported(duthost):
         return
 
-    reboot(duthost, localhost, reboot_type="cold", wait=5)
+    reboot(duthost, localhost, reboot_type="cold", wait=5,
+           plt_reboot_ctrl_overwrite=False)
 
     # Check if all database containers have started
     wait_until(60, 1, 0, check_database_status, duthost)
@@ -104,6 +107,10 @@ def test_reload_configuration_checks(duthosts, rand_one_dut_hostname, localhost,
 
     # Immediately after one config reload command, another shouldn't execute and wait for system checks
     logging.info("Checking config reload after system is up")
+    # Check if all database containers have started
+    wait_until(60, 1, 0, check_database_status, duthost)
+    # Check if interfaces-config.service is exited
+    wait_until(60, 1, 0, check_interfaces_config_service_status, duthost)
     out = duthost.shell("sudo config reload -y", executable="/bin/bash", module_ignore_errors=True)
     assert "Retry later" in out['stdout']
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
