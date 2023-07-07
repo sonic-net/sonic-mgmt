@@ -1,6 +1,7 @@
 import pytest
 import json
 import time
+import math
 
 from tests.common.dualtor.dual_tor_common import cable_type     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
@@ -99,12 +100,12 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay, allow_disruption
                             "Maximum allowed disruption: {}s"
                             .format(server_ip, longest_disruption, delay))
 
-        if total_duplications > allowed_disruption:
+        if total_duplications > allowed_disruption and _validate_long_disruption(result['disruptions'], allowed_disruption, delay):
             failures.append("Traffic to server {} was duplicated {} times. "
                             "Allowed number of duplications: {}"
                             .format(server_ip, total_duplications, allowed_disruption))
 
-        if longest_duplication > delay:
+        if longest_duplication > delay and _validate_long_disruption(result['duplications'], allowed_disruption, delay):
             failures.append("Traffic on server {} was duplicated for {}s. "
                             "Maximum allowed duplication: {}s"
                             .format(server_ip, longest_duplication, delay))
@@ -120,6 +121,20 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay, allow_disruption
                             .format(server_ip, result['sent_packets'] - disruption_after_traffic))
 
     pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
+
+
+def _validate_long_disruption(disruptions, allowed_disruption, delay):
+    """
+    Helper function to validate when two continuous disruption combine as one.
+    """
+    for disruption in disruptions:
+
+        disruption_length = disruption['end_time'] - disruption['start_time']
+        allowed_disruption -= math.ceil(disruption_length/delay)
+        
+        if allowed_disruption < 0:
+            return True
+    return False
 
 
 def verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic=False):
