@@ -273,7 +273,7 @@ class Ecmp_Utils(object):
             else:
                 # python 3
                 ptf_ip = str(ip_address(addr)+100)
-            
+
             if "Ethernet" in intf:
                 return_dict[intf] = ptf_ip
             elif "PortChannel" in intf:
