@@ -13,7 +13,7 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
-    check_reboot_cause_history, reboot_ctrl_dict,\
+    check_reboot_cause_history, reboot_ctrl_dict, wait_for_startup,\
     REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_WATCHDOG
 from tests.common.platform.transceiver_utils import check_transceiver_basic
@@ -87,6 +87,7 @@ def reboot_and_check(localhost, dut, duthosts, interfaces, xcvr_skip_list,
             wait_for_startup(lc, localhost, delay=10, timeout=300)
             check_interfaces_and_services(lc, interfaces, xcvr_skip_list,
                                           reboot_type=reboot_type)
+
 
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
                                   interfaces_wait_time=MAX_WAIT_TIME_FOR_INTERFACES, reboot_type=None):
