@@ -30,6 +30,13 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 EXIST_VLAN_ID = 1000
 NEW_VLAN_ID = 1001
+IGNORE_REG_LIST = [
+    ".*setIntfIp: Command '/sbin/ip -6 address \"add\" \"fc02:1000::1/64\" broadcast \"fc02:1000::ffff:ffff:ffff:" +
+    "ffff\" dev \"Vlan1000\"' failed with rc 2.*",
+    ".*Can't remove key 'fc02:1000::1' from slot 'LOCAL__local_addresses'. The key doesn't exist.*",
+    ".*Command '/sbin/ip -6 address \"del\" \"fc02:1000::1/64\" broadcast \"fc02:1000::ffff:ffff:ffff:ffff\" dev " +
+    "\"Vlan1000\"' failed with rc 2.*",
+]
 
 if sys.version_info.major >= 3:
     UNICODE_TYPE = str
@@ -400,7 +407,9 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info):
+def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info, loganalyzer, tbinfo, duthost):
+    if tbinfo["topo"]["name"] == "m0-2vlan" and loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend(IGNORE_REG_LIST)
     vlan_interface_tc1_add_duplicate(rand_selected_dut, vlan_info)
     vlan_interface_tc1_xfail(rand_selected_dut, vlan_info)
     vlan_interface_tc1_add_new(rand_selected_dut)
