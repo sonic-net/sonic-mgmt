@@ -300,9 +300,23 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
-        ret_code=$?
+        echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        USE_PY3=0
+        for i in `cat python3_test_files.txt`
+        do
+            USE_PY3=`expr match ${test_script} ${i}`
+            [[ ${USE_PY3} != 0 ]] && break
+        done
+        if [ ${USE_PY3} != 0 ]; then
+            echo Activate Python3 venv
+            source /var/AzDevOps/env-python3/bin/activate
+        fi
+            pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+            ret_code=$?
+        if [ ${USE_PY3} != 0 ]; then
+            echo Deactivate Python3 venv
+            deactivate
+        fi
 
         # Clear pytest cache for the first run
         if [[ -n ${CACHE_CLEAR} ]]; then
