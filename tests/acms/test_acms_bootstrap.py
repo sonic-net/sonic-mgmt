@@ -1,7 +1,9 @@
 import logging
 import pytest
 
-from tests.common.helpers.dut_utils import is_container_running
+from tests.acms.helper import container_name
+from tests.acms.helper import create_acms_conf
+
 
 logger = logging.getLogger(__name__)
 
@@ -9,8 +11,6 @@ pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer
 ]
-
-container_name = "acms"
 
 
 test_data_cloud = [
@@ -29,44 +29,6 @@ test_data_cloud = [
 ]
 
 
-@pytest.fixture(autouse=True, scope='module')
-def setup_acms(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    if not is_container_running(duthost, container_name):
-        pytest.skip("ACMS container is not running")
-    dut_command = "docker exec %s supervisorctl stop start" % container_name
-    duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl stop acms" % container_name
-    duthost.shell(dut_command, module_ignore_errors=True)
-
-    yield
-
-    dut_command = "sudo rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
-    duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "sudo rm /var/opt/msft/client/*"
-    duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "systemctl restart %s" % container_name
-    duthost.shell(dut_command)
-
-
-def create_acms_conf(region, cloudtype, duthost, filename):
-    if cloudtype.lower() == "FairFax".lower():
-        url_pattern = "dsms.dsms.core.usgovcloudapi.net"
-    elif cloudtype.lower() == "Mooncake".lower():
-        url_pattern = "dsms.dsms.core.chinacloudapi.cn"
-    elif cloudtype.lower() == "Public".lower():
-        url_pattern = "dsms.dsms.core.windows.net"
-    else:
-        pytest.skip("Unsupported cloud type: %s" % cloudtype)
-    text = '''
-[ACMS]
-Name=SONiC
-FullHttpsDsmsUrl=https://%s-%s
-BootstrapCert=/etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx
-''' % (region, url_pattern, region)
-    duthost.copy(content=text, dest=filename)
-    return
-
 @pytest.mark.parametrize("test_data", test_data_cloud)
 def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
     """
@@ -81,6 +43,10 @@ def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
     if ("http" not in http_proxy):
         pytest.skip("ACMS does not work without http proxy: " + http_proxy)
     duthost = duthosts[rand_one_dut_hostname]
+    dut_command = "docker exec %s supervisorctl stop start" % container_name
+    duthost.shell(dut_command, module_ignore_errors=True)
+    dut_command = "docker exec %s supervisorctl stop acms" % container_name
+    duthost.shell(dut_command, module_ignore_errors=True)
     cloudtype = test_data["cloudtype"]
     region_list = test_data["region_list"]
     for region in region_list:
