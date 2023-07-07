@@ -52,7 +52,8 @@ def drop_flow_lower_tor(set_drop, set_output, active_standby_ports):            
     direction = "lower_tor"
     return _set_drop_factory(set_drop, direction, active_standby_ports)
 
-def _set_drop_all_factory(set_drop_all_func, direction, tor_mux_intfs):
+
+def _set_drop_all_factory(set_drop_all_func, direction, tor_mux_intfs):                         # noqa F811
     """Factory to get set drop function for either upper_tor or lower_tor."""
     def _set_drop_all_interfaces():
         logging.debug("Start set drop all for %s at %s", direction, time.time())
