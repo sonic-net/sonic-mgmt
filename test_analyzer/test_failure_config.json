@@ -20,7 +20,7 @@
         "duration_days": 7,
         "repro_count_limit": 2,
         "repro_count_limit_setup_error": 2,
-        "repro_count_limit_summary": 8,
+        "repro_count_limit_summary": 5,
         "totalcase": 100,
         "history_days": 30,
         "previous_days": 7,
@@ -31,10 +31,11 @@
     },
     "icm_limitation": {
         "setup_error_limit": 10,
-        "failure_limit": 20,
+        "failure_limit": 15,
         "platform_limit": 10,
         "icm_20201231_limit": 5,
         "icm_20220531_limit": 5,
+        "icm_master_limit": 5,
         "new_icm_number_limit": 30,
         "max_icm_count_per_module": 40
     },
