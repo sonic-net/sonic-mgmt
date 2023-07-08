@@ -792,7 +792,6 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     pg_dscp_map[int(pg)] = [int(dscp)]
 
         print(pg_dscp_map, file=sys.stderr)
-        all_pkts = {}
         ttl = exp_ttl + 1 if router_mac != '' else exp_ttl
         if asic_type == "cisco-8000" and self.src_client != self.dst_client:
             ttl = exp_ttl + 2
