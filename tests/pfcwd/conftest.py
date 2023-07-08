@@ -67,31 +67,9 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 
-def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
-    """
-    Find out active IP interfaces and use the list to
-    remove inactive ports from test_ports
-    """
-    ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces(tbinfo)
-    port_list = []
-    for iface in list(ip_ifaces.keys()):
-        if iface.startswith("PortChannel"):
-            port_list.extend(
-                mg_facts["minigraph_portchannels"][iface]["members"]
-            )
-        else:
-            port_list.append(iface)
-    port_list_set = set(port_list)
-    for port in list(test_ports.keys()):
-        if port not in port_list_set:
-            del test_ports[port]
-    return test_ports
-
-
 @pytest.fixture(scope="module")
 def setup_pfc_test(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
-    enum_frontend_asic_index
 ):
     """
     Sets up all the parameters needed for the PFC Watchdog tests
@@ -141,13 +119,6 @@ def setup_pfc_test(
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw)
     test_ports = tp_handle.build_port_list()
 
-    # In T1 topology update test ports by removing inactive ports
-    topo = tbinfo["topo"]["name"]
-    if topo in SUPPORTED_T1_TOPOS:
-        test_ports = update_t1_test_ports(
-            duthost, mg_facts, test_ports, enum_frontend_asic_index, tbinfo
-        )
-
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
@@ -181,7 +152,6 @@ def setup_pfc_test(
 @pytest.fixture(scope="module")
 def setup_dut_test_params(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
-    enum_frontend_asic_index
 ):
     """
     Sets up all the parameters needed for the PFCWD tests
