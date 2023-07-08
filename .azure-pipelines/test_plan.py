@@ -6,14 +6,22 @@ import json
 import os
 import sys
 import time
+from datetime import datetime, timedelta
 
 import requests
 import yaml
 from enum import Enum
 
 __metaclass__ = type
+BUILDIMAGE_REPO_FLAG = "buildimage"
+MGMT_REPO_FLAG = "sonic-mgmt"
+INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int"]
+GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
+INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
+SPECIFIC_PARAM_KEYWORD = "specific_param"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
+TOKEN_EXPIRE_HOURS = 6
 
 
 class TestPlanStatus(Enum):
@@ -32,7 +40,10 @@ def get_test_scripts(test_set):
     pr_test_scripts_file = os.path.join(os.path.dirname(_self_path), PR_TEST_SCRIPTS_FILE)
     with open(pr_test_scripts_file) as f:
         pr_test_scripts = yaml.safe_load(f)
-        return pr_test_scripts.get(test_set, [])
+
+        test_script_list = pr_test_scripts.get(test_set, [])
+        specific_param_list = pr_test_scripts.get(SPECIFIC_PARAM_KEYWORD, {}).get(test_set, [])
+        return test_script_list, specific_param_list
 
 
 def test_plan_status_factory(status):
@@ -67,7 +78,7 @@ class AbstractStatus():
         status = resp_data.get("status", None)
         current_status = test_plan_status_factory(status).get_status()
 
-        if(current_status == self.get_status()):
+        if current_status == self.get_status():
             print("Test plan id: {}, status: {},  elapsed: {:.0f} seconds"
                   .format(test_plan_id, resp_data.get("status", None), time.time() - start_time))
 
@@ -119,7 +130,12 @@ class FinishStatus(AbstractStatus):
 
 def get_scope(testbed_tools_url):
     scope = "api://sonic-testbed-tools-dev/.default"
-    if testbed_tools_url == "http://sonic-testbed2-scheduler-backend.azurewebsites.net":
+    if testbed_tools_url in [
+        "http://sonic-testbed2-scheduler-backend.azurewebsites.net",
+        "https://sonic-testbed2-scheduler-backend.azurewebsites.net",
+        "http://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net",
+        "https://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net"
+    ]:
         scope = "api://sonic-testbed-tools-prod/.default"
     return scope
 
@@ -137,16 +153,27 @@ def parse_list_from_str(s):
 
 class TestPlanManager(object):
 
-    def __init__(self, url, tenant_id=None, client_id=None, client_secret=None):
+    def __init__(self, url, frontend_url, tenant_id=None, client_id=None, client_secret=None, ):
         self.url = url
+        self.frontend_url = frontend_url
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_secret = client_secret
-        self.token = None
+        self.with_auth = False
+        self._token = None
+        self._token_generate_time = None
         if self.tenant_id and self.client_id and self.client_secret:
-            self._get_token(url)
+            self.with_auth = True
+            self.get_token()
 
-    def _get_token(self, testbed_tools_url):
+    def get_token(self):
+        token_generate_time_valid = \
+            self._token_generate_time is not None and \
+            (datetime.utcnow() - self._token_generate_time) < timedelta(hours=TOKEN_EXPIRE_HOURS)
+
+        if self._token is not None and token_generate_time_valid:
+            return self._token
+
         token_url = "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.tenant_id)
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
@@ -156,13 +183,15 @@ class TestPlanManager(object):
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": get_scope(testbed_tools_url)
+            "scope": get_scope(self.url)
         }
         try:
             resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
-            self.token = resp["access_token"]
-        except Exception as e:
-            raise Exception("Get token failed with exception: {}".format(repr(e)))
+            self._token = resp["access_token"]
+            self._token_generate_time = datetime.utcnow()
+            return self._token
+        except Exception as exception:
+            raise Exception("Get token failed with exception: {}".format(repr(exception)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=1, max_worker=2, pr_id="unknown", output=None,
@@ -183,9 +212,22 @@ class TestPlanManager(object):
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
 
-        common_params = ["--completeness_level=confident", "--allow_recover"]
-        for param in common_extra_params:
-            common_params.append(param)
+        common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
+
+        # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
+        sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
+        if kwargs.get("source_repo") in INTERNAL_REPO_LIST:
+            sonic_mgmt_repo_url = INTERNAL_SONIC_MGMT_REPO
+
+        # If triggered by mgmt repo, use pull request id as the code base
+        sonic_mgmt_pull_request_id = ""
+        if MGMT_REPO_FLAG in kwargs.get("source_repo"):
+            sonic_mgmt_pull_request_id = pr_id
+
+        # If triggered by buildimage repo, use image built from the buildId
+        kvm_image_build_id = kvm_build_id
+        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
+            kvm_image_build_id = build_id
 
         payload = json.dumps({
             "name": test_plan_name,
@@ -193,10 +235,11 @@ class TestPlanManager(object):
                 "platform": platform,
                 "name": testbed_name,
                 "topology": topology,
-                "image_url": image_url,
                 "hwsku": hwsku,
                 "min": min_worker,
-                "max": max_worker
+                "max": max_worker,
+                "nbr_type": kwargs["vm_type"],
+                "asic_num": kwargs["num_asic"]
             },
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
@@ -207,34 +250,40 @@ class TestPlanManager(object):
                     "features_exclude": features_exclude,
                     "scripts_exclude": scripts_exclude
                 },
-                "common_params": common_params,
-                "specified_params": json.loads(kwargs['specified_params']),
-                "deploy_mg_params": deploy_mg_extra_params
+                "image": {
+                    "url": image_url,
+                    "release": "",
+                    "kvm_image_build_id": kvm_image_build_id
+                },
+                "sonic_mgmt": {
+                    "repo_url": sonic_mgmt_repo_url,
+                    "branch": kwargs["mgmt_branch"],
+                    "pull_request_id": sonic_mgmt_pull_request_id
+                },
+                "common_param": common_extra_params,
+                "specific_param": kwargs.get("specific_param", []),
+                "deploy_mg_param": deploy_mg_extra_params,
+                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
             },
             "type": test_plan_type,
-            "extra_params": {
-                "pull_request_id": pr_id,
-                "build_id": build_id,
+            "trigger": {
+                "requester": kwargs.get("requester", "Pull Request"),
                 "source_repo": kwargs.get("source_repo"),
-                "kvm_build_id": kvm_build_id,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
-                "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", 2),
-                "mgmt_branch": kwargs["mgmt_branch"],
-                "testbed": {
-                    "num_asic": kwargs["num_asic"],
-                    "vm_type": kwargs["vm_type"]
-                },
+                "pull_request_id": pr_id,
+                "build_id": build_id
+            },
+            "extra_params": {
                 "secrets": {
                     "azp_access_token": kwargs["azp_access_token"],
                     "azp_repo_access_token": kwargs["azp_repo_access_token"],
                 }
             },
-            "priority": 10,
-            "requester": kwargs.get("requester", "Pull Request")
+            "priority": 10
         })
         print('Creating test plan with payload: {}'.format(payload))
         headers = {
-            "Authorization": "Bearer {}".format(self.token),
+            "Authorization": "Bearer {}".format(self.get_token()),
             "scheduler-site": "PRTest",
             "Content-Type": "application/json"
         }
@@ -268,7 +317,7 @@ class TestPlanManager(object):
 
         payload = json.dumps({})
         headers = {
-            "Authorization": "Bearer {}".format(self.token),
+            "Authorization": "Bearer {}".format(self.get_token()),
             "scheduler-site": "PRTest",
             "Content-Type": "application/json"
         }
@@ -287,20 +336,20 @@ class TestPlanManager(object):
         print(str(resp["data"]))
 
     def poll(self, test_plan_id, interval=60, timeout=-1, expected_state=""):
-        print("Polling progress and status of test plan at https://www.testbed-tools.org/scheduler/testplan/{}"
-              .format(test_plan_id))
+        print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
+              .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
 
         poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
         headers = {
             "Content-Type": "application/json"
         }
-        if self.token:
-            headers["Authorization"] = "Bearer {}".format(self.token)
         start_time = time.time()
         http_exception_times = 0
         while (timeout < 0 or (time.time() - start_time) < timeout):
             try:
+                if self.with_auth:
+                    headers["Authorization"] = "Bearer {}".format(self.get_token())
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
                 print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
@@ -331,10 +380,9 @@ class TestPlanManager(object):
                 elif expected_status.get_status() < current_status.get_status():
                     steps = None
                     step_status = None
-                    extra_params = resp_data.get("extra_params", None)
-
-                    if extra_params:
-                        steps = extra_params.get("steps", None)
+                    runtime = resp_data.get("runtime", None)
+                    if runtime:
+                        steps = runtime.get("steps", None)
                     if steps:
                         for step in steps:
                             if step.get("step") == expected_state:
@@ -344,8 +392,9 @@ class TestPlanManager(object):
                     # Other status such as "SKIPPED", "CANCELED" are considered successful.
                     if step_status == "FAILED":
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
-                                        "Check https://www.testbed-tools.org/scheduler/testplan/{} for test plan status"
+                                        "Check {}/scheduler/testplan/{} for test plan status"
                                         .format(test_plan_id, step_status, result, time.time() - start_time,
+                                                self.frontend_url,
                                                 test_plan_id))
                     else:
                         print("Current status is {}".format(step_status))
@@ -462,8 +511,9 @@ if __name__ == "__main__":
         "--common-extra-params",
         type=str,
         dest="common_extra_params",
+        nargs='?',
+        const="",
         default="",
-        nargs='*',
         required=False,
         help="Run test common extra params"
     )
@@ -713,6 +763,7 @@ if __name__ == "__main__":
         "tenant_id": os.environ.get("TENANT_ID"),
         "client_id": os.environ.get("CLIENT_ID"),
         "client_secret": os.environ.get("CLIENT_SECRET"),
+        "frontend_url": os.environ.get("FRONTEND_URL", "https://www.testbed-tools.org"),
     }
     env_missing = [k.upper() for k, v in env.items() if k.upper() in required_env and not v]
     if env_missing:
@@ -722,6 +773,7 @@ if __name__ == "__main__":
     try:
         tp = TestPlanManager(
             env["testbed_tools_url"],
+            env["frontend_url"],
             env["tenant_id"],
             env["client_id"],
             env["client_secret"])
@@ -744,10 +796,12 @@ if __name__ == "__main__":
                 ).replace(' ', '_')
 
             scripts = args.scripts
+            specific_param = []
             # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
             if args.platform == "kvm":
                 args.test_set = args.test_set if args.test_set else args.topology
-                scripts = ",".join(get_test_scripts(args.test_set))
+                scripts, specific_param = get_test_scripts(args.test_set)
+                scripts = ",".join(scripts)
 
             tp.create(
                 args.topology,
@@ -767,6 +821,7 @@ if __name__ == "__main__":
                 common_extra_params=args.common_extra_params,
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
+                specific_param=specific_param,
                 vm_type=args.vm_type,
                 azp_access_token=args.azp_access_token,
                 azp_repo_access_token=args.azp_repo_access_token,
