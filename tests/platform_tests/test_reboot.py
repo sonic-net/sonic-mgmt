@@ -32,7 +32,7 @@ MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
 
 
-@pytest.fixture
+@pytest.fixture(scope="module", autouse=True)
 def set_max_time_for_interfaces(duthost):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
