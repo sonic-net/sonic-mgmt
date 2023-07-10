@@ -152,7 +152,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             return
 
 
-def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, set_max_time_for_interfaces,
+def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                      localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to perform cold reboot and check platform status
@@ -222,7 +222,7 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                         localhost, conn_graph_facts, set_max_time_for_interfaces, xcvr_skip_list):      # noqa F811
+                         localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
@@ -239,7 +239,7 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                           localhost, conn_graph_facts, set_max_time_for_interfaces, xcvr_skip_list):        # noqa F811
+                           localhost, conn_graph_facts, xcvr_skip_list):        # noqa F811
     """
     @summary: This test case is to perform 3 cold reboot in a row
     """
