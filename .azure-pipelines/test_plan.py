@@ -406,9 +406,8 @@ class TestPlanManager(object):
                                                     self.frontend_url,
                                                     test_plan_id))
 
-                    else:
-                        print("Current status is {}".format(step_status))
-                        return
+                    print("Current status is {}".format(step_status))
+                    return
                 else:
                     print("Current state is {}, waiting for the state {}".format(status, expected_state))
 
