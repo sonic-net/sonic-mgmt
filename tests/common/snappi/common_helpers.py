@@ -10,6 +10,7 @@ to/from API server, processing the statistics after obtaining them
 in .csv format etc.
 """
 
+from enum import Enum
 import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice

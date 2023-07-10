@@ -2,6 +2,7 @@ import pytest
 import time
 import json
 import logging
+import re
 
 from test_crm import RESTORE_CMDS
 from tests.common.helpers.crm import CRM_POLLING_INTERVAL
@@ -135,18 +136,31 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
 
 @pytest.fixture(scope="module", autouse=True)
 def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """ Set CRM polling interval to 1 second """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait_time = 2
+
+    # Get polling interval
+    output = duthost.command('crm show summary')['stdout']
+    parsed = re.findall(r'Polling Interval: +(\d+) +second', output)
+    original_crm_polling_interval = int(parsed[0])
+
+    # Set CRM polling interval to 1 second
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))["stdout"]
+    logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
+    time.sleep(wait_time)
+
+    yield
+
+    # Set CRM polling interval to original value
+    duthost.command("crm config polling interval {}".format(original_crm_polling_interval))["stdout"]
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
     time.sleep(wait_time)
 
 
 @pytest.fixture(scope="module")
-def collector(duthosts, rand_one_dut_hostname):
+def collector(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Fixture for sharing variables beatween test cases """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     data = {}
     for asic in duthost.asics:
         data[asic.asic_index] = {}
