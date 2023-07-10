@@ -1805,7 +1805,7 @@ def __dut_reload(duts_data, node=None, results=None):
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"][None], indent=4),
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"]["asic0"], indent=4),
               dest='/etc/sonic/config_db.json', verbose=False)
 
     if node.is_multi_asic:
@@ -1819,6 +1819,29 @@ def __dut_reload(duts_data, node=None, results=None):
 
     config_reload(node)
 
+def compare_running_config(pre_running_config, cur_running_config):
+    if type(pre_running_config) != type(cur_running_config):
+        return False
+    if pre_running_config == cur_running_config:
+        return True
+    else:
+        if type(pre_running_config) is dict:
+            if set(pre_running_config.keys()) != set(cur_running_config.keys()):
+                return False
+            for key in pre_running_config.keys():
+                if not compare_running_config(pre_running_config[key], cur_running_config[key]):
+                    return False
+                return True
+        # We only have string in list in running config now, so we can ignore the order of the list.
+        elif type(pre_running_config) is list:
+            if set(pre_running_config) != set(cur_running_config):
+                return False
+            else:
+                return True
+        else:
+            return False
+
+
 @pytest.fixture(scope="module", autouse=True)
 def core_dump_and_config_check(duthosts, tbinfo, request):
     '''
@@ -1829,7 +1852,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
     if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
         check_flag = False
     for m in request.node.iter_markers():
-        if m.name == "pretest" or m.name == "posttest":
+        if m.name == "skip_check_dut_health":
             check_flag = False
 
     module_name = request.node.name
@@ -1862,7 +1885,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"][None] = \
+            duts_data[duthost.hostname]["pre_running_config"]["asic0"] = \
                 json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
             if duthost.is_multi_asic:
@@ -1901,7 +1924,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
             # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = {}
-            duts_data[duthost.hostname]["cur_running_config"][None] = \
+            duts_data[duthost.hostname]["cur_running_config"]["asic0"] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
             if duthost.is_multi_asic:
                 for asic_index in range(0, duthost.facts.get('num_asic')):
@@ -1973,7 +1996,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                 for key in common_config_keys:
                     # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
                     if key == "FLEX_COUNTER_TABLE":
-                        for sub_key, sub_value in pre_running_config[key].items():
+                        for sub_key, sub_value in list(pre_running_config[key].items()):
                             try:
                                 pre_value = pre_running_config[key][sub_key]
                                 cur_value = cur_running_config[key][sub_key]
@@ -1995,7 +2018,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                                         }
                                     }
                                 )
-                    elif pre_running_config[key] != cur_running_config[key]:
+                    elif not compare_running_config(pre_running_config[key], cur_running_config[key]):
                         inconsistent_config[duthost.hostname][cfg_context].update(
                             {
                                 key: {
@@ -2022,9 +2045,9 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                     "inconsistent_config": inconsistent_config
                 }
             }
-            logger.warning("Core dump or config check failed for {}, results: {}"\
-                .format(module_name, json.dumps(check_result)))
-            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=300)
+            logger.warning("Core dump or config check failed for {}, results: {}"
+                           .format(module_name, json.dumps(check_result)))
+            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))

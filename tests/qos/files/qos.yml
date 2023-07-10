@@ -17,6 +17,41 @@
 #   xoff_1 for 50G
 #   xoff_2 for 100G
 qos_params:
+    # This block is only for dualtor pcbb xoff test on Nvidia platforms
+    spc3:
+        topo-dualtor:
+            100000_40m:
+                pkts_num_leak_out: 0
+                pcbb_xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 176064
+                    pkts_num_trig_ingr_drp: 177916
+                    pkts_num_margin: 4
+                pcbb_xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 176064
+                    pkts_num_trig_ingr_drp: 177916
+                    pkts_num_margin: 4
+                pcbb_xoff_3:
+                    outer_dscp: 2
+                    dscp: 3
+                    ecn: 1
+                    pg: 2
+                    pkts_num_trig_pfc: 176064
+                    pkts_num_trig_ingr_drp: 177916
+                    pkts_num_margin: 4
+                pcbb_xoff_4:
+                    outer_dscp: 6
+                    dscp: 4
+                    ecn: 1
+                    pg: 6
+                    pkts_num_trig_pfc: 176064
+                    pkts_num_trig_ingr_drp: 177916
+                    pkts_num_margin: 4
     mellanox:
         topo-any:
             profile:
@@ -2048,6 +2083,86 @@ qos_params:
                     pg: 4
                     pkts_num_trig_pfc: 20034
                     pkts_num_trig_ingr_drp: 20521
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                    src_port_ids: [1, 2, 3, 4, 5, 6, 7]
+                    dst_port_id: 0
+                    pgs_num: 14
+                    pkts_num_trig_pfc: 1826
+                    pkts_num_hdrm_full: 682
+                    pkts_num_hdrm_partial: 542
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 4457
+                    pkts_num_trig_ingr_drp: 5140
+                    cell_size: 208
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_fill_min: 0
+                    pkts_num_trig_ingr_drp: 5140
+                    cell_size: 208
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_fill_ingr_min: 6
+                    pkts_num_trig_pfc: 4457
+                    pkts_num_trig_ingr_drp: 5140
+                    pkts_num_fill_egr_min: 16
+                    cell_size: 208
+            100000_300m:
+                pkts_num_leak_out: 0
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 19939
+                    pkts_num_trig_ingr_drp: 20425
+                    pkts_num_margin: 4
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 19939
+                    pkts_num_trig_ingr_drp: 20425
+                    pkts_num_margin: 4
+                pcbb_xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 19939
+                    pkts_num_trig_ingr_drp: 20425
+                    pkts_num_margin: 4
+                pcbb_xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_trig_pfc: 19939
+                    pkts_num_trig_ingr_drp: 20425
+                    pkts_num_margin: 4
+                pcbb_xoff_3:
+                    outer_dscp: 2
+                    dscp: 3
+                    ecn: 1
+                    pg: 2
+                    pkts_num_trig_pfc: 19939
+                    pkts_num_trig_ingr_drp: 20425
+                    pkts_num_margin: 4
+                pcbb_xoff_4:
+                    outer_dscp: 6
+                    dscp: 4
+                    ecn: 1
+                    pg: 6
+                    pkts_num_trig_pfc: 19939
+                    pkts_num_trig_ingr_drp: 20425
+                    pkts_num_margin: 4
                 hdrm_pool_size:
                     dscps: [3, 4]
                     ecn: 1

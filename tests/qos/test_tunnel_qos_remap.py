@@ -14,10 +14,15 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # lgtm
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module       # lgtm[py/unused-import]
 from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink
 from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled
-from tunnel_qos_remap_base import build_testing_packet, check_queue_counter, dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host, setup_module, update_docker_services, swap_syncd, counter_poll_config # lgtm[py/unused-import]
-from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, stop_pfc_storm, get_queue_counter
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor,\
+    toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info,\
+    get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled                           # noqa F401
+from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter,\
+    dut_config, qos_config, load_tunnel_qos_map, run_ptf_test, toggle_mux_to_host,\
+    setup_module, update_docker_services, swap_syncd, counter_poll_config                               # noqa F401
+from tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, \
+    stop_pfc_storm, get_queue_counter, disable_packet_aging                                             # noqa F401
 from ptf import testutils
 from ptf.testutils import simple_tcp_packet
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts
@@ -466,10 +471,12 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
     # TODO: Get the cell size for other ASIC
     if asic == 'th2':
         cell_size = 208
-    else: 
+    elif 'spc' in asic:
+        cell_size = 144
+    else:
         cell_size = 256
 
-    tunnel_qos_map = load_tunnel_qos_map()
+    tunnel_qos_map = load_tunnel_qos_map(asic_name=asic)
     test_params = dict()
     test_params.update({
             "src_port_id": dut_config["lag_port_ptf_id"],
@@ -523,6 +530,8 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
             "platform_asic": dut_config["platform_asic"],
             "sonic_asic_type": dut_config["asic_type"],
         })
+    if dut_config["asic_type"] == 'mellanox':
+        test_params.update({'cell_size': 144, 'packet_size': 300})
     # Update qos config into test_params
     test_params.update(qos_config[xoff_profile])
     # Run test on ptfhost
