@@ -56,8 +56,9 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts
     check_interfaces_and_services(duthost, interfaces, xcvr_skip_list)
 
 
-def reboot_and_check(localhost, dut, duthosts, interfaces, xcvr_skip_list,
-                     reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None):
+def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
+                     reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
+                     reboot_kwargs=None, duthosts=None):
     """
     Perform the specified type of reboot and check platform status.
     @param localhost: The Localhost object.
@@ -158,8 +159,8 @@ def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, set_max_time_fo
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    reboot_and_check(localhost, duthost, duthosts, conn_graph_facts["device_conn"]
-                     [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
+    reboot_and_check(localhost, duthosts, conn_graph_facts["device_conn"]
+                     [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthost=duthosts)
 
 
 def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -179,8 +180,8 @@ def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting soft reboot")
 
-    reboot_and_check(localhost, duthost, duthosts, conn_graph_facts["device_conn"]
-                     [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"]
+                     [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT, duthost=duthosts)
 
 
 def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -194,8 +195,8 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting fast reboot")
 
-    reboot_and_check(localhost, duthost, duthosts, conn_graph_facts["device_conn"]
-                     [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_FAST)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_FAST, duthost=duthosts)
 
 
 def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -217,8 +218,8 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
             pytest.skip(
                 "ISSU is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, duthost, duthosts, conn_graph_facts["device_conn"]
-                     [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthost=duthosts)
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -234,8 +235,8 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
         pytest.skip(
             "Watchdog is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, duthost, duthosts,
-                     conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_WATCHDOG)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                     xcvr_skip_list, REBOOT_TYPE_WATCHDOG, duthost=duthosts)
 
 
 def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -247,8 +248,8 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     ls_starting_out = set(duthost.shell(
         "ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
     for i in range(3):
-        reboot_and_check(localhost, duthost, duthosts, conn_graph_facts["device_conn"]
-                         [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
+        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                         xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthost=duthosts)
     ls_ending_out = set(duthost.shell(
         "ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
     pytest_assert(ls_ending_out == ls_starting_out,
