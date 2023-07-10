@@ -1,6 +1,7 @@
 import logging
 import json
-from time import sleep
+import time
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -121,8 +122,10 @@ def apply_gnmi_cert(duthost):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s bash -c " % GNMI_CONTAINER
     dut_command += "\"/usr/bin/nohup /usr/sbin/telemetry -logtostderr --port %s " % port
-    dut_command += "--server_crt /etc/sonic/telemetry/%s --server_key /etc/sonic/telemetry/%s " % (GNMI_SERVER_CERT, GNMI_SERVER_KEY)
-    dut_command += "--ca_crt /etc/sonic/telemetry/%s -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\"" % (GNMI_CA_CERT)
+    dut_command += "--server_crt /etc/sonic/telemetry/%s " % (GNMI_SERVER_CERT)
+    dut_command += "--server_key /etc/sonic/telemetry/%s " % (GNMI_SERVER_KEY)
+    dut_command += "--ca_crt /etc/sonic/telemetry/%s " % (GNMI_CA_CERT)
+    dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
 
@@ -194,6 +197,7 @@ def gnmi_get(duthost, localhost, path_list):
 
 
 def apply_gnmi_file(duthost, localhost, dest_path):
+    logger.info("Applying config files on DUT")
     dut_command = "cat %s" % dest_path
     ret = duthost.shell(dut_command)
     assert ret["rc"] == 0, "Failed to read config file"
@@ -228,4 +232,4 @@ def apply_gnmi_file(duthost, localhost, dest_path):
             logger.info("Invalid operation %s" % operation["OP"])
     ret, msg = gnmi_set(duthost, localhost, delete_list, update_list, [])
     assert ret == 0, msg
-    sleep(5)
+    time.sleep(5)

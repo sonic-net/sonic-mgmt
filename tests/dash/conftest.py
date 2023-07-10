@@ -143,7 +143,7 @@ def apply_config(duthost, localhost, skip_config, skip_cleanup):
         template_name = "{}.j2".format(config)
         dest_path = "/tmp/{}.json".format(config)
         render_template_to_host(template_name, duthost, dest_path, config_info, op=op)
-        if ENABLE_GNMI_API == True:
+        if ENABLE_GNMI_API is True:
             apply_gnmi_file(duthost, localhost, dest_path)
         else:
             apply_swssconfig_file(duthost, dest_path)
@@ -212,7 +212,7 @@ def apply_direct_configs(dash_outbound_configs, apply_config):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
-    if ENABLE_GNMI_API == False:
+    if ENABLE_GNMI_API is False:
         yield
         return
 
