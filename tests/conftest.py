@@ -1655,8 +1655,32 @@ def __dut_reload(duts_data, node=None, results=None):
                  dest='/etc/sonic/config_db.json', verbose=False)
     config_reload(node)
 
+
+def compare_running_config(pre_running_config, cur_running_config):
+    if type(pre_running_config) != type(cur_running_config):
+        return False
+    if pre_running_config == cur_running_config:
+        return True
+    else:
+        if type(pre_running_config) is dict:
+            if set(pre_running_config.keys()) != set(cur_running_config.keys()):
+                return False
+            for key in pre_running_config.keys():
+                if not compare_running_config(pre_running_config[key], cur_running_config[key]):
+                    return False
+                return True
+        # We only have string in list in running config now, so we can ignore the order of the list.
+        elif type(pre_running_config) is list:
+            if set(pre_running_config) != set(cur_running_config):
+                return False
+            else:
+                return True
+        else:
+            return False
+
+
 @pytest.fixture(scope="module", autouse=True)
-def core_dump_and_config_check(duthosts, request):
+def core_dump_and_config_check(duthosts, tbinfo, request):
     '''
     Check if there are new core dump files and if the running config is modified after the test case running.
     If so, we will reload the running config after test case running.
@@ -1693,10 +1717,24 @@ def core_dump_and_config_check(duthosts, request):
                 pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
+            logger.info("Collecting running config before test on {}".format(duthost.hostname))
+            duts_data[duthost.hostname]["pre_running_config"] = {}
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"] = json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
+            duts_data[duthost.hostname]["pre_running_config"][None] = \
+                json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
+
+            if duthost.is_multi_asic:
+                for asic_index in range(0, duthost.facts.get('num_asic')):
+                    asic_ns = "asic{}".format(asic_index)
+                    if not duthost.stat(
+                            path="/etc/sonic/running_golden_config{}.json".format(asic_index))['stat']['exists']:
+                        duthost.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
+                                      format(asic_ns, asic_index))
+                    duts_data[duthost.hostname]['pre_running_config'][asic_ns] = \
+                        json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
+                                                 verbose=False)['stdout'])
 
     yield
 
@@ -1721,19 +1759,34 @@ def core_dump_and_config_check(duthosts, request):
                 core_dump_check_pass = False
 
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
-            duts_data[duthost.hostname]["cur_running_config"] = \
+            # get running config after running
+            duts_data[duthost.hostname]["cur_running_config"] = {}
+            duts_data[duthost.hostname]["cur_running_config"][None] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+            if duthost.is_multi_asic:
+                for asic_index in range(0, duthost.facts.get('num_asic')):
+                    asic_ns = "asic{}".format(asic_index)
+                    duts_data[duthost.hostname]["cur_running_config"][asic_ns] = \
+                        json.loads(duthost.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                                 verbose=False)['stdout'])
 
             # The tables that we don't care
             EXCLUDE_CONFIG_TABLE_NAMES = set([])
             # The keys that we don't care
             # Current skipped keys:
-            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture to account for the lower performance of the ICMP responder/mux simulator
-            #    compared to real servers and mux cables. It's appropriate to persist this change since the testbed will always be using the ICMP responder
-            #    and mux simulator. Linkmgrd is the only service to consume this table so it should not affect other test cases.
-            EXCLUDE_CONFIG_KEY_NAMES = [
-                'MUX_LINKMGR|LINK_PROBER'
-            ]
+            # 1. "MUX_LINKMGR|LINK_PROBER"
+            # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
+            # to account for the lower performance of the ICMP responder/mux simulator compared to
+            # real servers and mux cables.
+            # Linkmgrd is the only service to consume this table so it should not affect other test cases.
+            # Let's keep this setting in db and we don't want any config reload caused by this key, so
+            # let's skip checking it.
+            if "dualtor" in tbinfo["topo"]["name"]:
+                EXCLUDE_CONFIG_KEY_NAMES = [
+                    'MUX_LINKMGR|LINK_PROBER'
+                ]
+            else:
+                EXCLUDE_CONFIG_KEY_NAMES = []
 
             def _remove_entry(table_name, key_name, config):
                 if table_name in config and key_name in config[table_name]:
@@ -1741,72 +1794,81 @@ def core_dump_and_config_check(duthosts, request):
                     if len(config[table_name]) == 0:
                         config.pop(table_name)
 
-            # Remove ignored keys from base config
-            for exclude_key in EXCLUDE_CONFIG_KEY_NAMES:
-                fields = exclude_key.split('|')
-                if len(fields) != 2:
-                    continue
-                _remove_entry(fields[0], fields[1], duts_data[duthost.hostname]["pre_running_config"])
-                _remove_entry(fields[0], fields[1], duts_data[duthost.hostname]["cur_running_config"])
+            for cfg_context in duts_data[duthost.hostname]['pre_running_config']:
+                pre_only_config[duthost.hostname][cfg_context] = {}
+                cur_only_config[duthost.hostname][cfg_context] = {}
+                inconsistent_config[duthost.hostname][cfg_context] = {}
 
-            # Get common keys in pre running config and cur running config
+                pre_running_config = duts_data[duthost.hostname]["pre_running_config"][cfg_context]
+                cur_running_config = duts_data[duthost.hostname]["cur_running_config"][cfg_context]
 
-            pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
-            cur_running_config_keys = set(duts_data[duthost.hostname]["cur_running_config"].keys())
+                # Remove ignored keys from base config
+                for exclude_key in EXCLUDE_CONFIG_KEY_NAMES:
+                    fields = exclude_key.split('|')
+                    if len(fields) != 2:
+                        continue
+                    _remove_entry(fields[0], fields[1], pre_running_config)
+                    _remove_entry(fields[0], fields[1], cur_running_config)
 
-            # Check if there are extra keys in pre running config
-            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
-            for key in pre_config_extra_keys:
-                pre_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["pre_running_config"][key]})
+                pre_running_config_keys = set(pre_running_config.keys())
+                cur_running_config_keys = set(cur_running_config.keys())
 
-            # Check if there are extra keys in cur running config
-            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
-            for key in cur_config_extra_keys:
-                cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
+                # Check if there are extra keys in pre running config
+                pre_config_extra_keys = list(
+                    pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                for key in pre_config_extra_keys:
+                    pre_only_config[duthost.hostname][cfg_context].update({key: pre_running_config[key]})
 
-            common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
-            # Check if the running config is modified after module running
-            for key in common_config_keys:
-                #TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
-                if key == "FLEX_COUNTER_TABLE":
-                    for sub_key, sub_value in duts_data[duthost.hostname]["pre_running_config"][key].items():
-                        try:
-                            pre_value = duts_data[duthost.hostname]["pre_running_config"][key][sub_key]
-                            cur_value = duts_data[duthost.hostname]["cur_running_config"][key][sub_key]
-                            if pre_value["FLEX_COUNTER_STATUS"] != cur_value["FLEX_COUNTER_STATUS"]:
-                                inconsistent_config[duthost.hostname].update(
+                # Check if there are extra keys in cur running config
+                cur_config_extra_keys = list(
+                    cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                for key in cur_config_extra_keys:
+                    cur_only_config[duthost.hostname][cfg_context].update({key: cur_running_config[key]})
+
+                # Get common keys in pre running config and cur running config
+                common_config_keys = list(pre_running_config_keys & cur_running_config_keys -
+                                          EXCLUDE_CONFIG_TABLE_NAMES)
+
+                # Check if the running config is modified after module running
+                for key in common_config_keys:
+                    # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
+                    if key == "FLEX_COUNTER_TABLE":
+                        for sub_key, sub_value in list(pre_running_config[key].items()):
+                            try:
+                                pre_value = pre_running_config[key][sub_key]
+                                cur_value = cur_running_config[key][sub_key]
+                                if pre_value["FLEX_COUNTER_STATUS"] != cur_value["FLEX_COUNTER_STATUS"]:
+                                    inconsistent_config[duthost.hostname][cfg_context].update(
+                                        {
+                                            key: {
+                                                "pre_value": pre_running_config[key],
+                                                "cur_value": cur_running_config[key]
+                                            }
+                                        }
+                                    )
+                            except KeyError:
+                                inconsistent_config[duthost.hostname][cfg_context].update(
                                     {
                                         key: {
-                                            "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                            "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
+                                            "pre_value": pre_running_config[key],
+                                            "cur_value": cur_running_config[key]
                                         }
                                     }
                                 )
-                        except KeyError:
-                            inconsistent_config[duthost.hostname].update(
-                                {
-                                    key: {
-                                        "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                        "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
-                                    }
+                    elif not compare_running_config(pre_running_config[key], cur_running_config[key]):
+                        inconsistent_config[duthost.hostname][cfg_context].update(
+                            {
+                                key: {
+                                    "pre_value": pre_running_config[key],
+                                    "cur_value": cur_running_config[key]
                                 }
-                            )
-                elif duts_data[duthost.hostname]["pre_running_config"][key] != \
-                    duts_data[duthost.hostname]["cur_running_config"][key]:
-                    inconsistent_config[duthost.hostname].update(
-                        {
-                            key: {
-                                "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
-                                }
-                        }
-                    )
+                            }
+                        )
 
-            if pre_only_config[duthost.hostname] or \
-                cur_only_config[duthost.hostname] or \
-                inconsistent_config[duthost.hostname]:
-                config_db_check_pass = False
-
+                if pre_only_config[duthost.hostname][cfg_context] or \
+                        cur_only_config[duthost.hostname][cfg_context] or \
+                        inconsistent_config[duthost.hostname][cfg_context]:
+                    config_db_check_pass = False
         if not (core_dump_check_pass and config_db_check_pass):
             check_result = {
                 "core_dump_check": {
@@ -1820,9 +1882,9 @@ def core_dump_and_config_check(duthosts, request):
                     "inconsistent_config": inconsistent_config
                 }
             }
-            logger.warning("Core dump or config check failed for {}, results: {}"\
-                .format(module_name, json.dumps(check_result)))
-            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=300)
+            logger.warning("Core dump or config check failed for {}, results: {}"
+                           .format(module_name, json.dumps(check_result)))
+            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
