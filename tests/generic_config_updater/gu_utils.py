@@ -326,13 +326,25 @@ def get_asic_name(duthost):
     return asic
 
 
-def is_valid_platform_and_version(duthost, table, scenario):
+def is_valid_platform_and_version(duthost, table, scenario, field=None, operation=None):
     asic = get_asic_name(duthost)
-    os_version = duthost.os_version
     if asic == "unknown":
         return False
+    gcu_conf = get_gcu_field_operations_conf()
+    if field:
+        if field not in (
+            gcu_conf["tables"][table]["validator_data"]
+            ["rdma_config_update_validator"][scenario]["fields"]
+        ):
+            return False
+    if operation:
+        if operation not in (
+            gcu_conf["tables"][table]["validator_data"]
+            ["rdma_config_update_validator"][scenario]["operations"]
+        ):
+            return False
+    os_version = duthost.os_version
     if "master" or "internal" in os_version:
         return True
-    gcu_conf = get_gcu_field_operations_conf()
     version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6]
     return os_version >= version_required
