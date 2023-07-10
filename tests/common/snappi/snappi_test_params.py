@@ -27,5 +27,6 @@ class SnappiTestParams():
         self.packet_capture_type = packet_capture.NO_CAPTURE
         self.packet_capture_file = None
         self.packet_capture_ports = None
+        self.is_tgen_ingress_port_cap = True
         self.base_flow_config = None
         self.test_tx_frames = 0
