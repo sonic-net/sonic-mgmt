@@ -619,7 +619,7 @@ show_techsupport/test_techsupport.py::test_techsupport[:
     strict: True
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.33'"
+      - "int(build_version.split('.')[1]) <= 33"
 
 #######################################
 #####            snmp             #####
@@ -669,7 +669,7 @@ syslog/test_syslog.py:
     reason: "Generic internal image issue"
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.33'"
+      - "int(build_version.split('.')[1]) <= 33"
   skip:
     reason: "Testcase enhancements needed for backend topo"
     conditions:
@@ -684,7 +684,7 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     strict: True
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.44'"
+      - "int(build_version.split('.')[1]) <= 44"
 
 #######################################
 #####           vlan              #####
