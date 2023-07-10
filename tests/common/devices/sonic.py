@@ -1655,7 +1655,7 @@ Totals               6450                 6449
         if ("Broadcom Limited Device b960" in output or
                 "Broadcom Limited Broadcom BCM56960" in output):
             asic = "th"
-        elif "Broadcom Limited Device b971" in output:
+        elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
                 "Broadcom Limited Broadcom BCM56850" in output):

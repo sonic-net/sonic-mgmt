@@ -500,6 +500,7 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
     """
     toggle_mux_to_host(rand_selected_dut)
     asic = rand_selected_dut.get_asic_name()
+    pytest_assert(asic != 'unknown', 'Get unknown asic name')
     # TODO: Get the cell size for other ASIC
     if asic == 'th2':
         cell_size = 208
