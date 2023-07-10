@@ -153,7 +153,7 @@ def dut_setup_teardown(rand_selected_front_end_dut, tbinfo, dut_lo_addr):
     ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
     ptf_bp_v6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6'].lower()
 
-    # render template and write to DB, check running configuration for BGP_sentinel
+    # render template and write to DB, check running configuration for BGP sentinel
     bgp_sentinelv4_tmpl = Template(BGP_SENTINEL_TMPL)
     duthost.copy(content=bgp_sentinelv4_tmpl.render(v4_listen_range=json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
                                                     v4_src_address=lo_ipv4_addr,
@@ -167,7 +167,7 @@ def dut_setup_teardown(rand_selected_front_end_dut, tbinfo, dut_lo_addr):
 
     yield lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6
 
-    # Cleanup bgp monitor
+    # Cleanup bgp sentinel configuration
     duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
     duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
 
@@ -331,7 +331,7 @@ def test_bgp_sentinel(rand_selected_front_end_dut, common_setup_teardown, sentin
         for route in ipv6_routes:
             announce_route(ptfip, lo_ipv6_addr, route, ptf_bp_v6, BGP_SENTINEL_PORT_V6, sentinel_community)
 
-    # Check if the routes are not announced to ebgp peers
+    # Check if the routes are suppressed by bgp sentinel route and not announced to ebgp peers
     for route in ipv4_routes + ipv6_routes:
         pytest_assert(not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
                       "Route {} should not be advertised to bgp peers".format(route))
