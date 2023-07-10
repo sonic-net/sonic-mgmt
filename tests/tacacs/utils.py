@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 # per-command authorization feature not available in following versions
-per_command_check_authorization_skip_versions = ["201811", "201911", "202012", "202106"]
+per_command_authorization_skip_versions = ["201811", "201911", "202012", "202106"]
 
 
 # per-command accounting feature not available in following versions
-per_command_check_accounting_skip_versions = ["201811", "201911", "202106"]
+per_command_accounting_skip_versions = ["201811", "201911", "202106"]
 
 
 def check_output(output, exp_val1, exp_val2):
