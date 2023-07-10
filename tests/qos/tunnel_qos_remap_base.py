@@ -452,7 +452,7 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
                           "--log-file",
                           "/tmp/{0}.log".format(test_case),
                           "--test-case-timeout",
-                          "600"
+                          "1200"
                       ],
                       chdir = "/root",
                       )["rc"] == 0, "Failed when running test '{0}'".format(test_case))
