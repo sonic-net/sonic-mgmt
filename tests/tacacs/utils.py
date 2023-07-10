@@ -10,8 +10,12 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 
-# per-command authorization and accounting feature not available in following versions
-per_command_check_skip_versions = ["201811", "201911", "202012", "202106"]
+# per-command authorization feature not available in following versions
+per_command_check_authorization_skip_versions = ["201811", "201911", "202012", "202106"]
+
+
+# per-command accounting feature not available in following versions
+per_command_check_accounting_skip_versions = ["201811", "201911", "202106"]
 
 
 def check_output(output, exp_val1, exp_val2):
@@ -72,9 +76,12 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
 
-    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
+    (skip, _) = check_skip_release(duthost, per_command_authorization_skip_versions)
     if not skip:
         duthost.shell("sudo config aaa authorization local")
+
+    (skip, _) = check_skip_release(duthost, per_command_accounting_skip_versions)
+    if not skip:
         duthost.shell("sudo config aaa accounting disable")
 
     # setup local user
@@ -221,9 +228,12 @@ def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
     ]
     duthost.shell_cmds(cmds=cmds)
 
-    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
+    (skip, _) = check_skip_release(duthost, per_command_authorization_skip_versions)
     if not skip:
         duthost.shell("sudo config aaa authorization local")
+
+    (skip, _) = check_skip_release(duthost, per_command_accounting_skip_versions)
+    if not skip:
         duthost.shell("sudo config aaa accounting disable")
 
     duthost.user(
