@@ -103,7 +103,10 @@ class Sonic(host_device.HostDevice):
             lacp_thread.setDaemon(True)
             lacp_thread.start()
 
-        while not (quit_enabled and v4_routing_ok and v6_routing_ok):
+        # TODO: Disabling v6_routing_ok check due to IPv6 FRR issue. Re-add v6_routing_ok once either:
+        # * https://github.com/FRRouting/frr/issues/13587 is fixed and the fix gets merged into SONiC, or
+        # * https://github.com/sonic-net/sonic-buildimage/pull/12853 is reverted
+        while not (quit_enabled and v4_routing_ok):
             cmd = None
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok
@@ -191,7 +194,8 @@ class Sonic(host_device.HostDevice):
         # cli_data['lacp']   = self.check_series_status(data, "lacp",         "LACP session")
         cli_data['lacp'] = (0, 0)
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
-        cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
+        # TODO: same as above for v6_routing_ok
+        cli_data['bgp_v6'] = (1, 0)
         cli_data['po'] = self.check_lag_flaps("PortChannel1", log_lines, start_time)
 
         if 'route_timeout' in log_data:
