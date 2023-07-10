@@ -701,7 +701,7 @@ class SonicHost(AnsibleHostBase):
             # In this situation, service container status should be false
             # We can check status is valid or not
             # You can just add valid status str in this tuple if meet later
-            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF'):
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF', 'STARTING'):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
@@ -1655,7 +1655,7 @@ Totals               6450                 6449
         if ("Broadcom Limited Device b960" in output or
                 "Broadcom Limited Broadcom BCM56960" in output):
             asic = "th"
-        elif "Broadcom Limited Device b971" in output:
+        elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
                 "Broadcom Limited Broadcom BCM56850" in output):
