@@ -18,7 +18,7 @@ pytestmark = [
 INTERFACE_WAIT_TIME = 300
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture
 def set_max_time_for_interfaces(duthost):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
@@ -62,7 +62,7 @@ def _power_off_reboot_helper(kwargs):
 
 
 def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
-                          xcvr_skip_list, pdu_controller, power_off_delay):
+                          set_max_time_for_interfaces, xcvr_skip_list, pdu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param duthost: Fixture for DUT AnsibleHost object
