@@ -16,7 +16,6 @@ from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
-from enum import Enum
 
 
 def increment_ip_address(ip, incr=1):
