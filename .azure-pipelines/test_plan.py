@@ -335,7 +335,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state=""):
+    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_result=None):
         print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
@@ -396,6 +396,16 @@ class TestPlanManager(object):
                                         .format(test_plan_id, step_status, result, time.time() - start_time,
                                                 self.frontend_url,
                                                 test_plan_id))
+                    if expected_result:
+                        if result != expected_result:
+                            raise Exception("Test plan id: {}, status: {}, result: {} not match expected result: {}, "
+                                            "Elapsed {:.0f} seconds. "
+                                            "Check {}/scheduler/testplan/{} for test plan status"
+                                            .format(test_plan_id, step_status, result,
+                                                    expected_result, time.time() - start_time,
+                                                    self.frontend_url,
+                                                    test_plan_id))
+
                     else:
                         print("Current status is {}".format(step_status))
                         return
@@ -724,6 +734,17 @@ if __name__ == "__main__":
         default=""
     )
     parser_poll.add_argument(
+        "--expected-result",
+        type=str,
+        dest="expected_result",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        choices=['PENDING', 'EXECUTING', 'SUCCESS', 'FAILED', 'CANCELLED'],
+        help="If specify expected result, check test plan result after expected state matched."
+    )
+    parser_poll.add_argument(
         "--interval",
         type=int,
         required=False,
@@ -837,7 +858,7 @@ if __name__ == "__main__":
                 max_execute_seconds=args.max_execute_seconds,
             )
         elif args.action == "poll":
-            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
+            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
