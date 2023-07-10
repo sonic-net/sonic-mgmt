@@ -100,12 +100,14 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay, allow_disruption
                             "Maximum allowed disruption: {}s"
                             .format(server_ip, longest_disruption, delay))
 
-        if total_duplications > allowed_disruption and _validate_long_disruption(result['disruptions'], allowed_disruption, delay):
+        if total_duplications > allowed_disruption and _validate_long_disruption(result['disruptions'],
+                                                                                 allowed_disruption, delay):
             failures.append("Traffic to server {} was duplicated {} times. "
                             "Allowed number of duplications: {}"
                             .format(server_ip, total_duplications, allowed_disruption))
 
-        if longest_duplication > delay and _validate_long_disruption(result['duplications'], allowed_disruption, delay):
+        if longest_duplication > delay and _validate_long_disruption(result['duplications'],
+                                                                     allowed_disruption, delay):
             failures.append("Traffic on server {} was duplicated for {}s. "
                             "Maximum allowed duplication: {}s"
                             .format(server_ip, longest_duplication, delay))
@@ -131,7 +133,7 @@ def _validate_long_disruption(disruptions, allowed_disruption, delay):
 
         disruption_length = disruption['end_time'] - disruption['start_time']
         allowed_disruption -= math.ceil(disruption_length/delay)
-        
+
         if allowed_disruption < 0:
             return True
     return False
