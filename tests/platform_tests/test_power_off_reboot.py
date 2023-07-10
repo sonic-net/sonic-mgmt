@@ -2,7 +2,6 @@ import logging
 import pytest
 import time
 
-import tests.common.fixtures.conn_graph_facts
 from tests.common.reboot import wait_for_startup, REBOOT_TYPE_POWEROFF
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
