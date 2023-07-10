@@ -61,7 +61,7 @@ def _power_off_reboot_helper(kwargs):
         pdu_ctrl.turn_on_outlet(outlet)
 
 
-def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
+def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, conn_graph_facts,
                           set_max_time_for_interfaces, xcvr_skip_list, pdu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
