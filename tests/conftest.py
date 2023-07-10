@@ -1852,7 +1852,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
     if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
         check_flag = False
     for m in request.node.iter_markers():
-        if m.name == "pretest" or m.name == "posttest":
+        if m.name == "skip_check_dut_health":
             check_flag = False
 
     module_name = request.node.name
@@ -1996,7 +1996,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                 for key in common_config_keys:
                     # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
                     if key == "FLEX_COUNTER_TABLE":
-                        for sub_key, sub_value in pre_running_config[key].items():
+                        for sub_key, sub_value in list(pre_running_config[key].items()):
                             try:
                                 pre_value = pre_running_config[key][sub_key]
                                 cur_value = cur_running_config[key][sub_key]
@@ -2045,9 +2045,9 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                     "inconsistent_config": inconsistent_config
                 }
             }
-            logger.warning("Core dump or config check failed for {}, results: {}"\
-                .format(module_name, json.dumps(check_result)))
-            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=300)
+            logger.warning("Core dump or config check failed for {}, results: {}"
+                           .format(module_name, json.dumps(check_result)))
+            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
