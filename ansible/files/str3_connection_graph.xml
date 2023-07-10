@@ -3325,7 +3325,7 @@
       <PowerControlLinkInfo EndDevice="str3-8102-06" EndPort="PSU2" StartDevice="pdu-91" StartPort="4"/>
       <PowerControlLinkInfo EndDevice="str3-8101-32fh-01" EndPort="PSU1" StartDevice="pdu-110" StartPort="36"/>
       <PowerControlLinkInfo EndDevice="str3-8101-32fh-01" EndPort="PSU2" StartDevice="pdu-111" StartPort="36"/>
-      <PowerControlLinkInfo EndDevice="str3-8101-01" EndPort="PSU1" StartDevice="pdu-90" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="str3-8101-01" EndPort="PSU1" StartDevice="pdu-90" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str3-8101-01" EndPort="PSU2" StartDevice="pdu-92" StartPort="22"/>
       <PowerControlLinkInfo EndDevice="str3-8101-02" EndPort="PSU1" StartDevice="pdu-90" StartPort="18"/>
       <PowerControlLinkInfo EndDevice="str3-8101-02" EndPort="PSU2" StartDevice="pdu-92" StartPort="19"/>
