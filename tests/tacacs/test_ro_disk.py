@@ -199,7 +199,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo find /home -ls")
 
         if not os.path.exists(DATA_DIR):
-            os.mkdir(DATA_DIR)
+            os.makedirs(DATA_DIR)
 
 
         # Fetch files of interest
