@@ -159,8 +159,8 @@ def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, set_max_time_fo
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    reboot_and_check(localhost, duthosts, conn_graph_facts["device_conn"]
-                     [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthost=duthosts)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthost=duthosts)
 
 
 def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -180,8 +180,8 @@ def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting soft reboot")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"]
-                     [duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT, duthost=duthosts)
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT, duthost=duthosts)
 
 
 def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
