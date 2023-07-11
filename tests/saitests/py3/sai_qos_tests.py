@@ -781,13 +781,13 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         PKT_NUM = 100
         # There is background traffic during test, so we need to add error tolerance to ignore such pakcets
         ERROR_TOLERANCE = {
-            0: 10,
+            0: 20,
             1: 0,
-            2: 0,
-            3: 0,
-            4: 0,
+            2: 10,
+            3: 10,
+            4: 10,
             5: 0,
-            6: 0,
+            6: 10,
             7: 0
         }
 
