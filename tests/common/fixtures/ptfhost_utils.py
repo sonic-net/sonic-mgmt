@@ -269,7 +269,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     yield
 
-    # NOTE: Leave icmp_responder running for dualtor/dualtor-mixed/dualtor-aa topology
+    logger.info("Leave icmp_responder running for dualtor/dualtor-mixed/dualtor-aa topology")
     return
 
 
