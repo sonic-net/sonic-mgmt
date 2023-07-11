@@ -1,6 +1,5 @@
 import logging
 import pytest
-import json
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, delete_running_config
