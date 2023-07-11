@@ -86,6 +86,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
 
     print("calling run_scripts.py, the allure report build name is ", build_project_name)
 
+    tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
     result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     chan.send('rm run_script.log \n')
     time.sleep(3)
@@ -97,7 +98,6 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     print(resp.decode("ascii"))
 
     delta1 = datetime.datetime.now()
-    tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
     if create_allure_report:
         chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -g {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name))
     else:
