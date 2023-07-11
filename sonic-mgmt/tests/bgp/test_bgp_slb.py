@@ -84,3 +84,6 @@ def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
             pytest.fail("dynamic BGP session is not established after %s" % reboot_type)
     finally:
         neighbor.stop_session()
+        duthost.copy(src="bgp/templates/del_warm_restart_config.json", dest="/tmp/del_warm_restart_config.json")
+        duthost.shell("configlet -d -j {}".format("/tmp/del_warm_restart_config.json"))
+        duthost.shell("rm -f {}".format("/tmp/del_warm_restart_config.json"))

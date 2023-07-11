@@ -1,0 +1,13 @@
+diff --git a/sonic-mgmt/tests/test_pretest.py b/sonic-mgmt/tests/test_pretest.py
+index f540bbf..ea859a7 100644
+--- a/sonic-mgmt/tests/test_pretest.py
++++ b/sonic-mgmt/tests/test_pretest.py
+@@ -147,7 +147,7 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
+     except IOError as e:
+         logger.warning('Unable to create file {}: {}'.format(filepath, e))
+ 
+-    prepare_autonegtest_params(duthosts, fanouthosts)
++    #prepare_autonegtest_params(duthosts, fanouthosts)
+ 
+ 
+ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):

@@ -1,0 +1,10 @@
+diff --git a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
+index f1c38b1..2d6edbb 100644
+--- a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
++++ b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
+@@ -179,3 +179,5 @@ r, ".* ERR swss#orchagent: :- update: Unsupported FDB Flush: .*"
+ # https://msazure.visualstudio.com/One/_workitems/edit/16110065
+ r, ".* ERR kernel:.* Set it down before adding it as a team port.*"
+ 
++# Sim related - Cisco
++r, ".* ERR pmon#pcied.*: PCIe device status check : FAILED.*"
