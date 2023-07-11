@@ -620,7 +620,7 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
     # and number of vm_workers is hard coded. We will extend this testing on all containers after
     # the feature 'memory_checker' is fully implemented.
     container_name = "telemetry"
-    vm_workers = 6
+    vm_workers = 2
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
                    and (("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
