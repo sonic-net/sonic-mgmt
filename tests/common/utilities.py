@@ -927,3 +927,9 @@ def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
     duthost.shell(sed_command)
 
     return original_value
+
+
+def delete_running_config(config_entry, duthost):
+    duthost.copy(src=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+    duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
+    # duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
