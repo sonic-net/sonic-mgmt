@@ -125,7 +125,6 @@ class TestAutostateDisabled:
             """ % interface)
             delete_running_config(config_entry, duthost)
 
-
     def startup_multiple_with_confirm(self, duthost, interfaces, err_handler=logging.error):
         """
         Startup multiple interfaces and confirm success.
