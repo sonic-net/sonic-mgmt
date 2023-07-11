@@ -4,7 +4,7 @@ import os
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
