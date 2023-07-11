@@ -212,7 +212,7 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
     # Get internal bgp ips for later filtering
     internal_bgp_ips = duthost.get_internal_bgp_peers().keys()
     # Get voq inband interface for later filtering
-    voq_inband_interfaces = get_voq_inband_interfaces(duthost)
+    voq_inband_interfaces = duthost.get_voq_inband_interfaces()
     dev_port = None
     route_to_ping = None
     for dst_prefix in dst_prefix_set:
@@ -352,28 +352,3 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
         loop_times -= 1
 
     logger.info("End")
-
-
-def get_voq_inband_interfaces(duthost):
-    """
-    This Function is only applicable on VOQ Chassis.
-    Get VOQ Internal Inband Interfaces. API iterates through frontend ASIC
-    index to get the VOQ Inband Interfaces from running configuration.
-    Not using BGP_VOQ_CHASSIS_NEIGHBOUR peer ips  since they are not referenced in
-    next hops of route.
-
-    Returns:
-          List of [voq_inband_interfaces]
-    """
-    if not duthost.sonichost.is_multi_asic:
-        return {}
-    voq_inband_interfaces = {}
-    for asic in duthost.frontend_asics:
-        config_facts = duthost.config_facts(
-            host=duthost.hostname, source="running",
-            namespace=asic.namespace
-        )['ansible_facts']
-        voq_inband_interfaces.update(
-            config_facts.get("VOQ_INBAND_INTERFACE", {})
-        )
-    return voq_inband_interfaces.keys()
