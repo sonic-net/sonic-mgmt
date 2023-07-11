@@ -170,6 +170,15 @@ sonic_nokia_lc_100G:
       serial: NS222464260
       base_mac:  18:5b:00:50:6b:fe
       ansible_host: 10.206.144.145
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "NS222464260"
+        "0x24": "18:5B:00:50:6B:FE"
+        "0x26": "56"
+        "0x2A": "2"
+        "0xFE": "0x69742879"
     svcstr-7250-lc2-1:
       hwsku: Nokia-IXR7250E-36x100G
       sonic_hwsku: Nokia-IXR7250E-36x100G
@@ -183,6 +192,15 @@ sonic_nokia_lc_100G:
       serial: NS222464263
       base_mac: 18:5b:00:50:6c:08
       ansible_host: 10.206.144.146
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "NS222464263"
+        "0x24": "18:5B:00:50:6C:08"
+        "0x26": "56"
+        "0x2A": "2"
+        "0xFE": "0x0A72B215"
     svcstr-7250-lc3-1:
       hwsku: Nokia-IXR7250E-36x100G
       sonic_hwsku: Nokia-IXR7250E-36x100G
@@ -193,9 +211,18 @@ sonic_nokia_lc_100G:
       voq_inband_ipv6: [3333::3:a/128,3333::3:c/128]
       loopback4096_ip: [192.0.0.10/32,192.0.0.12/32]
       loopback4096_ipv6: [2603:10e2:400::a/128,2603:10e2:400::c/128]
-      serial: NS222464263
-      base_mac: 18:5b:00:50:6c:08
+      serial: NS222464270
+      base_mac: 18:5B:00:50:6B:FC
       ansible_host: 10.206.144.147
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "NS222464270"
+        "0x24": "18:5B:00:50:6B:FC"
+        "0x26": "56"
+        "0x2A": "2"
+        "0xFE": "0xB0A93830"
 
 sonic_nokia_sup:
   vars:
@@ -214,6 +241,34 @@ sonic_nokia_sup:
     svcstr-7250-sup-1:
       ansible_host: 10.206.144.144
       hwsku: Nokia-IXR7250E-SUP-10
+      model: '3HE16996AARA01'
+      serial: NS221860685
+      base_mac: F8:BA:E6:ED:D5:E9
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-SUP-10"
+        "0x22": "3HE16996AARA01"
+        "0x23": "NS221860685"
+        "0x24": "F8:BA:E6:ED:D5:E9"
+        "0x25": "05182022"
+        "0x26": "56"
+        "0x2A": "5"
+        "0xFE": "0x7DA4DF3A"
+      skip_modules:
+          'line-cards':
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - PSU8
+            - PSU9
+            - PSU10
+            - PSU11
+            - PSU12
+      asics_present: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
 server:
   hosts:
