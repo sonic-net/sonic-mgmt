@@ -43,12 +43,14 @@
 	    Error = tobool(cases["error"]),
         Summary = tostring(cases["summary"]),
         StartTime = todatetime(cases["start"]),
-        EndTime = todatetime(cases["end"])
+        EndTime = todatetime(cases["end"]),
+        CustomMsg = tostring(cases["CustomMsg"])
 }
 
 .create table TestCases (Feature: string, TestCase: string, ModulePath: string,
                          FilePath: string, StartLine: int, Runtime: double, Result: string,
-                         ReportId: string, Error: bool, Summary: string, StartTime: datetime, EndTime: datetime)
+                         ReportId: string, Error: bool, Summary: string, StartTime: datetime, EndTime: datetime,
+                         CustomMsg: string)
 
 .alter table TestCases policy update @'[{"Source": "RawTestCases", "Query": "ExpandTestCases()", "IsEnabled": "True"}]'
 
@@ -65,6 +67,7 @@
                                                                      '{"column":"Summary","Properties":{"path":"$.summary"}},'
                                                                      '{"column":"StartTime","Properties":{"path":"$.start"}},'
                                                                      '{"column":"EndTime","Properties":{"path":"$.end"}},'
+                                                                     '{"column":"CustomMsg","Properties":{"path":"$.CustomMsg"}},'
                                                                      ']'
 
 ###############################################################################
@@ -92,7 +95,8 @@
                                   HardwareSku: string, OSVersion: string,
                                   Platform: string, Topology: string,
                                   TrackingId: string, ReportId: string,
-                                  TestbedName: string, UploadTimestamp: datetime)
+                                  TestbedName: string, UploadTimestamp: datetime,
+                                  sai_origin_version: string, sai_upgrade_version: string)
 
 .create table TestReportMetadata ingestion json mapping 'FlatMetadataMappingV1' @'[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},'
                                                                                   '{"column":"AsicType","Properties":{"path":"$.asic"}},'
@@ -103,7 +107,29 @@
                                                                                   '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
                                                                                   '{"column":"ReportId","Properties":{"path":"$.id"}},'
                                                                                   '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
-                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}}]'
+                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}},'
+                                                                                  '{"column":"sai_origin_version","Properties":{"path":"$.sai_origin_version"}},'
+                                                                                  '{"column":"sai_upgrade_version","Properties":{"path":"$.sai_upgrade_version"}}]'
+
+###############################################################################
+# PIPELINE TABLE SETUP                                                        #
+# 1. Create a TestReportPipeline table to store pipeline task results         #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportPipeline (StartTimestamp: datetime, UploadTimestamp: datetime, TrackingId: string,
+                                  ReportId: string, TestbedName: string,
+                                  OSVersion: string, SuccessTasks: string,
+                                  FailedTasks: string, CancelledTasks: string)
+
+.create table TestReportPipeline ingestion json mapping 'FlatPipelineMappingV1' @'[{"column":"StartTimestamp","Properties":{"path":"$.start_time"}},'
+                                                                                  '{"column":"UploadTimestamp","Properties":{"path":"$.upload_time"}},'
+                                                                                  '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
+                                                                                  '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                                                  '{"column":"TestbedName","Properties":{"path":"$.testbed"}},'
+                                                                                  '{"column":"OSVersion","Properties":{"path":"$.os_version"}},'
+                                                                                  '{"column":"SuccessTasks","Properties":{"path":"$.success_tasks"}},'
+                                                                                  '{"column":"FailedTasks","Properties":{"path":"$.failed_tasks"}},'
+                                                                                  '{"column":"CancelledTasks","Properties":{"path":"$.cancelled_tasks"}}]'
 
 ###############################################################################
 # EXPECTED TEST RUNS TABLE SETUP                                              #
@@ -116,6 +142,17 @@
 
 .create table ExpectedTestRuns ingestion json mapping 'ExpectedTestRunsV1' @'[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},'
                                                                              '{"column":"TestbedName","Properties":{"path":"$.testbed"}}]'
+
+###############################################################################
+# TEST CASE NUMBERS TABLE SETUP                                               #
+# 1. Create a TestCaseNumbers table to store expected test case numbers       #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+
+.create-merge table TestCaseNumbers (Timestamp:datetime, Branch:string, TotalCount:int)
+.create table TestCaseNumbers ingestion json mapping 'TestCaseNumbersV1' @'[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},'
+                                                                           '{"column":"Branch","Properties":{"path":"$.branch"}},'
+                                                                           '{"column":"TotalCount","Properties":{"path":"$.count"}}]'
 
 ###############################################################################
 # RAW REBOOT REPORT TABLE SETUP                                               #

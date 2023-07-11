@@ -12,7 +12,7 @@ pytestmark = [
 ]
 
 SSH_SHUTDOWN_TIMEOUT = 360
-SSH_STARTUP_TIMEOUT = 360
+SSH_STARTUP_TIMEOUT = 420
 
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
@@ -24,10 +24,11 @@ class TestMemoryExhaustion:
     """
 
     @pytest.fixture(autouse=True)
-    def teardown(self, duthost, localhost, pdu_controller):
+    def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, pdu_controller):
         yield
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         if not self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED):
@@ -41,15 +42,20 @@ class TestMemoryExhaustion:
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
 
-    def test_memory_exhaustion(self, duthost, localhost):
+    def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
         dut_datetime = duthost.get_now_time()
 
-        # Use `tail /dev/zero` to run out of memory completely. Since this command will cause the
-        # DUT reboot, we need to run it in the background (using &) to avoid pytest getting stuck.
-        # We also need to add `nohup` to protect it.
-        cmd = 'nohup tail /dev/zero &'
+        # Our shell command is designed as 'nohup bash -c "sleep 5 && tail /dev/zero" &' because of:
+        #  * `tail /dev/zero` is used to run out of memory completely.
+        #  * Since `tail /dev/zero` will cause the DUT reboot, we need to run it in the background
+        #    (using &) to avoid pytest getting stuck. `nohup` is also necessary to protect the
+        #    background process.
+        #  * Some DUTs with few free memory may reboot before ansible receive the result of shell
+        #    command, so we add `sleep 5` to ensure ansible receive the result first.
+        cmd = 'nohup bash -c "sleep 5 && tail /dev/zero" &'
         res = duthost.shell(cmd)
         if not res.is_successful:
             pytest.fail('DUT {} run command {} failed'.format(hostname, cmd))

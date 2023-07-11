@@ -11,7 +11,7 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('t0', 't1', 'm0', 'mx'),
 ]
 
 
@@ -46,8 +46,8 @@ def get_ipv6_neighbor(duthost):
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors_data = config_facts['BGP_NEIGHBOR']
-    for neighbor_address in bgp_neighbors_data.keys():
-        if ipaddress.ip_address(unicode(neighbor_address)).version == 6:
+    for neighbor_address in list(bgp_neighbors_data.keys()):
+        if ipaddress.ip_address((neighbor_address.encode().decode())).version == 6:
             return neighbor_address, bgp_neighbors_data[neighbor_address]
     pytest_assert(True, "No existing ipv6 neighbor")
 
@@ -161,8 +161,7 @@ def ipv6_neighbor_admin_change(duthost):
         cmds = "show ipv6 bgp su | grep -w {}".format(ipv6_neighbor_address)
         output = duthost.shell(cmds)
         pytest_assert(not output['rc'] and "Idle (Admin)" in output['stdout'],
-            "BGP Neighbor with addr {} failed to admin down.".format(ipv6_neighbor_address)
-        )
+                      "BGP Neighbor with addr {} failed to admin down.".format(ipv6_neighbor_address))
     finally:
         delete_tmpfile(duthost, tmpfile)
 

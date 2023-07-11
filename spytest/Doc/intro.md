@@ -213,7 +213,7 @@ Each child of of this node represents single device, which can be DUT or TGen as
      * **version**
        * Traffic Generator version
        * Supported versions:
-         * ixia 8.42
+         * ixia 8.42 to 9.20u2
          * stc 4.91
          * scapy 1.0 [scapy TGEN version is just a place holder and not used]
      * **ip**
@@ -241,8 +241,8 @@ The SPyTest supports Ixia and Spirent third party traffic generators, which prov
 * User should use an intermediate server to host the IxNetwork Server
 * Start IxNetwork API server in the server where the IxNetwork Server is installed
 * The IxNetwork Server IP address needs to be given in setup file as "ix_server"
-* Currently SPyTest is verified with below IxNetwork versions
-    * 8.42
+* Currently SPyTest is verified with below IxNetwork versions:
+    * 8.42 to 9.20u2
 * There are differences in the way to install and launch these versions.
   Please consult the Ixia documentation for more details.
 
@@ -297,7 +297,7 @@ The SPyTest supports executing tests in standalone environment and PTF environme
 
 #### PTF Mode
 
-Refer to [README.testbed.md](https://github.com/Azure/sonic-mgmt/blob/master/ansible/README.testbed.md) for setting up PTF-32  or PTF-64 topology.
+Refer to [README.testbed.md](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/README.testbed.md) for setting up PTF-32  or PTF-64 topology.
 
 #### Standalone Mode
 
@@ -306,7 +306,7 @@ In standalone mode, the DUTs can be connected to each other and TGen.
 Environment - PTF Mode
 ==============================
 
-Refer to [README.testbed.Overview.md](https://github.com/Azure/sonic-mgmt/blob/master/ansible/doc/README.testbed.Overview.md) for setting up PTF environment details.
+Refer to [README.testbed.Overview.md](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/doc/README.testbed.Overview.md) for setting up PTF environment details.
 
 Environment - Standalone Mode
 ==============================

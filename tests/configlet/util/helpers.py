@@ -13,6 +13,7 @@ do_flush = False
 
 prefix_msgs = []
 
+
 def set_log_prefix_msg(m=""):
     global prefix_msgs
 
@@ -28,6 +29,7 @@ def get_log_prefix_msg():
 
 def get_prefix_lvl():
     return len(prefix_msgs)
+
 
 def set_prefix_lvl(lvl):
     global prefix_msgs
@@ -54,8 +56,7 @@ def log_init(name):
 
 def log_msg(lgr_fn, m):
     tstr = datetime.datetime.now().strftime("%H:%M:%S")
-    msg = "{}:{}:{} {}{}".format(inspect.stack()[2][1],
-            inspect.stack()[2][2], tstr, get_log_prefix_msg(),m)
+    msg = "{}:{}:{} {}{}".format(inspect.stack()[2][1], inspect.stack()[2][2], tstr, get_log_prefix_msg(), m)
     lgr_fn(msg)
     if do_print:
         print(msg)

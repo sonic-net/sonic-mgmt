@@ -2,7 +2,7 @@
 
 ## Minimum hardware requirement
 
-- One 'Fanout' layer-2 switch to connect all SONiC Switch ports and Linux server NIC. 
+- One 'Fanout' layer-2 switch to connect all SONiC Switch ports and Linux server NIC.
 you may need more 'Fanout' Switches connects to multiple SONiC switches as DUTs.
 
 - Linux Server with minimum 92G memory.
@@ -16,5 +16,3 @@ you may need more 'Fanout' Switches connects to multiple SONiC switches as DUTs.
    - Find physical VM entry in veos file
 
 TODO: Create ansible playbook for this
-
-

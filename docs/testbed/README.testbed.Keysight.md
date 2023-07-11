@@ -33,7 +33,7 @@ The IxNetwork API Server docker is installed in the Testbed server along with so
 ## Deploy IxNetwork API Server
 
 ### Download IxNetwork API Server docker image
-1. Download IxNetwork Web Edition (Docker deployment) from [ here ](https://ks-aws-prd-itshared-opix.s3-us-west-1.amazonaws.com/IxSoftwareUpgrades/IxNetwork/9.0_Update3/Ixia_IxNetworkWeb_Docker_9.00.100.213.tar.bz2)
+1. Download IxNetwork Web Edition (Docker deployment) from [ here ](https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.30/Ixia_IxNetworkWeb_Docker_9.30.2212.22.tar.bz2)
 
 2. Copy the tar.bz2 file on the testbed server.
 
@@ -91,4 +91,3 @@ Note : The folders within /opt/container/one/ should to be created with read and
 ```
 
 6. Launch IxNetworkWeb using browser `https://container ip`
-

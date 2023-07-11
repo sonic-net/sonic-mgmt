@@ -40,7 +40,7 @@ route-map RM_SET_SRC permit 10
 {%     endif %}
 {%   endfor %}
 {% endif %}
-{% if lo_ipv6_addrs|length > 0 %} 
+{% if lo_ipv6_addrs|length > 0 %}
 route-map RM_SET_SRC6 permit 10
     set src {{ lo_ipv6_addrs[0] }}
 !
@@ -58,4 +58,3 @@ log syslog informational
 log facility local4
 {% endblock logging %}
 !
-

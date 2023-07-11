@@ -1,43 +1,23 @@
-import ptf
-from ptf.base_tests import BaseTest
-from ptf import config
-import ptf.testutils as testutils
-from ptf.testutils import *
-from ptf.dataplane import match_exp_pkt
 import datetime
-import _strptime  # workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 import time
-import subprocess
-from ptf.mask import Mask
-import socket
-import ptf.packet as scapy
-import thread
-import threading
-from multiprocessing.pool import ThreadPool, TimeoutError
-import os
-import signal
-import random
-import struct
-import socket
-from pprint import pprint
-from fcntl import ioctl
 import sys
 import json
 import re
-from collections import defaultdict
-import json
 import paramiko
-import Queue
 import pickle
-from operator import itemgetter
-import scapy.all as scapyall
-import enum
 import ast
 
-class Arista(object):
+from operator import itemgetter
+from collections import defaultdict
+
+import host_device
+
+
+class Arista(host_device.HostDevice):
     DEBUG = False
     # unit: second
     SSH_CMD_TIMEOUT = 10
+
     def __init__(self, ip, queue, test_params, log_cb=None, login='admin', password='123456'):
         self.ip = ip
         self.queue = queue
@@ -46,7 +26,8 @@ class Arista(object):
         self.password = password
         self.conn = None
         self.arista_prompt = None
-        self.v4_routes = list(ast.literal_eval(test_params['vlan_ip_range']).values())
+        self.v4_routes = list(ast.literal_eval(
+            test_params['vlan_ip_range']).values())
         self.v4_routes.append(test_params['lo_prefix'])
         self.v6_routes = [test_params['lo_v6_prefix']]
         self.fails = set()
@@ -54,8 +35,7 @@ class Arista(object):
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
         self.reboot_type = test_params['reboot_type']
         self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
-        self.lacp_pdu_time_on_down = list()
-        self.lacp_pdu_time_on_up = list()
+        self.lacp_pdu_timings = list()
 
     def __del__(self):
         self.disconnect()
@@ -67,14 +47,15 @@ class Arista(object):
     def connect(self):
         self.conn = paramiko.SSHClient()
         self.conn.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.conn.connect(self.ip, username=self.login, password=self.password, allow_agent=False, look_for_keys=False)
+        self.conn.connect(self.ip, username=self.login,
+                          password=self.password, allow_agent=False, look_for_keys=False)
         self.shell = self.conn.invoke_shell()
         # avoid paramiko Channel.recv() stuck forever
         self.shell.settimeout(Arista.SSH_CMD_TIMEOUT)
         # add a reference to avoid garbage collecting destructs the ssh connection
         self.shell.keep_this = self.conn
 
-        first_prompt = self.do_cmd(None, prompt = '>')
+        first_prompt = self.do_cmd(None, prompt='>')
         self.arista_prompt = self.get_arista_prompt(first_prompt)
 
         self.do_cmd('enable')
@@ -85,7 +66,8 @@ class Arista(object):
 
         self.show_lacp_command = self.parse_supported_show_lacp_command()
         self.show_ip_bgp_command = self.parse_supported_bgp_neighbor_command()
-        self.show_ipv6_bgp_command = self.parse_supported_bgp_neighbor_command(v4=False)
+        self.show_ipv6_bgp_command = self.parse_supported_bgp_neighbor_command(
+            v4=False)
         return self.shell
 
     def get_arista_prompt(self, first_prompt):
@@ -94,8 +76,8 @@ class Arista(object):
         # match all modes - A#, A(config)#, A(config-if)#
         return prompt.strip().replace('>', '.*#')
 
-    def do_cmd(self, cmd, prompt = None):
-        if prompt == None:
+    def do_cmd(self, cmd, prompt=None):
+        if prompt is None:
             prompt = self.arista_prompt
 
         if cmd is not None:
@@ -112,9 +94,11 @@ class Arista(object):
         received_all_data = False
 
         while not received_all_data:
-            recv_ready_timeout = (time.time() - start_time) >= Arista.SSH_CMD_TIMEOUT
+            recv_ready_timeout = (
+                time.time() - start_time) >= Arista.SSH_CMD_TIMEOUT
             # if pipe is empty and not timeout yet, keep waiting
-            should_wait = (not recv_ready_timeout) and (not self.shell.recv_ready())
+            should_wait = (not recv_ready_timeout) and (
+                not self.shell.recv_ready())
             if should_wait:
                 time.sleep(0.5)
                 continue
@@ -122,7 +106,8 @@ class Arista(object):
             try:
                 input_buffer += self.shell.recv(16384)
             except Exception as err:
-                msg = 'Receive ssh command result error: cmd={} msg={} type={}'.format(cmd, err, type(err))
+                msg = 'Receive ssh command result error: cmd={} msg={} type={}'.format(
+                    cmd, err, type(err))
                 self.log(msg)
                 return msg
 
@@ -131,8 +116,9 @@ class Arista(object):
             # cEOS will not return an arista_prompt if you send lots of 'exit' to close the ssh connect(vEOS do will),
             # so if input_buffer is merely an 'exit', it also means received all data
             received_all_data = (re.search(prompt, input_buffer) is not None) \
-                                or \
-                                (input_buffer.replace('\n', '').replace('\r', '').strip().lower() == 'exit')
+                or \
+                                (input_buffer.replace('\n', '').replace(
+                                    '\r', '').strip().lower() == 'exit')
 
         return input_buffer
 
@@ -151,7 +137,6 @@ class Arista(object):
         quit_enabled = False
         v4_routing_ok = False
         v6_routing_ok = False
-        routing_works = True
         self.connect()
 
         cur_time = time.time()
@@ -159,11 +144,14 @@ class Arista(object):
         samples = {}
         portchannel_output = self.do_cmd("show interfaces po1 | json")
         portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
-        sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
+        sample["po_changetime"] = json.loads(portchannel_output, strict=False)[
+            'interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
-        self.collect_lacppdu_time = True
 
-        while not (quit_enabled and v4_routing_ok and v6_routing_ok):
+        # TODO: Disabling v6_routing_ok check due to IPv6 FRR issue. Re-add v6_routing_ok once either:
+        # * https://github.com/FRRouting/frr/issues/13587 is fixed and the fix gets merged into SONiC, or
+        # * https://github.com/sonic-net/sonic-buildimage/pull/12853 is reverted
+        while not (quit_enabled and v4_routing_ok):
             cmd = None
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok
@@ -172,47 +160,45 @@ class Arista(object):
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
-                if cmd == 'cpu_down':
+
+                if (cmd == 'cpu_down' or cmd == 'cpu_going_up' or cmd == 'cpu_up'):
                     last_lacppdu_time_before_reboot = self.check_last_lacppdu_time()
                     if last_lacppdu_time_before_reboot is not None:
-                        self.lacp_pdu_time_on_down.append(last_lacppdu_time_before_reboot)
-                if (cmd == 'cpu_going_up' or cmd == 'cpu_up') and self.collect_lacppdu_time:
-                    # control plane is back up, start polling for new lacp-pdu
-                    last_lacppdu_time_after_reboot = self.check_last_lacppdu_time()
-                    if last_lacppdu_time_before_reboot is not None and last_lacppdu_time_after_reboot is not None and \
-                            int(last_lacppdu_time_after_reboot) > int(last_lacppdu_time_before_reboot):
-                        self.lacp_pdu_time_on_up.append(last_lacppdu_time_after_reboot)
-                        self.collect_lacppdu_time = False # post-reboot lacp-pdu is received, stop the polling
+                        self.lacp_pdu_timings.append(last_lacppdu_time_before_reboot)
 
             cur_time = time.time()
             info = {}
-            debug_info = {}
             lacp_output = self.do_cmd(self.show_lacp_command)
             info['lacp'] = self.parse_lacp(lacp_output)
             bgp_neig_output = self.do_cmd(self.show_ip_bgp_command)
             info['bgp_neig'] = self.parse_bgp_neighbor(bgp_neig_output)
 
-            v4_routing, bgp_route_v4_output = self.check_bgp_route(self.v4_routes)
+            v4_routing, bgp_route_v4_output = self.check_bgp_route(
+                self.v4_routes)
             if v4_routing != v4_routing_ok:
                 v4_routing_ok = v4_routing
                 self.log('BGP routing for ipv4 OK: %s' % (v4_routing_ok))
             info['bgp_route_v4'] = v4_routing_ok
 
-            v6_routing, bgp_route_v6_output = self.check_bgp_route(self.v6_routes, ipv6=True)
+            v6_routing, bgp_route_v6_output = self.check_bgp_route(
+                self.v6_routes, ipv6=True)
             if v6_routing != v6_routing_ok:
                 v6_routing_ok = v6_routing
                 self.log('BGP routing for ipv6 OK: %s' % (v6_routing_ok))
             info["bgp_route_v6"] = v6_routing_ok
 
             portchannel_output = self.do_cmd("show interfaces po1 | json")
-            portchannel_output = "\n".join(portchannel_output.split("\r\n")[1:-1])
-            sample["po_changetime"] = json.loads(portchannel_output, strict=False)['interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
+            portchannel_output = "\n".join(
+                portchannel_output.split("\r\n")[1:-1])
+            sample["po_changetime"] = json.loads(portchannel_output, strict=False)[
+                'interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
 
             if not run_once:
                 # clear Portchannel counters
                 self.do_cmd("clear counters Port-Channel 1")
 
-                self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(bgp_neig_output)
+                self.ipv4_gr_enabled, self.ipv6_gr_enabled, self.gr_timeout = self.parse_bgp_neighbor_once(
+                    bgp_neig_output)
                 if self.gr_timeout is not None:
                     log_first_line = "session_begins_%f" % cur_time
                     self.do_cmd("send log message %s" % log_first_line)
@@ -222,10 +208,10 @@ class Arista(object):
             samples[cur_time] = sample
             if self.DEBUG:
                 debug_data[cur_time] = {
-                    'show lacp neighbor' : lacp_output,
-                    'show ip bgp neighbors' : bgp_neig_output,
-                    'show ip route bgp' : bgp_route_v4_output,
-                    'show ipv6 route bgp' : bgp_route_v6_output,
+                    'show lacp neighbor': lacp_output,
+                    'show ip bgp neighbors': bgp_neig_output,
+                    'show ip route bgp': bgp_route_v4_output,
+                    'show ipv6 route bgp': bgp_route_v6_output,
                 }
             time.sleep(1)
 
@@ -239,14 +225,16 @@ class Arista(object):
             log_lines = log_output.split("\r\n")[1:-1]
             try:
                 log_data = self.parse_logs(log_lines)
-                if (self.reboot_type == 'fast-reboot' and \
-                    any(k.startswith('BGP') for k in log_data) and any(k.startswith('PortChannel') for k in log_data)) \
-                        or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)):
+                if (self.reboot_type == 'fast-reboot' and any(k.startswith('BGP') for k in log_data)
+                    and any(k.startswith('PortChannel') for k in log_data)) \
+                        or (self.reboot_type == 'warm-reboot' and any(k.startswith('BGP') for k in log_data)) \
+                        or (self.reboot_type == 'service-warm-restart' and any(k.startswith('BGP') for k in log_data)):
                     log_present = True
                     break
-                time.sleep(1) # wait until logs are populated
+                time.sleep(1)  # wait until logs are populated
             except Exception as err:
-                msg = 'Exception occured when parsing logs from VM: msg={} type={}'.format(err, type(err))
+                msg = 'Exception occured when parsing logs from VM: msg={} type={}'.format(
+                    err, type(err))
                 self.log(msg)
                 self.fails.add(msg)
 
@@ -270,13 +258,17 @@ class Arista(object):
         self.log('Checking BGP GR peer status on VM')
         self.check_gr_peer_status(data)
         cli_data = {}
-        cli_data['lacp']   = self.check_series_status(data, "lacp",         "LACP session")
-        cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
-        cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
-        cli_data['po']     = self.check_change_time(samples, "po_changetime", "PortChannel interface")
+        cli_data['lacp'] = self.check_series_status(
+            data, "lacp",         "LACP session")
+        cli_data['bgp_v4'] = self.check_series_status(
+            data, "bgp_route_v4", "BGP v4 routes")
+        # TODO: same as above for v6_routing_ok
+        cli_data['bgp_v6'] = (1, 0)
+        cli_data['po'] = self.check_change_time(
+            samples, "po_changetime", "PortChannel interface")
 
         if 'route_timeout' in log_data:
-            route_timeout             = log_data['route_timeout']
+            route_timeout = log_data['route_timeout']
             cli_data['route_timeout'] = route_timeout
 
             # {'10.0.0.38': [(0, '4200065100)')], 'fc00::2d': [(0, '4200065100)')]}
@@ -286,7 +278,9 @@ class Arista(object):
                 self.fails.add(msg)
 
         self.log('Finishing run()')
-        return self.fails, self.info, cli_data, log_data, {"lacp_down": self.lacp_pdu_time_on_down, "lacp_up": self.lacp_pdu_time_on_up}
+        return self.fails, self.info, cli_data, log_data, {
+            "lacp_all": list(set(self.lacp_pdu_timings))
+            }
 
     def extract_from_logs(self, regexp, data):
         raw_data = []
@@ -297,12 +291,14 @@ class Arista(object):
             m = re_compiled.match(line)
             if not m:
                 continue
-            raw_data.append((datetime.datetime.strptime(m.group(1), "%b %d %X"), m.group(2), m.group(3)))
+            raw_data.append((datetime.datetime.strptime(
+                m.group(1), "%b %d %X"), m.group(2), m.group(3)))
 
         if len(raw_data) > 0:
             initial_time = raw_data[0][0]
             for when, what, status in raw_data:
-                offset = (when - initial_time if when > initial_time else initial_time - when).seconds
+                offset = (when - initial_time if when >
+                          initial_time else initial_time - when).seconds
                 result[what].append((offset, status))
 
         return result, initial_time
@@ -311,18 +307,23 @@ class Arista(object):
         result = {}
         bgp_r = r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-ADJCHANGE: peer (\S+) .+ (\S+)$'
         result_bgp, initial_time_bgp = self.extract_from_logs(bgp_r, data)
-        if_r = r'^(\S+\s+\d+\s+\S+) \S+ Ebra: %LINEPROTO-5-UPDOWN: Line protocol on Interface (\S+), changed state to (\S+)$'
+        if_r = (r'^(\S+\s+\d+\s+\S+) \S+ Ebra: %LINEPROTO-5-UPDOWN: '
+                r'Line protocol on Interface (\S+), changed state to (\S+)$')
         result_if, initial_time_if = self.extract_from_logs(if_r, data)
 
-        route_r = r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-BGP_GRACEFUL_RESTART_TIMEOUT: Deleting stale routes from peer (\S+) .+ (\S+)$'
+        route_r = (r'^(\S+\s+\d+\s+\S+) \S+ Rib: %BGP-5-BGP_GRACEFUL_RESTART_TIMEOUT: '
+                   r'Deleting stale routes from peer (\S+) .+ (\S+)$')
         result_rt, initial_time_rt = self.extract_from_logs(route_r, data)
 
         result['route_timeout'] = result_rt
 
-        # for fast-reboot, we expect to have both the bgp and portchannel events in the logs. for warm-reboot, portchannel events might not be present in the logs all the time.
+        # for fast-reboot, we expect to have both the bgp and portchannel events in the logs.
+        # for warm-reboot, portchannel events might not be present in the logs all the time.
         if self.reboot_type == 'fast-reboot' and (initial_time_bgp == -1 or initial_time_if == -1):
             return result
         elif self.reboot_type == 'warm-reboot' and initial_time_bgp == -1:
+            return result
+        elif self.reboot_type == 'service-warm-restart' and initial_time_bgp == -1:
             return result
 
         for events in result_bgp.values():
@@ -333,10 +334,12 @@ class Arista(object):
         for events in result_bgp.values():
             if len(events) > 1:
                 first_state = events[0][1]
-                assert first_state != 'Established', 'First BGP state should not be Established, it was {}'.format(first_state)
+                assert first_state != 'Established', 'First BGP state should not be Established, it was {}'.format(
+                    first_state)
 
             last_state = events[-1][1]
-            assert last_state == 'Established', 'Last BGP state is not Established, it was {}'.format(last_state)
+            assert last_state == 'Established', 'Last BGP state is not Established, it was {}'.format(
+                last_state)
 
         # verify BGP establishment time between v4 and v6 peer is not more than self.bgp_v4_v6_time_diff
         if self.reboot_type == 'warm-reboot':
@@ -345,7 +348,8 @@ class Arista(object):
                 if estab_time > 0:
                     diff = abs(result_bgp[ip][-1][0] - estab_time)
                     assert diff <= self.bgp_v4_v6_time_diff, \
-                        'BGP establishement time between v4 and v6 peer is longer than {} sec, it was {}'.format(self.bgp_v4_v6_time_diff, diff)
+                        'BGP establishement time between v4 and v6 peer is longer than {} sec, it was {}'.format(
+                            self.bgp_v4_v6_time_diff, diff)
                     break
                 estab_time = result_bgp[ip][-1][0]
 
@@ -353,30 +357,39 @@ class Arista(object):
         for events in result_if.values():
             first_state = events[0][1]
             last_state = events[-1][1]
-            assert first_state == 'down', 'First PO state should be down, it was {}'.format(first_state)
-            assert last_state == 'up', 'Last PO state should be up, it was {}'.format(last_state)
+            assert first_state == 'down', 'First PO state should be down, it was {}'.format(
+                first_state)
+            assert last_state == 'up', 'Last PO state should be up, it was {}'.format(
+                last_state)
 
-        neigh_ipv4 = [neig_ip for neig_ip in result_bgp.keys() if '.' in neig_ip][0]
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was down (seconds)" if ':' in neig_ip else "BGP IPv4 was down (seconds)"
-            result[key] = result_bgp[neig_ip][-1][0] - result_bgp[neig_ip][0][0]
+            result[key] = result_bgp[neig_ip][-1][0] - \
+                result_bgp[neig_ip][0][0]
 
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
             result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
 
         if initial_time_if != -1:
-            po_name = [ifname for ifname in result_if.keys() if 'Port-Channel' in ifname][0]
-            result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - result_if[po_name][0][0]
+            po_name = [ifname for ifname in result_if.keys()
+                       if 'Port-Channel' in ifname][0]
+            result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - \
+                result_if[po_name][0][0]
             for if_name in sorted(result_if.keys()):
-                result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
+                result['Interface %s was down (times)' % if_name] = map(
+                    itemgetter(1), result_if[if_name]).count("down")
 
-            bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if > initial_time_bgp else initial_time_bgp - initial_time_if).seconds
-            result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + result_if[po_name][0][0]
+            bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if >
+                             initial_time_bgp else initial_time_bgp - initial_time_if).seconds
+            result['PortChannel went down after bgp session was down (seconds)'] = bgp_po_offset + \
+                result_if[po_name][0][0]
 
             for neig_ip in result_bgp.keys():
-                key = "BGP IPv6 was gotten up after Po was up (seconds)" if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
-                result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset - result_if[po_name][-1][0]
+                key = "BGP IPv6 was gotten up after Po was up (seconds)" \
+                    if ':' in neig_ip else "BGP IPv4 was gotten up after Po was up (seconds)"
+                result[key] = result_bgp[neig_ip][-1][0] - \
+                    bgp_po_offset - result_if[po_name][-1][0]
 
         return result
 
@@ -408,7 +421,7 @@ class Arista(object):
             if 'BGP neighbor is' in line:
                 dut_bgp = re.findall('BGP neighbor is (.*?),', line)[0]
             elif 'Local AS is' in line:
-                asn = re.findall('Local AS is (\d+?),', line)[0]
+                asn = re.findall(r'Local AS is (\d+?),', line)[0]
             elif 'Local TCP address is' in line:
                 neigh_bgp = re.findall('Local TCP address is (.*?),', line)[0]
                 break
@@ -474,7 +487,6 @@ class Arista(object):
         self.log("show lacp command is '{}'".format(show_lacp_command))
         return show_lacp_command
 
-
     def parse_supported_bgp_neighbor_command(self, v4=True):
         help_cmd = "show ip bgp ?" if v4 else "show ipv6 bgp ?"
         ip_bgp_help = self.do_cmd(help_cmd)
@@ -492,13 +504,14 @@ class Arista(object):
         self.do_cmd(suffix)
         if v4:
             show_bgp_neighbors_cmd = "show ip bgp {}".format(suffix)
-            self.log("show ip bgp neighbor command is '{}'".format(show_bgp_neighbors_cmd))
+            self.log("show ip bgp neighbor command is '{}'".format(
+                show_bgp_neighbors_cmd))
         else:
             show_bgp_neighbors_cmd = "show ipv6 bgp {}".format(suffix)
-            self.log("show ipv6 bgp neighbor command is '{}'".format(show_bgp_neighbors_cmd))
+            self.log("show ipv6 bgp neighbor command is '{}'".format(
+                show_bgp_neighbors_cmd))
 
         return show_bgp_neighbors_cmd
-
 
     def check_bgp_route(self, expects, ipv6=False):
         cmd = 'show ip route {} | json'
@@ -512,7 +525,6 @@ class Arista(object):
 
         return ok, output
 
-
     def check_last_lacppdu_time(self):
         """
         ARISTA01T1#show lacp internal detailed
@@ -523,12 +535,13 @@ class Arista(object):
             D = Distributing (aggregating outgoing frames),
             d = default neighbor state
             Status  |         | Partner                                    Actor                                 Last             State Machines
-        Port + = h/w Select   | Sys-id                 Port# State   OperKey  AdminKey  PortPriority  Churn     RxTime   Rx       mux                     MuxReason                       TimeoutMultiplier
-        ---- ------- ---------|----------------------- ----- ------- -------- --------- ------------- -------- --------- -------- ----------------------- ------------------------------- -----------------
+        Port + = h/w Select   | Sys-id                 Port# State   OperKey  AdminKey  PortPriority  Churn     RxTime   Rx       mux                     MuxReason                       TimeoutMultiplier         # noqa E501
+        ---- ------- ---------|----------------------- ----- ------- -------- --------- ------------- -------- --------- -------- ----------------------- ------------------------------- -----------------         # noqa E501
         Port Channel Port-Channel1:
-        Et1  Bundled Selected | FFFF,00-e0-ec-c2-af-7a     1 ALGs+CD  0x0001    0x0001         32768  noChurn  23:08:47  Current  CollectingDistributing  muxActorCollectingDistributing                  3
+        Et1  Bundled Selected | FFFF,00-e0-ec-c2-af-7a     1 ALGs+CD  0x0001    0x0001         32768  noChurn  23:08:47  Current  CollectingDistributing  muxActorCollectingDistributing                  3         # noqa E501
 
-        The above output is JSON formatted by EOS, and below is example (with irrelevant fileds removed for simplify example)
+        The above output is JSON formatted by EOS,
+        and below is example (with irrelevant fileds removed for simplify example)
 
         ARISTA01T1# show lacp internal detailed | json
         {
@@ -556,12 +569,11 @@ class Arista(object):
         json_output = json.loads(data)
         last_lacp_pdu_time = json_output.get("portChannels", {})\
             .get("Port-Channel1", {})\
-                .get("interfaces", {})\
-                    .get("Ethernet1", {})\
-                        .get("details", {})\
-                            .get("lastRxTime")
+            .get("interfaces", {})\
+            .get("Ethernet1", {})\
+            .get("details", {})\
+            .get("lastRxTime")
         return last_lacp_pdu_time
-
 
     def get_bgp_info(self):
         # Retreive BGP info (peer addr, AS) for the dut and neighbor
@@ -589,12 +601,12 @@ class Arista(object):
         if self.veos_version < 4.20:
             self.do_cmd('%s' % state[is_up])
         else:
-            if is_up == True:
+            if is_up is True:
                 self.do_cmd('%s' % state[is_up])
             else:
-                # shutdown BGP will pop confirm message, the message is 
+                # shutdown BGP will pop confirm message, the message is
                 # "You are attempting to shutdown BGP. Are you sure you want to shutdown? [confirm]"
-                self.do_cmd('%s' % state[is_up], prompt = '[confirm]')
+                self.do_cmd('%s' % state[is_up], prompt='[confirm]')
                 self.do_cmd('y')
         self.do_cmd('exit')
         self.do_cmd('exit')
@@ -612,22 +624,25 @@ class Arista(object):
                     # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
                     bgp_state[ver] = not obj['vrfs']
                 else:
-                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
+                    self.fails.add(
+                        'Verify BGP %s neighbor: Object missing in output' % ver)
             else:
                 if 'vrfs' in obj and 'default' in obj['vrfs']:
                     obj = obj['vrfs']['default']
                     if 'peers' in obj:
-                        bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] in state)
+                        bgp_state[ver] = (
+                            obj['peers'][dut[ver]]['peerState'] in state)
                     else:
-                        self.fails.add('Verify BGP %S neighbor: Peer attribute missing in output' % ver)
+                        self.fails.add('Verify BGP %s neighbor: Peer attribute missing in output' % ver)
                 else:
-                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
+                    self.fails.add(
+                        'Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
 
     def change_neigh_lag_state(self, intf, is_up=True):
         state = ['shut', 'no shut']
         self.do_cmd('configure')
-        is_match = re.match('(Port-Channel|Ethernet)\d+', intf)
+        is_match = re.match(r'(Port-Channel|Ethernet)\d+', intf)
         if is_match:
             output = self.do_cmd('interface %s' % intf)
             if 'Invalid' not in output:
@@ -643,7 +658,7 @@ class Arista(object):
         states = state.split(',')
         lag_state = False
         msg_prefix = ['Postboot', 'Preboot']
-        is_match = re.match('(Port-Channel|Ethernet)\d+', lag)
+        is_match = re.match(r'(Port-Channel|Ethernet)\d+', lag)
         if is_match:
             output = self.do_cmd('show interfaces %s | json' % lag)
             if 'Invalid' not in output:
@@ -651,9 +666,11 @@ class Arista(object):
                 obj = json.loads(data)
 
                 if 'interfaces' in obj and lag in obj['interfaces']:
-                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] in states)
+                    lag_state = (obj['interfaces'][lag]
+                                 ['interfaceStatus'] in states)
                 else:
-                    self.fails.add('%s: Verify LAG %s: Object missing in output' % (msg_prefix[pre_check], lag))
+                    self.fails.add('%s: Verify LAG %s: Object missing in output' % (
+                        msg_prefix[pre_check], lag))
                 return self.fails, lag_state
 
         self.fails.add('%s: Invalid interface name' % msg_prefix[pre_check])
@@ -681,15 +698,19 @@ class Arista(object):
         if not self.ipv4_gr_enabled:
             self.fails.add("bgp ipv4 graceful restart is not enabled")
         if not self.ipv6_gr_enabled:
-            pass # ToDo:
-        if self.gr_timeout < 120: # bgp graceful restart timeout less then 120 seconds
-            self.fails.add("bgp graceful restart timeout ({}) is less then 120 seconds".format(self.gr_timeout))
+            pass  # ToDo:
+        if self.gr_timeout < 120:  # bgp graceful restart timeout less then 120 seconds
+            self.fails.add(
+                "bgp graceful restart timeout ({}) is less then 120 seconds".format(self.gr_timeout))
 
-        for when, other in sorted(output.items(), key = lambda x : x[0]):
+        for when, other in sorted(output.items(), key=lambda x: x[0]):
             gr_active, timer = other['bgp_neig']
-            # wnen it's False, it's ok, wnen it's True, check that inactivity timer not less then self.min_bgp_gr_timeout seconds
-            if gr_active and datetime.datetime.strptime(timer, '%H:%M:%S') < datetime.datetime(1900, 1, 1, second = self.min_bgp_gr_timeout):
-                self.fails.add("graceful restart timer is almost finished. Less then %d seconds left" % self.min_bgp_gr_timeout)
+            # when it's False, it's ok, when it's True,
+            # check that inactivity timer not less then self.min_bgp_gr_timeout seconds
+            if gr_active and datetime.datetime.strptime(timer, '%H:%M:%S') \
+                    < datetime.datetime(1900, 1, 1, second=self.min_bgp_gr_timeout):
+                self.fails.add(
+                    "graceful restart timer is almost finished. Less then %d seconds left" % self.min_bgp_gr_timeout)
 
     def check_series_status(self, output, entity, what):
         # find how long anything was down
@@ -707,6 +728,10 @@ class Arista(object):
             self.fails.add("%s must be up when the test stops" % what)
             return 0, 0
 
+        if len(sorted_keys) == 1:
+            # for service warm restart, the down count could be 0
+            return 0, 0
+
         start = sorted_keys[0]
         cur_state = True
         res = defaultdict(list)
@@ -722,7 +747,7 @@ class Arista(object):
         if is_down_count > 1:
             self.info.add("%s must be down just for once" % what)
 
-        return is_down_count, sum(res[False]) # summary_downtime
+        return is_down_count, sum(res[False])  # summary_downtime
 
     def check_change_time(self, output, entity, what):
         # find last changing time updated, if no update, the entity is never changed
@@ -752,5 +777,6 @@ class Arista(object):
         version = 0
         for line in output.split('\n'):
             if ('Software image version: ' in line):
-                version = float(re.search('([1-9]{1}\d*)(\.\d{0,2})', line).group())
+                version = float(
+                    re.search(r'([1-9]{1}\d*)(\.\d{0,2})', line).group())
         return version

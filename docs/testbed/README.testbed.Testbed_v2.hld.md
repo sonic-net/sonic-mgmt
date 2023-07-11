@@ -106,7 +106,7 @@ Protocol                         =
 ```
 * `PORT_LIST`
 ```
-; List contains physical ports of either a root/leaf fanout switch, DUT or server 
+; List contains physical ports of either a root/leaf fanout switch, DUT or server
 key                              = PORT_LIST:<switch_name|dut_name|server_name>
 ```
 * `PORT_TABLE`
@@ -165,7 +165,7 @@ PSU<1|2>                         = jsonified peer PDU port meta
 ![start_db](img/testbed_v2_start_db.png)
 
 #### db provision
-* Provision the `connection_db` with the physical connections and static VLAN assignments defined in the connection graph file defined in [ansible/files](https://github.com/Azure/sonic-mgmt/tree/master/ansible/files).
+* Provision the `connection_db` with the physical connections and static VLAN assignments defined in the connection graph file defined in [ansible/files](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/files).
 
 ![provision_db](img/testbed_v2_provision_db.png)
 

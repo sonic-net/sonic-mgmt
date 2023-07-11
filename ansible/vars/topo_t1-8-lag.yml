@@ -5,27 +5,10 @@ topology:
         - 0
         - 1
       vm_offset: 0
-    ARISTA03T2:
-      vlans:
-        - 2
-        - 3
-      vm_offset: 1
     ARISTA01T0:
       vlans:
         - 4
-      vm_offset: 2
-    ARISTA02T0:
-      vlans:
-        - 5
-      vm_offset: 3
-    ARISTA03T0:
-      vlans:
-        - 6
-      vm_offset: 4
-    ARISTA04T0:
-      vlans:
-        - 7
-      vm_offset: 5
+      vm_offset: 1
 
 configuration_properties:
   common:
@@ -69,31 +52,6 @@ configuration:
       ipv4: 10.10.246.1/24
       ipv6: fc0a::2/64
 
-  ARISTA03T2:
-    properties:
-    - common
-    - spine
-    bgp:
-      asn: 65200
-      peers:
-        65100:
-        - 10.0.0.4
-        - FC00::9
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.3/32
-        ipv6: 2064:100::3/128
-      Ethernet1:
-        lacp: 1
-      Ethernet2:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.0.5/31
-        ipv6: fc00::a/126
-    bp_interface:
-      ipv4: 10.10.246.3/24
-      ipv6: fc0a::6/64
-
   ARISTA01T0:
     properties:
     - common
@@ -117,80 +75,3 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.17/24
       ipv6: fc0a::22/64
-
-  ARISTA02T0:
-    properties:
-    - common
-    - tor
-    tornum: 2
-    bgp:
-      asn: 64002
-      peers:
-        65100:
-        - 10.0.0.34
-        - FC00::45
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.18/32
-        ipv6: 2064:100::12/128
-      Ethernet1:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.0.35/31
-        ipv6: fc00::46/126
-    bp_interface:
-      ipv4: 10.10.246.18/24
-      ipv6: fc0a::25/64
-
-  ARISTA03T0:
-    properties:
-    - common
-    - tor
-    tornum: 3
-    bgp:
-      asn: 64003
-      peers:
-        65100:
-        - 10.0.0.36
-        - FC00::49
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.19/32
-        ipv6: 2064:100::13/128
-      Ethernet1:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.0.37/31
-        ipv6: fc00::4a/126
-    bp_interface:
-      ipv4: 10.10.246.19/24
-      ipv6: fc0a::26/64
-    vips:
-      ipv4:
-        prefixes:
-          - 200.0.1.0/26
-        asn: 64700
-
-  ARISTA04T0:
-    properties:
-    - common
-    - tor
-    tornum: 4
-    bgp:
-      asn: 64004
-      peers:
-        65100:
-        - 10.0.0.38
-        - FC00::4D
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.20/32
-        ipv6: 2064:100::14/128
-      Ethernet1:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.0.39/31
-        ipv6: fc00::4e/126
-    bp_interface:
-      ipv4: 10.10.246.20/24
-      ipv6: fc0a::29/64

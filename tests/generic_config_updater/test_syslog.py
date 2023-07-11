@@ -28,8 +28,7 @@ def syslog_config_cleanup(duthost, cfg_facts):
     """
     syslog_servers = cfg_facts.get('SYSLOG_SERVER', {})
     for syslog_server in syslog_servers:
-        del_syslog_server = duthost.shell("config syslog del {}".format(syslog_server),
-            module_ignore_errors=True)
+        del_syslog_server = duthost.shell("config syslog del {}".format(syslog_server), module_ignore_errors=True)
         pytest_assert(
             not del_syslog_server['rc'],
             "syslog server '{}' is not deleted successfully".format(syslog_server)
@@ -55,9 +54,7 @@ def get_current_syslog_servers(duthost):
     cmds = "show runningconfiguration syslog"
     output = duthost.shell(cmds)
 
-    pytest_assert(not output['rc'],
-        "'{}' is not running successfully".format(cmds)
-    )
+    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
 
     # If len less than 3 means not syslog output
     lines = output['stdout'].splitlines()
@@ -103,9 +100,7 @@ def expect_res_success_syslog(duthost, expected_content_list, unexpected_content
     """
     cmds = "show runningconfiguration syslog"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' is not running successfully".format(cmds)
-    )
+    pytest_assert(not output['rc'], "'{}' is not running successfully".format(cmds))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
@@ -185,23 +180,23 @@ def syslog_server_tc1_add_duplicate(duthost):
 def syslog_server_tc1_xfail(duthost):
     """ Test expect fail testcase
 
-    ("add", "10.0.0.587", "cc98:2008::1"), ADD Invalid IPv4 address
-    ("add", "10.0.0.5", "cc98:2008::xyz"), ADD Invalid IPv6 address
-    ("remove", "10.0.0.6", "cc98:2008:1"), REMOVE Unexist IPv4 address
-    ("remove", "10.0.0.5", "cc98:2008::2") REMOVE Unexist IPv6 address
+    ("add", "-badhostname", "cc98:2008::1"),   ADD Invalid hostname
+    ("add", "goodhostname", "cc98:2008::xyz"), ADD Invalid IPv6 address
+    ("remove", "10.0.0.6", "cc98:2008:1"),     REMOVE Unexist IPv4 address
+    ("remove", "goodhostname", "cc98:2008::2") REMOVE Unexist IPv6 address
     """
     xfail_input = [
-        ("add", "10.0.0.587", "cc98:2008::1"),
-        ("add", "10.0.0.5", "cc98:2008::xyz"),
+        ("add", "-badhostname", "cc98:2008::1"),
+        ("add", "goodhostname", "cc98:2008::xyz"),
         ("remove", "10.0.0.6", "cc98:2008:1"),
         ("remove", "10.0.0.5", "cc98:2008::2")
     ]
 
-    for op, dummy_syslog_server_v4, dummy_syslog_server_v6 in xfail_input:
+    for op, dummy_syslog_server_hostname, dummy_syslog_server_v6 in xfail_input:
         json_patch = [
             {
                 "op": "{}".format(op),
-                "path": "/SYSLOG_SERVER/{}".format(dummy_syslog_server_v4),
+                "path": "/SYSLOG_SERVER/{}".format(dummy_syslog_server_hostname),
                 "value": {}
             },
             {
@@ -305,4 +300,3 @@ def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
     syslog_server_tc1_xfail(rand_selected_dut)
     syslog_server_tc1_replace(rand_selected_dut)
     syslog_server_tc1_remove(rand_selected_dut)
-

@@ -1,4 +1,3 @@
-from tests.common import reboot, port_toggle
 import os
 import time
 import random
@@ -6,7 +5,7 @@ import logging
 import pprint
 import pytest
 import json
-
+import six
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -18,18 +17,24 @@ from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
 from tests.common.utilities import wait_until
-from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.interface_utils import check_all_interface_information
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("any"),
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
 ]
+
+MAX_WAIT_TIME_FOR_INTERFACES = 360
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = "acl_test_dir"  # Keep it under home dir so it persists through reboot
@@ -45,8 +50,8 @@ ACL_RULES_FULL_TEMPLATE = {
     "ipv6": "acltb_v6_test_rules.j2"
 }
 ACL_RULES_PART_TEMPLATES = {
-    "ipv4": tuple("acltb_test_rules_part_{}.j2".format(i) for i in xrange(1, 3)),
-    "ipv6": tuple("acltb_v6_test_rules_part_{}.j2".format(i) for i in xrange(1, 3))
+    "ipv4": tuple("acltb_test_rules_part_{}.j2".format(i) for i in range(1, 3)),
+    "ipv6": tuple("acltb_v6_test_rules_part_{}.j2".format(i) for i in range(1, 3))
 }
 
 DEFAULT_SRC_IP = {
@@ -59,30 +64,58 @@ DEFAULT_SRC_IP = {
 # This needs to be addressed before we can enable the v6 tests for T0
 DOWNSTREAM_DST_IP = {
     "ipv4": "192.168.0.253",
-    "ipv6": "20c0:a800::2"
+    "ipv6": "20c0:a800::14"
 }
 DOWNSTREAM_IP_TO_ALLOW = {
     "ipv4": "192.168.0.252",
-    "ipv6": "20c0:a800::4"
+    "ipv6": "20c0:a800::1"
 }
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
-    "ipv6": "20c0:a800::8"
+    "ipv6": "20c0:a800::9"
+}
+
+# Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
+DOWNSTREAM_DST_IP_M0_L3 = {
+    "ipv4": "192.168.1.65",
+    "ipv6": "20c0:a800:0:1::14"
+}
+DOWNSTREAM_IP_TO_ALLOW_M0_L3 = {
+    "ipv4": "192.168.1.66",
+    "ipv6": "20c0:a800:0:1::1"
+}
+DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
+    "ipv4": "192.168.1.67",
+    "ipv6": "20c0:a800:0:1::9"
+}
+
+# Below M0_VLAN IPs are ip in vlan range
+DOWNSTREAM_DST_IP_VLAN = {
+    "ipv4": "192.168.0.253",
+    "ipv6": "fc02:1000::5"
+}
+DOWNSTREAM_IP_TO_ALLOW_VLAN = {
+    "ipv4": "192.168.0.252",
+    "ipv6": "fc02:1000::6"
+}
+DOWNSTREAM_IP_TO_BLOCK_VLAN = {
+    "ipv4": "192.168.0.251",
+    "ipv6": "fc02:1000::7"
 }
 
 DOWNSTREAM_IP_PORT_MAP = {}
 
 UPSTREAM_DST_IP = {
-    "ipv4": "192.168.128.1",
-    "ipv6": "40c0:a800::2"
+    "ipv4": "194.50.16.1",
+    "ipv6": "20c1:d180::11"
 }
 UPSTREAM_IP_TO_ALLOW = {
-    "ipv4": "192.168.136.1",
-    "ipv6": "40c0:a800::4"
+    "ipv4": "193.191.32.1",
+    "ipv6": "20c1:cb50::12"
 }
 UPSTREAM_IP_TO_BLOCK = {
-    "ipv4": "192.168.144.1",
-    "ipv6": "40c0:a800::8"
+    "ipv4": "193.221.112.1",
+    "ipv6": "20c1:e2f0::13"
 }
 
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
@@ -95,11 +128,12 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 PACKETS_COUNT = "packets_count"
 BYTES_COUNT = "bytes_count"
 
+
 @pytest.fixture(scope="module", autouse=True)
 def remove_dataacl_table(duthosts):
     """
     Remove DATAACL to free TCAM resources.
-    The change is written to configdb as we don't want DATAACL recovered after reboot  
+    The change is written to configdb as we don't want DATAACL recovered after reboot
     """
     TABLE_NAME = "DATAACL"
     for duthost in duthosts:
@@ -122,8 +156,89 @@ def remove_dataacl_table(duthosts):
     for duthost in duthosts:
         config_reload(duthost, config_source="minigraph")
 
+
+def get_t2_info(duthosts, tbinfo):
+    # Get the list of upstream/downstream ports
+    downstream_ports, upstream_ports, acl_table_ports_per_dut = defaultdict(list), defaultdict(list), defaultdict(list)
+    upstream_port_id_to_router_mac_map, downstream_port_id_to_router_mac_map = {}, {}
+    downstream_port_ids, upstream_port_ids = [], []
+    port_channels = dict()
+
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+        upstream_ports_per_dut, downstream_ports_per_dut, acl_table_ports = (defaultdict(list),
+                                                                             defaultdict(list), defaultdict(list))
+
+        for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+            namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') \
+                  else DEFAULT_NAMESPACE
+            if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
+                continue
+            asic_id = duthost.get_asic_id_from_namespace(namespace)
+            router_mac = duthost.asic_instance(asic_id).get_router_mac()
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
+            for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+                port_id = mg_facts["minigraph_ptf_indices"][interface]
+                if "T1" in neighbor["name"]:
+                    downstream_ports_per_dut[namespace].append(interface)
+                    downstream_port_ids.append(port_id)
+                    downstream_port_id_to_router_mac_map[port_id] = router_mac
+                elif "T3" in neighbor["name"]:
+                    upstream_ports_per_dut[namespace].append(interface)
+                    upstream_port_ids.append(port_id)
+                    upstream_port_id_to_router_mac_map[port_id] = router_mac
+                mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
+
+            port_channels[namespace] = mg_facts["minigraph_portchannels"]
+            backend_pc = list()
+            for k in port_channels[namespace]:
+                if duthost.is_backend_portchannel(k, mg_facts):
+                    backend_pc.append(k)
+            for pc in backend_pc:
+                port_channels[namespace].pop(pc)
+
+            upstream_rifs = upstream_ports_per_dut[namespace]
+            downstream_rifs = downstream_ports_per_dut[namespace]
+            for k, v in list(port_channels[namespace].items()):
+                acl_table_ports[namespace].append(k)
+                acl_table_ports[''].append(k)
+                upstream_rifs = list(set(upstream_rifs) - set(v['members']))
+                downstream_rifs = list(set(downstream_rifs) - set(v['members']))
+            if len(upstream_rifs):
+                for port in upstream_rifs:
+                    # This code is commented due to a bug which restricts rif interfaces to
+                    # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
+                    if namespace == DEFAULT_NAMESPACE:
+                        acl_table_ports[''].append(port)
+                    else:
+                        acl_table_ports[namespace].append(port)
+            else:
+                for port in downstream_rifs:
+                    # This code is commented due to a bug which restricts rif interfaces to
+                    # be added to global acl table - https://github.com/sonic-net/sonic-utilities/issues/2185
+                    if namespace == DEFAULT_NAMESPACE:
+                        acl_table_ports[''].append(port)
+                    else:
+                        acl_table_ports[namespace].append(port)
+
+        acl_table_ports_per_dut[duthost] = acl_table_ports
+        downstream_ports[duthost] = downstream_ports_per_dut
+        upstream_ports[duthost] = upstream_ports_per_dut
+
+    t2_information = {
+        "upstream_port_ids": upstream_port_ids,
+        "downstream_port_ids": downstream_port_ids,
+        "downstream_port_id_to_router_mac_map": downstream_port_id_to_router_mac_map,
+        "upstream_port_id_to_router_mac_map": upstream_port_id_to_router_mac_map,
+        "acl_table_ports": acl_table_ports_per_dut
+    }
+
+    return t2_information
+
+
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -141,10 +256,27 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
     vlan_ports = []
     vlan_mac = None
+    # Need to refresh below constants for two scenarios of M0
+    global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
 
-    if topo == "t0":
+    if topo == "mx":
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
+    # Announce routes for m0 is something different from t1/t0
+    if topo_scenario == "m0_vlan_scenario":
+        topo = "m0_vlan"
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
+    elif topo_scenario == "m0_l3_scenario":
+        topo = "m0_l3"
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
+    if topo in ["t0", "mx", "m0_vlan"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
-                      for ifname in mg_facts["minigraph_vlans"].values()[0]["members"]]
+                      for ifname in list(mg_facts["minigraph_vlans"].values())[0]["members"]]
 
         config_facts = rand_selected_dut.get_running_config_facts()
         vlan_table = config_facts["VLAN"]
@@ -154,26 +286,37 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
-    upstream_ports =  defaultdict(list)
+    upstream_ports = defaultdict(list)
     downstream_port_ids = []
     upstream_port_ids = []
     upstream_port_id_to_router_mac_map = {}
     downstream_port_id_to_router_mac_map = {}
 
-    # For T0/dual ToR testbeds, we need to use the VLAN MAC to interact with downstream ports
-    # For T1 testbeds, no VLANs are present so using the router MAC is acceptable
+    # For M0_VLAN/MX/T0/dual ToR scenario, we need to use the VLAN MAC to interact with downstream ports
+    # For T1/M0_L3 scenario, no VLANs are present so using the router MAC is acceptable
     downlink_dst_mac = vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
 
-    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
-        port_id = mg_facts["minigraph_ptf_indices"][interface]
-        if (topo == "t1" and "T0" in neighbor["name"]) or (topo == "t0" and "Server" in neighbor["name"]):
-            downstream_ports[neighbor['namespace']].append(interface)
-            downstream_port_ids.append(port_id)
-            downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
-        elif (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
-            upstream_ports[neighbor['namespace']].append(interface)
-            upstream_port_ids.append(port_id)
-            upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+    if topo == "t2":
+        t2_info = get_t2_info(duthosts, tbinfo)
+        downstream_port_ids = t2_info['downstream_port_ids']
+        upstream_port_ids = t2_info['upstream_port_ids']
+        downstream_port_id_to_router_mac_map = t2_info['downstream_port_id_to_router_mac_map']
+        upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
+    else:
+        upstream_neigh_type = get_upstream_neigh_type(topo)
+        downstream_neigh_type = get_downstream_neigh_type(topo)
+        pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
+                       "Cannot get neighbor type for unsupported topo: {}".format(topo))
+        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+            port_id = mg_facts["minigraph_ptf_indices"][interface]
+            if downstream_neigh_type in neighbor["name"].upper():
+                downstream_ports[neighbor['namespace']].append(interface)
+                downstream_port_ids.append(port_id)
+                downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
+            elif upstream_neigh_type in neighbor["name"].upper():
+                upstream_ports[neighbor['namespace']].append(interface)
+                upstream_port_ids.append(port_id)
+                upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -184,7 +327,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # source or destination port
     if 'dualtor' in tbinfo['topo']['name'] and rand_unselected_dut is not None:
         peer_mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
-        for interface, neighbor in peer_mg_facts['minigraph_neighbors'].items():
+        for interface, neighbor in list(peer_mg_facts['minigraph_neighbors'].items()):
             if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]):
                 port_id = peer_mg_facts["minigraph_ptf_indices"][interface]
                 upstream_port_ids.append(port_id)
@@ -194,23 +337,26 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     port_channels = mg_facts["minigraph_portchannels"]
 
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
-    acl_table_ports =  defaultdict(list)
+    acl_table_ports = defaultdict(list)
 
-    if topo == "t0" or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
-        for namespace, port in downstream_ports.iteritems():
+    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
+        for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
                 acl_table_ports[''] += port
 
-    if topo == "t0" or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet"):
-        for k, v in port_channels.iteritems():
+    if topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
+                                                                        "t1-56-lag"):
+        for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
                 acl_table_ports[''].append(k)
+    elif topo == "t2":
+        acl_table_ports = t2_info['acl_table_ports']
     else:
-        for namespace, port in upstream_ports.iteritems():
+        for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
             if namespace:
@@ -246,7 +392,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
 def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
-    if tbinfo["topo"]["type"] == "t0" and request.param == "ipv6":
+    if tbinfo["topo"]["type"] in ["t0"] and request.param == "ipv6":
         pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
 
     return request.param
@@ -255,14 +401,17 @@ def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="module")
 def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, ip_version):
     """Set up the ARP responder utility in the PTF container."""
+    global DOWNSTREAM_IP_PORT_MAP
+    # For m0 topo, need to refresh this constant for two different scenario
+    DOWNSTREAM_IP_PORT_MAP = {}
     duthost = duthosts[rand_one_dut_hostname]
-    if setup["topo"] != "t0":
+    if setup["topo"] not in ["t0", "mx", "m0_vlan"]:
         def noop():
             pass
 
         yield noop
 
-        return  # Don't fall through to t0 case
+        return  # Don't fall through to t0/mx/m0_vlan case
 
     addr_list = [DOWNSTREAM_DST_IP[ip_version], DOWNSTREAM_IP_TO_ALLOW[ip_version], DOWNSTREAM_IP_TO_BLOCK[ip_version]]
 
@@ -292,6 +441,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
         for dut in duthosts:
             dut.command("sonic-clear fdb all")
             dut.command("sonic-clear arp")
+            dut.command("sonic-clear ndp")
             # Wait some time to ensure the async call of clear is completed
             time.sleep(20)
             for addr in addr_list:
@@ -302,14 +452,15 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     yield populate_arp_table
 
     logging.info("Stopping ARP responder")
-    ptfhost.shell("supervisorctl stop arp_responder")
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
     duthost.command("sonic-clear fdb all")
     duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear ndp")
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
-def stage(request, duthosts, rand_one_dut_hostname):
+def stage(request, duthosts, rand_one_dut_hostname, tbinfo):
     """Parametrize tests for Ingress/Egress stage testing.
 
     Args:
@@ -323,31 +474,43 @@ def stage(request, duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     pytest_require(
-        request.param == "ingress" or duthost.facts["asic_type"] not in ("broadcom"),
+        request.param == "ingress" or duthost.facts.get("platform_asic") == "broadcom-dnx"
+        or duthost.facts["asic_type"] not in ("broadcom"),
         "Egress ACLs are not currently supported on \"{}\" ASICs".format(duthost.facts["asic_type"])
     )
 
     return request.param
 
-def create_or_remove_acl_table(duthost, acl_table_config, setup, op):
+
+def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
         namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
         if op == "add":
-            logger.info("Creating ACL table: \"{}\" in namespace {} on device {}".format(acl_table_config["table_name"], namespace, duthost))
+            logger.info("Creating ACL table: \"{}\" in namespace {} on device {}"
+                        .format(acl_table_config["table_name"], namespace, duthost))
+            if topo == "t2":
+                acl_table_ports = setup["acl_table_ports"]
+                acl_table_ports = acl_table_ports[duthost]
+                if not len(acl_table_ports[namespace]):
+                    continue
+            else:
+                acl_table_ports = setup["acl_table_ports"]
             sonic_host_or_asic_inst.command(
                 "config acl add table {} {} -s {} -p {}".format(
                     acl_table_config["table_name"],
                     acl_table_config["table_type"],
                     acl_table_config["table_stage"],
-                    ",".join(setup["acl_table_ports"][namespace]),
+                    ",".join(acl_table_ports[namespace]),
                 )
             )
         else:
-            logger.info("Removing ACL table \"{}\" in namespace {} on device {}".format(acl_table_config["table_name"], namespace, duthost))
+            logger.info("Removing ACL table \"{}\" in namespace {} on device {}"
+                        .format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
 
+
 @pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
+def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo):
     """Apply ACL table configuration and remove after tests.
 
     Args:
@@ -362,6 +525,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
 
     """
     table_name = "DATA_{}_{}_TEST".format(stage.upper(), ip_version.upper())
+    topo = tbinfo["topo"]["type"]
 
     acl_table_config = {
         "table_name": table_name,
@@ -374,6 +538,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
     dut_to_analyzer_map = {}
 
     for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
         loganalyzer.load_common_config()
         dut_to_analyzer_map[duthost] = loganalyzer
@@ -383,22 +549,23 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version):
             # Ignore any other errors to reduce noise
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "add")
+                create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
-            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
             raise err
 
     try:
         yield acl_table_config
     finally:
-        for duthost, loganalyzer in dut_to_analyzer_map.items():
+        for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
             loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
             with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove")
+                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
 
-class BaseAclTest(object):
+
+class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     """Base class for testing ACL rules.
 
     Subclasses must provide `setup_rules` method to prepare ACL rules for traffic testing.
@@ -406,8 +573,6 @@ class BaseAclTest(object):
     They can optionally override `teardown_rules`, which will otherwise remove the rules by
     applying an empty configuration file.
     """
-
-    __metaclass__ = ABCMeta
 
     ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
 
@@ -422,7 +587,7 @@ class BaseAclTest(object):
         """
         pass
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):   # noqa F811
         """Perform actions after rules have been applied.
 
         Args:
@@ -451,7 +616,8 @@ class BaseAclTest(object):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo, ip_version):
+    def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo,
+                  ip_version, conn_graph_facts):   # noqa F811
         """Setup/teardown ACL rules for the current set of tests.
 
         Args:
@@ -465,6 +631,8 @@ class BaseAclTest(object):
         """
         dut_to_analyzer_map = {}
         for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                continue
             loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
             loganalyzer.load_common_config()
             dut_to_analyzer_map[duthost] = loganalyzer
@@ -476,7 +644,7 @@ class BaseAclTest(object):
                 with loganalyzer:
                     self.setup_rules(duthost, acl_table, ip_version)
 
-                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo)
+                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
 
                 assert self.check_rule_counters(duthost), "Rule counters should be ready!"
 
@@ -489,7 +657,9 @@ class BaseAclTest(object):
         try:
             yield
         finally:
-            for duthost, loganalyzer in dut_to_analyzer_map.items():
+            for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
+                if duthost.is_supervisor_node():
+                    continue
                 loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
                 with loganalyzer:
                     logger.info("Removing ACL rules")
@@ -514,8 +684,12 @@ class BaseAclTest(object):
         """
         acl_facts = defaultdict(dict)
         table_name = acl_table["table_name"]
+        skip_byte_accounting = False
         for duthost in duthosts:
-            acl_facts[duthost]['before']= duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
+            if duthost.is_supervisor_node():
+                continue
+            acl_facts[duthost]['before'] = \
+                duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 
         rule_list = []
         yield rule_list
@@ -527,9 +701,14 @@ class BaseAclTest(object):
         time.sleep(self.ACL_COUNTERS_UPDATE_INTERVAL_SECS)
 
         for duthost in duthosts:
-            acl_facts[duthost]['after']= duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
+            if duthost.is_supervisor_node():
+                continue
+            acl_facts[duthost]['after'] = \
+                duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][table_name]["rules"]
 
         for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                continue
             assert len(acl_facts[duthost]['before']) == len(acl_facts[duthost]['after'])
 
         for rule in rule_list:
@@ -540,6 +719,8 @@ class BaseAclTest(object):
                 BYTES_COUNT: 0
             }
             for duthost in duthosts:
+                if duthost.is_supervisor_node():
+                    continue
                 counters_before[PACKETS_COUNT] += acl_facts[duthost]['before'][rule][PACKETS_COUNT]
                 counters_before[BYTES_COUNT] += acl_facts[duthost]['before'][rule][BYTES_COUNT]
             logger.info("Counters for ACL rule \"{}\" before traffic:\n{}"
@@ -550,14 +731,24 @@ class BaseAclTest(object):
                 BYTES_COUNT: 0
             }
             for duthost in duthosts:
+                if duthost.is_supervisor_node():
+                    continue
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
+                if (duthost.facts["hwsku"] == "Cisco-8111-O64" or
+                        duthost.facts["hwsku"] == "Cisco-8111-O32" or
+                        duthost.facts["hwsku"] == "Cisco-8111-C32" or
+                        duthost.facts["hwsku"] == "Cisco-8111-O62C2"):
+                    skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
                         .format(rule, pprint.pformat(counters_after)))
 
             assert counters_after[PACKETS_COUNT] > counters_before[PACKETS_COUNT]
-            assert counters_after[BYTES_COUNT] > counters_before[BYTES_COUNT]
+            if not skip_byte_accounting:
+                assert counters_after[BYTES_COUNT] > counters_before[BYTES_COUNT]
+            else:
+                logger.info("No byte counters for this hwsku\n")
 
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
     def direction(self, request):
@@ -596,7 +787,8 @@ class BaseAclTest(object):
         """Get the default destination IP for the current test."""
         return UPSTREAM_DST_IP[ip_version] if direction == "downlink->uplink" else DOWNSTREAM_DST_IP[ip_version]
 
-    def tcp_packet(self, setup, direction, ptfadapter, ip_version, src_ip=None, dst_ip=None, proto=None, sport=0x4321, dport=0x51, flags=None):
+    def tcp_packet(self, setup, direction, ptfadapter, ip_version,
+                   src_ip=None, dst_ip=None, proto=None, sport=0x4321, dport=0x51, flags=None):
         """Generate a TCP packet for testing."""
         src_ip = src_ip or DEFAULT_SRC_IP[ip_version]
         dst_ip = dst_ip or self.get_dst_ip(direction, ip_version)
@@ -698,7 +890,6 @@ class BaseAclTest(object):
             # In multi-asic we cannot determine this so ignore.
             exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
 
-
         return exp_pkt
 
     def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
@@ -743,19 +934,53 @@ class BaseAclTest(object):
 
     def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward a packet on destination IP."""
-        dst_ip = DOWNSTREAM_IP_TO_ALLOW[ip_version] if direction == "uplink->downlink" else UPSTREAM_IP_TO_ALLOW[ip_version]
+        dst_ip = DOWNSTREAM_IP_TO_ALLOW[ip_version] \
+            if direction == "uplink->downlink" else UPSTREAM_IP_TO_ALLOW[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(2 if direction == "uplink->downlink" else 3)
+        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        if direction == "uplink->downlink":
+            if setup["topo"] == "m0_l3":
+                if ip_version == "ipv6":
+                    rule_id = 32
+                else:
+                    rule_id = 30
+            elif setup["topo"] in ["m0_vlan", "mx"]:
+                if ip_version == "ipv6":
+                    rule_id = 34
+                else:
+                    rule_id = 2
+            else:
+                rule_id = 2
+        else:
+            rule_id = 3
+        counters_sanity_check.append(rule_id)
 
     def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop a packet on destination IP."""
-        dst_ip = DOWNSTREAM_IP_TO_BLOCK[ip_version] if direction == "uplink->downlink" else UPSTREAM_IP_TO_BLOCK[ip_version]
+        dst_ip = DOWNSTREAM_IP_TO_BLOCK[ip_version] \
+            if direction == "uplink->downlink" else UPSTREAM_IP_TO_BLOCK[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(15 if direction == "uplink->downlink" else 16)
+        # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
+        if direction == "uplink->downlink":
+            if setup["topo"] == "m0_l3":
+                if ip_version == "ipv6":
+                    rule_id = 33
+                else:
+                    rule_id = 31
+            elif setup["topo"] in ["m0_vlan", "mx"]:
+                if ip_version == "ipv6":
+                    rule_id = 35
+                else:
+                    rule_id = 15
+            else:
+                rule_id = 15
+        else:
+            rule_id = 16
+        counters_sanity_check.append(rule_id)
 
     def test_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop a packet on source IP."""
@@ -972,7 +1197,7 @@ class TestAclWithReboot(TestBasicAcl):
     upon startup.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts): # noqa F811
         """Save configuration and reboot after rules are applied.
 
         Args:
@@ -986,6 +1211,19 @@ class TestAclWithReboot(TestBasicAcl):
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
+
+        # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
+        if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
+            interfaces = conn_graph_facts["device_conn"][dut.hostname]
+            logging.info("Wait until all critical services are fully started")
+            wait_critical_processes(dut)
+
+            xcvr_skip_list = {dut.hostname: []}
+            result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
+                                xcvr_skip_list)
+            assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
+                MAX_WAIT_TIME_FOR_INTERFACES)
+
         populate_vlan_arp_entries()
 
 
@@ -996,7 +1234,7 @@ class TestAclWithPortToggle(TestBasicAcl):
     Verify that ACLs still function as expected after links flap.
     """
 
-    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo):
+    def post_setup_hook(self, dut, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts):  # noqa F811
         """Toggle ports after rules are applied.
 
         Args:

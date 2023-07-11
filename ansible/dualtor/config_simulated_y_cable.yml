@@ -39,8 +39,8 @@
 
 # Inject mux simulator config
 # Below step is required after these PRs are merged:
-# * https://github.com/Azure/sonic-platform-common/pull/213
-# * https://github.com/Azure/sonic-platform-daemons/pull/197
+# * https://github.com/sonic-net/sonic-platform-common/pull/213
+# * https://github.com/sonic-net/sonic-platform-daemons/pull/197
 # For the simulated y_cable driver to work, basic configuration information of the mux simulator is required.
 # When /etc/sonic/mux_simulator.json file is found on DUT, xcvrd will try to load simulated y_cable driver.
 # Otherwise, xcvrd will try to get cable vendor and model, then load corresponding y_cable driver based on
