@@ -672,12 +672,12 @@ class MultiAsicSonicHost(object):
         Returns:
               List of [voq_inband_interfaces]
         """
-        if not duthost.sonichost.is_multi_asic:
+        if not self.sonichost.is_multi_asic:
             return {}
         voq_inband_interfaces = {}
-        for asic in duthost.frontend_asics:
-            config_facts = duthost.config_facts(
-                host=duthost.hostname, source="running",
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
                 namespace=asic.namespace
             )['ansible_facts']
             voq_inband_interfaces.update(
