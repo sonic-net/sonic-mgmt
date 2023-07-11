@@ -929,7 +929,10 @@ def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
     return original_value
 
 
-def delete_running_config(config_entry, duthost):
-    duthost.copy(src=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+def delete_running_config(config_entry, duthost, is_json=True):
+    if is_json:
+        duthost.copy(content=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+    else:
+        duthost.copy(scr=config_entry, dest="/tmp/del_config_entry.json")
     duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
-    # duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
+    duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
