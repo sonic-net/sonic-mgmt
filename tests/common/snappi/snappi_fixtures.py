@@ -13,6 +13,7 @@ from tests.common.snappi.common_helpers import get_addrs_in_subnet, get_peer_sna
 from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
+from tests.snappi.variables import dut_ip_start, snappi_ip_start, prefix_length
 logger = logging.getLogger(__name__)
 
 
@@ -711,9 +712,8 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
     Returns:
         True if we successfully configure the interfaces or False
     """
-    prefix = 24
-    dutIps = create_ip_list("20.0.1.1", len(snappi_ports), mask=prefix)
-    tgenIps = create_ip_list("20.0.1.2", len(snappi_ports), mask=prefix)
+    dutIps = create_ip_list(dut_ip_start, len(snappi_ports), mask=prefix_length)
+    tgenIps = create_ip_list(snappi_ip_start, len(snappi_ports), mask=prefix_length)
     ports = [port for port in snappi_ports if port['peer_device'] == duthost.hostname]
 
     for port in ports:
@@ -725,18 +725,18 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
                                                                             duthost.hostname,
                                                                             port['peer_port'],
                                                                             dutIp,
-                                                                            prefix))
+                                                                            prefix_length))
         if port['asic_value'] == 'None':
             duthost.command('sudo config interface ip add {} {}/{} \n' .format(
                                                                                 port['peer_port'],
                                                                                 dutIp,
-                                                                                prefix))
+                                                                                prefix_length))
         else:
             duthost.command('sudo config interface -n {} ip add {} {}/{} \n' .format(
                                                                                     port['asic_value'],
                                                                                     port['peer_port'],
                                                                                     dutIp,
-                                                                                    prefix))
+                                                                                    prefix_length))
         device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
@@ -745,7 +745,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
         ip_stack = ethernet.ipv4_addresses.add()
         ip_stack.name = 'Ipv4 Port {}'.format(port_id)
         ip_stack.address = tgenIp
-        ip_stack.prefix = prefix
+        ip_stack.prefix = prefix_length
         ip_stack.gateway = dutIp
         port_config = SnappiPortConfig(
                                         id=port_id,
@@ -753,7 +753,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
                                         mac=mac,
                                         gw=dutIp,
                                         gw_mac=str(duthost.facts['router_mac']),
-                                        prefix_len=prefix,
+                                        prefix_len=prefix_length,
                                         port_type=SnappiPortType.IPInterface,
                                         peer_port=port['peer_port']
                                       )
@@ -869,8 +869,7 @@ def create_ip_list(value, count, mask=32, incr=0):
 def cleanup_config(duthost_list, snappi_ports):
     for index, duthost in enumerate(duthost_list):
         port_count = len(snappi_ports)
-        prefix = 24
-        dutIps = create_ip_list("20.0.1.1", port_count, mask=prefix)
+        dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
         for port in snappi_ports:
             if port['peer_device'] == duthost.hostname:
                 port_id = port['port_id']
@@ -879,15 +878,15 @@ def cleanup_config(duthost_list, snappi_ports):
                                                                                                    duthost.hostname,
                                                                                                    port['peer_port'],
                                                                                                    dutIp,
-                                                                                                   prefix))
+                                                                                                   prefix_length))
                 if port['asic_value'] == 'None':
                     duthost.command('sudo config interface ip remove {} {}/{} \n' .format(
                                                                                           port['peer_port'],
                                                                                           dutIp,
-                                                                                          prefix))
+                                                                                          prefix_length))
                 else:
                     duthost.command('sudo config interface -n {} ip remove {} {}/{} \n' .format(
                                                                                                 port['asic_value'],
                                                                                                 port['peer_port'],
                                                                                                 dutIp,
-                                                                                                prefix))
+                                                                                                prefix_length))

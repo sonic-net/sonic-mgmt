@@ -48,3 +48,7 @@ config_set = {
                     'asic': [None]
                 }
             }
+
+dut_ip_start = '20.0.1.1'
+snappi_ip_start = '20.0.1.2'
+prefix_length = 24
