@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
+ONIE_SSH_REGEX = 'dropbear'
 
 REBOOT_TYPE_WARM = "warm"
 REBOOT_TYPE_SAI_WARM = "sai-warm"
@@ -147,7 +148,7 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
 
-def wait_for_startup(duthost, localhost, delay, timeout):
+def wait_for_startup(duthost, localhost, delay, timeout, search_regex=SONIC_SSH_REGEX):
     # TODO: add serial output during reboot for better debuggability
     #       This feature requires serial information to be present in
     #       testbed information
@@ -157,7 +158,7 @@ def wait_for_startup(duthost, localhost, delay, timeout):
     res = localhost.wait_for(host=dut_ip,
                              port=SONIC_SSH_PORT,
                              state='started',
-                             search_regex=SONIC_SSH_REGEX,
+                             search_regex=search_regex,
                              delay=delay,
                              timeout=timeout,
                              module_ignore_errors=True)
@@ -256,6 +257,30 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
         format(hostname)
+
+
+def reboot_into_onie(duthost, localhost, delay=10, timeout=300, wait=15):
+    """
+    Reboots DUT into ONIE
+    :param duthost: DUT host object
+    :param localhost:  local host object
+    :param delay: delay between ssh availability checks
+    :param timeout: timeout for waiting ssh port state change
+    :param wait: time to wait for DUT to initialize
+    """
+    pool = ThreadPool()
+    hostname = duthost.hostname
+
+    duthost.command('grub-editenv /host/grub/grubenv set next_entry=ONIE')
+
+    reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command='reboot')
+
+    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+    wait_for_startup(duthost, localhost, delay, timeout, search_regex=ONIE_SSH_REGEX)
+
+    logger.info('waiting for switch {} to initialize'.format(hostname))
+
+    time.sleep(wait)
 
 
 def get_reboot_cause(dut):

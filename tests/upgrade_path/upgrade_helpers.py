@@ -5,7 +5,7 @@ import ipaddress
 from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
-from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
+from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict, reboot_into_onie, wait_for_startup
 from tests.common.reboot import REBOOT_TYPE_WARM
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,7 @@ TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
+DUT_MINIGRAPH_PATH = "/etc/sonic/minigraph.xml"
 
 
 def pytest_runtest_setup(item):
@@ -117,3 +118,60 @@ def check_reboot_cause(duthost, expected_cause):
     reboot_cause = get_reboot_cause(duthost)
     logging.info("Checking cause from dut {} to expected {}".format(reboot_cause, expected_cause))
     return reboot_cause == expected_cause
+
+
+def copy_sonic_image_into_onie(image_path, localhost, dut_ip):
+    """
+    Copy SONiC image into ONIE
+    """
+
+    dst_path = "/tmp/sonic.bin"
+    if image_path.startswith("http"):
+        localhost.shell(
+            "sshpass -v ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@{} 'wget -O {} {}'".format(
+                dut_ip, dst_path, image_path))
+    else:
+        localhost.shell(
+            "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {} root@{}:{}".format(image_path,
+                                                                                                   dut_ip, dst_path))
+    return dst_path
+
+
+def install_base_sonic_image(duthost, localhost, image_path, tbinfo, local_mg_path, downgrade_type):
+    """
+    Install base SONiC image
+    """
+    if downgrade_type == "sonic":
+        target_version = install_sonic(duthost, image_path, tbinfo)
+        # Perform a cold reboot
+        logger.info("Cold reboot the DUT to make the base image as current")
+        reboot(duthost, localhost)
+        check_sonic_version(duthost, target_version)
+    else:
+        reboot_into_onie(duthost, localhost)
+
+        # Copy image into ONIE
+        dut_host_ip = duthost.sonichost.mgmt_ip
+        onie_image_path = copy_sonic_image_into_onie(image_path, localhost, dut_host_ip)
+
+        # Install image via ONIE
+        localhost.shell(
+            "sshpass -v ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@{} "
+            "'onie-nos-install {}'".format(dut_host_ip, onie_image_path))
+        wait_for_startup(duthost, localhost, 10, 300)
+
+        check_services(duthost)
+
+        # Load minigraph on DUT
+        duthost.copy(src=local_mg_path, dest=DUT_MINIGRAPH_PATH)
+        duthost.shell("config load_minigraph -y")
+        duthost.shell("config save -y")
+
+
+def store_minigraph_from_dut(duthost):
+    """
+    Store minigraph from DUT into local /tmp/ folder
+    """
+    contents = duthost.fetch(src=DUT_MINIGRAPH_PATH, dest='/tmp/')
+    local_minigraph_file_path = contents['dest']
+    return local_minigraph_file_path

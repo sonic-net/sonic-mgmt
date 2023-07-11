@@ -1,6 +1,16 @@
 import pytest
 
 
+def pytest_addoption(parser):
+    parser.addoption('--downgrade_type', action='store', default='sonic',
+                     help='Argument related to downgrade method which should be used by test. Possible: sonic, onie')
+
+
+@pytest.fixture(scope='session')
+def downgrade_type(request):
+    return request.config.getoption('downgrade_type')
+
+
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')
     to_list = item.config.getoption('target_image_list')

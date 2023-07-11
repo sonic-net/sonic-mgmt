@@ -4,7 +4,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause
 from tests.common.reboot import REBOOT_TYPE_COLD
-from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, check_sonic_version, get_reboot_command
+from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, install_base_sonic_image, \
+    get_reboot_command, store_minigraph_from_dut
 from tests.upgrade_path.upgrade_helpers import restore_image            # noqa F401
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.platform_tests.verify_dut_health import verify_dut_health    # noqa F401
@@ -48,23 +49,20 @@ def upgrade_path_lists(request):
 def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                       nbrhosts, fanouthosts, tbinfo, restore_image,                     # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
-                      upgrade_path_lists):
+                      upgrade_path_lists, downgrade_type):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_list_images, to_list_images, _ = upgrade_path_lists
     from_list = from_list_images.split(',')
     to_list = to_list_images.split(',')
     assert (from_list and to_list)
+    # Store minigraph from DUT
+    local_minigraph_file_path = store_minigraph_from_dut(duthost)
     for from_image in from_list:
         for to_image in to_list:
             logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
             # Install base image
             logger.info("Installing {}".format(from_image))
-            target_version = install_sonic(duthost, from_image, tbinfo)
-            # Perform a cold reboot
-            logger.info("Cold reboot the DUT to make the base image as current")
-            reboot(duthost, localhost)
-            check_sonic_version(duthost, target_version)
-
+            install_base_sonic_image(duthost, localhost, from_image, tbinfo, local_minigraph_file_path, downgrade_type)
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
             install_sonic(duthost, to_image, tbinfo)
@@ -83,7 +81,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
 
 
 @pytest.mark.device_type('vs')
-def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
+def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, downgrade_type,
                                nbrhosts, fanouthosts, vmhost, tbinfo, restore_image,                # noqa F811
                                get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,     # noqa F811
                                upgrade_path_lists, backup_and_restore_config_db,                    # noqa F811
@@ -93,17 +91,14 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
     from_list = from_list_images.split(',')
     to_list = to_list_images.split(',')
     assert (from_list and to_list)
+    # Store minigraph from DUT
+    local_minigraph_file_path = store_minigraph_from_dut(duthost)
     for from_image in from_list:
         for to_image in to_list:
             logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
             # Install base image
             logger.info("Installing {}".format(from_image))
-            target_version = install_sonic(duthost, from_image, tbinfo)
-            # Perform a cold reboot
-            logger.info("Cold reboot the DUT to make the base image as current")
-            reboot(duthost, localhost)
-            check_sonic_version(duthost, target_version)
-
+            install_base_sonic_image(duthost, localhost, from_image, tbinfo, local_minigraph_file_path, downgrade_type)
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
             install_sonic(duthost, to_image, tbinfo)
