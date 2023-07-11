@@ -458,6 +458,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     reason: "This test is not run on this asic type or topology currently"
     conditions_logical_operator: "OR"
     conditions:
+      - "asic_gen in ['spc3']"
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
 
@@ -466,7 +467,6 @@ generic_config_updater/test_eth_interface.py::test_replace_fec:
     reason: 'replace_fec ethernet test depends on StateDB values. GCU needs to be updated to consider StateDB'
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8600
-
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -490,15 +490,31 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test is not run on this hwsku/asic type currently"
+    conditions_logical_operator: "OR"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
+      - "asic_gen in ['spc3']"
       - "asic_type in ['broadcom', 'cisco-8000']"
 
 generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
   skip:
     reason: "This test is not run on this asic type currently"
+    conditions_logical_operator: "OR"
     conditions:
+      - "asic_gen in ['spc3']"
       - "asic_type in ['broadcom', 'cisco-8000']"
+
+generic_config_updater/test_pfcwd_interval.py::test_pfcwd_interval_config_updates:
+  skip:
+    reason: "This test is not run on this asic type currently"
+    conditions:
+      - "asic_gen in ['spc3']"
+
+generic_config_updater/test_pfcwd_status.py::test_stop_pfcwd:
+  skip:
+    reason: "This test is not run on this asic type currently"
+    conditions:
+      - "asic_gen in ['spc3']"
 
 #######################################
 #####           http              #####
