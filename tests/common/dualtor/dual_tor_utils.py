@@ -1052,14 +1052,11 @@ def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
 
 
 # verify nexthops are only sent to single active or standby mux
-def check_nexthops_single_downlink(rand_selected_dut,
-    ptfadapter,
-    dst_server_addr,
-    tbinfo,
-    downlink_ints):
+def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
+                                   tbinfo, downlink_ints):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
-    expected_downlink_ports =  [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+    expected_downlink_ports = [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
     expected_uplink_ports = list()
     expected_uplink_portchannels = list()
     portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
@@ -1077,12 +1074,8 @@ def check_nexthops_single_downlink(rand_selected_dut,
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect multi-mux nexthops to focus packets to one downlink
         all_allowed_ports = expected_downlink_ports
-        ptf_port_count = count_matched_packets_all_ports(ptfadapter,
-                                            exp_packet=exp_pkt,
-                                            exp_tunnel_pkt=exp_tunnel_pkt,
-                                            ports=all_allowed_ports,
-                                            timeout=0.1,
-                                            count=1)
+        ptf_port_count = count_matched_packets_all_ports(ptfadapter, exp_packet=exp_pkt, exp_tunnel_pkt=exp_tunnel_pkt,
+                                                         ports=all_allowed_ports, timeout=0.1, count=1)
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
