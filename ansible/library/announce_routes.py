@@ -5,9 +5,10 @@ import os
 import yaml
 import re
 import requests
-import time
 import ipaddress
+import json
 import sys
+import socket
 
 from ansible.module_utils.basic import *
 
@@ -95,11 +96,14 @@ def wait_for_http(host_ip, http_port, timeout=10):
     """Waits for HTTP server to open. Tries until timeout is reached and returns whether localhost received HTTP response"""
     started = False
     tries = 0
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(2)
     while not started and tries < timeout:
-        if os.system("curl {}:{}".format(host_ip, http_port)) == 0:
+        try:
+            s.connect((host_ip, http_port))
             started = True
-        tries += 1
-        time.sleep(1)
+        except socket.error:
+            tries += 1
 
     return started
 
@@ -136,9 +140,19 @@ def change_routes(action, ptf_ip, port, routes):
             messages.append("{} route {} next-hop {}".format(action, prefix, nexthop))
     wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
-    data = { "commands": ";".join(messages) }
-    r = requests.post(url, data=data, timeout=90)
-    assert r.status_code == 200
+    data = {"commands": ";".join(messages)}
+    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
+    if r.status_code != 200:
+        raise Exception(
+            "Change routes failed: url={}, data={}, r.status_code={}, r.reason={}, r.headers={}, r.text={}".format(
+                url,
+                json.dumps(data),
+                r.status_code,
+                r.reason,
+                r.headers,
+                r.text
+            )
+        )
 
 
 # AS path from Leaf router for T0 topology
@@ -676,9 +690,9 @@ The total number of routes are controlled by the colo_number, m0_number, mx_subn
 Routes announced by M0 can be broken down to 5 sets:
    - 1 default route, prefix: 0.0.0.0/0.
    - 1 loopback route.
-   - Direct subnet routes of M0 connected to DUT, 
+   - Direct subnet routes of M0 connected to DUT,
      count: m0_subnet_number
-   - Subnet routes of MX connected to M0 connected to DUT, 
+   - Subnet routes of MX connected to M0 connected to DUT,
      count: (mx_number - 1) * mx_subnet_number.
    - Upstream routes of M0 connected to DUT,
      count: (colo_number * m0_number - 1) * (mx_number * mx_subnet_number + m0_subnet_number).

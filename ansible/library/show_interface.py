@@ -78,7 +78,10 @@ class ShowInterfaceModule(object):
                 namespace=dict(required=False, type='str', default=None),
                 interfaces=dict(required=False, type='list', default=None),
                 up_ports=dict(type='raw', default={}),
-                include_internal_intfs=dict(required=False, type=bool, default=False),
+                include_internal_intfs=dict(
+                    required=False, type=bool, default=False),
+                include_inband_intfs=dict(
+                    required=False, type=bool, default=False),
             ),
             supports_check_mode=False)
         self.m_args = self.module.params
@@ -92,8 +95,9 @@ class ShowInterfaceModule(object):
         """
         namespace = self.m_args["namespace"]
         include_internal_intfs = self.m_args['include_internal_intfs']
+        include_inband_intfs = self.m_args['include_inband_intfs']
         if self.m_args['command'] == 'status':
-            self.collect_interface_status(namespace, include_internal_intfs)
+            self.collect_interface_status(namespace, include_internal_intfs, include_inband_intfs)
         if self.m_args['command'] == 'counter':
             self.collect_interface_counter(namespace, include_internal_intfs)
         self.module.exit_json(ansible_facts=self.facts)
@@ -110,7 +114,7 @@ class ShowInterfaceModule(object):
         """
         return ' '.join(line.split()[9:-1])
 
-    def collect_interface_status(self, namespace=None, include_internal_intfs=False):
+    def collect_interface_status(self, namespace=None, include_internal_intfs=False, include_inband_intfs=False):
         regex_int_fec = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int_internal = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\-]+)\s+(\w+)\s+(\w+)\s+(\w+)')
@@ -152,6 +156,8 @@ class ShowInterfaceModule(object):
             try:
                 cli_options = " -n {}".format(namespace) if namespace is not None else ""
                 if include_internal_intfs and namespace is not None:
+                    cli_options += " -d all"
+                if include_inband_intfs:
                     cli_options += " -d all"
                 intf_status_cmd = "show interface status{}".format(cli_options)
                 rc, self.out, err = self.module.run_command(intf_status_cmd, executable='/bin/bash', use_unsafe_shell=True)

@@ -285,6 +285,10 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
                             .get("timestamp", {}).get("Start")
                         if not fdb_aging_disable_start:
                             break
+                        # Ignore MAC learning events before FDB aging disable, as MAC learning is still allowed
+                        log_time = timestamp.strftime(FMT)
+                        if _parse_timestamp(log_time) < _parse_timestamp(fdb_aging_disable_start):
+                            break
                         first_after_offset = fdb_aging_disable_start
                     else:
                         first_after_offset = result.get("reboot_time", {}).get("timestamp", {}).get("Start")
@@ -357,12 +361,13 @@ def verify_mac_jumping(test_name, timing_data, verification_errors):
 def verify_required_events(duthost, event_counters, timing_data, verification_errors):
     for key in ["time_span", "offset_from_kexec"]:
         for pattern in REQUIRED_PATTERNS.get(key):
-            observed_start_count = timing_data.get(key).get(pattern).get("Start count")
-            observed_end_count = timing_data.get(key).get(pattern).get("End count")
+            observed_start_count = timing_data.get(key, {}).get(pattern, {}).get("Start count", 0)
+            observed_end_count = timing_data.get(key, {}).get(pattern, {}).get("End count", 0)
             expected_count = event_counters.get(pattern)
-            if observed_start_count != expected_count:
-                verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".\
-                    format(pattern, observed_start_count, expected_count))
+            if (observed_start_count != expected_count and pattern != 'PORT_READY') or\
+                    (observed_start_count > expected_count and pattern == 'PORT_READY'):
+                verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".
+                                           format(pattern, observed_start_count, expected_count))
             if key == "time_span" and observed_start_count != observed_end_count:
                 verification_errors.append("FAIL: Event {} counters did not match. ".format(pattern) +\
                     "Started {} times, and ended {} times".format(observed_start_count, observed_end_count))

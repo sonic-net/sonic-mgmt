@@ -80,9 +80,6 @@ class MacsecPlugin(object):
                     # will drop it for macsec kernel module does not correctly handle it.
                     pytest.skip(
                         "macsec on dut vsonic, neighbor eos, send_sci false")
-                if profile['rekey_period'] > 0:
-                    pytest.skip(
-                        "Rekey period hasn't been supported in EOS platform")
 
             cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
             setup_macsec_configuration(duthost, ctrl_links,

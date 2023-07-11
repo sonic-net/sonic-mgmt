@@ -266,10 +266,10 @@
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
+{% if card_type is not defined or card_type != 'supervisor' %}
         <AclInterface>
           <AttachTo>
 {%- set acl_intfs = [] -%}
-{% if card_type is not defined or card_type != 'supervisor' %}
 {%- for index in range(vms_number) %}
 {% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
@@ -297,12 +297,12 @@
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endfor %}
-{% endif %}
 {{- acl_intfs|join(';') -}}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif %}
       </AclInterfaces>
       <DownstreamSummaries/>
       <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>

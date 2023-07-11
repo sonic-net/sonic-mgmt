@@ -424,13 +424,23 @@ def get_entries_num(used, available):
     """ Get number of entries needed to be created that 'used' counter reached one percent """
     return ((used + available) / 100) + 1
 
-def get_crm_resources_fdb_and_ip_route(duthost):
+def get_crm_resources_fdb_and_ip_route(duthost, asic_ix):
     keys = ['ipv4_route', 'ipv6_route', 'fdb_entry']
     output = duthost.shell("crm show resources all")
     result = {}
+    asic_str = ""
+    asic_matched = False
+
+    if duthost.sonichost.is_multi_asic:
+        asic_str = 'ASIC' + str(asic_ix)
+
     for line in output['stdout_lines']:
         if line:
             line = line.split()
+            if duthost.sonichost.is_multi_asic and asic_matched is False:
+                if line[0] == asic_str:
+                    asic_matched = True
+                continue
             if line[0] in keys:
                 counters = {'used': int(line[1]), 'available': int(line[2])}
                 result[line[0]] = counters
@@ -473,7 +483,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     add_routes_template = Template(add_template)
 
     # Get ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used = crm_stats['fdb_entry']['used']
@@ -503,7 +513,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     time.sleep(CRM_UPDATE_TIME)
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     new_crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     new_crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used_after_add_route = crm_stats['fdb_entry']['used']
@@ -533,7 +543,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     time.sleep(CRM_UPDATE_TIME)
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     new_crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     new_crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used_after_del_route = crm_stats['fdb_entry']['used']
@@ -553,23 +563,29 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if used_percent < 1:
         routes_num = get_entries_num(new_crm_stats_route_used, new_crm_stats_route_available)
         if ip_ver == "4":
-            routes_list = " ".join([str(ipaddress.IPv4Address(u'2.0.0.1') + item) + "/32"
-                for item in range(1, routes_num + 1)])
+            routes_list_raw = [str(ipaddress.IPv4Address(u'2.0.0.1') + item) + "/32"
+                               for item in range(1, routes_num + 1)]
         elif ip_ver == "6":
-            routes_list = " ".join([str(ipaddress.IPv6Address(u'2001::') + item) + "/128"
-                for item in range(1, routes_num + 1)])
+            routes_list_raw = [str(ipaddress.IPv6Address(u'2001::') + item) + "/128"
+                               for item in range(1, routes_num + 1)]
         else:
             pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
+        # Group commands to avoid command line too long errors
+        num_cmds_to_run_at_once = 100
+        routes_list_list = [" ".join(routes_list_raw[i:i+num_cmds_to_run_at_once])
+                            for i in range(0, len(routes_list_raw), num_cmds_to_run_at_once)]
         # Store CLI command to delete all created neighbours if test case will fail
-        RESTORE_CMDS["test_crm_route"].append(
-            del_routes_template.render(routes_list=routes_list,
-              interface=crm_interface[0],  namespace = asichost.namespace))
+        for routes_list in routes_list_list:
+            RESTORE_CMDS["test_crm_route"].append(
+                del_routes_template.render(routes_list=routes_list,
+                                           interface=crm_interface[0],
+                                           namespace=asichost.namespace))
 
         # Add test routes entries to correctly calculate used CRM resources in percentage
-        duthost.shell(add_routes_template.render(routes_list=routes_list,
-                                         interface=crm_interface[0],
-                                         namespace=asichost.namespace))
-
+        for routes_list in routes_list_list:
+            duthost.shell(add_routes_template.render(routes_list=routes_list,
+                                                     interface=crm_interface[0],
+                                                     namespace=asichost.namespace))
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
@@ -870,28 +886,31 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             elif i == 1:
                 ports = ",".join(tmp_ports[24:26])
             elif i == 2:
-                ports = ",".join([tmp_ports[20],tmp_ports[25]])
+                ports = ",".join([tmp_ports[20], tmp_ports[25]])
             recreate_acl_table(duthost, ports)
-            verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector)
+            verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                                 enum_frontend_asic_index, asic_collector)
             # Rebind DATA ACL at end to recover original config
             recreate_acl_table(duthost, ports)
             apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
             duthost.command("acl-loader delete")
     else:
-        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector)
+        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_frontend_asic_index, asic_collector)
 
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_acl_entry_used\" counter was not decremented or "
                   "\"crm_stats_acl_entry_available\" counter was not incremented")
 
-def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector):
+
+def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                         enum_frontend_asic_index, asic_collector):
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
                             crm_stats_acl_entry_used \
                             crm_stats_acl_entry_available"\
-                            .format(db_cli=asichost.sonic_db_cli,
-                            acl_tbl_key=acl_tbl_key)
+                            .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
     RESTORE_CMDS["crm_threshold_name"] = "acl_entry"
     crm_stats_acl_entry_used = 0
     crm_stats_acl_entry_available = 0
@@ -900,7 +919,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
     # Verify "crm_stats_acl_entry_used" counter was incremented
     pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 2,
-                    "\"crm_stats_acl_entry_used\" counter was not incremented")
+                  "\"crm_stats_acl_entry_used\" counter was not incremented")
 
     crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used
 
@@ -923,12 +942,12 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
                             crm_stats_acl_entry_used \
                             crm_stats_acl_entry_available"\
-                            .format(db_cli=asichost.sonic_db_cli,
-                            acl_tbl_key=acl_tbl_key)
+                            .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
     global crm_stats_checker
     crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
-                                    crm_stats_acl_entry_used,
-                                    crm_stats_acl_entry_available,"==", ">=")
+                                   crm_stats_acl_entry_used,
+                                   crm_stats_acl_entry_available, "==", ">=")
+
 
 def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_frontend_asic_index, collector):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
