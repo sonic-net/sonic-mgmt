@@ -510,7 +510,7 @@ generic_config_updater/test_pfcwd_interval.py::test_pfcwd_interval_config_update
     conditions:
       - "asic_gen in ['spc3']"
 
-generic_config_updater/test_pfcwd_status.py::test_stop_pfcwd:
+generic_config_updater/test_pfcwd_status.py:
   skip:
     reason: "This test is not run on this asic type currently"
     conditions:
