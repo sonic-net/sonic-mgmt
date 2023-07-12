@@ -124,7 +124,7 @@ def restore_tacacs_servers(duthost):
             cmds.append("config tacacs timeout %s" % cfg)
 
     # Cleanup AAA and TACPLUS config
-    delete_tacacs_json = [{"AAA":{}},{"TACPLUS":{}}]
+    delete_tacacs_json = [{"AAA": {}}, {"TACPLUS": {}}]
     delete_running_config(delete_tacacs_json, duthost)
 
     # Restore AAA and TACPLUS config
