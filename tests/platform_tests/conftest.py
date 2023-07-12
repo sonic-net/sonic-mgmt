@@ -84,7 +84,9 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
 
         # Enable outer interfaces
         for port in ports:
-            duthost.no_shutdown(ifname=port)
+            namespace = mg_facts["minigraph_neighbors"][port]['namespace']
+            namespace_arg = '-n {}'.format(namespace) if namespace else ''
+            duthost.command("sudo config interface {} startup {}".format(namespace_arg, port))
 
 
 def get_state_times(timestamp, state, state_times, first_after_offset=None):
