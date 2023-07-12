@@ -52,7 +52,7 @@ bfd/test_bfd.py:
   skip:
     reason: "Test not supported for 201911 images or older, other than mlnx4600c and cisco-8102. Skipping the test"
     conditions:
-      - "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0'])"
+      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0'])"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
@@ -193,7 +193,7 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
     reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
-      - "build_version > '20220531.27' and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
+      - "int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -202,7 +202,7 @@ crm/test_crm.py::test_crm_fdb_entry:
   skip:
     reason: "Unsupported topology, expected to run only on 'T0*' or 'M0/MX' topology"
     conditions:
-      - "'t0' not in topo_name and topo_name not in ['m0', 'mx']"
+      - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
 #######################################
 #####            decap            #####
@@ -254,7 +254,7 @@ drop_packets:
   skip:
     reason: "M0/MX topo does not support drop_packets"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####           dualtor           #####
@@ -458,12 +458,10 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: '1. replace_fec ethernet test is not supported on virtual switch
-             2. Skip on M0 and Mx topo due to DUT interfaces do not support config fec'
-    conditions_logical_operator: OR
+    reason: 'replace_fec ethernet test depends on StateDB values. GCU needs to be updated to consider StateDB'
     conditions:
-      - "platform in ['x86_64-kvm_x86_64-r0']"
-      - "topo_type in ['m0', 'mx'] and https://github.com/sonic-net/sonic-mgmt/issues/8600"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8600
+
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -472,8 +470,8 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
       - "asic_type in ['cisco-8000']"
 
 generic_config_updater/test_eth_interface.py::test_update_speed:
-  xfail:
-    reason: 'Xfail this script due to this not being a production scenario and misleading StateDB output for valid speed'
+  skip:
+    reason: 'Skip this script due to this not being a production scenario and misleading StateDB output for valid speed'
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
@@ -515,7 +513,7 @@ iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   skip:
     reason: "M0/MX topo does not support TestShowPriorityGroup"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark:
   xfail:
@@ -535,7 +533,7 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue:
   skip:
     reason: "M0/MX topo does not support TestShowQueue"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####           mvrf              #####
@@ -544,7 +542,7 @@ mvrf:
   skip:
     reason: "M0/MX topo does not support mvrf"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####            ip               #####
@@ -612,7 +610,7 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
   skip:
     reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
     conditions:
-      - "'t2' in topo_name"
+      - "asic_subtype in ['broadcom-dnx']"
 
 #######################################
 #####            mpls             #####
@@ -622,15 +620,6 @@ mpls/test_mpls.py:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
     conditions:
       - "asic_type in ['barefoot']"
-
-#######################################
-#####           mvrf              #####
-#######################################
-mvrf:
-  skip:
-    reason: "M0 topo does not support mvrf"
-    conditions:
-      - "topo_name in ['m0']"
 
 #######################################
 #####           nat               #####
@@ -721,7 +710,7 @@ pfcwd:
   skip:
     reason: "Pfcwd tests skipped on m0/mx testbed."
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -811,7 +800,7 @@ qos:
   skip:
     reason: "M0/MX topo does not support qos"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 qos/test_buffer.py:
   skip:
@@ -993,7 +982,7 @@ show_techsupport/test_techsupport.py::test_techsupport:
     strict: True
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.33'"
+      - "int(build_version.split('.')[1]) <= 33"
 
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
@@ -1008,7 +997,7 @@ snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
     conditions:
-      - "topo_name in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx']"
 
 snmp/test_snmp_queue.py:
   skip:
@@ -1016,7 +1005,7 @@ snmp/test_snmp_queue.py:
     conditions_logical_operator: 'OR'
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/13289 and asic_type in ['vs'] and hwsku in ['msft_four_asic_vs', 'msft_multi_asic_vs'] and '202205' in branch"
-      - "topo_name in ['m0', 'mx'] or asic_type in ['barefoot']"
+      - "topo_type in ['m0', 'mx'] or asic_type in ['barefoot']"
 
 #######################################
 #####            span             #####
@@ -1060,7 +1049,7 @@ syslog/test_syslog.py:
     reason: "Generic internal image issue"
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.33'"
+      - "int(build_version.split('.')[1]) <= 33"
   skip:
     reason: "Testcase enhancements needed for backend topo"
     conditions:
@@ -1075,7 +1064,7 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     strict: True
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.44'"
+      - "int(build_version.split('.')[1]) <= 44"
 
 #######################################
 #####            vlan             #####
@@ -1121,12 +1110,16 @@ vrf/test_vrf.py::TestVrfAclRedirect:
 #######################################
 vxlan/test_vnet_vxlan.py:
   skip:
-    reason: "enable tests only for: mellanox, barefoot"
+    reason: "1. Enable tests only for: mellanox, barefoot
+             2. Test skipped due to issue #8374"
+    conditions_logical_operator: OR
     conditions:
       - "asic_type not in ['mellanox', 'barefoot']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8374
 
 vxlan/test_vxlan_ecmp.py:
   skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c and 8102."
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0'])"
+

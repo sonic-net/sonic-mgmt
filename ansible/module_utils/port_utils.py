@@ -19,7 +19,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
     port_name_to_index_map = {}
-    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O", "88-LC0-36FH-MO"]
+    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["Cisco-88-LC0-36FH-M-O36",
+                                              "Cisco-88-LC0-36FH-O36",
+                                              "Cisco-8800-LC-48H-C48"]
     try:
         from sonic_py_common import multi_asic
         from ansible.module_utils.multi_asic_utils import load_db_config
@@ -256,10 +258,10 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(0, 32):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
-        elif hwsku in ["8800-LC-48H-O"]:
+        elif hwsku in ["Cisco-8800-LC-48H-C48"]:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 4)
-        elif hwsku in ["88-LC0-36FH-MO"]:
+        elif hwsku in ["Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36"]:
             for i in range(0, 36, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 8)
         elif hwsku in ["msft_multi_asic_vs"]:

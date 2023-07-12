@@ -349,27 +349,37 @@ def toggle_all_simulator_ports(mux_server_url, tbinfo):
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_upper_tor(mux_server_url, tbinfo, cable_type):
+def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts, mux_server_url, tbinfo, cable_type):    # noqa F811
     """
     A function level fixture to toggle all active-standby ports to upper_tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
+        return
+
     if cable_type == CableType.active_standby:
-        _toggle_all_simulator_ports(mux_server_url, UPPER_TOR, tbinfo)
+        _toggle_all_simulator_ports_to_target_dut(duthosts[0].hostname, duthosts, mux_server_url, tbinfo)
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_lower_tor(mux_server_url, tbinfo, cable_type):
+def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts, mux_server_url, tbinfo, cable_type):    # noqa F811
     """
     A function level fixture to toggle all active-standby ports to lower_tor
 
     For this fixture to work properly, ICMP responder must be running. Please ensure that fixture run_icmp_responder
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
+    # Skip on non dualtor testbed
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
+        return
+
     if cable_type == CableType.active_standby:
-        _toggle_all_simulator_ports(mux_server_url, LOWER_TOR, tbinfo)
+        _toggle_all_simulator_ports_to_target_dut(duthosts[1].hostname, duthosts, mux_server_url, tbinfo)
 
 
 def _probe_mux_ports(duthosts, ports):

@@ -32,7 +32,8 @@ from switch import (switch_init,
                     sai_thrift_read_pg_shared_watermark,
                     sai_thrift_read_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
-                    sai_thrift_read_queue_occupancy)
+                    sai_thrift_read_queue_occupancy,
+                    sai_thrift_read_pg_occupancy)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
 from switch_sai_thrift.sai_headers import (SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID,
@@ -357,6 +358,62 @@ def fill_leakout_plus_one(
             " dst_port_id:{}, pkt:{}, queue:{}".format(
             src_port_id, dst_port_id, pkt.__repr__()[0:180], queue))
     return False
+
+
+def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num_egr_mem=0, dst_port_id=None, pkt2=None):
+    # Attempts to queue 1 packet while compensating for a varying packet leakout and egress queues.
+    # pkts_num_egr_mem is the number of packets in full egress queues, to provide an initial filling boost
+    # Returns whether 1 packet was successfully enqueued.
+    #
+    # pkts_num_egr_mem=0 is not applicable for multi-src-port cases
+    # for multi-src-port case, get pkts_num_egr_mem via overflow_egress(),
+    # then call fill_egress_plus_one() with pkts_num_egr_mem
+    if asic_type in ['cisco-8000']:
+        # if pkts_num_egr_mem unknown, get estimated pkts_num_egr_mem
+        if pkts_num_egr_mem == 0:
+            if dst_port_id == None:
+                raise RuntimeError("fill_egress_plus_one: please input pkts_num_egr_mem or dst_port_id", file=sys.stderr)
+            pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(test_case,
+                                                    src_port_id, pkt, queue, asic_type)
+            # tx enable
+            test_case.sai_thrift_port_tx_enable(test_case.dst_client, asic_type, [dst_port_id])
+            # tx disable
+            test_case.sai_thrift_port_tx_disable(test_case.dst_client, asic_type, [dst_port_id])
+
+        pkt_list = [pkt]
+        if pkt2:
+            pkt_list.append(pkt2)
+        for packet in pkt_list:
+            # send 1 packet, if pg occupancy increases, return
+            pg_cntrs_base=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            send_packet(test_case, src_port_id, packet, 1)
+            pg_cntrs=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            if pg_cntrs[queue] > pg_cntrs_base[queue]:
+                print("fill_egress_plus_one: Success, sent 1 packets, SQ occupancy bytes rose from %d to %d" % (
+                    pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                continue
+
+            # fill egress plus one
+            pg_cntrs_base=sai_thrift_read_pg_occupancy(
+                test_case.src_client, port_list['src'][src_port_id])
+            send_packet(test_case, src_port_id, packet, pkts_num_egr_mem)
+            max_packets = 1000
+            for packet_i in range(max_packets):
+                send_packet(test_case, src_port_id, packet, 1)
+                pg_cntrs=sai_thrift_read_pg_occupancy(
+                    test_case.src_client, port_list['src'][src_port_id])
+                if pg_cntrs[queue] > pg_cntrs_base[queue]:
+                    print("fill_egress_plus_one: Success, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
+                        pkts_num_egr_mem + packet_i + 1, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                    break
+            if pg_cntrs[queue] <= pg_cntrs_base[queue]:
+                print("fill_egress_plus_one: Failure, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
+                        pkts_num_egr_mem + max_packets, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                return False
+
+    return True
 
 
 def overflow_egress(test_case, src_port_id, pkt, queue, asic_type):
@@ -963,41 +1020,49 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
             # There are packet leak even port tx is disabled (18 packets leak on TD3 found)
             # Hence we send some packet to fill the leak before testing
-            for dscp, _ in dscp_to_pg_map.items():
-                pkt = self._build_testing_pkt(
-                                            active_tor_mac=active_tor_mac,
-                                            standby_tor_mac=standby_tor_mac,
-                                            active_tor_ip=active_tor_ip,
-                                            standby_tor_ip=standby_tor_ip,
-                                            inner_dscp=dscp,
-                                            outer_dscp=0,
-                                            dst_ip=dst_port_ip
-                                        )
-                send_packet(self, src_port_id, pkt, 20)
-            time.sleep(10)
+            if asic_type != 'mellanox':
+                for dscp, _ in dscp_to_pg_map.items():
+                    pkt = self._build_testing_pkt(
+                        active_tor_mac=active_tor_mac,
+                        standby_tor_mac=standby_tor_mac,
+                        active_tor_ip=active_tor_ip,
+                        standby_tor_ip=standby_tor_ip,
+                        inner_dscp=dscp,
+                        outer_dscp=0,
+                        dst_ip=dst_port_ip
+                    )
+                    send_packet(self, src_port_id, pkt, 20)
+                time.sleep(10)
 
-            for dscp, pg in dscp_to_pg_map.items():
+            for inner_dscp, pg in dscp_to_pg_map.items():
+                logging.info("Iteration: inner_dscp:{}, pg: {}".format(inner_dscp, pg))
                 # Build and send packet to active tor.
-                # The inner DSCP is set to testing value, and the outer DSCP is set to 0 as it has no impact on remapping
+                # The inner DSCP is set to testing value,
+                # and the outer DSCP is set to 0 as it has no impact on remapping
+                # On Nvidia platforms, the dscp mode is pipe and the PG is determined by the outer dscp before decap
+                outer_dscp = inner_dscp if asic_type == 'mellanox' else 0
                 pkt = self._build_testing_pkt(
-                                            active_tor_mac=active_tor_mac,
-                                            standby_tor_mac=standby_tor_mac,
-                                            active_tor_ip=active_tor_ip,
-                                            standby_tor_ip=standby_tor_ip,
-                                            inner_dscp=dscp,
-                                            outer_dscp=0,
-                                            dst_ip=dst_port_ip
-                                        )
-                pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type,
-                                                                            port_list['src'][src_port_id])
+                    active_tor_mac=active_tor_mac,
+                    standby_tor_mac=standby_tor_mac,
+                    active_tor_ip=active_tor_ip,
+                    standby_tor_ip=standby_tor_ip,
+                    inner_dscp=inner_dscp,
+                    outer_dscp=outer_dscp,
+                    dst_ip=dst_port_ip
+                )
+                pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(
+                    self.client, asic_type, port_list[src_port_id])
+                logging.info(pg_shared_wm_res_base)
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
                 time.sleep(8)
-                pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type,
-                                                                       port_list['src'][src_port_id])
-
-                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] <= (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size)
-                assert(pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg] >= (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size)
+                pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(
+                    self.client, asic_type, port_list[src_port_id])
+                logging.info(pg_shared_wm_res)
+                assert (pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
+                        <= (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size)
+                assert (pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
+                        >= (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size)
         finally:
             # Enable tx on dest port
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
@@ -1515,7 +1580,7 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(self, src_details[i][0], all_pkts[src_details[i][0]][0][0], npkts)
 
             # allow enough time for counters to update
-            time.sleep(8)
+            time.sleep(2)
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             counter_details_3 = collect_counters()
@@ -3416,18 +3481,38 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Prepare TCP packet data
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
-        pkt = get_multiple_flows(
-                self,
-                pkt_dst_mac,
-                dst_port_id,
-                dst_port_ip,
-                None,
-                dscp,
-                ecn,
-                ttl,
-                packet_length,
-                [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+        if asic_type in ['cisco-8000']:
+            pkt = get_multiple_flows(
+                    self,
+                    pkt_dst_mac,
+                    dst_port_id,
+                    dst_port_ip,
+                    None,
+                    dscp,
+                    ecn,
+                    ttl,
+                    packet_length,
+                    [(src_port_id, src_port_ip)],
+                    packets_per_port=1)[src_port_id][0][0]
+        else:
+            pkt = construct_ip_pkt(packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ecn=ecn,
+                                   ttl=ttl)
+
+            print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
+                  (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
+            # in case dst_port_id is part of LAG, find out the actual dst port
+            # for given IP parameters
+            dst_port_id = get_rx_port(
+                self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
+            )
+            print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
@@ -4510,7 +4595,11 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             pkts_num_margin = int(self.test_params['pkts_num_margin'])
         else:
             pkts_num_margin = 2
-
+        if 'cell_size' in self.test_params:
+            cell_size = self.test_params['cell_size']
+            cell_occupancy = (packet_size + cell_size - 1) // cell_size
+        else:
+            cell_occupancy = 1
         try:
             # Disable tx on EGRESS port so that headroom buffer cannot be free
             self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
@@ -4539,7 +4628,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
                                             packet_size=packet_size)
 
             # Send packets short of triggering pfc
-            send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+            send_packet(self, src_port_id, pkt, pkts_num_trig_pfc // cell_occupancy - 1 - pkts_num_margin)
             time.sleep(8)
             # Read TX_OK again to calculate leaked packet number
             tx_counters, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])

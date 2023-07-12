@@ -577,6 +577,9 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        if not get_src_dst_asic_and_duts['single_asic_test']:
+             pytest.skip("This test needs to be revisited later, for the case "
+                 "where src and dst ASICs are different.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and \
                 'backend' not in dutTestParams['topo']:
@@ -592,7 +595,8 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
-        # Swapping the src_port_*_id with dst_port_*_id since the src_port* are
+        all_src_ports = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        # Swapping the src_port_*_id with all available src ports, src_port* are
         # not available in this structure anymore.
         testParams.update({
             "dscp": qosConfig[LosslessVoqProfile]["dscp"],
@@ -602,10 +606,10 @@ class TestQosSai(QosSaiBase):
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-            "src_port_1_id": dutConfig["testPorts"]["dst_port_2_id"],
-            "src_port_1_ip": dutConfig["testPorts"]["dst_port_2_ip"],
-            "src_port_2_id": dutConfig["testPorts"]["dst_port_3_id"],
-            "src_port_2_ip": dutConfig["testPorts"]["dst_port_3_ip"],
+            "src_port_1_id": all_src_ports.keys()[0],
+            "src_port_1_ip": all_src_ports.values()[0]['peer_addr'],
+            "src_port_2_id": all_src_ports.keys()[1],
+            "src_port_2_ip": all_src_ports.values()[1]['peer_addr'],
             "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]
@@ -1055,8 +1059,9 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("Lossy Queue Voq test is not supported")
+        if not get_src_dst_asic_and_duts['single_asic_test']:
+             pytest.skip("LossyQueueVoq: This test is skipped for now, will"
+                 " be re-enabled for RH cards.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
@@ -1389,6 +1394,13 @@ class TestQosSai(QosSaiBase):
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
+            if not get_src_dst_asic_and_duts['single_asic_test'] and \
+                dutTestParams["basicParams"].get("platform_asic", None) \
+                    == "cisco-8000":
+                pytest.skip(
+                    "PGSharedWatermark: Lossy test is not applicable in "
+                    "multiple ASIC case in cisco-8000 platform.")
+
             pktsNumFillShared = int(qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
@@ -1575,6 +1587,12 @@ class TestQosSai(QosSaiBase):
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             triggerDrop = qosConfig[queueProfile]["pkts_num_trig_ingr_drp"]
         else:
+            if not get_src_dst_asic_and_duts['single_asic_test'] and \
+                dutTestParams["basicParams"].get("platform_asic", None) \
+                    == "cisco-8000":
+                pytest.skip(
+                    "Lossy test is not applicable in multiple ASIC case"
+                    " in cisco-8000 platform.")
             if queueProfile in dutQosConfig["param"][portSpeedCableLength].keys():
                 qosConfig = dutQosConfig["param"][portSpeedCableLength]
             else:
