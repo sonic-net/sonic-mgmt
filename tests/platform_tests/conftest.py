@@ -526,11 +526,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         # The regex library in Python 2 takes very long time (over 10 minutes) to process long lines. In our test,
         # most of the combined log message for mac jump test is around 5000 characters. So we set the max allowed
         # length to 6000.
-        if "mac_jump" in test_name:
-            maxmum_log_len = 6000
-        else:
-            maxmum_log_len = None
-        result = loganalyzer.analyze(marker, fail=False, maximum_log_length=maxmum_log_len)
+        result = loganalyzer.analyze(marker, fail=False, maximum_log_length=6000)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 
