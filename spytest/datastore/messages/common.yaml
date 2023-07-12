@@ -110,4 +110,3 @@ docker_image_installation: docker image creation {}
 docker_run: docker run {}
 
 redis_db_authentication_enabled_status: Verification of redis-db authentication enabled - {}
-

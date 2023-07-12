@@ -545,4 +545,3 @@ bdbg_clear_verify : verification of bdbg clear is successful
 bdbg_congestion_verify : verification of congestion configuration is successful
 bdbg_drops_verify : verification of drops configuration is {}
 warmboot_not_supported : This platform does not support warmboot
-

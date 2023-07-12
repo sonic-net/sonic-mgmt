@@ -95,4 +95,3 @@
 
 #InfraModuleNeededforNodeDownScenarios
 +file:batch/test_spytest_infra_1.py
-

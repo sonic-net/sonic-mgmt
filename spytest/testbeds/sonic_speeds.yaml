@@ -910,7 +910,7 @@ Tpod_AS7326-10G:
   Ethernet38: 10000
   Ethernet39: 10000
   Ethernet40: 10000
-  
+
 Tpod_AS7326-10G-2:
   Ethernet0: 10000
   Ethernet1: 10000
