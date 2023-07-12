@@ -54,7 +54,10 @@ def get_route_scale_per_role(tbinfo, ip_version):
 
 
 @pytest.fixture
-def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    if tbinfo["topo"]["type"] in ["m0", "mx"]:
+        return
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
 
