@@ -1,6 +1,5 @@
 import logging
 import pytest
-import six
 
 
 TOTAL_PACKETS = 100
