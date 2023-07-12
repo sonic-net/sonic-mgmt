@@ -134,6 +134,8 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
     """
 
     logger.info("Test case #1 starting ...")
+    if "dualtor" in tbinfo["topo"]["name"]:
+        pytest.skip("Dual TOR device does not support broadcast packet")
 
     untagged_pkt = build_icmp_packet(0)
     # Need a tagged packet for set_do_not_care_scapy
@@ -170,6 +172,8 @@ def test_vlan_tc2_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname, rand_
     """
 
     logger.info("Test case #2 starting ...")
+    if "dualtor" in tbinfo["topo"]["name"]:
+        pytest.skip("Dual TOR device does not support broadcast packet")
 
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     for vlan_port in vlan_ports_list:
@@ -195,6 +199,8 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
     """
 
     logger.info("Test case #3 starting ...")
+    if "dualtor" in tbinfo["topo"]["name"]:
+        pytest.skip("Dual TOR device does not support broadcast packet")
 
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
     invalid_tagged_pkt = build_icmp_packet(4095)
