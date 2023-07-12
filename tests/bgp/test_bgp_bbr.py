@@ -50,7 +50,8 @@ def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
 
     yield
 
-    delete_running_config("./bgp/templates/del_bgp_bbr_config.json", duthost, is_json=False)
+    del_bbr_json = [{"BGP_BBR": {}}]
+    delete_running_config(del_bbr_json, duthost)
 
 
 @pytest.fixture(scope='module')

@@ -34,7 +34,8 @@ def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost.shell("sudo config radius default passkey")
 
     # Remove TACACS/Radius keys
-    delete_running_config("./show_techsupport/templates/del_keys.json", duthost, is_json=False)
+    delete_keys_json = [{"RADIUS":{}},{"TACPLUS":{}}]
+    delete_running_config(delete_keys_json, duthost)
 
 
 def check_no_result(duthost, command):

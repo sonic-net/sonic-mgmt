@@ -84,4 +84,5 @@ def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
             pytest.fail("dynamic BGP session is not established after %s" % reboot_type)
     finally:
         neighbor.stop_session()
-        delete_running_config("bgp/templates/del_warm_restart_config.json", duthost, is_json=False)
+        delete_slb_json = [{"WARM_RESTART": {}}]
+        delete_running_config(delete_slb_json, duthost)
