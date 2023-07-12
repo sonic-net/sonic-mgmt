@@ -975,6 +975,12 @@ show_techsupport/test_techsupport.py::test_techsupport:
 #######################################
 #####            snmp             #####
 #######################################
+snmp/test_snmp_memory.py::test_snmp_memory_load:
+  skip:
+    resason: "Test is flaky on some of the platforms"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8935
+
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
