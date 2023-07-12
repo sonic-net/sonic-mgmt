@@ -5,6 +5,7 @@ portchannel_member_verify_fail: failed to verify given portchannel member {}
 failed_to_config_speed : Failed to config speed
 Dut_failed_to_get_speed : Dut failed to get speed
 failed_to_config_interface : Failed to config on interface
+failed_to_config_ifname_type : Failed to config on interface naming type
 failed_to_receive_valid_traffic : Failed to receive valid traffic
 fail_to_configure_mtu_on_device : Fail to configure mtu on Device {}
 interface_is_down_on_dut : interface is down on DUT {}
@@ -92,6 +93,14 @@ chef_bootstrap_fail: Bootstrap to DUT failed
 ## Config
 Config_not_loaded_from_config_db_json: Config from config_db.json is not loaded to running configuration
 
+## Config session
+config_session_inactive: Config session is inactive
+config_session_active: Config session is active
+config_session_not_aborted: Config session was not aborted
+commit_failed: Config session commit failed
+config_session_failed: Config session verification faield
+config_session_diff: show config session difference is {}
+checkpoint_not_created: checkpoint is not created after commit
 
 ## CRM
 threshold_config_success: Successfully configured threshold values.
@@ -117,6 +126,12 @@ ztp_source_verification_failed: ZTP source verification failed with {} against {
 ztp_max_polling_interval: Max polling interval reached.
 ztp_dhclient_error: DHCLIENT on required interface is not found.
 snmp_params_verification_failed: SNMP parameter verification failed.
+ztp_over_usb_status_verification: ZTP over USB status verification {}
+ztp_timestamp_value_not_found: Timestamp value of {} is not found.
+ztp_timestamp_mismatch: Matching timestamp string is not found for {} job.
+usb_status_check_failed: Partitions are not yet populated or USB is not detected
+
+
 
 ##logging
 failed_to _clear_logs: Failed to clear all logs
@@ -125,6 +140,7 @@ syslog_server_entry_not_stored_in_config_db: syslog server entry not stored in c
 logs_are_getting_generated_after_reboot: logs are getting generated after reboot
 logging_severity_level_change_failed: logging severity level change got failed
 Tech_support_operation_failed: Tech support operation failed
+logs_are_getting_generated: Error logs are getting generated on the device
 
 ##SNMP
 snmp_operation_fail: SNMP {} operation is failed due to - {}
@@ -153,6 +169,9 @@ snmp_community_invalid_error_code: Observed invalid error code {} when snmp comm
 snmp_community_config_gnmi_unsuccessful: Failed to {} snmp community - {} via gnmi.
 snmp_agent_address_config_verify_unsuccessful: Failed to configure snmp agent addresses - {} with non-default port - {}
 snmp_counter_not_incremented: SNMP counter value not incremented though simulated
+snmp_onchange_delete_notification_failed: snmp onchhange notification not received over config delete.
+snmp_onchange_initial_notification_failed: snmp onchange intial notification is not received.
+snmp_onchange_update_notification_failed: snmp onchange update notification is not received.
 
 ##PMON
 pmon_service_not_up : PMON service is not up
@@ -246,6 +265,7 @@ mirroring_gnmi_get_or_set_operation_has_invalid_values : Mirroring {} value has 
 mirroring_after_gnmi_config_status : Mirroring config after using gnmi is {}
 mirror_traffic_is_not_forwarded : Traffic is not forwareded correctly for mirroing , please check tg
 mirroring_destination_CPU_both_working_fine : Mirroing with {} as source and CPU as destination is {}
+mirroring_egress_traffic: Verified the ergress traffic mirroring - {}
 # ERSPAN
 ip_config_fail : Failed to configure ip address {} on interface {}
 mirror_session_fail : Failed to create mirror session {}
@@ -316,6 +336,7 @@ pddf_psu_summary_util_verification_success: "{}: Platform PSU UTIL summary verif
 pddf_psu_util_verification_failed: "{}: Failed to verify PDDF PSU-UTIL data."
 pddf_psu_mfr_info_verification_failed: "{}: Failed to verify PDDF_PSU_MFR_info."
 sfp_lp_mode_x_failed: "{}: Failed to {} sfp lp mode on the interface-{}."
+sfp_lp_mode_x_unsupported: "lp mode supported interface is not found"
 sfp_presence_not_found: "{}: Unable to find sfp presence on up interface {}."
 sfp_reset_failed: "{}: Failed to perform sfp reset on interface {}."
 sfp_eeprom_detection_failed: "{}: Unable to find sfp EEPROM status on up interface {}."
@@ -395,6 +416,7 @@ drop_monitor_stats_pass: Verified drop monitor stats.
 drop_monitor_unsupported_platform: Drop Monitor feature is not supported on {}
 drop_monitor_unsupported_build: This build does not support drop monitor feature
 no_mod_drop_events_observed: MOD drop events are not observed
+no_mod_drop_events_observed_before_wb: MOD drop events are not observed before warm reboot
 verify_flow_configuration_failed: Verification of flow configuration for Drop Monitor feature failed
 mod_support: MOD support is set to {}
 mod_feature_enable_fail: Failed to enable drop monitor feature
@@ -403,13 +425,22 @@ mod_config_fail: Drop monitor configuration failed
 verify_failed: Verification of {} failed
 drop_reason_validation_pass: Successfully validated the drop reason {}
 
-
+#TAM Multi VRF
+test_ut_mod_non_default_vrf_config: Drop Monitor feature configuration is successful with collector on non default VRF
+test_ut_ifa_mod_default_vrf_config: TAM feature configuration for IFA and MOD is successful with collector on default VRF
+test_ut_ifa_mod_same_vrf_config: TAM feature configuration for IFA and MOD is successful with collector on non default VRF
+test_ut_ifa_mod_different_vrf_config: TAM feature configuration IFA and MOD is successful with each collector on different VRF
+test_ut_mod_non_default_vrf_traffic: TAM feature MOD works successfully with collector on non default VRF
+test_ut_ifa_mod_default_vrf_traffic: TAM feature IFA and MOD works successfully with collector on default VRF
+test_ut_ifa_mod_same_vrf_traffic: TAM feature IFA and MOD works successfully with collector on non default but same VRF
+test_ut_ifa_mod_different_vrf_traffic: TAM feature IFA and MOD works successfully with collector on non default and different VRF
 
 #Management VRF
 mgmt_vrf_eth0_bind_fail: Failure to bind eth0 to Managemnt VRF
 mgmt_vrf_eth0_bind_success: Successful binding of eth0 to Management VRF
 mgmt_vrf_ssh_fail: SSH over Management VRF failed
 mgmt_vrf_ssh_pass: Successful to SSH over Management VRF
+mgmt_vrf_cfgreload_ping: PING over Management VRF '{}' after config reload
 mgmt_vrf_ping_fail: PING over Management VRF failed
 mgmt_vrf_ping_pass: PING successful using Management VRF
 mgmt_vrf_tr_fail: Traceroute over Management VRF failed
@@ -430,6 +461,7 @@ mgmt_vrf_tacacs: SSH login using TACACS {} over Management VRF
 mgmt_vrf_static_dhcp: Static and DHCP address assigment to eth0 {} in Management VRF
 
 #snapshot
+snapshot_missing_data : expected data {} not found
 snapshot_telemetry_interval_config_and_reset : verification of configured telemetry interval and reset to default interval is {}
 snapshot_interval_config : configuring snapshot interval is {}
 snapshot_interval_config_and_reset : verification of configured snapshot interval and reset to default interval is {}
@@ -445,6 +477,8 @@ snapshot_queue_multicast_watermark_verify : verification of snapshot queue multi
 snapshot_pg_shared_clear_verify : verification of clearing snapshot pg shared using {} CLI is {}
 snapshot_queue_unicast_clear_verify : verification of clearing snapshot queue unicast using {} CLI is {}
 snapshot_queue_multicast_clear_verify : verification of clearing snapshot queue multicast using {} CLI is {}
+snapshot_device_verify: verification of device configuration {}
+telemetry_unsupported: telemetry is unsupported on {} builds
 
 #BARE BONE OC YANG VERSION
 rest_error_observed: REST error response {} status code observed
@@ -482,3 +516,33 @@ hw_watchdog_reset_fail: Failed to reset hw watchdog feature
 hw_watchdog_running_status: Failed to get running status of hw watchdog feature
 hw_watchdog_kdump_fail: Failed to get kdump collection of hw watchdog feature
 hw_watchdog_unsupported: Hw watchdog feature is unsupported
+
+#ON_CHANGE
+on_change_verification_fail: Dell UT on change verification failed
+on_change_notify_fail: Failed to get ON_CHANGE notification for {}
+on_change_post_action_fail: Failed to Subscribe to ON_CHANGE after {}
+on_change_max_uri_fail: MAX URI - Failed to get Subscribe to ON_CHANGE
+on_change_multi_update_fail: Multi Update - Failed to get ON_CHANGE notification
+on_change_multi_client_fail: Multi Client - Failed to get ON_CHANGE notification from {}
+on_change_invalid_fail: Invalied URI is getting subscribed to ON_CHANGE
+on_change_ui_fail: Failed to get ON_CHANGE notification, when value change using {}
+
+#Link Error Disable
+link_flap_err_disable_status: Link flap error disable status update {} on interface.
+link_flap_err_disable_recovery_interval_status: Link flap error disable status update {} on interface when recovery_interval is set to 0.
+link_flap_err_disable_falp_threshold_status: Link flap error disable status update {} on interface when falp_threshold is set to 1.
+link_flap_err_disable_errdisable_recovery_status: Link flap error disable status update {} on interface after error disable recovery cause is disabled and re enabled.
+link_flap_err_disable_status_portchannel: Link flap error disable status update {} on port channel member interfaces.
+link_flap_err_disable_status_port_routing_intf: Link flap error disable status update {} on port routing interface.
+link_flap_err_disable_status_vlan_routing_intf: Link flap error disable status update {} on vlan routing interface.
+link_flap_err_disable_status_warmboot: Link flap error disable status update {} after warmboot.
+link_flap_err_disable_status_stp: Link flap error disable status update {} on stp enabled interface.
+link_flap_err_disable_status_reboot: Link flap error disable status update {} after reboot.
+
+#bdbg
+bdbg_tc_verify : verification of {} is {}
+bdbg_clear_verify : verification of bdbg clear is successful
+bdbg_congestion_verify : verification of congestion configuration is successful
+bdbg_drops_verify : verification of drops configuration is {}
+warmboot_not_supported : This platform does not support warmboot
+

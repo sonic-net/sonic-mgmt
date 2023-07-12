@@ -1,14 +1,9 @@
 default:
 
-AS7326-GPOD:
-  Ethernet0: 10000
-  Ethernet1: 10000
-  Ethernet2: 10000
-  Ethernet3: 10000 
-  Ethernet24: 10000
-  Ethernet25: 10000
-  Ethernet26: 10000
-  Ethernet27: 10000
+AS7326-custom:
+  Ethernet6: 10000
+  Ethernet9: 10000
+  Ethernet12: 10000
 
 AS7326-25G:
   Ethernet0: 25000
@@ -209,7 +204,7 @@ AS7326-10G-2:
   Ethernet94: 10000
   Ethernet95: 10000
 
-  
+
 AS7326-10G_PG1:
   Ethernet0: 10000
   Ethernet1: 10000
@@ -223,7 +218,7 @@ AS7326-10G_PG1:
   Ethernet9: 10000
   Ethernet10: 10000
   Ethernet11: 10000
-  
+
 AS7326-10G_PG2:
   Ethernet12: 10000
   Ethernet13: 10000
@@ -350,3 +345,692 @@ Force10-S6100-60-63-10G:
   Ethernet62: 10000
   Ethernet63: 10000
 
+IX8F-IFA-10G:
+  Ethernet2: 10000
+
+AS4630-10G:
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+AS4630-40G:
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+  Ethernet52: 40000
+  Ethernet56: 40000
+
+AS4630-10-10G:
+  Ethernet0: 10
+  Ethernet1: 10
+  Ethernet2: 10
+  Ethernet3: 10
+  Ethernet4: 10
+  Ethernet5: 10
+  Ethernet6: 10
+  Ethernet7: 10
+  Ethernet8: 10
+  Ethernet9: 10
+  Ethernet10: 10
+  Ethernet11: 10
+  Ethernet12: 10
+  Ethernet13: 10
+  Ethernet14: 10
+  Ethernet15: 10
+  Ethernet16: 10
+  Ethernet17: 10
+  Ethernet18: 10
+  Ethernet19: 10
+  Ethernet20: 10
+  Ethernet21: 10
+  Ethernet22: 10
+  Ethernet23: 10
+  Ethernet24: 10
+  Ethernet25: 10
+  Ethernet26: 10
+  Ethernet27: 10
+  Ethernet28: 10
+  Ethernet29: 10
+  Ethernet30: 10
+  Ethernet31: 10
+  Ethernet32: 10
+  Ethernet33: 10
+  Ethernet34: 10
+  Ethernet35: 10
+  Ethernet36: 10
+  Ethernet37: 10
+  Ethernet38: 10
+  Ethernet39: 10
+  Ethernet40: 10
+  Ethernet41: 10
+  Ethernet42: 10
+  Ethernet43: 10
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+AS4630-100-10G:
+  Ethernet0: 100
+  Ethernet1: 100
+  Ethernet2: 100
+  Ethernet3: 100
+  Ethernet4: 100
+  Ethernet5: 100
+  Ethernet6: 100
+  Ethernet7: 100
+  Ethernet8: 100
+  Ethernet9: 100
+  Ethernet10: 100
+  Ethernet11: 100
+  Ethernet12: 100
+  Ethernet13: 100
+  Ethernet14: 100
+  Ethernet15: 100
+  Ethernet16: 100
+  Ethernet17: 100
+  Ethernet18: 100
+  Ethernet19: 100
+  Ethernet20: 100
+  Ethernet21: 100
+  Ethernet22: 100
+  Ethernet23: 100
+  Ethernet24: 100
+  Ethernet25: 100
+  Ethernet26: 100
+  Ethernet27: 100
+  Ethernet28: 100
+  Ethernet29: 100
+  Ethernet30: 100
+  Ethernet31: 100
+  Ethernet32: 100
+  Ethernet33: 100
+  Ethernet34: 100
+  Ethernet35: 100
+  Ethernet36: 100
+  Ethernet37: 100
+  Ethernet38: 100
+  Ethernet39: 100
+  Ethernet40: 100
+  Ethernet41: 100
+  Ethernet42: 100
+  Ethernet43: 100
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+AS5835-1G-1:
+  Ethernet16: 1000
+  Ethernet32: 1000
+
+AS5835-1G-2:
+  Ethernet16: 1000
+  Ethernet33: 1000
+
+ALPHA-SCG60D0-484T-10G-1:
+  Ethernet48: 10000
+
+ALPHA-SCG60D0-484T-10G-2:
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+SEASTONE2-40G:
+  Ethernet96: 40000
+  Ethernet104: 40000
+  Ethernet112: 40000
+  Ethernet120: 40000
+
+AS7326-10G-Sanity:
+  Ethernet42: 10000
+  Ethernet43: 10000
+  Ethernet44: 10000
+  Ethernet45: 10000
+  Ethernet46: 10000
+  Ethernet47: 10000
+
+DELL3248TE-10G:
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+DELL3248PXE-10G:
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+AS5835-54T-1G:
+  Ethernet0: auto 1000
+  Ethernet1: auto 1000
+  Ethernet2: auto 1000
+  Ethernet3: auto 1000
+  Ethernet4: auto 1000
+  Ethernet5: auto 1000
+  Ethernet6: auto 1000
+  Ethernet7: auto 1000
+  Ethernet8: auto 1000
+  Ethernet9: auto 1000
+  Ethernet10: auto 1000
+  Ethernet11: auto 1000
+  Ethernet12: auto 1000
+  Ethernet13: auto 1000
+  Ethernet14: auto 1000
+  Ethernet15: auto 1000
+  Ethernet16: auto 1000
+  Ethernet17: auto 1000
+  Ethernet18: auto 1000
+  Ethernet19: auto 1000
+  Ethernet20: auto 1000
+  Ethernet21: auto 1000
+  Ethernet22: auto 1000
+  Ethernet23: auto 1000
+  Ethernet24: auto 1000
+  Ethernet25: auto 1000
+  Ethernet26: auto 1000
+  Ethernet27: auto 1000
+  Ethernet28: auto 1000
+  Ethernet29: auto 1000
+  Ethernet30: auto 1000
+  Ethernet31: auto 1000
+  Ethernet32: auto 1000
+  Ethernet33: auto 1000
+  Ethernet34: auto 1000
+  Ethernet35: auto 1000
+  Ethernet36: auto 1000
+  Ethernet37: auto 1000
+  Ethernet38: auto 1000
+  Ethernet39: auto 1000
+  Ethernet40: auto 1000
+  Ethernet41: auto 1000
+  Ethernet42: auto 1000
+  Ethernet43: auto 1000
+  Ethernet44: auto 1000
+  Ethernet45: auto 1000
+  Ethernet46: auto 1000
+  Ethernet47: auto 1000
+
+AS5835-54X-1G:
+  Ethernet0: 1000
+  Ethernet1: 1000
+  Ethernet2: 1000
+  Ethernet3: 1000
+  Ethernet4: 1000
+  Ethernet5: 1000
+  Ethernet6: 1000
+  Ethernet7: 1000
+  Ethernet8: 1000
+  Ethernet9: 1000
+  Ethernet10: 1000
+  Ethernet11: 1000
+  Ethernet12: 1000
+  Ethernet13: 1000
+  Ethernet14: 1000
+  Ethernet15: 1000
+  Ethernet16: 1000
+  Ethernet17: 1000
+  Ethernet18: 1000
+  Ethernet19: 1000
+  Ethernet20: 1000
+  Ethernet21: 1000
+  Ethernet22: 1000
+  Ethernet23: 1000
+  Ethernet24: 1000
+  Ethernet25: 1000
+  Ethernet26: 1000
+  Ethernet27: 1000
+  Ethernet28: 1000
+  Ethernet29: 1000
+  Ethernet30: 1000
+  Ethernet31: 1000
+  Ethernet32: 1000
+  Ethernet33: 1000
+  Ethernet34: 1000
+  Ethernet35: 1000
+  Ethernet36: 1000
+  Ethernet37: 1000
+  Ethernet38: 1000
+  Ethernet39: 1000
+  Ethernet40: 1000
+  Ethernet41: 1000
+  Ethernet42: 1000
+
+DELL3248X-custom:
+  Ethernet0: 1000
+  Ethernet1: 1000
+  Ethernet2: 1000
+  Ethernet3: 1000
+  Ethernet4: 1000
+  Ethernet5: 1000
+  Ethernet6: 1000
+  Ethernet7: 1000
+  Ethernet8: 1000
+  Ethernet9: 1000
+  Ethernet10: 1000
+  Ethernet11: 1000
+  Ethernet12: 1000
+  Ethernet13: 1000
+  Ethernet14: 1000
+  Ethernet15: 1000
+  Ethernet16: 1000
+  Ethernet17: 1000
+  Ethernet18: 1000
+  Ethernet19: 1000
+  Ethernet20: 1000
+  Ethernet21: 1000
+  Ethernet22: 1000
+  Ethernet23: 1000
+  Ethernet24: 1000
+  Ethernet25: 1000
+  Ethernet26: 1000
+  Ethernet27: 1000
+  Ethernet28: 1000
+  Ethernet29: 1000
+  Ethernet30: 1000
+  Ethernet31: 1000
+  Ethernet32: 1000
+  Ethernet33: 1000
+  Ethernet34: 1000
+  Ethernet35: 1000
+  Ethernet36: 1000
+  Ethernet37: 1000
+  Ethernet38: 1000
+  Ethernet39: 1000
+  Ethernet40: 1000
+  Ethernet41: 1000
+  Ethernet42: 1000
+  Ethernet43: 1000
+  Ethernet44: 1000
+  Ethernet45: 1000
+  Ethernet46: 1000
+  Ethernet47: 1000
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+BES2348T:
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+Campus_10M_AN:
+  Ethernet0: auto 10
+  Ethernet1: auto 10
+  Ethernet2: auto 10
+  Ethernet3: auto 10
+  Ethernet4: auto 10
+  Ethernet5: auto 10
+  Ethernet6: auto 10
+  Ethernet7: auto 10
+  Ethernet8: auto 10
+  Ethernet9: auto 10
+  Ethernet10: auto 10
+  Ethernet11: auto 10
+  Ethernet12: auto 10
+  Ethernet13: auto 10
+  Ethernet14: auto 10
+  Ethernet15: auto 10
+  Ethernet16: auto 10
+  Ethernet17: auto 10
+  Ethernet18: auto 10
+  Ethernet19: auto 10
+  Ethernet20: auto 10
+  Ethernet21: auto 10
+  Ethernet22: auto 10
+  Ethernet23: auto 10
+  Ethernet24: auto 10
+  Ethernet25: auto 10
+  Ethernet26: auto 10
+  Ethernet27: auto 10
+  Ethernet28: auto 10
+  Ethernet29: auto 10
+  Ethernet30: auto 10
+  Ethernet31: auto 10
+  Ethernet32: auto 10
+  Ethernet33: auto 10
+  Ethernet34: auto 10
+  Ethernet35: auto 10
+  Ethernet36: auto 10
+  Ethernet37: auto 10
+  Ethernet38: auto 10
+  Ethernet39: auto 10
+  Ethernet40: auto 10
+  Ethernet41: auto 10
+  Ethernet42: auto 10
+  Ethernet43: auto 10
+  Ethernet44: auto 10
+  Ethernet45: auto 10
+  Ethernet46: auto 10
+  Ethernet47: auto 10
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+Campus_100M_AN:
+  Ethernet0: auto 100
+  Ethernet1: auto 100
+  Ethernet2: auto 100
+  Ethernet3: auto 100
+  Ethernet4: auto 100
+  Ethernet5: auto 100
+  Ethernet6: auto 100
+  Ethernet7: auto 100
+  Ethernet8: auto 100
+  Ethernet9: auto 100
+  Ethernet10: auto 100
+  Ethernet11: auto 100
+  Ethernet12: auto 100
+  Ethernet13: auto 100
+  Ethernet14: auto 100
+  Ethernet15: auto 100
+  Ethernet16: auto 100
+  Ethernet17: auto 100
+  Ethernet18: auto 100
+  Ethernet19: auto 100
+  Ethernet20: auto 100
+  Ethernet21: auto 100
+  Ethernet22: auto 100
+  Ethernet23: auto 100
+  Ethernet24: auto 100
+  Ethernet25: auto 100
+  Ethernet26: auto 100
+  Ethernet27: auto 100
+  Ethernet28: auto 100
+  Ethernet29: auto 100
+  Ethernet30: auto 100
+  Ethernet31: auto 100
+  Ethernet32: auto 100
+  Ethernet33: auto 100
+  Ethernet34: auto 100
+  Ethernet35: auto 100
+  Ethernet36: auto 100
+  Ethernet37: auto 100
+  Ethernet38: auto 100
+  Ethernet39: auto 100
+  Ethernet40: auto 100
+  Ethernet41: auto 100
+  Ethernet42: auto 100
+  Ethernet43: auto 100
+  Ethernet44: auto 100
+  Ethernet45: auto 100
+  Ethernet46: auto 100
+  Ethernet47: auto 100
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+Campus_2500_AN:
+  Ethernet0: auto 2500
+  Ethernet1: auto 2500
+  Ethernet2: auto 2500
+  Ethernet3: auto 2500
+  Ethernet4: auto 2500
+  Ethernet5: auto 2500
+  Ethernet6: auto 2500
+  Ethernet7: auto 2500
+  Ethernet8: auto 2500
+  Ethernet9: auto 2500
+  Ethernet10: auto 2500
+  Ethernet11: auto 2500
+  Ethernet12: auto 2500
+  Ethernet13: auto 2500
+  Ethernet14: auto 2500
+  Ethernet15: auto 2500
+  Ethernet16: auto 2500
+  Ethernet17: auto 2500
+  Ethernet18: auto 2500
+  Ethernet19: auto 2500
+  Ethernet20: auto 2500
+  Ethernet21: auto 2500
+  Ethernet22: auto 2500
+  Ethernet23: auto 2500
+  Ethernet24: auto 2500
+  Ethernet25: auto 2500
+  Ethernet26: auto 2500
+  Ethernet27: auto 2500
+  Ethernet28: auto 2500
+  Ethernet29: auto 2500
+  Ethernet30: auto 2500
+  Ethernet31: auto 2500
+  Ethernet32: auto 2500
+  Ethernet33: auto 2500
+  Ethernet34: auto 2500
+  Ethernet35: auto 2500
+  Ethernet36: auto 2500
+  Ethernet37: auto 2500
+  Ethernet38: auto 2500
+  Ethernet39: auto 2500
+  Ethernet40: auto 2500
+  Ethernet41: auto 2500
+  Ethernet42: auto 2500
+  Ethernet43: auto 2500
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+Campus_5000_AN:
+  Ethernet0: auto 5000
+  Ethernet1: auto 5000
+  Ethernet2: auto 5000
+  Ethernet3: auto 5000
+  Ethernet4: auto 5000
+  Ethernet5: auto 5000
+  Ethernet6: auto 5000
+  Ethernet7: auto 5000
+  Ethernet8: auto 5000
+  Ethernet9: auto 5000
+  Ethernet10: auto 5000
+  Ethernet11: auto 5000
+  Ethernet12: auto 5000
+  Ethernet13: auto 5000
+  Ethernet14: auto 5000
+  Ethernet15: auto 5000
+  Ethernet16: auto 5000
+  Ethernet17: auto 5000
+  Ethernet18: auto 5000
+  Ethernet19: auto 5000
+  Ethernet20: auto 5000
+  Ethernet21: auto 5000
+  Ethernet22: auto 5000
+  Ethernet23: auto 5000
+  Ethernet24: auto 5000
+  Ethernet25: auto 5000
+  Ethernet26: auto 5000
+  Ethernet27: auto 5000
+  Ethernet28: auto 5000
+  Ethernet29: auto 5000
+  Ethernet30: auto 5000
+  Ethernet31: auto 5000
+  Ethernet32: auto 5000
+  Ethernet33: auto 5000
+  Ethernet34: auto 5000
+  Ethernet35: auto 250
+  Ethernet36: auto 5000
+  Ethernet37: auto 5000
+  Ethernet38: auto 5000
+  Ethernet39: auto 5000
+  Ethernet40: auto 5000
+  Ethernet41: auto 5000
+  Ethernet42: auto 5000
+  Ethernet43: auto 5000
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+
+Tpod_AS7326-10G:
+  Ethernet0: 10000
+  Ethernet1: 10000
+  Ethernet2: 10000
+  Ethernet3: 10000
+  Ethernet4: 10000
+  Ethernet5: 10000
+  Ethernet6: 10000
+  Ethernet7: 10000
+  Ethernet8: 10000
+  Ethernet9: 10000
+  Ethernet10: 10000
+  Ethernet11: 10000
+  Ethernet12: 10000
+  Ethernet13: 10000
+  Ethernet14: 10000
+  Ethernet15: 10000
+  Ethernet16: 10000
+  Ethernet17: 10000
+  Ethernet18: 10000
+  Ethernet19: 10000
+  Ethernet20: 10000
+  Ethernet21: 10000
+  Ethernet22: 10000
+  Ethernet23: 10000
+  Ethernet24: 10000
+  Ethernet25: 10000
+  Ethernet26: 10000
+  Ethernet27: 10000
+  Ethernet28: 10000
+  Ethernet29: 10000
+  Ethernet30: 10000
+  Ethernet31: 10000
+  Ethernet32: 10000
+  Ethernet33: 10000
+  Ethernet34: 10000
+  Ethernet35: 10000
+  Ethernet36: 10000
+  Ethernet37: 10000
+  Ethernet38: 10000
+  Ethernet39: 10000
+  Ethernet40: 10000
+  
+Tpod_AS7326-10G-2:
+  Ethernet0: 10000
+  Ethernet1: 10000
+  Ethernet2: 10000
+  Ethernet3: 10000
+  Ethernet4: 10000
+  Ethernet5: 10000
+  Ethernet6: 10000
+  Ethernet7: 10000
+  Ethernet8: 10000
+  Ethernet9: 10000
+  Ethernet10: 10000
+  Ethernet11: 10000
+  Ethernet12: 10000
+  Ethernet13: 10000
+  Ethernet14: 10000
+  Ethernet15: 10000
+  Ethernet16: 10000
+  Ethernet17: 10000
+  Ethernet18: 10000
+  Ethernet19: 10000
+  Ethernet20: 10000
+  Ethernet21: 10000
+  Ethernet22: 10000
+  Ethernet23: 10000
+  Ethernet24: 10000
+  Ethernet25: 10000
+  Ethernet26: 10000
+  Ethernet27: 10000
+  Ethernet28: 10000
+  Ethernet29: 10000
+  Ethernet30: 10000
+  Ethernet31: 10000
+  Ethernet32: 10000
+  Ethernet33: 10000
+  Ethernet34: 10000
+  Ethernet35: 10000
+  Ethernet36: 10000
+  Ethernet37: 10000
+  Ethernet38: 10000
+  Ethernet39: 10000
+  Ethernet40: 10000
+  Ethernet41: 10000
+  Ethernet42: 10000
+  Ethernet43: 10000
+  Ethernet44: 10000
+  Ethernet45: 10000
+  Ethernet46: 10000
+  Ethernet47: 10000
+  Ethernet48: 10000
+  Ethernet49: 10000
+  Ethernet50: 10000
+  Ethernet51: 10000
+  Ethernet52: 10000
+  Ethernet53: 10000
+  Ethernet54: 10000
+  Ethernet55: 10000
+  Ethernet56: 10000
+  Ethernet57: 10000
+  Ethernet58: 10000
+  Ethernet59: 10000
+  Ethernet60: 10000
+  Ethernet61: 10000
+  Ethernet62: 10000
+  Ethernet63: 10000
+  Ethernet64: 10000
+  Ethernet65: 10000
+  Ethernet66: 10000
+  Ethernet67: 10000
+  Ethernet68: 10000
+  Ethernet69: 10000
+  Ethernet70: 10000
+  Ethernet71: 10000
+  Ethernet72: 10000
+  Ethernet73: 10000
+  Ethernet74: 10000
+  Ethernet75: 10000
+  Ethernet76: 10000
+  Ethernet77: 10000
+  Ethernet78: 10000
+  Ethernet79: 10000
+  Ethernet80: 10000
+  Ethernet81: 10000
+  Ethernet82: 10000
+  Ethernet83: 10000
+  Ethernet84: 10000
+  Ethernet85: 10000
+  Ethernet86: 10000
+  Ethernet87: 10000
+  Ethernet88: 10000
+  Ethernet89: 10000
+  Ethernet90: 10000
+  Ethernet91: 10000
+
+AS4630NPE_100M_AN:
+  Ethernet0: auto 100
+  Ethernet1: auto 100
+  Ethernet2: auto 100
+  Ethernet3: auto 100
+  Ethernet4: auto 100
+  Ethernet5: auto 100
+  Ethernet6: auto 100
+  Ethernet7: auto 100
+  Ethernet8: auto 100
+  Ethernet9: auto 100
+  Ethernet10: auto 100
+  Ethernet11: auto 100
+  Ethernet20: auto 100
+  Ethernet21: auto 100
+  Ethernet22: auto 100
+  Ethernet23: auto 100
+  Ethernet24: auto 100
+  Ethernet25: auto 100
+  Ethernet26: auto 100
+  Ethernet27: auto 100
+  Ethernet28: auto 100
+  Ethernet29: auto 100
+  Ethernet30: auto 100
+  Ethernet31: auto 100
+  Ethernet32: auto 1000
+  Ethernet33: auto 1000
+  Ethernet34: auto 1000
+  Ethernet35: auto 1000

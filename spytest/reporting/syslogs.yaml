@@ -9,11 +9,14 @@ yellow:
 
 red:
     - ".*Process \\S+ exited unxepectedly.*"
+    - ".*Process \\S+ exited unexpectedly.*"
     - ".*vtysh: error reading from zebra: Connection reset by peer.*"
     - ".*terminated by SIGABRT.*"
     - ".*syncd_main: Runtime error.*"
     - ".*Error response from daemon.*"
     - ".*Exception is Error 111 connecting.*"
+    - ".*orchagent: :- removeRouterIntfs: Router interface Vlan\\d+ is still referenced, Ref Cnt.*"
+    - ".*swss#orchagent: :- removeVlan: Failed to remove VLAN Vlan\\d+, as the ref count is.*"
 
 green:
     - "^$"

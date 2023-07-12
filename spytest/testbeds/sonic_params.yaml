@@ -11,6 +11,12 @@ def_link:
 def_tg_link:
     type: ethernet
 
+voip_link:
+    type: voip
+
+network_link:
+    type: network
+
 dellemc_z9332f:
     breakout:
         native: 1

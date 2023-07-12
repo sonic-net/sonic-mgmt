@@ -1,5 +1,6 @@
 
 +suite:community-ixia
+-suite:community-na
 
 # test cases requiring large number of hosts
 -file:routing/L3PerfSclEnhancement/test_L3SclEnh_UserVrf.py
@@ -21,10 +22,32 @@
 -test:test_ft_l3_performance_enhancements_v4_bgp_session_failover_convergence_time
 
 #Runtime Arguments
++args:--load-image none
++args:--max-time module 9000
++args:--max-time function 5400
++args:--max-time session 3600
++args:--logs-level=debug
++args:--topology-check=function
++args:--env SPYTEST_TESTBED_IGNORE_CONSTRAINTS TG,TGCARD,TGSPEED,CHIP,MODEL --noop
++args:--env SPYTEST_RESET_CONSOLES 0 --noop
++args:--env SPYTEST_ONREBOOT_RENEW_MGMT_IP 1 --noop
++args:--env SPYTEST_RECOVERY_CR_PER_CMD_POST_OP 1 --noop
++args:--env SPYTEST_BATCH_POLL_STATUS_TIME 300 --noop
++args:--env SPYTEST_BATCH_DEAD_NODE_MAX_TIME 7200 --noop
++args:--breakout-mode none
+
 +args:--env SPYTEST_SHUTDOWN_FREE_PORTS 1
 +args:--env SPYTEST_HOOKS_BREAKOUT_UITYPE click
-+args:--device-feature-group upstream
-+args:--module-init-max-timeout 9000
-+args:--tc-max-timeout 5400
-+args:--logs-level=debug
++args:--env SPYTEST_ONREBOOT_RENEW_MGMT_IP 0
++args:--env SPYTEST_VERIFY_CSV_MIN_TOPOLOGY 1
++args:--env SPYTEST_CMD_FAIL_RESULT_SUPPORT 0
++args:--env SPYTEST_ROUTING_CONFIG_MODE split
++args:--env SPYTEST_CLEAR_DEVICE_METADATA_BGP_ASN 1
+
++args:--feature-group master
++args:--ifname-type native
+
+##################### MUST #########################
++file:batch/test_spytest_infra_1.py
+##################### MUST #########################
 

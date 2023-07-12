@@ -1,0 +1,195 @@
+
+#warm reboot
++test:test_l2_warm_reboot
++test:test_l3_warm_reboot
+
+#BUM Unsupported
++test:test_ft_stormcontrol_verification
++test:test_ft_stormcontrol_portchannel_intf
++test:test_ft_stormcontrol_incremental_bps_max_vlan
++test:test_ft_stormcontrol_fast_reboot
++test:test_ft_stormcontrol_warm_reboot
+#+test:test_base_line_vlan_create_delete_and_mac_learning_with_bum
++test:test_base_line_mac_move_single_vlan
++test:test_base_line_mac_move_across_vlans
++test:test_ft_lacp_graceful_restart_with_cold_boot
++test:test_ft_lacp_graceful_restart_with_save_reload
++test:test_ft_copp_igmp
+
+#STP
++test:test_stp_mac_perf
++test:test_stp_mac_move
++test:test_FtOpSoSwL2FwdFnCeta31752
++test:test_ft_ceta_19978
+
+#KLISH Specific
++test:test_ft_apply_shaper_multilple_ports
++test:test_nt_apply_invalid_queue_shaper_to_interface
++test:test_nt_port_pir_greater_than_speed
++test:test_nt_queue_pir_greater_than_speed
++test:test_nt_queue_cir_gt_eq_pir
++test:test_nt_attach_policy_invalid_interface
++test:test_nt_attach_invalid_shaper
++test:test_nt_delete_active_shaper_profile
++test:test_nt_policy_name_string_max
++test:test_ft_change_port_queue_shaper_rate_all_params_on_fly
++test:test_ft_change_port_queue_shaper_rate_on_fly
++test:test_ft_change_queue_shaper_rate_on_fly
++test:test_ft_change_port_shaper_rate_on_fly
++test:test_l2fwd_mac_move_dampening
++test:test_reload_with_mac_dampening
++test:test_ft_sf_all_buffer_stats_using_unicast_traffic
++test:test_ft_snmp_basic_counters
++test:test_ft_snmp_trap_counter
++test:test_ft_snmp_counter_negative_tests
++test:test_ft_pfc_sym
+
++test:test_ft_no_min_link_functionality_during_device_reboot_009
++test:test_ft_modify_optional_params_using_po_creation_command_014
+
+#Rest/GNMI
++test:test_ft_sflow_rest_conf
++test:test_ft_sflow_gnmi
++test:test_mgmt_vrf_gnmi
++test:test_ft_dynamic_nat_warmboot
++test:test_ft_sflow_collector_port_poch
+
+#ERSPAN
++test:test_ft_mirroring_erspan
++test:test_ft_mirroring_erspan_span_check
++test:test_ft_mirroring_erspan_port
++test:test_ft_mirroring_erspan_port_chnl
++test:test_ft_mirroring_erspan_vlan
++test:test_ft_mirroring_max_session
++test:test_ft_mirroring_gnmi
++test:test_ft_mirroring_on_vlan_rx
+
+#PortChannel
++test:test_ft_member_state_after_interchanged_the_members_across_portchannels
+
+#BFD
++test:test_ft_bgp_unnumbered_bfd
+
+#SNMP MIB
+#PASSED +test:test_ft_snmp_if_mib_all
+#PASSED +test:test_ft_snmp_entity_mib_all
++test:test_ft_snmp_entity_sensor_mib
+#PASSED +test:test_ft_snmp_dot1q_dot1db_mib
++test:test_ft_snmp_ipcidr_route_table
+#PASSED +test:test_ft_snmp_ifx_table
+#PASSED +test:test_ft_snmp_ent_physical_table
++test:test_ft_snmp_ent_phy_sensor_table
++test:test_ft_snmp_dot1d_base_bridge_address
++test:test_ft_snmp_dot1d_base_num_ports
++test:test_ft_snmp_dot1d_base_type
++test:test_ft_snmp_dot1d_base_port
++test:test_ft_snmp_dot1d_base_port_ifindex
++test:test_ft_snmp_dot1d_base_port_delay_exceeded_discards
++test:test_ft_snmp_dot1d_base_port_mtu_exceeded_discards
++test:test_ft_snmp_dot1d_tp_aging_time
++test:test_ft_snmp_dot1q_fdb_dynamic_count
+#PASSED +test:test_ft_snmp_dot1q_tp_fdb_port
++test:test_ft_snmp_dot1q_tp_fdb_status
++test:test_ft_snmp_dot1q_vlan_current_egress_ports
++test:test_ft_snmp_dot1q_vlan_current_untagged_ports
++test:test_ft_snmp_dot1q_vlan_static_untagged_ports
++test:test_ft_snmp_dot1q_vlan_static_row_status
++test:test_ft_snmp_dot1q_pvid
++test:test_ft_snmp_dot1q_vlan_static_name
++test:test_ft_snmp_dot1q_vlan_static_egress_ports
++test:test_ft_snmp_dot1q_vlan_version_number
++test:test_ft_snmp_dot1q_max_vlanid
++test:test_ft_snmp_dot1q_max_supported_vlans
++test:test_ft_snmp_dot1q_num_vlans
++test:test_ft_snmp_dot1q_vlan_num_deletes
++test:test_ft_snmp_vlan_static_table
++test:test_ft_snmp_dot1q_vlan_index
+#PASSED +test:test_ft_snmp_dot1q_tp_fdb_address
++test:test_ft_snmp_dot1q_fdb_table
+#PASSED +test:test_ft_snmp_link_down_trap
+#PASSED +test:test_ft_snmp_link_up_trap
++test:test_ft_snmp_warmstart_trap
++test:test_ft_snmp_sysContact
+
+# config session not supported
++test:test_rollback_ntp_usecase_007
+
+# fails
++test:test_ft_sf_verify_buffer_pool_counters
++test:test_ft_sf_all_device_counters
++test:test_ft_sf_all_per_port
++test:test_ft_snmp_service_tag
++test:test_ft_sflow_sampling_v4_sFlow_collector
++test:test_ft_sflow_samples_control_plane_traffic
++test:test_ft_snapshot_interval
++test:test_ft_sf_verify_cpu_counters
++test:test_ft_sf_all_buffer_stats_using_multicast_traffic
++test:test_ft_sf_periodic_verify_using_counter_DB
+
+# klish
++test:test_ft_verify_dynamic_lag_when_min_links_criteria_met_002
++test:test_ft_verify_dynamic_lag_when_min_links_criteria_not_met_003
++test:test_ft_lag_fallback_config_after_po_creation_010
++test:test_ft_lag_fast_rate_config_after_po_creation_012
++test:test_verify_dynamic_lag_with_fast_rate_0013
++test:test_ft_verify_lacp_pdu_rate_of_transmission_when_fast_rate_enabled_015
++test:test_ft_snmp_md5_snmpd_conf
++test:test_ft_snmp_primary_key_enc
++test:test_ft_verify_primary_ip_del_when_secondary_ip_exist
++test:test_ft_verify_dynamic_lag_with_fallback_functionality_011
+
+# config replace - klish
++test:test_Replace_Vlan_BasicL2
+
+#command not found
++test:test_ft_portchannel_behavior_with_tagged_traffic
++test:test_knet_ipmtu_ip2me_subnet
++test:test_ft_port_fec_nofec
++test:test_ft_lldp_LocManAddrOID
++test:test_ft_lldp_lldplocportdesc
+
+# knet counters
++test:test_ft_arp_entry_link_failure
+
+#host-account-manager
++test:test_ft_rbac_secadmin_rw_tacacs_cred_ssh
++test:test_ft_rbac_secadmin_rw_tacacs_cred_ssh_reboot
++test:test_ft_rbac_netadmin_rw_tacacs_cred_ssh
++test:test_ft_rbac_netadmin_rw_tacacs_cred_ssh_reboot
++test:test_ft_rbac_rw_tacacs_cred_ssh_reboot
+
+# dhcp-relay
++test:test_ut_dhcp_emulation
++test:test_ut_dhcpv6_emulation
+
+
+#Runtime Arguments
++args:--load-image none
++args:--max-time module 9000
++args:--max-time function 5400
++args:--max-time session 3600
++args:--logs-level=debug
++args:--topology-check=function
++args:--env SPYTEST_TESTBED_IGNORE_CONSTRAINTS TG,TGCARD,TGSPEED,CHIP,MODEL --noop
++args:--env SPYTEST_RESET_CONSOLES 0 --noop
++args:--env SPYTEST_ONREBOOT_RENEW_MGMT_IP 1 --noop
++args:--env SPYTEST_RECOVERY_CR_PER_CMD_POST_OP 1 --noop
++args:--env SPYTEST_BATCH_POLL_STATUS_TIME 300 --noop
++args:--env SPYTEST_BATCH_DEAD_NODE_MAX_TIME 7200 --noop
++args:--breakout-mode none
+
++args:--env SPYTEST_SHUTDOWN_FREE_PORTS 1
++args:--env SPYTEST_HOOKS_BREAKOUT_UITYPE click
++args:--env SPYTEST_ONREBOOT_RENEW_MGMT_IP 0
++args:--env SPYTEST_VERIFY_CSV_MIN_TOPOLOGY 1
++args:--env SPYTEST_CMD_FAIL_RESULT_SUPPORT 0
++args:--env SPYTEST_ROUTING_CONFIG_MODE split
++args:--env SPYTEST_CLEAR_DEVICE_METADATA_BGP_ASN 1
+
++args:--feature-group master
++args:--ifname-type native
+
+##################### MUST #########################
++file:batch/test_spytest_infra_1.py
+##################### MUST #########################
+

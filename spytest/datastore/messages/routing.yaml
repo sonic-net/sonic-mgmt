@@ -20,6 +20,7 @@ ip6_traffic_over_link_local_nh_fail_vrf : IPv6 traffic forwarding via link local
 ip6_traffic_over_link_local_nh_fail_manual : IPv6 traffic forwarding via manual configured link local address as next hop is failed
 ip6_disable_link_local_failed: Disabling of IPV6 link local address on {} failed.
 link_local_address_not_found: DUT IPv6 Link Local Address not found
+ssh_ip6_link_local_fail: SSH failed on IPv6 Link Local Address
 
 ##BGP
 bgp_router_created: BGP Router created successfully
@@ -36,6 +37,7 @@ BGP_unnumbered_neighbor_route_learn_status: Learning of IPV4 route over IPV6 in 
 bgp_router_create_delete : BGP Router {} through {} is {}.
 bgp_neighbor_create_delete : BGP IP{} neighbor {} through {} is {}.
 bgp_neighbor_status : BGP IP{} neighbor status(Established) is {} when created through {}.
+bgp_nexthop_peer_intf : BGP nexthop peer interface list update {}.
 
 
 ##OSPF
@@ -76,12 +78,14 @@ v6_ping_fail_from_DUT_to_DUT : IPv6 ping fail from dut{} to dut{}
 
 ##NAT
 static_twice_nat_translation_entry_create_fail : Static Twice NAT translation entry creation failed for local ip {} and global ip {}
+static_twice_napt_translation_entry_create_fail : Static Twice NAPT translation entry creation failed for local ip {} and global ip {}
 static_nat_translation_entry_create_fail : Static NAT translation entry creation failed for local ip {} and global ip {}
 static_nat_translation_entry_del_fail : Static NAT translation entry deletion failed for local ip {} and global ip {}
 snat_translation_failed_in_packet : NAT translation failed in packet, source ip {} not translated to {}
 dnat_translation_fail_in_packet : NAT translation failed in packet, destination ip {} not translated to {}
 dynamic_snat_translation_entry_create_fail : dynamic SNAT translation entry creation failed for local sip {} and outside sip {}
 dynamic_dnat_translation_entry_create_fail : dynamic DNAT translation entry creation failed for outside dip {} and inside dip {}
+dynamic_snat_translation_entry_delete_fail : dynamic SNAT translation entry deletion failed for local sip {} and outside sip {}
 pool_del_fail : Dynamic pool {} deletion failed
 pool_del_success : Dynamic pool {} deletion successful
 nat_translation_happening_for_acl_do_not_nat_match_packets : NAT Translation happening for ACL do-not-nat rule matching packets
@@ -107,12 +111,15 @@ nat_translation_successful_after_reboot: NAT translation successful after reboot
 nat_translation_successful_after_config_reload: NAT translation successful after config save and reload
 dynamic_nat_scaling_failed: Failed to learn max supported dynamic nat entries
 ping_fail_across_nat_zone: ping failed across nat zones
-traceroute_over_nat_failed : Traceroute over NAT translation failed
+traceroute_over_nat_failed : Traceroute over NAT translation failed {}
 traceroute_over_nat_translation_successful : Traceroute is successful over a NAT translation
 nat_warm_reboot_failed: Warm boot failed in NAT
 dynamic_napt_entry_exists_after_docker_restart: Dynamic NAPT entry is not cleared during nat docker restart
 static_nat_entry_not_restored_after_docker_restart: Static NAT entry not restored after docker restart
 NAT_unsupported_platform : NAT is not supported on this platform {}
+ssh_over_nat_failed : SSH over NAT translation failed {}
+ssh_over_nat_translation_successful : SSH is successful over a NAT translation
+ssh_ip_fail: SSH failed on ip address {}
 
 ## Error Handling
 fib_failure_route_fail : Route {} failed in Fib Failure state.
@@ -166,6 +173,7 @@ ndp_table_clear_fail : NDP table is not cleared successfully
 
 #L3 DHCP Relay
 IP_Helper_address_config_failed : IP Helper address config failed on Relay agent dut {}
+IPv6_Helper_address_config_failed : IPv6 Helper address config failed on Relay agent dut {}
 IP_address_assignment_failed: IP address assignment failed on client dut {}
 IPv6_address_assignment_failed: IPv6 address assignment failed on client dut {}
 client_got_ip_with_invalid_ip_helper_address: client got ip with invalid ip helper address {}
@@ -204,8 +212,18 @@ IGMP_join_failed : IGMP join entry with output {} not in vtysh
 PIM_join_failed : PIM join entry with output {} not in vtysh
 counters_mismatch : Counters not matched for {} interface {}
 drop_counters_mismatch : Drop counters not matched for {} interface {}
-Mroute_bcmcmd_failed : Could not find  Mroute source {} group {} in hardware
+Mroute_asic_cmd_failed : Could not find  Mroute source {} group {} in hardware
 Mroute_appdb_update_failed : Mroute source {} group {} oif update failed
+pim_igmpsnoop_convergence : pim and igmp snooping convergence {} in {} vrf
+pim_igmpsnoop_convergence_wth_new_member : pim and igmp snooping convergence {} in {} vrf when new member port is added to the corresponding vlan
+pim_igmpsnoop_convergence_shut : pim and igmp snooping convergence {} after shut no shut on the vlan member ports
+pim_igmpsnoop_convergence_with_different_sources: pim and igmp snooping convergence {} when same group learned with different source address on different member ports of same vlan
+pim_igmpsnoop_convergence_with_igmp_leave: pim and igmp snooping convergence {} with multiple vlan member ports Join and one of the member port sent leave
+pim_igmpsnoop_igmp_join: IGMP Join learn {} when pim and igmp snooping enabled on vlan interface
+pim_igmpsnoop_convergence_reboot: pim and igmp snooping convergence {} after {}
+pim_igmpsnoop_convergence_igmp_vlan_first: pim and igmp snooping convergence {} when igmp snooping is enabled on vlan before adding the member ports to that vlan
+pim_igmpsnoop_convergence_igmp_snoop_disable_enable: pim and igmp snooping convergence {} after igmp snooping and pim is disabled and enabled
+pim_igmpsnoop_convergence_portchannel: pim and igmp snooping convergence {} on port channle interface
 
 
 # IP helper
@@ -228,3 +246,11 @@ Vrf_Config_verification_failed : VRF config verification failed
 IP_helper_test_case_msg_status : Test case {} {}
 
 accessing_shell_status: Accessing {} shell after enable/disalbe bgp error handling {}
+
+# Subinterface
+subintf_dev_sanity_failed : Test failed
+subintf_dev_sanity_passed : Test case passed
+
+# RIF Counter
+rif_counters_update : rif counters update {} on {} routing interface
+rif_counters_clear : rif counters clear {}

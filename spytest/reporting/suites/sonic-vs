@@ -1,0 +1,108 @@
++test:TestBGPConfed.test_confed_route_distribution_with_rmap
++test:TestBGPConfed.test_ipv6_confed_route_distribution
++test:TestBGPConfed.test_ipv6_confed_with_rr
++test:TestBGPIPvxRouteAdvertisementFilter.test_bgp_ebgp4_nbr_authentication
++test:TestBGPIPvxRouteAdvertisementFilter.test_bgp_ebgp4_nbr_update_source
++test:TestBGPIPvxRouteAdvertisementFilter.test_bgp_route_map_with_community
++test:TestBGPIPvxRouteAdvertisementFilter.test_default_originate_ipv4
++test:TestBGPIPvxRouteAdvertisementFilter.test_distribute_list_in_ipv4
++test:TestBGPIPvxRouteAdvertisementFilter.test_distribute_list_in_ipv6
++test:TestBGPIPvxRouteAdvertisementFilter.test_filter_list_in_ipv4
++test:TestBGPIPvxRouteAdvertisementFilter.test_filter_list_in_ipv6
++test:TestBGPIPvxRouteAdvertisementFilter.test_filter_list_out_ipv6
++test:TestBGPIPvxRouteAdvertisementFilter.test_prefix_list_out_ipv4
++test:TestBGPIPvxRouteAdvertisementFilter.test_prefix_list_out_ipv6
++test:TestBGPIPvxRouteAdvertisementFilter.test_route_aggregate_ipv6
++test:TestBGPIPvxRouteAdvertisementFilter.test_route_map_in_ipv4
++test:TestBGPIPvxRouteAdvertisementFilter.test_route_map_in_ipv6
++test:TestBGPIPvxRouteAdvertisementFilter.test_static_blackhole_rt_redistribute_with_routemap_ipv6
++test:TestBGPL3Lag.test_ft_bgp_l3lag_peer_traffic_check
++test:TestBGPRif.test_bgp_route_aggregation_4byteASN
++test:TestBGPRif.test_ft_bgp_clear
++test:TestBGPRif.test_ft_bgp_graceful_restart_and_aware_routers
++test:TestBGPRif.test_ft_bgp_peer_traffic_check
++test:TestBGPRif.test_ft_bgp_rmap
++test:TestBGPRif.test_ft_bgp_v4_dyn_nbr
++test:TestBGPRif.test_ft_bgp_v6_dyn_nbr
++test:TestBGPRif.test_ft_bgp_v6_link_local_bgp
++test:TestBGPRrTraffic.test_ft_bgp6_rr_traffic_check
++test:TestBGPVeLag.test_ft_bgp_clear
++test:TestBGPVeLag.test_ft_bgp_peer_traffic_check
++test:test_VrfFun001_06
++test:test_VrfFun_05_50
++test:test_VrfFun_10_12_14
++test:test_VrfFun_20_24_25_32_33_44_45
++test:test_VrfFun_26_27
++test:test_cli_validation_bgp_router_config
++test:test_cli_validation_ip_address
++test:test_ft_arp_dynamic_renew_traffic_test
++test:test_ft_bgp_ebgp_community_map
++test:test_ft_bgp_ibgp_RR_Loop
++test:test_ft_ip6_static_route_traffic_forward_blackhole
++test:test_ft_ip_static_ip_on_mgmt_intrf
++test:test_ft_ip_static_route_traffic_forward
++test:test_ft_ip_v4_v6_L2_L3_translation
++test:test_ft_ipv6_neighbor_entry
++test:test_ft_l3_performance_enhancements_v4_route_intstall_withdraw
++test:test_ft_nat_docker_restart
++test:test_ft_ping_v4_v6_after_ip_change_pc
++test:test_ft_ping_v4_v6_vlan
++test:test_ft_qos_config_mgmt_verifying_config_with_save_reboot
++test:test_ft_sflow_max_sflow_collector_config
++test:test_ft_sflow_sampling_v6_sFlow_collector
++test:test_ft_system_config_mgmt_verifying_config_with_save_reboot_sflow
++test:test_ft_verify_interfaces_order
++test:test_l2_to_l3_port
++test:test_l3_v4_route_po_1
++test:test_vrf_bgp
++test:test_vrf_reload
++test:test_vrf_route_leak
++test:test_vrf_scale
++test:TestBGPRif.test_ft_bgp_ipv4_no_route_aggregation_for_exact_prefix_match
++test:TestBGPRif.test_ft_bgp_ipv4_route_aggregation_atomic_aggregate_without_as_set
++test:TestBGPRif.test_ft_bgp_ipv6_route_aggregation_with_as_set
++test:TestBGPRif.test_ft_bgp_v4_max_dyn_nbr
++test:TestBGPIPvxRouteAdvertisementFilter.test_redistribute_connected_ipv4
++test:TestBGPIPvxRouteAdvertisementFilter.test_redistribute_static_ipv4
++test:TestBGPIPvxRouteAdvertisementFilter.test_redistribute_connected_ipv6
++test:TestBGPIPvxRouteAdvertisementFilter.test_redistribute_static_ipv6
++test:TestBGPIPvxRouteAdvertisementFilter.test_default_originate_ipv6
+
+#Runtime Arguments
++args:--load-image none
++args:--max-time module 9000
++args:--max-time function 5400
++args:--max-time session 3600
++args:--logs-level=debug
++args:--topology-check=function
++args:--env SPYTEST_TESTBED_IGNORE_CONSTRAINTS TG,TGCARD,TGSPEED,CHIP,MODEL --noop
++args:--env SPYTEST_RESET_CONSOLES 0 --noop
++args:--env SPYTEST_ONREBOOT_RENEW_MGMT_IP 1 --noop
++args:--env SPYTEST_RECOVERY_CR_PER_CMD_POST_OP 1 --noop
++args:--env SPYTEST_BATCH_POLL_STATUS_TIME 300 --noop
++args:--env SPYTEST_BATCH_DEAD_NODE_MAX_TIME 7200 --noop
++args:--breakout-mode none
+
++args:--env SPYTEST_SHUTDOWN_FREE_PORTS 1
++args:--env SPYTEST_HOOKS_BREAKOUT_UITYPE click
++args:--env SPYTEST_ONREBOOT_RENEW_MGMT_IP 0
++args:--env SPYTEST_VERIFY_CSV_MIN_TOPOLOGY 1
++args:--env SPYTEST_CMD_FAIL_RESULT_SUPPORT 0
++args:--env SPYTEST_ROUTING_CONFIG_MODE split
++args:--env SPYTEST_CLEAR_DEVICE_METADATA_BGP_ASN 1
+#+args:--env SPYTEST_TEXTFSM_TRACE_PARSER 1
++args:--env SPYTEST_TEXTFSM_USE_BUNDLED_PARSER 1
+
+
++args:--feature-group master
++args:--ifname-type native
+
++args:--feature-disable bcmcmd
++args:--feature-disable warm-reboot
+
++args:--save config-db module
+
+##################### MUST #########################
++file:batch/test_spytest_infra_1.py
+##################### MUST #########################
+

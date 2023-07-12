@@ -18,6 +18,7 @@ tgen_failed_invalid_option: Traffic generator Failed with invalid option usage
 tgen_failed_runtime_error: Traffic generator Failed with runtime error
 tgen_failed_start_capture: Traffic generator Failed with unable to start capture
 tgen_failed_stop_capture: Traffic generator Failed with unable to stop capture
+tgen_failed_port_in_used: Traffic generator Failed with port already used
 
 tgen_failed_start_protocols: Failed to start TGen Protocols
 tgen_failed_configure_stack: Could not configure TGen stack
@@ -25,5 +26,6 @@ tgen_failed_apply_changes: Port must be selected to apply TGen changes
 tgen_failed_missing_traffic_item: Could not find TGen Traffic Item Statistics view
 tgen_failed_invalid_value: Invalid value for TGen parameter
 tgen_failed_set_attrib: Unable to set TGen attributes
-tgen_failed_abort: Traffic generator abort {}
+tgen_failed_abort: Traffic generator abort - {}
 tgen_failed_capture_buffer: Failed to get captured packet from capture buffer
+tgen_failed_statistics: Failed to get tgen statistics

@@ -14,28 +14,28 @@ patterns:
     # =====================================================================
     # Generic Patterns
     # =====================================================================
-    normal-user: '(admin|{username})@(sonic|{}):.*[#|\$]\s*$'
-    root-user: 'root@(sonic|{}):.*[#|\$]\s*$'
+    normal-user: '({username}|root)@(linux|{}):.*[#|\$]\s*$'
+    root-user: 'root@(linux|{}):.*[#|\$]\s*$'
     # =====================================================================
     # VTYSH Patterns
     # =====================================================================
-    vtysh-user: '(sonic|{})#'
-    vtysh-config: '(sonic|{})\(config(-s)?\)#'
-    vtysh-intf-config: '(sonic|{})\(config-if\)#'
-    vtysh-bfd-config: '(sonic|{})\(config-bfd\)#'
-    vtysh-bfd-peer-config: '(sonic|{})\(config-bfd-peer\)#'
-    vtysh-key-chain-config: '(sonic|{})\(config-keychain\)#'
-    vtysh-key-chain-Identifier-config: '(sonic|{})\(config-keychain-key\)#'
-    vtysh-line-vty-config: '(sonic|{})\(config-line\)#'
-    vtysh-l2vpn-config: '(sonic|{})\(config-l2vpn\)#'
-    vtysh-nhgroup-config: '(sonic|{})\(config-nh-group\)#'
-    vtysh-pbr-map-config: '(sonic|{})\(config-pbr-map\)#'
-    vtysh-pseudowire-config: '(sonic|{})\(config-pw\)#'
-    vtysh-route-map-config: '(sonic|{})\(config-route-map\)#'
-    vtysh-router-config: '(sonic|{})\(config-router\)#'
-    vtysh-router-af-config: '(sonic|{})\(config-router-af\)#'
-    vtysh-vrf-config: '(sonic|{})\(config-vrf\)#'
-    vtysh-any-config: '(sonic|{})\(config[^)]*\)#'
+    vtysh-user: '(Linux|{})#'
+    vtysh-config: '(Linux|{})\(config\)#'
+    vtysh-intf-config: '(Linux|{})\(config-if\)#'
+    vtysh-bfd-config: '(Linux|{})\(config-bfd\)#'
+    vtysh-bfd-peer-config: '(Linux|{})\(config-bfd-peer\)#'
+    vtysh-key-chain-config: '(Linux|{})\(config-keychain\)#'
+    vtysh-key-chain-Identifier-config: '(Linux|{})\(config-keychain-key\)#'
+    vtysh-line-vty-config: '(Linux|{})\(config-line\)#'
+    vtysh-l2vpn-config: '(Linux|{})\(config-l2vpn\)#'
+    vtysh-nhgroup-config: '(Linux|{})\(config-nh-group\)#'
+    vtysh-pbr-map-config: '(Linux|{})\(config-pbr-map\)#'
+    vtysh-pseudowire-config: '(Linux|{})\(config-pw\)#'
+    vtysh-route-map-config: '(Linux|{})\(config-route-map\)#'
+    vtysh-router-config: '(Linux|{})\(config-router\)#'
+    vtysh-router-af-config: '(Linux|{})\(config-router-af\)#'
+    vtysh-vrf-config: '(Linux|{})\(config-vrf\)#'
+    vtysh-any-config: '(Linux|{})\(config[^)]*\)#'
     # =====================================================================
     # LLDP Patterns
     # =====================================================================
@@ -44,9 +44,9 @@ patterns:
     # MGMT-CLI Patterns
     # =====================================================================
     mgmt-user: '--sonic-mgmt--#'
-    mgmt-config: '--sonic-mgmt--\(config(-s)?\)#'
-    mgmt-intf-config: '--sonic-mgmt--\(conf\w*-if-Eth.*\)#'
-    mgmt-subintf-config: '--sonic-mgmt--\(conf\w*-subif-Eth.*\)#'
+    mgmt-config: '--sonic-mgmt--\(config\)#'
+    mgmt-intf-config: '--sonic-mgmt--\(conf-if-Eth.*\)#'
+    mgmt-subintf-config: '--sonic-mgmt--\(conf-subif-Eth.*\)#'
     mgmt-ipv4-acl-config: '--sonic-mgmt--\(config-ipv4-acl\)#'
     mgmt-ipv6-acl-config: '--sonic-mgmt--\(config-ipv6-acl\)#'
     mgmt-mac-acl-config: '--sonic-mgmt--\(config-mac-acl\)#'
@@ -55,25 +55,25 @@ patterns:
     # added by Dell-EMC
     # =============================================================
     mgmt-session-config: '--sonic-mgmt--\(config-session-name\)#'
-    mgmt-intf-management-config: '--sonic-mgmt--\(conf\w*-if-Management.*\)#'
-    mgmt-intf-po-config: '--sonic-mgmt--\(conf\w*-if-po.*\)#'
-    mgmt-subintf-po-config: '--sonic-mgmt--\(conf\w*-subif-PortChannel.*\)#'
-    mgmt-intf-vlan-config: '--sonic-mgmt--\(conf\w*-if-Vlan.*\)#'
-    mgmt-intf-range-eth-config: '--sonic-mgmt--\(conf\w*-if-range-eth\*\*\)#'
-    mgmt-intf-range-po-config: '--sonic-mgmt--\(conf\w*-if-range-po\*\*\)#'
-    mgmt-intf-range-create-po-config: '--sonic-mgmt--\(conf\w*-if-range-po\*\*\)#'
-    mgmt-intf-range-vlan-config: '--sonic-mgmt--\(conf\w*-if-range-vl\*\*\)#'
-    mgmt-intf-range-create-vlan-config: '--sonic-mgmt--\(conf\w*-if-range-vl\*\*\)#'
+    mgmt-intf-management-config: '--sonic-mgmt--\(conf-if-eth.*\)#'
+    mgmt-intf-po-config: '--sonic-mgmt--\(conf-if-po.*\)#'
+    mgmt-subintf-po-config: '--sonic-mgmt--\(conf-subif-PortChannel.*\)#'
+    mgmt-intf-vlan-config: '--sonic-mgmt--\(conf-if-Vlan.*\)#'
+    mgmt-intf-range-eth-config: '--sonic-mgmt--\(conf-if-range-eth\*\*\)#'
+    mgmt-intf-range-po-config: '--sonic-mgmt--\(conf-if-range-po\*\*\)#'
+    mgmt-intf-range-create-po-config: '--sonic-mgmt--\(conf-if-range-po\*\*\)#'
+    mgmt-intf-range-vlan-config: '--sonic-mgmt--\(conf-if-range-vl\*\*\)#'
+    mgmt-intf-range-create-vlan-config: '--sonic-mgmt--\(conf-if-range-vl\*\*\)#'
     # =============================================================
 
     mgmt-mirror-session-config: '--sonic-mgmt--\(config-mirror-.*\)#'
     #mgmt-vlan-config: '--sonic-mgmt--\(conf-if-Vlan.*\)#'
     #mgmt-lag-config: '--sonic-mgmt--\(conf-if-po.*\)#'
     #mgmt-management-config: '--sonic-mgmt--\(conf-if-eth.*\)#'
-    mgmt-cpu-config: '--sonic-mgmt--\(conf\w*-if-CPU\)#'
+    mgmt-cpu-config: '--sonic-mgmt--\(conf-if-CPU\)#'
 
-    mgmt-evpn-view: '--sonic-mgmt--\(conf\w*-if-evpn\)#'
-    mgmt-vxlan-view: '--sonic-mgmt--\(conf\w*-if-Vxlan-.*\)#'
+    mgmt-evpn-view: '--sonic-mgmt--\(conf-if-evpn\)#'
+    mgmt-vxlan-view: '--sonic-mgmt--\(conf-if-Vxlan-.*\)#'
 
     mgmt-tam-view: '--sonic-mgmt--\(config-tam\)#'
     mgmt-tam-ifa-view: '--sonic-mgmt--\(config-tam-ifa\)#'
@@ -90,10 +90,10 @@ patterns:
     # =============================================================
 
 
-    mgmt-lo-view: '--sonic-mgmt--\(conf\w*-if-lo.*\)#'
+    mgmt-lo-view: '--sonic-mgmt--\(conf-if-lo.*\)#'
 
-    mgmt-bfd-view: '--sonic-mgmt--\(conf\w*-bfd\)#'
-    mgmt-bfd-peer-view: '--sonic-mgmt--\(conf\w*-bfd-peer\)#'
+    mgmt-bfd-view: '--sonic-mgmt--\(conf-bfd\)#'
+    mgmt-bfd-peer-view: '--sonic-mgmt--\(conf-bfd-peer\)#'
 
     mgmt-route-map-view: '--sonic-mgmt--\(config-route-map\)#'
 
@@ -110,22 +110,22 @@ patterns:
 
     mgmt-router-ospf-view: '--sonic-mgmt--\(config-router-ospf\)#'
 
-    mgmt-wred-view: '--sonic-mgmt--\(conf\w*-wred-.*\)#'
+    mgmt-wred-view: '--sonic-mgmt--\(conf-wred-.*\)#'
     mgmt-line-vty-view: '--sonic-mgmt--\(config-line-vty\)#'
-    mgmt-qos-sched-policy-view: '--sonic-mgmt--\(conf\w*-sched-policy-.*\)#'
-    mgmt-qos-sched-policy-queue-view: '--sonic-mgmt--\(conf\w*-scheduler-.*-queue-.*\)#'
-    mgmt-qos-sched-policy-port-view: '--sonic-mgmt--\(conf\w*-scheduler-.*-port\)#'
-    mgmt-qos-intf-view: '--sonic-mgmt--\(conf\w*-qos-.*\)#'
+    mgmt-qos-sched-policy-view: '--sonic-mgmt--\(conf-sched-policy-.*\)#'
+    mgmt-qos-sched-policy-queue-view: '--sonic-mgmt--\(conf-scheduler-.*-queue-.*\)#'
+    mgmt-qos-sched-policy-port-view: '--sonic-mgmt--\(conf-scheduler-.*-port\)#'
+    mgmt-qos-intf-view: '--sonic-mgmt--\(conf-qos-.*\)#'
     mgmt-hardware-view: '--sonic-mgmt--\(config-hardware\)#'
     mgmt-hardware-acl-view: '--sonic-mgmt--\(config-hardware-acl\)#'
 
-    mgmt-dscp-map-view: '--sonic-mgmt--\(conf\w*-dscp-tc-map-.*\)#'
-    mgmt-dot1p-map-view: '--sonic-mgmt--\(conf\w*-dot1p-tc-map-.*\)#'
-    mgmt-tc-queue-map-view: '--sonic-mgmt--\(conf\w*-tc-queue-map-.*\)#'
-    mgmt-tc-pg-map-view: '--sonic-mgmt--\(conf\w*-tc-pg-map-.*\)#'
-    mgmt-pfc-map-view: '--sonic-mgmt--\(conf\w*-pfc-priority-queue-map-.*\)#'
-    mgmt-tc-dot1p-map-view: '--sonic-mgmt--\(conf\w*-tc-dot1p-map-.*\)#'
-    mgmt-tc-dscp-map-view: '--sonic-mgmt--\(conf\w*-tc-dscp-map-.*\)#'
+    mgmt-dscp-map-view: '--sonic-mgmt--\(conf-dscp-tc-map-.*\)#'
+    mgmt-dot1p-map-view: '--sonic-mgmt--\(conf-dot1p-tc-map-.*\)#'
+    mgmt-tc-queue-map-view: '--sonic-mgmt--\(conf-tc-queue-map-.*\)#'
+    mgmt-tc-pg-map-view: '--sonic-mgmt--\(conf-tc-pg-map-.*\)#'
+    mgmt-pfc-map-view: '--sonic-mgmt--\(conf-pfc-priority-queue-map-.*\)#'
+    mgmt-tc-dot1p-map-view: '--sonic-mgmt--\(conf-tc-dot1p-map-.*\)#'
+    mgmt-tc-dscp-map-view: '--sonic-mgmt--\(conf-tc-dscp-map-.*\)#'
 
     # =============================================================
     # modified by Dell-EMC
@@ -140,7 +140,7 @@ patterns:
     # =============================================================================
 
     mgmt-ifa : '--sonic-mgmt--\(config-tam-int-ifa\)#'
-    mgmt-intf-lo-config : '--sonic-mgmt--\(conf\w*-if-lo.*\)#'
+    mgmt-intf-lo-config : '--sonic-mgmt--\(conf-if-lo.*\)#'
     mgmt-route-map-config : '--sonic-mgmt--\(config-route-map.*\)#'
     mgmt-router-bgp-address-family-ipv4-unicast-config : '--sonic-mgmt--\(config-router-bgp-af\)#'
     mgmt-router-bgp-address-family-ipv6-unicast-config : '--sonic-mgmt--\(config-router-bgp-af\)#'
@@ -160,11 +160,11 @@ patterns:
     mgmt-router-bgp-peer-group-af-ipv6-config : '--sonic-mgmt--\(config-router-bgp-pg-af\)#'
     mgmt-router-bgp-peer-group-config : '--sonic-mgmt--\(config-router-bgp-pg\)#'
     mgmt-tam : '--sonic-mgmt--\(config-tam\)#'
-    vtysh_maybe_config_prompt : '(sonic|{})#|(sonic|{})\(config.*\)#'
+    vtysh_maybe_config_prompt : '(Linux|{})#|(Linux|{})\(config.*\)#'
     # =============================================================================
 
-    mgmt-vrrp-ipv4-view : '--sonic-mgmt--\(conf\w*-if-.*-vrrp-ipv4-.*\)#'
-    mgmt-vrrp-ipv6-view : '--sonic-mgmt--\(conf\w*-if-.*-vrrp-ipv6-.*\)#'
+    mgmt-vrrp-ipv4-view : '--sonic-mgmt--\(conf-if-.*-vrrp-ipv4-.*\)#'
+    mgmt-vrrp-ipv6-view : '--sonic-mgmt--\(conf-if-.*-vrrp-ipv6-.*\)#'
 
     mgmt-switch-resource-view : '--sonic-mgmt--\(config-switch-resource\)#'
 

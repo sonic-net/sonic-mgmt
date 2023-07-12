@@ -35,3 +35,9 @@ breakout_8x:
     breakout: [breakout-8x.sh, __reboot__]
     current: []
     restore: []
+
+community-dpb:
+    breakout: [community-dpb.sh, __reboot__]
+    current: []
+    restore: []
+

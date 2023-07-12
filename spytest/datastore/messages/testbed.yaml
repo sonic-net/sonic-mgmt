@@ -9,4 +9,5 @@ testbed_no_ts_model: Failed to get terminal server model from testbed
 testbed_no_ts_ip: Failed to get terminal server IP address from testbed
 testbed_no_ts_cid: Failed to get terminal server channel id from testbed
 testbed_no_ts_username: Failed to get terminal server outlet from testbed
+testbed_no_calnex_info : Failed to get Calnex information from testbed
 

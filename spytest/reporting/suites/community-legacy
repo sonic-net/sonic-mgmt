@@ -39,7 +39,6 @@
 -test:test_ft_rbac_ro_tacacs_cred_ssh
 -test:test_ft_tacacs_modify_server_parameters
 -test:test_ft_snmp_sysContact
--test:test_ft_snmp_mib_memory
 -test:test_ft_snmp_entity_sensor_mib
 -test:test_ft_snmp_ipcidr_route_table
 -test:test_ft_snmp_dot1d_base_bridge_address
