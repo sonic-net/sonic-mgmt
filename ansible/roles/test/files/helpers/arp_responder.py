@@ -10,6 +10,7 @@ from fcntl import ioctl
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 scapy2.conf.use_pcap = True
+import scapy.arch.pcapdnet # noqa F401
 
 
 def hexdump(data):
