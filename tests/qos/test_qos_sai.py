@@ -558,7 +558,7 @@ class TestQosSai(QosSaiBase):
          "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
             self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig,
-            dutQosConfig, get_src_dst_asic_and_duts
+            dutQosConfig, get_src_dst_asic_and_duts, skip_check_for_hbm
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
