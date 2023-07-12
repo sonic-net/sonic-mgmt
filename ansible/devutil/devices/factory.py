@@ -3,11 +3,11 @@ import logging
 import os
 import yaml
 
-from ansible_hosts import AnsibleHost
-from ansible_hosts import AnsibleHosts
-from ansible_hosts import NoAnsibleHostError
-from ansible_hosts import MultipleAnsibleHostsError
-from sonic import SonicHosts
+from .ansible_hosts import AnsibleHost
+from .ansible_hosts import AnsibleHosts
+from .ansible_hosts import NoAnsibleHostError
+from .ansible_hosts import MultipleAnsibleHostsError
+from .sonic import SonicHosts
 
 logger = logging.getLogger(__name__)
 

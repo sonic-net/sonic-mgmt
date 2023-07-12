@@ -1,8 +1,8 @@
 import logging
 import yaml
 
-from ansible_hosts import AnsibleHosts
-from ansible_hosts import RunAnsibleModuleFailed
+from .ansible_hosts import AnsibleHosts
+from .ansible_hosts import RunAnsibleModuleFailed
 
 logger = logging.getLogger(__name__)
 
