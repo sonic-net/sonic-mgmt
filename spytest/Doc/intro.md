@@ -597,4 +597,3 @@ To illustrate, let's examine the topology requirements for the sanity suite.
 As mentioned earlier, the results can be checked by referring to the xxx_functions.csv or xxx_functions.html files. These files contain information related to the test functions and their corresponding outcomes.
 
 As an alternative, for a more convenient way to access the results, the <logs>/dashboard.html file can be opened, and the modules link in the left pane can be utilized. Clicking on the modules link will load <logs>/results_modules.html in the right pane, which provides a comprehensive view of the results for all modules. The results can be sorted based on any column in this page, and by clicking on the module name, the corresponding module log file can be opened for detailed analysis. We can search for " Report(" to each to individual function results.
-
