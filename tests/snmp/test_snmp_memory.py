@@ -50,10 +50,12 @@ def load_memory(duthosts, enum_rand_one_per_hwsku_hostname):
     Execute script in background to load memory
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    mem_total = duthost.shell(
+        "grep MemTotal /proc/meminfo | awk '{print $2}'")['stdout']
     duthost.copy(src='snmp/memory.py', dest='/tmp/memory.py')
-    duthost.shell("nohup python /tmp/memory.py > /dev/null 2>&1 &")
+    duthost.shell("nohup python /tmp/memory.py {} > /dev/null 2>&1 &".format(mem_total))
     yield
-    duthost.shell("pkill -SIGTERM -f 'python /tmp/memory.py'",
+    duthost.shell("pkill -SIGTERM -f 'python /tmp/memory.py {}'".format(mem_total),
                   module_ignore_errors=True)
 
 
@@ -140,6 +142,31 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
         CALC_DIFF(int(snmp_free_memory), mem_free)))
     pytest_assert(CALC_DIFF(int(snmp_free_memory), mem_free) < percentage,
                   "sysTotalFreeMemory differs by more than {}".format(percentage))
+
+
+def test_snmp_avail_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, load_memory):
+    """
+    Verify SNMP total available memory matches DUT results in stress test
+    """
+    # Start memory stress generation
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    host_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    snmp_avail_memory = 0
+    mem_avail = 0
+    memUsageUtil_OID = "1.3.6.1.4.1.6027.3.10.1.2.9.1.5.1"
+    snmp_command = "snmpget -v 2c -c {} {} {}".format(creds_all_duts[duthost.hostname]["snmp_rocommunity"], host_ip,
+                                                      memUsageUtil_OID) + "| awk '{print $4}'"
+    mem_total = int(duthost.shell("grep MemTotal /proc/meminfo | awk '{print $2}'")['stdout'])
+    percentage = get_percentage_threshold(int(mem_total))
+
+    mem_avail = int(duthost.shell("grep MemAvailable /proc/meminfo | awk '{print $2}'")['stdout'])
+    snmp_memory_usage_pc = int(localhost.shell(snmp_command)['stdout'])
+    snmp_avail_memory = ((100 - snmp_memory_usage_pc)*mem_total)/100
+    logger.info("SNMP Available Memory: {}".format(snmp_avail_memory))
+    logger.info("DUT Available Memory: {}".format(mem_avail))
+    logger.info("Difference: {}".format(CALC_DIFF(int(snmp_avail_memory), mem_avail)))
+    pytest_assert(CALC_DIFF(int(snmp_avail_memory), mem_avail) < percentage,
+                  "SNMP available memory differs by more than {}".format(percentage))
 
 
 def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
