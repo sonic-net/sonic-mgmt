@@ -1,11 +1,7 @@
-import pexpect
 import logging
-import time
-import re
 import pytest
 import six
 
-from tests.common.helpers.assertions import pytest_assert
 
 TOTAL_PACKETS = 100
 packet_number = 10
