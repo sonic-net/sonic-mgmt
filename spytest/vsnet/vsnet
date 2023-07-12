@@ -762,7 +762,7 @@ def trace(msg, prefix="", machine=""):
 def ensure_folder(path):
     path = os.path.abspath(path)
     if not os.path.exists(path):
-        print(f"TODO: mkdir -p {path}")
+        #print(f"TODO: mkdir -p {path}")
         os.makedirs(path)
     return path
 
@@ -773,8 +773,12 @@ def ensure_parent(filename):
 def fpath(prefix, name):
     return os.path.join(prefix, name) if prefix else name
 
+def tmpl_render(tmpl, **kwargs):
+    # nosemgrep-next-line
+    return Environment().from_string(tmpl).render(**kwargs)
+
 def lwrite(prefix, file_path, tmpl, **kwargs):
-    content = Environment().from_string(tmpl).render(**kwargs)
+    content = tmpl_render(tmpl, **kwargs)
     write_file(prefix, file_path, content+"\n")
 
 def chmod(prefix, perm, *args):
@@ -1008,7 +1012,7 @@ def create_testbed(wap, ipaddr=None, file_path=None):
     for dut in get_all_dev_list(wap, dut_list):
         console_port_map[dut] = dut_console.get(dut)
         rps_info["port"][dut] = 22
-    yaml = Environment().from_string(testbed_tmpl_text).render(
+    yaml = tmpl_render(testbed_tmpl_text,
                 container_ip=wap.container_ip,
                 ts_ports=console_port_map,
                 ts_protocol=ts_protocol,
@@ -1415,9 +1419,10 @@ def tool_main(wap):
         shutil.rmtree(wap.files_path0)
 
 def os_system(cmd):
-    print(f"os.system({cmd})")
     if not dry_run:
         os.system(cmd)
+    else:
+        print(f"os.system({cmd})")
 
 def copy_file(src, dst):
     os_system(f"cp {src} {dst}")
@@ -1494,6 +1499,7 @@ def helper_topo_docker(wap):
     #dut_console = wap.topo_info.consoles
 
     print("Importing sonic build image as docker image and volume")
+    # nosemgrep-next-line
     proc = subprocess.Popen("sonic_import_img.sh /images/default", shell=True, stdout=subprocess.PIPE)
     stdout, stderr = proc.communicate()
     if proc.returncode != 0:
@@ -1508,6 +1514,7 @@ def helper_topo_docker(wap):
     for dut in wap.topo_info.dut_list:
         dut_name = get_dut_name(wap, dut)
         cmd="{} inspect -f {} {}".format(wap.dockerc, kwargs["DOCKER_IP_FILTER"], dut_name)
+        # nosemgrep-next-line
         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         yaml = yaml.replace(f"SSH_IP_{dut_name},", f"{stdout.decode().strip()},")
@@ -1547,7 +1554,7 @@ def helper_main(inner=True):
         files_path = os.getenv("TOOL_TMPD")
         args_file = os.path.join(files_path, "args.txt")
     argv = " ".join(read_lines(args_file)).split()
-    print(f"ARGV = {argv}")
+    #print(f"ARGV = {argv}")
     sys.argv.extend(argv)
     wap = tool_parse_args(True)
     global dry_run; dry_run = wap.dry_run
@@ -1569,4 +1576,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

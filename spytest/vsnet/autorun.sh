@@ -13,4 +13,3 @@ elif [ "$RUN" == "topo" ]; then
 elif [ "$RUN" == "bash" ]; then
   bash
 fi
-

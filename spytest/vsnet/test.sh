@@ -33,4 +33,3 @@ if [[ $ARGS != *--test-suite* ]]; then
 fi
 
 /repo/bin/spytest $ARGS $@
-

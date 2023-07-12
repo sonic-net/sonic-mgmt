@@ -72,4 +72,3 @@ $SPYTEST_PYTHON -m pip --no-cache-dir install $INSTALL_OPTS -r $TMPFILE.0
 
 $SPYTEST_PYTHON -m pip install --upgrade git+https://github.com/sachinholla/pyangbind.git@0.8.1+spytest.20220216#egg=pyangbind
 $SPYTEST_PYTHON -m pip install --upgrade git+https://github.com/ramakristipatibrcm/pytest-xdist.git@spytest#egg=pytest-xdist
-

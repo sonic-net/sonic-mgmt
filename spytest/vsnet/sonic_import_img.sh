@@ -182,4 +182,3 @@ create_docker_image
 create_devices
 
 exit 0
-
