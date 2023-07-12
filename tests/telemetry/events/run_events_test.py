@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 import os
 
 
@@ -25,4 +26,4 @@ def run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json
     dest = "/tmp/" + json_file
     duthost.copy(src=op_file, dest=dest)
     validate_yang(duthost, dest, tag)
-    time.sleep(1) # provide buffer for multiple calls to py_gnmicli
+    time.sleep(1)  # provide buffer for multiple calls to py_gnmicli

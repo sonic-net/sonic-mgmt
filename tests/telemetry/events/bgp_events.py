@@ -10,7 +10,7 @@ tag = "sonic-events-bgp"
 
 def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test bgp-state event")
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors, 
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
              "bgp_state.json", "sonic-events-bgp:bgp-state", tag)
 
 
