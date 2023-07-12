@@ -66,6 +66,7 @@ description:
 options:
     cmds: List of commands. Each command should be a string.
     continue_on_fail: Bool. Specify whether to continue running rest of the commands if any of the command failed.
+    timeout: Integer. Specify time limit (in second) for each command. Default value is 30. 0 means no limit.
 '''
 
 EXAMPLES = r'''
@@ -76,14 +77,17 @@ EXAMPLES = r'''
         - ls /home
         - pwd
     continue_on_fail: False
+    timeout: 30
 '''
 
 
-def run_cmd(module, cmd):
-
-    rc, out, err = module.run_command(cmd, use_unsafe_shell=True)
+def run_cmd(module, cmd, timeout):
+    # wrap the shell command with timeout
+    cmd_with_timeout = "echo '{}' | timeout {} bash".format(cmd, timeout)
+    rc, out, err = module.run_command(cmd_with_timeout, use_unsafe_shell=True)
     result = dict(
-        cmd=cmd,
+        cmd=cmd,  # original command
+        cmd_with_timeout=cmd_with_timeout,  # command wrapped with timeout
         rc=rc,
         stdout=out,
         stderr=err,
@@ -98,18 +102,20 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             cmds=dict(type='list', required=True),
-            continue_on_fail=dict(type='bool', default=True)
+            continue_on_fail=dict(type='bool', default=True),
+            timeout=dict(type='int', default=30)
         )
     )
 
     cmds = module.params['cmds']
     continue_on_fail = module.params['continue_on_fail']
+    timeout = module.params['timeout']
 
     startd = datetime.datetime.now()
 
     results = []
     for cmd in cmds:
-        result = run_cmd(module, cmd)
+        result = run_cmd(module, cmd, timeout)
         results.append(result)
         if result['rc'] != 0 and not continue_on_fail:
             break

@@ -566,8 +566,8 @@ class SonicHost(AnsibleHostBase):
         # Get critical group and process definitions by running cmds in batch to save overhead
         cmds = []
         for service in self.critical_services:
-            cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ]" \
-                  " && cat /etc/supervisor/critical_processes'".format(service)
+            cmd = 'docker exec {} bash -c "[ -f /etc/supervisor/critical_processes ]' \
+                  ' && cat /etc/supervisor/critical_processes"'.format(service)
 
             cmds.append(cmd)
         results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
