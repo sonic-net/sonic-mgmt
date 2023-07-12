@@ -4581,12 +4581,15 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_ips = self.test_params['dst_port_ips']
         dst_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in dst_port_ids]
+        dscp_to_q_map = self.test_params['dscp_to_q_map']
 
         asic_type = self.test_params['sonic_asic_type']
         pkt_count = int(self.test_params['pkt_count'])
         cell_size = int(self.test_params['cell_size'])
-        prio_list = [2, 3, 4, 8, 5, 46, 48]
-        queue_list = [1, 3, 4, 0, 2, 5, 6]
+        prio_list = dscp_to_q_map.keys()
+        queue_list = [dscp_to_q_map[p] for p in prio_list]
+        prio_list = [int(x) for x in prio_list]
+        queue_list = [int(x) for x in queue_list]
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
         else:
@@ -4646,9 +4649,10 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
             expected_wm = pkt_count * cell_occupancy
             # verification of queue watermark for all ports
             for qwms in dst_q_wm_res_all_port:
-                for qwm in qwms[:-1]:
-                    msg = "queue_wm value is {}, lower limit:{}, upper limit:{}".format(
-                            qwm,
+                for queue in queue_list:
+                    qwm = qwms[queue]
+                    msg = "Queue:{}, queue_wm value is {}, lower limit:{}, upper limit:{}".format(
+                            queue, qwm,
                             (expected_wm - margin) * cell_size,
                             (expected_wm + margin) * cell_size)
 

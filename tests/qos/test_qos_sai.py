@@ -1793,7 +1793,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, get_src_dst_asic_and_duts
+        resetWatermark, get_src_dst_asic_and_duts, dut_qos_maps
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -1826,6 +1826,12 @@ class TestQosSai(QosSaiBase):
         all_dst_info = dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
         allTestPorts.extend(list(all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].keys()))
         allTestPortIps.extend([x['peer_addr'] for x in all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
+        try:
+            tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
+            tc_to_dscp_map = {v: k for k,v in dut_qos_maps['dscp_to_tc_map']['AZURE'].items()}
+        except KeyError:
+            pytest.skip("Need both TC_TO_PRIORITY_GROUP_MAP and DSCP_TO_TC_MAP and key AZURE to run this test.")
+        dscp_to_q_map = {tc_to_dscp_map[tc]:tc_to_q_map[tc] for tc in tc_to_dscp_map}
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1839,7 +1845,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
+            "dscp_to_q_map": dscp_to_q_map
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
