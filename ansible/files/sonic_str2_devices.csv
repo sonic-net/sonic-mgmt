@@ -115,6 +115,8 @@ str2-bluefield-host-01,10.64.246.248/23,DPU,DevSonic,,sonic
 str2-bluefield-02,10.64.247.34/23,Nvidia-9009d3b600CVAA,DevSonic,,sonic
 str2-bluefield-bmc-02,10.64.247.35/23,DPU,DevSonic,,sonic
 str2-bluefield-host-02,10.64.246.249/23,DPU,DevSonic,,sonic
+str2-pensando-3,10.3.146.235/23,DPU,DevSonic,,sonic
+str2-pensando-host-3,10.64.246.232/23,DPU,DevSonic,,sonic
 str2-acs-serv-16,10.64.246.95/23,TestServ,Server,,
 str2-acs-serv-18,10.64.246.97/23,TestServ,Server,,
 str2-acs-serv-19,10.64.246.111/23,TestServ,Server,,

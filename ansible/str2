@@ -81,6 +81,8 @@ all:
           ansible_host: 10.64.246.142
         vms26-1:
           ansible_host: 10.64.246.230
+        vms27-1:
+          ansible_host: 10.64.246.234
         vms28-1:
           ansible_host: 10.64.246.238
         vms28-2:
@@ -1969,6 +1971,8 @@ sonic_appliance:
       ansible_host: 10.64.247.35
     str2-bluefield-host-02:
       ansible_host: 10.64.246.249
+    str2-pensando-3:
+      ansible_host: 10.3.146.235
 
 sonic_arista_720dt:
   vars:

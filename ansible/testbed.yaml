@@ -1184,6 +1184,20 @@
   auto_recover: 'True'
   comment: lawlee
 
+- conf-name: vms21-dpu-03
+  group-name: vms21-12
+  topo: appliance
+  ptf_image_name: docker-ptf
+  ptf: vms27-1
+  ptf_ip: 10.64.246.234/23
+  ptf_ipv6:
+  server: server_27
+  vm_base: VM27000
+  dut:
+    - str2-pensando-3
+  auto_recover: 'True'
+  comment: junhuazhai
+
 - conf-name: vms28-t1-8102-02
   group-name: vms28-1
   topo: t1-64-lag
