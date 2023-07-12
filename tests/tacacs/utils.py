@@ -4,7 +4,7 @@ import re
 import binascii
 
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until, check_skip_release
+from tests.common.utilities import wait_until, check_skip_release, delete_running_config
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -124,8 +124,7 @@ def restore_tacacs_servers(duthost):
             cmds.append("config tacacs timeout %s" % cfg)
 
     # Cleanup AAA and TACPLUS config
-    duthost.copy(src="./tacacs/templates/del_tacacs_config.json", dest='/tmp/del_tacacs_config.json')
-    duthost.shell("configlet -d -j {}".format("/tmp/del_tacacs_config.json"))
+    delete_running_config("./tacacs/templates/del_tacacs_config.json", duthost, is_json=False)
 
     # Restore AAA and TACPLUS config
     duthost.shell_cmds(cmds=cmds)
