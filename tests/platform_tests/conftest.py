@@ -483,7 +483,18 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             reboot_script_path = duthost.shell('which {}'.format("{}-reboot".format(reboot_type)))['stdout']
             # restore original script. If the ".orig" file does not exist (upgrade path case), ignore the error.
             duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path), module_ignore_errors=True)
-        result = loganalyzer.analyze(marker, fail=False)
+        # For mac jump test, the log message we care about is uaually combined with other messages in one line, which makes
+        # the length of the line longer than 1000 and get dropped by Logananlyzer. So we need to set allow_long_line to True
+        # However, we found that the regex library in Python 2 takes a long time (over 10 minutes) to match a long string.
+        # To speed up the log searching in long log message, the keyword is set to scapy default MAC '00:06:07:08:09:0A'
+        # if the log message length is longer than 1000, but the keyword is not found, then the log message is dropped.
+        if "mac_jump" in test_name:
+            allow_long_line = True
+            keyword = "00:06:07:08:09:0A"
+        else:
+            allow_long_line = False
+            keyword = None
+        result = loganalyzer.analyze(marker, fail=False, allow_long_line=allow_long_line, keyword=keyword)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 

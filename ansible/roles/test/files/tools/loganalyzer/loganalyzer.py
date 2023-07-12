@@ -48,6 +48,11 @@ err_invalid_input = -6
 err_end_ignore_marker = -7
 err_start_ignore_marker = -8
 
+#-- Max log message length
+# If allow_long_line is False, then any line longer than MAX_LOG_MESSAGE_LENGTH
+# will not be picked up by the analyzer.
+MAX_LOG_MESSAGE_LENGTH = 1000
+
 class AnsibleLogAnalyzer:
     '''
     @summary: Overview of functionality
@@ -390,7 +395,7 @@ class AnsibleLogAnalyzer:
 
         return ret_code
 
-    def analyze_file(self, log_file_path, match_messages_regex, ignore_messages_regex, expect_messages_regex):
+    def analyze_file(self, log_file_path, match_messages_regex, ignore_messages_regex, expect_messages_regex, allow_long_line=False, keyword=None):
         '''
         @summary: Analyze input file content for messages matching input regex
                   expressions. See line_matches() for details on matching criteria.
@@ -407,6 +412,10 @@ class AnsibleLogAnalyzer:
             regex class instance containing messages that are expected to appear in logfile.
 
         @param end_marker_regex - end marker
+
+        @param allow_long_line - Skip parsing long log message if allow_long_line is False.
+
+        @keyword - a keyword for a fast search in long log message before doing regex search
 
         @return: List of strings match search criteria.
         '''
@@ -482,8 +491,16 @@ class AnsibleLogAnalyzer:
             if in_analysis_range:
                 # Skip long logs in sairedis recording since most likely they are bulk set operations for non-default routes
                 # without much insight while they are time consuming to analyze
-                if not check_marker and len(rev_line) > 1000:
-                    continue
+                # In advanced_reboot test, we need to analyze the bulk operations for mac learning
+                # So we need to allow long lines
+                if len(rev_line) > MAX_LOG_MESSAGE_LENGTH:
+                    if not check_marker and not allow_long_line:
+                        continue
+                    # Skip the line if keyword is not None and keyword not in rev_line
+                    # This is for fast search before doing regex matching
+                    if keyword is not None and keyword not in rev_line:
+                        continue
+
                 if self.line_is_expected(rev_line, expect_messages_regex):
                     expected_lines.append(rev_line)
 
@@ -503,7 +520,7 @@ class AnsibleLogAnalyzer:
         return matching_lines, expected_lines
     #---------------------------------------------------------------------
 
-    def analyze_file_list(self, log_file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex):
+    def analyze_file_list(self, log_file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex, allow_long_line=False, keyword=None):
         '''
         @summary: Analyze input files messages matching input regex expressions.
             See line_matches() for details on matching criteria.
@@ -519,6 +536,12 @@ class AnsibleLogAnalyzer:
         @param expect_messages_regex:
             regex class instance containing messages that are expected to appear in logfile.
 
+        @param allow_long_line
+            if True, do not skip long lines
+
+        @param keyword
+            if not None, only analyze the lines containing keyword in order to speed up the regex matching
+
         @return: Returns map <file_name, list_of_matching_strings>
         '''
         res = {}
@@ -526,7 +549,8 @@ class AnsibleLogAnalyzer:
         for log_file in log_file_list:
             if not len(log_file):
                 continue
-            match_strings, expect_strings = self.analyze_file(log_file, match_messages_regex, ignore_messages_regex, expect_messages_regex)
+            match_strings, expect_strings = self.analyze_file(log_file, match_messages_regex, ignore_messages_regex, expect_messages_regex,
+                                                                allow_long_line=allow_long_line, keyword=keyword)
 
             match_strings.reverse()
             expect_strings.reverse()
