@@ -83,14 +83,14 @@ def listen_for_event(ptfhost, cmd, results):
     results[0] = ret["stdout"]
 
 
-def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file):
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=1, xpath="all[heartbeat=2]",
                               target="EVENTS", filter_event_regex=filter_event_regex)
     results = [""]
     event_thread = threading.Thread(target=listen_for_event, args=(ptfhost, cmd, results,))
     event_thread.start()
-    event_thread.join(30)  # close thread after 30 sec, was not able to find event within reasonable time
+    event_thread.join(thread_timeout)  # close thread after 30 sec, was not able to find event within reasonable time
     assert results[0] != "", "No output from PTF docker"
     # regex logic and then to write to file
     result = results[0]
