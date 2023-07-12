@@ -111,7 +111,8 @@ def is_mellanox_fanout(duthost, localhost):
         logger.info("Get dut_facts failed, reason:{}".format(e.results['msg']))
         return False
 
-    fanout_host = dut_facts["device_conn"][duthost.hostname]["Ethernet0"]["peerdevice"]
+    intf = list(dut_facts["device_conn"][duthost.hostname].keys())[0]
+    fanout_host = dut_facts["device_conn"][duthost.hostname][intf]["peerdevice"]
 
     try:
         fanout_facts = localhost.conn_graph_facts(host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
