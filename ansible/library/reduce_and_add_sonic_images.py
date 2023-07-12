@@ -200,6 +200,19 @@ def free_up_disk_space(module, disk_used_pcent):
         exec_command(module, "rm -rf /home/admin/*", ignore_error=True)
 
 
+def work_around_for_reboot(module):
+    # work around reboot for s6100
+    # Replace /usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check
+    # Ignore any pre check and just return 0
+    _, out, _   = exec_command(module, cmd="show platform summary", ignore_error=True)
+    if 'Force10-S6100' in out:
+        exec_command(module, cmd="sudo mv /usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check /usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check_bak", ignore_error=True)
+        file_content = '''#!/bin/bash
+exit 0
+'''
+        with open("/usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check", 'w') as out_file:
+            out_file.write(file_content)
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -214,6 +227,7 @@ def main():
     save_as = module.params['save_as']
 
     try:
+        work_around_for_reboot(module)
         results["current_stage"] = "start"
         work_around_for_slow_disks(module)
         reduce_installed_sonic_images(module)
