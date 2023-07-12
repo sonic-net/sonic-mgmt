@@ -1,6 +1,4 @@
-import json
 import logging
-import os
 import yaml
 
 from ansible_hosts import AnsibleHosts
