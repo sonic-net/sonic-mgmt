@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import logging
+import time
 
 from run_events_test import run_test
 from event_utils import backup_monit_config, customize_monit_config, restore_monit_config
@@ -15,31 +16,22 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     customize_monit_config(
         duthost,
         [
-            [
-                "if space usage > 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
-                "if space usage > 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
-            ],
-            [
-                "if memory usage > 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
-                "if memory usage > 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
-            ],
-            [
-                "if cpu usage (user) > 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
-                "if cpu usage (user) > 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
-            ]
+            "> 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
+            "> 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
         ]
     )
 
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-             "disk_usage.json", "sonic-events-host:disk-usage", tag)
+             "memory_usage.json", "sonic-events-host:memory-usage", tag, False)
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-             "memory_usage.json", "sonic-events-host:memory-usage", tag)
+             "disk_usage.json", "sonic-events-host:disk-usage", tag, False)
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-             "cpu_usage.json", "sonic-events-host:cpu-usage", tag)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_memory_threshold_exceeded_alert,
-             "memory_threshold_exceeded.json", "sonic-events-host:memory-threshold-exceeded", tag) 
+             "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
+             "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
+    restore_monit_config(duthost)
 
 
-def trigger_memory_threshold_exceeded_alert(duthost):
+def trigger_mem_threshold_exceeded_alert(duthost):
     logger.info("Invoking memory checker with low threshold")
     duthost.shell("python3 /usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
