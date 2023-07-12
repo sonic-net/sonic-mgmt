@@ -1963,7 +1963,7 @@ Totals               6450                 6449
         """
         try:
             pid_list = self.shell(
-                r'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:9092"'
+                r'pgrep -f "ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -fN -L \*:9092"'
             )["stdout_lines"]
         except RunAnsibleModuleFail:
             return
