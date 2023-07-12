@@ -1857,15 +1857,9 @@ class QosSaiBase(QosBase):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
 
-        try:
-            if not (
-                src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
-                and dutTestParams['topo'] == 't2'):
-                yield
-                return
-        except KeyError:
-            yield
-            return
+        append_str = ""
+        if dst_asic.namespace:
+            append_str = "ip netns exec asic{}".format(dut_asic.namespace)
 
         dst_keys = []
         for k in dutConfig["testPorts"].keys():
@@ -1873,18 +1867,30 @@ class QosSaiBase(QosBase):
                 dst_keys.append(k)
 
         for k in dst_keys:
-            dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
-                dst_asic.asic_index,
+            dst_asic.shell("{} ping -c 3 {}".format(
+                append_str,
                 dutConfig["testPorts"][k]), module_ignore_errors=True)
 
         ip_address_mapping = self.get_interface_ip(dst_asic)
         for intf in ip_address_mapping.keys():
             if ip_address_mapping[intf]['peer_addr'] != '':
-                dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
-                    dst_asic.asic_index,
+                dst_asic.shell("{} ping -c 3 {}".format(
+                    append_str,
                     ip_address_mapping[intf]['peer_addr']), module_ignore_errors=True)
 
         if src_asic == dst_asic:
+            yield
+            return
+
+        try:
+            if not (
+                src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
+                and "t2" in dutTestParams['topo']):
+                logger.info("Condition not met for this fixture, returning.")
+                yield
+                return
+        except KeyError:
+            logger.info("Switch-type not given, condition not met for this fixture, returning.")
             yield
             return
 
@@ -1941,10 +1947,13 @@ class QosSaiBase(QosBase):
             interface => ip address.
         """
         mapping = {}
-        all_opt = ""
+        append_str = ""
+        if dut_asic.namespace:
+            append_str = "-n asic{}".format(dut_asic.namespace)
+
         ip_address_out = dut_asic.command(
-            "show ip interface -n asic{} -d all".format(
-            dut_asic.asic_index, all_opt))['stdout']
+            "show ip interface {} -d all".format(
+            append_str))['stdout']
         re_pattern = re.compile(
             "^([^ ]*) [ ]*([0-9\.]*)\/[0-9]*  *[^ ]*  *[^ ]*  *([0-9\.]*)")
         for line in ip_address_out.split("\n"):
