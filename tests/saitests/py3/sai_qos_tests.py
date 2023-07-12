@@ -2277,10 +2277,12 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
 
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
-                self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
-                                       'To fill service pool, send {} pkt with DSCP {} PG {} from'
-                                       ' src_port{} to dst_port'.format(pkt_cnt,
-                                       sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+                self.show_port_counter(
+                    self.asic_type, recv_counters_bases, xmit_counters_base,
+                    'To fill service pool, send {} pkt with DSCP {} PG {} from'
+                    ' src_port{} to dst_port'.format(pkt_cnt,
+                    sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0])
+                )
 
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
