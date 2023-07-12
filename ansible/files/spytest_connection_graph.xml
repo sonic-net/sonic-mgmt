@@ -117,6 +117,8 @@
       <Device Hostname="str2-bluefield-02" HwSku="Nvidia-9009d3b600CVAA" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-bluefield-bmc-02" HwSku="DPU" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-bluefield-host-02" HwSku="DPU" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-pensando-3" HwSku="DPU" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str2-pensando-host-3" HwSku="DPU" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str2-acs-serv-16" HwSku="TestServ" Os="" Type="Server"/>
       <Device Hostname="str2-acs-serv-18" HwSku="TestServ" Os="" Type="Server"/>
       <Device Hostname="str2-acs-serv-19" HwSku="TestServ" Os="" Type="Server"/>
@@ -156,6 +158,8 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-12" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet61/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-13" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet21/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-14" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet31/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-27" EndPort="ens7f1np1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet32/1"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-acs-serv-27" EndPort="ens7f0np0" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet28/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-17" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet29/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-36" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet4/1"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260-26" EndPort="Ethernet64/1" StartDevice="str2-7260cx3-acs-root02" StartPort="Ethernet20/1"/>
@@ -2868,6 +2872,8 @@
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-06" EndPort="Ethernet36/1" StartDevice="str2-7050cx3-acs-14" StartPort="Ethernet116"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-06" EndPort="Ethernet37/1" StartDevice="str2-7050cx3-acs-14" StartPort="Ethernet120"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-06" EndPort="Ethernet38/1" StartDevice="str2-7050cx3-acs-14" StartPort="Ethernet124"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-36" EndPort="Ethernet33/1" StartDevice="str2-pensando-3" StartPort="Ethernet4"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-acs-fan-36" EndPort="Ethernet34/1" StartDevice="str2-pensando-3" StartPort="Ethernet0"/>
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
@@ -4236,6 +4242,9 @@
     <DevicesL3Info Hostname="str2-8102-04">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.83/23"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="str2-pensando-host-3">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.232/23"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="str2-acs-serv-29">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.237/23"/>
     </DevicesL3Info>
@@ -4329,8 +4338,10 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet61/1" vlanids="2909-2936,3272-3327"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet21/1" vlanids="1778-1785,1898-1905,2297-2300,2960-2972,3144-3151,3376-3379,3440-3443,3636-3643,3869-3876,3989-3996"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="3032-3143"/>
+      <InterfaceVlan mode="Access" portname="Ethernet32/1" vlanids="2198"/>
+      <InterfaceVlan mode="Access" portname="Ethernet28/1" vlanids="2197"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet29/1" vlanids="3500-3531,1066-1069,1258-1261,1310-1313,1374-1377,1566-1569,1634-1635,2037-2038"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet4/1" vlanids="2069-2100"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet4/1" vlanids="2069-2100,2197-2198"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet20/1" vlanids="3152-3214"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet8/1" vlanids="3328-3375"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet35/1" vlanids="3380-3411,3412-3439"/>
@@ -4746,6 +4757,9 @@
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7804-sup-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.249/23"/>
+    </DevicesL3Info>
+    <DevicesL3Info Hostname="str2-pensando-3">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.235/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7170-azd">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.76/23"/>
@@ -5802,7 +5816,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.23/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str2-7260cx3-acs-fan-36">
-      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="2069-2100"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet64/1" vlanids="2069-2100,2197-2198"/>
       <InterfaceVlan mode="Access" portname="Ethernet1/1" vlanids="2069"/>
       <InterfaceVlan mode="Access" portname="Ethernet2/1" vlanids="2070"/>
       <InterfaceVlan mode="Access" portname="Ethernet3/1" vlanids="2071"/>
@@ -5835,6 +5849,8 @@
       <InterfaceVlan mode="Access" portname="Ethernet30/1" vlanids="2098"/>
       <InterfaceVlan mode="Access" portname="Ethernet31/1" vlanids="2099"/>
       <InterfaceVlan mode="Access" portname="Ethernet32/1" vlanids="2100"/>
+      <InterfaceVlan mode="Access" portname="Ethernet33/1" vlanids="2197"/>
+      <InterfaceVlan mode="Access" portname="Ethernet34/1" vlanids="2198"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str2-7260cx3-acs-fan-30">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.58/23"/>
