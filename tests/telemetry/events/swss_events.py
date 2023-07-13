@@ -34,6 +34,6 @@ def generate_pfc_storm(duthost):
     queue_oid = duthost.get_queue_oid("Ethernet4", 4)
     duthost.shell("redis-cli -n 2 hset \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".format(queue_oid))
     duthost.shell("pfcwd start --action alert Ethernet4 100 --restoration-time 100")
-    time.sleep(3)  # give time for pfcwd to generate pfc storm
+    time.sleep(3)  # give time for pfcwd to detect pfc storm
     duthost.shell("pfcwd stop")
     duthost.shell("redis-cli -n 2 hdel \"COUNTERS:{}\" \"DEBUG_STORM\"".format(queue_oid))
