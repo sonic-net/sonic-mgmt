@@ -74,7 +74,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
 
     # do not test load balancing for vs platform as kernel 4.9
     # can only do load balance base on L3
-    if duthosts[0].facts['asic_type'] in ["vs"]:
+    asic_type = duthosts[0].facts['asic_type']
+    if asic_type in ["vs"]:
         test_balancing = False
     else:
         test_balancing = True
@@ -94,7 +95,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                         "testbed_mtu": mtu,
                         "test_balancing": test_balancing,
                         "ignore_ttl": ignore_ttl,
-                        "single_fib_for_duts": single_fib_for_duts},
+                        "single_fib_for_duts": single_fib_for_duts,
+                        "asic_type": asic_type},
                 log_file=log_file,
                 qlen=PTF_QLEN,
                 socket_recv_size=16384)
