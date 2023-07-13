@@ -564,7 +564,7 @@ def makeLab(data, devices, testbed, outfile):
                         try:  # get frontend_asics
                             frontend_asics = dev.get("frontend_asics")
                             if frontend_asics is not None:
-                                entry += "\tfrontend_asics=" + frontend_asics.__str__()
+                                entry += "\tfrontend_asics=\"" + frontend_asics.__str__() + "\""
                         except AttributeError:
                             print("\t\t" + host + ": frontend_asics not found")
 
@@ -619,28 +619,28 @@ def makeLab(data, devices, testbed, outfile):
                                         switchids = [
                                             start_switchid +
                                             (asic_id * num_cores_per_asic) for asic_id in range(num_asics)]
-                                    entry += "\tswitchids=" + str(switchids)
+                                    entry += "\tswitchids=\"" + str(switchids) + "\""
 
                                     if voq_inband_ip is None:
                                         voq_inband_ip = [
                                             "1.1.1.{}/32"
                                             .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_ip=" + \
-                                        str(voq_inband_ip)
+                                    entry += "\tvoq_inband_ip=\"" + \
+                                        str(voq_inband_ip) + "\""
 
                                     if voq_inband_ipv6 is None:
-                                        voq_inband_ip = [
+                                        voq_inband_ipv6 = [
                                             "1111::1:{}/128"
                                             .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_ipv6=" + \
-                                        str(voq_inband_ip)
+                                    entry += "\tvoq_inband_ipv6=\"" + \
+                                        str(voq_inband_ipv6) + "\""
 
                                     if voq_inband_intf is None:
                                         voq_inband_intf = [
                                             "Ethernet-IB{}"
                                             .format(asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_intf=" + \
-                                        str(voq_inband_intf)
+                                    entry += "\tvoq_inband_intf=\"" + \
+                                        str(voq_inband_intf) + "\""
 
                                     if voq_inband_type is None:
                                         voq_inband_type = "port"
@@ -654,13 +654,13 @@ def makeLab(data, devices, testbed, outfile):
                                         lo4096_ip = [
                                             "8.0.0.{}/32"
                                             .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tloopback4096_ip=" + lo4096_ip
+                                    entry += "\tloopback4096_ip=\"" + str(lo4096_ip) + "\""
 
                                     if lo4096_ipv6 is None:
                                         lo4096_ipv6 = [
                                             "2603:10e2:400::{}/128"
                                             .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tloopback4096_ipv6=" + lo4096_ipv6
+                                    entry += "\tloopback4096_ipv6=\"" + str(lo4096_ipv6) + "\""
 
                                     start_switchid += (num_asics *
                                                        num_cores_per_asic)
