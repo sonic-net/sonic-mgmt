@@ -495,7 +495,17 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 
-        for key, messages in result["expect_messages"].items():
+        # Parsing sairedis shall happen after parsing syslog because FDB_AGING_DISABLE is required
+        # when analysing sairedis.rec log, so we need to sort the keys
+        key_list = ["syslog", "bgpd.log", "sairedis.rec"]
+        for i in range(0, len(key_list)):
+            for message_key in result["expect_messages"].keys():
+                if key_list[i] in message_key:
+                    key_list[i] = message_key
+                    break
+    
+        for key in key_list:
+            messages = result["expect_messages"][key]
             if "syslog" in key:
                 get_kexec_time(duthost, messages, analyze_result)
                 reboot_start_time = analyze_result.get("reboot_time", {}).get("timestamp", {}).get("Start")
