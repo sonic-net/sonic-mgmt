@@ -11,6 +11,7 @@ from tests.common import config_reload
 from macsec_helper import *
 from macsec_config_helper import *
 from macsec_platform_helper import *
+from tests.common.helpers.snmp_helpers import get_snmp_output
 
 logger = logging.getLogger(__name__)
 
