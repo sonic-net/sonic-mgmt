@@ -311,7 +311,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
     # check DUT
     pytest_assert(wait_until(5, 1, 0, check_dut, duthost, other_vms, bgp_neighbors, setup, route, accepted=accepted), 'DUT check failed')
 
-    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted}, other_vms, timeout=120)
+    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted}, other_vms, timeout=120, concurrent_tasks=6)
 
     failed_results = {}
     for node, result in results.items():
