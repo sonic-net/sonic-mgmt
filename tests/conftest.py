@@ -1958,6 +1958,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                                                  verbose=False)['stdout'])
 
     yield
+    # Added below 3 lines for o8c48 speed change preservation
+    dut_clean = getattr(request.config.option, "dut_clean", True)
+    if not dut_clean:
+        return
 
     if check_flag:
         for duthost in duthosts:

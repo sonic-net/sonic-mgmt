@@ -1007,6 +1007,15 @@ ssh/test_ssh_stress.py::test_ssh_stress:
     conditions: https://github.com/paramiko/paramiko/issues/1508
 
 #######################################
+#####           speed_change      #####
+#######################################
+speed_change/test_o8c48_speed_change.py:
+  skip:
+    reason: "test is needed only for hwsku 'Cisco-8101-O8C48'"
+    conditions:
+      - "hwsku not in ['Cisco-8101-O8C48']"
+
+#######################################
 #####     sub_port_interfaces     #####
 #######################################
 sub_port_interfaces:
