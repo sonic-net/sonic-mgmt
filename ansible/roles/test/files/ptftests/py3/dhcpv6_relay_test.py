@@ -2,6 +2,7 @@ import os
 import ast
 import subprocess
 import scapy
+import ipaddress
 # Packet Test Framework imports
 import ptf
 import ptf.packet as packet
