@@ -1,5 +1,7 @@
 import logging
+import os
 import pytest
+import yaml
 from .args.qos_sai_args import add_qos_sai_args
 from .args.buffer_args import add_dynamic_buffer_calculation_args
 
@@ -99,3 +101,29 @@ def nearbySourcePorts(duthost, mg_facts, singleMemberPort):
     nearby_port_id_2 = mg_facts["minigraph_port_indices"][nearby_ports[1]]
     yield (nearby_port_id_1, nearby_port_id_2)
 
+
+@pytest.fixture(scope="module", autouse=True)
+def combine_qos_parameter():
+
+    def merge_dicts(dict1, dict2):
+        merged_dict = dict1.copy()
+        for key, value in dict2.items():
+            if key in merged_dict and isinstance(merged_dict[key], dict) and isinstance(value, dict):
+                merged_dict[key] = merge_dicts(merged_dict[key], value)
+            else:
+                merged_dict[key] = value
+        return merged_dict
+
+    folder_path = "qos/files"
+    output_file = "qos/files/qos.yml"
+    yaml_files = [file for file in os.listdir(folder_path) if file.endswith(".yaml")]
+
+    combined_yaml = {}
+    for file in yaml_files:
+        file_path = os.path.join(folder_path, file)
+        with open(file_path, "r") as ifp:
+            part_dict = yaml.safe_load(ifp)
+            combined_yaml = merge_dicts(combined_yaml, part_dict)
+
+    with open(output_file, "w") as ofp:
+        yaml.dump(combined_yaml, ofp, default_flow_style=False)

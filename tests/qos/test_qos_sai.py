@@ -526,7 +526,9 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku":dutTestParams['hwsku'],
+            "pkts_num_egr_mem" :  qosConfig[xonProfile].get('pkts_num_egr_mem', None)
+
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
