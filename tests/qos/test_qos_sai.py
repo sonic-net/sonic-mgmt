@@ -1829,16 +1829,15 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        # Expected keys: ecn, pkt_count, pkts_num_margin, cell_size, packet_size
+        testParams.update(qosConfig[queueProfile])
         testParams.update({
-            "ecn": qosConfig[queueProfile]["ecn"],
             "dst_port_ids": allTestPorts,
             "dst_port_ips": allTestPortIps,
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
-            "pkt_count": qosConfig[queueProfile]["pkt_count"],
-            "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku']
         })
 
