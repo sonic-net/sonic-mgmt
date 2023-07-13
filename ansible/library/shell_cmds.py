@@ -66,7 +66,7 @@ description:
 options:
     cmds: List of commands. Each command should be a string.
     continue_on_fail: Bool. Specify whether to continue running rest of the commands if any of the command failed.
-    timeout: Integer. Specify time limit (in second) for each command. Default value is 30. 0 means no limit.
+    timeout: Integer. Specify time limit (in second) for each command. 0 means no limit. Default value is 0.
 '''
 
 EXAMPLES = r'''
@@ -82,17 +82,20 @@ EXAMPLES = r'''
 
 
 def run_cmd(module, cmd, timeout):
-    # wrap the shell command with timeout
-    cmd_with_timeout = "echo '{}' | timeout {} bash".format(cmd, timeout)
-    rc, out, err = module.run_command(cmd_with_timeout, use_unsafe_shell=True)
+    cmd_with_timeout = "echo '{}' | timeout --preserve-status {} bash".format(cmd, timeout)
+    if int(timeout) == 0:
+        rc, out, err = module.run_command(cmd, use_unsafe_shell=True)
+    else:
+        rc, out, err = module.run_command(cmd_with_timeout, use_unsafe_shell=True)
     result = dict(
-        cmd=cmd,  # original command
-        cmd_with_timeout=cmd_with_timeout,  # command wrapped with timeout
+        cmd=cmd,
+        cmd_with_timeout=cmd_with_timeout,
         rc=rc,
         stdout=out,
         stderr=err,
         stdout_lines=out.splitlines(),
-        stderr_lines=err.splitlines()
+        stderr_lines=err.splitlines(),
+        timeout=timeout
     )
     return result
 
@@ -103,7 +106,7 @@ def main():
         argument_spec=dict(
             cmds=dict(type='list', required=True),
             continue_on_fail=dict(type='bool', default=True),
-            timeout=dict(type='int', default=30)
+            timeout=dict(type='int', default=0)
         )
     )
 
