@@ -9,6 +9,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host  
 from tests.common.dualtor.data_plane_utils import send_server_to_t1_with_action                 # noqa F401
 from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action                 # noqa F401
 from tests.common.dualtor.mux_simulator_control import set_drop                                 # noqa F401
+from tests.common.dualtor.mux_simulator_control import set_drop_all                             # noqa F401
 from tests.common.dualtor.mux_simulator_control import set_output                               # noqa F401
 from tests.common.dualtor.mux_simulator_control import simulator_flap_counter                   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
@@ -51,6 +52,28 @@ def drop_flow_lower_tor(set_drop, set_output, active_standby_ports):            
     """Drop the flow to the lower ToR."""
     direction = "lower_tor"
     return _set_drop_factory(set_drop, direction, active_standby_ports)
+
+
+def _set_drop_all_factory(set_drop_all_func, direction, tor_mux_intfs):                         # noqa F811
+    """Factory to get set drop function for either upper_tor or lower_tor."""
+    def _set_drop_all_interfaces():
+        logging.debug("Start set drop all for %s at %s", direction, time.time())
+        set_drop_all_func([direction])
+    return _set_drop_all_interfaces
+
+
+@pytest.fixture(scope="function")
+def drop_flow_upper_tor_all(set_drop_all, set_output, active_standby_ports):                    # noqa F811
+    """Drop the flow to the upper ToR."""
+    direction = "upper_tor"
+    return _set_drop_all_factory(set_drop_all, direction, active_standby_ports)
+
+
+@pytest.fixture(scope="function")
+def drop_flow_lower_tor_all(set_drop_all, set_output, active_standby_ports):                    # noqa F811
+    """Drop the flow to the lower ToR."""
+    direction = "lower_tor"
+    return _set_drop_all_factory(set_drop_all, direction, active_standby_ports)
 
 
 @pytest.fixture(scope="function")
@@ -105,7 +128,7 @@ def check_simulator_flap_counter(
 @pytest.mark.enable_active_active
 def test_active_link_drop_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor,       # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all,   # noqa F811
     drop_flow_upper_tor_active_active, cable_type                       # noqa F811
 ):
     """
@@ -118,7 +141,7 @@ def test_active_link_drop_upstream(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=3,
-            action=drop_flow_upper_tor
+            action=drop_flow_upper_tor_all
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -147,7 +170,7 @@ def test_active_link_drop_upstream(
 @pytest.mark.enable_active_active
 def test_active_link_drop_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor,       # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all,   # noqa F811
     drop_flow_upper_tor_active_active, cable_type                       # noqa F811
 ):
     """
@@ -161,7 +184,7 @@ def test_active_link_drop_downstream_active(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=3,
-            action=drop_flow_upper_tor
+            action=drop_flow_upper_tor_all
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -189,7 +212,7 @@ def test_active_link_drop_downstream_active(
 
 def test_active_link_drop_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor        # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all    # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the
@@ -201,7 +224,7 @@ def test_active_link_drop_downstream_standby(
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         allowed_disruption=3,
-        action=drop_flow_upper_tor
+        action=drop_flow_upper_tor_all
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -212,7 +235,7 @@ def test_active_link_drop_downstream_standby(
 
 def test_standby_link_drop_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor
+    check_simulator_flap_counter, drop_flow_lower_tor_all
 ):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the standby ToR.
@@ -223,7 +246,7 @@ def test_standby_link_drop_upstream(
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         allowed_disruption=2,
-        action=drop_flow_lower_tor
+        action=drop_flow_lower_tor_all
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -235,7 +258,7 @@ def test_standby_link_drop_upstream(
 
 def test_standby_link_drop_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor
+    check_simulator_flap_counter, drop_flow_lower_tor_all
 ):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
@@ -247,7 +270,7 @@ def test_standby_link_drop_downstream_active(
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         allowed_disruption=2,
-        action=drop_flow_lower_tor
+        action=drop_flow_lower_tor_all
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -259,7 +282,7 @@ def test_standby_link_drop_downstream_active(
 
 def test_standby_link_drop_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor
+    check_simulator_flap_counter, drop_flow_lower_tor_all
 ):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the
@@ -271,7 +294,7 @@ def test_standby_link_drop_downstream_standby(
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         allowed_disruption=2,
-        action=drop_flow_lower_tor
+        action=drop_flow_lower_tor_all
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
