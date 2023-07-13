@@ -465,12 +465,12 @@ class MultiAsicSonicHost(object):
                 continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
-                r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
+                r'"s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g" '
                 r"/etc/rsyslog.conf"
             )
             cmd_enable_rate_limit = (
                 r"docker exec -i {} sed -i "
-                r"'s/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' "
+                r'"s/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g" '
                 r"/etc/rsyslog.conf"
             )
             cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
