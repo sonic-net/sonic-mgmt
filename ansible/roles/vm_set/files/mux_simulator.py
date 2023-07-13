@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import traceback
+import time
 
 from collections import defaultdict
 from logging.handlers import RotatingFileHandler
@@ -42,6 +43,8 @@ DROP = 'drop'
 app = Flask(__name__)
 
 g_muxes = None              # Global variable holding instance of the class Muxes
+g_get_mux_counter = 0
+g_start_time = time.time()
 
 ################################################## Error Handlers ####################################################
 
@@ -664,12 +667,23 @@ def mux_status(vm_set, port_index):
     Returns:
         object: Return a flask response object.
     """
+    global g_get_mux_counter
+    global g_start_time
     _validate_vm_set(vm_set)
     if not g_muxes.has_mux(port_index):
         abort(404, 'Unknown bridge, vm_set={}, port_index={}'.format(vm_set, port_index))
 
     if request.method == 'GET':
-        return g_muxes.get_mux_status(port_index)
+        response = g_muxes.get_mux_status(port_index)
+        g_get_mux_counter += 1
+        elapsed_time = time.time() - g_start_time
+        if elapsed_time > 60 or g_get_mux_counter % 100 == 0:
+            app.logger.info('===== No.{} GET method since last log ====='.format(g_get_mux_counter))
+            app.logger.info('===== {} GET {} with port {} ====='.format(request.remote_addr, request.url, port_index))
+            app.logger.info('===== GET port {} with response {} ====='.format(port_index, response))
+            g_get_mux_counter = 0
+            g_start_time = time.time()
+        return response
     elif request.method == 'POST':
         # Set the active side of mux
         data = _validate_posted_data(request)
@@ -694,7 +708,10 @@ def all_mux_status(vm_set):
     """
     _validate_vm_set(vm_set)
     if request.method == 'GET':
-        return g_muxes.get_mux_status()
+        response = g_muxes.get_mux_status()
+        app.logger.info('===== {} GET {} with all ports ====='.format(request.remote_addr, request.url))
+        app.logger.info('===== GET all ports with response {} ====='.format(response))
+        return response
     elif request.method == 'POST':
         # Set the active side for all mux bridges
         data = _validate_posted_data(request)
@@ -770,6 +787,46 @@ def reset_flow_handler(vm_set):
     _validate_vm_set(vm_set)
     app.logger.info('===== {} POST {} ====='.format(request.remote_addr, request.url))
     return g_muxes.reset_flows()
+
+
+@app.route('/mux/<vm_set>/output', methods=['POST'])
+def output_flow_handler(vm_set):
+    """Handler for updating flow action to output
+
+    Args:
+        vm_set (string): The vm_set of test setup. Parsed by flask from request URL.
+
+    Posted json data should be like:
+        {"out_sides": [<side>, <side>, ...]}
+    where <side> could be "nic", "upper_tor" or "lower_tor".
+
+    Returns:
+        object: Return a flask response object.
+    """
+    _validate_vm_set(vm_set)
+    data = _validate_out_sides(request)
+    app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+    return g_muxes.update_flows('output', data['out_sides'])
+
+
+@app.route('/mux/<vm_set>/drop', methods=['POST'])
+def drop_flow_handler(vm_set):
+    """Handler for updating all flow to drop
+
+    Args:
+        vm_set (string): The vm_set of test setup. Parsed by flask from request URL.
+
+    Posted json data should be like:
+        {"out_sides": [<side>, <side>, ...]}
+    where <side> could be "nic", "upper_tor" or "lower_tor".
+
+    Returns:
+        object: Return a flask response object.
+    """
+    _validate_vm_set(vm_set)
+    data = _validate_out_sides(request)
+    app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+    return g_muxes.update_flows('drop', data['out_sides'])
 
 
 @app.route('/mux/<vm_set>/<int:port_index>/flap_counter', methods=['GET'])

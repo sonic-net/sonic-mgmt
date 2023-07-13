@@ -39,7 +39,16 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        config_reload(duthost, config_source='running_golden_config', safe_reload=True)
+        config_reload(duthost, config_source='config_db', safe_reload=True)
+
+
+def enable_autorestart(duthost):
+    # Enable autorestart for all features
+    feature_list, _ = duthost.get_feature_status()
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
@@ -104,7 +113,6 @@ def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_host
             ".*ERR syncd[0-9]*#SDK.*mlnx_debug_counter_availability_get: Unsupported debug counter type - (0|1).*",
             ".*ERR syncd[0-9]*#SDK.*mlnx_get_port_stats_ext: Invalid port counter (177|178|179|180|181|182).*",
             ".*ERR syncd[0-9]*#SDK.*Failed getting attrib SAI_BRIDGE_.*",
-            ".*ERR syncd[0-9]*#SDK.*sai_get_attributes: Failed attribs dispatch.*",
             ".*ERR syncd[0-9]*#SDK.*Failed command read at communication channel: Connection reset by peer.*",
             ".*WARNING syncd[0-9]*#syncd.*skipping since it causes crash.*",
             ".*ERR syncd[0-9]*#SDK.*validate_port: Can't add port which is under bridge.*",
@@ -503,6 +511,10 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     )
     if not (critical_proceses and bgp_check):
         config_reload(duthost, safe_reload=True)
+        # after config reload, the feature autorestart config is reset,
+        # so, before next test, enable again
+        enable_autorestart(duthost)
+
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
         processes_status = duthost.all_critical_process_status()

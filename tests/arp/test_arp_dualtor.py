@@ -115,10 +115,10 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
 
     if ip_version == 'v4':
         pytest_require(ptf_intf_ipv4_addr is not None, 'No IPv4 VLAN address configured on device')
-        intf_name_cmd = "show arp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv4_addr)
+        intf_name_cmd = "show arp | grep -m 1 '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv4_addr)
     elif ip_version == 'v6':
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
-        intf_name_cmd = "show ndp | grep '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv6_addr)
+        intf_name_cmd = "show ndp | grep -m 1 '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv6_addr)
 
     # Find the interface on which the target IP is learned and set it to standby to force it to point to a tunnel route
     intf_name = upper_tor_host.shell(intf_name_cmd)['stdout']

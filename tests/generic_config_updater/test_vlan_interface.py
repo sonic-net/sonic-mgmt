@@ -28,6 +28,15 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+EXIST_VLAN_ID = 1000
+NEW_VLAN_ID = 1001
+IGNORE_REG_LIST = [
+    ".*setIntfIp: Command '/sbin/ip -6 address \"add\" \"fc02:1000::1/64\" broadcast \"fc02:1000::ffff:ffff:ffff:" +
+    "ffff\" dev \"Vlan1000\"' failed with rc 2.*",
+    ".*Can't remove key 'fc02:1000::1' from slot 'LOCAL__local_addresses'. The key doesn't exist.*",
+    ".*Command '/sbin/ip -6 address \"del\" \"fc02:1000::1/64\" broadcast \"fc02:1000::ffff:ffff:ffff:ffff\" dev " +
+    "\"Vlan1000\"' failed with rc 2.*",
+]
 
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
@@ -236,7 +245,7 @@ def vlan_interface_tc1_xfail(duthost, vlan_info):
 
 
 def vlan_interface_tc1_add_new(duthost):
-    """ Add an brand new vlan interface Vlan2000
+    """ Add an brand new vlan interface Vlan1001
 
     Sample output:
     "VLAN": {
@@ -249,49 +258,49 @@ def vlan_interface_tc1_add_new(duthost):
             ],
             "vlanid": "1000"
         },
-        "Vlan2000": {
-            "vlanid": "2000"
+        "Vlan1001": {
+            "vlanid": "1001"
         }
     },
     "VLAN_INTERFACE": {
         "Vlan1000": {},
-        "Vlan2000": {},
+        "Vlan1001": {},
         "Vlan1000|192.168.0.1/21": {},
         "Vlan1000|fc02:1000::1/64": {},
-        "Vlan2000|192.168.8.1/21": {},
-        "Vlan2000|fc02:2000::1/64": {}
+        "Vlan1001|192.168.8.1/21": {},
+        "Vlan1001|fc02:2000::1/64": {}
     }
 
-    admin@vlab-01:~/vlan$ show ip interfaces | grep -w Vlan2000
-    Vlan2000                   192.168.8.1/21       up/up         N/A             N/A
-    admin@vlab-01:~/vlan$ show ipv6 interfaces | grep -w Vlan2000
-    Vlan2000                          fc02:2000::1/64                             up/up         N/A             N/A
-                                      fe80::5054:ff:feda:c6af%Vlan2000/64                       N/A             N/A
+    admin@vlab-01:~/vlan$ show ip interfaces | grep -w Vlan1001
+    Vlan1001                   192.168.8.1/21       up/up         N/A             N/A
+    admin@vlab-01:~/vlan$ show ipv6 interfaces | grep -w Vlan1001
+    Vlan1001                          fc02:2000::1/64                             up/up         N/A             N/A
+                                      fe80::5054:ff:feda:c6af%Vlan1001/64                       N/A             N/A
 
     """
     json_patch = [
         {
             "op": "add",
-            "path": "/VLAN_INTERFACE/Vlan2000",
+            "path": "/VLAN_INTERFACE/Vlan{}".format(NEW_VLAN_ID),
             "value": {}
         },
         {
             "op": "add",
             "path": create_path(["VLAN_INTERFACE",
-                                 "Vlan2000|192.168.8.1/21"]),
+                                 "Vlan{}|192.168.8.1/21".format(NEW_VLAN_ID)]),
             "value": {}
         },
         {
             "op": "add",
             "path": create_path(["VLAN_INTERFACE",
-                                 "Vlan2000|fc02:2000::1/64"]),
+                                 "Vlan{}|fc02:2000::1/64".format(NEW_VLAN_ID)]),
             "value": {}
         },
         {
             "op": "add",
-            "path": "/VLAN/Vlan2000",
+            "path": "/VLAN/Vlan{}".format(NEW_VLAN_ID),
             "value": {
-                "vlanid": "2000"
+                "vlanid": "{}".format(NEW_VLAN_ID)
             }
         }
     ]
@@ -303,9 +312,9 @@ def vlan_interface_tc1_add_new(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        check_show_ip_intf(duthost, "Vlan2000", ["192.168.8.1/21"],
+        check_show_ip_intf(duthost, "Vlan{}".format(NEW_VLAN_ID), ["192.168.8.1/21"],
                            [], is_ipv4=True)
-        check_show_ip_intf(duthost, "Vlan2000", ["fc02:2000::1/64"],
+        check_show_ip_intf(duthost, "Vlan{}".format(NEW_VLAN_ID), ["fc02:2000::1/64"],
                            [], is_ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -390,15 +399,17 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
                            [ipaddr_plus(vlan_info["v4"]["prefix"])], is_ipv4=True)
         check_show_ip_intf(duthost, vlan_info["v6"]["name"], [],
                            [ipaddr_plus(vlan_info["v6"]["prefix"])], is_ipv4=False)
-        check_show_ip_intf(duthost, "Vlan2000", [],
+        check_show_ip_intf(duthost, "Vlan{}".format(NEW_VLAN_ID), [],
                            ["192.168.8.1/21"], is_ipv4=True)
-        check_show_ip_intf(duthost, "Vlan2000", [],
+        check_show_ip_intf(duthost, "Vlan{}".format(NEW_VLAN_ID), [],
                            ["fc02:2000::1/64"], is_ipv4=False)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info):
+def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info, loganalyzer, tbinfo, duthost):
+    if tbinfo["topo"]["name"] == "m0-2vlan" and loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend(IGNORE_REG_LIST)
     vlan_interface_tc1_add_duplicate(rand_selected_dut, vlan_info)
     vlan_interface_tc1_xfail(rand_selected_dut, vlan_info)
     vlan_interface_tc1_add_new(rand_selected_dut)
@@ -415,8 +426,8 @@ def test_vlan_interface_tc2_incremental_change(rand_selected_dut):
     json_patch = [
         {
             "op": "add",
-            "path": "/VLAN/Vlan1000/description",
-            "value": "incremental test for Vlan1000"
+            "path": "/VLAN/Vlan{}/description".format(EXIST_VLAN_ID),
+            "value": "incremental test for Vlan{}".format(EXIST_VLAN_ID)
         }
     ]
 

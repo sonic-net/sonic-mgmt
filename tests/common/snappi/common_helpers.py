@@ -684,3 +684,41 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
 def sec_to_nanosec(secs):
     """ Convert seconds to nanoseconds """
     return secs * 1e9
+
+
+def get_pfc_frame_count(duthost, port, priority, is_tx=False):
+    """
+    Get the PFC frame count for a given port and priority from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        priority (int): priority of flow
+        is_tx (bool): if the PFC pause frame count is for Tx or Rx
+    Returns:
+        int: PFC pause frame count
+    """
+    if is_tx:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {}".format(port))['stdout']
+    else:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep {}".format(port))['stdout']
+
+    pause_frame_count = raw_out.split()[priority + 1]
+
+    return int(pause_frame_count.replace(',', ''))
+
+
+def get_egress_queue_count(duthost, port, priority):
+    """
+    Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
+    This is the equivalent of the "show queue counters" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        priority (int): priority of flow
+    Returns:
+        tuple (int, int): total count of packets and bytes in the queue
+    """
+    raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
+    total_pkts = raw_out.split()[2]
+    total_bytes = raw_out.split()[3]
+    return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))

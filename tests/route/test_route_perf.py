@@ -223,7 +223,7 @@ def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_fronte
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
     if set_num_routes is None:
-        topo_name = tbinfo["topo"]["name"]
+        topo_name = tbinfo["topo"]["type"]
         if topo_name in ["m0", "mx"]:
             set_num_routes = DEAFULT_M0_MX_NUM_ROUTES
         else:

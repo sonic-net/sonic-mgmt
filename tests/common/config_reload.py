@@ -66,15 +66,18 @@ def config_force_option_supported(duthost):
 
 
 @ignore_loganalyzer
-def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
+def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False,
-                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False):
+                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False, is_dut=True):
     """
     reload SONiC configuration
-    :param duthost: DUT host object
+    :param sonic_host: SONiC host object
     :param config_source: configuration source is 'config_db', 'minigraph' or 'running_golden_config'
-    :param wait: wait timeout for DUT to initialize after configuration reload
+    :param wait: wait timeout for sonic_host to initialize after configuration reload
     :param override_config: override current config with '/etc/sonic/golden_config_db.json'
+    :param is_dut: True if the host is DUT, False if the host may be neighbor device.
+                    To the non-DUT host, it may lack of some runtime variables like `topo_type`
+                    so that this config_reload may fail.
     :return:
     """
 
@@ -86,13 +89,14 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
 
     logger.info('reloading {}'.format(config_source))
 
-    # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
-    ignore_t2_syslog_msgs(duthost)
+    if is_dut:
+        # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+        ignore_t2_syslog_msgs(sonic_host)
 
     if config_source == 'minigraph':
-        if start_dynamic_buffer and duthost.facts['asic_type'] == 'mellanox':
-            output = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
-                                   module_ignore_errors=True)
+        if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
+            output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
+                                      module_ignore_errors=True)
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
@@ -101,27 +105,27 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
             cmd += ' -t'
         if override_config:
             cmd += ' -o'
-        duthost.shell(cmd, executable="/bin/bash")
+        sonic_host.shell(cmd, executable="/bin/bash")
         time.sleep(60)
         if start_bgp:
-            duthost.shell('config bgp startup all')
+            sonic_host.shell('config bgp startup all')
         if is_buffer_model_dynamic:
-            duthost.shell('enable-dynamic-buffer.py')
-        duthost.shell('config save -y')
+            sonic_host.shell('enable-dynamic-buffer.py')
+        sonic_host.shell('config save -y')
 
     elif config_source == 'config_db':
         cmd = 'config reload -y &>/dev/null'
-        if config_force_option_supported(duthost):
+        if config_force_option_supported(sonic_host):
             cmd = 'config reload -y -f &>/dev/null'
-        duthost.shell(cmd, executable="/bin/bash")
+        sonic_host.shell(cmd, executable="/bin/bash")
 
     elif config_source == 'running_golden_config':
         cmd = 'config reload -y -l /etc/sonic/running_golden_config.json &>/dev/null'
-        if config_force_option_supported(duthost):
+        if config_force_option_supported(sonic_host):
             cmd = 'config reload -y -f -l /etc/sonic/running_golden_config.json &>/dev/null'
-        duthost.shell(cmd, executable="/bin/bash")
+        sonic_host.shell(cmd, executable="/bin/bash")
 
-    modular_chassis = duthost.get_facts().get("modular_chassis")
+    modular_chassis = sonic_host.get_facts().get("modular_chassis")
     wait = max(wait, 240) if modular_chassis else wait
 
     if safe_reload:
@@ -129,15 +133,15 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
-        pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
+        pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
-        wait_critical_processes(duthost)
+        wait_critical_processes(sonic_host)
         if config_source == 'minigraph':
-            pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, duthost),
+            pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, sonic_host),
                           "PFC_WD is missing in CONFIG-DB")
 
         if check_intf_up_ports:
-            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, sonic_host),
                           "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)

@@ -55,6 +55,11 @@ def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname):
     duthost.command("config ntp del %s" % ptfhost.mgmt_ip)
     for ntp_server in ntp_servers:
         duthost.command("config ntp add %s" % ntp_server)
+    # The time jump leads to exception in lldp_syncd. The exception has been handled by lldp_syncd,
+    # but it will leave error messages in syslog, which will cause subsequent test cases to fail.
+    # So we need to wait for a while to make sure the error messages are flushed.
+    # The default update interval of lldp_syncd is 10 seconds, so we wait for 20 seconds here.
+    time.sleep(20)
 
 @pytest.fixture
 def setup_long_jump_config(duthosts, rand_one_dut_hostname):

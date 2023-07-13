@@ -227,7 +227,7 @@ def pdu_action_on_dut(host, attrs, action):
     if not succeed:
         ret['Summary'] = pdu_info
         return ret
-    pduman = pdu_manager_factory(host, pdu_info, g_conn_graph_facts, pdu_info.values()[0])
+    pduman = pdu_manager_factory(host, pdu_info, g_conn_graph_facts, pdu_info)
 
     if not pduman:
         ret['Summary'].append('Failed to communicate with PDU controller {}'.format(pdu_info.keys()))
@@ -372,7 +372,7 @@ def main():
                         type=str, required=False, default='lab')
     parser.add_argument('-l', '--limit', help='Host: limit to a single dut host name, default all',
                         type=str, required=False)
-    parser.add_argument('--log-level', help='Log level: print logs to STDOUT (if not set to close)', 
+    parser.add_argument('--log-level', help='Log level: print logs to STDOUT (if not set to close)',
                         type=str, required=False, default='warn',
                         choices=['debug', 'info', 'warn', 'error', 'close'])
     parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',

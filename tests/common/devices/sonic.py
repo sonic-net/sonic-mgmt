@@ -78,6 +78,12 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
         if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
             self.DEFAULT_ASIC_SERVICES.append("macsec")
+        feature_status = self.get_feature_status()
+        # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
+        # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
+        gbsyncd_enabled = 'gbsyncd' in feature_status[0].keys() and feature_status[0]['gbsyncd'] == 'enabled'
+        if gbsyncd_enabled and self.facts["asic_type"] != "vs":
+            self.DEFAULT_ASIC_SERVICES.append("gbsyncd")
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
@@ -677,7 +683,7 @@ class SonicHost(AnsibleHostBase):
             # In this situation, service container status should be false
             # We can check status is valid or not
             # You can just add valid status str in this tuple if meet later
-            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF'):
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF', 'STARTING'):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
@@ -1211,6 +1217,10 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
         return True
 
+    def check_intf_link_state(self, interface_name):
+        intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
+        return intf_status[interface_name]['oper_state'] == 'up'
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
@@ -1581,7 +1591,7 @@ Totals               6450                 6449
         if ("Broadcom Limited Device b960" in output or
             "Broadcom Limited Broadcom BCM56960" in output):
             asic = "th"
-        elif "Broadcom Limited Device b971" in output:
+        elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
               "Broadcom Limited Broadcom BCM56850" in output):
@@ -1593,6 +1603,8 @@ Totals               6450                 6449
             asic = "th3"
         elif "Cisco Systems Inc Device a001" in output:
             asic = "gb"
+        elif "Mellanox Technologies" in output:
+            asic = "spc"
 
         return asic
 
@@ -1872,22 +1884,6 @@ Totals               6450                 6449
         )
 
         return "RUNNING" in service_status
-
-    def remove_ssh_tunnel_sai_rpc(self):
-        """
-        Removes any ssh tunnels if present created for syncd RPC communication
-
-        Returns:
-            None
-        """
-        try:
-            pid_list = self.shell(
-                'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:9092"'
-            )["stdout_lines"]
-        except RunAnsibleModuleFail:
-            return
-        for pid in pid_list:
-            self.shell("kill {}".format(pid), module_ignore_errors=True)
 
     def get_up_ip_ports(self):
         """

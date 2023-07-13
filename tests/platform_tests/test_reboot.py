@@ -15,9 +15,12 @@ from datetime import datetime
 
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.utilities import wait_until
-from tests.common.reboot import *
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
+    check_reboot_cause_history, reboot_ctrl_dict,\
+    REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
+    REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_WATCHDOG
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
@@ -31,6 +34,18 @@ pytestmark = [
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
+
+
+@pytest.fixture
+def set_max_time_for_interfaces(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
+    global MAX_WAIT_TIME_FOR_INTERFACES
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', 300)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -66,10 +81,11 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list, reboot_type=REB
     logging.info("Append the latest reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
 
-    check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type)
+    check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
 
 
-def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type = None):
+def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
+                                  interfaces_wait_time=MAX_WAIT_TIME_FOR_INTERFACES, reboot_type=None):
     """
     Perform a further check after reboot-cause, including transceiver status, interface status
     @param localhost: The Localhost object.
@@ -82,11 +98,12 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
     else:
-        logging.info("Wait {} seconds for all the transceivers to be detected".format(MAX_WAIT_TIME_FOR_INTERFACES))
-        result = wait_until(MAX_WAIT_TIME_FOR_INTERFACES, 20, 0, check_all_interface_information, dut, interfaces,
+        logging.info("Wait {} seconds for all the transceivers to be detected".format(
+                    interfaces_wait_time))
+        result = wait_until(interfaces_wait_time, 20, 0, check_all_interface_information, dut, interfaces,
                             xcvr_skip_list)
         assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
-            MAX_WAIT_TIME_FOR_INTERFACES)
+            interfaces_wait_time)
 
         logging.info("Check transceiver status")
         for asic_index in dut.get_frontend_asic_ids():
@@ -117,14 +134,16 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type =
         if "201811" in dut.os_version or "201911" in dut.os_version:
             logging.info("Skip check reboot-cause history for version before 202012")
         else:
-            logger.info("Check reboot-cause history")
+            logging.info("Check reboot-cause history")
             assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
                               REBOOT_TYPE_HISTOYR_QUEUE), "Check reboot-cause history failed after rebooted by %s" % reboot_type
         if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
             logging.info("Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
             return
 
-def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+
+def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname, set_max_time_for_interfaces,
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
@@ -182,83 +201,8 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM)
 
 
-def _power_off_reboot_helper(kwargs):
-    """
-    @summary: used to parametrized test cases on power_off_delay
-    @param kwargs: the delay time between turning off and on the PSU
-    """
-    pdu_ctrl = kwargs["pdu_ctrl"]
-    all_outlets = kwargs["all_outlets"]
-    power_on_seq = kwargs["power_on_seq"]
-    delay_time = kwargs["delay_time"]
-
-    for outlet in all_outlets:
-        logging.debug("turning off {}".format(outlet))
-        pdu_ctrl.turn_off_outlet(outlet)
-    time.sleep(delay_time)
-    logging.info("Power on {}".format(power_on_seq))
-    for outlet in power_on_seq:
-        logging.debug("turning on {}".format(outlet))
-        pdu_ctrl.turn_on_outlet(outlet)
-
-
-def test_power_off_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list, pdu_controller, power_off_delay):
-    """
-    @summary: This test case is to perform reboot via powercycle and check platform status
-    @param duthost: Fixture for DUT AnsibleHost object
-    @param localhost: Fixture for interacting with localhost through ansible
-    @param conn_graph_facts: Fixture parse and return lab connection graph
-    @param xcvr_skip_list: list of DUT's interfaces for which transeiver checks are skipped
-    @param pdu_controller: The python object of psu controller
-    @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
-    if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
-        pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform".format(duthost.facts["asic_type"]))
-    pdu_ctrl = pdu_controller
-    if pdu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
-
-    all_outlets = pdu_ctrl.get_outlet_status()
-    # If PDU supports returning output_watts, making sure that all outlets has power.
-    no_power = [item for item in all_outlets if int(item.get('output_watts', '1')) == 0]
-    pytest_assert(not no_power, "Not all outlets have power output: {}".format(no_power))
-
-    # Purpose of this list is to control sequence of turning on PSUs in power off testing.
-    # If there are 2 PSUs, then 3 scenarios would be covered:
-    # 1. Turn off all PSUs, turn on PSU1, then check.
-    # 2. Turn off all PSUs, turn on PSU2, then check.
-    # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
-    power_on_seq_list = []
-    if all_outlets:
-        power_on_seq_list = [[item] for item in all_outlets]
-        power_on_seq_list.append(all_outlets)
-
-    logging.info("Got all power on sequences {}".format(power_on_seq_list))
-
-    poweroff_reboot_kwargs = {"dut": duthost}
-
-    try:
-        for power_on_seq in power_on_seq_list:
-            poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
-            poweroff_reboot_kwargs["all_outlets"] = all_outlets
-            poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
-            poweroff_reboot_kwargs["delay_time"] = power_off_delay
-            reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                             _power_off_reboot_helper, poweroff_reboot_kwargs)
-    except Exception as e:
-        logging.debug("Restore power after test failure")
-        for outlet in all_outlets:
-            logging.debug("turning on {}".format(outlet))
-            pdu_ctrl.turn_on_outlet(outlet)
-        # Sleep 120 for dut to boot up
-        time.sleep(120)
-        wait_critical_processes(duthost)
-        raise e
-
-
-def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
+                         localhost, conn_graph_facts, set_max_time_for_interfaces, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
@@ -271,7 +215,8 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, 
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, REBOOT_TYPE_WATCHDOG)
 
 
-def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname, localhost, conn_graph_facts, xcvr_skip_list):
+def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
+                           localhost, conn_graph_facts, set_max_time_for_interfaces, xcvr_skip_list):        # noqa F811
     """
     @summary: This test case is to perform 3 cold reboot in a row
     """

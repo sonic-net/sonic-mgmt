@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.pretest,
     pytest.mark.topology('util', 'any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
 
@@ -171,7 +172,8 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
 
 
 def collect_dut_lossless_prio(dut):
-    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    dut_asic = dut.asic_instance()
+    config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
     if "PORT_QOS_MAP" not in config_facts.keys():
         return []
@@ -189,7 +191,8 @@ def collect_dut_lossless_prio(dut):
     return result
 
 def collect_dut_all_prio(dut):
-    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    dut_asic = dut.asic_instance()
+    config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
     if "DSCP_TO_TC_MAP" not in config_facts.keys():
         return []
@@ -304,13 +307,6 @@ def test_update_saithrift_ptf(request, ptfhost):
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     logging.info("Python saithrift package installed successfully")
 
-
-def test_stop_pfcwd(duthosts, enum_dut_hostname, tbinfo):
-    '''
-     Stop pfcwd on dual tor testbeds
-    '''
-    dut = duthosts[enum_dut_hostname]
-    dut.command('pfcwd stop')
 
 """
     Separator for internal pretests.

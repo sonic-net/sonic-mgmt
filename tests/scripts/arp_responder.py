@@ -99,11 +99,26 @@ class ARPResponder(object):
 
     def action(self, interface):
         data = interface.recv()
+        eth_type = struct.unpack('!H', data[12:14])[0]
+        # Retrieve the correct ethertype if the packet is VLAN tagged
+        if eth_type == 0x8100:  # 802.1Q, VLAN tagged
+            eth_type = struct.unpack('!H', data[16:18])[0]
 
-        if len(data) <= self.ARP_PKT_LEN:
-            return self.reply_to_arp(data, interface)
-        elif len(data) <= self.NDP_PKT_LEN:
-            return self.reply_to_ndp(data, interface)
+        if eth_type == 0x0806:  # ARP
+            if len(data) <= self.ARP_PKT_LEN:
+                return self.reply_to_arp(data, interface)
+            else:
+                # Handle the case where data length is greater than ARP packet length
+                pass
+        elif eth_type == 0x86DD:  # IPv6
+            if len(data) <= self.NDP_PKT_LEN:
+                return self.reply_to_ndp(data, interface)
+            else:
+                # Handle the case where data length is greater than NDP packet length
+                pass
+        else:
+            # Handle other Ethernet types
+            pass
 
     def reply_to_arp(self, data, interface):
         remote_mac, remote_ip, request_ip, op_type, vlan_id = self.extract_arp_info(data)

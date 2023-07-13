@@ -14,6 +14,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, ensure_no_l3_drops, ensure_no_l2_drops
 from .drop_packets import *  # FIXME
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -135,8 +136,13 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
         acl_drops = 0
         for duthost in duthosts.frontend_nodes:
-            acl_drops += duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"][
-                drop_information if drop_information else "DATAACL"]["rules"]["RULE_1"]["packets_count"]
+            for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
+                namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst,
+                                                                         'namespace') else DEFAULT_NAMESPACE
+                if duthost.sonichost.is_multi_asic and namespace == DEFAULT_NAMESPACE:
+                    continue
+                acl_drops += duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"][
+                    drop_information if drop_information else "DATAACL"]["rules"]["RULE_1"]["packets_count"]
         if acl_drops != PKT_NUMBER:
             fail_msg = "ACL drop counter was not incremented on iface {}. DUT ACL counter == {}; Sent pkts == {}".format(
                 tx_dut_ports[ports_info["dut_iface"]], acl_drops, PKT_NUMBER
