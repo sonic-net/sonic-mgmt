@@ -676,9 +676,9 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
-    reason: "Only support t1-lag and t2 topology"
+    reason: "Only support t1-lag, t1-56-lag and t2 topology"
     conditions:
-        - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
+        - "topo_name not in ['t1-lag', 't1-56-lag'] and 't2' not in topo_name"
 
 pc/test_lag_member.py:
   skip:
