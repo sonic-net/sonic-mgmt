@@ -279,9 +279,8 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
                 # Prepare for log analyzer
                 check_log_analyzer(loganalyzer, marker)
                 loganalyzer, marker = init_log_analyzer(duthost,
-                                                        'PSU power exceeds threshold',
-                                                        ['PSU power warning: system power .* exceeds the critical threshold'
-                                                         .format(psu_index)])
+                                        'PSU power exceeds threshold',
+                                        ['PSU power warning: system power .* exceeds the critical threshold'])
 
             with allure.step('Mock the power'):
                 power = power_critical_threshold + 1000000
@@ -318,9 +317,9 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
                 # Prepare log analyzer
                 check_log_analyzer(loganalyzer, marker)
                 loganalyzer, marker = init_log_analyzer(duthost,
-                                                        'PSU power become back to normal',
-                                                        ['PSU power warning cleared: system power .* is back to normal, below the warning suppress threshold'.
-                                                         format(psu_index)])
+                                        'PSU power become back to normal',
+                                        ['PSU power warning cleared: system power .* is back to normal, '
+                                            'below the warning suppress threshold'])
 
             with allure.step('Mock power'):
                 _update_power_and_check_db(psu_index,
