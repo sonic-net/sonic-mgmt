@@ -588,6 +588,13 @@ def makeLab(data, devices, testbed, outfile):
                             switch_type = dev.get("switch_type")
                             if switch_type is not None:
                                 entry += "\tswitch_type=" + str(switch_type)
+                                if switch_type == 'fabric' and card_type == 'supervisor':
+                                    # Add switchids for fabric asics
+                                    # switchids, single asic example "[4]", 3 asic example "[4,6,8]"
+                                    switchids = dev.get("switchids")
+                                    if switchids:
+                                        entry += "\tswitchids=\"" + str(switchids) + "\""
+
                                 if switch_type == 'voq' and card_type != 'supervisor':
                                     if num_asics is None:
                                         num_asics = 1
