@@ -958,6 +958,11 @@ show_techsupport/test_auto_techsupport.py:
     conditions:
       - (is_multi_asic==True)
 
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[core]:
+skip:
+    reason: "This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/15051."
+    conditions: https://github.com/sonic-net/sonic-buildimage/issues/15051
+
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
     reason: "Test supported only on Nvidia(Mellanox) devices"
@@ -971,6 +976,7 @@ show_techsupport/test_techsupport.py::test_techsupport:
     conditions:
       - "branch in ['internal-202012']"
       - "int(build_version.split('.')[1]) <= 33"
+
 
 #######################################
 #####            snmp             #####
