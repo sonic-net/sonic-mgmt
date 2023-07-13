@@ -757,6 +757,9 @@ def makeVeos(data, veos, devices, outfile):
                             entry += "\ttype=" + dev.get("type")
                             entry += "\thwsku=" + dev.get("hwsku")
                             entry += "\tcard_type=" + dev.get("card_type")
+                            entry += "\tmodel=" + dev.get("model")
+                            entry += "\tserial=" + dev.get("serial")
+                            entry += "\tbase_mac=" + dev.get("base_mac")
                     except:
                         try:
                             ansible_host = veos.get(key).get(host).get("ansible_host")
