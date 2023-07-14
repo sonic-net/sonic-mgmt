@@ -780,6 +780,14 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         cell_size = self.test_params['cell_size']
         PKT_NUM = 100
         # There is background traffic during test, so we need to add error tolerance to ignore such pakcets
+        # and we send 100 packets every 10 seconds, if no backgound traffic impact counter value, and watermark is very
+        #   accurate, expected wartermark increasing value is 100.
+        # So for PG0, we increaset tolerance to 20, make sure it can work well even though background traffic, such as
+        #   LACP, LLDP, is 2 packet per second.
+        # For PG2/3/4/6, usually no background traffic, but watermark value's updating is a little bit inaccurate
+        #   according to previously experiments: after send 100 packets, sometime watermark value is 99, sometime
+        #   is 101. Since worry about worser scenario, we set tolerance to 10 for PG2/3/4/6. When figure out rootcause
+        #   of this symptom, will change to more reasonable value.
         ERROR_TOLERANCE = {
             0: 20,
             1: 0,
