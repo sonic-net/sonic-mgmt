@@ -240,8 +240,8 @@ class ShowInterfaceModule(object):
 
     def collect_interface_counter(self, namespace=None, include_internal_intfs=False):
         regex_int = re.compile(
-            r'\s*(\S+)\s+(\w)\s+([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)\s+'
-            r'([,\d]+)\s+(N\/A|[.0-9]+ B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)')
+            r'\s*(\S+)\s+(\w)\s+([,\d]+)\s+(N\/A|[.0-9]+ [K|M|G]*B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)\s+'
+            r'([,\d]+)\s+(N\/A|[.0-9]+ [K|M|G]*B/s)\s+(\S+)\s+([,\d]+)\s+(\S+)\s+([,\d]+)')
         self.int_counter = {}
         cli_options = " -n {}".format(
             namespace) if namespace is not None else ""
