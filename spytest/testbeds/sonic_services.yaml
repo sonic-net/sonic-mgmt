@@ -1,5 +1,3 @@
-hw_qual: !include sonic_hwqual.yaml
-
 tftp:
   ip: 192.168.1.1
   path: /home/vmuser/tftp
@@ -62,12 +60,12 @@ tacacs:
           {ip: 10.2.3.7, username: root, password: lvl7india,
            timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 8,
           encryptkey: U2FsdGVkX18FU9Gekcx4vVFV6Tiju3yFcOPZj9XfOd8=}]
-  users: {user1:{username: user1, password: pass1, role: operator},
-          user2:{username: user2, password: pass2, role: admin},
-          user3:{username: user3, password: pass3, role: operator},
-          user4:{username: user4, password: pass4, role: admin},
-          user5:{username: user5, password: pass5, role: operator},
-          user6:{username: user6, password: pass6, role: admin}}
+  users: [{username: user1, password: pass1, role: operator},
+          {username: user2, password: pass2, role: admin},
+          {username: user3, password: pass3, role: operator},
+          {username: user4, password: pass4, role: admin},
+          {username: user5, password: pass5, role: operator},
+          {username: user6, password: pass6, role: admin}]
 
 radius:
   hosts: [{ip: 10.52.145.178, username: test, password: test,

@@ -27,7 +27,6 @@ empty:
 
 as5712:
     breakout: []
-    current: [as5712_sfp_fixup.sh]
     current: []
     restore: []
 
