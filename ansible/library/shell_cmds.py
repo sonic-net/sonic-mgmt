@@ -21,7 +21,10 @@
 #         "admin"
 #       ],
 #       "cmd": "ls /home",
-#       "rc": 0
+#       "cmd_with_timeout": "",
+#       "rc": 0,
+#       "timeout": 0,
+#       "err_msg": ""
 #     },
 #     {
 #       "stderr_lines": [],
@@ -31,7 +34,10 @@
 #         "/home/admin"
 #       ],
 #       "cmd": "pwd",
-#       "rc": 0
+#       "cmd_with_timeout": "",
+#       "rc": 0,
+#       "timeout": 0,
+#       "err_msg": ""
 #     }
 #   ],
 #   "cmds": [
@@ -52,7 +58,6 @@
 # }
 
 import datetime
-import logging
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -84,9 +89,10 @@ EXAMPLES = r'''
 
 def run_cmd(module, cmd, timeout):
     cmd_with_timeout = ''
+    err_msg = ''
 
     if int(timeout) != 0 and "'" in cmd:
-        logging.warning("timeout is not supported for command contains single quote, will run without timeout. cmd={}".format(cmd))
+        err_msg = "timeout is not supported for command contains single quote, ran without time limit"
         timeout = 0
 
     if int(timeout) == 0:
@@ -98,6 +104,7 @@ def run_cmd(module, cmd, timeout):
     result = dict(
         cmd=cmd,
         cmd_with_timeout=cmd_with_timeout,
+        err_msg=err_msg,
         rc=rc,
         stdout=out,
         stderr=err,
