@@ -362,7 +362,7 @@ class SonicAsic(object):
             raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
 
         self.sonichost.shell(
-            ("ssh -o StrictHostKeyChecking=no -fN"
+            ("ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -fN"
              " -L *:9092:{}:9092 localhost").format(ns_docker_if_ipv4))
 
     def command(self, cmdstr):
@@ -513,6 +513,17 @@ class SonicAsic(object):
                                             op=op,
                                             pc=pc_name,
                                             intf=interface_name))
+
+    def get_portchannel_members(self, pc_name):
+        """
+        Get the running PortChannel members of the given PortChannel
+        """
+        cmd = "show interfaces portchannel"
+        ret = self.sonichost.show_and_parse(cmd)
+        for pc in ret:
+            if pc["team dev"] == pc_name:
+                return pc["ports"].split()
+        return []
 
     def switch_arptable(self, *module_args, **complex_args):
         complex_args['namespace'] = self.namespace
