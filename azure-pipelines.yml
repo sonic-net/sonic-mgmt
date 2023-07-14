@@ -55,6 +55,7 @@ stages:
         MIN_WORKER: $(T0_INSTANCE_NUM)
         MAX_WORKER: $(T0_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: t0_2vlans_elastictest
     pool: ubuntu-20.04
@@ -70,6 +71,7 @@ stages:
         MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: t1_lag_elastictest
     pool: ubuntu-20.04
@@ -83,6 +85,7 @@ stages:
         MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
         MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: sonic_t0_elastictest
     pool: ubuntu-20.04
@@ -99,6 +102,7 @@ stages:
         COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
         VM_TYPE: vsonic
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: dualtor_elastictest
     pool: ubuntu-20.04
@@ -113,6 +117,7 @@ stages:
         MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
         COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: multi_asic_elastictest
     pool: ubuntu-20.04
@@ -128,3 +133,4 @@ stages:
         MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
         NUM_ASIC: 4
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
