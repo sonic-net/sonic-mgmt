@@ -6,7 +6,7 @@
 pr:
    branches:
      include:
-       - master
+       - 202012
    paths:
      exclude:
        - .github
@@ -15,9 +15,23 @@ trigger: none
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
-- stage: Test
-
+- stage: Pre_test
   variables:
+  - group: GIT_SECRETS
+  jobs:
+  - job: validate_test_cases
+    displayName: "Validate Test Cases"
+    timeoutInMinutes: 20
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+    - template: .azure-pipelines/pytest-collect-only.yml
+
+- stage: Test
+  dependsOn: Pre_test
+  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+  variables:
+  - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
   - name: testbed_file
@@ -25,82 +39,61 @@ stages:
   - group: GIT_SECRETS
 
   jobs:
-  - job: t0_part1
-    pool: sonictest
-    displayName: "kvmtest-t0-part1"
+  - job: t0_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-t0 by Elastictest"
     timeoutInMinutes: 240
-
+    continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-template.yml
+    - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0
-        vmtype: ceos
-        section: part-1
+        TOPOLOGY: t0
+        MIN_WORKER: $(T0_INSTANCE_NUM)
+        MAX_WORKER: $(T0_INSTANCE_NUM)
+        KVM_IMAGE_BRANCH: 202012
+        MGMT_BRANCH: 202012
 
-  - job: t0_part2
-    pool: sonictest
-    displayName: "kvmtest-t0-part2"
+  - job: t0_2vlans_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-t0-2vlans by Elastictest"
     timeoutInMinutes: 240
-
+    continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-template.yml
+    - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0
-        vmtype: ceos
-        section: part-2
+        TOPOLOGY: t0
+        TEST_SET: t0-2vlans
+        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
+        KVM_IMAGE_BRANCH: 202012
+        MGMT_BRANCH: 202012
 
-  - job:
-    pool: sonictest
-    displayName: "kvmtest-t0"
-    timeoutInMinutes: 400
-    dependsOn:
-    - t0_part1
-    - t0_part2
-    condition: always()
-    variables:
-      resultOfPart1: $[ dependencies.t0_part1.result ]
-      resultOfPart2: $[ dependencies.t0_part2.result ]
-
-    steps:
-    - script: |
-        if [ $(resultOfPart1) == "Succeeded" ] && [ $(resultOfPart2) == "Succeeded" ]; then
-          echo "Both job kvmtest-t0-part1 and kvmtest-t0-part2 are passed."
-          exit 0
-        else
-          echo "Either job kvmtest-t0-part1 or job kvmtest-t0-part2 failed! Please check the detailed information."
-          exit 1
-        fi
-
-  - job:
-    pool: sonictest-t1-lag
-    displayName: "kvmtest-t1-lag"
+  - job: t1_lag_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-t1-lag by Elastictest"
     timeoutInMinutes: 240
-
+    continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-template.yml
+    - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
-        dut: vlab-03
-        tbname: vms-kvm-t1-lag
-        ptf_name: ptf_vms6-2
-        tbtype: t1-lag
-        vmtype: ceos
+        TOPOLOGY: t1-lag
+        MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
+        MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
+        KVM_IMAGE_BRANCH: 202012
+        MGMT_BRANCH: 202012
 
-  - job:
-    pool: sonictest-sonic-t0
-    displayName: "kvmtest-t0-sonic"
+  - job: dualtor_elastictest
+    pool: ubuntu-20.04
+    displayName: "kvmtest-dualtor-t0 by Elastictest"
     timeoutInMinutes: 240
-
+    continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-template.yml
+    - template: .azure-pipelines/run-test-scheduler-template.yml
       parameters:
-        dut: vlab-01
-        tbname: vms-kvm-t0
-        ptf_name: ptf_vms6-1
-        tbtype: t0-sonic
-        vmtype: vsonic
+        TOPOLOGY: dualtor
+        MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+        MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+        COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+        KVM_IMAGE_BRANCH: 202012
+        MGMT_BRANCH: 202012
