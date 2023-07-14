@@ -37,31 +37,6 @@
 +file:system/test_snapshot.py
 +file:system/threshold/test_threshold.py
 
-# Upstream - spytest 3.0 and legacy
-#+file:routing/Link_local_ip/test_linkLocal_ip.py
-#+file:debug/test_klish_debugsh_cli.py
-#+file:routing/RIF_Counters/test_rif_counters.py
-#+file:switching/test_static_portchannel.py
-#+file:system/test_inband.py
-#+file:security/Radius/test_radius.py
-#+file:system/test_snmp_interface_traps.py
-#+file:system/test_management_vrf.py
-#+file:security/test_security_fast_reboot.py
-#+file:system/test_branding.py
-#+file:system/test_snmp.py
-#+file:system/test_ansible.py
-#+file:security/test_security_save_reboot.py
-#+file:system/in_memory_log/test_in_memory_debug_log.py
-#+file:security/test_pentest.py
-#+file:system/test_system_ready.py
-#+file:routing/Dynamic_5549/test_dynamic_discovery_5549_scale.py
-#+file:switching/test_l2fwd.py
-#+file:qos/acl/test_acls.py
-#+file:routing/BGP/test_bgp_sp.py
-#+file:routing/NAT/test_nat_vlan_routing_int.py
-#+file:routing/BGP/test_bgp_gcov.py
-#+file:sanity/test_sanity_sys.py
-
 #Runtime Arguments
 +args:--load-image none
 +args:--max-time module 9000
