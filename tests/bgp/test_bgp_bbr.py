@@ -18,7 +18,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 
 
 pytestmark = [
@@ -50,8 +50,8 @@ def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
 
     yield
 
-    duthost.copy(src="./bgp/templates/del_bgp_bbr_config.json", dest='/tmp/del_bgp_bbr_config.json')
-    duthost.shell("configlet -d -j {}".format("/tmp/del_bgp_bbr_config.json"))
+    del_bbr_json = [{"BGP_BBR": {}}]
+    delete_running_config(del_bbr_json, duthost)
 
 @pytest.fixture(scope='module')
 def bbr_default_state(setup):
