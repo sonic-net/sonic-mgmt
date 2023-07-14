@@ -1,0 +1,77 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+variables:
+  - group: SONIC_IMAGE_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed Name"
+
+  - name: IMAGE_URL
+    displayName: "Target image location"
+    type: string
+    values:
+    - $(IMAGE_BRCM_201811)
+    - $(IMAGE_BRCM_201911)
+    - $(IMAGE_BRCM_202012)
+    - $(IMAGE_BRCM_202205)
+    - $(IMAGE_BRCM_PUBLIC)
+    - $(IMAGE_BRCM_202012_SLIM)
+    - $(IMAGE_BRCM_ABOOT_201811)
+    - $(IMAGE_BRCM_ABOOT_201911)
+    - $(IMAGE_BRCM_ABOOT_202012)
+    - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+    - $(IMAGE_BRCM_ABOOT_202106)
+    - $(IMAGE_BRCM_ABOOT_202205)
+    - $(IMAGE_BRCM_ABOOT_202205_SLIM)
+    - $(IMAGE_BRCM_ABOOT_PUBLIC)
+    - $(IMAGE_CISCO_202012)
+    - $(IMAGE_MLNX_201811)
+    - $(IMAGE_MLNX_201911)
+    - $(IMAGE_MLNX_202012)
+    - $(IMAGE_MLNX_202205)
+    - $(IMAGE_MLNX_PUBLIC)
+    - $(IMAGE_MARVELL_202012)
+    - $(IMAGE_MARVELL_202205)
+    - $(IMAGE_MARVELL_PUBLIC)
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "metadata-scripts/test_metadata_bgp.py"'
+    displayName: Testbed specific
+
+  - name: EXTRA_PARAMS
+    type: string
+    default: '--metadata_process'
+    displayName: Extra parameters
+
+stages:
+  - stage: SONiCMetadataPreTest
+    jobs:
+    - job:
+      pool: nightly
+      displayName: "SONiC bgp neighbor Test"
+      timeoutInMinutes: 100
+      steps:
+      - checkout: self
+      - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+      - template: bgp_neighbor_unit_test.yml
+
+  - template: run_metadata_test_template.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
