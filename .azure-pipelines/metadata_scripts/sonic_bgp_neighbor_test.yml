@@ -58,6 +58,17 @@ parameters:
     displayName: Extra parameters
 
 stages:
+  - stage: SONiCMetadataPreTest
+    jobs:
+    - job:
+      pool: nightly
+      displayName: "SONiC bgp neighbor Test"
+      timeoutInMinutes: 100
+      steps:
+      - checkout: self
+      - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+      - template: bgp_neighbor_unit_test.yml
+
   - template: run_metadata_test_template.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
