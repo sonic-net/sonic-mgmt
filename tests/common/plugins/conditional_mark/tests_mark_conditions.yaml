@@ -959,9 +959,10 @@ show_techsupport/test_auto_techsupport.py:
       - (is_multi_asic==True)
 
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[core]:
-skip:
+  skip:
     reason: "This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/15051."
-    conditions: https://github.com/sonic-net/sonic-buildimage/issues/15051
+    conditions: 
+      - https://github.com/sonic-net/sonic-buildimage/issues/15051
 
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
