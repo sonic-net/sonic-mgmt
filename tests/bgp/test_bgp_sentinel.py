@@ -133,8 +133,8 @@ def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr):
 
 
 @pytest.fixture(scope="module")
-def dut_lo_addr(rand_selected_front_end_dut):
-    duthost = rand_selected_front_end_dut
+def dut_lo_addr(rand_selected_dut):
+    duthost = rand_selected_dut
     lo_facts = duthost.setup()['ansible_facts']['ansible_Loopback0']
     lo_ipv4_addr, lo_ipv6_addr = lo_facts['ipv4']['address'], None
     for item in lo_facts['ipv6']:
@@ -146,8 +146,8 @@ def dut_lo_addr(rand_selected_front_end_dut):
 
 
 @pytest.fixture(scope="module")
-def dut_setup_teardown(rand_selected_front_end_dut, tbinfo, dut_lo_addr):
-    duthost = rand_selected_front_end_dut
+def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr):
+    duthost = rand_selected_dut
     lo_ipv4_addr, lo_ipv6_addr = dut_lo_addr
     ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
     ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
@@ -175,8 +175,8 @@ def dut_setup_teardown(rand_selected_front_end_dut, tbinfo, dut_lo_addr):
 
 
 @pytest.fixture(scope="module")
-def ptf_setup_teardown(dut_setup_teardown, rand_selected_front_end_dut, ptfhost, tbinfo):
-    duthost = rand_selected_front_end_dut
+def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
+    duthost = rand_selected_dut
 
     if not is_bgp_sentinel_supported(duthost):
         pytest.skip("BGP sentinel is not supported on this image")
@@ -226,9 +226,9 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_front_end_dut, ptfhost,
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(rand_selected_front_end_dut, ptf_setup_teardown, ptfhost):
+def common_setup_teardown(rand_selected_dut, ptf_setup_teardown, ptfhost):
     ptfip = ptfhost.mgmt_ip
-    duthost = rand_selected_front_end_dut
+    duthost = rand_selected_dut
     logger.info("ptfip=%s" % ptfip)
 
     lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ptf_bp_v4, ptf_bp_v6 = ptf_setup_teardown
@@ -300,8 +300,8 @@ def get_target_routes(duthost):
 
 
 @pytest.mark.parametrize("addr_family", ["IPv4", "IPv6"])
-def test_bgp_sentinel(rand_selected_front_end_dut, common_setup_teardown, sentinel_community, addr_family):
-    duthost = rand_selected_front_end_dut
+def test_bgp_sentinel(rand_selected_dut, common_setup_teardown, sentinel_community, addr_family):
+    duthost = rand_selected_dut
     ptfip, lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ibgp_sessions, ptf_bp_v4, ptf_bp_v6 = common_setup_teardown
 
     if ipv4_nh is None and addr_family == "IPv4":
