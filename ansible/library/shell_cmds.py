@@ -92,7 +92,7 @@ def run_cmd(module, cmd, timeout):
     err_msg = ''
 
     if int(timeout) != 0 and "'" in cmd:
-        err_msg = "timeout is not supported for command contains single quote, ran without time limit"
+        err_msg = "[WARNING] timeout is not supported for command contains single quote, ran without time limit"
         timeout = 0
 
     if int(timeout) == 0:
