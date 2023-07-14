@@ -1654,15 +1654,6 @@ def __dut_reload(duts_data, node=None, results=None):
     logger.info("dut reload called on {}".format(node.hostname))
     node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"]["asic0"], indent=4),
               dest='/etc/sonic/config_db.json', verbose=False)
-
-    if node.is_multi_asic:
-        for asic_index in range(0, node.facts.get('num_asic')):
-            asic_ns = "asic{}".format(asic_index)
-            asic_cfg_file = "/tmp/{}_config_db{}.json".format(node.hostname, asic_index)
-            with open(asic_cfg_file, "w") as outfile:
-                outfile.write(json.dumps(duts_data[node.hostname]['pre_running_config'][asic_ns], indent=4))
-            node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
-            os.remove(asic_cfg_file)
     config_reload(node)
 
 
@@ -1735,17 +1726,6 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             duts_data[duthost.hostname]["pre_running_config"]["asic0"] = \
                 json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
-            if duthost.is_multi_asic:
-                for asic_index in range(0, duthost.facts.get('num_asic')):
-                    asic_ns = "asic{}".format(asic_index)
-                    if not duthost.stat(
-                            path="/etc/sonic/running_golden_config{}.json".format(asic_index))['stat']['exists']:
-                        duthost.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
-                                      format(asic_ns, asic_index))
-                    duts_data[duthost.hostname]['pre_running_config'][asic_ns] = \
-                        json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
-                                                 verbose=False)['stdout'])
-
     yield
 
     if check_flag:
@@ -1773,12 +1753,6 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             duts_data[duthost.hostname]["cur_running_config"] = {}
             duts_data[duthost.hostname]["cur_running_config"]["asic0"] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-            if duthost.is_multi_asic:
-                for asic_index in range(0, duthost.facts.get('num_asic')):
-                    asic_ns = "asic{}".format(asic_index)
-                    duts_data[duthost.hostname]["cur_running_config"][asic_ns] = \
-                        json.loads(duthost.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
-                                                 verbose=False)['stdout'])
 
             # The tables that we don't care
             EXCLUDE_CONFIG_TABLE_NAMES = set([])
