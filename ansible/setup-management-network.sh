@@ -55,7 +55,7 @@ else
     echo
     echo
     echo "Please double check and manually configure IP for br1 to avoid breaking lab server connectivity"
-    exit
+    exit 0
 fi
 echo
 
