@@ -232,7 +232,7 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
             for per_hop in dev[route_to_ping][0]['nexthops']:
                 if 'interfaceName' not in per_hop.keys():
                     continue
-               if per_hop['interfaceName'] in voq_inband_interfaces:
+                if per_hop['interfaceName'] in voq_inband_interfaces:
                     continue
                 if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
                     continue

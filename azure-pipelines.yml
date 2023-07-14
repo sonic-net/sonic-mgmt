@@ -10,7 +10,7 @@
 pr:
    branches:
      include:
-       - master
+       - 202205
    paths:
      exclude:
        - .github
@@ -19,10 +19,23 @@ trigger: none
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
-- stage: Test
-
+- stage: Pre_test
   variables:
-  - group: Testbed-Tools
+  - group: GIT_SECRETS
+  jobs:
+  - job: validate_test_cases
+    displayName: "Validate Test Cases"
+    timeoutInMinutes: 20
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+    - template: .azure-pipelines/pytest-collect-only.yml
+
+- stage: Test
+  dependsOn: Pre_test
+  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+  variables:
+  - group: SONiC-Elastictest
   - name: inventory
     value: veos_vtb
   - name: testbed_file
@@ -42,6 +55,7 @@ stages:
         MIN_WORKER: $(T0_INSTANCE_NUM)
         MAX_WORKER: $(T0_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: t0_2vlans_elastictest
     pool: ubuntu-20.04
@@ -57,6 +71,7 @@ stages:
         MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: t1_lag_elastictest
     pool: ubuntu-20.04
@@ -70,6 +85,7 @@ stages:
         MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
         MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: sonic_t0_elastictest
     pool: ubuntu-20.04
@@ -86,6 +102,7 @@ stages:
         COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
         VM_TYPE: vsonic
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: dualtor_elastictest
     pool: ubuntu-20.04
@@ -100,6 +117,7 @@ stages:
         MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
         COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
 
   - job: multi_asic_elastictest
     pool: ubuntu-20.04
@@ -115,3 +133,4 @@ stages:
         MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
         NUM_ASIC: 4
         KVM_IMAGE_BRANCH: 202205
+        MGMT_BRANCH: 202205
