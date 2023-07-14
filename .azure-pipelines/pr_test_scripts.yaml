@@ -41,6 +41,7 @@ t0:
   - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
+  - qos/test_qos_sai.py::TestQosSai::testParameter
   - radv/test_radv_ipv6_ra.py
   - route/test_default_route.py
   - route/test_static_route.py
