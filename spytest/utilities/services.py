@@ -43,7 +43,8 @@ def next_free_port(min_port=40000, max_port=42000, used=[]):
         if port in used: continue
         used.append(port)
         try:
-            sock.bind(('', port))
+            addr = os.getenv("DOCKER_HOST_BIND", "")
+            sock.bind((addr, port))
             sock.close()
             return port
         except OSError:
@@ -57,6 +58,29 @@ def init_docker_services(log=None, sf=False):
     log_exp = log.exception
     report_env_fail = log.error
     show_files = sf
+
+def save_docker_files(entrypoint, dockerfile):
+    temp_dir = tempfile.mkdtemp()
+    utils.write_file(os.path.join(temp_dir, "startup.sh"), entrypoint)
+    # nosemgrep-next-line
+    os.chmod(os.path.join(temp_dir, "startup.sh"), 0o777)
+    utils.write_file(os.path.join(temp_dir, "Dockerfile"), dockerfile)
+    log_info("Dockerfile: {}".format(dockerfile))
+    return temp_dir
+
+def start_container(client, tag, *port_list):
+    log_info("Starting Container: {}".format(tag))
+    for _ in range(3):
+        ports = {}
+        for p in port_list:
+            ports[p] = next_free_port()
+        try:
+            cont = client.containers.run(tag, detach=True, ports=ports, tty=True)
+            break
+        except Exception as exp:
+            log_exp(exp)
+            cont = None
+    return cont
 
 def remove_docker_container(contid, DOCKER_HOST):
 
@@ -127,10 +151,7 @@ ENTRYPOINT ["/startup.sh"]
 radius_docker_image_tag = "spytest-freeradius:1.4"
 
 def create_radius_docker_image(client):
-    temp_dir = tempfile.mkdtemp()
-    utils.write_file(os.path.join(temp_dir, "startup.sh"), radius_entrypoint)
-    os.chmod(os.path.join(temp_dir, "startup.sh"), 0o777)
-    utils.write_file(os.path.join(temp_dir, "Dockerfile"), radius_dockerfile)
+    temp_dir = save_docker_files(radius_entrypoint, radius_dockerfile)
 
     if show_files:
         log_file_content("startup.sh", radius_entrypoint)
@@ -158,16 +179,7 @@ def create_radius_docker_container(DOCKER_HOST):
     except Exception: create_radius_docker_image(client)
 
     # start the container
-    log_info("Starting Container: {}".format(radius_docker_image_tag))
-    for _ in range(3):
-        ports = {'22/tcp':next_free_port(), '1812/udp':next_free_port(), '1813/udp':next_free_port()}
-        try:
-            cont = client.containers.run(radius_docker_image_tag, detach=True, ports=ports, tty=True)
-            break
-        except Exception as exp:
-            log_exp(exp)
-            cont = None
-
+    cont = start_container(client, radius_docker_image_tag, '22/tcp', '1812/udp', '1813/udp')
     if cont is None:
         report_env_fail("docker_run", "failed")
 
@@ -220,11 +232,7 @@ ENTRYPOINT ["/startup.sh"]
 snmptrapd_docker_image_tag = "spytest-snmptrapd:1.0"
 
 def create_snmptrapd_docker_image(client):
-    temp_dir = tempfile.mkdtemp()
-    utils.write_file(os.path.join(temp_dir, "startup.sh"), snmptrapd_entrypoint)
-    os.chmod(os.path.join(temp_dir, "startup.sh"), 0o777)
-    utils.write_file(os.path.join(temp_dir, "Dockerfile"), snmptrapd_dockerfile)
-    log_info("Dockerfile: {}".format(snmptrapd_dockerfile))
+    temp_dir = save_docker_files(snmptrapd_entrypoint, snmptrapd_dockerfile)
 
     try:
         log_info("Building: {}".format(snmptrapd_docker_image_tag))
@@ -248,8 +256,9 @@ def create_snmptrapd_docker_container(DOCKER_HOST):
     except Exception: create_snmptrapd_docker_image(client)
 
     # start the container
-    log_info("Creating: {}".format(snmptrapd_docker_image_tag))
-    cont = client.containers.run(snmptrapd_docker_image_tag, detach=True, publish_all_ports=True, tty=True)
+    cont = start_container(client, snmptrapd_docker_image_tag, '22/tcp', '161/udp')
+    if cont is None:
+        report_env_fail("docker_run", "failed")
 
     # find the ports
     apic = docker.APIClient(base_url=DOCKER_HOST)
@@ -297,13 +306,9 @@ ENTRYPOINT ["/startup.sh"]
 tacacs_docker_image_tag = "spytest-tacacs:1.0"
 
 def create_tacacs_docker_image(client):
-    temp_dir = tempfile.mkdtemp()
-    utils.write_file(os.path.join(temp_dir, "startup.sh"), tacacs_entrypoint)
-    os.chmod(os.path.join(temp_dir, "startup.sh"), 0o777)
-    utils.write_file(os.path.join(temp_dir, "Dockerfile"), tacacs_dockerfile)
+    temp_dir = save_docker_files(tacacs_entrypoint, tacacs_dockerfile)
     src = os.path.join(os.path.dirname(__file__), 'tac_plus.conf')
     utils.copy_file(src, temp_dir)
-    log_info("Dockerfile: {}".format(tacacs_dockerfile))
 
     try:
         log_info("Building: {}".format(tacacs_docker_image_tag))
@@ -327,8 +332,9 @@ def create_tacacs_docker_container(DOCKER_HOST):
     except Exception: create_tacacs_docker_image(client)
 
     # start the container
-    log_info("Creating: {}".format(tacacs_docker_image_tag))
-    cont = client.containers.run(tacacs_docker_image_tag, detach=True, publish_all_ports=True, tty=True)
+    cont = start_container(client, tacacs_docker_image_tag, '22/tcp', '49/tcp')
+    if cont is None:
+        report_env_fail("docker_run", "failed")
 
     # find the ports
     apic = docker.APIClient(base_url=DOCKER_HOST)

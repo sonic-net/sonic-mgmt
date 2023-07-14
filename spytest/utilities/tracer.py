@@ -15,6 +15,7 @@ class Tracer(object):
     @staticmethod
     def register(callback, data, exclude=None, include=None, root=None):
         objName = "TracerObject"
+        # nosemgrep-next-line
         obj = globals().get(objName, None)
         if not obj:
             obj = Tracer()

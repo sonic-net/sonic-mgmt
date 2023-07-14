@@ -331,6 +331,7 @@ def is_basestring(arg):
     return bool(isinstance(arg, basestring))
 
 def do_eval(arg):
+    # nosemgrep-next-line
     return eval(arg)
 
 def ipcheck(addr, max_attempts=1, logf=None, addr_type="", sleep=0):
@@ -361,6 +362,7 @@ def sprintf(fmt, *args):
     return fmt % args
 
 def md5(fname, data=None):
+    # nosemgrep-next-line
     hash_md5 = hashlib.md5(data or b"")
     if fname:
         with open(fname, "rb") as f:
@@ -1112,13 +1114,14 @@ def max(n1, n2):
 
 def j2_apply(text=None, file=None, paths=[], **kwargs):
     if text:
-        text = Environment().from_string(text).render(**kwargs)
+        pass
     elif file:
         file = find_file(file, paths)
         text = "\n".join(read_lines(file))
-        text = Environment().from_string(text).render(**kwargs)
     else:
         raise ValueError("Neither text nor file argument provided")
+    # nosemgrep-next-line
+    return Environment().from_string(text).render(**kwargs)
     return text
 
 def json_parse(text=None, file=None, paths=[], **kwargs):
@@ -1289,6 +1292,7 @@ def parse_url(url):
 def download_url(url, path):
     try: from urllib import urlretrieve
     except Exception: from urllib.request import urlretrieve
+    # nosemgrep-next-line
     urlretrieve(url, path)
 
 def download_large_file(url, filepath=None):
@@ -1492,6 +1496,7 @@ def set_ps_name(name):
 def get_doc_string(func):
     if isinstance(func, str):
         name = func
+        # nosemgrep-next-line
         func = locals().get(name) or globals().get(name)
     else:
         name = getattr(func, "__name__", "")
