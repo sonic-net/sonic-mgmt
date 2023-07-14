@@ -455,9 +455,6 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     Test SONiC and SAI Vendor capability are same for ordered ecmp feature
     and SAI vendor is honoring the Ordered nature of nexthop group member
     """
-    if is_mellanox_device(duthost):
-        # Note: Need remove this check once Mellanox committed Ordered ECMP
-        pytest.skip("Ordered ECMP currently not supported on Mellanox DUT")
 
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
@@ -516,7 +513,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             recvd_pkt_result[flow_count].add(scapy.Ether(recv_pkt).dst)
 
     # Test/Iteration Scenario 1: Verify After ecmp member remove/add flow order remains same.
-    # Test/Iteration Scenario 2: Veirfy Neighbor created in different order but flow order remains same.
+    # Test/Iteration Scenario 2: Verify Neighbor created in different order but flow order remains same.
     for iter_count in range(2):
         try:
             # create neighbor entry in different order list
@@ -540,9 +537,9 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             if iter_count == 0:
                 fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                                 gather_facts['src_port'][0])
-                # Simulate ECMP Acceleration with link flap where ECMP memeber are removed
+                # Simulate ECMP Acceleration with link flap where ECMP member are removed
                 # and added back to the group
-                # BGP service is stoped so we don't get Route Removal message
+                # BGP service is stopped so we don't get Route Removal message
                 # from FRR and it is just member add/remove trigger
                 asic.stop_service("bgp")
                 time.sleep(15)
@@ -690,14 +687,34 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f',
                          48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
 
-    # Make sure a givenflow always hash to same nexthop/neighbor. This is done to try to find issue
+    spc_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:12', 2: 'c0:ff:ee:00:00:0e',
+                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:10', 5: 'c0:ff:ee:00:00:0d',
+                         6: 'c0:ff:ee:00:00:11', 7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0b',
+                         9: 'c0:ff:ee:00:00:12', 10: 'c0:ff:ee:00:00:0e', 11: 'c0:ff:ee:00:00:0f',
+                         12: 'c0:ff:ee:00:00:0e', 13: 'c0:ff:ee:00:00:0f', 14: 'c0:ff:ee:00:00:0b',
+                         15: 'c0:ff:ee:00:00:12', 16: 'c0:ff:ee:00:00:0e', 17: 'c0:ff:ee:00:00:0f',
+                         18: 'c0:ff:ee:00:00:0b', 19: 'c0:ff:ee:00:00:12', 20: 'c0:ff:ee:00:00:11',
+                         21: 'c0:ff:ee:00:00:0c', 22: 'c0:ff:ee:00:00:10', 23: 'c0:ff:ee:00:00:0d',
+                         24: 'c0:ff:ee:00:00:0c', 25: 'c0:ff:ee:00:00:11', 26: 'c0:ff:ee:00:00:0d',
+                         27: 'c0:ff:ee:00:00:10', 28: 'c0:ff:ee:00:00:0e', 29: 'c0:ff:ee:00:00:0f',
+                         30: 'c0:ff:ee:00:00:0b', 31: 'c0:ff:ee:00:00:12', 32: 'c0:ff:ee:00:00:0e',
+                         33: 'c0:ff:ee:00:00:0f', 34: 'c0:ff:ee:00:00:0b', 35: 'c0:ff:ee:00:00:12',
+                         36: 'c0:ff:ee:00:00:11', 37: 'c0:ff:ee:00:00:0c', 38: 'c0:ff:ee:00:00:10',
+                         39: 'c0:ff:ee:00:00:0d', 40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:0f',
+                         42: 'c0:ff:ee:00:00:0b', 43: 'c0:ff:ee:00:00:12', 44: 'c0:ff:ee:00:00:0b',
+                         45: 'c0:ff:ee:00:00:12', 46: 'c0:ff:ee:00:00:0e', 47: 'c0:ff:ee:00:00:0f',
+                         48: 'c0:ff:ee:00:00:0b', 49: 'c0:ff:ee:00:00:12'}
+
+    # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
-                                              "td3": td3_asic_flow_map}
+                                              "td3": td3_asic_flow_map, "spc1": spc_asic_flow_map,
+                                              "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
+                                              "spc4": spc_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
