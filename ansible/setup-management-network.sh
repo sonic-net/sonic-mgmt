@@ -46,6 +46,16 @@ if ! ifconfig br1; then
     echo "br1 not found, creating bridge network"
     brctl addbr br1
     brctl show br1
+else
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo
+    echo "  br1 exists, possibly lab server, are you sure you want to continue?"
+    echo
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo
+    echo
+    echo "Please double check and manually configure IP for br1 to avoid breaking lab server connectivity"
+    exit
 fi
 echo
 
