@@ -52,6 +52,7 @@
 # }
 
 import datetime
+import logging
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -82,11 +83,18 @@ EXAMPLES = r'''
 
 
 def run_cmd(module, cmd, timeout):
-    cmd_with_timeout = "echo '{}' | timeout --preserve-status {} bash".format(cmd, timeout)
+    cmd_with_timeout = ''
+
+    if int(timeout) != 0 and "'" in cmd:
+        logging.warning("timeout is not supported for command contains single quote, will run without timeout. cmd={}".format(cmd))
+        timeout = 0
+
     if int(timeout) == 0:
         rc, out, err = module.run_command(cmd, use_unsafe_shell=True)
     else:
+        cmd_with_timeout = "echo '{}' | timeout --preserve-status {} bash".format(cmd, timeout)
         rc, out, err = module.run_command(cmd_with_timeout, use_unsafe_shell=True)
+
     result = dict(
         cmd=cmd,
         cmd_with_timeout=cmd_with_timeout,
