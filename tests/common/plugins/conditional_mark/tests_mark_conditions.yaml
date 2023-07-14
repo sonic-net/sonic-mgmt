@@ -740,9 +740,9 @@ platform_tests/daemon/test_chassisd.py:
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
-    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    reason: "Get/Set low power mode is not supported in x86_64-cel_e1031-r0 platform"
     conditions:
-      - "asic_type in ['cisco-8000'] or platform in ['x86_64-cel_e1031-r0']"
+      - "platform in ['x86_64-cel_e1031-r0']"
 
 platform_tests/test_auto_negotiation.py:
   skip:
@@ -774,15 +774,6 @@ platform_tests/broadcom/test_ser.py::test_ser:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6218
-
-#######################################
-#####         platform_tests      #####
-#######################################
-platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
-  skip:
-    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
-    conditions:
-      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####           qos               #####
