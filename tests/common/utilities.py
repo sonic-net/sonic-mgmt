@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import random
 import six
 import sys
 import threading
@@ -75,6 +76,19 @@ def skip_release_for_platform(duthost, release_list, platform_list):
             any(platform in duthost.facts['platform'] for platform in platform_list):
         pytest.skip("DUT has version {} and platform {} and test does not support {} for {}".format(
                     duthost.os_version, duthost.facts['platform'], ", ".join(release_list), ", ".join(platform_list)))
+
+
+def get_sup_node_or_random_node(duthosts):
+    # accomodate for T2 chassis, which only SUP has pdu info
+    # try to find sup node in multi-dut
+    for dut in duthosts:
+        if dut.is_supervisor_node():
+            return dut
+    # if not chassis, it's dualtor or single-dut, return random node or itself
+    if len(duthosts) > 1:
+        duthosts = random.sample(duthosts, 1)
+    logger.info("Randomly select dut {} for testing".format(duthosts[0]))
+    return duthosts[0]
 
 
 def wait(seconds, msg=""):
@@ -913,3 +927,12 @@ def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
     duthost.shell(sed_command)
 
     return original_value
+
+
+def delete_running_config(config_entry, duthost, is_json=True):
+    if is_json:
+        duthost.copy(content=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+    else:
+        duthost.copy(src=config_entry, dest="/tmp/del_config_entry.json")
+    duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
+    duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))

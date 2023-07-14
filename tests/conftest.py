@@ -1862,7 +1862,7 @@ def __dut_reload(duts_data, node=None, results=None):
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"][None], indent=4),
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"]["asic0"], indent=4),
               dest='/etc/sonic/config_db.json', verbose=False)
 
     if node.is_multi_asic:
@@ -1875,6 +1875,29 @@ def __dut_reload(duts_data, node=None, results=None):
             os.remove(asic_cfg_file)
 
     config_reload(node, wait_before_force_reload=300)
+
+
+def compare_running_config(pre_running_config, cur_running_config):
+    if type(pre_running_config) != type(cur_running_config):
+        return False
+    if pre_running_config == cur_running_config:
+        return True
+    else:
+        if type(pre_running_config) is dict:
+            if set(pre_running_config.keys()) != set(cur_running_config.keys()):
+                return False
+            for key in pre_running_config.keys():
+                if not compare_running_config(pre_running_config[key], cur_running_config[key]):
+                    return False
+                return True
+        # We only have string in list in running config now, so we can ignore the order of the list.
+        elif type(pre_running_config) is list:
+            if set(pre_running_config) != set(cur_running_config):
+                return False
+            else:
+                return True
+        else:
+            return False
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -1920,7 +1943,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"][None] = \
+            duts_data[duthost.hostname]["pre_running_config"]["asic0"] = \
                 json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
             if duthost.is_multi_asic:
@@ -1959,7 +1982,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
             # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = {}
-            duts_data[duthost.hostname]["cur_running_config"][None] = \
+            duts_data[duthost.hostname]["cur_running_config"]["asic0"] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
             if duthost.is_multi_asic:
                 for asic_index in range(0, duthost.facts.get('num_asic')):
@@ -1972,11 +1995,14 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             EXCLUDE_CONFIG_TABLE_NAMES = set([])
             # The keys that we don't care
             # Current skipped keys:
-            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder_session` fixture in dualtor-mixed
-            # to account for the lower performance of the ICMP responder/mux simulator,
-            # compared to real servers and mux cables. It's appropriate to persist this change
-            # since the testbed will always be using the ICMP responder and mux simulator in dualtor-mixed.
-            if "mixed" in tbinfo["topo"]["name"]:
+            # 1. "MUX_LINKMGR|LINK_PROBER"
+            # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
+            # to account for the lower performance of the ICMP responder/mux simulator compared to
+            # real servers and mux cables.
+            # Linkmgrd is the only service to consume this table so it should not affect other test cases.
+            # Let's keep this setting in db and we don't want any config reload caused by this key, so
+            # let's skip checking it.
+            if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
                     'MUX_LINKMGR|LINK_PROBER'
                 ]
@@ -2050,7 +2076,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                                         }
                                     }
                                 )
-                    elif pre_running_config[key] != cur_running_config[key]:
+                    elif not compare_running_config(pre_running_config[key], cur_running_config[key]):
                         inconsistent_config[duthost.hostname][cfg_context].update(
                             {
                                 key: {

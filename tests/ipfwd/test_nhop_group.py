@@ -189,7 +189,9 @@ def get_crm_info(duthost, asic):
     """
     get_group_stats = ("{} COUNTERS_DB HMGET CRM:STATS"
                        " crm_stats_nexthop_group_used"
-                       " crm_stats_nexthop_group_available").format(asic.sonic_db_cli)
+                       " crm_stats_nexthop_group_available"
+                       " crm_stats_nexthop_group_member_used"
+                       " crm_stats_nexthop_group_member_available").format(asic.sonic_db_cli)
     pytest_assert(wait_until(25, 5, 0, lambda: (len(duthost.command(get_group_stats)["stdout_lines"]) >= 2)),
                   get_group_stats)
 
@@ -197,8 +199,10 @@ def get_crm_info(duthost, asic):
     pytest_assert(result["rc"] == 0 or len(result["stdout_lines"]) < 2, get_group_stats)
 
     crm_info = {
-        "used": int(result["stdout_lines"][0]),
-        "available": int(result["stdout_lines"][1])
+        "used_nhop_grp": int(result["stdout_lines"][0]),
+        "available_nhop_grp": int(result["stdout_lines"][1]),
+        "used_nhop_grp_mem": int(result["stdout_lines"][2]),
+        "available_nhop_grp_mem": int(result["stdout_lines"][3])
     }
 
     get_polling = '{} CONFIG_DB HMGET "CRM|Config" "polling_interval"'.format(
@@ -326,6 +330,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
         default_max_nhop_paths = 2
         polling_interval = 1
         sleep_time = 380
+        sleep_time_sync_before = 120
     elif is_innovium_device(duthost):
         default_max_nhop_paths = 3
         polling_interval = 10
@@ -350,12 +355,6 @@ def test_nhop_group_member_count(duthost, tbinfo):
     switch_capability = dict(list(zip(it, it)))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
     max_nhop = nhop_group_limit if max_nhop is None else int(max_nhop)
-    if is_cisco_device(duthost) or is_innovium_device(duthost):
-        crm_stat = get_crm_info(duthost, asic)
-        nhop_group_count = crm_stat["available"]
-        nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
-    else:
-        nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
     # find out an active IP port
     ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
@@ -373,7 +372,25 @@ def test_nhop_group_member_count(duthost, tbinfo):
     # indices
     indices = list(range(arp_count))
     ip_indices = combinations(indices, default_max_nhop_paths)
+    ip_prefix = ipaddr.IPAddress("192.168.0.0")
 
+    crm_before = get_crm_info(duthost, asic)
+
+    # increase CRM polling time
+    asic.command("crm config polling interval {}".format(polling_interval))
+
+    if is_cisco_device(duthost) or is_innovium_device(duthost):
+        # Waiting for ARP routes to be synced and programmed
+        time.sleep(sleep_time_sync_before)
+        crm_stat = get_crm_info(duthost, asic)
+        nhop_group_count = crm_stat["available_nhop_grp"]
+        nhop_group_mem_count = crm_stat["available_nhop_grp_mem"]
+        nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+        # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
+        nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+        nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
+    else:
+        nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
     # initialize log analyzer
     marker = "NHOP TEST PATH COUNT {} {}".format(nhop_group_count, eth_if)
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
@@ -382,15 +399,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
     loganalyzer.expect_regex = []
     loganalyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
 
-    ip_prefix = ipaddr.IPAddress("192.168.0.0")
-
-    crm_before = get_crm_info(duthost, asic)
-
-    # increase CRM polling time
-    asic.command("crm config polling interval {}".format(polling_interval))
-
     logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
-
     # create nexthop group
     nhop = IPRoutes(duthost, asic)
     try:
@@ -422,18 +431,20 @@ def test_nhop_group_member_count(duthost, tbinfo):
     # skip this check on Mellanox as ASIC resources are shared
     if is_cisco_device(duthost):
         pytest_assert(
-            crm_after["available"] + nhop_group_count == crm_before["available"],
+            crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
             "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
-                crm_after["available"], crm_after["used"], nhop_group_count, crm_before["available"]
+                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count,
+                crm_before["available_nhop_grp"]
+
             )
         )
     elif is_mellanox_device(duthost):
         logger.info("skip this check on Mellanox as ASIC resources are shared")
     else:
         pytest_assert(
-            crm_after["available"] == 0,
-            "Unused NHOP group resource:{}, used:{}".format(
-                crm_after["available"], crm_after["used"]
+            crm_after["available_nhop_grp"] == 0,
+            "Unused NHOP group resource:{}, used_nhop_grp:{}".format(
+                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"]
             )
         )
 
@@ -652,13 +663,41 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
                          45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
                          47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+
+    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
+                         2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d',
+                         4: 'c0:ff:ee:00:00:11', 5: 'c0:ff:ee:00:00:0e',
+                         6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c',
+                         8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:11',
+                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
+                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
+                         14: 'c0:ff:ee:00:00:10', 15: 'c0:ff:ee:00:00:0b',
+                         16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0e',
+                         18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0c',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
+                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
+                         24: 'c0:ff:ee:00:00:11', 25: 'c0:ff:ee:00:00:0e',
+                         26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:0c',
+                         28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
+                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
+                         34: 'c0:ff:ee:00:00:0e', 35: 'c0:ff:ee:00:00:11',
+                         36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:12',
+                         38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
+                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
+                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b',
+                         44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:11',
+                         46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f',
+                         48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+
     # Make sure a givenflow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
-                                              "td2": td2_asic_flow_map, "th2": th2_asic_flow_map}
+                                              "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
+                                              "td3": td3_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]

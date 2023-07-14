@@ -90,7 +90,9 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
 
         # Enable outer interfaces
         for port in ports:
-            duthost.no_shutdown(ifname=port)
+            namespace = mg_facts["minigraph_neighbors"][port]['namespace']
+            namespace_arg = '-n {}'.format(namespace) if namespace else ''
+            duthost.command("sudo config interface {} startup {}".format(namespace_arg, port))
 
 
 def get_state_times(timestamp, state, state_times, first_after_offset=None):
@@ -156,11 +158,12 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
         if lacp_sessions_dict and "lacp_sessions" in lacp_sessions_dict else None
     controlplane_summary = {"downtime": "",
                             "arp_ping": "", "lacp_session_max_wait": ""}
-    if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
-        max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
-        analyze_result.get(
-            "controlplane", controlplane_summary).update(
-                {"lacp_session_max_wait": max_lacp_session_wait})
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
+            max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+            analyze_result.get(
+                "controlplane", controlplane_summary).update(
+                    {"lacp_session_max_wait": max_lacp_session_wait})
 
     result_summary = {
         "reboot_type": "{}-{}".format(reboot_type, reboot_oper) if reboot_oper else reboot_type,
