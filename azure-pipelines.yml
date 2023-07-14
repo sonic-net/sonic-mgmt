@@ -11,6 +11,7 @@ pr:
    branches:
      include:
        - master
+       - 202205
    paths:
      exclude:
        - .github
