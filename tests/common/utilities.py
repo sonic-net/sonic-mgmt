@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 import traceback
+import json
 from io import BytesIO
 
 import pytest
@@ -629,3 +630,11 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
         return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+def delete_running_config(config_entry, duthost, is_json=True):
+    if is_json:
+        duthost.copy(content=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+    else:
+        duthost.copy(src=config_entry, dest="/tmp/del_config_entry.json")
+    duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
+    duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
