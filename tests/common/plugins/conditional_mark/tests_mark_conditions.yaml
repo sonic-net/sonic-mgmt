@@ -978,7 +978,6 @@ show_techsupport/test_techsupport.py::test_techsupport:
       - "branch in ['internal-202012']"
       - "int(build_version.split('.')[1]) <= 33"
 
-
 #######################################
 #####            snmp             #####
 #######################################
