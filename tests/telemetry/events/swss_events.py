@@ -32,8 +32,10 @@ def shutdown_interface(duthost):
 def generate_pfc_storm(duthost):
     logger.info("Generating pfc storm on Ethernet4:4")
     queue_oid = duthost.get_queue_oid("Ethernet4", 4)
-    duthost.shell("redis-cli -n 2 hset \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".format(queue_oid))
+    duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
+                  format(queue_oid))
     duthost.shell("pfcwd start --action alert Ethernet4 100 --restoration-time 100")
     time.sleep(3)  # give time for pfcwd to detect pfc storm
     duthost.shell("pfcwd stop")
-    duthost.shell("redis-cli -n 2 hdel \"COUNTERS:{}\" \"DEBUG_STORM\"".format(queue_oid))
+    duthost.shell("sonic-db-cli COUNTERS_DB HDEL \"COUNTERS:{}\" \"DEBUG_STORM\"".
+                  format(queue_oid))
