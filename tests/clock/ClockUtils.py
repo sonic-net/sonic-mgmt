@@ -49,7 +49,6 @@ class ClockUtils:
                 cmd_output = output if output else err
                 logging.info(f'Command Error!\nError message: "{cmd_output}"')
 
-            logging.info('Convert output to string')
             cmd_output = str(cmd_output)
             logging.info(f'Output: {cmd_output}')
 
