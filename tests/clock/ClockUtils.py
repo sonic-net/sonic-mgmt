@@ -18,11 +18,11 @@ def allure_step(step_msg):
     @param step_msg: The desired step message
     """
     with allure.step(step_msg) as allure_step_context:
-        logging.info('Step start: {}'.format(step_msg))
+        logging.info(f'Step start: {step_msg}')
         try:
             yield allure_step_context
         finally:
-            logging.info('Step end: {}'.format(step_msg))
+            logging.info(f'Step end: {step_msg}')
 
 
 class ClockUtils:
@@ -35,11 +35,11 @@ class ClockUtils:
                 while failure returns an error message
         @return: commands output (str)
         """
-        with allure_step('Run command: "{}" with param "{}"'.format(cmd, param)):
+        with allure_step(f'Run command: "{cmd}" with param "{param}"'):
             DUT_HOSTNAME = duthosts[0].hostname
 
             cmd_to_run = cmd if param == '' else cmd + ' ' + param
-            logging.info('Actual command to run: "{}"'.format(cmd_to_run))
+            logging.info(f'Actual command to run: "{cmd_to_run}"')
 
             try:
                 cmd_output = duthosts.command(cmd_to_run)[DUT_HOSTNAME][ClockConsts.STDOUT]
@@ -47,11 +47,11 @@ class ClockUtils:
                 output = cmd_err.results[ClockConsts.STDOUT]
                 err = cmd_err.results[ClockConsts.STDERR]
                 cmd_output = output if output else err
-                logging.info('Command Error!\nError message: "{}"'.format(cmd_output))
+                logging.info(f'Command Error!\nError message: "{cmd_output}"')
 
             logging.info('Convert output to string')
             cmd_output = str(cmd_output)
-            logging.info('Output: {}'.format(cmd_output))
+            logging.info(f'Output: {cmd_output}')
 
         return cmd_output
 
@@ -69,16 +69,16 @@ class ClockUtils:
         with allure_step('Verify output of show clock'):
             try:
                 timezone_str = show_clock_output.split()[-1].strip()
-                logging.info('Timezone str: "{}"'.format(timezone_str))
+                logging.info(f'Timezone str: "{timezone_str}"')
 
                 date_time_to_parse = show_clock_output.replace(timezone_str, '').strip()
-                logging.info('Time and date to parse: "{}"'.format(date_time_to_parse))
+                logging.info(f'Time and date to parse: "{date_time_to_parse}"')
 
                 datetime_obj = dt.datetime.strptime(date_time_to_parse, '%a %d %b %Y %I:%M:%S %p')
-                logging.info('Datetime object: "{}"\t|\tType: {}'.format(datetime_obj, type(datetime_obj)))
+                logging.info(f'Datetime object: "{datetime_obj}"\t|\tType: {type(datetime_obj)}')
             except ValueError:
-                logging.info('Show clock output is not valid.\nOutput: "{}"'.format(show_clock_output))
-                pytest.fail('Show clock output is not valid.\nOutput: "{}"'.format(show_clock_output))
+                logging.info(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
+                pytest.fail(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
 
         with allure_step('Split output of show clock'):
             res = {
@@ -86,7 +86,7 @@ class ClockUtils:
                 ClockConsts.TIME: datetime_obj.strftime("%H:%M:%S"),
                 ClockConsts.TIMEZONE: timezone_str
             }
-            logging.info('res dict: {}'.format(res))
+            logging.info(f'res dict: {res}')
 
             return res
 
@@ -117,13 +117,13 @@ class ClockUtils:
         """
         with allure_step('Parse linux command output into dictionary'):
             rows = [row.strip() for row in linux_cmd_output.split('\n')]  # split by rows
-            logging.info('rows: {}'.format(rows))
+            logging.info(f'rows: {rows}')
             res_dict = {}
             for row in rows:
-                logging.debug('row: "{}"'.format(row))
+                logging.debug(f'row: "{row}"')
                 row_split = row.split(':', 1)
                 res_dict[row_split[0]] = row_split[1].strip()
-            logging.info('Result dict:\n{}'.format(res_dict))
+            logging.info(f'Result dict:\n{res_dict}')
             return res_dict
 
     @staticmethod
@@ -146,7 +146,7 @@ class ClockUtils:
         @param duthosts: duthosts object
         @param expected_tz_name: The expected timezone name
         """
-        with allure_step('Verify that current system timezone is as expected ({})'.format(expected_tz_name)):
+        with allure_step(f'Verify that current system timezone is as expected ({expected_tz_name})'):
             with allure_step('Get timezone details from show clock and timedatectl commands'):
                 show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
                 show_clock_tz_abbr = ClockUtils.verify_and_parse_show_clock_output(
@@ -157,15 +157,14 @@ class ClockUtils:
                 timedatectl_tz_name = timedatectl_tz_split[0].strip()
                 timedatectl_tz_abbr = timedatectl_tz_split[1].split(',', 1)[0].replace('(', '').strip()
 
-            with allure_step('Compare timezone abbreviations of show clock ({}) and timedatectl ({})'
-                             .format(show_clock_tz_abbr, timedatectl_tz_abbr)):
+            with allure_step(f'Compare timezone abbreviations of show clock ({show_clock_tz_abbr}) '
+                             f'and timedatectl ({timedatectl_tz_abbr})'):
                 assert timedatectl_tz_abbr == show_clock_tz_abbr, \
-                    'Expected: {} == {}'.format(timedatectl_tz_abbr, show_clock_tz_abbr)
+                    f'Expected: {timedatectl_tz_abbr} == {show_clock_tz_abbr}'
 
-            with allure_step('Compare timezone name from timedatectl ({}) to the expected ({})'
-                             .format(timedatectl_tz_name, expected_tz_name)):
-                assert timedatectl_tz_name == expected_tz_name, 'Expected: {} == {}'\
-                    .format(timedatectl_tz_name, expected_tz_name)
+            with allure_step(f'Compare timezone name from timedatectl ({timedatectl_tz_name}) '
+                             f'to the expected ({expected_tz_name})'):
+                assert timedatectl_tz_name == expected_tz_name, f'Expected: {timedatectl_tz_name} == {expected_tz_name}'
 
     @staticmethod
     def select_random_date():
@@ -186,7 +185,7 @@ class ClockUtils:
 
             rand_date_str = rand_date.strftime('%Y-%m-%d')
 
-            logging.info('Selected random date: "{}"'.format(rand_date_str))
+            logging.info(f'Selected random date: "{rand_date_str}"')
             return rand_date_str
 
     @staticmethod
@@ -203,7 +202,7 @@ class ClockUtils:
 
             rand_time_str = time.strftime("%H:%M:%S", rand_time_obj)
 
-            logging.info('Selected random time: "{}"'.format(rand_time_str))
+            logging.info(f'Selected random time: "{rand_time_str}"')
             return rand_time_str
 
     @staticmethod
@@ -216,13 +215,13 @@ class ClockUtils:
         @param actual: actual given date-time value
         @param allowed_margin: allowed margin between two times (in seconds)
         """
-        with allure_step('Verify that diff between "{}" and "{}" (in seconds) is no longer than {}'
-                         .format(expected, actual, allowed_margin)):
-            with allure_step('Calculate diff between "{}" and "{}" in seconds'.format(expected, actual)):
+        with allure_step(f'Verify that diff between "{expected}" and "{actual}" (in seconds) '
+                         f'is no longer than {allowed_margin}'):
+            with allure_step(f'Calculate diff between "{expected}" and "{actual}" in seconds'):
                 datetime_obj1 = dt.datetime.strptime(expected, "%Y-%m-%d %H:%M:%S")
                 datetime_obj2 = dt.datetime.strptime(actual, "%Y-%m-%d %H:%M:%S")
 
                 diff_seconds = abs((datetime_obj2 - datetime_obj1).total_seconds())
 
-            with allure_step('Verify that actual diff {} is not larger than {}'.format(diff_seconds, allowed_margin)):
-                assert diff_seconds <= allowed_margin, 'Expected: {} <= {}'.format(diff_seconds, allowed_margin)
+            with allure_step(f'Verify that actual diff {diff_seconds} is not larger than {allowed_margin}'):
+                assert diff_seconds <= allowed_margin, f'Expected: {diff_seconds} <= {allowed_margin}'

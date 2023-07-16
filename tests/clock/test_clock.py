@@ -50,31 +50,30 @@ def test_config_clock_timezone(duthosts, init_timezone):
         while new_timezone == orig_timezone:
             new_timezone = random.choice(valid_timezones)
 
-    with allure_step('Set the new timezone "{}"'.format(new_timezone)):
+    with allure_step(f'Set the new timezone "{new_timezone}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, new_timezone)
 
     with allure_step('Verify command success'):
-        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, \
-            'Expected: "{}" == "{}"'.format(output, ClockConsts.OUTPUT_CMD_SUCCESS)
+        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
-    with allure_step('Verify timezone changed to "{}"'.format(new_timezone)):
+    with allure_step(f'Verify timezone changed to "{new_timezone}"'):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
     with allure_step('Select a random string as invalid timezone'):
         invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
         while invalid_timezone in valid_timezones:
             invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
-        logging.info('Selected invalid timezone: "{}"'.format(invalid_timezone))
+        logging.info(f'Selected invalid timezone: "{invalid_timezone}"')
 
-    with allure_step('Try to set the invalid timezone "{}"'.format(invalid_timezone)):
+    with allure_step(f'Try to set the invalid timezone "{invalid_timezone}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, invalid_timezone)
 
     with allure_step('Verify command failure'):
         expected_err = ClockConsts.ERR_BAD_TIMEZONE.format(invalid_timezone)
         assert expected_err in output, \
-            'Error: The given string does not contain the expected substring.\n' \
-            'Expected substring: "{}"\n' \
-            'Given (whole) string: "{}"'.format(expected_err, output)
+            f'Error: The given string does not contain the expected substring.\n' \
+            f'Expected substring: "{expected_err}"\n' \
+            f'Given (whole) string: "{output}"'
 
     with allure_step('Verify timezone has not changed'):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
@@ -96,14 +95,13 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         new_time = ClockUtils.select_random_time()
         new_datetime = new_date + ' ' + new_time
 
-    with allure_step('Set new date and time "{}"'.format(new_datetime)):
+    with allure_step(f'Set new date and time "{new_datetime}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)
 
     with allure_step('Verify command success'):
-        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, 'Expected: "{}" == "{}"' \
-            .format(output, ClockConsts.OUTPUT_CMD_SUCCESS)
+        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
-    with allure_step('Verify date and time changed to "{}"'.format(new_datetime)):
+    with allure_step(f'Verify date and time changed to "{new_datetime}"'):
         with allure_step('Get datetime from show clock'):
             show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
             show_clock_dict = ClockUtils.verify_and_parse_show_clock_output(show_clock_output)
@@ -111,31 +109,31 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         with allure_step('Verify date-time'):
             cur_date = show_clock_dict[ClockConsts.DATE]
             cur_time = show_clock_dict[ClockConsts.TIME]
-            cur_datetime = '{} {}'.format(cur_date, cur_time)
+            cur_datetime = f'{cur_date} {cur_time}'
 
             ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime)
 
     with allure_step('Select random string as invalid input'):
         rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(ClockConsts.RANDOM_NUM))
-        logging.info('Selected random string: "{}"'.format(rand_str))
+        logging.info(f'Selected random string: "{rand_str}"')
 
     with allure_step('Try to set invalid inputs'):
         errors = {
             '': ClockConsts.ERR_MISSING_DATE,
             rand_str: ClockConsts.ERR_MISSING_TIME,
-            '{} {}'.format(rand_str, rand_str): ClockConsts.ERR_BAD_DATE.format(rand_str) + '\n' +
-            ClockConsts.ERR_BAD_TIME.format(rand_str),
-            '{} {}'.format(rand_str, new_time): ClockConsts.ERR_BAD_DATE.format(rand_str),
-            '{} {}'.format(new_date, rand_str): ClockConsts.ERR_BAD_TIME.format(rand_str)
+            f'{rand_str} {rand_str}': f'{ClockConsts.ERR_BAD_DATE.format(rand_str)}\n'
+                                      f'{ClockConsts.ERR_BAD_TIME.format(rand_str)}',
+            f'{rand_str} {new_time}': ClockConsts.ERR_BAD_DATE.format(rand_str),
+            f'{new_date} {rand_str}': ClockConsts.ERR_BAD_TIME.format(rand_str)
         }
 
         for invalid_input, err_msg in errors.items():
-            logging.info('Invalid input: "{}"\nExpected error:\n{}'.format(invalid_input, err_msg))
+            logging.info(f'Invalid input: "{invalid_input}"\nExpected error:\n{err_msg}')
 
             with allure_step('Get show clock output before running the config command'):
                 show_clock_output_before = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
 
-            with allure_step('Try to set "{}"'.format(invalid_input)):
+            with allure_step(f'Try to set "{invalid_input}"'):
                 output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, invalid_input)
 
             with allure_step('Get show clock output after running the config command'):
@@ -143,21 +141,21 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
 
             with allure_step('Verify command failure'):
                 assert err_msg in output, \
-                    'Error: The given string does not contain the expected substring.\n' \
-                    'Expected substring: "{}"\n' \
-                    'Given (whole) string: "{}"'.format(err_msg, output)
+                    f'Error: The given string does not contain the expected substring.\n' \
+                    f'Expected substring: "{err_msg}"\n' \
+                    f'Given (whole) string: "{output}"'
 
-            with allure_step('Verify date and time have not changed (still "{}")'.format(new_datetime)):
+            with allure_step(f'Verify date and time have not changed (still "{new_datetime}")'):
                 show_clock_dict_before = ClockUtils.verify_and_parse_show_clock_output(show_clock_output_before)
                 show_clock_dict_after = ClockUtils.verify_and_parse_show_clock_output(show_clock_output_after)
 
                 with allure_step('Verify date-time'):
                     date_before = show_clock_dict_before[ClockConsts.DATE]
                     time_before = show_clock_dict_before[ClockConsts.TIME]
-                    datetime_before = '{} {}'.format(date_before, time_before)
+                    datetime_before = f'{date_before} {time_before}'
 
                     date_after = show_clock_dict_after[ClockConsts.DATE]
                     time_after = show_clock_dict_after[ClockConsts.TIME]
-                    datetime_after = '{} {}'.format(date_after, time_after)
+                    datetime_after = f'{date_after} {time_after}'
 
                     ClockUtils.verify_datetime(expected=datetime_before, actual=datetime_after)
