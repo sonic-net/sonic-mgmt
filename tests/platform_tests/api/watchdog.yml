@@ -149,3 +149,10 @@ x86_64-8101_32fh_o-r0:
     valid_timeout: 10
     greater_timeout: 6553
     too_big_timeout: 6554
+
+#cisco-8111 watchdog
+x86_64-8111_32eh_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
