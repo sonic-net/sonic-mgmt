@@ -206,5 +206,42 @@ def setup_dut_test_params(
                         dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
                         break
 
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    conf_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+    vlan_table = {}
+    for name, vlan in list(conf_facts['VLAN'].items()):
+        vlan_id = int(vlan['vlanid'])
+        vlan_table[vlan_id] = {"mac": vlan['mac'], "ifname": []} 
+
+        for ifname in list(conf_facts['VLAN_MEMBER'][name].keys()):
+            vlan_table[vlan_id]['ifname'].append(ifname)
+    logger.info("vlan_table : {}".format(vlan_table))
+
+    dut_test_params['vlanParams'] = vlan_table
     logger.info("dut_test_params : {}".format(dut_test_params))
+
+    if dut_test_params['basicParams']['is_dualtor']:
+        # pause_garp_service
+        needs_resume = False
+        res = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True)
+        if res['rc'] != 0:
+            logger.warning("GARP service not present on PTF")
+        elif 'RUNNING' in res['stdout']:
+            needs_resume = True
+            ptfhost.shell("supervisorctl stop garp_service")
+        else:
+            logger.warning("GARP service already stopped on PTF")
+
+        # pause_arp_update
+        arp_update_stop_cmd = "docker exec -t swss supervisorctl stop arp_update"
+        duthost.shell(arp_update_stop_cmd)
+
     yield dut_test_params
+
+    if dut_test_params['basicParams']['is_dualtor']:
+        if needs_resume:
+            ptfhost.shell("supervisorctl start garp_service")
+
+        arp_update_start_cmd = "docker exec -t swss supervisorctl start arp_update"
+        duthost.shell(arp_update_start_cmd)
