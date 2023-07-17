@@ -56,10 +56,8 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
 
     """
     duthost = duthosts[rand_one_dut_hostname]
-    # The behavior on Mellanox for unknown MAC is flooding rather than DROP,
-    # so we need to skip this test on Mellanox platform
     asic_type = duthost.facts["asic_type"]
-    pytest_require(asic_type not in ["mellanox", "barefoot"], "Test is not supported for platform {}".format(asic_type))
+    pytest_require(asic_type not in ["barefoot"], "Test is not supported for platform {}".format(asic_type))
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
@@ -235,25 +233,28 @@ class PreTestVerify(object):
 class TrafficSendVerify(object):
     """ Send traffic and check interface counters and ptf ports """
     @initClassVars
-    def __init__(self, duthost, ptfadapter, dst_ip, ptf_dst_port, ptf_vlan_ports,
-                 intfs, ptf_ports, arp_entry, dscp):
+    def __init__(self, duthost, ptfadapter, dst_ip, dst_port, ptf_vlan_ports,
+                 intfs, ptf_ports, arp_entry, dscp, asic_type):
         """
         Args:
             duthost(AnsibleHost) : dut instance
             ptfadapter(dataplane) : ptf runner instance
             dst_ip(string) : traffic dest ip
-            ptf_dst_port(int) : ptf index of dest port
+            dst_port(string) : name of dest port
             ptf_vlan_ports(list) : ptf indices of all DUT vlan ports
             intfs(list) : all portchannel members/sub interfaces
             ptf_ports(dict) : mapping of pc member/sub interface to ptf id, peer addr
             arp_entry(dict) : ARP to mac mapping
             dscp(int) : dscp value to be used for the packet that gets send out
+            asic_type(string) : type of asic
         """
         self.pkts = list()
         self.exp_pkts = list()
         self.pkt_map = dict()
-        self.pre_rx_drops = dict()
+        self.pre_drops = dict()
         self.dut_mac = duthost.facts['router_mac']
+        self.dst_port = dst_port
+        self.asic_type = asic_type
 
     def _constructPacket(self):
         """
@@ -289,7 +290,8 @@ class TrafficSendVerify(object):
             self.exp_pkts.append(tmp_pkt)
             # if inft is a sub interface, tuple be like ("Eth0.10", "Eth0")
             # if inft is a general interface, tuple be like ("Eth0", "Eth0")
-            self.pkt_map[str(pkt)] = (intf, get_intf_by_sub_intf(intf, vlan_id), pkt)
+            # The dst port is appended to the end of tuple as we need to check TX_DRP on some platforms
+            self.pkt_map[str(pkt)] = (intf, get_intf_by_sub_intf(intf, vlan_id), pkt, self.dst_port)
 
     def _parseCntrs(self):
         """
@@ -312,14 +314,23 @@ class TrafficSendVerify(object):
         Args:
             pretest(bool): collect counters before or after the test run
         """
+        if self.asic_type in ['mellanox']:
+            # On Mellanox platform, the drop of packets with unknown MAC is counted as TX_DRP
+            key_name = 'TX_DRP'
+            # Index of dst port is 3
+            idx = 3
+        else:
+            key_name = 'RX_DRP'
+            # Index of src port is 1
+            idx = 1
         stats = self._parseCntrs()
-        for key, value in list(self.pkt_map.items()):
-            intf = value[1]
+        for _, value in self.pkt_map.items():
+            intf = value[idx]
             if pretest:
-                self.pre_rx_drops[intf] = int(stats[intf]['RX_DRP'])
+                self.pre_drops[intf] = int(stats[intf][key_name])
             else:
-                actual_cnt = int(stats[intf]['RX_DRP'])
-                exp_cnt = self.pre_rx_drops[intf] + TEST_PKT_CNT
+                actual_cnt = int(stats[intf][key_name])
+                exp_cnt = self.pre_drops[intf] + TEST_PKT_CNT
                 pytest_assert(actual_cnt >= exp_cnt,
                               "Pkt dropped cnt incorrect for intf {}. Expected: {}, Obtained: {}".format(intf, exp_cnt,
                                                                                                          actual_cnt))
@@ -366,6 +377,11 @@ class TestUnknownMac(object):
         setup = unknownMacSetup
         self.dscp = int(dscp.split("-")[-1])
         self.duthost = duthosts[rand_one_dut_hostname]
+        self.asic_type = self.duthost.facts["asic_type"]
+        # On Mellanox platform, only packets with DSCP 3/4 and unknown MAC are dropped
+        # Packets with other DSCP values are flooded to all ports in vlan
+        if self.dscp not in [3, 4] and self.asic_type in ['mellanox']:
+            pytest.skip("DSCP {} is skipped on Mellanox platform".format(self.dscp))
         self.ptfadapter = ptfadapter
         self.dst_port = setup['dst_port']
         self.ptf_dst_port = setup['ptf_dst_port']
@@ -388,8 +404,8 @@ class TestUnknownMac(object):
         """
         Traffic test and verification
         """
-        thandle = TrafficSendVerify(self.duthost, self.ptfadapter, self.dst_ip, self.ptf_dst_port,
+        thandle = TrafficSendVerify(self.duthost, self.ptfadapter, self.dst_ip, self.dst_port,
                                     self.ptf_vlan_ports,
                                     self.intfs, self.ptf_ports,
-                                    self.arp_entry, self.dscp)
+                                    self.arp_entry, self.dscp, self.asic_type)
         thandle.runTest()
