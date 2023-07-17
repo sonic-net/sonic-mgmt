@@ -177,3 +177,6 @@ r, ".* ERR .*CounterCheck: Invalid port oid.*"
 # https://msazure.visualstudio.com/One/_workitems/edit/17617756
 # https://msazure.visualstudio.com/One/_workitems/edit/17863895
 r, ".* ERR syncd\d*#syncd.*SAI_API_ACL:_brcm_sai_acl_entry_bind.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/24564189
+r, ".* ERR pmon#sensord: Error getting sensor data: dps.*"
