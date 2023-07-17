@@ -190,14 +190,18 @@ def get_crm_info(duthost, asic):
     """
     get_group_stats = ("{} COUNTERS_DB HMGET CRM:STATS"
         " crm_stats_nexthop_group_used"
-        " crm_stats_nexthop_group_available").format(asic.sonic_db_cli)
+        " crm_stats_nexthop_group_available"
+        " crm_stats_nexthop_group_member_used"
+        " crm_stats_nexthop_group_member_available").format(asic.sonic_db_cli)
 
     result = duthost.command(get_group_stats)
     pytest_assert(result["rc"] == 0, get_group_stats)
 
     crm_info = {
-        "used": int(result["stdout_lines"][0]),
-        "available": int(result["stdout_lines"][1])
+        "used_nhop_grp": int(result["stdout_lines"][0]),
+        "available_nhop_grp": int(result["stdout_lines"][1]),
+        "used_nhop_grp_mem": int(result["stdout_lines"][2]),
+        "available_nhop_grp_mem": int(result["stdout_lines"][3])
     }
 
     get_polling = '{} CONFIG_DB HMGET "CRM|Config" "polling_interval"'.format(
@@ -325,6 +329,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
         default_max_nhop_paths = 2
         polling_interval = 1
         sleep_time = 380
+        sleep_time_sync_before = 120
     elif is_innovium_device(duthost):
         default_max_nhop_paths = 3
         polling_interval = 10
@@ -372,6 +377,23 @@ def test_nhop_group_member_count(duthost, tbinfo):
     # indices
     indices = range(arp_count)
     ip_indices = combinations(indices, default_max_nhop_paths)
+    ip_prefix = ipaddr.IPAddress("192.168.0.0")
+    crm_before = get_crm_info(duthost, asic)
+
+    # increase CRM polling time
+    asic.command("crm config polling interval {}".format(polling_interval))
+    if is_cisco_device(duthost) or is_innovium_device(duthost):
+        # Waiting for ARP routes to be synced and programmed
+        time.sleep(sleep_time_sync_before)
+        crm_stat = get_crm_info(duthost, asic)
+        nhop_group_count = crm_stat["available_nhop_grp"]
+        nhop_group_mem_count = crm_stat["available_nhop_grp_mem"]
+        nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+        # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
+        nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+        nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
+    else:
+        nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
     # initialize log analyzer
     marker = "NHOP TEST PATH COUNT {} {}".format(nhop_group_count, eth_if)
@@ -381,15 +403,11 @@ def test_nhop_group_member_count(duthost, tbinfo):
     loganalyzer.expect_regex = []
     loganalyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
 
-    ip_prefix = ipaddr.IPAddress("192.168.0.0")
 
     # list of all IPs available to generate a nexthop group
     ip_list = arplist.ip_mac_list
 
-    crm_before = get_crm_info(duthost, asic)
 
-    # increase CRM polling time
-    asic.command("crm config polling interval {}".format(polling_interval))
 
     logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
 
@@ -424,18 +442,20 @@ def test_nhop_group_member_count(duthost, tbinfo):
     # skip this check on Mellanox as ASIC resources are shared
     if is_cisco_device(duthost):
         pytest_assert(
-            crm_after["available"] + nhop_group_count == crm_before["available"],
+            crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
             "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
-                crm_after["available"], crm_after["used"], nhop_group_count, crm_before["available"]
+                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count,
+                crm_before["available_nhop_grp"]
+
             )
         )
     elif is_mellanox_device(duthost):
         logger.info("skip this check on Mellanox as ASIC resources are shared")
     else:
         pytest_assert(
-            crm_after["available"] == 0,
-            "Unused NHOP group resource:{}, used:{}".format(
-                crm_after["available"], crm_after["used"]
+            crm_after["available_nhop_grp"] == 0,
+            "Unused NHOP group resource:{}, used_nhop_grp:{}".format(
+                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"]
             )
         )
 
