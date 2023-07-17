@@ -28,10 +28,10 @@ pdu-116,26,str-dx010-acs-5,PSU1
 pdu-115,26,str-dx010-acs-5,PSU2
 pdu-107,32,str-e1031-acs-1,PSU1
 pdu-108,32,str-e1031-acs-1,PSU2
-pdu-113,15,str-e1031-acs-3,PSU1
+pdu-114,10,str-e1031-acs-3,PSU1
 pdu-114,15,str-e1031-acs-3,PSU2
-pdu-113,28,str-e1031-acs-3,PSU3
-pdu-114,28,str-e1031-acs-3,PSU4
+pdu-112,31,str-e1031-acs-3,PSU3
+pdu-114,31,str-e1031-acs-3,PSU4
 pdu-102,26,str-msn2700-01,PSU1
 pdu-103,26,str-msn2700-01,PSU2
 pdu-99,22,str-msn2700-02,PSU1
