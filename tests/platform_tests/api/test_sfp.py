@@ -384,13 +384,15 @@ class TestSfpApi(PlatformApiTestBase):
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = [
                             key if key != 'vendor_rev' else 'hardware_rev' for key in self.EXPECTED_XCVR_INFO_KEYS]
                     else:
-                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
-                            XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + [
-                                "active_apsel_hostlane{}".format(i) for i in range(1, info_dict['host_lane_count'] + 1)]
+
+                        if info_dict["type_abbrv_name"] in ["QSFP-DD", OSFP-8X]:
+                            UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
+                                                              self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS + \
+                                                              ["active_apsel_hostlane{}".format(n)
+                                                               for n in range(1, info_dict['host_lane_count'] + 1)]
                             if 'ZR' in info_dict['media_interface_code']:
-                                UPDATED_EXPECTED_XCVR_INFO_KEYS = XCVR_INFO_KEYS + self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
-                            else:
-                                UPDATED_EXPECTED_XCVR_INFO_KEYS = XCVR_INFO_KEYS
+                                UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
+                                                                  self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
                         else:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
                     missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
