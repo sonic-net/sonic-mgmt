@@ -19,6 +19,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
 
 logger = logging.getLogger(__name__)
 
@@ -220,24 +221,6 @@ class AdvancedReboot:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
                 break
-
-    def __checkBgpRouterId(self, error_list):
-        """
-        Check bgp router ID is same as Loopback0
-        """
-        check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
-        bgp_summary = self.duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
-        bgp_summary_json = json.loads(bgp_summary['stdout'])
-        router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
-        loopback0 = str(self.mgFacts['minigraph_lo_interfaces'][0]['addr'])
-        if router_id == loopback0:
-            logger.info("BGP router identifier: %s == Loopback0 address %s" % (router_id, loopback0))
-            return True
-        else:
-            logger.info("BGP router identifier %s != Loopback0 address %s" % (router_id, loopback0))
-            error_list.append("Failed to verify BGP router identifier is Loopback0 address on %s" %
-                              self.duthost.hostname)
-            return False
 
     def __updateNextHopIps(self):
         """
@@ -571,7 +554,9 @@ class AdvancedReboot:
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
-                self.__checkBgpRouterId(test_results[test_case_name])
+                if not check_bgp_router_id(self.duthost):
+                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 address on %s" %
+                            self.duthost.hostname)
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()

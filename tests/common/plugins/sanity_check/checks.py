@@ -13,6 +13,7 @@ from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.dualtor.mux_simulator_control import _probe_mux_ports
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -206,21 +207,6 @@ def check_bgp(duthosts, tbinfo):
                 check_result['failed'] = False
             return not check_result['failed']
 
-        def _check_bgp_router_id(tbinfo):
-            duthost = kwargs['node']
-            mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
-            check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
-            bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
-            bgp_summary_json = json.loads(bgp_summary['stdout'])
-            router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
-            loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
-            if router_id == loopback0:
-                logger.info("BGP router identifier: %s == Loopback0 address %s" % (router_id, loopback0))
-                return True
-            else:
-                logger.info("BGP router identifier %s != Loopback0 address %s" % (router_id, loopback0))
-                return False
-
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
@@ -245,7 +231,8 @@ def check_bgp(duthosts, tbinfo):
         else:
             logger.info('No BGP neighbors are down on %s' % dut.hostname)
 
-        if not wait_until(timeout, interval, 0, _check_bgp_router_id, tbinfo):
+        mgFacts = dut.get_extended_minigraph_facts(tbinfo)
+        if not wait_until(timeout, interval, 0, check_bgp_router_id, dut, mgFacts):
             check_result['failed'] = True
             logger.info("Failed to verify BGP router identifier is Loopback0 address on %s" % dut.hostname)
 
