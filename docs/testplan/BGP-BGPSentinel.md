@@ -5,20 +5,20 @@
 - [Test cases](#test-cases)
 
 ## Overview
-The purpose is to test that BGPSentinel (BGPS) host will setup an IBGP connection to FRR. BGPSentinel (BGPS) will advertise and withdraw routes to FRR. As BGPSentinel session is IBGP and not directly connected to the DUT, this feature relies on V4 and V6 next hop tracking default configuration in FRR.
+The purpose is to test that BGPSentinel (BGPS) host will setup an IBGP connection to FRR. BGPSentinel (BGPS) will advertise and withdraw routes to FRR. As BGPSentinel session is IBGP and not directly connected to the DUT, this feature relies on V4 and V6 nht resolve via default configuration in FRR.
 
 ### Scope
-The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is not to test specific API, but functional testing of BGP configuration on SONIC system.
+The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is not to test specific API, but functional testing of BGPSentinel configuration on SONIC system.
 
 ### Testbed
 The test will run on the following testbeds:
 * t1-lag (vs)
 
 ## Setup configuration
-This test doesn't require any configuration in ansible deployment. IBGP session between BGPSentinel (BGPS) host and DUT are created in set up phase of this case and are cleaned in tear down phase of this case.
+This test doesn't require any configuration in ansible deployment. IBGP session between BGPSentinel (BGPS) host and DUT are created in set up phase of this case and are cleaned in tear down phase of this case. BGPSentinel (BGPS) host is simulated by exabgp in PTF.
 
 ## Test
-The test will configure BGPSentinel session and then check that IBGP session would be setup between BGPSentinel (BGPS) host and FRR. After session set up, BGPSentinel (BGPS) will advertise routes with higher local-preference and no-export community. These routes will act as best-path in DUT, which would suppress routes advertised from t0.
+The test will configure BGPSentinel session and then check that IBGP session would be setup between BGPSentinel (BGPS) host and DUT. After session set up, BGPSentinel (BGPS) will advertise routes with higher local-preference and no-export community. These routes will act as best-path in DUT, which would suppress routes received from t0. The test will cover both V4 and V6 BGPSentinel session.
 
 ## Test cases
 ### Test case # 1 - BGPSentinel to DUT over IBGP V4 session
