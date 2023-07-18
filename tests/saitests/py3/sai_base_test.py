@@ -60,6 +60,7 @@ class ThriftInterface(BaseTest):
         else:
             self.dst_server_ip = self.src_server_ip
             dst_server_port = src_server_port
+        self.server = self.dst_server_ip
 
         if "port_map_file" in self.test_params:
             user_input = self.test_params['port_map_file']
