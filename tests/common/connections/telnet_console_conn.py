@@ -3,6 +3,7 @@ import re
 from .base_console_conn import BaseConsoleConn
 from netmiko.ssh_exception import NetMikoAuthenticationException
 
+
 class TelnetConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
         # For telnet console, neither console username or password is needed
@@ -10,7 +11,7 @@ class TelnetConsoleConn(BaseConsoleConn):
         kwargs['host'] = kwargs['console_host']
         kwargs['port'] = kwargs['console_port']
         # Don't set the value of password here because we will loop
-        # among all passwords in __init__ 
+        # among all passwords in __init__
         kwargs['username'] = kwargs['sonic_username']
         kwargs['console_username'] = kwargs['sonic_username']
         kwargs['console_password'] = kwargs['sonic_password']
@@ -85,13 +86,13 @@ class TelnetConsoleConn(BaseConsoleConn):
                         self.host
                     )
                     raise NetMikoAuthenticationException(msg)
-                
+
                 # Check if proper data received
                 if re.search(pri_prompt_terminator, output, flags=re.M) or re.search(
                     alt_prompt_terminator, return_msg, flags=re.M
                 ):
                     return return_msg
-                
+
                 #  Check if login failed
                 if re.search(login_failure_prompt, output, flags=re.M):
                     self.remote_conn.close()
@@ -121,4 +122,3 @@ class TelnetConsoleConn(BaseConsoleConn):
         self.remote_conn.close()
         msg = "Login failed: {}".format(self.host)
         raise NetMikoAuthenticationException(msg)
-

@@ -1,31 +1,39 @@
-# ptf -t "config_file='/tmp/vnet_vxlan.json';vxlan_enabled=True" --platform-dir ptftests --test-dir ptftests --platform remote vnet-vxlan
-
+"""
+        ptf -t "config_file='/tmp/vnet_vxlan.json';vxlan_enabled=True" \
+            --platform-dir ptftests \
+            --test-dir ptftests \
+            --platform remote vnet-vxlan
+"""
 # The test checks vxlan encapsulation/decapsulation for the dataplane.
 # The test runs three tests for each vlan on the DUT:
-# 1. 'FromVM'   : Sends encapsulated packets to PortChannel interfaces and expects to see the decapsulated inner packets on the vlan interface.
-# 2. 'FromServ' : Sends regular packets to Vlan member interface and expects to see the encapsulated packets on the corresponding PortChannel interface.
-# 3. 'Serv2Serv': Sends regular packets to Vlan member interfaces and expects to see the regular packets on the one of Vlan interfaces.
+# 1. 'FromVM'   : Sends encapsulated packets to PortChannel interfaces and expects to see
+#    the decapsulated inner packets on the vlan interface.
+# 2. 'FromServ' : Sends regular packets to Vlan member interface and expects to see
+#    the encapsulated packets on the corresponding PortChannel interface.
+# 3. 'Serv2Serv': Sends regular packets to Vlan member interfaces and expects to see
+#    the regular packets on the one of Vlan interfaces.
 #
 # The test has the following parameters:
-# 1. 'config_file' is a filename of a file which contains all necessary information to run the test. The file is populated by ansible. This parameter is mandatory.
+# 1. 'config_file' is a filename of a file which contains all necessary information to run the test.
+#    The file is populated by ansible. This parameter is mandatory.
 
-import sys
 import os.path
 import json
-import ptf
+import logging
 import time
-import ptf.packet as scapy
-from ptf.base_tests import BaseTest
-from ptf import config
-import ptf.testutils as testutils
-from ptf.testutils import *
-from ptf.dataplane import match_exp_pkt
-from ptf.mask import Mask
-import datetime
+import six
 import subprocess
-import ipaddress
-from pprint import pprint
-from ipaddress import ip_address, ip_network
+
+import ptf
+import ptf.packet as scapy
+import ptf.testutils as testutils
+from ptf.base_tests import BaseTest
+from ptf.testutils import simple_tcp_packet, simple_vxlan_packet, simple_vxlanv6_packet,\
+    send_packet, verify_packet, verify_no_packet, verify_packet_any_port, verify_no_packet_any
+from ptf.mask import Mask
+
+from ipaddress import ip_address, ip_network, IPv4Address, IPv6Address
+
 
 class VNET(BaseTest):
     def __init__(self):
@@ -40,7 +48,7 @@ class VNET(BaseTest):
         self.max_routes_wo_scaling = 1000
         self.vnet_batch = 8
         self.packets = []
-        self.vxlan_srcport= 0
+        self.vxlan_srcport = 0
         self.vxlan_srcport_mask = 8
         self.vxlan_srcport_range_enabled = False
 
@@ -67,7 +75,7 @@ class VNET(BaseTest):
         config = {}
         for nbr in self.nbr_info:
             if nbr[1] != 0:
-                key = 'eth%d@%d' % (nbr[2],nbr[1])
+                key = 'eth%d@%d' % (nbr[2], nbr[1])
             else:
                 key = 'eth%d' % (nbr[2])
             if key in config:
@@ -93,7 +101,8 @@ class VNET(BaseTest):
                 if test['name'] == key:
                     ptest = dict(test)
                     ptest['name'] = peer
-                    ptest['src'], ptest['port'], ptest['vlan'], ptest['vni'] = self.getSrvInfo(ptest['name'])
+                    ptest['src'], ptest['port'], ptest['vlan'], ptest['vni'] = self.getSrvInfo(
+                        ptest['name'])
                     if 'dst_vni' in test:
                         ptest['dst_vni'] = test['dst_vni']
                     self.tests.append(ptest)
@@ -102,12 +111,12 @@ class VNET(BaseTest):
         for routes in graph['vnet_local_routes']:
             for name, rt_list in routes.items():
                 if test['name'] == name.split('_')[0]:
-                    if self.total_routes <= self.max_routes_wo_scaling: 
+                    if self.total_routes <= self.max_routes_wo_scaling:
                         for entry in rt_list:
                             self.addLocalTest(test, entry)
                     else:
                         vnet_id = int(name.split('_')[0][4:])
-                        rt_idx = ((vnet_id-1)//4)%len(rt_list)
+                        rt_idx = ((vnet_id-1)//4) % len(rt_list)
                         entry = rt_list[rt_idx]
                         self.addLocalTest(test, entry)
 
@@ -150,7 +159,8 @@ class VNET(BaseTest):
             test['mac'] = entry['mac']
         else:
             test['mac'] = self.vxlan_router_mac
-        test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(test['name'])
+        test['src'], test['port'], test['vlan'], test['vni'] = self.getSrvInfo(
+            test['name'])
         if 'vni' in entry:
             test['dst_vni'] = entry['vni']
         self.tests.append(test)
@@ -159,13 +169,14 @@ class VNET(BaseTest):
 
     def addLocalTest(self, test, entry):
         nhtest = dict(test)
-        nhtest['src'], nhtest['port'], nhtest['vlan'], nhtest['vni'] = self.getSrvInfo(nhtest['name'], entry['ifname'])
-        prefix = ip_network(unicode(entry['pfx']))
+        nhtest['src'], nhtest['port'], nhtest['vlan'], nhtest['vni'] = self.getSrvInfo(
+            nhtest['name'], entry['ifname'])
+        prefix = ip_network(six.text_type(entry['pfx']))
         nhtest['src'] = str(list(prefix.hosts())[0])
         self.tests.append(nhtest)
 
     def calculateTotalRoutes(self, graph):
-        self.total_routes = 0 
+        self.total_routes = 0
         for routes in graph['vnet_routes']:
             for name, rt_list in routes.items():
                 self.total_routes += len(rt_list)
@@ -195,7 +206,7 @@ class VNET(BaseTest):
         if 'vxlan_udp_sport' in self.test_params and self.test_params['vxlan_udp_sport']:
             self.vxlan_srcport = self.test_params['vxlan_udp_sport']
 
-        if 'vxlan_udp_sport_mask' in self.test_params and self.test_params['vxlan_udp_sport_mask'] >=0:
+        if 'vxlan_udp_sport_mask' in self.test_params and self.test_params['vxlan_udp_sport_mask'] >= 0:
             self.vxlan_srcport_mask = self.test_params['vxlan_udp_sport_mask']
 
         if 'vxlan_range_enable' in self.test_params:
@@ -212,7 +223,8 @@ class VNET(BaseTest):
         self.pc_info = []
         self.net_ports = []
         for name, val in graph['minigraph_portchannels'].items():
-            members = [graph['minigraph_port_indices'][member] for member in val['members']]
+            members = [graph['minigraph_port_indices'][member]
+                       for member in val['members']]
             self.net_ports.extend(members)
             ip = None
 
@@ -221,13 +233,15 @@ class VNET(BaseTest):
                     ip = d['peer_addr']
                     break
             else:
-                raise Exception("Portchannel '%s' ip address is not found" % name)
+                raise Exception(
+                    "Portchannel '%s' ip address is not found" % name)
 
             self.pc_info.append((ip, members))
 
         self.acc_ports = []
         for name, data in graph['minigraph_vlans'].items():
-            ports = [graph['minigraph_port_indices'][member] for member in data['members'][1:]]
+            ports = [graph['minigraph_port_indices'][member]
+                     for member in data['members'][1:]]
             self.acc_ports.extend(ports)
 
         vni_base = 10000
@@ -256,7 +270,7 @@ class VNET(BaseTest):
             serv_info['vlan_id'] = vlan_id
             serv_info['ip'] = ip
             serv_info['port'] = ports
-            serv_info['vni'] = vni_base + int(data['vnet'].replace('Vnet',''))
+            serv_info['vni'] = vni_base + int(data['vnet'].replace('Vnet', ''))
             self.serv_info[data['vnet']].extend([serv_info])
 
         self.peering = graph['vnet_peers']
@@ -272,8 +286,8 @@ class VNET(BaseTest):
                     vnet_id = int(name.split('_')[0][4:])
                     len_rt = len(rt_list)
                     group_8 = (vnet_id-1)//self.vnet_batch
-                    rt_idx = (group_8//2)%len_rt
-                    if group_8%2:
+                    rt_idx = (group_8//2) % len_rt
+                    if group_8 % 2:
                         rt_idx = (len_rt-1)-rt_idx
 
                     entry = rt_list[rt_idx]
@@ -316,7 +330,8 @@ class VNET(BaseTest):
                 break
             time.sleep(1)
         else:
-            raise Exception("arp_responder state is not RUNNING! Output: %s" % output)
+            raise Exception(
+                "arp_responder state is not RUNNING! Output: %s" % output)
 
     def tearDown(self):
         if self.vxlan_enabled:
@@ -332,16 +347,15 @@ class VNET(BaseTest):
 
         print
         for test in self.tests:
-            print test['name']
+            print(test['name'])
             self.FromServer(test)
-            print "  FromServer passed"
+            print("  FromServer passed")
             self.FromVM(test)
-            print "  FromVM  passed"
+            print("  FromVM  passed")
             self.Serv2Serv(test)
-            print "  Serv2Serv passed"
+            print("  Serv2Serv passed")
 
     def FromVM(self, test):
-        rv = True
         pkt_len = self.DEFAULT_PKT_LEN
         if test['vlan'] != 0:
             tagged = True
@@ -359,9 +373,9 @@ class VNET(BaseTest):
                 ip_ttl=64,
                 tcp_sport=1234,
                 tcp_dport=5000)
-            udp_sport = 1234 # Use entropy_hash(pkt)
+            udp_sport = 1234  # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 vxlan_pkt = simple_vxlan_packet(
                     eth_dst=self.dut_mac,
                     eth_src=self.random_mac,
@@ -374,7 +388,7 @@ class VNET(BaseTest):
                     vxlan_vni=int(test['vni']),
                     with_udp_chksum=False,
                     inner_frame=pkt)
-            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+            elif isinstance(ip_address(test['host']), IPv6Address):
                 vxlan_pkt = simple_vxlanv6_packet(
                     eth_dst=self.dut_mac,
                     eth_src=self.random_mac,
@@ -401,10 +415,12 @@ class VNET(BaseTest):
                 tcp_dport=5000)
             send_packet(self, net_port, str(vxlan_pkt))
 
-            log_str = "Sending packet from port " + str(net_port) + " to " + test['src']
+            log_str = "Sending packet from port " + \
+                str(net_port) + " to " + test['src']
             logging.info(log_str)
 
-            log_str = "Expecting packet on " + str("eth%d" % test['port']) + " from " + test['dst']
+            log_str = "Expecting packet on " + \
+                str("eth%d" % test['port']) + " from " + test['dst']
             logging.info(log_str)
 
             if not self.routes_removed:
@@ -416,7 +432,6 @@ class VNET(BaseTest):
             self.packets.append((net_port, str(vxlan_pkt).encode("base64")))
 
     def FromServer(self, test):
-        rv = True
         try:
             pkt_len = self.DEFAULT_PKT_LEN
             if test['vlan'] != 0:
@@ -450,9 +465,9 @@ class VNET(BaseTest):
                 ip_ttl=63,
                 tcp_sport=1234,
                 tcp_dport=5000)
-            udp_sport = 1234 # Use entropy_hash(pkt)
+            udp_sport = 1234  # Use entropy_hash(pkt)
             udp_dport = self.vxlan_port
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 encap_pkt = simple_vxlan_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
@@ -465,8 +480,8 @@ class VNET(BaseTest):
                     with_udp_chksum=False,
                     vxlan_vni=vni,
                     inner_frame=exp_pkt)
-                encap_pkt[IP].flags = 0x2
-            elif isinstance(ip_address(test['host']), ipaddress.IPv6Address):
+                encap_pkt[scapy.IP].flags = 0x2
+            elif isinstance(ip_address(test['host']), IPv6Address):
                 encap_pkt = simple_vxlanv6_packet(
                     eth_src=self.dut_mac,
                     eth_dst=self.random_mac,
@@ -484,23 +499,27 @@ class VNET(BaseTest):
             masked_exp_pkt = Mask(encap_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-            if isinstance(ip_address(test['host']), ipaddress.IPv4Address):
+            if isinstance(ip_address(test['host']), IPv4Address):
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.UDP, "sport")
 
-            log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + test['dst']
+            log_str = "Sending packet from port " + \
+                str('eth%d' % test['port']) + " to " + test['dst']
             logging.info(log_str)
 
             if not self.routes_removed:
-                status, received_pkt = verify_packet_any_port(self, masked_exp_pkt, self.net_ports)
+                status, received_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, self.net_ports)
                 if self.vxlan_srcport_range_enabled:
-                    scapy_pkt  = Ether(received_pkt)
-                    upper_bound  = self.vxlan_srcport | (0xff >> (8 - self.vxlan_srcport_mask))
-                    assert (self.vxlan_srcport <= scapy_pkt.sport) and  (upper_bound >=  scapy_pkt.sport), ("Received packet has UDP src port {} "
-                        "that is not in expected range {} - {}".format(scapy_pkt.sport, self.vxlan_srcport, upper_bound))
+                    scapy_pkt = scapy.Ether(received_pkt)
+                    upper_bound = self.vxlan_srcport | (
+                        0xff >> (8 - self.vxlan_srcport_mask))
+                    assert (self.vxlan_srcport <= scapy_pkt.sport) and (upper_bound >= scapy_pkt.sport),\
+                        ("Received packet has UDP src port {} that is not in expected range {} - {}"
+                         .format(scapy_pkt.sport, self.vxlan_srcport, upper_bound))
             else:
                 verify_no_packet_any(self, masked_exp_pkt, self.net_ports)
 
@@ -509,7 +528,6 @@ class VNET(BaseTest):
 
         finally:
             print
-
 
     def Serv2Serv(self, test):
         try:
@@ -525,7 +543,7 @@ class VNET(BaseTest):
             serv_tests = rif_tests + peer_tests
 
             for serv in serv_tests:
-                print "  Testing Serv2Serv "
+                print("  Testing Serv2Serv ")
                 pkt = simple_tcp_packet(
                     pktlen=pkt_len,
                     eth_dst=self.dut_mac,
@@ -554,10 +572,12 @@ class VNET(BaseTest):
 
                 send_packet(self, test['port'], str(pkt))
 
-                log_str = "Sending packet from port " + str('eth%d' % test['port']) + " to " + serv['src']
+                log_str = "Sending packet from port " + \
+                    str('eth%d' % test['port']) + " to " + serv['src']
                 logging.info(log_str)
 
-                log_str = "Expecting packet on " + str("eth%d" % serv['port']) + " from " + test['src']
+                log_str = "Expecting packet on " + \
+                    str("eth%d" % serv['port']) + " from " + test['src']
                 logging.info(log_str)
 
                 if not self.routes_removed:

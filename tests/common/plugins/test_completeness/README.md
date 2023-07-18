@@ -2,17 +2,17 @@
 CompletenessLevel marker enables testcases to be executed in different meaningful levels.
 Each level is a representation of a scope of execution of a testcase. This document describes the usage of CompletenessLevel marker.
 Defined levels (in increasing order) -
-        
+
         debug
-        
+
         basic
-        
+
         confident
-        
+
         thorough
 
 An unordered level `diagnose` is also supported:
-`diagnose` is meant to analyze an existing defect or a feature. This level is different from the ordered levels that are primarily meant to validate SONiC. 
+`diagnose` is meant to analyze an existing defect or a feature. This level is different from the ordered levels that are primarily meant to validate SONiC.
 Diagnose encompasses a special set of test scenarios that are known to fail because of an existing image issue. This level is intended for a manual test targetted at executing unhealthy scenarios only as defined in the test. If `diagnose` level is specified and a test doesn’t support it, then it shall fall back to `basic` mode.
 
 ### To use CompletenessLevel:
@@ -21,7 +21,7 @@ Diagnose encompasses a special set of test scenarios that are known to fail beca
 - Automatic normalization between specified ```--completeness_level``` and defined ```supported_completeness_level``` will be performed and the test will be executed at the resultant normalized level of completeness.
 - If module/session/testcase have different supported levels of completeness, the inner most level will supersede any defined level.
   For eg., if the module and testcase have supported levels "debug, basic, thorough" and "confident" respectively, the resultant defined level for this testcase will be "confident".
-- Within a testcase - Class method `CompletenessLevel.get_normalized_level()` can be called with the test's `request` object to get the normalized level. 
+- Within a testcase - Class method `CompletenessLevel.get_normalized_level()` can be called with the test's `request` object to get the normalized level.
 
 ### Different cases for CompletenessLevel
 
@@ -29,12 +29,12 @@ To handle any discrepancy between specified and defined completeness levels, nor
     1. Completeness level not specified during test execution - set the specified level to "basic".
 
     2. Test does not define any completeness level - run the full testcase by default.
-    
+
     3. Specified completeness level do not match any defined level in a test case:
         3.1 Specified level is higher than any defined level - go to highest level defined
         3.2 Specified level is lower than any defined level - go to lowest level defined
         3.3 Specified level is in between two defined levels - go to next lower level
-    
+
     4. Specified level matches one of the defined levels - run testcase at the specified level.
 
 ### CompletenessLevel usage example

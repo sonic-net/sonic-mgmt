@@ -1,5 +1,5 @@
 ## Overview
-The purpose is to test VLAN functions on the SONiC switch.  
+The purpose is to test VLAN functions on the SONiC switch.
 
 ### Scope
 The tests will include:
@@ -18,7 +18,7 @@ A VLAN port will include three attributes:
 
 * Permit VLAN IDs: Which VLAN ID of ingress and egress packets is allowed in the port.
 
-* tagged VLAN IDs: Determine which VLAN IDs egress packets will be tagged.  
+* tagged VLAN IDs: Determine which VLAN IDs egress packets will be tagged.
 
   For the VLAN trunk feature,  the tagged VLAN IDs are limited to Permit VLAN IDs besides PVID, e.g., if PVID is 100, Permit VLAN IDs are 100,200,300, tagged VLAN IDs are 200,300, in other words, untagged VLAN ID is 100.
 
@@ -55,7 +55,7 @@ The detail actions of VLAN ports:
 
    vlan_test.py: Do the PTF test according to vlan_info.j2
 
-5. vlan_info.j2 will choose several Ethernet ports and LAG ports from minigraph of current topology and generate VLAN port info and VLAN interface info for PTF python script to do test. 
+5. vlan_info.j2 will choose several Ethernet ports and LAG ports from minigraph of current topology and generate VLAN port info and VLAN interface info for PTF python script to do test.
 
    ```jinja2
    {% set vlan_id_list = [ 100, 200 ] %}
@@ -151,7 +151,7 @@ All the test cases will try to send packets from all the VLAN ports defined in v
 
 #### Test objective
 
-To verify untagged packets received and be sent out with tag or without tag determined by egress port PVID. 
+To verify untagged packets received and be sent out with tag or without tag determined by egress port PVID.
 
 #### Test description
 
@@ -169,7 +169,7 @@ pkt(untagged)->(pvid:100/permit:100,200)|DUT|
 
 #### Test objective
 
-To verify if tagged packets received in Permit VLAN IDs and be sent out with tag or without tag determined by egress port PVID. 
+To verify if tagged packets received in Permit VLAN IDs and be sent out with tag or without tag determined by egress port PVID.
 
 #### Test description
 
@@ -178,7 +178,7 @@ Test example:
                                               |(untag:100/permit:100,200)->pkt(untagged)
 pkt(tagged:100)->(pvid:100/permit:100,200)|DUT|
                                               |(untag:200/permit:100,200)->pkt(tagged:100)
-                                                 
+
                                               |(untag:100/permit:100,200)->pkt(tagged:200)
 pkt(tagged:200)->(pvid:100/permit:100,200)|DUT|
                                               |(untag:200/permit:100,200)->pkt(untagged)
@@ -203,7 +203,7 @@ pkt(tagged:4095)->(pvid:100/permit:100,200)|DUT|
 ```
 
 1. PTF send tagged packets(destination MAC unknown), which VLAN ID is not in Permit VLAN IDs of ingress port.
-2. Verify no packets received from other ports. 
+2. Verify no packets received from other ports.
 
 ### Test case #4
 #### Test objective
@@ -256,5 +256,3 @@ pkt(tagged:100)<-
 
 1. PTF send ICMP request packet to VLAN interfaces.
 2. Verify ICMP reply packets can be received from ingress port.
-
-

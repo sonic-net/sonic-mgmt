@@ -20,7 +20,7 @@ On SONiC DUT side, xcvrd will firstly check configuration file `/etc/sonic/mux_s
 
 ## Configuration
 
-A test server may serve multiple dualtor testbeds. The original design is to start a single `mux-simulator` systemd service for all the dualtor testbeds using the server. It turns out that this approach is not flexible enough. Sometimes we may need to restart the mux-simulator server for one testbed. If the other testbeds are running tests, they could be negatively affected. The new design is to have a mux simulator service running for each testbed. Each of the mux simulator server listens on different TCP port. TCP port of mux simulator server for each dualtor testbed needs to be defined in file [https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/all/mux_simulator_http_port_map.yml](https://github.com/Azure/sonic-mgmt/blob/master/ansible/group_vars/all/mux_simulator_http_port_map.yml). For example:
+A test server may serve multiple dualtor testbeds. The original design is to start a single `mux-simulator` systemd service for all the dualtor testbeds using the server. It turns out that this approach is not flexible enough. Sometimes we may need to restart the mux-simulator server for one testbed. If the other testbeds are running tests, they could be negatively affected. The new design is to have a mux simulator service running for each testbed. Each of the mux simulator server listens on different TCP port. TCP port of mux simulator server for each dualtor testbed needs to be defined in file [https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/mux_simulator_http_port_map.yml](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/mux_simulator_http_port_map.yml). For example:
 ```
 mux_simulator_http_port:
     # Format requirement:
@@ -254,6 +254,36 @@ Recover flows of all mux bridges belong to `vm_set` to known good state.
 No json data required in POST. This API is to recover flows of all the mux bridges belong to the `vm_set` to known good state:
 * Upstream flow: forward all packets received by `nic` to both `upper_tor` and `lower_tor`
 * Downstream flow: forward packets received by current active tor interface to `nic`. In case current active port is unknown, randomly choose an active interface from `upper_tor` and `lower_tor`. Then setup the downstream flow.
+
+Response: `all_mux_status`
+
+### POST `/mux/<vm_set>/output`
+
+Set flow action of all mux bridges belong to `vm_set` to `output`.
+
+Format of json data required in POST:
+```
+{
+    "out_sides": ["nic", "upper_tor", "lower_tor"],
+}
+```
+
+* `out_sides` is a list. It can contain single or multiple items from: `nic`, `upper_tor`, `lower_tor`.
+
+Response: `all_mux_status`
+
+### POST `/mux/<vm_set>/drop`
+
+Set flow action of all mux bridges belong to `vm_set` to `drop`.
+
+Format of json data required in POST:
+```
+{
+    "out_sides": ["nic", "upper_tor", "lower_tor"],
+}
+```
+
+* `out_sides` is a list. It can contain single or multiple items from: `nic`, `upper_tor`, `lower_tor`.
 
 Response: `all_mux_status`
 

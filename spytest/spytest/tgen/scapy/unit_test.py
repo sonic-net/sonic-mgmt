@@ -38,9 +38,9 @@ def test_clear(tg):
     tg.tg_traffic_control(action="clear_stats",port_handle=port_list)
     for tg_ph in port_list:
         tx_stats = tg.tg_traffic_stats(port_handle=tg_ph,mode="aggregate")
-        print ("TX-STATS", json.dumps(tx_stats))
+        print("TX-STATS", json.dumps(tx_stats))
         rx_stats = tg.tg_traffic_stats(port_handle=tg_ph,mode="aggregate")
-        print ("RX-STATS", json.dumps(rx_stats))
+        print("RX-STATS", json.dumps(rx_stats))
 
 def test_single_burst(tg):
     print("============= test_single_burst ==============")
@@ -50,7 +50,7 @@ def test_single_burst(tg):
     tg.tg_traffic_control(action='run',port_handle=tg_ph_1)
     time.sleep(2)
     tx_stats = tg.tg_traffic_stats(port_handle=tg_ph_1,mode="aggregate")
-    print (tx_stats)
+    print(tx_stats)
 
 def test_untagged(tg, count=2):
     print("============= test_untagged ==============")
@@ -63,9 +63,9 @@ def test_untagged(tg, count=2):
     time.sleep(2)
     tg.tg_traffic_control(action='stop',port_handle=tg_ph_1)
     tx_stats = tg.tg_traffic_stats(port_handle=tg_ph_1,mode="aggregate")
-    print ("TX-STATS", json.dumps(tx_stats))
+    print("TX-STATS", json.dumps(tx_stats))
     rx_stats = tg.tg_traffic_stats(port_handle=tg_ph_2,mode="aggregate")
-    print ("RX-STATS", json.dumps(rx_stats))
+    print("RX-STATS", json.dumps(rx_stats))
 
 def test_tagged(tg, count=2):
     print("============= test_tagged ==============")
@@ -76,9 +76,9 @@ def test_tagged(tg, count=2):
     time.sleep(5)
     tg.tg_traffic_control(action='stop',port_handle=tg_ph_1)
     tx_stats = tg.tg_traffic_stats(port_handle=tg_ph_1,mode="aggregate")
-    print ("TX-STATS", json.dumps(tx_stats))
+    print("TX-STATS", json.dumps(tx_stats))
     rx_stats = tg.tg_traffic_stats(port_handle=tg_ph_2,mode="aggregate")
-    print ("RX-STATS", json.dumps(rx_stats))
+    print("RX-STATS", json.dumps(rx_stats))
 
 def test_capture(tg):
     print("============= test_capture ==============")
@@ -90,11 +90,11 @@ def test_capture(tg):
     time.sleep(5)
     tg.tg_traffic_control(action='stop',port_handle=tg_ph_1)
     tx_stats = tg.tg_traffic_stats(port_handle=tg_ph_2,mode="aggregate")
-    print (tx_stats)
+    print(tx_stats)
     totPackets = tg.tg_packet_control(port_handle=tg_ph_2,action='stop')
-    print (totPackets)
+    print(totPackets)
     packet_dict = tg.tg_packet_stats(port_handle=tg_ph_2,format='var')
-    print (packet_dict)
+    print(packet_dict)
 
 def test_interface(tg):
     print("============= test_interface ==============")

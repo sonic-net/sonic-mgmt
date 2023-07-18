@@ -7,18 +7,18 @@
     },
 
     "PORT": {
-    {% for alias in fanout_port_config %}
-        "{{ fanout_port_config[alias]['name'] }}": {
-            "alias": "{{ alias }}",
-            "speed" : "{{ fanout_port_config[alias]['speed'] | default('100000') }}",
-            "index": "{{ fanout_port_config[alias]['index'] }}",
-            "lanes": "{{ fanout_port_config[alias]['lanes'] }}",
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}": {
+            "alias": "{{ fanout_port_config[port_name]['alias'] }}",
+            "speed" : "{{ fanout_port_config[port_name]['speed'] | default('100000') }}",
+            "index": "{{ fanout_port_config[port_name]['index'] }}",
+            "lanes": "{{ fanout_port_config[port_name]['lanes'] }}",
             "pfc_asym": "off",
             "mtu": "9100",
-    {% if fanout_port_config[alias]['speed'] | default('100000') == "100000" %}
+    {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
             "fec" : "rs",
     {% endif %}
-    {% if 'peerdevice' in fanout_port_config[alias] %}
+    {% if 'peerdevice' in fanout_port_config[port_name] %}
             "admin_status": "up"
     {% else %}
             "admin_status": "down"
@@ -37,17 +37,17 @@
 
     {% set ns = {'firstPrinted': False} %}
     "VLAN_MEMBER": {
-    {% for alias in device_port_vlans[inventory_hostname] %}
-    {% if device_port_vlans[inventory_hostname][alias]['mode'] == 'Access' %}
+    {% for port_name in device_port_vlans[inventory_hostname] %}
+    {% if device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'access' %}
     {% if ns.firstPrinted %},{% endif %}
-        "Vlan{{ device_port_vlans[inventory_hostname][alias]['vlanids'] }}|{{ fanout_port_config[alias]['name'] }}": {
+        "Vlan{{ device_port_vlans[inventory_hostname][port_name]['vlanids'] }}|{{ fanout_port_config[port_name]['name'] }}": {
             "tagging_mode" : "untagged"
         }
     {% if ns.update({'firstPrinted': True}) %} {% endif %}
-    {% elif device_port_vlans[inventory_hostname][alias]['mode'] == 'Trunk' %}
-    {% for vlanid in device_port_vlans[inventory_hostname][alias]['vlanlist'] %}
+    {% elif device_port_vlans[inventory_hostname][port_name]['mode'].lower() == 'trunk' %}
+    {% for vlanid in device_port_vlans[inventory_hostname][port_name]['vlanlist'] %}
     {% if ns.firstPrinted %},{% endif %}
-        "Vlan{{ vlanid }}|{{ fanout_port_config[alias]['name'] }}": {
+        "Vlan{{ vlanid }}|{{ fanout_port_config[port_name]['name'] }}": {
             "tagging_mode" : "tagged"
         }
     {% if ns.update({'firstPrinted': True}) %} {% endif %}
@@ -59,6 +59,12 @@
     "MGMT_INTERFACE": {
         "eth0|{{ device_info[inventory_hostname]["ManagementIp"] }}": {
             "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
+        }
+    },
+    "MGMT_PORT": {
+        "eth0": {
+            "admin_status": "up",
+            "alias": "eth0"
         }
     },
 
@@ -75,65 +81,141 @@
     },
 
     "QUEUE": {
-    {% for alias in fanout_port_config %}
-        "{{ fanout_port_config[alias]['name'] }}|0": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}|0": {
             "scheduler": "[SCHEDULER|scheduler.0]"
         },
-        "{{ fanout_port_config[alias]['name'] }}|1": {
+        "{{ port_name }}|1": {
             "scheduler": "[SCHEDULER|scheduler.0]"
         },
-        "{{ fanout_port_config[alias]['name'] }}|2": {
+        "{{ port_name }}|2": {
             "scheduler": "[SCHEDULER|scheduler.0]"
         },
-        "{{ fanout_port_config[alias]['name'] }}|3": {
+        "{{ port_name }}|3": {
             "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
             "scheduler": "[SCHEDULER|scheduler.1]"
         },
-        "{{ fanout_port_config[alias]['name'] }}|4": {
+        "{{ port_name }}|4": {
             "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
             "scheduler": "[SCHEDULER|scheduler.1]"
         },
-        "{{ fanout_port_config[alias]['name'] }}|5": {
+        "{{ port_name }}|5": {
             "scheduler": "[SCHEDULER|scheduler.0]"
         },
-        "{{ fanout_port_config[alias]['name'] }}|6": {
+        "{{ port_name }}|6": {
             "scheduler": "[SCHEDULER|scheduler.0]"
-        }{% if not loop.last %},{% endif %}
-    {% endfor %}
-    },
-
-    "BUFFER_QUEUE": {
-    {% for alias in fanout_port_config %}
-        "{{ fanout_port_config[alias]['name'] }}|0-2": {
-            "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
-        },
-        "{{ fanout_port_config[alias]['name'] }}|3-4": {
-            "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
-        },
-        "{{ fanout_port_config[alias]['name'] }}|5-6": {
-            "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
-        }{% if not loop.last %},{% endif %}
-    {% endfor %}
-    },
-
-    "BUFFER_PG": {
-    {% for alias in fanout_port_config %}
-        "{{ fanout_port_config[alias]['name'] }}|0": {
-            "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
-        },
-        "{{ fanout_port_config[alias]['name'] }}|3-4": {
-            "profile": "[BUFFER_PROFILE|pg_lossless_100000_300m_profile]"
         }{% if not loop.last %},{% endif %}
     {% endfor %}
     },
 
     "CABLE_LENGTH": {
         "AZURE": {
-    {% for alias in fanout_port_config %}
-        "{{ fanout_port_config[alias]['name'] }}": "300m"{% if not loop.last %},{% endif %}
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}": "300m"{% if not loop.last %},{% endif %}
     {% endfor %}
         }
     },
+
+{% if 'mellanox' in fanout_sonic_version["asic_type"] %}
+    "BUFFER_PG": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}|0-7": {
+            "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+    "BUFFER_POOL": {
+        "egress_lossless_pool": {
+            "mode": "dynamic",
+            "size": "13945824",
+            "type": "egress"
+        },
+        "egress_lossy_pool": {
+            "mode": "dynamic",
+            "size": "10177536",
+            "type": "egress"
+        },
+        "ingress_lossless_pool": {
+            "mode": "dynamic",
+            "size": "10177536",
+            "type": "ingress",
+            "xoff": "688128"
+        },
+        "ingress_zero_pool": {
+            "mode": "static",
+            "size": "0",
+            "type": "ingress"
+        }
+    },
+    "BUFFER_PROFILE": {
+        "egress_lossless_profile": {
+            "dynamic_th": "7",
+            "pool": "[BUFFER_POOL|egress_lossless_pool]",
+            "size": "0"
+        },
+        "egress_lossless_zero_profile": {
+            "dynamic_th": "-8",
+            "pool": "[BUFFER_POOL|egress_lossless_pool]",
+            "size": "0"
+        },
+        "egress_lossy_profile": {
+            "dynamic_th": "7",
+            "pool": "[BUFFER_POOL|egress_lossy_pool]",
+            "size": "9216"
+        },
+        "egress_lossy_zero_profile": {
+            "dynamic_th": "-8",
+            "pool": "[BUFFER_POOL|egress_lossy_pool]",
+            "size": "0"
+        },
+        "ingress_lossless_profile": {
+            "dynamic_th": "7",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "0"
+        },
+        "ingress_lossless_zero_profile": {
+            "dynamic_th": "-8",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "0"
+        },
+        "ingress_lossy_pg_zero_profile": {
+            "pool": "[BUFFER_POOL|ingress_zero_pool]",
+            "size": "0",
+            "static_th": "0"
+        },
+        "ingress_lossy_profile": {
+            "dynamic_th": "3",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "0"
+        },
+        "pg_lossless_100000_5m_profile": {
+            "dynamic_th": "0",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "19456",
+            "xoff": "23552",
+            "xon": "19456"
+        },
+        "pg_lossless_100000_40m_profile": {
+            "dynamic_th": "0",
+            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+            "size": "19456",
+            "xoff": "29696",
+            "xon": "19456"
+        },
+        "q_lossy_profile": {
+            "dynamic_th": "3",
+            "pool": "[BUFFER_POOL|egress_lossy_pool]",
+            "size": "0"
+        }
+    },
+    "BUFFER_QUEUE": {
+    {% for port_name in fanout_port_config %}
+        "{{ port_name }}|0-7": {
+            "profile": "[BUFFER_PROFILE|q_lossy_profile]"
+        }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    },
+{% endif %}
 
     "VERSIONS": {
         "DATABASE": {
@@ -184,51 +266,6 @@
         "scheduler.1": {
             "type": "DWRR",
             "weight": "15"
-        }
-    },
-
-    "BUFFER_POOL": {
-        "egress_lossless_pool": {
-            "type": "egress",
-            "mode": "static",
-            "size": "15982720"
-        },
-        "egress_lossy_pool": {
-            "type": "egress",
-            "mode": "dynamic",
-            "size": "9243812"
-        },
-        "ingress_lossless_pool": {
-            "xoff": "4194112",
-            "type": "ingress",
-            "mode": "dynamic",
-            "size": "10875072"
-        }
-    },
-
-    "BUFFER_PROFILE": {
-        "egress_lossless_profile": {
-            "static_th": "15982720",
-            "pool": "[BUFFER_POOL|egress_lossless_pool]",
-            "size": "1518"
-        },
-        "egress_lossy_profile": {
-            "dynamic_th": "3",
-            "pool": "[BUFFER_POOL|egress_lossy_pool]",
-            "size": "1518"
-        },
-        "ingress_lossy_profile": {
-            "dynamic_th": "3",
-            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
-            "size": "0"
-        },
-        "pg_lossless_100000_300m_profile": {
-            "xon_offset": "2288",
-            "dynamic_th": "0",
-            "xon": "2288",
-            "xoff": "268736",
-            "pool": "[BUFFER_POOL|ingress_lossless_pool]",
-            "size": "1248"
         }
     },
 

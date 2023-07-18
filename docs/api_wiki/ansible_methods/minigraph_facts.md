@@ -107,7 +107,7 @@ A dictionary would be returned containing info on the minigraph. The dictionary 
             - `mgmt_addr` - mgmt address for specified device
             - `hwsku` - Type of hardware switch being used
             - `type` - type of device
-    
+
     - `minigraph_bgp_asn` - BGP asn configured by minigraph
     - `minigraph_neighbors` - provides information on neighbor ports
         - `{PORT_NAME}` - Dictionary providing information on port

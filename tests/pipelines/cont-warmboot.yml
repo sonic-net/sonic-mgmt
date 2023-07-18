@@ -15,8 +15,8 @@ resources:
   repositories:
   - repository: sonic-mgmt
     type: github
-    name: Azure/sonic-mgmt
-    endpoint: build
+    name: sonic-net/sonic-mgmt
+    endpoint: sonic-net
 
 parameters:
 - name: iterations
@@ -150,4 +150,3 @@ stages:
         testResultsFiles: '$(Build.ArtifactStagingDirectory)/logs/**/*.xml'
         testRunTitle: kvmtest
       condition: succeededOrFailed()
-

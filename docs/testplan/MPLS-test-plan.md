@@ -24,7 +24,7 @@ This is Test Plan to test MPLS feature on SONiC. The test enables MPLS on interf
 The test is targeting a running SONiC system with basic functioning configuration.
 Purpose of the test is to verify MPLS on a SONiC system bringing up the ingress, transit or egress static LSP and forwarding the traffic correctly.
 
-### Testbed 
+### Testbed
 T1
 
 ## Setup configuration
@@ -63,9 +63,9 @@ label_pop_routes.j2
     }
 ]
  ```
- 
+
  label_push_routes.j2
- 
+
  ```
  [
     {
@@ -161,7 +161,7 @@ Verify that the MPLS label is pushed on the received packet.
 #### Test steps
 - Enable MPLS on interfaces and configure push label for MPLS packet.
 - Send IP packet.
-- Capture the packet and verify that it is MPLS packet with label added as per configuration. 
+- Capture the packet and verify that it is MPLS packet with label added as per configuration.
 
 
 ### Test case \#4 - SWAP Label for multiple label stack
@@ -174,4 +174,3 @@ Verify that the MPLS top label is swapped on the received packet.
 - Enable MPLS on interfaces and configure swap label for MPLS packet.
 - Send MPLS packet.
 - Capture the packet and verify that it is MPLS packet with label swapped as per configuration for the top label.
- 

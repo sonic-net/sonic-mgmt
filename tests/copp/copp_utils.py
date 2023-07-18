@@ -81,6 +81,7 @@ def limit_policer(dut, pps_limit, nn_target_namespace):
     else:
         dut.command("cp {} {}".format(_TEMP_COPP_CONFIG, _DEFAULT_COPP_TEMPLATE))
 
+
 def restore_policer(dut, nn_target_namespace):
     """
         Reloads the default COPP configuration in the SWSS container.
@@ -114,7 +115,9 @@ def configure_ptf(ptf, test_params, is_backend_topology=False):
 
     ptf.script(cmd=_REMOVE_IP_SCRIPT)
     if is_backend_topology:
-        ip_command = "ip address add %s/31 dev \"eth%s.%s\"" % (test_params.myip, test_params.nn_target_port, test_params.nn_target_vlanid)
+        ip_command = "ip address add %s/31 dev \"eth%s.%s\"" % (test_params.myip,
+                                                                test_params.nn_target_port,
+                                                                test_params.nn_target_vlanid)
     else:
         ip_command = "ip address add %s/31 dev eth%s" % (test_params.myip, test_params.nn_target_port)
 
@@ -129,6 +132,7 @@ def configure_ptf(ptf, test_params, is_backend_topology=False):
     ptf.template(src=_PTF_NN_TEMPLATE, dest=_PTF_NN_DEST)
 
     ptf.supervisorctl(name="ptf_nn_agent", state="restarted")
+
 
 def restore_ptf(ptf):
     """
@@ -150,7 +154,8 @@ def restore_ptf(ptf):
 
     ptf.supervisorctl(name="ptf_nn_agent", state="restarted")
 
-def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid, creds):
+
+def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid, swap_syncd, creds):
     """
         Configures syncd to run the NN agent on the specified port.
 
@@ -178,7 +183,8 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
 
     syncd_docker_name = asichost.get_docker_name("syncd")
 
-    _install_nano(dut, creds, syncd_docker_name)
+    if not swap_syncd:
+        _install_nano(dut, creds, syncd_docker_name)
 
     dut.template(src=_SYNCD_NN_TEMPLATE, dest=_SYNCD_NN_DEST)
 
@@ -187,14 +193,12 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     dut.command("docker exec {} supervisorctl reread".format(syncd_docker_name))
     dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
 
+
 def restore_syncd(dut, nn_target_namespace):
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
-
     syncd_docker_name = asichost.get_docker_name("syncd")
-
-    dut.command("docker exec {} rm -rf /etc/supervisor/conf.d/{}".format(syncd_docker_name, _SYNCD_NN_FILE))
-    dut.command("docker exec {} supervisorctl reread".format(syncd_docker_name))
-    dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
+    asichost.stop_service("syncd")
+    asichost.delete_container(syncd_docker_name)
 
 
 def _install_nano(dut, creds,  syncd_docker_name):
@@ -206,24 +210,51 @@ def _install_nano(dut, creds,  syncd_docker_name):
             creds (dict): Credential information according to the dut inventory
     """
 
-    output = dut.command("docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] || echo copp'".format(syncd_docker_name))
+    if dut.facts["asic_type"] == "cisco-8000":
+        output = dut.command("docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] || \
+            echo copp'".format(syncd_docker_name))
+    else:
+        output = dut.command("docker exec {} bash -c '[ -d /usr/local/include/nanomsg ] && [ -d /opt/ptf ] || \
+            echo copp'".format(syncd_docker_name))
 
     if output["stdout"] == "copp":
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+        check_cmd = "docker exec -i {} bash -c 'cat /etc/os-release'".format(syncd_docker_name)
 
-        cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
-                rm -rf /var/lib/apt/lists/* \
-                && apt-get update \
-                && apt-get install -y python-pip build-essential libssl-dev libffi-dev python-dev python-setuptools wget cmake \
-                && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
-                && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
-                && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
-                && rm -f 1.0.0.tar.gz && pip2 install cffi==1.7.0 && pip2 install --upgrade cffi==1.7.0 && pip2 install nnpy \
-                && mkdir -p /opt && cd /opt && wget https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
-                && mkdir ptf && cd ptf && wget https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
-                " '''.format(http_proxy, https_proxy, syncd_docker_name)
+        if "bullseye" in dut.shell(check_cmd)['stdout'].lower():
+            cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
+                    rm -rf /var/lib/apt/lists/* \
+                    && apt-get update \
+                    && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
+                    python3-dev python-setuptools wget cmake python-is-python3 \
+                    && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
+                    && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
+                    && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
+                    && rm -f 1.0.0.tar.gz && pip3 install cffi && pip3 install --upgrade cffi && pip3 install nnpy \
+                    && mkdir -p /opt && cd /opt && wget \
+                    https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
+                    && mkdir ptf && cd ptf && wget \
+                    https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
+                    " '''.format(http_proxy, https_proxy, syncd_docker_name)
+        else:
+            cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
+                    rm -rf /var/lib/apt/lists/* \
+                    && apt-get update \
+                    && apt-get install -y python-pip build-essential libssl-dev libffi-dev \
+                    python-dev python-setuptools wget cmake \
+                    && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
+                    && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
+                    && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
+                    && rm -f 1.0.0.tar.gz && pip2 install cffi==1.7.0 && pip2 install --upgrade \
+                    cffi==1.7.0 && pip2 install nnpy \
+                    && mkdir -p /opt && cd /opt && wget \
+                    https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
+                    && mkdir ptf && cd ptf && wget \
+                    https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
+                    " '''.format(http_proxy, https_proxy, syncd_docker_name)
         dut.command(cmd)
+
 
 def _map_port_number_to_interface(dut, nn_target_port):
     """
@@ -232,6 +263,7 @@ def _map_port_number_to_interface(dut, nn_target_port):
 
     interfaces = dut.command("portstat")["stdout_lines"][2:]
     return interfaces[nn_target_port].split()[0]
+
 
 def _get_http_and_https_proxy_ip(creds):
     """

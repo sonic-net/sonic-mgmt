@@ -17,6 +17,11 @@
             <a:Value>1</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
+            <a:Name>CloudType</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Public</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
             <a:Name>QosProfile</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
@@ -26,6 +31,32 @@
             <a:Name>GeminiEnabled</a:Name>
             <a:Reference i:nil="true" />
             <a:Value>True</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if 'dualtor-aa' in topo %}
+          <a:DeviceProperty>
+            <a:Name>RedundancyType</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>Libra</a:Value>
+          </a:DeviceProperty>
+{% elif 'dualtor-mixed' in topo %}
+          <a:DeviceProperty>
+            <a:Name>RedundancyType</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>Mixed</a:Value>
+          </a:DeviceProperty>
+{% elif 'dualtor' in topo %}
+          <a:DeviceProperty>
+            <a:Name>RedundancyType</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>Gemini</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if ('t1' in topo) and (enable_tunnel_qos_remap|default('false')|bool) %}
+          <a:DeviceProperty>
+            <a:Name>DownstreamRedundancyTypes</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Gemini</a:Value>
           </a:DeviceProperty>
 {% endif %}
 {% if dhcp_servers %}
@@ -152,6 +183,11 @@
         <a:Name>{{ asic }}</a:Name>
         <a:Properties>
           <a:DeviceProperty>
+            <a:Name>DeploymentId</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>1</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
             <a:Name>SubRole</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ asic_config['asic_type'] }}</a:Value>
@@ -192,4 +228,3 @@
     </Devices>
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
-

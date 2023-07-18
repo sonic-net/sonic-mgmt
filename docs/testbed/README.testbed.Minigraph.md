@@ -15,8 +15,8 @@ is the testbed name defined in `testbed.csv`, `lab` is the inventory file.
 
 **Note**
 
-- To configure your SONiC switch with different port speeds, you need to specify port speed in `port_config.ini`. Example [port_config.ini](https://github.com/Azure/sonic-buildimage/blob/master/device/arista/x86_64-arista_7260cx3_64/Arista-7260CX3-D108C8/port_config.ini).
-- You have to make sure that the hwsku in 'lab' can be found in [port_utils.py](https://github.com/Azure/sonic-mgmt/blob/master/ansible/module_utils/port_utils.py#L15). If you cannot find the hwsku of your SONiC device in the port-utils file, you should add your SONiC switch 'portname-to-alias' mapping information in [port_utils.py](https://github.com/Azure/sonic-mgmt/blob/master/ansible/module_utils/port_utils.py#L15).
+- To configure your SONiC switch with different port speeds, you need to specify port speed in `port_config.ini`. Example [port_config.ini](https://github.com/sonic-net/sonic-buildimage/blob/master/device/arista/x86_64-arista_7260cx3_64/Arista-7260CX3-D108C8/port_config.ini).
+- You have to make sure that the hwsku in 'lab' can be found in [port_utils.py](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/module_utils/port_utils.py#L15). If you cannot find the hwsku of your SONiC device in the port-utils file, you should add your SONiC switch 'portname-to-alias' mapping information in [port_utils.py](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/module_utils/port_utils.py#L15).
 ## How it works
 
 The tool works as follows:

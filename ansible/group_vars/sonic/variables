@@ -6,25 +6,29 @@ sonic_version: "v2"
 
 broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X", "Celestica-DX010-C32", "Seastone-DX010", "Celestica-E1031-T48S4"]
 
-broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S']
+broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S', 'Arista-7050QX32S-Q32']
 broadcom_td3_hwskus: ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']
 broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', "Seastone-DX010" ]
 broadcom_th2_hwskus: ['Arista-7260CX3-D108C8',  'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
 broadcom_th3_hwskus: ['DellEMC-Z9332f-M-O16C64',  'DellEMC-Z9332f-O32']
+broadcom_j2c+_hwskus: ['Nokia-IXR7250E-36x100G', 'Nokia-IXR7250E-36x400G']
+broadcom_jr2_hwskus: ['Arista-7800R3-48CQ2-C48']
 
 mellanox_spc1_hwskus: [ 'ACS-MSN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010', 'Mellanox-SN2700', 'Mellanox-SN2700-D48C8' ]
 mellanox_spc2_hwskus: [ 'ACS-MSN3700', 'ACS-MSN3700C', 'ACS-MSN3800', 'Mellanox-SN3800-D112C8' , 'ACS-MSN3420']
-mellanox_spc3_hwskus: [ 'ACS-MSN4700', 'ACS-MSN4600', 'ACS-MSN4600C', 'ACS-MSN4410', 'Mellanox-SN4600C-D112C8']
-mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus }}"
+mellanox_spc3_hwskus: [ 'ACS-MSN4700', 'ACS-MSN4600', 'ACS-MSN4600C', 'ACS-MSN4410', 'Mellanox-SN4600C-D112C8', 'Mellanox-SN4600C-C64']
+mellanox_spc4_hwskus: [ 'ACS-SN5600' ]
+mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus + mellanox_spc4_hwskus }}"
 
 cavium_hwskus: [ "AS7512", "XP-SIM" ]
 
 barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista-7170-32CD-C32" ]
 
 marvell_hwskus: [ "et6448m" ]
+innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
-cisco_hwskus: ["64x100Gb"]
-cisco-8000_gb_hwskus: ["64x100Gb"]
+cisco_hwskus: ["Cisco-8102-C64"]
+cisco-8000_gb_hwskus: ["Cisco-8102-C64"]
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we

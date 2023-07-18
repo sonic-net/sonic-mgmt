@@ -8,9 +8,9 @@ from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 
-# HACK: This is a hack for issue https://github.com/Azure/sonic-mgmt/issues/1941 and issue
+# HACK: This is a hack for issue https://github.com/sonic-net/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
-# Detailed root cause analysis of the issue: https://github.com/Azure/sonic-mgmt/issues/1941#issuecomment-670434790
+# Detailed root cause analysis of the issue: https://github.com/sonic-net/sonic-mgmt/issues/1941#issuecomment-670434790
 # Before calling callback function of plugins to return ansible module result, ansible calls the
 # ansible.executor.task_result.TaskResult.clean_copy method to remove some keys like 'failed' and 'skipped' in the
 # result dict. The keys to be removed are defined in module variable ansible.executor.task_result._IGNORE. The trick
@@ -20,7 +20,7 @@ try:
     from ansible.executor import task_result
     task_result._IGNORE = ('skipped', )
 except Exception as e:
-    logging.error("Hack for https://github.com/ansible/pytest-ansible/issues/47 failed: {}".format(repr(e)))
+    logger.error("Hack for https://github.com/ansible/pytest-ansible/issues/47 failed: {}".format(repr(e)))
 
 
 class AnsibleHostBase(object):
@@ -31,6 +31,12 @@ class AnsibleHostBase(object):
     ansible host object although it is not under the hood. Anyway, we can use this object to run ansible module
     on the host.
     """
+
+    class CustomEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, bytes):
+                return obj.decode('utf-8')
+            return super().default(obj)
 
     def __init__(self, ansible_adhoc, hostname, *args, **kwargs):
         if hostname == 'localhost':
@@ -58,12 +64,27 @@ class AnsibleHostBase(object):
         verbose = complex_args.pop('verbose', True)
 
         if verbose:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}"\
-                .format(filename, function_name, line_number, self.hostname,
-                        self.module_name, json.dumps(module_args), json.dumps(complex_args)))
+            logger.debug(
+                "{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}".format(
+                    filename,
+                    function_name,
+                    line_number,
+                    self.hostname,
+                    self.module_name,
+                    json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder),
+                    json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder)
+                )
+            )
         else:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} executing..."\
-                .format(filename, function_name, line_number, self.hostname, self.module_name))
+            logger.debug(
+                "{}::{}#{}: [{}] AnsibleModule::{} executing...".format(
+                    filename,
+                    function_name,
+                    line_number,
+                    self.hostname,
+                    self.module_name
+                )
+            )
 
         module_ignore_errors = complex_args.pop('module_ignore_errors', False)
         module_async = complex_args.pop('module_async', False)
@@ -75,20 +96,38 @@ class AnsibleHostBase(object):
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
 
+        module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
+        complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
         res = self.module(*module_args, **complex_args)[self.hostname]
 
         if verbose:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} Result => {}"\
-                .format(filename, function_name, line_number, self.hostname, self.module_name, json.dumps(res)))
+            logger.debug(
+                "{}::{}#{}: [{}] AnsibleModule::{} Result => {}".format(
+                    filename,
+                    function_name,
+                    line_number,
+                    self.hostname,
+                    self.module_name, json.dumps(res, cls=AnsibleHostBase.CustomEncoder)
+                )
+            )
         else:
-            logging.debug("{}::{}#{}: [{}] AnsibleModule::{} done, is_failed={}, rc={}"\
-                .format(filename, function_name, line_number, self.hostname, self.module_name, \
-                        res.is_failed, res.get('rc', None)))
+            logger.debug(
+                "{}::{}#{}: [{}] AnsibleModule::{} done, is_failed={}, rc={}".format(
+                    filename,
+                    function_name,
+                    line_number,
+                    self.hostname,
+                    self.module_name,
+                    res.is_failed,
+                    res.get('rc', None)
+                )
+            )
 
         if (res.is_failed or 'exception' in res) and not module_ignore_errors:
             raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
 
         return res
+
 
 class NeighborDevice(dict):
     def __str__(self):

@@ -5,10 +5,10 @@
    - [Assumptions](#assumptions)
    - [Test Setup](#test-setup)
  - [Test Cases](#test-cases)
-     
-# Introduction 
 
-This is the test plan for Fabric link testing on SONIC Distributed VOQ System, as described in the [VOQ Fabric HLD](https://github.com/Azure/SONiC/blob/master/doc/voq/fabric.md)
+# Introduction
+
+This is the test plan for Fabric link testing on SONIC Distributed VOQ System, as described in the [VOQ Fabric HLD](https://github.com/sonic-net/SONiC/blob/master/doc/voq/fabric.md)
 
 ## Scope
 
@@ -25,7 +25,7 @@ The current SW design for fabric does not cover events like card insertion/remov
 
 ## Test Setup
 
-These test cases will be run in the proposed [T2 topology](https://github.com/Azure/sonic-mgmt/blob/master/ansible/vars/topo_t2.yml). It is assumed that such a configuration is deployed on the chassis.
+These test cases will be run in the proposed [T2 topology](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/vars/topo_t2.yml). It is assumed that such a configuration is deployed on the chassis.
 
 These test cases will compare the following two sets of data on a chassis:
 * Expected fabric link status
@@ -92,20 +92,19 @@ Verify that from each fabric ASIC, all forwarding ASICs are reachable.
 ## Test Case 3. Test fabric counters under traffic
 
 ### Test Objective
-Verify that under data traffic, all fabric links from an ASIC are utilized. The assumption is that the chassis architecture supports distributing data traffic across all fabric links. 
+Verify that under data traffic, all fabric links from an ASIC are utilized. The assumption is that the chassis architecture supports distributing data traffic across all fabric links.
 
 Note that there may be some internal communication such as intra-chassis BGP, which means that the validation cannot strictly confirm exact match between ingress and egress traffic counts.
 Instead, we will validate that the RX counts on the ASIC receiving traffic from the fabric are greater than or equal to the TX counts on the ASIC sending into the fabric.
 
 ### Test Steps
 * Send a fixed number of packets traversing two ASICs
-* Run `show fabric counters port -n asicN` for the ingress and egress ASIC. 
+* Run `show fabric counters port -n asicN` for the ingress and egress ASIC.
 
 Repeat the above test for the following packet sizes (bytes): 64, 256, 1512, 9000
 
 ### Pass/Fail Criteria
 * Verify on the ingress ASIC that all fabric links have non-zero value for TX fabric data unit counter.
 * Verify on the egress ASIC that all fabric links have non-zero value for RX fabric data unit counters.
-* Verify that the RX fabric data unit counters are not less than the TX counters. 
+* Verify that the RX fabric data unit counters are not less than the TX counters.
 * Verify that there are no increments in error counters.
-

@@ -1,9 +1,15 @@
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, delete_running_config
 
 logger = logging.getLogger(__name__)
+
+
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 
 @pytest.fixture
 def check_image_version(duthost):
@@ -14,6 +20,7 @@ def check_image_version(duthost):
         None.
     """
     skip_release(duthost, ["201811", "201911", "202012", "202106"])
+
 
 @pytest.fixture
 def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
@@ -26,6 +33,11 @@ def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost.shell("sudo config tacacs default passkey")
     duthost.shell("sudo config radius default passkey")
 
+    # Remove TACACS/Radius keys
+    delete_keys_json = [{"RADIUS": {}}, {"TACPLUS": {}}]
+    delete_running_config(delete_keys_json, duthost)
+
+
 def check_no_result(duthost, command):
     res = duthost.shell(command)
     logger.info(command)
@@ -33,6 +45,7 @@ def check_no_result(duthost, command):
     pytest_assert(res["rc"] == 0)
     pytest_assert(len(res["stdout_lines"]) == 0)
     pytest_assert(len(res["stderr_lines"]) == 0)
+
 
 def test_secret_removed_from_show_techsupport(
     duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts, check_image_version, setup_password
@@ -59,7 +72,7 @@ def test_secret_removed_from_show_techsupport(
 
     # extract for next step check
     duthost.shell("tar -xf {0}".format(dump_file_path))
-    dump_extract_path="./{0}".format(dump_file_name.replace(".tar.gz", ""))
+    dump_extract_path = "./{0}".format(dump_file_name.replace(".tar.gz", ""))
 
     # check Tacacs key
     sed_command = "sed -nE '/secret={0}/P' {1}/etc/tacplus_nss.conf".format(tacacs_passkey, dump_extract_path)
@@ -79,11 +92,13 @@ def test_secret_removed_from_show_techsupport(
     list_command = "ls {0}/etc/pam_radius_auth.d/*.conf || true".format(dump_extract_path)
     config_file_list = duthost.shell(list_command)["stdout_lines"]
     for config_file in config_file_list:
-        sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/{1}".format(radius_passkey, dump_extract_path, config_file)
+        sed_command = "sed -nE '/{0}/P' {1}/etc/pam_radius_auth.d/{2}"\
+            .format(radius_passkey, dump_extract_path, config_file)
         check_no_result(duthost, sed_command)
 
     # check snmp community string not exist
-    sed_command = "sed -nE '/\s*snmp_rocommunity\s*:\s{0}/P' {1}/etc/sonic/snmp.yml".format(snmp_rocommunity, dump_extract_path)
+    sed_command = r"sed -nE '/\s*snmp_rocommunity\s*:\s{0}/P' {1}/etc/sonic/snmp.yml"\
+        .format(snmp_rocommunity, dump_extract_path)
     check_no_result(duthost, sed_command)
 
     # check /etc/shadow not exist
@@ -91,5 +106,6 @@ def test_secret_removed_from_show_techsupport(
     check_no_result(duthost, test_command)
 
     # check *.cer *.crt *.pem *.key not exist in dump files
-    find_command = "find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key \)".format(dump_extract_path)
+    find_command = r"find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key \)"\
+        .format(dump_extract_path)
     check_no_result(duthost, find_command)

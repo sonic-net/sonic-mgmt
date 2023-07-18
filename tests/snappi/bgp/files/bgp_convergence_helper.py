@@ -1,3 +1,4 @@
+import logging
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import (wait, wait_until)
@@ -8,9 +9,10 @@ TGEN_AS_NUM = 65200
 DUT_AS_NUM = 65100
 TIMEOUT = 30
 BGP_TYPE = 'ebgp'
-temp_tg_port=dict()
+temp_tg_port = dict()
 NG_LIST = []
 aspaths = [65002, 65003]
+
 
 def run_bgp_local_link_failover_test(cvg_api,
                                      duthost,
@@ -112,7 +114,6 @@ def run_bgp_remote_link_failover_test(cvg_api,
     cleanup_config(duthost)
 
 
-
 def run_rib_in_convergence_test(cvg_api,
                                 duthost,
                                 tgen_ports,
@@ -147,7 +148,7 @@ def run_rib_in_convergence_test(cvg_api,
                                         port_count,
                                         number_of_routes,
                                         route_type,
-                                        port_speed,) 
+                                        port_speed,)
 
     """
         Run the convergence test by withdrawing all routes at once and
@@ -172,7 +173,6 @@ def run_RIB_IN_capacity_test(cvg_api,
                              step_value,
                              route_type,
                              port_speed,):
-
     """
     Run RIB-IN Capacity test
 
@@ -192,7 +192,6 @@ def run_RIB_IN_capacity_test(cvg_api,
                        tgen_ports,
                        port_count,
                        route_type,)
-
 
     """ Run the RIB-IN capacity test by increasig the route count step by step """
     get_RIB_IN_capacity(cvg_api,
@@ -221,7 +220,8 @@ def duthost_bgp_config(duthost,
         route_type: IPv4 or IPv6 routes
     """
     duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
+    duthost.command("sudo cp {} {}".format(
+        "/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     global temp_tg_port
     temp_tg_port = tgen_ports
     for i in range(0, port_count):
@@ -229,19 +229,23 @@ def duthost_bgp_config(duthost,
             "sudo config interface ip remove %s %s/%s \n"
             "sudo config interface ip remove %s %s/%s \n"
         )
-        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
-        logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
+        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
+                        tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
+        logger.info('Removing configured IP and IPv6 Address from %s' %
+                    (tgen_ports[i]['peer_port']))
         duthost.shell(intf_config)
 
     for i in range(0, port_count):
         portchannel_config = (
-        "sudo config portchannel add PortChannel%s \n"
-        "sudo config portchannel member add PortChannel%s %s\n"
-        "sudo config interface ip add PortChannel%s %s/%s\n"
-        "sudo config interface ip add PortChannel%s %s/%s\n"
+            "sudo config portchannel add PortChannel%s \n"
+            "sudo config portchannel member add PortChannel%s %s\n"
+            "sudo config interface ip add PortChannel%s %s/%s\n"
+            "sudo config interface ip add PortChannel%s %s/%s\n"
         )
-        portchannel_config %= (i+1, i+1, tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'], 64)
-        logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
+        portchannel_config %= (i+1, i+1, tgen_ports[i]['peer_port'], i+1, tgen_ports[i]
+                               ['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'], 64)
+        logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (
+            tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
         duthost.shell(portchannel_config)
     bgp_config = (
         "vtysh "
@@ -257,30 +261,33 @@ def duthost_bgp_config(duthost,
     if route_type == 'IPv4':
         for i in range(1, port_count):
             bgp_config_neighbor = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'router bgp %s' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv4 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'exit' "
+                "vtysh "
+                "-c 'configure terminal' "
+                "-c 'router bgp %s' "
+                "-c 'neighbor %s remote-as %s' "
+                "-c 'address-family ipv4 unicast' "
+                "-c 'neighbor %s activate' "
+                "-c 'exit' "
             )
-            bgp_config_neighbor %= (DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'])
+            bgp_config_neighbor %= (
+                DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'])
             logger.info('Configuring BGP v4 Neighbor %s' % tgen_ports[i]['ip'])
             duthost.shell(bgp_config_neighbor)
     else:
         for i in range(1, port_count):
             bgp_config_neighbor = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'router bgp %s' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv6 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'exit' "
+                "vtysh "
+                "-c 'configure terminal' "
+                "-c 'router bgp %s' "
+                "-c 'neighbor %s remote-as %s' "
+                "-c 'address-family ipv6 unicast' "
+                "-c 'neighbor %s activate' "
+                "-c 'exit' "
             )
-            bgp_config_neighbor %= (DUT_AS_NUM, tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
-            logger.info('Configuring BGP v6 Neighbor %s' % tgen_ports[i]['ipv6'])
+            bgp_config_neighbor %= (
+                DUT_AS_NUM, tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
+            logger.info('Configuring BGP v6 Neighbor %s' %
+                        tgen_ports[i]['ipv6'])
             duthost.shell(bgp_config_neighbor)
 
 
@@ -303,7 +310,8 @@ def __tgen_bgp_config(cvg_api,
     conv_config = cvg_api.convergence_config()
     config = conv_config.config
     for i in range(1, port_count+1):
-        config.ports.port(name='Test_Port_%d' % i, location=temp_tg_port[i-1]['location'])
+        config.ports.port(name='Test_Port_%d' %
+                          i, location=temp_tg_port[i-1]['location'])
         c_lag = config.lags.lag(name="lag%d" % i)[-1]
         lp = c_lag.ports.port(port_name='Test_Port_%d' % i)[-1]
         lp.ethernet.name = 'lag_eth_%d' % i
@@ -338,7 +346,7 @@ def __tgen_bgp_config(cvg_api,
         ipv4.prefix = int(temp_tg_port[0]['prefix'])
         rx_flow_name = []
         for i in range(2, port_count+1):
-            NG_LIST.append('Network_Group%s'%i)
+            NG_LIST.append('Network_Group%s' % i)
             if len(str(hex(i).split('0x')[1])) == 1:
                 m = '0'+hex(i).split('0x')[1]
             else:
@@ -362,8 +370,9 @@ def __tgen_bgp_config(cvg_api,
             bgpv4_peer.as_type = BGP_TYPE
             bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
             bgpv4_peer.as_number = int(TGEN_AS_NUM)
-            route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1]) #snappi object named Network Group 2 not found in internal db
-            route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
+            route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1])
+            route_range.addresses.add(
+                address='200.1.0.1', prefix=32, count=number_of_routes)
             as_path = route_range.as_path
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
@@ -383,7 +392,7 @@ def __tgen_bgp_config(cvg_api,
         ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
         rx_flow_name = []
         for i in range(2, port_count+1):
-            NG_LIST.append('Network_Group%s'%i)
+            NG_LIST.append('Network_Group%s' % i)
             if len(str(hex(i).split('0x')[1])) == 1:
                 m = '0'+hex(i).split('0x')[1]
             else:
@@ -397,18 +406,19 @@ def __tgen_bgp_config(cvg_api,
             ipv6_stack.address = temp_tg_port[i-1]['ipv6']
             ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
             ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
-            
+
             bgpv6 = config.devices[i-1].bgp
             bgpv6.router_id = temp_tg_port[i-1]['peer_ip']
             bgpv6_int = bgpv6.ipv6_interfaces.add()
             bgpv6_int.ipv6_name = ipv6_stack.name
             bgpv6_peer = bgpv6_int.peers.add()
-            bgpv6_peer.name  = 'BGP+_%d' % i
+            bgpv6_peer.name = 'BGP+_%d' % i
             bgpv6_peer.as_type = BGP_TYPE
             bgpv6_peer.peer_address = temp_tg_port[i-1]['peer_ipv6']
             bgpv6_peer.as_number = int(TGEN_AS_NUM)
             route_range = bgpv6_peer.v6_routes.add(name=NG_LIST[-1])
-            route_range.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
+            route_range.addresses.add(
+                address='3000::1', prefix=64, count=number_of_routes)
             as_path = route_range.as_path
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
@@ -431,6 +441,7 @@ def __tgen_bgp_config(cvg_api,
     flow.metrics.enable = True
     return conv_config
 
+
 def get_flow_stats(cvg_api):
     """
     Args:
@@ -439,6 +450,7 @@ def get_flow_stats(cvg_api):
     request = cvg_api.convergence_request()
     request.metrics.flow_names = []
     return cvg_api.get_results(request).flow_metric
+
 
 def get_convergence_for_local_link_failover(cvg_api,
                                             bgp_config,
@@ -476,7 +488,8 @@ def get_convergence_for_local_link_failover(cvg_api,
 
         table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
         for i in range(0, iteration):
-            logger.info('|---- {} Link Flap Iteration : {} ----|'.format(port_name, i+1))
+            logger.info(
+                '|---- {} Link Flap Iteration : {} ----|'.format(port_name, i+1))
 
             """ Starting Traffic """
             logger.info('Starting Traffic')
@@ -497,23 +510,32 @@ def get_convergence_for_local_link_failover(cvg_api,
             flows = get_flow_stats(cvg_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_tx_rate)
-            assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+                rx_frate.append(flow.frames_rx_rate)
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 500,\
+                "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}"\
+                .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
             """ Get control plane to data plane convergence value """
             request = cvg_api.convergence_request()
             request.convergence.flow_names = []
             convergence_metrics = cvg_api.get_results(request).flow_convergence
             for metrics in convergence_metrics:
-                logger.info('CP/DP Convergence Time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
-            avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
+                logger.info('CP/DP Convergence Time (ms): {}'.format(
+                    metrics.control_plane_data_plane_convergence_us/1000))
+            avg.append(
+                int(metrics.control_plane_data_plane_convergence_us/1000))
             avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
             """ Performing link up at the end of iteration """
-            logger.info('Simulating Link Up on {} at the end of iteration {}'.format(port_name, i+1))
+            logger.info(
+                'Simulating Link Up on {} at the end of iteration {}'.format(port_name, i+1))
             cs = cvg_api.convergence_state()
             cs.link.port_names = [port_name]
             cs.link.state = cs.link.UP
             cvg_api.set_state(cs)
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT-10, "For Traffic To Stop")
         table.append('%s Link Failure' % port_name)
         table.append(route_type)
         table.append(number_of_routes)
@@ -525,7 +547,8 @@ def get_convergence_for_local_link_failover(cvg_api,
     """ Iterating link flap test on all the rx ports """
     for i, port_name in enumerate(rx_port_names):
         table.append(get_avg_dpdp_convergence_time(port_name))
-    columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Delta Frames', 'Avg Calculated Data Convergence Time (ms)']
+    columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations',
+               'Delta Frames', 'Avg Calculated Data Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
@@ -547,6 +570,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
     route_names = NG_LIST
     bgp_config.rx_rate_threshold = 90/(multipath-1)
     cvg_api.set_config(bgp_config)
+
     def get_avg_cpdp_convergence_time(route_name):
         """
         Args:
@@ -561,7 +585,8 @@ def get_convergence_for_remote_link_failover(cvg_api,
         cvg_api.set_state(cs)
         wait(TIMEOUT, "For Protocols To start")
         for i in range(0, iteration):
-            logger.info('|---- {} Route Withdraw Iteration : {} ----|'.format(route_name, i+1))
+            logger.info(
+                '|---- {} Route Withdraw Iteration : {} ----|'.format(route_name, i+1))
             """ Starting Traffic """
             logger.info('Starting Traffic')
             cs = cvg_api.convergence_state()
@@ -582,8 +607,10 @@ def get_convergence_for_remote_link_failover(cvg_api,
             flows = get_flow_stats(cvg_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_tx_rate)
-            assert sum(tx_frate) == sum(rx_frate), "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+                rx_frate.append(flow.frames_rx_rate)
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 500,\
+                "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}"\
+                .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
 
             """ Get control plane to data plane convergence value """
@@ -591,16 +618,22 @@ def get_convergence_for_remote_link_failover(cvg_api,
             request.convergence.flow_names = []
             convergence_metrics = cvg_api.get_results(request).flow_convergence
             for metrics in convergence_metrics:
-                logger.info('CP/DP Convergence Time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
-            avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
+                logger.info('CP/DP Convergence Time (ms): {}'.format(
+                    metrics.control_plane_data_plane_convergence_us/1000))
+            avg.append(
+                int(metrics.control_plane_data_plane_convergence_us/1000))
             avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
             """ Advertise the routes back at the end of iteration """
             cs = cvg_api.convergence_state()
             cs.route.names = [route_name]
             cs.route.state = cs.route.ADVERTISE
             cvg_api.set_state(cs)
-            logger.info('Readvertise {} routes back at the end of iteration {}'.format(route_name, i+1))
-
+            logger.info('Readvertise {} routes back at the end of iteration {}'.format(
+                route_name, i+1))
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT, "For Traffic To Stop")
         table.append('%s route withdraw' % route_name)
         table.append(route_type)
         table.append(number_of_routes)
@@ -613,7 +646,8 @@ def get_convergence_for_remote_link_failover(cvg_api,
     for route in route_names:
         table.append(get_avg_cpdp_convergence_time(route))
 
-    columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations', 'Frames Delta', 'Avg Control to Data Plane Convergence Time (ms)']
+    columns = ['Event Name', 'Route Type', 'No. of Routes', 'Iterations',
+               'Frames Delta', 'Avg Control to Data Plane Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
@@ -637,7 +671,8 @@ def get_rib_in_convergence(cvg_api,
     cvg_api.set_config(bgp_config)
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
     for i in range(0, iteration):
-        logger.info('|---- RIB-IN Convergence test, Iteration : {} ----|'.format(i+1))
+        logger.info(
+            '|---- RIB-IN Convergence test, Iteration : {} ----|'.format(i+1))
         """ withdraw all routes before starting traffic """
         logger.info('Withdraw All Routes before starting traffic')
         cs = cvg_api.convergence_state()
@@ -673,8 +708,10 @@ def get_rib_in_convergence(cvg_api,
         flows = get_flow_stats(cvg_api)
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
-            rx_frate.append(flow.frames_tx_rate)
-        assert sum(tx_frate) == sum(rx_frate), "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}".format(sum(tx_frate), sum(rx_frate))
+            rx_frate.append(flow.frames_rx_rate)
+        assert abs(sum(tx_frate) - sum(rx_frate)) < 500,\
+            "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}"\
+            .format(sum(tx_frate), sum(rx_frate))
         logger.info("Traffic has converged after route advertisement")
 
         """ Get RIB-IN convergence """
@@ -682,7 +719,8 @@ def get_rib_in_convergence(cvg_api,
         request.convergence.flow_names = []
         convergence_metrics = cvg_api.get_results(request).flow_convergence
         for metrics in convergence_metrics:
-            logger.info('RIB-IN Convergence time (ms): {}'.format(metrics.control_plane_data_plane_convergence_us/1000))
+            logger.info('RIB-IN Convergence time (ms): {}'.format(
+                metrics.control_plane_data_plane_convergence_us/1000))
         avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
         avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
         """ Stop traffic at the end of iteration """
@@ -703,7 +741,8 @@ def get_rib_in_convergence(cvg_api,
     table.append(iteration)
     table.append(mean(avg_delta))
     table.append(mean(avg))
-    columns = ['Event Name', 'Route Type', 'No. of Routes','Iterations', 'Frames Delta', 'Avg RIB-IN Convergence Time(ms)']
+    columns = ['Event Name', 'Route Type', 'No. of Routes',
+               'Iterations', 'Frames Delta', 'Avg RIB-IN Convergence Time(ms)']
     logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
 
 
@@ -711,6 +750,7 @@ def get_RIB_IN_capacity(cvg_api,
                         multipath,
                         start_value,
                         step_value,
+                        number_of_routes,
                         route_type,
                         port_speed,):
     """
@@ -727,7 +767,8 @@ def get_RIB_IN_capacity(cvg_api,
         conv_config = cvg_api.convergence_config()
         config = conv_config.config
         for i in range(1, 3):
-            config.ports.port(name='Test_Port_%d' % i, location=temp_tg_port[i-1]['location'])
+            config.ports.port(name='Test_Port_%d' %
+                              i, location=temp_tg_port[i-1]['location'])
             c_lag = config.lags.lag(name="lag%d" % i)[-1]
             lp = c_lag.ports.port(port_name='Test_Port_%d' % i)[-1]
             lp.ethernet.name = 'lag_eth_%d' % i
@@ -784,8 +825,10 @@ def get_RIB_IN_capacity(cvg_api,
                 bgpv4_peer.as_type = BGP_TYPE
                 bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
                 bgpv4_peer.as_number = int(TGEN_AS_NUM)
-                route_range = bgpv4_peer.v4_routes.add(name="Network_Group%d" % i) #snappi object named Network Group 2 not found in internal db
-                route_range.addresses.add(address='200.1.0.1', prefix=32, count=number_of_routes)
+                route_range = bgpv4_peer.v4_routes.add(
+                    name="Network_Group%d" % i)
+                route_range.addresses.add(
+                    address='200.1.0.1', prefix=32, count=number_of_routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
                 as_path_segment.type = as_path_segment.AS_SEQ
@@ -818,18 +861,20 @@ def get_RIB_IN_capacity(cvg_api,
                 ipv6_stack.address = temp_tg_port[i-1]['ipv6']
                 ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
                 ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
-                
+
                 bgpv6 = config.devices[i-1].bgp
                 bgpv6.router_id = temp_tg_port[i-1]['peer_ip']
                 bgpv6_int = bgpv6.ipv6_interfaces.add()
                 bgpv6_int.ipv6_name = ipv6_stack.name
                 bgpv6_peer = bgpv6_int.peers.add()
-                bgpv6_peer.name  = 'BGP+_%d' % i
+                bgpv6_peer.name = 'BGP+_%d' % i
                 bgpv6_peer.as_type = BGP_TYPE
                 bgpv6_peer.peer_address = temp_tg_port[i-1]['peer_ipv6']
                 bgpv6_peer.as_number = int(TGEN_AS_NUM)
-                route_range = bgpv6_peer.v6_routes.add(name="Network Group %d" % i)
-                route_range.addresses.add(address='3000::1', prefix=64, count=number_of_routes)
+                route_range = bgpv6_peer.v6_routes.add(
+                    name="Network Group %d" % i)
+                route_range.addresses.add(
+                    address='3000::1', prefix=64, count=number_of_routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
                 as_path_segment.type = as_path_segment.AS_SEQ
@@ -854,7 +899,8 @@ def get_RIB_IN_capacity(cvg_api,
         return conv_config
 
     def run_traffic(routes):
-        logger.info('|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(routes))
+        logger.info(
+            '|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(routes))
         conv_config = tgen_capacity(routes)
         cvg_api.set_config(conv_config)
         """ Starting Protocols """
@@ -883,7 +929,8 @@ def get_RIB_IN_capacity(cvg_api,
             logger.info("Rx Frame Rate : {}".format(rx_frate))
             if float(flow_stats[0].loss) > 0.001:
                 if j == start_value:
-                    raise Exception('Traffic Loss Encountered in first iteration, reduce the start value and run the test')
+                    raise Exception(
+                        'Traffic Loss Encountered in first iteration, reduce the start value and run the test')
                 logger.info('Loss greater than 0.001 occured')
                 logger.info('Reducing the routes and running test')
                 b = j-step_value
@@ -898,21 +945,21 @@ def get_RIB_IN_capacity(cvg_api,
             cs.transmit.state = cs.transmit.STOP
             cvg_api.set_state(cs)
             wait(TIMEOUT-20, "For Traffic To stop")
-        l = []
-        l.append(b+int(step_value/8))
-        l.append(b+int(step_value/4))
-        l.append(b+int(step_value/2))
-        l.append(b+step_value-int(step_value/4))
-        l.append(b+step_value-int(step_value/8))
-        for i in range(0,len(l)):
-            run_traffic(l[i])
+        routes = []
+        routes.append(b+int(step_value/8))
+        routes.append(b+int(step_value/4))
+        routes.append(b+int(step_value/2))
+        routes.append(b+step_value-int(step_value/4))
+        routes.append(b+step_value-int(step_value/8))
+        for i in range(0, len(routes)):
+            run_traffic(routes[i])
             flow_stats = get_flow_stats(cvg_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
             if float(flow_stats[0].loss) <= 0.001:
                 max_routes = start_value
                 pass
             else:
-                max_routes = l[i]-int(step_value/8)
+                max_routes = routes[i]-int(step_value/8)
                 break
             logger.info('Stopping Traffic')
             cs = cvg_api.convergence_state()
@@ -929,7 +976,9 @@ def get_RIB_IN_capacity(cvg_api,
         logger.info(e)
     finally:
         columns = ['Test Name', 'Maximum no. of Routes']
-        logger.info("\n%s" % tabulate([['RIB-IN Capacity Test',max_routes]], headers=columns, tablefmt="psql"))
+        logger.info("\n%s" % tabulate(
+            [['RIB-IN Capacity Test', max_routes]], headers=columns, tablefmt="psql"))
+
 
 def cleanup_config(duthost):
     """
@@ -938,8 +987,10 @@ def cleanup_config(duthost):
     Args:
         duthost (pytest fixture): duthost fixture
     """
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json","/etc/sonic/config_db.json"))
+    duthost.command("sudo cp {} {}".format(
+        "/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
     duthost.shell("sudo config reload -y \n")
     logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started), "Not all critical services are fully started")
+    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
     logger.info('Convergence Test Completed')

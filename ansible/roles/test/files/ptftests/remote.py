@@ -39,9 +39,9 @@ def build_ifaces_map(ifaces):
     constants_file = os.path.join(os.path.dirname(__file__), "constants.yaml")
     if os.path.exists(constants_file):
         with open(constants_file) as fd:
-            constants = yaml.load(fd)
-            ptf_port_mapping_mode = constants.get("PTF_PORT_MAPPING_MODE", ptf_port_mapping_mode)
-
+            constants = yaml.safe_load(fd)
+            ptf_port_mapping_mode = constants.get(
+                "PTF_PORT_MAPPING_MODE", ptf_port_mapping_mode)
 
     sub_ifaces = []
     iface_map = {}
@@ -62,7 +62,8 @@ def build_ifaces_map(ifaces):
     elif ptf_port_mapping_mode == "use_orig_interface":
         return iface_map
     else:
-        raise ValueError("Unsupported ptf port mapping mode: %s" % ptf_port_mapping_mode)
+        raise ValueError("Unsupported ptf port mapping mode: %s" %
+                         ptf_port_mapping_mode)
 
 
 def platform_config_update(config):

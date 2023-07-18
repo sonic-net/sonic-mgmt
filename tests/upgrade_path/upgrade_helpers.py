@@ -1,8 +1,10 @@
 import pytest
 import logging
 import time
-from urlparse import urlparse
 import ipaddress
+import json
+import re
+from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
@@ -59,7 +61,7 @@ def install_sonic(duthost, image_url, tbinfo):
     if urlparse(image_url).scheme in ('http', 'https',):
         mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
         mg_gwaddr = ipaddress.IPv4Address(mg_gwaddr)
-        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network(u'0.0.0.0/0'))
+        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
         for nexthop in rtinfo_v4['nexthops']:
             if mg_gwaddr == nexthop[0]:
                 break
@@ -71,8 +73,7 @@ def install_sonic(duthost, image_url, tbinfo):
             new_route_added = True
         res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
     else:
-        out = duthost.command("df -BM --output=avail /host",
-                        module_ignore_errors=True)["stdout"]
+        out = duthost.command("df -BM --output=avail /host", module_ignore_errors=True)["stdout"]
         avail = int(out.split('\n')[1][:-1])
         if avail >= 2000:
             # There is enough space to install directly
@@ -101,18 +102,68 @@ def check_services(duthost):
     """
     logging.info("Wait until DUT uptime reaches {}s".format(300))
     while duthost.get_uptime().total_seconds() < 300:
-            time.sleep(1)
+        time.sleep(1)
     logging.info("Wait until all critical services are fully started")
     logging.info("Check critical service status")
     pytest_assert(duthost.critical_services_fully_started(), "dut.critical_services_fully_started is False")
 
     for service in duthost.critical_services:
         status = duthost.get_service_props(service)
-        pytest_assert(status["ActiveState"] == "active", "ActiveState of {} is {}, expected: active".format(service, status["ActiveState"]))
-        pytest_assert(status["SubState"] == "running", "SubState of {} is {}, expected: running".format(service, status["SubState"]))
+        pytest_assert(status["ActiveState"] == "active", "ActiveState of {} is {}, expected: active"
+                      .format(service, status["ActiveState"]))
+        pytest_assert(status["SubState"] == "running", "SubState of {} is {}, expected: running"
+                      .format(service, status["SubState"]))
 
 
 def check_reboot_cause(duthost, expected_cause):
     reboot_cause = get_reboot_cause(duthost)
     logging.info("Checking cause from dut {} to expected {}".format(reboot_cause, expected_cause))
     return reboot_cause == expected_cause
+
+
+def check_copp_config(duthost):
+    logging.info("Comparing CoPP configuration from copp_cfg.json to COPP_TABLE")
+    copp_tables = json.loads(duthost.shell("sonic-db-dump -n APPL_DB -k COPP_TABLE* -y")["stdout"])
+    copp_cfg = json.loads(duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"])
+    feature_status = duthost.shell("show feature status")["stdout"]
+    copp_tables_formatted = get_copp_table_formatted_dict(copp_tables)
+    copp_cfg_formatted = get_copp_cfg_formatted_dict(copp_cfg, feature_status)
+    pytest_assert(copp_tables_formatted == copp_cfg_formatted,
+                  "There is a difference between CoPP config and CoPP tables. CoPP config: {}\nCoPP tables:"
+                  " {}".format(copp_tables_formatted, copp_cfg_formatted))
+
+
+def get_copp_table_formatted_dict(copp_tables):
+    """
+    Format the copp tables output to "copp_group":{"values"} only
+    """
+    formatted_dict = {}
+    for queue_group, queue_group_value in copp_tables.items():
+        new_queue_group = queue_group.replace("COPP_TABLE:", "")
+        formatted_dict.update({new_queue_group: queue_group_value["value"]})
+    logging.debug("Formatted copp tables dictionary: {}".format(formatted_dict))
+    return formatted_dict
+
+
+def get_copp_cfg_formatted_dict(copp_cfg, feature_status):
+    """
+    Format the copp_cfg.json output to compare with copp tables
+    """
+    formatted_dict = {}
+    for trap_name, trap_value in copp_cfg["COPP_TRAP"].items():
+        pattern = r"{}\s+enabled".format(trap_name)
+        trap_enabled = re.search(pattern, feature_status)
+        if trap_value.get("always_enabled", "") or trap_enabled:
+            trap_group = trap_value["trap_group"]
+            if trap_group in formatted_dict:
+                exist_trap_ids = formatted_dict[trap_group]["trap_ids"].split(",")
+                additional_trap_ids = trap_value["trap_ids"].split(",")
+                trap_ids = exist_trap_ids + additional_trap_ids
+                trap_ids.sort()
+                formatted_dict[trap_group].update({"trap_ids": ",".join(trap_ids)})
+            else:
+                formatted_dict.update({trap_group: copp_cfg["COPP_GROUP"][trap_group]})
+                formatted_dict[trap_group].update({"trap_ids": trap_value["trap_ids"]})
+    formatted_dict.update({"default": copp_cfg["COPP_GROUP"]["default"]})
+    logging.debug("Formatted copp_cfg.json dictionary: {}".format(formatted_dict))
+    return formatted_dict
