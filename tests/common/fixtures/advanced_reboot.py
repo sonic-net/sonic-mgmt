@@ -554,7 +554,7 @@ class AdvancedReboot:
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
-                if not check_bgp_router_id(self.duthost):
+                if not check_bgp_router_id(self.duthost, self.mgFacts):
                     test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
                                                         self.duthost.hostname)
                 if self.advanceboot_loganalyzer:
