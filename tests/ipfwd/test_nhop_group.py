@@ -354,12 +354,6 @@ def test_nhop_group_member_count(duthost, tbinfo):
     switch_capability = dict(zip(it, it))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
     max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
-    if is_cisco_device(duthost) or is_innovium_device(duthost):
-        crm_stat = get_crm_info(duthost, asic)
-        nhop_group_count = crm_stat["available"]
-        nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
-    else:
-        nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
     # find out an active IP port
     ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
