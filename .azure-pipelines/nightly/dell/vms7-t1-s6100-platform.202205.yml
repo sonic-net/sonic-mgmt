@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests generic_config_updater"'
+    default: '-I "pfc_asym span sub_port_interfaces platform_tests bgp generic_config_updater acl show_techsupport pc"'
     displayName: Testbed specific
 
 stages:
