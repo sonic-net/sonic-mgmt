@@ -296,13 +296,13 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
             pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
 
             # Remove the interface from eths and pos if the BGP neighbor is of type RegionalHub
-            dev_rh_neigh = [neigh for neigh in cfgd_dev_neigh_md 
-                                  if cfgd_dev_neigh_md[neigh]["type"] == "RegionalHub"]
+            dev_rh_neigh = [neigh for neigh in cfgd_dev_neigh_md
+                            if cfgd_dev_neigh_md[neigh]["type"] == "RegionalHub"]
 
             # Interfaces to be excluded
             intfs_exclude = [intf for intf in cfgd_dev_neighbor if cfgd_dev_neighbor[intf]["name"] in dev_rh_neigh]
             eths = [eth for eth in eths_orig if eth not in intfs_exclude]
-           
+
             # portchannels to be excluded
             for k, v in cfgd_pc_members.items():
                 keys = v.keys()
