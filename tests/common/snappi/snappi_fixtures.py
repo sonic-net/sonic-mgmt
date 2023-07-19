@@ -522,8 +522,13 @@ def cvg_api(snappi_api_serv_ip,
     username = data['secret_group_vars']['snappi_api_server']['user']
     password = data['secret_group_vars']['snappi_api_server']['password']
 
-    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port), ext='ixnetwork', 
-                                    username= username, password= password) 
+    api = snappi_convergence.api(
+        location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port),
+        ext='ixnetwork',
+        username=username,
+        password=password
+    )
+                
     yield api
     if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()
