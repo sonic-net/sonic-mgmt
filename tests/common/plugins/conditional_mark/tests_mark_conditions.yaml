@@ -654,6 +654,15 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####     override_config_table   #####
+#######################################
+override_config_table/test_override_config_table.py:
+  skip:
+    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
+    conditions:
+      - is_multi_asic == True
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
