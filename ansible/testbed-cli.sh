@@ -743,7 +743,7 @@ function deploy_topo_with_cache
   echo "Done!"
 }
 
-vmfile=ceos
+vmfile=veos
 tbfile=testbed.csv
 vm_type=ceos
 vm_num=0
