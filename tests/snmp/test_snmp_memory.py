@@ -164,9 +164,10 @@ def test_snmp_avail_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, loca
     snmp_avail_memory = ((100 - snmp_memory_usage_pc)*mem_total)/100
     logger.info("SNMP Available Memory: {}".format(snmp_avail_memory))
     logger.info("DUT Available Memory: {}".format(mem_avail))
-    logger.info("Difference: {}".format(CALC_DIFF(int(snmp_avail_memory), mem_avail)))
-    pytest_assert(CALC_DIFF(int(snmp_avail_memory), mem_avail) < percentage,
-                  "SNMP available memory differs by more than {}".format(percentage))
+    mem_difference = CALC_DIFF(int(snmp_avail_memory), mem_avail)
+    logger.info("Difference: {}".format(mem_difference))
+    pytest_assert(mem_difference < percentage,
+                  "SNMP available memory difference {} is more than {}".format(mem_difference, percentage))
 
 
 def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
