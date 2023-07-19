@@ -1,0 +1,691 @@
+parameters:
+  - name: TESTBED_NAME
+    type: string
+
+  - name: TESTBED_FILE
+    type: string
+    default: testbed.yaml
+    values:
+      - testbed.csv
+      - testbed.yaml
+
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800    # minutes, totally 30 hours
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
+  # ============ Upgrade parameters ============
+  - name: IMAGE_URL
+    type: string
+    default: ""
+
+  - name: PREV_IMAGE_URL
+    type: string
+    default: ""
+
+  - name: ALWAYS_INSTALL_NEW_IMAGE
+    type: boolean
+    default: true
+
+  - name: UPGRADE_TYPE
+    type: string
+    default: sonic
+    values:
+      - sonic
+      - onie
+
+  - name: PAUSE_TIME
+    type: number
+    default: 0
+
+  # Control the behavior if power cycle unreachable DUT
+  # is allowed. Default: allowed (true)
+  - name: POWER_CYCLE_UNREACHABLE_DUTS
+    type: boolean
+    default: true
+
+  # Control the behavior of power cycle DUT before tests. If set to true,
+  # DUTs will always be power cycled before tests. Default: false
+  - name: ALWAYS_POWER_CYCLE_DUTS
+    type: boolean
+    default: false
+
+  # ============ Deploy parameters ============
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: true
+
+  # ============ Test Parameters ============
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: ""
+
+  - name: PTF_PORTMAP
+    type: string
+    default: ""
+
+  # This is for the extra parameters to be passed to pytest by the "-e" option of run_tests.sh. For example,
+  # to skip sanity check and disable log analyzer, the job yaml file calling this template can pass value
+  # "--skip_sanity --disable_loganalyzer" to this EXTRA_PARAMS parameter.
+  - name: EXTRA_PARAMS
+    type: string
+    default: ""
+
+  # This is for completeness_level setting, if not setting, will use default setting.
+  - name: COMPLETENESS_LEVEL
+    type: string
+    default: ""
+
+  # This is for other run_tests.sh options. For example, the run_tests.sh script supports "-S" option to skip
+  # tests in specified folder. Assume a testbed needs to skip tests in folders like "platform_tests" and "dualtor"
+  # sub-folders, the job yaml file calling this template can pass value '-S "platform_tests dualtor"' to
+  # this TESTBED_SPECIFIC parameter.
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: ""
+
+  # Default skip list. This list will be applied to all nightly tests
+  - name: DEFAULT_SKIP_SCRIPTS
+    type: string
+    default: "vrf/test_vrf.py vrf/test_vrf_attr.py mvrf/test_mgmtvrf.py platform_tests/test_auto_negotiation.py sflow/test_sflow.py nat/test_dynamic_nat.py nat/test_static_nat.py"
+
+  # Individual nightly test scheduler file could override this variable
+  # to add more scripts to the skip list.
+  - name: SKIP_SCRIPTS
+    type: string
+    default: " "
+
+  # Run following test cases in SAI release test
+  # Remove this, use TESTBED_SPECIFIC instead
+  # - name: TEST_CASES
+  #   type: string
+  #   default: "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py platform_tests/test_reboot.py"
+
+  # Individual nightly test scheduler file could override this variable
+  # Uploading test results to kusto.
+  - name: UPLOAD_TEST_REPORT
+    type: boolean
+    default: false
+
+  # Individual nightly test scheduler file could override this variable
+  # to skip collecting and uploading `show techsupport` result of DUTs
+  - name: SKIP_COLLECT_SHOW_TECHSUPPORT
+    type: boolean
+    default: true
+
+  - name: RUN_BSL_TEST
+    type: boolean
+    default: false
+
+  # SAI SDK parameters
+  - name: ARTIFACT_PROJECT
+    type: string
+    default: internal
+
+  - name: DEPLOY_SAI_SDK
+    type: boolean
+    default: true
+
+  - name: SDK_ARTIFACT_NAME
+    type: string
+    default: "xgs"
+
+  - name: SDK_BUILD_PIPELINE_NAME
+    default: "build_brcm_sai_4.3"
+    type: string
+
+
+jobs:
+
+  - job: SONiC_Nightly_for_SAI_RELEASE_Test
+    pool: ${{ parameters.AGENT_POOL }}
+    timeoutInMinutes: 2760  # 46 hours
+    workspace:
+      clean: all
+    variables:
+      - group: TBSHARE_SECRETS
+      - group: KUSTO_SECRETS
+      - group: GIT_SECRETS
+      - group: SECRETS_JSON
+      - name: skipComponentGovernanceDetection
+        value: true
+
+    steps:
+
+      - template: ../../nightly/templates/get_secrets.yml
+
+      - task: PythonScript@0
+        displayName: Parse Testbed Info
+        inputs:
+          scriptSource: 'inline'
+          script: |
+            from __future__ import print_function
+            import os, imp, sys
+
+            testbed_module = imp.load_source('testbed', 'tests/common/testbed.py')
+            testbed_name = '${{ parameters.TESTBED_NAME }}'
+            testbed_file = '${{ parameters.TESTBED_FILE }}'
+            tbinfo = testbed_module.TestbedInfo('ansible/{}'.format(testbed_file))
+            target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
+            if not target_testbed:
+                print('Testbed {} not found!'.format(testbed_name))
+                sys.exit(1)
+            dut_list = target_testbed.get('duts', [])
+            dut_list_str = ' '.join(x for x in dut_list)
+
+            print('Basic info of testbed {}:'.format(testbed_name))
+            print('    INVENTORY_NAME={}'.format(target_testbed['inv_name']))
+            print('     TOPOLOGY_NAME={}'.format(target_testbed['topo']['name']))
+            print('     TOPOLOGY_TYPE={}'.format(target_testbed['topo']['type']))
+            print('          DUT_LIST={}'.format(dut_list_str))
+
+            # Below code can create dynamic azure pipeline variables
+            # Reference: https://docs.microsoft.com/en-us/azure/devops/pipelines/process/variables?view=azure-devops&tabs=yaml%2Cbatch#set-a-job-scoped-variable-from-a-script
+            print('##vso[task.setvariable variable=INVENTORY_NAME;]{}'.format(target_testbed['inv_name']))
+            print('##vso[task.setvariable variable=TOPOLOGY_NAME;]{}'.format(target_testbed['topo']['name']))
+            print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
+            print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
+
+      - script: |
+          TIMEOUT=7200
+          INTERVAL=60
+
+          wait_time=0
+          lock_time=$(expr ${{ parameters.NIGHTLY_TEST_TIMEOUT }} / 60)
+          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r "SONiC nightly for SAI release" -o $lock_time; do
+              if (( $wait_time >= $TIMEOUT)); then
+                  echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                  exit 1
+              fi
+              echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+              sleep $INTERVAL
+              wait_time=$(expr $wait_time + $INTERVAL)
+          done
+        env:
+            TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+            TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+        displayName: Lock Testbed
+
+      - task: Bash@3
+        displayName: "Upgrade Image"
+        timeoutInMinutes: 90
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -ex
+
+            if [[ -z "$IMAGE_URL" ]]; then
+                echo "Skipping image upgrading ..."
+                exit 0
+            fi
+
+            if [[ -z "$PREV_IMAGE_URL" ]]; then
+                PREV_IMAGE_URL="$IMAGE_URL.PREV.1"
+            fi
+
+            echo "PREV_IMAGE_URL $PREV_IMAGE_URL"
+            curl --output /dev/null --silent --head --fail $PREV_IMAGE_URL || RC=$?
+            if [[ RC -ne 0 ]]; then
+                echo "prev image not exist, skip upgrade prev image ..."
+                SKIP_PREV_IMAGE=true
+            fi
+
+            cd ansible
+
+            if [[ ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }} == True ]]; then
+                for dut in $(DUT_LIST); do
+                    echo "Power cycling ${dut} ..."
+                    ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
+                    sleep 30
+                    ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
+                done
+
+                # Add some sleep to allow power cycled DUTs to come back
+                sleep 180
+            elif [[ ${{ parameters.POWER_CYCLE_UNREACHABLE_DUTS }} == True ]]; then
+                NEEDS_SLEEP='No'
+                for dut in $(DUT_LIST); do
+                    echo "Checking DUT ${dut} ..."
+                    RC=0
+                    ./devutils -i $(INVENTORY_NAME) -a ping -j -l ${dut} | grep -q Success || RC=$?
+                    if [[ RC -ne 0 ]]; then
+                        echo "Power cycling ${dut} ..."
+                        ./devutils -i $(INVENTORY_NAME) -a pdu_off -j -l ${dut}
+                        sleep 30
+                        ./devutils -i $(INVENTORY_NAME) -a pdu_on -j -l ${dut}
+                        NEEDS_SLEEP='Yes'
+                    fi
+                done
+                if [[ x"${NEEDS_SLEEP}" == x"Yes" ]]; then
+                    # Add some sleep to allow power cycled DUTs to come back
+                    sleep 180
+                fi
+            fi
+
+            if [[ $SKIP_PREV_IMAGE == false ]]; then
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "${{ parameters.UPGRADE_TYPE }}" == "sonic" ]]; then
+                    ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                        -i $(INVENTORY_NAME) \
+                        -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                        -e image_url="$PREV_IMAGE_URL" \
+                        -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
+                        --vault-password-file password.txt \
+                        -e pause_time=60 -vv || true
+                fi
+            fi
+
+            if [[ $SKIP_PREV_IMAGE == false ]]; then
+                SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+                BUILD_VERSION_PRE=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
+                echo "previous image: $BUILD_VERSION_PRE"
+            fi
+
+            ANSIBLE_FORCE_COLOR=true ansible-playbook upgrade_sonic.yml \
+                -i $(INVENTORY_NAME) \
+                -e testbed_name=${{ parameters.TESTBED_NAME }} \
+                -e image_url=$IMAGE_URL \
+                -e upgrade_type=${{ parameters.UPGRADE_TYPE }} \
+                --vault-password-file password.txt \
+                -e pause_time=${{ parameters.PAUSE_TIME }} -vv
+
+            SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+            BUILD_VERSION=$(echo "$SONIC_VERSION" | grep build_version: | cut -d "'" -f2)
+            echo "current image: $BUILD_VERSION"
+
+            if [[ $SKIP_PREV_IMAGE == false ]]; then
+                if [[ ${{ parameters.ALWAYS_INSTALL_NEW_IMAGE }} == True && "$BUILD_VERSION" == "$BUILD_VERSION_PRE" ]]; then
+                    echo "sonic image build version not change after upgrading image"
+                    exit 1
+                fi
+            fi
+
+            SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
+            BRANCH_NAME=$(echo "$SONIC_VERSION" | grep branch: | cut -d "'" -f2)
+            if [ "$ENABLE_FIPS" == 'yes' ] || ([ "$ENABLE_FIPS" != 'no' ] && [[ "$BRANCH_NAME" == "internal" || "$BRANCH_NAME" == "master" ]]); then
+                for dut in $DUT_LIST; do
+                    ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo sonic-installer set-fips"
+                    ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo shutdown -r now"
+                done
+            fi
+
+            sleep 180
+        env:
+          IMAGE_URL: ${{ parameters.IMAGE_URL }}
+          PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
+          SKIP_PREV_IMAGE: false
+
+      - task: Bash@3
+        displayName: Deploy Minigraph
+        timeoutInMinutes: 30
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+
+            if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
+                CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"
+            else
+                CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=false"
+            fi
+            cd ansible
+
+            http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
+            # If restart-ptf failed, try to redeploy the topology
+            if [[ $? != 0 ]]; then
+                http_proxy='' https_proxy='' ./testbed-cli.sh redeploy-topo ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
+            fi
+
+            http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt $CONFIG_PARAMS || exit 1
+            sleep 180
+
+      - task: DownloadPipelineArtifact@2
+        condition: ${{ parameters.DEPLOY_SAI_SDK }}
+        inputs:
+          source: specific
+          project: ${{ parameters.ARTIFACT_PROJECT }}
+          pipeline: ${{ parameters.SDK_BUILD_PIPELINE_NAME}}
+          artifact: ${{ parameters.SDK_ARTIFACT_NAME }}
+          path: $(Build.ArtifactStagingDirectory)/download
+          patterns: |
+            *.*
+          script: |
+            set -x
+            ls $(Build.ArtifactStagingDirectory)/download
+        displayName: "Download pre-stage built ${{ parameters.SDK_ARTIFACT_NAME }}"
+
+      # install new bcmsai sdk on DUT, and reboot
+      - task: Bash@3
+        condition: and(${{ parameters.DEPLOY_SAI_SDK }}, succeeded())
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+            BASE_PATH=$(pwd)
+
+            export ANSIBLE_CONFIG=${BASE_PATH}/ansible
+            export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
+            export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+            export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
+            export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
+
+            SAI_ADHOC_PATH=$BASE_PATH/tests/common/sai_adhoc.py
+            DUT_PATH=/tmp/pkg
+
+            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "mkdir -p $DUT_PATH"
+
+            #copy files from server to dut
+            python $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$(Build.ArtifactStagingDirectory)/download dest=$DUT_PATH"
+            python $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$BASE_PATH/tests/scripts/sai_qualify/install_saibcm.sh dest=$DUT_PATH/download"
+
+            # copy file to saiserver docker and commit docker
+            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker cp $DUT_PATH/download syncd:/"
+
+            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd apt list --installed | grep sai"
+            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec -u root syncd chmod +x /download/install_saibcm.sh"
+            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec -u root syncd /download/install_saibcm.sh"
+            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd apt list --installed | grep sai"
+            python $SAI_ADHOC_PATH -i -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "sudo reboot"
+            sleep 180
+
+        displayName: "install ${{ parameters.SDK_ARTIFACT_NAME }}"
+
+      - task: Bash@3
+        displayName: Run Tests
+        timeoutInMinutes: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+
+            BASE_PATH=`pwd`
+            PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+
+            if [[ -n $PY_SAITHRIFT_URL ]]; then
+                PARAMS="$PARAMS --py_saithrift_url=$PY_SAITHRIFT_URL"
+            fi
+
+            if [[ -n $PTF_PORTMAP ]]; then
+                PARAMS="$PARAMS --ptf_portmap=$PTF_PORTMAP"
+            fi
+
+            if [[ -n $EXTRA_PARAMS ]]; then
+                PARAMS="$PARAMS $EXTRA_PARAMS"
+            fi
+
+            DOW=$(date +%u)
+            if [[ $COMPLETENESS_LEVEL ]]; then
+                PARAMS="$PARAMS --completeness_level=$COMPLETENESS_LEVEL"
+            elif [ $((DOW)) -le 4 ] || [ $((DOW)) -eq 7 ]; then
+                PARAMS="$PARAMS --completeness_level=confident"
+            fi
+
+            if [[ $IMAGE_URL =~ \/public\/ ]] || [[ $IMAGE_URL =~ \/mssonic-public-pipelines\/ ]]; then
+                PARAMS="$PARAMS --public_docker_registry"
+            fi
+
+            EXECUTION_TOPOLOGY=$(TOPOLOGY_TYPE)
+            if [[ "$TOPOLOGY_TYPE" != "tgen" ]]; then
+                EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,any"
+            fi
+
+            if [[ "$TOPOLOGY_NAME" == *"dualtor"* ]]; then
+                EXECUTION_TOPOLOGY="$EXECUTION_TOPOLOGY,dualtor"
+            fi
+            if [[ ${{ parameters.TESTBED_NAME }} == *8102* ]];then
+                echo "Append loganalyzer_8102_ignore.txt to loganalyzer_common_ignore.txt"
+                cat ansible/roles/test/files/tools/loganalyzer/loganalyzer_8102_ignore.txt >> ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
+            fi
+
+            rm -fr results     # Clear any possible collected results of previous run
+
+            cd tests
+
+            # '$(INVENTORY_NAME)' and '$(TOPOLOGY_TYPE)' are dynamic variables generated in step "Parse Testbed Info"
+            http_proxy='' https_proxy='' ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+                -s "${{ parameters.DEFAULT_SKIP_SCRIPTS }} ${{ parameters.SKIP_SCRIPTS }}" \
+                -i $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
+                -m individual \
+                -t "$EXECUTION_TOPOLOGY" \
+                -r \
+                ${{ parameters.TESTBED_SPECIFIC }} \
+                -e "$PARAMS"
+            RUN_TESTS_RC=$?
+            if [[ $RUN_TESTS_RC == 65 ]]; then
+              echo "pretest failed. Please check the detailed log."
+              exit 1
+            elif [[ $RUN_TESTS_RC == 10 ]]; then
+              echo "Sanity check failed. Please check the detailed log."
+              exit 1
+            else
+              exit 0
+            fi
+        env:
+          PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+          PTF_PORTMAP: ${{ parameters.PTF_PORTMAP }}
+          EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
+          GIT_USER_NAME: $(GIT_USER_NAME)
+          GIT_API_TOKEN: $(GIT_API_TOKEN)
+          IMAGE_URL: ${{ parameters.IMAGE_URL }}
+          COMPLETENESS_LEVEL: ${{ parameters.COMPLETENESS_LEVEL }}
+
+      - ${{ if eq(parameters.RUN_BSL_TEST, True) }}:
+        - script: |
+            echo "=== Set DUT to l2 switch mode ==="
+
+            cd ansible
+            ./testbed-cli.sh set-l2 ${{ parameters.TESTBED_NAME }} password.txt
+          displayName: Set to L2 mode
+          timeoutInMinutes: 30
+
+        - script: |
+            echo "=== RUN BSL specific tests in L2 mode ==="
+            BASE_PATH=`pwd`
+
+            export ANSIBLE_CONFIG=${BASE_PATH}/ansible
+            export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
+            export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+            export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
+            export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
+
+            cd tests
+            mkdir -p logs
+            http_proxy='' https_proxy='' pytest \
+                --inventory $BASE_PATH/ansible/$(INVENTORY_NAME),$BASE_PATH/ansible/veos \
+                --host-pattern all \
+                --testbed ${{ parameters.TESTBED_NAME }} \
+                --testbed_file $BASE_PATH/ansible/testbed.yaml \
+                --log-cli-level warning \
+                --log-file-level debug \
+                --log-file logs/bsl.log \
+                --junit-xml=logs/bsl.xml \
+                --ignore=ptftests \
+                --ignore=ptftests \
+                --ignore=saitests \
+                --ignore=scripts \
+                --ignore=k8s \
+                --ignore=sai_qualify \
+                --showlocals \
+                --assert plain \
+                --show-capture no \
+                -rav \
+                --skip_sanity \
+                --disable_loganalyzer \
+                -m bsl
+            exit 0
+          displayName: "Run BSL Test"
+          timeoutInMinutes: 600
+
+        - script: |
+            echo "=== Restore DUT from l2 switch mode ==="
+
+            cd ansible
+            ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt
+          displayName: Restore from l2 mode
+          timeoutInMinutes: 30
+          condition: always()
+
+      - ${{ if eq(parameters.SKIP_COLLECT_SHOW_TECHSUPPORT, False) }}:
+        - task: Bash@3
+          displayName: Collect show techsupport results
+          inputs:
+            targetType: 'inline'
+            script: |
+              set -x
+
+              cd ansible
+              mkdir show_tech_results
+              ./testbed-cli.sh -t testbed.yaml collect-show-tech ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt -e "output_path=show_tech_results" || exit 0
+
+        - publish: ansible/show_tech_results
+          displayName: Upload show techsupport results
+          artifact: ${{ parameters.TESTBED_NAME}}.nightly.show_tech_results@$(System.JobAttempt)
+
+      - publish: tests/logs
+        displayName: "Archive test logs"
+        artifact: ${{ parameters.TESTBED_NAME}}.nightly.log@$(System.JobAttempt)
+        condition: always()
+
+      - task: PublishTestResults@2
+        displayName: Publish test results
+        inputs:
+          testResultsFiles: 'tests/logs/**/*.xml'
+          testRunTitle: ${{ parameters.TESTBED_NAME}}.nightly
+        condition: always()
+
+      - script: |
+          TIMEOUT=300
+          INTERVAL=60
+
+          wait_time=0
+          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release; do
+              if (( $wait_time >= $TIMEOUT)); then
+                  echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                  exit 1
+              fi
+              echo "Release testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+              sleep $INTERVAL
+              wait_time=$(expr $wait_time + $INTERVAL)
+          done
+        env:
+            TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
+            TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+        displayName: Release Testbed
+        condition: always()
+
+      - task: CopyFiles@2
+        displayName: Collect result files
+        inputs:
+          Contents: |
+            tests/logs/**/*.xml
+            tests/logs/platform_tests/test_*_reboot*.json
+          TargetFolder: results
+          CleanTargetFolder: true
+        condition: always()
+
+      - task: Bash@3
+        displayName: Upload Test Results
+        timeoutInMinutes: 20
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+
+            if [[ ${{ parameters.UPLOAD_TEST_REPORT }} == False ]]; then
+                echo "UPLOAD_TEST_REPORT=False, skip uploading test results to Kusto"
+                exit 0
+            fi
+
+            echo "Activate python3 virtual environment"
+            source /var/AzDevOps/env-python3/bin/activate
+
+            cd test_reporting
+            pip3 install -r requirements.txt
+
+            python3 junit_xml_parser.py -d ../results -o tr.json
+
+            # temporary workaround to allow reboot timing data upload
+            # After recent test change, the file names get DUT name in them
+            # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
+            reboot_path=../results/tests/logs/platform_tests
+            reboot_results=`find $reboot_path -type f -iname test_*_reboot*.json`
+            for reboot_result in $reboot_results; do
+                result_target=`echo $reboot_result | sed "s/\[.*\]//g"`
+                mv $reboot_result $result_target || true
+            done
+
+            python3 collect_azp_results.py $(Build.BuildId)
+
+            report_upload_files="../results $(find ../results -type f -regex '.*test_.*_reboot_\(summary\|report\).json')"
+            if [[ -z "${{ parameters.IMAGE_URL }}" ]]; then
+              python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} $report_upload_files SonicTestData
+            else
+              python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} -i ${{ parameters.IMAGE_URL }} $report_upload_files SonicTestData
+            fi
+        condition: always()
+        env:
+          TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+          TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+          TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+          TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+          TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+          TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+          TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+          TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
+          AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN)
+
+      - ${{ if in(parameters.TESTBED_NAME, 'vms21-t1-8102-01', 'vms28-t1-8102-02', 'vms28-dual-t0-8102') }}:
+        - task: Bash@3
+          displayName: Upload test results to Cisco Kusto Cluster
+          timeoutInMinutes: 20
+          inputs:
+            targetType: 'inline'
+            script: |
+              set -x
+
+              if [[ ${{ parameters.UPLOAD_TEST_REPORT }} == False ]]; then
+                  echo "UPLOAD_TEST_REPORT=False, skip uploading test results to Kusto"
+                  exit 0
+              fi
+
+              echo "Activate python3 virtual environment"
+              source /var/AzDevOps/env-python3/bin/activate
+
+              # Non-secret variables in variable group KUSTO_SECRETS are automatically exported as environment
+              # variables by Azure Pipeline. They cannot be override by value passed in from the "env" option
+              # of task. The workaround is to explicitly override the environment variables in bash here:
+              export TEST_REPORT_INGEST_KUSTO_CLUSTER=$(CISCO_INGEST_KUSTO_CLUSTER)
+              export TEST_REPORT_AAD_TENANT_ID=$(CISCO_AAD_TENANT_ID)
+              export TEST_REPORT_AAD_CLIENT_ID=$(CISCO_AAD_CLIENT_ID)
+
+              cd test_reporting
+
+              # temporary workaround to allow reboot timing data upload
+              # After recent test change, the file names get DUT name in them
+              # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
+              report_upload_files="../results $(find ../results -type f -regex '.*test_.*_reboot_\(summary\|report\).json')"
+
+              python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files CiscoTestData
+          condition: always()
+          env:
+            TEST_REPORT_AAD_CLIENT_KEY: $(CISCO_AAD_CLIENT_KEY)
+
+      - task: Bash@3
+        displayName: Cleanup Test Results
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+
+            # Cleanup test logs and collected dumps to free disk space
+            # Otherwise, the host server may have disk pressure and cause container being evicted by k8s.
+            rm -fr tests/logs
+            rm -fr ansible/show_tech_results
+        condition: always()

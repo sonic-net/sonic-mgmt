@@ -1,0 +1,105 @@
+name: SAI_202205_RELEASE_TEST_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+trigger: none
+pr: none
+
+resources:
+ pipelines:
+   - pipeline: bcm_sai_external_sug_7.1
+     source: bcm_sai_external_sug_7.1
+     project: broadcom
+    #  trigger:
+    #     enabled: true
+    #     branches:
+    #       include:
+    #       - PRE_SAI_7.1.0_*
+    #       - SAI_7.1.0_GA
+
+variables:
+  - template: templates/template_variables.yml
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    displayName: "Testbed Name"
+    default: vms20-t0-7050cx3-1
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_ABOOT_202205)
+    displayName: "Image URL"
+    values:
+      - $(IMAGE_BRCM_ABOOT_202205)
+      - $(IMAGE_BRCM_ABOOT_202205_SLIM)
+      - $(IMAGE_BRCM_202205)
+
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202205)
+    displayName: "py_saithrift URL"
+
+  # Testbed specific, to skip and/or include directories or just run basic tests
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "platform_tests copp show_techport acl everflow drop_packets"'
+    displayName: Testbed specific
+    values:
+      - '-I "platform_tests copp show_techport acl everflow drop_packets"'
+      - '-I "acl everflow"'
+      - '-S "platform_tests copp show_techport acl everflow drop_packets"'
+      - '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py"'
+
+
+  # Deploy SAI SDK
+  - name: DEPLOY_SAI_SDK
+    displayName: "Deploy sai sdk"
+    type: boolean
+    default: true
+
+  - name: ARTIFACT_PROJECT
+    type: string
+    default: broadcom
+
+  - name: SDK_BUILD_PIPELINE_NAME
+    type: string
+    default: "bcm_sai_external_sug_7.1"
+
+  - name: SDK_ARTIFACT_NAME
+    displayName: "artifact name"
+    type: string
+    default: xgs
+
+  # Test report
+  - name: UPLOAD_TEST_REPORT
+    displayName: "Upload Test Report"
+    type: boolean
+    default: false
+
+  # - name: PIPELINE_BRANCH
+  #   displayName: "pipeline running branch(all the buildouts binding to a branch)"
+  #   default: "internal"
+  #   type: string
+
+  # Resource agent pool
+  - name: AGENT_POOL
+    displayName: "Resource agent pool"
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
+jobs:
+  - template: templates/sonic_nightly_test_for_sai.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
+      DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
+      SDK_BUILD_PIPELINE_NAME: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
+      ARTIFACT_PROJECT: ${{ parameters.ARTIFACT_PROJECT }}
+      SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
