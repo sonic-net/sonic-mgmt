@@ -2,6 +2,8 @@
 
 import json
 import logging
+import os
+import re
 
 from tests.common.utilities import wait_until
 from telemetry_utils import listen_for_events
