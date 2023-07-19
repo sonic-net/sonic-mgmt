@@ -10,6 +10,8 @@ from tests.common.snappi.common_helpers import get_addrs_in_subnet, get_ipv6_add
 from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
+import yaml
+import os
 
 
 @pytest.fixture(scope="module")
@@ -513,7 +515,14 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
 @pytest.fixture(scope='module')
 def cvg_api(snappi_api_serv_ip,
             snappi_api_serv_port):
-    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port), ext='ixnetwork')
+    file_path = "/var/{}/sonic-mgmt/ansible/group_vars/lab/lab.yml".format(os.getenv('USER'))
+    with open(file_path, 'r') as file:
+        data = yaml.safe_load(file)
+
+    username = data['secret_group_vars']['snappi_api_server']['user']
+    password = data['secret_group_vars']['snappi_api_server']['password']
+
+    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port), ext='ixnetwork',username= username, password= password) 
     yield api
     if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()
