@@ -1598,7 +1598,7 @@ class PtfReleaseBuffer(PfcStormTestWithSharedHeadroom):
         recv_counters, queue_counters = sai_thrift_read_port_counters(
             self.src_client, self.asic_type, port_list['src'][self.src_port_id])
         xmit_counters, queue_counters = sai_thrift_read_port_counters(
-            self.dst_client, self.asic-type, port_list['dst'][self.dst_port_id])
+            self.dst_client, self.asic_type, port_list['dst'][self.dst_port_id])
 
         logging.debug("Recv Counters: {}, Base: {}".format(
             recv_counters, recv_counters_base))
