@@ -1475,13 +1475,13 @@ class ReloadTest(BaseTest):
             dut_datetime_during_shutdown = self.get_now_time()
             time_passed = float(dut_datetime_during_shutdown.strftime(
                 "%s")) - float(dut_datetime.strftime("%s"))
-            self.log('teamd service state time passed: {}'.format(str(time_passed)))
             if time_passed > teamd_shutdown_timeout:
                 self.fails['dut'].add(
                     'Teamd service did not go down')
                 raise TimeoutError
             teamd_state = self.get_teamd_state()
-            self.log('teamd service state: {}'.format(teamd_state))
+
+        self.log('teamd service state: {}'.format(teamd_state))
 
     def reboot_dut(self):
         time.sleep(self.reboot_delay)
@@ -1521,7 +1521,6 @@ class ReloadTest(BaseTest):
 
             self.sniff_thr.start()
             self.sender_thr.start()
-
 
         if stdout != []:
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
@@ -1760,7 +1759,7 @@ class ReloadTest(BaseTest):
             self.create_single_pcap(capture_pcap)
             self.packets = scapyall.rdpcap(capture_pcap)
             self.log("Number of all packets captured: {}".format(len(self.packets)))
-        except Exception as err:
+        except Exception:
             traceback_msg = traceback.format_exc()
             self.log("Error in tcpdump_sniff: {}".format(traceback_msg))
 
@@ -1793,7 +1792,6 @@ class ReloadTest(BaseTest):
             process.join()
 
         self.log("Killed all tcpdump processes by SIGINT")
-
 
     def start_dump_process(self, iface, pcap_path, tcpdump_filter):
         """
