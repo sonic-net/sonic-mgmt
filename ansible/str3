@@ -53,6 +53,8 @@ all:
           ansible_host: 10.64.247.58
         vms64-1:
           ansible_host: 10.64.247.64
+        vms64-2:
+          ansible_host: 10.64.246.101
 
     pdu:
       hosts:
@@ -79,6 +81,9 @@ all:
           protocol: snmp
         pdu-93:
           ansible_host: 10.3.155.93
+          protocol: snmp
+        pdu-94:
+          ansible_host: 10.3.155.94
           protocol: snmp
         pdu-115:
           ansible_host: 10.3.155.115
@@ -121,6 +126,10 @@ fanout:
       os: sonic
     str3-7260cx3-acs-fan-08:
       ansible_host: 10.3.146.117
+    str3-7260cx3-acs-fan-09:
+      ansible_host: 10.3.147.158
+    str3-7260cx3-acs-fan-10:
+      ansible_host: 10.3.147.159
     str2-7260cx3-acs-fan-23:
       ansible_host: 10.3.146.114
     str3-7260cx3-acs-fan-35:
@@ -196,6 +205,7 @@ sonic:
     sonic_arista_7800_lc_100G:
     sonic_arista_7800_lc_400G:
     sonic_arista32_100:
+    sonic_arista64_100:
     sonic_mlnx_4600C:
     sonic_mlnx_4700:
 
@@ -1103,6 +1113,45 @@ sonic_arista32_100:
         "0x2F": "SGD20436388"
   vars:
     iface_speed: 100000
+
+sonic_arista64_100:
+  hosts:
+    str3-7260cx3-acs-1:
+      ansible_host: 10.3.147.156
+      hwsku: Arista-7260CX3-C64
+      model: DCS-7260CX3-64
+      serial: JPA2312P0EZ
+      base_mac: fc:59:c0:2a:4d:20
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250505A0"
+        "0x23": "JPA2312P0EZ"
+        "0x24": "fc:59:c0:2a:4d:20"
+        "0x25": "2020/07/28 10:34:05"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2312P0EZ"
+    str3-7260cx3-acs-2:
+      ansible_host: 10.3.147.157
+      hwsku: Arista-7260CX3-C64
+      model: DCS-7260CX3-64
+      serial: FGN224303HG
+      base_mac: 38:38:a6:98:be:b8
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250505A0"
+        "0x23": "FGN224303HG"
+        "0x24": "38:38:a6:98:be:b8"
+        "0x25": "2020/08/03 10:19:42"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "FGN224303HG"
 
 sonic_mlnx_4700:
   hosts:

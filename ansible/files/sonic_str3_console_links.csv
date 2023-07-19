@@ -12,6 +12,8 @@ console-197,28,str3-7260cx3-acs-fan-01,ssh,admin
 console-197,24,str3-7260cx3-acs-fan-02,ssh,admin
 console-197,27,str3-7260cx3-acs-fan-03,ssh,admin
 console-197,38,str3-7260cx3-acs-fan-04,ssh,admin
+console-197,44,str3-7260cx3-acs-fan-09,ssh,admin
+console-197,46,str3-7260cx3-acs-fan-10,ssh,admin
 console-197,47,str3-7260cx3-acs-fan-37,ssh,admin
 console-197,41,str3-7260cx3-acs-fan-38,ssh,admin
 console-197,6,str3-8102-01,ssh,admin
@@ -41,6 +43,8 @@ console-212,7,str3-7060-acs-1,ssh,admin
 console-212,4,str3-7060-acs-2,ssh,admin
 console-212,5,str3-7060-acs-3,ssh,admin
 console-182,12,str3-a7060dx5-acs-1,ssh,admin
+console-197,43,str3-7260cx3-acs-1,ssh,admin
+console-197,45,str3-7260cx3-acs-2,ssh,admin
 console-212,3,str3-dx010-acs-1,ssh,admin
 console-194,5,str3-msn4700-01,ssh,admin
 console-194,30,str3-msn4700-fanout-01,ssh,admin

@@ -12,6 +12,8 @@ str3-7260cx3-acs-fan-05,10.3.146.115/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-06,10.3.146.116/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-07,10.3.146.86/23,Arista-7260CX3-C64,FanoutLeafSonic,,sonic
 str3-7260cx3-acs-fan-08,10.3.146.117/23,Arista-7260CX3,FanoutLeaf,,
+str3-7260cx3-acs-fan-09,10.3.147.158/23,Arista-7260CX3,FanoutLeaf,,
+str3-7260cx3-acs-fan-10,10.3.147.159/23,Arista-7260CX3,FanoutLeaf,,
 str2-7260cx3-acs-fan-23,10.3.146.114/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-35,10.3.147.79/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-37,10.3.147.120/23,Arista-7260CX3,FanoutLeaf,,
@@ -63,6 +65,7 @@ pdu-90,10.3.155.90,ApcRPDU,Pdu,snmp,
 pdu-91,10.3.155.91,Sentry,Pdu,snmp,
 pdu-92,10.3.155.92,ApcRPDU,Pdu,snmp,
 pdu-93,10.3.155.93,Sentry,Pdu,snmp,
+pdu-94,10.3.155.94,Sentry,Pdu,snmp,
 pdu-100,10.3.155.100,Sentry4,Pdu,snmp,
 pdu-101,10.3.155.101,Sentry4,Pdu,snmp,
 pdu-115,10.3.155.115,Sentry,Pdu,snmp,
@@ -85,6 +88,8 @@ str3-7060-acs-1,10.3.146.240,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str3-7060-acs-2,10.3.146.242,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str3-7060-acs-3,10.3.146.243,Arista-7060CX-32S-C32,DevSonic,,sonic
 str3-7060-acs-fan-01,10.3.146.241,Arista-7060CX-32S,FanoutLeaf,,
+str3-7260cx3-acs-1,10.3.147.156,Arista-7260CX3-C64,DevSonic,,sonic
+str3-7260cx3-acs-2,10.3.147.157,Arista-7260CX3-C64,DevSonic,,sonic
 str3-dx010-acs-1,10.3.146.236/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
 str3-msn4700-01,10.3.146.207,Mellanox-SN4700-O8C48,DevSonic,,sonic
 str3-msn4700-fanout-01,10.3.147.208,Mellanox-SN4700-O8C48,FanoutLeafSonic,,sonic
