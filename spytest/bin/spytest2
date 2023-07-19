@@ -1,4 +1,4 @@
 #!/bin/sh
 
-export SPYTEST_PYTHON_VERSION=3.8.12
+export SPYTEST_PYTHON_VERSION=2.7.14
 exec $(dirname $0)/spytest "$@"
