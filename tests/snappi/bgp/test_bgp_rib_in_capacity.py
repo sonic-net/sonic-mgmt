@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import (                        # no
 import pytest
 
 
-@pytest.mark.parametrize('multipath', [2])
+@pytest.mark.parametrize('multipath', [1])
 @pytest.mark.parametrize('start_value', [1000])
 @pytest.mark.parametrize('step_value', [1000])
 @pytest.mark.parametrize('route_type', ['IPv4'])

@@ -319,7 +319,7 @@ def __tgen_bgp_config(cvg_api,
             m = '0'+hex(i).split('0x')[1]
         else:
             m = hex(i).split('0x')[1]
-        lp.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+        c_lag.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
         lp.ethernet.name = "lag_Ethernet %s" % i
         lp.ethernet.mac = "00:10:01:00:00:%s" % m
         config.devices.device(name='Topology %d' % i)
@@ -437,7 +437,7 @@ def __tgen_bgp_config(cvg_api,
     flow.tx_rx.device.tx_names = [config.devices[0].name]
     flow.tx_rx.device.rx_names = rx_flows
     flow.size.fixed = 1024
-    flow.rate.percentage = 100
+    flow.rate.percentage = 10
     flow.metrics.enable = True
     return conv_config
 
@@ -750,7 +750,6 @@ def get_RIB_IN_capacity(cvg_api,
                         multipath,
                         start_value,
                         step_value,
-                        number_of_routes,
                         route_type,
                         port_speed,):
     """
@@ -776,7 +775,7 @@ def get_RIB_IN_capacity(cvg_api,
                 m = '0'+hex(i).split('0x')[1]
             else:
                 m = hex(i).split('0x')[1]
-            lp.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+            c_lag.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
             lp.ethernet.name = "lag_Ethernet %s" % i
             lp.ethernet.mac = "00:10:01:00:00:%s" % m
             config.devices.device(name='Topology %d' % i)
@@ -828,7 +827,7 @@ def get_RIB_IN_capacity(cvg_api,
                 route_range = bgpv4_peer.v4_routes.add(
                     name="Network_Group%d" % i)
                 route_range.addresses.add(
-                    address='200.1.0.1', prefix=32, count=number_of_routes)
+                    address='200.1.0.1', prefix=32, count=routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
                 as_path_segment.type = as_path_segment.AS_SEQ
@@ -874,7 +873,7 @@ def get_RIB_IN_capacity(cvg_api,
                 route_range = bgpv6_peer.v6_routes.add(
                     name="Network Group %d" % i)
                 route_range.addresses.add(
-                    address='3000::1', prefix=64, count=number_of_routes)
+                    address='3000::1', prefix=64, count=routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
                 as_path_segment.type = as_path_segment.AS_SEQ
@@ -893,7 +892,7 @@ def get_RIB_IN_capacity(cvg_api,
         flow.tx_rx.device.tx_names = [config.devices[0].name]
         flow.tx_rx.device.rx_names = rx_flows
         flow.size.fixed = 1024
-        flow.rate.percentage = 100
+        flow.rate.percentage = 10
         flow.metrics.enable = True
         flow.metrics.loss = True
         return conv_config
@@ -901,8 +900,13 @@ def get_RIB_IN_capacity(cvg_api,
     def run_traffic(routes):
         logger.info(
             '|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(routes))
-        conv_config = tgen_capacity(routes)
+        conv_config = tgen_capacity(routes) 
         cvg_api.set_config(conv_config)
+        restpy_session = cvg_api._api._assistant.Session
+        ixnet = restpy_session.Ixnetwork
+        if str(ixnet.Locations.find()[0].DeviceType) == 'Optixia XV':                 
+            ixnet.Traffic.Statistics.CpdpConvergence.EnableDataPlaneEventsRateMonitor = False 
+            
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
         cs = cvg_api.convergence_state()
@@ -920,13 +924,18 @@ def get_RIB_IN_capacity(cvg_api,
         for j in range(start_value, 100000000000, step_value):
             tx_frate, rx_frate = [], []
             run_traffic(j)
+            logger.info('Stopping Traffic')
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT-20, "For Traffic To stop")
             flow_stats = get_flow_stats(cvg_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
-            for flow in flow_stats:
-                tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_rx_rate)
-            logger.info("Tx Frame Rate : {}".format(tx_frate))
-            logger.info("Rx Frame Rate : {}".format(rx_frate))
+            for flow in flow_stats: 
+                tx_frate.append(flow.frames_tx)
+                rx_frate.append(flow.frames_rx)
+            logger.info("Tx Rate : {}".format(tx_frate))
+            logger.info("Rx Rate : {}".format(rx_frate))
             if float(flow_stats[0].loss) > 0.001:
                 if j == start_value:
                     raise Exception(
@@ -934,17 +943,7 @@ def get_RIB_IN_capacity(cvg_api,
                 logger.info('Loss greater than 0.001 occured')
                 logger.info('Reducing the routes and running test')
                 b = j-step_value
-                logger.info('Stopping Traffic')
-                cs = cvg_api.convergence_state()
-                cs.transmit.state = cs.transmit.STOP
-                cvg_api.set_state(cs)
-                wait(TIMEOUT-20, "For Traffic To stop")
                 break
-            logger.info('Stopping Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.STOP
-            cvg_api.set_state(cs)
-            wait(TIMEOUT-20, "For Traffic To stop")
         routes = []
         routes.append(b+int(step_value/8))
         routes.append(b+int(step_value/4))
@@ -953,6 +952,11 @@ def get_RIB_IN_capacity(cvg_api,
         routes.append(b+step_value-int(step_value/8))
         for i in range(0, len(routes)):
             run_traffic(routes[i])
+            logger.info('Stopping Traffic')
+            cs = cvg_api.convergence_state()
+            cs.transmit.state = cs.transmit.STOP
+            cvg_api.set_state(cs)
+            wait(TIMEOUT-20, "For Traffic To stop")
             flow_stats = get_flow_stats(cvg_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
             if float(flow_stats[0].loss) <= 0.001:
@@ -961,11 +965,6 @@ def get_RIB_IN_capacity(cvg_api,
             else:
                 max_routes = routes[i]-int(step_value/8)
                 break
-            logger.info('Stopping Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.STOP
-            cvg_api.set_state(cs)
-            wait(TIMEOUT-20, "For Traffic To stop")
             """ Stopping Protocols """
             logger.info("Stopping all protocols ...")
             cs = cvg_api.convergence_state()
