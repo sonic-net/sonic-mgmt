@@ -1342,8 +1342,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of triggering PFC'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' + \
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+            sys.stderr.write(('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' + \
+                             'xmit_counters {}\n\txmit_counters_base {}\n').format(
                 test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port no pfc
             assert(recv_counters[pg] == recv_counters_base[pg]), \
