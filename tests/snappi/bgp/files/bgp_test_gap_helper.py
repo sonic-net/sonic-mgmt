@@ -633,7 +633,7 @@ def run_traffic(cvg_api, duthost):
     finally:
         duthost.shell("sudo cp /var/log/syslog /host/scale_syslog.99")
         var = duthost.shell("sudo cat /host/scale_syslog.99 | grep 'ROUTE THRESHOLD_EXCEEDED' || true")['stdout']
-        if 'ROUTE THRESHOLD_EXCEEDED' in var:  
+        if 'ROUTE THRESHOLD_EXCEEDED' in var:
             logger.info('ROUTE_THRESHOLD_EXCEEDED FOUND in syslog!!!!!!!!')
             warning = 1
         else:
@@ -667,10 +667,8 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
     cvg_api.set_config(bgp_config)
     restpy_session = cvg_api._api._assistant.Session
     ixnet = restpy_session.Ixnetwork
-    if str(ixnet.Locations.find()[0].DeviceType) == 'Optixia XV':                 
+    if str(ixnet.Locations.find()[0].DeviceType) == 'Optixia XV':
         ixnet.Traffic.Statistics.CpdpConvergence.EnableDataPlaneEventsRateMonitor = False
-    
-    
     warning = run_traffic(cvg_api, duthost)
     if warning == 1:
         msg = "THRESHOLD_EXCEEDED warning message observed in syslog"
@@ -679,7 +677,7 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
     flow_stats = get_flow_stats(cvg_api)
     tx_frame_rate = flow_stats[0].frames_tx_rate
     assert tx_frame_rate != 0, "Traffic has not started"
-    stop_traffic(cvg_api) 
+    stop_traffic(cvg_api)
     flow_stats = get_flow_stats(cvg_api)
     logger.info('|---- Tx Frame Rate: {} ----|'.format(flow_stats[0].frames_tx_rate))
     logger.info('|---- Rx Frame Rate: {} ----|'.format(flow_stats[0].frames_rx_rate))
@@ -691,7 +689,6 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
     else:
         assert float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
         logger.info('PASSED : No Loss observerd in traffic item and {}'.format(msg))
-    
 
 
 def cleanup_config(duthost):
