@@ -8,14 +8,14 @@ logger = logging.getLogger(__name__)
 
 def backup_monit_config(duthost):
     logger.info("Backing up monit config files")
-    duthost.shell("cp -f /etc/monit/monitrc /home/")
-    duthost.shell("cp -f /etc/monit/conf.d/sonic-host /home/")
+    duthost.shell("cp -f /etc/monit/monitrc ~/")
+    duthost.shell("cp -f /etc/monit/conf.d/sonic-host ~/")
 
 
 def restore_monit_config(duthost):
     logger.info("Restoring monit config files")
-    duthost.shell("mv -f /home/monitrc /etc/monit/monitrc")
-    duthost.shell("mv -f /home/sonic-host /etc/monit/conf.d/sonic-host")
+    duthost.shell("mv -f ~/monitrc /etc/monit/monitrc")
+    duthost.shell("mv -f ~/sonic-host /etc/monit/conf.d/sonic-host")
     duthost.shell("systemctl restart monit")
 
 

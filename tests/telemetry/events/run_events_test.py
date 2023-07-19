@@ -2,21 +2,23 @@
 
 import json
 import logging
-import time
-import os
 
-
+from tests.common.utilities import wait_until
 from telemetry_utils import listen_for_events
 logger = logging.getLogger(__name__)
 
 
 def run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json_file,
-             filter_event_regex, tag, heartbeat=False, cleanup=None, thread_timeout=30):
+             filter_event_regex, tag, heartbeat=False, thread_timeout=30):
+    logger.info("At beginning of run_test, about to start trigger or listen")
     op_file = os.path.join(data_dir, json_file)
     if trigger is not None:  # no trigger for heartbeat
+        logger.info("About to trigger event")
         trigger(duthost)  # add events to cache
+    logger.info("About to start listening for events")
     listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file,
-                      thread_timeout, cleanup)  # listen from cache
+                      thread_timeout)  # listen from cache
+    logger.info("Listening events has finished, now will check if data is present")
     data = {}
     with open(op_file, "r") as f:
         data = json.load(f)
@@ -24,7 +26,14 @@ def run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json
     logger.info("events received: ({})".format(json.dumps(data, indent=4)))
     if heartbeat:  # no yang validation for heartbeat
         return
-    dest = "/home/" + json_file
+    dest = "~/" + json_file
     duthost.copy(src=op_file, dest=dest)
+    logger.info("validating {} event against {} schema".format(filter_event_regex, tag))
     validate_yang(duthost, dest, tag)
-    time.sleep(1)  # provide buffer for multiple calls to py_gnmicli
+    wait_until(5, 1, 0, is_gnmi_cli_finished, duthost)
+
+
+def is_gnmi_cli_finished(duthost):
+    last_logs = duthost.shell("tail -2 /var/log/syslog")["stdout"]
+    matches = re.findall('Set heartbeat_ctrl pause=1', last_logs)
+    return len(matches) > 0

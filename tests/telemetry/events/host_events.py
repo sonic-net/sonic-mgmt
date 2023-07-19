@@ -19,19 +19,17 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
             "> 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
         ]
     )
-
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-             "memory_usage.json", "sonic-events-host:memory-usage", tag, False,
-             restore_monit_config)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-             "disk_usage.json", "sonic-events-host:disk-usage", tag, False,
-             restore_monit_config)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-             "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False,
-             restore_monit_config)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
-             "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
-    restore_monit_config(duthost)
+    try:
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+                 "memory_usage.json", "sonic-events-host:memory-usage", tag, False)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+                 "disk_usage.json", "sonic-events-host:disk-usage", tag, False)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+                 "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
+                 "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
+    finally:
+        restore_monit_config(duthost)
 
 
 def trigger_mem_threshold_exceeded_alert(duthost):
