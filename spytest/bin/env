@@ -1,33 +1,38 @@
 #!/bin/sh
 
-if [ -z "$SCID" ]; then
+if [ -z "$SCID" -o ! -d "$SCID" ]; then
   export SCID=/opt/projects/scid
   if [ ! -d $SCID ]; then
     export SCID=/projects/scid
-  else
-    echo "================== USING LOCAL SPYTEST TOOLS ================="
   fi
 fi
 
 if [ "$SCID_PYTHON_BIN" != "" ]; then
-    echo "USING Python From $SCID_PYTHON_BIN"
-elif [ "$SPYTEST_PYTHON_VERSION" = "3.6.6" ]; then
-    export SCID_PYTHON_BIN=$SCID/tools/ActivPython/3.6.6/bin
-elif [ "$SPYTEST_PYTHON_VERSION" = "3.7.1" ]; then
-    export SCID_PYTHON_BIN=$SCID/tools/ActivPython/3.7.1/bin
+  echo "# Python From $SCID_PYTHON_BIN"
+elif [ -z "$SPYTEST_PYTHON_VERSION" -o "$SPYTEST_PYTHON_VERSION" = "current" ]; then
+  export SCID_PYTHON_BIN=$SCID/tools/Python-3.8.12/bin
+  if [ ! -f $SCID_PYTHON_BIN/python ]; then
+    export SCID_PYTHON_BIN=$SCID/tools/Python-3.8/bin
+  fi
+  #echo "# Branch default Python From $SCID_PYTHON_BIN"
+elif [ -d $SCID/tools/Python-$SPYTEST_PYTHON_VERSION/bin ]; then
+  export SCID_PYTHON_BIN=$SCID/tools/Python-$SPYTEST_PYTHON_VERSION/bin
+elif [ -d $SCID/tools/ActivPython/$SPYTEST_PYTHON_VERSION/bin ]; then
+  export SCID_PYTHON_BIN=$SCID/tools/ActivPython/$SPYTEST_PYTHON_VERSION/bin
+elif [ -d $SCID/tools/ActivPython/venv/$SPYTEST_PYTHON_VERSION/bin ]; then
+  export SCID_PYTHON_BIN=$SCID/tools/ActivPython/venv/$SPYTEST_PYTHON_VERSION/bin
 else
-    export SCID_PYTHON_BIN=$SCID/tools/ActivPython/venv/3.8.0/bin
-    export SCID_PYTHON_BIN=$SCID/tools/ActivPython/3.7.1/bin
-    export SCID_PYTHON_BIN=$SCID/tools/ActivPython/3.6.6/bin
-    export SCID_PYTHON_BIN=$SCID/tools/ActivPython/current/bin
+  export SCID_PYTHON_BIN=$SCID/tools/ActivPython/venv/3.8.0/bin
+  export SCID_PYTHON_BIN=$SCID/tools/ActivPython/current/bin
 fi
 
-if [ -z "$SCID_TGEN_PATH=" ]; then
-  export SCID_TGEN_PATH=$SCID/tgen
-fi
-
-if [ -z "$SPYTEST_PYTHON" ]; then
-  export SPYTEST_PYTHON=$SCID_PYTHON_BIN/python
+export SCID_TGEN_PATH=$SCID/tgen
+if [ -z "$SPYTEST_PYTHON" -o -n "$SPYTEST_PYTHON_VERSION" ]; then
+  if [ -f $SCID_PYTHON_BIN/python$SPYTEST_PYTHON_VERSION ]; then
+    export SPYTEST_PYTHON=$SCID_PYTHON_BIN/python$SPYTEST_PYTHON_VERSION
+  else
+    export SPYTEST_PYTHON=$SCID_PYTHON_BIN/python
+  fi
 fi
 export PATH=$SCID/tools/bin:$PATH
 
@@ -41,7 +46,10 @@ if [ -z "$SCID_TCL85_BIN" ]; then
 fi
 if [ ! -d $SCID_TCL85_BIN ]; then
   # use native tcl 8.5
-  SCID_TCL85_BIN=$(dirname $(which tclsh8.5))
+  tchsh85=$(which tclsh8.5)
+  if [ -n "$tchsh85" ]; then
+    SCID_TCL85_BIN=$(dirname $tchsh85)
+  fi
 fi
 export SCID_TCL84_BIN=$SCID/tools/tcl/8.4.20/bin
-
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SCID/tools/lib
