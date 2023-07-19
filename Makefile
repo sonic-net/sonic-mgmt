@@ -52,11 +52,11 @@ collect:
 
 ut_t0:
 	# create_sonic_topo only accepts a file for list of tests. Create temp file
-	echo $(TEST_LIST) | sed 's/,/\n/g' > sanity-scripts/$(TEMP_TESTFILE)
-	cat infra/$(TESTFILE) >> sanity-scripts/$(TEMP_TESTFILE)
+	echo $(TEST_LIST) | sed 's/,/\n/g' > $(TEMP_TESTFILE)
+	cat infra/$(TESTFILE) >> $(TEMP_TESTFILE)
 	echo "Running UT on T0 with ${TEMP_TESTFILE}"
-	$(MAKE) TESTFILE=sanity-scripts/$(TEMP_TESTFILE) t0_run
-	rm sanity-scripts/$(TEMP_TESTFILE)
+	$(MAKE) TESTFILE=$(TEMP_TESTFILE) t0_run
+	rm $(TEMP_TESTFILE)
 
 ut_t0_hw:
 	echo $(TEST_LIST) | sed 's/,/\n/g' > $(TEMP_TESTFILE)
