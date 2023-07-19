@@ -288,9 +288,27 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
                 continue
             cfg_facts = asic_cfg['ansible_facts']
             cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
+            cfgd_dev_neighbor =  cfg_facts['DEVICE_NEIGHBOR'] if 'DEVICE_NEIGHBOR' in cfg_facts else {}
+            cfgd_dev_neighbor_metadata =  cfg_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in cfg_facts else {}
             cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
-            eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
+            cfgd_pc_members = cfg_facts['PORTCHANNEL_MEMBER'] if 'PORTCHANNEL_MEMBER' in cfg_facts else {}
+            eths_orig = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
             pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
+
+            #Remove the interface from eths and pos if the BGP neighbor is of type RegionalHub
+            dev_rh_neigh = [neigh for neigh in cfgd_dev_neighbor_metadata if cfgd_dev_neighbor_metadata[neigh]["type"] == "RegionalHub"]
+
+            #Interfaces to be excluded
+            intfs_exclude = [intf for intf in cfgd_dev_neighbor if cfgd_dev_neighbor[intf]["name"] in dev_rh_neigh]
+            eths = [eth for eth in eths_orig if eth not in intfs_exclude]
+           
+            #portchannels to be excluded
+            for k, v in cfgd_pc_members.items():
+                keys = v.keys()
+                for intf in keys:
+                    if intf in intfs_exclude and k in pos:
+                        pos.remove(k)
+
             if len(eths) != 0:
                 if port_type_a == "ethernet":
                     intfs_to_test['portC'] = get_info_for_a_port(
