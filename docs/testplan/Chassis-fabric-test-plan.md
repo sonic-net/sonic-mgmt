@@ -48,7 +48,7 @@ asic:
 ```
 This can be extended later for other fabric link related testing.
 
-The files are stored in tests/voq/fabric_data, and only used by fabric testing right now. 
+The files are stored in tests/voq/fabric_data, and only used by fabric testing right now.
 
 For example, Linecard3 Fap0 fabric serdes link 0 connects to Fabriccard3 FE0 serdes link 133 in a test system. The sku of Linecard 3 is 7800R3A-36D2-C72 and the sku of the Fabriccard is 7808R3A-FM. The information is stored in tests/voq/fabric_data/7800R3A-36D2-C72_7808R3A-FM_LC3.yaml:
 
@@ -63,7 +63,7 @@ asic0:               ----> Fap0
 
 The voq tests read the information stored in these files as expected value to check the fabric link status of Linecards in a system.
 
-As the fabric link connection information is huge and the connection from the Linecard side and Fabriccard side are the same, the information stored in the yaml files are from Linecards side of view only. When testing the supervisor(Fabriccards), the test creates a supReferenceData structure that stores fabric link information from the Fabriccard side of view while processing and testing Linecards. 
+As the fabric link connection information is huge and the connection from the Linecard side and Fabriccard side are the same, the information stored in the yaml files are from Linecards side of view only. When testing the supervisor(Fabriccards), the test creates a supReferenceData structure that stores fabric link information from the Fabriccard side of view while processing and testing Linecards.
 
 # Test Cases
 
@@ -73,7 +73,7 @@ As the fabric link connection information is huge and the connection from the Li
 Verify that when the chassis is up and running, the fabric links that are expected to be up are up.
 
 ### Test Steps
-* For each ASIC in the chassis (across different duts), run `show fabric counters port` 
+* For each ASIC in the chassis (across different duts), run `show fabric counters port`
 
 ### Pass/Fail Criteria
 * Verify for each ASIC, the number of links that are up matches the number of links per ASIC defined in the inventory. This is expected to be stored in the host_var attribute.
