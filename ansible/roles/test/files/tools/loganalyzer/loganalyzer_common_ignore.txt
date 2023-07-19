@@ -48,6 +48,9 @@ r, ".* ERR syncd\d*#syncd.*Failed to get (stats|attr) of .*(MACSEC|MACsec).*"
 
 ##### White list below messages found on physical devices for now. Need to address them later.
 
+# https://dev.azure.com/msazure/One/_workitems/edit/23818971
+r, ".* ERR syncd#syncd: [none] SAI_API_UNSPECIFIED:sai_bulk_object_get_stats:671 Unsupported object type type 26.*"
+
 # https://dev.azure.com/msazure/One/_workitems/edit/14233578
 r, ".* ERR bgp#bgpcfgd: .*BGPSLBPassive.*attribute is supported.*"
 
