@@ -8,6 +8,7 @@
 # @author : Sayed Saquib (sayed.saquib@broadcom.com)
 
 from spytest import st
+from utilities.utils import get_supported_ui_type_list
 
 class RouteMap:
     """
@@ -77,6 +78,31 @@ class RouteMap:
         matchstmt['name'] = prefix_list_name
         self.stanza[seq]['match'].append(matchstmt)
 
+    def add_sequence_match_peer(self, seq, peer_ip):
+        matchstmt = dict()
+        matchstmt['type'] = 'peer'
+        matchstmt['peer_ip'] = peer_ip
+        self.stanza[seq]['match'].append(matchstmt)
+
+    def add_sequence_match_tag(self, seq, tag):
+        matchstmt = dict()
+        matchstmt['type'] = 'tag'
+        matchstmt['tag'] = tag
+        self.stanza[seq]['match'].append(matchstmt)
+
+    def add_sequence_match_interface(self, seq, interface_name):
+        matchstmt = dict()
+        matchstmt['type'] = 'interface'
+        matchstmt['name'] = interface_name
+        self.stanza[seq]['match'].append(matchstmt)
+
+    def add_sequence_match_next_hop_prefix_list(self, seq, prefix_list_name, family='ipv4'):
+        matchstmt = dict()
+        matchstmt['type'] = 'next-hop-prefix-list'
+        matchstmt['family'] = family
+        matchstmt['name'] = prefix_list_name
+        self.stanza[seq]['match'].append(matchstmt)
+
     def add_sequence_match_ip_access_list(self, seq, access_list_name_number, family='ipv4'):
         matchstmt = dict()
         matchstmt['type'] = 'access-list'
@@ -118,6 +144,12 @@ class RouteMap:
     def add_sequence_set_ipv4_next_hop(self, seq, nhop):
         setstmt = dict()
         setstmt['type'] = 'ipv4nexthop'
+        setstmt['value'] = nhop
+        self.stanza[seq]['set'].append(setstmt)
+
+    def add_sequence_set_ipv6_next_hop(self, seq, nhop):
+        setstmt = dict()
+        setstmt['type'] = 'ipv6nexthop'
         setstmt['value'] = nhop
         self.stanza[seq]['set'].append(setstmt)
 
@@ -175,7 +207,7 @@ class RouteMap:
     def config_command_string(self):
         cli_type = st.get_ui_type()
         cli_type = 'vtysh' if cli_type in ['click', 'vtysh'] else cli_type
-        if cli_type in ['rest-put', 'rest-patch']: cli_type = 'klish'
+        if cli_type in ['rest-put', 'rest-patch']+get_supported_ui_type_list(): cli_type = 'klish'
         command = ''
         for v in self.stanza.keys():
             command += '{} {} {} {}\n'.format(self.cmdkeyword, self.name, self.stanza[v]['mode'], v)
@@ -208,6 +240,17 @@ class RouteMap:
                         command += '\n'
                 elif items['type'] == 'source-protocol':
                     command += 'match source-protocol {}\n'.format(items['source-protocol'])
+                elif items["type"] == "next-hop-prefix-list":
+                    if items['family'] == 'ipv4':
+                        command += 'match ip next-hop prefix-list {}\n'.format(items['name'])
+                    else:
+                        command += 'match ipv6 address prefix-list {}\n'.format(items['name'])
+                elif items['type'] == 'peer':
+                    command += 'match peer {}\n'.format(items['peer_ip'])
+                elif items['type'] == 'tag':
+                    command += 'match tag {}\n'.format(items['tag'])
+                elif items['type'] == 'interface':
+                    command += 'match interface {}\n'.format(items["name"])
                 else:
                     st.error("Invalid type({}) in match statement".format(items['type']))
 
@@ -218,6 +261,8 @@ class RouteMap:
                     command += 'set local-preference {}\n'.format(items['value'])
                 elif items['type'] == 'ipv4nexthop':
                     command += 'set ip next-hop {}\n'.format(items['value'])
+                elif items['type'] == 'ipv6nexthop':
+                    command += 'set ipv6 next-hop {}\n'.format(items['value'])
                 elif items['type'] == 'ipv6nexthoplocal':
                     command += 'set ipv6 next-hop local {}\n'.format(items['value'])
                 elif items['type'] == 'ipv6nexthopglobal':
@@ -260,7 +305,7 @@ class RouteMap:
     def execute_command(self, dut, config='yes', **kwargs):
         cli_type = st.get_ui_type(dut, **kwargs)
         cli_type = 'vtysh' if cli_type in ['click', 'vtysh'] else 'klish'
-        if cli_type in ['rest-put', 'rest-patch']: cli_type = 'klish'
+        if cli_type in ['rest-put', 'rest-patch']+get_supported_ui_type_list(): cli_type = 'klish'
         if config == 'no':
             command = self.unconfig_command_string()
         else:
