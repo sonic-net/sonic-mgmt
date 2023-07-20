@@ -15,7 +15,7 @@ _self_dir = os.path.dirname(os.path.abspath(__file__))
 ansible_path = os.path.realpath(os.path.join(_self_dir, "../../"))
 
 
-def init_localhost(inventories, options={}, hostvars={}):
+def init_localhost(inventories=None, options={}, hostvars={}):
     try:
         return AnsibleHost(inventories, "localhost", options=options.copy(), hostvars=hostvars.copy())
     except (NoAnsibleHostError, MultipleAnsibleHostsError) as e:
