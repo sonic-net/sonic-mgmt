@@ -129,7 +129,7 @@ def switch_init(clients):
         return _port_list, _sai_port_list, _front_port_list
 
     port_list['src'], sai_port_list['src'], front_port_list['src'] = _get_data_for_client(clients['src'], 'src')
-    if 'dst' not in clients:
+    if 'dst' not in clients or clients['src'] == clients['dst']:
         port_list['dst'] = port_list['src']
         sai_port_list['dst'] = sai_port_list['src']
         front_port_list['dst'] = front_port_list['src']

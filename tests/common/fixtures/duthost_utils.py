@@ -448,10 +448,9 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture(scope='class')
-def dut_qos_maps(get_src_dst_asic_and_duts):
+def _dut_qos_map(dut):
     """
-    A module level fixture to get QoS map from DUT host.
+    A helper function to get QoS map from DUT host.
     Return a dict
     {
         "dscp_to_tc_map": {
@@ -466,7 +465,6 @@ def dut_qos_maps(get_src_dst_asic_and_duts):
     or an empty dict if failed to parse the output
     """
     maps = {}
-    dut = get_src_dst_asic_and_duts['src_dut']
     try:
         if dut.is_multi_asic:
             sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
@@ -497,13 +495,33 @@ def dut_qos_maps(get_src_dst_asic_and_duts):
     return maps
 
 
-def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+@pytest.fixture(scope='class')
+def dut_qos_maps(get_src_dst_asic_and_duts):
+    """
+    A class level fixture to get QoS map from DUT host.
+    Return a dict
+    """
+    dut = get_src_dst_asic_and_duts['src_dut']
+    return _dut_qos_map(dut)
+
+
+@pytest.fixture(scope='module')
+def dut_qos_maps_module(rand_selected_front_end_dut):
+    """
+    A module level fixture to get QoS map from DUT host.
+    return a dict
+    """
+    dut = rand_selected_front_end_dut
+    return _dut_qos_map(dut)
+
+
+def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
     downlink/unlink ports.
     """
     dscp_to_tc_map_names = set()
-    for port_name, qos_map in list(dut_qos_maps['port_qos_map'].items()):
+    for port_name, qos_map in dut_qos_maps_module['port_qos_map'].iteritems():
         if port_name == "global":
             continue
         dscp_to_tc_map_names.add(qos_map.get("dscp_to_tc_map", ""))
@@ -512,20 +530,20 @@ def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
     return False
 
 
-def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
+def load_dscp_to_pg_map(duthost, port, dut_qos_maps_module):
     """
     Helper function to calculate DSCP to PG map for a port.
     The map is derived from DSCP_TO_TC_MAP + TC_TO_PG_MAP
     return a dict like {0:0, 1:1...}
     """
     try:
-        port_qos_map = dut_qos_maps['port_qos_map']
+        port_qos_map = dut_qos_maps_module['port_qos_map']
         dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
         tc_to_pg_map_name = port_qos_map[port]['tc_to_pg_map'].split('|')[-1].strip(']')
         # Load dscp_to_tc_map
-        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name]
+        dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name]
         # Load tc_to_pg_map
-        tc_to_pg_map = dut_qos_maps['tc_to_priority_group_map'][tc_to_pg_map_name]
+        tc_to_pg_map = dut_qos_maps_module['tc_to_priority_group_map'][tc_to_pg_map_name]
         # Calculate dscp to pg map
         dscp_to_pg_map = {}
         for dscp, tc in list(dscp_to_tc_map.items()):
@@ -536,20 +554,20 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
         return {}
 
 
-def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
+def load_dscp_to_queue_map(duthost, port, dut_qos_maps_module):
     """
     Helper function to calculate DSCP to Queue map for a port.
     The map is derived from DSCP_TO_TC_MAP + TC_TO_QUEUE_MAP
     return a dict like {0:0, 1:1...}
     """
     try:
-        port_qos_map = dut_qos_maps['port_qos_map']
+        port_qos_map = dut_qos_maps_module['port_qos_map']
         dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
         tc_to_queue_map_name = port_qos_map[port]['tc_to_queue_map'].split('|')[-1].strip(']')
         # Load dscp_to_tc_map
-        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name][dscp_to_tc_map_name]
+        dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name][dscp_to_tc_map_name]
         # Load tc_to_queue_map
-        tc_to_queue_map = dut_qos_maps['tc_to_queue_map'][tc_to_queue_map_name]
+        tc_to_queue_map = dut_qos_maps_module['tc_to_queue_map'][tc_to_queue_map_name]
         # Calculate dscp to queue map
         dscp_to_queue_map = {}
         for dscp, tc in list(dscp_to_tc_map.items()):

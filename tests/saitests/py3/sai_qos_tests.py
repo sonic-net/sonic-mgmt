@@ -4552,7 +4552,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             # Enable tx on dest port
             self.sai_thrift_port_tx_enable(
-                self.client, asic_type, [dst_port_id])
+                self.dst_client, asic_type, [dst_port_id])
 
 
 class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):

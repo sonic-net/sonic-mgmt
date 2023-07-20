@@ -51,7 +51,6 @@ class ThriftInterface(BaseTest):
         else:
             self.src_server_ip = 'localhost'
             src_server_port = 9092
-
         if "dst_server" in self.test_params:
             # server has format <server_ip>:<server_port>
             dst_server = self.test_params['dst_server'].strip().split(":")
@@ -81,6 +80,18 @@ class ThriftInterface(BaseTest):
                         if dst_dut_index in a_ptf_port_info['target_dut'] and \
                                 a_ptf_port_info['asic_idx'] == self.dst_asic_index:
                             interface_to_front_mapping['dst'][a_ptf_port] = a_ptf_port_info['dut_port']
+                else:
+                    interface_to_front_mapping['dst'] = interface_to_front_mapping['src']
+        elif "port_map_file_ini" in self.test_params:
+            user_input = self.test_params['port_map_file_ini']
+            interface_to_front_mapping['src'] = {}
+            f = open(user_input, 'r')
+            for line in f:
+                if (len(line) > 0 and (line[0] == '#' or line[0] == ';' or line[0]=='/')):
+                    continue
+                interface_front_pair = line.split("@")
+                interface_to_front_mapping['src'][interface_front_pair[0]] = interface_front_pair[1].strip()
+            f.close()
         else:
             exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
         # dictionary with key 'src' or 'dst'
@@ -163,8 +174,8 @@ class ThriftInterface(BaseTest):
                                                             self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             cmd)
-            assert ('Success rv = 0' in stdOut[1], "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index,
-                                                                                            self.src_server_ip))
+            assert 'Success rv = 0' in stdOut[1], "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index,
+                                                                                            self.src_server_ip)
 
         sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
 
@@ -176,7 +187,7 @@ class ThriftInterface(BaseTest):
                                                             self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             cmd)
-            assert ('Success rv = 0' in stdOut[1]), "disable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index,
+            assert 'Success rv = 0' in stdOut[1], "disable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index,
                                                                                         self.src_server_ip)
         sai_thrift_port_tx_disable(client, asic_type, port_list, target=target)
 
