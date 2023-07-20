@@ -939,17 +939,17 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
         portToLag = {}
         for lag, lagData in mg_facts["minigraph_portchannels"].items():
             for member in lagData['members']:
-                portToLag[ member ] = lag
+                portToLag[member] = lag
         aclBindings = mg_facts["minigraph_acls"]["DataAcl"]
         for port in aclBindings:
             if port in portToLag:
-                if asichost.portchannel_on_asic( portToLag[port] ):
-                    asicAclBindings.add( portToLag[port] )
+                if asichost.portchannel_on_asic(portToLag[port]):
+                    asicAclBindings.add(portToLag[port])
             else:
-                if asichost.port_on_asic( port ):
-                    asicAclBindings.add( port ) 
+                if asichost.port_on_asic(port):
+                    asicAclBindings.add(port) 
 
-        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + ( new_crm_stats_acl_entry_used - crm_stats_acl_entry_used ) * len( asicAclBindings )
+        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
     else:
         crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
 
