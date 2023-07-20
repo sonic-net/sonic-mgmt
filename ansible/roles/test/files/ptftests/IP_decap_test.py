@@ -520,9 +520,9 @@ class DecapPacketTest(BaseTest):
     def check_range(self, ip_range, outer_pkt_type, inner_pkt_type, dut_index):
         dst_ips = []
         dst_ips.append(ip_range.get_first_ip())
-        if ip_range.length > 1:
+        if ip_range.length() > 1:
             dst_ips.append(ip_range.get_last_ip())
-        if ip_range.length > 2:
+        if ip_range.length() > 2:
             dst_ips.append(ip_range.get_random_ip())
 
         logging.info('Checking dst_ips={}'.format(dst_ips))
