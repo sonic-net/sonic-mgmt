@@ -77,6 +77,12 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
         duthost.service(name="telemetry", state="restarted")
 
 
+def check_gnmi_cli_running(ptfhost):
+    program_list = ptfhost.shell("ps aux | grep py_gnmicli.py")["stdout"]
+    matches = re.findall('python /root/gnxi/gnmi_cli_py/py_gnmicli.py', program_list)
+    return len(matches) > 0
+
+
 def fetch_json_ptf_output(output, match_no):
     match = re.findall('json_ietf_val: \"(.*)\"', output)
     assert len(match) > match_no, "Not able to parse json from output"

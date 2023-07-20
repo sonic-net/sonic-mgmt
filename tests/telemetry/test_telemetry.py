@@ -6,8 +6,9 @@ import pytest
 import random
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
-from telemetry_utils import generate_client_cli, fetch_json_ptf_output
+from telemetry_utils import generate_client_cli, fetch_json_ptf_output, check_gnmi_cli_running
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -185,14 +186,13 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-def invoke_py_cli_from_ptf(ptfhost, cmd, match_no=0, find_data="", results=[""]):
+def invoke_py_cli_from_ptf(ptfhost, cmd, results=[""], match_no=0, find_data=""):
     gnmi_output = ptfhost.shell(cmd)['stdout']
     gnmi_str = str(gnmi_output)
     if find_data != "":
-        logger.info("json output from ptf is {}".format(gnmi_str))
         result = fetch_json_ptf_output(gnmi_str, match_no)
         match = re.findall(find_data, result)
-        assert len(match > 0)
+        assert len(match) > 0
         results[0] = match[0]
 
 
@@ -202,7 +202,7 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=1, xpath="NEIGH_STATE_TABLE",
+                              submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
                               target="STATE_DB")
     results = [""]
 
@@ -212,17 +212,18 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     original_state = bgp_info["bgpState"]
     new_state = "Established" if original_state.lower() == "active"  else "Active"
 
-    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, 1, bgp_neighbor, results,))
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, results, 1, bgp_neighbor,))
     client_thread.start()
 
-    ret = duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state)
+    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    ret = duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state))
 
     client_thread.join(30)
 
     try:
-        assert results[0] != ""
+        assert results[0] != "", "Did not get key from update"
     finally:
-        duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, original_state)
+        duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, original_state))
 
 
 @pytest.mark.disable_loganalyzer
