@@ -720,7 +720,6 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                         47: 'c0:ff:ee:00:00:11', 48: 'c0:ff:ee:00:00:11',
                         49: 'c0:ff:ee:00:00:11'}
 
-
     # Make sure a givenflow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
