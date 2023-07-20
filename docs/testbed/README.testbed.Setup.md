@@ -56,7 +56,7 @@ This document describes the steps to setup the testbed and deploy a topology.
  - reboot
     - at minimum terminate ssh connection or log out and log back in
     - this is needed for the permissions to be update, otherwise next step will fail
-    
+
  - Disable firewall (optional)
    ```
    sudo ufw disable

@@ -528,7 +528,7 @@ def cvg_api(snappi_api_serv_ip,
         username=username,
         password=password
     )
-                
+
     yield api
     if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()
