@@ -950,10 +950,10 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
                     asicAclBindings.add(port) 
 
         crm_stats_acl_entry_available = new_crm_stats_acl_entry_available +\
-              (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
+                                        (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
     else:
         crm_stats_acl_entry_available = new_crm_stats_acl_entry_available +\
-              new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
+                                        new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
 
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
