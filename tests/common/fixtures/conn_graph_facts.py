@@ -47,7 +47,7 @@ def get_graph_facts(duthost, localhost, hostnames):
     graph_groups_file = os.path.join(lab_conn_graph_path, "graph_groups.yml")
     group = None
     if os.path.isfile(graph_groups_file):
-        graph_groups = yaml.load(open(graph_groups_file))
+        graph_groups = yaml.safe_load(open(graph_groups_file))
         for inv_file in inv_files:
             inv_name = os.path.basename(inv_file)
             if inv_name in graph_groups:
