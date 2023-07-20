@@ -77,6 +77,13 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
         duthost.service(name="telemetry", state="restarted")
 
 
+def fetch_json_ptf_output(output, match_no):
+    match = re.findall('json_ietf_val: \"(.*)\"', output)
+    assert len(match) > match_no, "Not able to parse json from output"
+    event_str = match[match_no]
+    return event_str
+
+
 def listen_for_event(ptfhost, cmd, results):
     ret = ptfhost.shell(cmd)
     assert ret["rc"] == 0, "PTF docker was not able to query EVENTS path"
@@ -93,10 +100,7 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file):
     event_thread.join(30)  # close thread after 30 sec, was not able to find event within reasonable time
     assert results[0] != "", "No output from PTF docker"
     # regex logic and then to write to file
-    result = results[0]
-    match = re.findall('json_ietf_val: \"(.*)\"', result)
-    assert len(match) > 0, "Not able to parse json from output"
-    event_str = match[0]
+    event_str = fetch_json_ptf_output(result, 0)
     event_str = event_str.replace('\\', '')
     event_json = json.loads(event_str)
     with open(op_file, "w") as f:

@@ -3,9 +3,11 @@ import threading
 import logging
 import re
 import pytest
+import random
 
 from tests.common.helpers.assertions import pytest_assert
-from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
+from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
+from telemetry_utils import generate_client_cli, fetch_json_ptf_output
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -18,6 +20,7 @@ METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
+SUBMODE_ONCHANGE = 1
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -182,8 +185,44 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-def invoke_py_cli_from_ptf(ptfhost, cmd):
-    ptfhost.shell(cmd)
+def invoke_py_cli_from_ptf(ptfhost, cmd, match_no=0, find_data="", results=[""]):
+    gnmi_output = ptfhost.shell(cmd)['stdout']
+    gnmi_str = str(gnmi_output)
+    if find_data != "":
+        logger.info("json output from ptf is {}".format(gnmi_str))
+        result = fetch_json_ptf_output(gnmi_str, match_no)
+        match = re.findall(find_data, result)
+        assert len(match > 0)
+        results[0] = match[0]
+
+
+def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+    logger.info("Testing on change update notifications")
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_201911_and_older(duthost)
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
+                              submode=SUBMODE_ONCHANGE, update_count=1, xpath="NEIGH_STATE_TABLE",
+                              target="STATE_DB")
+    results = [""]
+
+    bgp_nbrs = duthost.get_bgp_neighbors()
+    bgp_neighbor = random.choice(bgp_nbrs.keys())
+    bgp_info = duthost.get_bgp_neighbor_info(unicode(bgp_neighbor))
+    original_state = bgp_info["bgpState"]
+    new_state = "Established" if original_state.lower() == "active"  else "Active"
+
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, 1, bgp_neighbor, results,))
+    client_thread.start()
+
+    ret = duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state)
+
+    client_thread.join(30)
+
+    try:
+        assert results[0] != ""
+    finally:
+        duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, original_state)
 
 
 @pytest.mark.disable_loganalyzer
