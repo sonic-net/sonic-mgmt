@@ -37,6 +37,7 @@ def do_init(duthost):
     duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
 
 
+@pytest.mark.disable_loganalyzer
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema
