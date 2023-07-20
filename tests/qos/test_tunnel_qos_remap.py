@@ -459,6 +459,9 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                     pfc_queue_idx=prio,
                                     pfc_frames_number=PFC_PKT_COUNT,
                                     peer_info=peer_info)
+        dst_ports = dualtor_meta['target_server_port']
+        if not isinstance(dualtor_meta['target_server_port'], list):
+            dst_ports = [dualtor_meta['target_server_port']]
 
         dst_ports = dualtor_meta['target_server_port']
         if not isinstance(dualtor_meta['target_server_port'], list):
