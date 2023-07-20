@@ -322,7 +322,7 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                         # There are non-ip_address keys in ifaces. We ignore them with the except
                         ip_ntwrk = ipaddress.ip_network(iface_cidr, strict=False)
                     except ValueError:
-                        pass
+                        continue
                     # For VLAN interfaces, the IP address we want to block is the default gateway (i.e.,
                     # the first available host IP address of the VLAN subnet)
                     ip_addr = next(ip_ntwrk.hosts()) if iface_table_name == "VLAN_INTERFACE" \
