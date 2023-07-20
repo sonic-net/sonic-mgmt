@@ -949,9 +949,11 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
                 if asichost.port_on_asic(port):
                     asicAclBindings.add(port) 
 
-        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
+        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available +\
+              (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
     else:
-        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
+        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available +\
+              new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
 
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
@@ -987,6 +989,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
 
     # Remove ACL
     duthost.command("acl-loader delete")
+
 
 def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
