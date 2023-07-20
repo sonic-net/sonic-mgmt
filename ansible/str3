@@ -85,6 +85,12 @@ all:
         pdu-94:
           ansible_host: 10.3.155.94
           protocol: snmp
+        pdu-100:
+          ansible_host: 10.3.155.100
+          protocol: snmp
+        pdu-101:
+          ansible_host: 10.3.155.101
+          protocol: snmp
         pdu-115:
           ansible_host: 10.3.155.115
           protocol: snmp
@@ -130,7 +136,7 @@ fanout:
       ansible_host: 10.3.147.158
     str3-7260cx3-acs-fan-10:
       ansible_host: 10.3.147.159
-    str2-7260cx3-acs-fan-23:
+    str3-7260cx3-acs-fan-23:
       ansible_host: 10.3.146.114
     str3-7260cx3-acs-fan-35:
       ansible_host: 10.3.147.79
