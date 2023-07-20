@@ -8,7 +8,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses            
 from tests.common.fixtures.ptfhost_utils import run_garp_service                                # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                              # noqa F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr                         # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side   # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
@@ -31,7 +31,7 @@ the connected PTF port(s) required to setup the RADV tests
 
 
 @pytest.fixture(scope="module", autouse=True)
-def radv_test_setup(request, duthosts, ptfhost, tbinfo):
+def radv_test_setup(duthosts, ptfhost, tbinfo):
     duthost = duthosts[0]
     logging.info("radv_test_setup() DUT {}".format(duthost.hostname))
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -126,11 +126,10 @@ def dut_update_radv_periodic_ra_interval(duthost):
 
 
 def test_radv_router_advertisement(
-        request, tbinfo,
         duthost, ptfhost,
         radv_test_setup,
         dut_update_radv_periodic_ra_interval,
-        toggle_all_simulator_ports_to_upper_tor):       # noqa F811
+        toggle_all_simulator_ports_to_random_side):       # noqa F811
     for vlan_intf in radv_test_setup:
         # Run the RADV test on the PTF host
         logging.info("Verifying RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
@@ -154,8 +153,8 @@ def test_radv_router_advertisement(
 """
 
 
-def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_test_setup,
-                                        toggle_all_simulator_ports_to_upper_tor):       # noqa F811
+def test_solicited_router_advertisement(ptfhost, duthost, radv_test_setup,
+                                        toggle_all_simulator_ports_to_random_side):       # noqa F811
     for vlan_intf in radv_test_setup:
         # Run the RADV solicited RA test on the PTF host
         logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
@@ -181,10 +180,9 @@ def test_solicited_router_advertisement(request, tbinfo, ptfhost, duthost, radv_
 
 
 def test_unsolicited_router_advertisement_with_m_flag(
-    request, tbinfo,
     duthost, ptfhost,
     radv_test_setup,
-    toggle_all_simulator_ports_to_upper_tor,        # noqa F811
+    toggle_all_simulator_ports_to_random_side,        # noqa F811
 ):
     for vlan_intf in radv_test_setup:
         # Run the RADV test on the PTF host
@@ -209,8 +207,8 @@ def test_unsolicited_router_advertisement_with_m_flag(
 """
 
 
-def test_solicited_router_advertisement_with_m_flag(request, tbinfo, ptfhost, duthost, radv_test_setup,
-                                                    toggle_all_simulator_ports_to_upper_tor):       # noqa F811
+def test_solicited_router_advertisement_with_m_flag(ptfhost, duthost, radv_test_setup,
+                                                    toggle_all_simulator_ports_to_random_side):       # noqa F811
     for vlan_intf in radv_test_setup:
         # Run the RADV solicited RA test on the PTF host
         logging.info("Verifying solicited RA on VLAN intf:%s with TOR's mapped PTF port:eth%s",
