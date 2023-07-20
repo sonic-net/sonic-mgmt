@@ -40,7 +40,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        config_reload(duthost, config_source='running_golden_config', safe_reload=True)
+        config_reload(duthost, config_source='config_db', safe_reload=True)
 
 
 def enable_autorestart(duthost):
