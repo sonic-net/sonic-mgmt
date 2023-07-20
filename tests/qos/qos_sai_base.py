@@ -7,6 +7,7 @@ import yaml
 import random
 import os
 import sys
+import six
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -20,6 +21,7 @@ from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink  # noqa F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
+from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
@@ -33,8 +35,7 @@ class QosBase:
                           "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2",
-                           "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3", "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -86,8 +87,9 @@ class QosBase:
                         if 'mac' in vlan and vlan['mac']:
                             dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
                             break
-            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"]
-                          is not None, "Dual-TOR miss default VLAN MAC address")
+
+            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"] is not None,
+                          "Dual-TOR miss default VLAN MAC address")
         else:
             try:
                 duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -156,7 +158,10 @@ class QosSaiBase(QosBase):
             db = "4"
             keystr = "BUFFER_POOL|"
         if check_qos_db_fv_reference_with_table(dut_asic):
-            pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+            if six.PY2:
+                pool = bufferProfile["pool"].encode("utf-8").translate(None, "[]")
+            else:
+                pool = bufferProfile["pool"].translate({ord(i): None for i in '[]'})
         else:
             pool = keystr + bufferProfile["pool"]
         bufferSize = int(
@@ -184,27 +189,33 @@ class QosSaiBase(QosBase):
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
             if self.isBufferInApplDb(dut_asic):
-                bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                    None, "[]").replace("BUFFER_POOL_TABLE:", ''
-                                        )
+                if six.PY2:
+                    bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                        None, "[]").replace("BUFFER_POOL_TABLE:", '')
+                else:
+                    bufferPoolName = bufferProfile["pool"].translate(
+                        {ord(i): None for i in '[]'}).replace("BUFFER_POOL_TABLE:", '')
             else:
-                bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
-                    None, "[]").replace("BUFFER_POOL|", ''
-                                        )
+                if six.PY2:
+                    bufferPoolName = bufferProfile["pool"].encode("utf-8").translate(
+                        None, "[]").replace("BUFFER_POOL|", '')
+                else:
+                    bufferPoolName = bufferProfile["pool"].translate(
+                        {ord(i): None for i in '[]'}).replace("BUFFER_POOL|", '')
         else:
-            bufferPoolName = bufferProfile["pool"].encode("utf-8")
+            bufferPoolName = six.text_type(bufferProfile["pool"])
 
-        bufferPoolVoid = dut_asic.run_redis_cmd(
+        bufferPoolVoid = six.text_type(dut_asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", "2", "HGET",
                 "COUNTERS_BUFFER_POOL_NAME_MAP", bufferPoolName
             ]
-        )[0].encode("utf-8")
+        )[0])
         bufferProfile.update({"bufferPoolVoid": bufferPoolVoid})
 
-        bufferPoolRoid = dut_asic.run_redis_cmd(
+        bufferPoolRoid = six.text_type(dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", "1", "HGET", "VIDTORID", bufferPoolVoid]
-        )[0].encode("utf-8").replace("oid:", '')
+        )[0]).replace("oid:", '')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
     def __getBufferProfile(self, request, dut_asic, os_version, table, port, priorityGroup):
@@ -240,9 +251,11 @@ class QosSaiBase(QosBase):
             bufkeystr = "BUFFER_PROFILE|"
 
         if check_qos_db_fv_reference_with_table(dut_asic):
-            bufferProfileName = dut_asic.run_redis_cmd(
-                argv=["redis-cli", "-n", db, "HGET", keystr, "profile"]
-            )[0].encode("utf-8").translate(None, "[]")
+            out = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
+            if six.PY2:
+                bufferProfileName = out.encode("utf-8").translate(None, "[]")
+            else:
+                bufferProfileName = out.translate({ord(i): None for i in '[]'})
         else:
             bufferProfileName = bufkeystr + dut_asic.run_redis_cmd(
                 argv=["redis-cli", "-n", db, "HGET", keystr, "profile"])[0]
@@ -310,21 +323,25 @@ class QosSaiBase(QosBase):
                 wredProfile (dict): Map of ECN/WRED attributes
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
-            wredProfileName = dut_asic.run_redis_cmd(
-                argv=[
-                    "redis-cli", "-n", "4", "HGET",
-                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                    "wred_profile"
-                ]
-            )[0].encode("utf-8").translate(None, "[]")
+            out = dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                        "wred_profile"
+                    ]
+                )[0]
+            if six.PY2:
+                wredProfileName = out.encode("utf-8").translate(None, "[]")
+            else:
+                wredProfileName = out.translate({ord(i): None for i in '[]'})
         else:
-            wredProfileName = "WRED_PROFILE|" + dut_asic.run_redis_cmd(
+            wredProfileName = "WRED_PROFILE|" + six.text_type(dut_asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", "4", "HGET",
                     "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
                     "wred_profile"
                 ]
-            )[0].encode("utf-8")
+            )[0])
 
         result = dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", "4", "HGETALL", wredProfileName]
@@ -344,12 +361,12 @@ class QosSaiBase(QosBase):
             Returns:
                 watermarkStatus (str): Watermark status
         """
-        watermarkStatus = dut_asic.run_redis_cmd(
+        watermarkStatus = six.text_type(dut_asic.run_redis_cmd(
             argv=[
                 "redis-cli", "-n", "4", "HGET",
                 "FLEX_COUNTER_TABLE|QUEUE_WATERMARK", "FLEX_COUNTER_STATUS"
             ]
-        )[0].encode("utf-8")
+        )[0])
 
         return watermarkStatus
 
@@ -366,23 +383,27 @@ class QosSaiBase(QosBase):
                 SchedulerParam (dict): Map of scheduler parameters
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
-            schedProfile = dut_asic.run_redis_cmd(
-                argv=[
-                    "redis-cli", "-n", "4", "HGET",
-                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                ]
-            )[0].encode("utf-8").translate(None, "[]")
+            out = dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                    ]
+                )[0]
+            if six.PY2:
+                schedProfile = out.encode("utf-8").translate(None, "[]")
+            else:
+                schedProfile = out.translate({ord(i): None for i in '[]'})
         else:
-            schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+            schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", "4", "HGET",
                     "QUEUE|{0}|{1}".format(port, queue), "scheduler"
                 ]
-            )[0].encode("utf-8")
+            )[0])
 
-        schedWeight = dut_asic.run_redis_cmd(
+        schedWeight = six.text_type(dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
-        )[0].encode("utf-8")
+        )[0])
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
 
@@ -415,7 +436,7 @@ class QosSaiBase(QosBase):
             testVlanIp = None
             for vlan in mgFacts["minigraph_vlan_interfaces"]:
                 if mgFacts["minigraph_vlans"][testVlan]["name"] in vlan["attachto"]:
-                    testVlanIp = ipaddress.ip_address(str(vlan["addr"]))  # noqa F821
+                    testVlanIp = ipaddress.ip_address(vlan["addr"])  # noqa F821
                     break
             pytest_assert(testVlanIp, "Failed to obtain vlan IP")
 
@@ -663,8 +684,7 @@ class QosSaiBase(QosBase):
                              [iface]["members"])
                     )
                     portIndex = mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {
-                        'peer_addr': addr["peer_ipv4"], 'port': portName}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
                     dutPortIps.update({portIndex: portIpMap})
 
             testPortIds = sorted(dutPortIps.keys())
@@ -986,9 +1006,8 @@ class QosSaiBase(QosBase):
         # so far, only record ARP proxy config to logging for debug purpose
         vlanInterface = {}
         try:
-            vlanInterface = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
-        except Exception:
+            vlanInterface = json.loads(duthost.shell('sonic-cfggen -d --var-json "VLAN_INTERFACE"')['stdout'])
+        except:  # noqa: E722
             logger.info('Failed to read vlan interface config')
         if not vlanInterface:
             return
@@ -997,17 +1016,22 @@ class QosSaiBase(QosBase):
                 logger.info('ARP proxy is {} on {}'.format(
                     value['proxy_arp'], key))
 
-    def dutBufferConfig(self, duthost):
+    def dutBufferConfig(self, duthost, dut_asic):
         bufferConfig = {}
         try:
+            ns_spec = ""
+            ns = dut_asic.get_asic_namespace()
+            if ns is not None:
+                # multi-asic support
+                ns_spec = " -n " + ns
             bufferConfig['BUFFER_POOL'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_POOL"')['stdout'])
+                'sonic-cfggen -d --var-json "BUFFER_POOL"' + ns_spec)['stdout'])
             bufferConfig['BUFFER_PROFILE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PROFILE"')['stdout'])
+                'sonic-cfggen -d --var-json "BUFFER_PROFILE"' + ns_spec)['stdout'])
             bufferConfig['BUFFER_QUEUE'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_QUEUE"')['stdout'])
+                'sonic-cfggen -d --var-json "BUFFER_QUEUE"' + ns_spec)['stdout'])
             bufferConfig['BUFFER_PG'] = json.loads(duthost.shell(
-                'sonic-cfggen -d --var-json "BUFFER_PG"')['stdout'])
+                'sonic-cfggen -d --var-json "BUFFER_PG"' + ns_spec)['stdout'])
         except Exception as err:
             logger.info(err)
         return bufferConfig
@@ -1082,7 +1106,7 @@ class QosSaiBase(QosBase):
                     "THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
-                bufferConfig = self.dutBufferConfig(duthost)
+                bufferConfig = self.dutBufferConfig(duthost, dut_asic)
                 pytest_assert(len(bufferConfig) == 4,
                               "buffer config is incompleted")
                 pytest_assert('BUFFER_POOL' in bufferConfig,
@@ -1115,7 +1139,7 @@ class QosSaiBase(QosBase):
                                                            tbinfo["topo"]["name"])
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
-            bufferConfig = self.dutBufferConfig(duthost)
+            bufferConfig = self.dutBufferConfig(duthost, dut_asic)
             pytest_assert('BUFFER_POOL' in bufferConfig,
                           'BUFFER_POOL does not exist in bufferConfig')
             pytest_assert('BUFFER_PROFILE' in bufferConfig,
@@ -1284,6 +1308,10 @@ class QosSaiBase(QosBase):
         if saiQosTest:
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"]
+            })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )

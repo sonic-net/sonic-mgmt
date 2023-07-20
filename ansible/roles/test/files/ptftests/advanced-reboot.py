@@ -60,6 +60,7 @@ import time
 import json
 import subprocess
 import threading
+import traceback
 import multiprocessing
 import itertools
 import ast
@@ -83,7 +84,7 @@ from multiprocessing.pool import ThreadPool, TimeoutError
 from fcntl import ioctl
 from collections import defaultdict
 from device_connection import DeviceConnection
-from arista import Arista
+from host_device import HostDevice
 
 
 class StateMachine():
@@ -177,6 +178,7 @@ class ReloadTest(BaseTest):
         self.check_param('bgp_v4_v6_time_diff', 40, required=False)
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
+        self.check_param('neighbor_type', 'eos', required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -271,6 +273,9 @@ class ReloadTest(BaseTest):
             password=self.test_params['dut_password'],
             alt_password=self.test_params.get('alt_password')
         )
+
+        self.sender_thr = threading.Thread(target=self.send_in_background)
+        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
 
         # Check if platform type is kvm
         stdout, stderr, return_code = self.dut_connection.execCommand(
@@ -401,10 +406,11 @@ class ReloadTest(BaseTest):
         try:
             res = async_res.get(timeout=seconds)
         except Exception as err:
+            traceback_msg = traceback.format_exc()
             # TimeoutError and Exception's from func
             # captured here
             signal.set()
-            raise type(err)(message)
+            raise type(err)("{}: {}".format(message, traceback_msg))
         return res
 
     def generate_vlan_servers(self):
@@ -924,7 +930,7 @@ class ReloadTest(BaseTest):
     def put_nowait(self, queue, data):
         try:
             queue.put_nowait(data)
-        except queue.Full:
+        except Queue.Full:
             pass
 
     def pre_reboot_test_setup(self):
@@ -1112,6 +1118,11 @@ class ReloadTest(BaseTest):
             self.no_routing_stop = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
+        # wait until sniffer and sender threads have started
+        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+            time.sleep(1)
+
+        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
@@ -1423,8 +1434,9 @@ class ReloadTest(BaseTest):
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
-        except Exception as e:
-            self.fails['dut'].add(e)
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.fails['dut'].add(traceback_msg)
         finally:
             self.handle_post_reboot_test_reports()
 
@@ -1433,7 +1445,10 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.neigh_handle = Arista(neigh, None, self.test_params)
+            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                         if x['mgmt_addr'] == neigh]
+            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
+                                                                 None, self.test_params)
             self.neigh_handle.connect()
             fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
             self.neigh_handle.disconnect()
@@ -1478,8 +1493,6 @@ class ReloadTest(BaseTest):
         if not self.kvm_test and\
                 (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
                  self.reboot_type or 'service-warm-restart' in self.reboot_type):
-            self.sender_thr = threading.Thread(target=self.send_in_background)
-            self.sniff_thr = threading.Thread(target=self.sniff_in_background)
             # Event for the sniff_in_background status.
             self.sniffer_started = threading.Event()
             self.sniff_thr.start()
@@ -1487,8 +1500,19 @@ class ReloadTest(BaseTest):
 
         self.log("Rebooting remote side")
         if self.reboot_type != 'service-warm-restart' and self.test_params['other_vendor_flag'] is False:
+            # Check to see if the warm-reboot script knows about the retry count feature
             stdout, stderr, return_code = self.dut_connection.execCommand(
-                "sudo " + self.reboot_type, timeout=30)
+                "sudo " + self.reboot_type + " -h", timeout=5)
+            if "retry count" in stdout:
+                if self.test_params['neighbor_type'] == "sonic":
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -N", timeout=30)
+                else:
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -n", timeout=30)
+            else:
+                stdout, stderr, return_code = self.dut_connection.execCommand(
+                    "sudo " + self.reboot_type, timeout=30)
 
         elif self.test_params['other_vendor_flag'] is True:
             ignore_db_integrity_check = " -d"
@@ -1578,7 +1602,10 @@ class ReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
-        ssh = Arista(ip, queue, self.test_params, log_cb=self.log)
+        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                     if x['mgmt_addr'] == ip]
+        ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
+                                               self.test_params, log_cb=self.log)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         self.log('SSH thread for VM {} finished'.format(ip))
 
@@ -1796,20 +1823,6 @@ class ReloadTest(BaseTest):
         self.log('Pcapng file converted into pcap file')
         # Remove tmp pcapng file
         subprocess.call(['rm', '-f', pcapng_full_capture])
-
-    def send_and_sniff(self):
-        """
-        This method starts two background threads in parallel:
-        one for sending, another for collecting the sent packets.
-        """
-        self.sender_thr = threading.Thread(target=self.send_in_background)
-        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
-        # Event for the sniff_in_background status.
-        self.sniffer_started = threading.Event()
-        self.sniff_thr.start()
-        self.sender_thr.start()
-        self.sniff_thr.join()
-        self.sender_thr.join()
 
     def check_tcp_payload(self, packet):
         """

@@ -12,10 +12,11 @@ import pytest
 from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from .thermal_control_test_helper import ThermalPolicyFileContext,\
-    check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status
+    check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status,\
+    mocker_factory, disable_thermal_policy  # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -177,7 +178,7 @@ def get_healthy_psu_num(duthost):
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
         fields = iter.split()
-        if fields[2] == 'OK':
+        if 'OK' in fields:
             healthy_psus += 1
 
     return healthy_psus
@@ -239,12 +240,12 @@ def check_all_psu_on(dut, psu_test_results):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_turn_on_off_psu_and_check_psustatus(duthosts,
                                              pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = get_sup_node_or_random_node(duthosts)
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
@@ -280,6 +281,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
             "DUT is MgmtTsToR, the last 2 outlets are reserved for Console Switch and are not visible from DUT.")
     for outlet in all_outlet_status:
         psu_under_test = None
+        if outlet['outlet_on'] is False:
+            continue
 
         logging.info("Turn off outlet {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
@@ -316,7 +319,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
 @pytest.mark.disable_loganalyzer
 def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
-                                        mocker_factory, disable_thermal_policy):
+                                        mocker_factory, disable_thermal_policy):  # noqa F811
     """
     @summary: Check output of 'show platform fan'.
     """
@@ -337,7 +340,7 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
 def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
-                                          mocker_factory, ignore_particular_error_log):
+                                          mocker_factory, ignore_particular_error_log):  # noqa F811
     """
     @summary: Check output of 'show platform temperature'
     """
@@ -395,7 +398,7 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory):
+def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory):  # noqa F811
     """
     @summary: Make FAN absence, over speed and under speed, check logs and LED color.
     """

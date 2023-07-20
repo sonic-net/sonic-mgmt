@@ -7,6 +7,7 @@ import os
 from multiprocessing.pool import ThreadPool
 from collections import deque
 from .utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,9 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
 
+    # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+    ignore_t2_syslog_msgs(duthost)
+
     if reboot_type != REBOOT_TYPE_POWEROFF:
         reboot_res = pool.apply_async(execute_reboot_command)
     else:
@@ -191,7 +195,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
-           reboot_helper=None, reboot_kwargs=None):
+           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -217,9 +221,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             timeout = reboot_ctrl['timeout']
         if wait == 0:
             wait = reboot_ctrl['wait']
-        if plt_reboot_ctrl:
-            wait = plt_reboot_ctrl['wait']
-            timeout = plt_reboot_ctrl['timeout']
+        if plt_reboot_ctrl_overwrite and plt_reboot_ctrl:
+            # get 'wait' and 'timeout' from inventory if they are specified, otherwise use current values
+            wait = plt_reboot_ctrl.get('wait', wait)
+            timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
     except KeyError:
@@ -378,7 +383,7 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     if reboot_cause_history_got:
         if not set(REBOOT_CAUSE_HISTORY_TITLE) == set(reboot_cause_history_got[0].keys()):
             logger.error("Expected reboot-cause history title:{} not match actual reboot-cause history title:{}".
-                          format(REBOOT_CAUSE_HISTORY_TITLE, list(reboot_cause_history_got[0].keys())))
+                         format(REBOOT_CAUSE_HISTORY_TITLE, list(reboot_cause_history_got[0].keys())))
             return False
 
     logger.info("Verify reboot-cause output are sorted in reverse chronological order")
@@ -387,11 +392,11 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
         for index, reboot_type in enumerate(reboot_type_history_queue):
             if reboot_type not in reboot_ctrl_dict:
                 logger.warn("Reboot type: {} not in dictionary. Skipping history check for this entry.".
-                             format(reboot_type))
+                            format(reboot_type))
                 continue
             logger.info("index:  %d, reboot cause: %s, reboot cause from DUT: %s" %
-                         (index, reboot_ctrl_dict[reboot_type]["cause"],
-                          reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
+                        (index, reboot_ctrl_dict[reboot_type]["cause"],
+                         reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
             if not re.search(reboot_ctrl_dict[reboot_type]["cause"],
                              reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
                 logger.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(

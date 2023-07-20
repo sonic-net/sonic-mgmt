@@ -1,0 +1,26 @@
+##############################################################################################
+### This playbook now supports Nokia-7215 and Celestica-E1031-T48S4 only
+### This playbook will configure management IP (default to Ethernet47 for Nokia-7215) and setup
+### console links based on connection graph.
+################################################################################################
+- name: Set HwSku
+  set_fact:
+    HwSku: "{{ device_info[inventory_hostname][\"HwSku\"] }}"
+
+- name: Check that HwSku is Nokia-7215 or Celestica-E1031-T48S4
+  fail: msg="Device HwSku is not Nokia-7215 or Celestica-E1031-T48S4"
+  when: HwSku != "Nokia-7215" and HwSku != "Celestica-E1031-T48S4"
+
+- name: Move json config to console server
+  template:
+    src: mcx_config.j2
+    dest: /tmp/base_config.json
+
+- name: Backup config_db.json
+  shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
+
+- name: Generate new config_db.json with sonic-cfggen
+  shell: sonic-cfggen -H -k {{ HwSku }} -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
+
+- name: Config
+  shell: config reload -y

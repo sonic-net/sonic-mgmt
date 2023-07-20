@@ -50,6 +50,8 @@ class Ecmp_Utils(object):
     # in the vnet routes.
     HOST_MASK = {'v4': 32, 'v6': 128}
 
+    OVERLAY_DMAC = "25:35:45:55:65:75"
+
     def create_vxlan_tunnel(self,
                             duthost,
                             minigraph_data,
@@ -146,7 +148,8 @@ class Ecmp_Utils(object):
                     number_of_required_interfaces+1, available_number))
         for index in range(number_of_required_interfaces):
             neigh_ip_address = list_of_bgp_ips[index]
-            current_interface_name = list(bgp_interfaces[neigh_ip_address].keys())[0]
+            current_interface_name = list(
+                bgp_interfaces[neigh_ip_address].keys())[0]
             ret_interface_list.append(current_interface_name)
 
         if ret_interface_list:
@@ -265,7 +268,13 @@ class Ecmp_Utils(object):
             # If the given address is "net.1", the return address is "net.101"
             # THE ASSUMPTION HERE IS THAT THE DUT ADDRESSES ARE ENDING IN ".1".
             # addr.decode is only in python2.7
-            ptf_ip = str(ip_address(addr.decode())+100)
+            ptf_ip = ""
+            if hasattr(addr, 'decode'):
+                # python 2.7
+                ptf_ip = str(ip_address(addr.decode())+100)
+            else:
+                # python 3
+                ptf_ip = str(ip_address(addr)+100)
 
             if "Ethernet" in intf:
                 return_dict[intf] = ptf_ip
@@ -315,8 +324,9 @@ class Ecmp_Utils(object):
             config_list.append('''"{}": {{
                 "vxlan_tunnel": "{}",
                 {}"vni": "{}",
-                "peer_list": ""
-            }}'''.format(name, tunnel_name, scope_entry, vni))
+                "peer_list": "",
+                "overlay_dmac" : "{}"
+            }}'''.format(name, tunnel_name, scope_entry, vni, self.OVERLAY_DMAC))
 
             full_config = '{\n"VNET": {' + ",\n".join(config_list) + '\n}\n}'
 
@@ -866,3 +876,49 @@ numprocs=1
                 ",".join(map(str, intf_list)),
                 ",".join(ip_address_list)))
         time.sleep(3)
+
+    def create_and_apply_priority_config(self,
+                                         duthost,
+                                         vnet,
+                                         dest,
+                                         mask,
+                                         nhs,
+                                         primary,
+                                         op):
+        '''
+            Create a single destinatoin->endpoint list mapping, and configure
+            it in the DUT.
+            duthost : AnsibleHost structure for the DUT.
+            vnet    : Name of the Vnet.
+            dest    : IP(v4/v6) address of the destination.
+            mask    : Dest netmask length.
+            nhs     : Nexthop list(v4/v6).
+            primary : list of primary endpoints.
+            op      : Operation to be done : SET or DEL.
+
+        '''
+        config = self.create_single_priority_route(vnet, dest, mask, nhs, primary, op)
+        str_config = '[\n' + config + '\n]'
+        self.apply_config_in_swss(duthost, str_config, op + "_vnet_route")
+
+    @classmethod
+    def create_single_priority_route(cls, vnet, dest, mask, nhs, primary, op):
+        '''
+            Create a single route entry for vnet, for the given dest, through
+            the endpoints:nhs, op:SET/DEL
+        '''
+        config = '''{{
+        "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
+            "endpoint": "{}",
+            "endpoint_monitor": "{}",
+            "primary" : "{}",
+            "monitoring" : "custom",
+            "adv_prefix" : "{}/{}"
+        }},
+        "OP": "{}"
+        }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), ",".join(primary), dest, mask, op)
+        return config
+
+    def set_vnet_monitor_state(self, duthost, dest, mask, nh, state):
+        duthost.shell("sonic-db-cli STATE_DB HSET 'VNET_MONITOR_TABLE|{}|{}/{}' 'state' '{}'"
+                      .format(nh, dest, mask, state))

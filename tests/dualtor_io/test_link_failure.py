@@ -359,6 +359,70 @@ def config_interface_admin_status(duthost, ports, admin_status="up"):
 
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
+def test_active_link_admin_down_config_reload_upstream(
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,       # noqa F811
+    cable_type, active_active_ports                                      # noqa F811
+):
+    if cable_type == CableType.active_active:
+        try:
+            config_interface_admin_status(upper_tor_host, active_active_ports, "down")
+
+            upper_tor_host.shell("config save -y")
+
+            send_server_to_t1_with_action(
+                lower_tor_host, verify=True, allowed_disruption=0,
+                action=lambda: config_reload(upper_tor_host, wait=0)
+            )
+
+            verify_tor_states(
+                expected_active_host=lower_tor_host,
+                expected_standby_host=upper_tor_host,
+                expected_standby_health='unhealthy',
+                cable_type=cable_type,
+                skip_state_db=True  # state db will be 'unknown'
+            )
+
+        finally:
+            config_interface_admin_status(upper_tor_host, active_active_ports, "up")
+            upper_tor_host.shell("config save -y")
+
+
+@pytest.mark.enable_active_active
+@pytest.mark.skip_active_standby
+def test_active_link_admin_down_config_reload_downstream(
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,       # noqa F811
+    cable_type, active_active_ports                                      # noqa F811
+):
+    if cable_type == CableType.active_active:
+        try:
+            config_interface_admin_status(upper_tor_host, active_active_ports, "down")
+
+            upper_tor_host.shell("config save -y")
+            config_reload(upper_tor_host, wait=60)
+
+            verify_tor_states(
+                expected_active_host=lower_tor_host,
+                expected_standby_host=upper_tor_host,
+                expected_standby_health='unhealthy',
+                cable_type=cable_type,
+                skip_state_db=True
+            )
+
+            send_t1_to_server_with_action(
+                upper_tor_host, verify=True,
+                stop_after=180,
+                allowed_disruption=0,
+                allow_disruption_before_traffic=True
+            )
+
+        finally:
+            config_interface_admin_status(upper_tor_host, active_active_ports, "up")
+            upper_tor_host.shell("config save -y")
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.enable_active_active
+@pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
     cable_type, active_active_ports                                     # noqa F811
@@ -409,6 +473,7 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
             upper_tor_host.shell("config save -y")
 
 
+@pytest.mark.disable_loganalyzer
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_downstream_standby(

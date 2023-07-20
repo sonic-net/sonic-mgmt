@@ -11,6 +11,7 @@ import random
 import time
 import contextlib
 import scapy
+import six
 
 from ptf import mask
 from ptf import testutils
@@ -125,6 +126,7 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
+    time.sleep(10)
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
@@ -141,8 +143,12 @@ def test_decap_standby_tor(
         """Verify packet is passed downstream to server."""
         packets = ptfadapter.dataplane.packet_queues[(0, port)]
         for packet in packets:
-            if exp_pkt.pkt_match(packet):
-                return True
+            if six.PY2:
+                if exp_pkt.pkt_match(packet):
+                    return True
+            else:
+                if exp_pkt.pkt_match(packet[0]):
+                    return True
         return False
 
     if is_t0_mocked_dualtor(tbinfo):        # noqa F405

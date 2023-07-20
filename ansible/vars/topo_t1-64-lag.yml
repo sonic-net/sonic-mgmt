@@ -7,7 +7,7 @@ topology:
       vm_offset: 0
     ARISTA03T2:
       vlans:
-        - 4 
+        - 4
         - 5
       vm_offset: 1
     ARISTA05T2:
@@ -290,7 +290,7 @@ configuration:
       ipv4: 10.10.246.19/24
       ipv6: fc0a::26/64
     vips:
-      ipv4: 
+      ipv4:
         prefixes:
           - 200.0.1.0/26
         asn: 64700
@@ -343,7 +343,7 @@ configuration:
       ipv4: 10.10.246.21/24
       ipv6: fc0a::2a/64
     vips:
-      ipv4: 
+      ipv4:
         prefixes:
           - 200.0.1.0/26
         asn: 64700

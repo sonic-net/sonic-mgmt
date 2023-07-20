@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import random
 import six
 import sys
 import threading
@@ -75,6 +76,19 @@ def skip_release_for_platform(duthost, release_list, platform_list):
             any(platform in duthost.facts['platform'] for platform in platform_list):
         pytest.skip("DUT has version {} and platform {} and test does not support {} for {}".format(
                     duthost.os_version, duthost.facts['platform'], ", ".join(release_list), ", ".join(platform_list)))
+
+
+def get_sup_node_or_random_node(duthosts):
+    # accomodate for T2 chassis, which only SUP has pdu info
+    # try to find sup node in multi-dut
+    for dut in duthosts:
+        if dut.is_supervisor_node():
+            return dut
+    # if not chassis, it's dualtor or single-dut, return random node or itself
+    if len(duthosts) > 1:
+        duthosts = random.sample(duthosts, 1)
+    logger.info("Randomly select dut {} for testing".format(duthosts[0]))
+    return duthosts[0]
 
 
 def wait(seconds, msg=""):
@@ -504,7 +518,10 @@ def dump_scapy_packet_show_output(packet):
     """Dump packet show output to string."""
     _stdout, sys.stdout = sys.stdout, StringIO()
     try:
-        packet.show()
+        if six.PY2:
+            packet.show()
+        else:
+            packet.show2()
         return sys.stdout.getvalue()
     finally:
         sys.stdout = _stdout
@@ -814,3 +831,108 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
         return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+
+def run_until(interval, delay, retry, condition, function, *args, **kwargs):
+    """
+    @summary: Execute function until condition or retry number met.
+    @param interval: Interval between function execution.
+    @param delay: delay before start function call
+    @param retry: Number of retries until function meets condition.
+    @param condition: The expected condition for function to be met.
+    @param function: The function to be executed.
+    @param *args: Extra args required by the 'function'.
+    @param **kwargs: Extra args required by the 'function'.
+    @return: If the function meets conditions returns function output before finish specified retries. If no conditions
+        specified or was not meet - returns last function call output.
+    """
+    logger.debug("Wait until %s meet condition %s or %s retries, interval between calls is %s seconds" %
+                 (function.__name__, condition, retry, interval))
+    if delay > 0:
+        time.sleep(delay)
+
+    def compare_base_on_result_type(condition, result):
+        # Check exact match
+        if condition == result:
+            return True
+        # Check if function returns dict
+        elif isinstance(result, dict):
+            if condition in result.items():
+                return True
+        # Check if function returns string, list, set or tuple
+        elif isinstance(result, str) or isinstance(result, list) or isinstance(result, set) or \
+                isinstance(result, tuple):
+            if condition in result:
+                return True
+        else:
+            return False
+
+    for _ in range(retry):
+        try:
+            func_call_result = function(*args, **kwargs)
+            # Check if condition meets function result
+            if compare_base_on_result_type(condition, func_call_result):
+                break
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    function.__name__, "".join(details), e
+                )
+            )
+        finally:
+            # Wait if interval is set
+            if interval > 0:
+                time.sleep(interval)
+    return func_call_result
+
+
+def convert_scapy_packet_to_bytes(packet):
+    """Convert scapy packet to bytes for python2 and python3 compatibility
+    Args:
+        packet: scapy packet
+    Returns:
+        str or bytes: packet in bytes
+    """
+    if six.PY2:
+        return str(packet)
+    else:
+        return bytes(packet)
+
+
+def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
+    """
+    Set default_pfcwd_status in the specified file with parameter default_pfcwd_value
+    The path is expected to be one of:
+    - /etc/sonic/init_cfg.json
+    - /etc/sonic/config_db.json
+
+    Args:
+        duthost (AnsibleHost): instance
+        default_pfcwd_value: value of default_pfcwd_status, enable or disable
+
+    Returns:
+        original value of default_pfcwd_status
+    """
+    output = duthost.shell("cat {} | grep default_pfcwd_status".format(filepath))['stdout']
+    matched = re.search('"default_pfcwd_status": "(.*)"', output)
+    if matched:
+        original_value = matched.group(1)
+    else:
+        pytest.fail("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
+
+    sed_command = ("sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' {}"
+                   .format(original_value, default_pfcwd_value, filepath))
+    duthost.shell(sed_command)
+
+    return original_value
+
+
+def delete_running_config(config_entry, duthost, is_json=True):
+    if is_json:
+        duthost.copy(content=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+    else:
+        duthost.copy(src=config_entry, dest="/tmp/del_config_entry.json")
+    duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
+    duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))

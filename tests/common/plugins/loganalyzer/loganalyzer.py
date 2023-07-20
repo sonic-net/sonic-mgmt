@@ -73,6 +73,7 @@ class LogAnalyzerError(Exception):
 class LogAnalyzer:
     def __init__(self, ansible_host, marker_prefix, dut_run_dir="/tmp", start_marker=None, additional_files={}):
         self.ansible_host = ansible_host
+        ansible_host.loganalyzer = self
         self.dut_run_dir = dut_run_dir
         self.extracted_syslog = os.path.join(self.dut_run_dir, "syslog")
         self.marker_prefix = marker_prefix.replace(' ', '_')
@@ -283,14 +284,14 @@ class LogAnalyzer:
         self.ansible_host.command(cmd)
         return start_marker
 
-    def analyze(self, marker, fail=True):
+    def analyze(self, marker, fail=True, maximum_log_length=None):
         """
         @summary: Extract syslog logs based on the start/stop markers and compose one file.
                   Download composed file, analyze file based on defined regular expressions.
 
         @param marker: Marker obtained from "init" method.
         @param fail: Flag to enable/disable raising exception when loganalyzer find error messages.
-
+        @param maximum_log_length: The long message (length > maximum_log_length) will be skipped.
         @return: If "fail" is False - return dictionary of parsed syslog summary,
                  if dictionary can't be parsed - return empty dictionary.
                  If "fail" is True and if found match messages - raise exception.
@@ -348,8 +349,9 @@ class LogAnalyzer:
         logging.debug('    match_regex="{}"'.format(match_messages_regex.pattern if match_messages_regex else ''))
         logging.debug('    ignore_regex="{}"'.format(ignore_messages_regex.pattern if ignore_messages_regex else ''))
         logging.debug('    expect_regex="{}"'.format(expect_messages_regex.pattern if expect_messages_regex else ''))
-        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(file_list, match_messages_regex,
-                                                                           ignore_messages_regex, expect_messages_regex)
+        analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(
+            file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex,
+            maximum_log_length=maximum_log_length)
         # Print file content and remove the file
         for folder in file_list:
             with open(folder) as fo:

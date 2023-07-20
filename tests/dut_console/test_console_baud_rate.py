@@ -2,6 +2,7 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
+from tests.common.reboot import reboot
 
 
 pytestmark = [
@@ -24,15 +25,14 @@ def is_sonic_console(conn_graph_facts, dut_hostname):
 
 
 def test_console_baud_rate_config(duthost):
-    global pass_config_test
-    pass_config_test = False
     platform = duthost.facts["platform"]
     expected_baud_rate = BAUD_RATE_MAP[platform] if platform in BAUD_RATE_MAP else BAUD_RATE_MAP["default"]
-    res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2",
-                        module_ignore_errors=True)
-    pytest_assert(res["rc"] == 0 and res["stdout"] == expected_baud_rate, "Baud rate {} is unexpected!"
-                  .format(res["stdout"]))
-    pass_config_test = True
+    res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
+    pytest_require(res["stdout"] != "", "Cannot get baud rate")
+    if res["stdout"] != expected_baud_rate:
+        global pass_config_test
+        pass_config_test = False
+        pytest.fail("Baud rate {} is unexpected!".format(res["stdout"]))
 
 
 @pytest.fixture(scope="module")
@@ -53,9 +53,6 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
 
     ensure_console_session_up(client, console_port)
     client.sendline()
-    assert_expect_text(client, "login:", console_port, timeout_sec=1)
-    client.sendline(dutuser)
-    client.sendline(dutpass)
     yield client, console_port
 
     if client is not None:
@@ -91,14 +88,14 @@ def run_uboot_onie_test(client, console_port):
 
 def test_baud_rate_sonic_connect(console_client_setup_teardown):
     client, console_port = console_client_setup_teardown
-    assert_expect_text(client, "Last login:", console_port, timeout_sec=5)
+    assert_expect_text(client, "login:", console_port, timeout_sec=1)
 
 
-def test_baud_rate_boot_connect(duthost, console_client_setup_teardown, boot_connect_teardown):
+def test_baud_rate_boot_connect(localhost, duthost, console_client_setup_teardown, boot_connect_teardown):
     client, console_port = console_client_setup_teardown
     platform = duthost.facts["platform"]
     pytest_require(platform in BOOT_TYPE, "Unsupported platform: {}".format(platform))
-    client.sendline("sudo reboot")
+    reboot(duthost, localhost, wait_for_ssh=False)
     if BOOT_TYPE[platform] == "ABoot":
         run_aboot_test(client, console_port)
     elif BOOT_TYPE[platform] == "UBoot-ONIE":

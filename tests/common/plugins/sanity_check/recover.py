@@ -39,7 +39,8 @@ def _recover_interfaces(dut, fanouthosts, result, wait_time):
             continue
 
         # If internal port is down, do 'config_reload' to recover.
-        if '-IB' in pn or '-Rec' in pn or '-BP' in pn:
+        # Here we do lowercase string search as pn is converted to lowercase
+        if '-ib' in pn or '-rec' in pn or '-bp' in pn:
             action = 'config_reload'
             continue
 
@@ -107,7 +108,7 @@ def _neighbor_vm_recover_bgpd(node=None, results=None):
 
 def _neighbor_vm_recover_config(node=None, results=None):
     if isinstance(node["host"], SonicHost):
-        config_reload(node["host"])
+        config_reload(node["host"], is_dut=False)
     return results
 
 

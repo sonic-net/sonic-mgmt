@@ -2,8 +2,8 @@ import math
 
 
 class QosParamMellanox(object):
-    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile,
-                 ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, dualTor):
+    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile,
+                 egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, dualTor):
         self.asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
@@ -18,6 +18,11 @@ class QosParamMellanox(object):
             'spc3': {
                 'cell_size': 144,
                 'headroom_overhead': 64,
+                'private_headroom': 30
+            },
+            'spc4': {
+                'cell_size': 192,
+                'headroom_overhead': 47,
                 'private_headroom': 30
             }
         }
@@ -102,7 +107,7 @@ class QosParamMellanox(object):
             for i in range(1, ingress_ports_num_shp):
                 for j in range(pgs_per_port):
                     pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
-                    occupancy_per_port /= 2
+                    occupancy_per_port //= 2
                 ingress_ports_list_shp.append(testPortIds[i])
             self.qos_parameters['pkts_num_trig_pfc_shp'] = pkts_num_trig_pfc_shp
             self.qos_parameters['src_port_ids'] = ingress_ports_list_shp
@@ -191,11 +196,15 @@ class QosParamMellanox(object):
         lossy_queue = self.qos_params_mlnx['lossy_queue_1']
         lossy_queue['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp - 1
         lossy_queue['cell_size'] = self.cell_size
+        if self.asic_type == "spc4":
+            lossy_queue['packet_size'] = 600
 
         wm_shared_lossy = {}
         wm_shared_lossy['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         wm_shared_lossy['cell_size'] = self.cell_size
         wm_shared_lossy["pkts_num_margin"] = 3
+        if self.asic_type == "spc4":
+            wm_shared_lossy["packet_size"] = 600
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)

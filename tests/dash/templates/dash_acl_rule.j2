@@ -17,12 +17,12 @@
             {% if src_port is defined %}
             ,"src_port": "{{ src_port }}"
             {% else %}
-            ,"src_port": "0-0"
+            ,"src_port": "0-65535"
             {% endif %}
             {% if dst_port is defined %}
             ,"dst_port": "{{ dst_port }}"
             {% else %}
-            ,"dst_port": "0-0"
+            ,"dst_port": "0-65535"
             {% endif %}
             {% if protocol is defined %}
             ,"protocol": "{{ protocol }}"

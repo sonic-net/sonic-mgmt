@@ -24,11 +24,11 @@ def test_acl_fields(ptfadapter, apply_vnet_configs, acl_test_pkts):  # noqa: F81
                        pkt.dash_config_info[LOCAL_PTF_INTF],
                        vxlan_packet, 1)
         if pkt.expected_receiving:
-            testutils.verify_packet(ptfadapter,
-                                    expected_packet,
-                                    pkt.dash_config_info[REMOTE_PTF_INTF])
+            testutils.verify_packets_any(ptfadapter,
+                                         expected_packet,
+                                         ports=pkt.dash_config_info[REMOTE_PTF_INTF])
         else:
-            testutils.verify_no_packet(ptfadapter,
-                                       expected_packet,
-                                       pkt.dash_config_info[REMOTE_PTF_INTF])
+            testutils.verify_no_packet_any(ptfadapter,
+                                           expected_packet,
+                                           ports=pkt.dash_config_info[REMOTE_PTF_INTF])
         time.sleep(1)

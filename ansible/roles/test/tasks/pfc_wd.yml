@@ -147,7 +147,7 @@
     - name: Stop PFC watchdog if enable by default before setting poll interval.
       shell: "pfcwd stop"
       become: yes
-        
+
     - name: Set polling interval {{ pfc_wd_poll_time }}.
       shell: "pfcwd interval {{ pfc_wd_poll_time }}"
       become: yes

@@ -12,6 +12,7 @@ from jinja2 import Template
 from tests.common import constants
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_utils import check_link_status
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
 
@@ -151,6 +152,12 @@ def remove_ip_addresses(ptfhost):
     ptfhost.remove_ip_addresses()
     # Interfaces restart is required, otherwise the ipv6 link-addresses won't back.
     ptfhost.restart_interfaces()
+    # NOTE: up/down ptf interfaces will interrupt icmp_responder socket
+    # read/write operations, so let's restart icmp_responder if it is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)
+    if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
+        logger.debug("restart icmp_responder after restart ptf ports")
+        ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -228,8 +235,9 @@ icmp_responder_session_started = False
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
-    if "mixed" not in tbinfo["topo"]["name"]:
-        logger.info("Skip running icmp_responder at session level, it is only for dualtor-mixed testbed.")
+    if "dualtor" not in tbinfo["topo"]["name"]:
+        logger.info("Skip running icmp_responder at session level, "
+                    "it is only for dualtor testbed.")
         yield
         return
 
@@ -261,7 +269,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     yield
 
-    # NOTE: Leave icmp_responder running for dualtor-mixed topology
+    logger.info("Leave icmp_responder running for dualtor/dualtor-mixed/dualtor-aa topology")
     return
 
 
@@ -466,18 +474,24 @@ def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_co
             target_dut_index = int(list(dut_intf_map.keys())[0])
             target_dut_port = int(list(dut_intf_map.values())[0])
             router_mac = router_macs[target_dut_index]
+            dut_port = None
             if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
-                    if target_dut_port in list(mg_facts['minigraph_port_indices'].values()):
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]\
-                        ['DEVICE_METADATA']['localhost']['mac'].lower()
-                        asic_idx = idx
-                        break
+                    for a_dut_port, a_dut_port_index in list(mg_facts['minigraph_port_indices'].items()):
+                        if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
+                           "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
+                            dut_port = a_dut_port
+                            router_mac = \
+                                duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1][
+                                         'DEVICE_METADATA']['localhost']['mac'].lower()
+                            asic_idx = idx
+                            break
             ports_map[ptf_port] = {
                 'target_dut': target_dut_index,
                 'target_dest_mac': router_mac,
                 'target_src_mac': router_mac,
+                'dut_port': dut_port,
                 'asic_idx': asic_idx
             }
 
@@ -497,9 +511,11 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             active_dut_index = 0 if mux_status['active_side'] == 'upper_tor' else 1
             active_dut_map[str(mux_status['port_index'])] = [active_dut_index]
         if active_active_ports_mux_status:
+            port_id_to_dut_index = {ActiveActivePortID.UPPER_TOR: 0, ActiveActivePortID.LOWER_TOR: 1}
             for port_index, port_status in list(active_active_ports_mux_status.items()):
-                active_dut_map[str(port_index)] = [active_dut_index for active_dut_index in (0, 1)
-                                                   if port_status[active_dut_index]]
+                active_dut_map[str(port_index)] = [
+                    dut_index for port_id, dut_index in port_id_to_dut_index.items() if port_status[port_id]
+                ]
 
     disabled_ptf_ports = set()
     for ptf_map in list(tbinfo['topo']['ptf_map_disabled'].values()):
@@ -540,15 +556,15 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
             if len(duts_minigraph_facts[duthosts[target_dut_index].hostname]) > 1:
                 for list_idx, mg_facts_tuple in enumerate(duts_minigraph_facts[duthosts[target_dut_index].hostname]):
                     idx, mg_facts = mg_facts_tuple
-                    if target_dut_port in list(mg_facts['minigraph_port_indices'].values()):
-                        router_mac = duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1]\
-                        ['DEVICE_METADATA']['localhost']['mac'].lower()
-                        asic_idx = idx
-                        for a_dut_port, a_dut_port_index in list(mg_facts['minigraph_port_indices'].items()):
-                            if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
-                                    "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
-                                dut_port = a_dut_port
-                        break
+                    for a_dut_port, a_dut_port_index in list(mg_facts['minigraph_port_indices'].items()):
+                        if a_dut_port_index == target_dut_port and "Ethernet-Rec" not in a_dut_port and \
+                           "Ethernet-IB" not in a_dut_port and "Ethernet-BP" not in a_dut_port:
+                            dut_port = a_dut_port
+                            router_mac = \
+                                duts_running_config_facts[duthosts[target_dut_index].hostname][list_idx][1][
+                                         'DEVICE_METADATA']['localhost']['mac'].lower()
+                            asic_idx = idx
+                            break
             ports_map[ptf_port] = {
                 'target_dut': [target_dut_index],
                 'target_dest_mac': router_mac,

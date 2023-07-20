@@ -10,16 +10,17 @@ from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
+from tests.common.mellanox_data import is_mellanox_device
 
 from platform_api_test_base import PlatformApiTestBase
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = str
+    STRING_TYPE = basestring    # noqa F821
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -55,6 +56,7 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
                             intf in list(physical_port_index_map.keys())
                             if intf not in xcvr_skip_list[duthost.hostname]])
     sfp_setup["sfp_test_port_indices"] = sorted(sfp_port_indices)
+    sfp_setup["sfp_physical_port_index_map"] = physical_port_index_map
 
     # Fetch SFP names from platform.json
     sfp_fact_names = []
@@ -96,17 +98,17 @@ class TestSfpApi(PlatformApiTestBase):
         'nominal_bit_rate',
     ]
 
-    # some new keys added for QSFP-DD in 202205 or later branch
-    EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS = ['active_firmware',
-                                           'host_lane_count',
-                                           'media_lane_count',
-                                           'cmis_rev',
-                                           'host_lane_assignment_option',
-                                           'inactive_firmware',
-                                           'media_interface_technology',
-                                           'media_interface_code',
-                                           'host_electrical_interface',
-                                           'media_lane_assignment_option']
+    # some new keys added for QSFP-DD and OSFP in 202205 or later branch
+    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS = ['active_firmware',
+                                                'host_lane_count',
+                                                'media_lane_count',
+                                                'cmis_rev',
+                                                'host_lane_assignment_option',
+                                                'inactive_firmware',
+                                                'media_interface_technology',
+                                                'media_interface_code',
+                                                'host_electrical_interface',
+                                                'media_lane_assignment_option']
 
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
@@ -280,6 +282,16 @@ class TestSfpApi(PlatformApiTestBase):
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         return xcvr_type not in not_resettable_xcvr_type
 
+    def lp_mode_assert_delay(self, xcvr_type):
+        if "QSFP" in xcvr_type and xcvr_type != "QSFP-DD":
+            return 0.1
+        return 0
+
+    def lp_mode_deassert_delay(self, xcvr_type):
+        if "QSFP" in xcvr_type and xcvr_type != "QSFP-DD":
+            return 0.3
+        return 0
+
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
@@ -367,12 +379,11 @@ class TestSfpApi(PlatformApiTestBase):
                         # self.EXPECTED_XCVR_INFO_KEYS = EXPECTED_XCVR_INFO_KEYS
                     else:
 
-                        if info_dict["type_abbrv_name"] == "QSFP-DD":
+                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
-                                                           self.EXPECTED_XCVR_NEW_QSFP_DD_INFO_KEYS + \
-                                                           ["active_apsel_hostlane{}"
-                                                            .format(i) for i in
-                                                            range(1, info_dict['host_lane_count'] + 1)]
+                                                           self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS + \
+                                                           ["active_apsel_hostlane{}".format(n)
+                                                            for n in range(1, info_dict['host_lane_count'] + 1)]
                         else:
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS
                     missing_keys = set(UPDATED_EXPECTED_XCVR_INFO_KEYS) - set(actual_keys)
@@ -391,8 +402,8 @@ class TestSfpApi(PlatformApiTestBase):
                     unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS +
                                                              self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
-                        # hardware_rev is applicable only for QSFP-DD
-                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] == "QSFP-DD":
+                        # hardware_rev is applicable only for QSFP-DD or OSFP
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
                             continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
@@ -686,6 +697,10 @@ class TestSfpApi(PlatformApiTestBase):
                 # Test all channels for a eight-channel transceiver
                 all_channel_mask = 0xFF
                 expected_mask = 0x80
+            elif info_dict["type_abbrv_name"] == "SFP":
+                # Test all channels for a single-channel transceiver
+                all_channel_mask = 0x1
+                expected_mask = 0x1
             else:
                 # Test all channels for a four-channel transceiver
                 all_channel_mask = 0XF
@@ -719,30 +734,86 @@ class TestSfpApi(PlatformApiTestBase):
 
     def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
-        for i in self.sfp_setup["sfp_test_port_indices"]:
-            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        support_lpmode_physical_port_index_map, support_lpmode_physical_port_with_admin_up, port_indx_to_xcvr_type_map \
+            = self._get_support_lpmode_physical_port_index_map(duthost, platform_api_conn)
+        if not support_lpmode_physical_port_index_map:
+            pytest.skip("No interface supports lpmode")
+
+        if is_mellanox_device(duthost) and len(support_lpmode_physical_port_with_admin_up) > 0:
+            # for nvidia devices, need to shutdown the port before setting the port into lp mode
+            logger.info("Shut down ports:{}".format(support_lpmode_physical_port_with_admin_up))
+            duthost.shutdown_multiple(support_lpmode_physical_port_with_admin_up)
+            self.expect(wait_until(60, 1, 0, duthost.links_status_down, support_lpmode_physical_port_with_admin_up),
+                        "Failed to shutdown {}".format(support_lpmode_physical_port_with_admin_up))
+
+        for port_index in set(support_lpmode_physical_port_index_map.values()):
+
+            lpmode_state_pretest = sfp.get_lpmode(platform_api_conn, port_index)
+            if lpmode_state_pretest is None:
+                logger.warning(
+                    "test_lpmode: Skipping transceiver {} (not supported on this platform)".format(port_index))
+                break
+            # This order makes sure lpmode will get restored to pretest value after test
+            lpmode_states_to_be_tested = [not lpmode_state_pretest, lpmode_state_pretest]
+
+            for state in lpmode_states_to_be_tested:
+                ret = sfp.set_lpmode(platform_api_conn, port_index, state)
+                if ret is None:
+                    logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(
+                        port_index))
+                    break
+                if state is True:
+                    delay = self.lp_mode_assert_delay(port_indx_to_xcvr_type_map[port_index])
+                else:
+                    delay = self.lp_mode_deassert_delay(port_indx_to_xcvr_type_map[port_index])
+                self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format(
+                    "enable" if state is True else "disable", port_index))
+                self.expect(
+                    wait_until(5, 1, delay, self._check_lpmode_status, sfp, platform_api_conn, port_index, state),
+                    "Transceiver {} expected low-power state {} is not aligned with the real state".format(
+                        port_index, "enable" if state is True else "disable"))
+
+        if is_mellanox_device(duthost) and len(support_lpmode_physical_port_with_admin_up) > 0:
+            logger.info(
+                "After setting the ports to disabled lpm mode, verify that the ports:{} are still in down state".format(
+                    support_lpmode_physical_port_with_admin_up))
+            self.expect(wait_until(60, 1, 0, duthost.links_status_down, support_lpmode_physical_port_with_admin_up),
+                        "Disable lpm, ports doesn't keep down {}".format(support_lpmode_physical_port_with_admin_up))
+            logger.info("Startup ports:{}".format(support_lpmode_physical_port_with_admin_up))
+            duthost.no_shutdown_multiple(support_lpmode_physical_port_with_admin_up)
+            self.expect(wait_until(120, 1, 0, duthost.links_status_up, support_lpmode_physical_port_with_admin_up),
+                        "Failed to startup {}".format(support_lpmode_physical_port_with_admin_up))
+
+        self.assert_expectations()
+
+    def _get_support_lpmode_physical_port_index_map(self, duthost, platform_api_conn):
+        original_interface_status = duthost.get_interfaces_status()
+        support_lpmode_physical_port_index_map = {}
+        support_lpmode_physical_port_with_admin_up = []
+        port_indx_to_xcvr_type_map = {}
+        for test_port_index in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, test_port_index)
             # Ensure that the transceiver type supports low-power mode
-            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
+            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(
+                    test_port_index)):
                 continue
 
             if not self.is_xcvr_support_lpmode(info_dict):
                 logger.warning(
-                    "test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)"
-                    .format(i))
+                    "test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)".format(
+                        test_port_index))
                 continue
-
-            # Enable and disable low-power mode on each transceiver
-            for state in [True, False]:
-                ret = sfp.set_lpmode(platform_api_conn, i, state)
-                if ret is None:
-                    logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
-                    break
-                self.expect(ret is True, "Failed to {} low-power mode for transceiver {}"
-                            .format("enable" if state is True else "disable", i))
-                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
-                            "Transceiver {} expected low-power state {} is not aligned with the real state"
-                            .format(i, "enable" if state is True else "disable"))
-        self.assert_expectations()
+            for port, port_index in self.sfp_setup["sfp_physical_port_index_map"].items():
+                if port_index == test_port_index:
+                    physical_port = port
+                    support_lpmode_physical_port_index_map[physical_port] = test_port_index
+                    port_indx_to_xcvr_type_map[test_port_index] = info_dict["type_abbrv_name"]
+                    if physical_port in original_interface_status and \
+                            original_interface_status[physical_port]['admin'].lower() == 'up':
+                        support_lpmode_physical_port_with_admin_up.append(physical_port)
+        return (support_lpmode_physical_port_index_map,
+                support_lpmode_physical_port_with_admin_up, port_indx_to_xcvr_type_map)
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_power_override() and set_power_override() APIs"""
@@ -760,6 +831,11 @@ class TestSfpApi(PlatformApiTestBase):
                     .format(i))
                 continue
 
+            power_override_bit_value_pretest = sfp.get_power_override(
+                platform_api_conn, i)
+            self.expect(power_override_bit_value_pretest is not None,
+                        "Unable to retrieve transceiver {} power override data".format(i))
+
             # Enable power override in both low-power and high-power modes
             for state in [True, False]:
                 ret = sfp.set_power_override(platform_api_conn, i, True, state)
@@ -770,13 +846,19 @@ class TestSfpApi(PlatformApiTestBase):
                                "Unable to retrieve transceiver {} power override data".format(i)):
                     self.expect(power_override is True, "Transceiver {} power override data is incorrect".format(i))
 
-            # Disable power override
-            ret = sfp.set_power_override(platform_api_conn, i, False, None)
-            self.expect(ret is True, "Failed to disable power override for transceiver {}".format(i))
+            # Restore power_override to pretest value.
+            # For power_set bit, it's set to False eventually, which will be fine in either of the cases:
+            # 1) if platform uses power_override, then optics will be in high power mode, which is pretest mode.
+            # 2) if platform doesn't use power_override, then power_set bit is not playing a role and in default value.
+            ret = sfp.set_power_override(
+                platform_api_conn, i, power_override_bit_value_pretest, None)
+            self.expect(ret is True, "Failed to restore power_override bit to {} for transceiver {}".format(
+                power_override_bit_value_pretest, i))
             power_override = sfp.get_power_override(platform_api_conn, i)
             if self.expect(power_override is not None,
                            "Unable to retrieve transceiver {} power override data".format(i)):
-                self.expect(power_override is False, "Transceiver {} power override data is incorrect".format(i))
+                self.expect(power_override is power_override_bit_value_pretest,
+                            "Transceiver {} power override data is incorrect".format(i))
         self.assert_expectations()
 
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):

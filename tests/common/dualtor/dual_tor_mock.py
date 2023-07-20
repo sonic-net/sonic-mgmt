@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import time
+import six
 
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
@@ -244,7 +245,7 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ip_mac_map[server_ipv4_base_addr.ip + i] = ptf_mac
+        server_ip_mac_map[server_ipv4_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ip_mac_map
 
@@ -268,7 +269,7 @@ def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter,
                 time.sleep(2)
         pytest_assert(ptf_mac is not None, "fail to get mac address of interface {}".format(ptf_port_index))
 
-        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = ptf_mac
+        server_ipv6_mac_map[server_ipv6_base_addr.ip + i] = six.ensure_text(ptf_mac)
 
     return server_ipv6_mac_map
 
@@ -289,10 +290,10 @@ def apply_dual_tor_neigh_entries(cleanup_mocked_configs, rand_selected_dut, tbin
     for ip, mac in list(mock_server_ip_mac_map.items()):
         # Use `ip neigh replace` in case entries already exist for the target IP
         # If there are no pre-existing entries, equivalent to `ip neigh add`
-        cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac.decode(), vlan))
+        cmds.append('ip -4 neigh replace {} lladdr {} dev {}'.format(ip, mac, vlan))
 
     for ipv6, mac in list(mock_server_ipv6_mac_map.items()):
-        cmds.append('ip -6 neigh replace {} lladdr {} dev {}'.format(ipv6, mac.decode(), vlan))
+        cmds.append('ip -6 neigh replace {} lladdr {} dev {}'.format(ipv6, mac, vlan))
     dut.shell_cmds(cmds=cmds)
 
     return
@@ -369,7 +370,6 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
     dut = rand_selected_dut
 
     dut_loopback = (mock_peer_switch_loopback_ip - 1).ip
-
     tunnel_params = {
         'TUNNEL': {
             'MuxTunnel0': {
@@ -382,6 +382,9 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
             }
         }
     }
+    if 'spc' in rand_selected_dut.get_asic_name():
+        tunnel_params['TUNNEL']['MuxTunnel0'].update(
+            {'src_ip': str(mock_peer_switch_loopback_ip.ip)})
 
     dut.copy(content=json.dumps(tunnel_params, indent=2), dest="/tmp/tunnel_params.json")
     dut.shell("sonic-cfggen -j /tmp/tunnel_params.json --write-to-db")

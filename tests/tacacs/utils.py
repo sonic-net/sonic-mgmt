@@ -1,16 +1,21 @@
 import crypt
 import logging
 import re
+import binascii
 
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until, check_skip_release
+from tests.common.utilities import wait_until, check_skip_release, delete_running_config
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
 
-# per-command authorization and accounting feature not available in following versions
-per_command_check_skip_versions = ["201811", "201911", "202012", "202106"]
+# per-command authorization feature not available in following versions
+per_command_authorization_skip_versions = ["201811", "201911", "202012", "202106"]
+
+
+# per-command accounting feature not available in following versions
+per_command_accounting_skip_versions = ["201811", "201911", "202106"]
 
 
 def check_output(output, exp_val1, exp_val2):
@@ -71,9 +76,12 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
 
-    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
+    (skip, _) = check_skip_release(duthost, per_command_authorization_skip_versions)
     if not skip:
         duthost.shell("sudo config aaa authorization local")
+
+    (skip, _) = check_skip_release(duthost, per_command_accounting_skip_versions)
+    if not skip:
         duthost.shell("sudo config aaa accounting disable")
 
     # setup local user
@@ -123,8 +131,8 @@ def restore_tacacs_servers(duthost):
             cmds.append("config tacacs timeout %s" % cfg)
 
     # Cleanup AAA and TACPLUS config
-    duthost.copy(src="./tacacs/templates/del_tacacs_config.json", dest='/tmp/del_tacacs_config.json')
-    duthost.shell("configlet -d -j {}".format("/tmp/del_tacacs_config.json"))
+    delete_tacacs_json = [{"AAA": {}}, {"TACPLUS": {}}]
+    delete_running_config(delete_tacacs_json, duthost)
 
     # Restore AAA and TACPLUS config
     duthost.shell_cmds(cmds=cmds)
@@ -220,9 +228,12 @@ def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
     ]
     duthost.shell_cmds(cmds=cmds)
 
-    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
+    (skip, _) = check_skip_release(duthost, per_command_authorization_skip_versions)
     if not skip:
         duthost.shell("sudo config aaa authorization local")
+
+    (skip, _) = check_skip_release(duthost, per_command_accounting_skip_versions)
+    if not skip:
         duthost.shell("sudo config aaa accounting disable")
 
     duthost.user(
@@ -244,3 +255,37 @@ def remove_all_tacacs_server(duthost):
         tacacs_server = tacacs_server.rstrip()
         if tacacs_server:
             duthost.shell("sudo config tacacs delete %s" % tacacs_server)
+
+
+def check_server_received(ptfhost, data):
+    """
+        Check if tacacs server received the data.
+    """
+    hex = binascii.hexlify(data.encode('ascii'))
+    hex_string = hex.decode()
+
+    """
+      Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string:
+            1. tac_plus server start with '-d 2058' parameter to log received data in following format in tac_plus.log:
+                    Thu Mar  9 06:26:16 2023 [75483]: data[140] = 0xf8, xor'ed with hash[12] = 0xab -> 0x53
+                    Thu Mar  9 06:26:16 2023 [75483]: data[141] = 0x8d, xor'ed with hash[13] = 0xc2 -> 0x4f
+                In above log, the 'data[140] = 0xf8' is received data.
+
+            2. Following sed command will extract the received data from tac_plus.log:
+                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa W605
+
+            3. Following set command will join all received data to hex string:
+                    sed ':a; N; $!ba; s/\\n//g'
+
+            4. Then the grep command will check if the received hex data containes expected hex string.
+                    grep '{0}'".format(hex_string)
+
+      Also suppress following Flake8 error/warning:
+            W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
+            E501 : Line too long. Following sed command difficult to split to multiple line.
+    """
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
+    res = ptfhost.shell(sed_command)
+    logger.info(sed_command)
+    logger.info(res["stdout_lines"])
+    pytest_assert(len(res["stdout_lines"]) > 0)

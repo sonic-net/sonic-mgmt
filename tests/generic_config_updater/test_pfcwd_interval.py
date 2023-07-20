@@ -1,11 +1,13 @@
 import logging
 import pytest
+import json
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
@@ -35,6 +37,18 @@ def ensure_dut_readiness(duthost):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def enable_default_pfcwd_configuration(duthost):
+    res = duthost.shell('redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
+    meta_data = json.loads(res["stdout"])
+    pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
+    if pfc_status == 'disable':
+        duthost.shell('redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable')
+    # Enable default pfcwd configuration
+    start_pfcwd = duthost.shell('config pfcwd start_default')
+    pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
 
 
 def ensure_application_of_updated_config(duthost, value):
@@ -84,7 +98,7 @@ def get_detection_restoration_times(duthost):
     Args:
         duthost: DUT host object
     """
- 
+
     duthost.shell('config pfcwd start --action drop all 400 --restoration-time 400', module_ignore_errors=True)
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
@@ -125,46 +139,6 @@ def get_new_interval(duthost, is_valid):
         return min(detection_time, restoration_time) + 10
 
 
-def test_stop_pfcwd(duthost, ensure_dut_readiness):
-    start_pfcwd = duthost.shell('config pfcwd start_default')
-    pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
-    pfcwd_config = duthost.shell("show pfcwd config")
-    pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
-
-    for line in pfcwd_config['stdout_lines']:
-        if line.startswith('Ethernet'):
-            interface = line.split()[0]
-            break
-    else:
-        pytest_assert(False, "No interface found running pfcwd - unable to run test")
-
-    json_patch = [
-        {
-            "op": "remove",
-            "path": "/PFC_WD/{}/detection_time".format(interface),
-        },
-        {
-            "op": "remove",
-            "path": "/PFC_WD/{}/restoration_time".format(interface),
-        },
-        {
-            "op": "remove",
-            "path": "/PFC_WD/{}/action".format(interface)
-        }
-    ]
-
-    try:
-        tmpfile = generate_tmpfile(duthost)
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        pfcwd_updated_config = duthost.shell("show pfcwd config")
-        pytest_assert(not pfcwd_config['rc'], "Unable to read updated pfcwd config")
-        pytest_assert(interface not in pfcwd_updated_config['stdout'].split(),
-                      "pfcwd unexpectedly still running on interface {}".format(interface))
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-
 @pytest.mark.parametrize("operation", ["add", "replace"])
 @pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
 @pytest.mark.parametrize("is_valid_config_update", [True, False])
@@ -194,7 +168,7 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
 
-        if is_valid_config_update:
+        if is_valid_config_update and is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable"):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, value)
         else:

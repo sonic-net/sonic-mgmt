@@ -1,6 +1,14 @@
 #!/usr/bin/python
 #
 
+from ansible.module_utils.aos.aos import check_args
+from ansible.module_utils.aos.aos import aos_argument_spec
+from ansible.module_utils.aos.aos import run_commands
+from ansible.module_utils.aos.aos import get_config, load_config, get_connection
+from ansible.module_utils.network.common.config import NetworkConfig, dumps
+from ansible.module_utils.connection import ConnectionError
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils._text import to_text
 ANSIBLE_METADATA = {'metadata_version': '1.0',
                     'status': ['preview'],
                     'supported_by': 'network'}
@@ -18,7 +26,7 @@ description:
 notes:
   - Tested against AOS 1.2.176.164
   - Abbreviated commands are NOT idempotent, see
-    L(Network FAQ,../network/user_guide/faq.html#why-do-the-config-modules-always-return-changed-true-with-abbreviated-commands).
+    L(Network FAQ,../network/user_guide/faq.html#why-do-the-config-modules-always-return-changed-true-with-abbreviated-commands).   # noqa E501
 options:
   lines:
     description:
@@ -260,16 +268,9 @@ time:
   type: str
   sample: "22:28:34"
 """
-from ansible.module_utils._text import to_text
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.connection import ConnectionError
-from ansible.module_utils.network.common.config import NetworkConfig, dumps
-from ansible.module_utils.aos.aos import get_config, load_config, get_connection
-from ansible.module_utils.aos.aos import run_commands
-from ansible.module_utils.aos.aos import aos_argument_spec
-from ansible.module_utils.aos.aos import check_args
 
 CFG_FILE_SUBCONFIG_INDENT = 1
+
 
 def get_candidate(module):
     candidate = ''
@@ -303,8 +304,10 @@ def save_config(module, result):
                     'due to check_mode.  Configuration not copied to '
                     'non-volatile storage')
 
+
 def is_backup_requested(module):
     return module.params['backup'] or (module._diff and module.params['diff_against'] == 'running')
+
 
 def prepare_commands(module, config_diff):
     commands = config_diff.split('\n')
@@ -315,7 +318,8 @@ def prepare_commands(module, config_diff):
     if module.params['after']:
         commands.extend(module.params['after'])
     return commands
-    
+
+
 def compare_config(module, running):
     match = module.params['match']
     replace = module.params['replace']
@@ -326,15 +330,17 @@ def compare_config(module, running):
     diff_ignore_lines = module.params['diff_ignore_lines']
 
     try:
-        response = connection.get_diff(candidate=candidate, running=running, diff_match=match, diff_ignore_lines=diff_ignore_lines, path=path,
-                                        diff_replace=replace)
+        response = connection.get_diff(candidate=candidate, running=running, diff_match=match,
+                                       diff_ignore_lines=diff_ignore_lines, path=path, diff_replace=replace)
     except ConnectionError as exc:
         module.fail_json(msg=to_text(exc, errors='surrogate_then_replace'))
 
     return response['config_diff']
 
+
 def is_config_store_requested(module):
     return module.params['save_when'] != 'never'
+
 
 def store_config(module, result):
     if module.params['save_when'] == 'always':
@@ -344,8 +350,10 @@ def store_config(module, result):
         output = run_commands(module, [{'command': 'show running-config', 'output': 'text'},
                                        {'command': 'show startup-config', 'output': 'text'}])
 
-        running_config = NetworkConfig(indent=CFG_FILE_SUBCONFIG_INDENT, contents=output[0], ignore_lines=diff_ignore_lines)
-        startup_config = NetworkConfig(indent=CFG_FILE_SUBCONFIG_INDENT, contents=output[1], ignore_lines=diff_ignore_lines)
+        running_config = NetworkConfig(
+            indent=CFG_FILE_SUBCONFIG_INDENT, contents=output[0], ignore_lines=diff_ignore_lines)
+        startup_config = NetworkConfig(
+            indent=CFG_FILE_SUBCONFIG_INDENT, contents=output[1], ignore_lines=diff_ignore_lines)
 
         if running_config.sha1 != startup_config.sha1:
             save_config(module, result)
@@ -353,31 +361,36 @@ def store_config(module, result):
     elif module.params['save_when'] == 'changed' and result['changed']:
         save_config(module, result)
 
+
 def find_diff(module, runn_config_before_changes):
     diff_ignore_lines = module.params['diff_ignore_lines']
     running_config = module.params['running_config']
     startup_config = None
 
     if not running_config:
-        output = run_commands(module, {'command': 'show running-config', 'output': 'text'})
+        output = run_commands(
+            module, {'command': 'show running-config', 'output': 'text'})
         contents = output[0]
 
     else:
         contents = running_config
 
     # recreate the object in order to process diff_ignore_lines
-    running_config = NetworkConfig(indent=CFG_FILE_SUBCONFIG_INDENT, contents=contents, ignore_lines=diff_ignore_lines)
+    running_config = NetworkConfig(
+        indent=CFG_FILE_SUBCONFIG_INDENT, contents=contents, ignore_lines=diff_ignore_lines)
 
     if module.params['diff_against'] == 'running':
         if module.check_mode:
-            module.warn("unable to perform diff against running-config due to check mode")
+            module.warn(
+                "unable to perform diff against running-config due to check mode")
             contents = None
         else:
             contents = runn_config_before_changes.config_text
 
     elif module.params['diff_against'] == 'startup':
         if not startup_config:
-            output = run_commands(module, {'command': 'show startup-config', 'output': 'text'})
+            output = run_commands(
+                module, {'command': 'show startup-config', 'output': 'text'})
             contents = output[0]
         else:
             contents = startup_config.config_text
@@ -386,7 +399,8 @@ def find_diff(module, runn_config_before_changes):
         contents = module.params['intended_config']
     result_diff = {}
     if contents is not None:
-        base_config = NetworkConfig(indent=CFG_FILE_SUBCONFIG_INDENT, contents=contents, ignore_lines=diff_ignore_lines)
+        base_config = NetworkConfig(
+            indent=CFG_FILE_SUBCONFIG_INDENT, contents=contents, ignore_lines=diff_ignore_lines)
 
         if running_config.sha1 != base_config.sha1:
             if module.params['diff_against'] == 'intended':
@@ -401,8 +415,10 @@ def find_diff(module, runn_config_before_changes):
             }
     return result_diff
 
+
 def is_new_config_provided(module):
     return any((module.params['src'], module.params['lines']))
+
 
 def apply_config(module, running_cfg):
     result = {}
@@ -417,13 +433,15 @@ def apply_config(module, running_cfg):
 
         replace = module.params['replace'] == 'config'
         commit = not module.check_mode
-        response = load_config(module, commands, replace=replace, commit=commit)
+        response = load_config(
+            module, commands, replace=replace, commit=commit)
 
         result['changed'] = True
 
         if 'session' in response:
             result['session'] = response['session']
     return result
+
 
 def main():
     """ main entry point for module execution
@@ -441,16 +459,19 @@ def main():
         before=dict(type='list'),
         after=dict(type='list'),
 
-        match=dict(default='line', choices=['line', 'strict', 'exact', 'none']),
+        match=dict(default='line', choices=[
+                   'line', 'strict', 'exact', 'none']),
         replace=dict(default='line', choices=['line', 'block', 'config']),
 
         defaults=dict(type='bool', default=False),
         backup=dict(type='bool', default=False),
         backup_options=dict(type='dict', options=backup_spec),
 
-        save_when=dict(choices=['always', 'never', 'modified', 'changed'], default='never'),
+        save_when=dict(choices=['always', 'never',
+                       'modified', 'changed'], default='never'),
 
-        diff_against=dict(choices=['startup', 'intended', 'running'], default='running'),
+        diff_against=dict(
+            choices=['startup', 'intended', 'running'], default='running'),
         diff_ignore_lines=dict(type='list'),
 
         running_config=dict(aliases=['config']),
@@ -486,17 +507,18 @@ def main():
     running_cfg = None
     if is_backup_requested(module):
         running_cfg = get_config(module, flags=flags)
-        runnconfig_before_changes = NetworkConfig(indent=CFG_FILE_SUBCONFIG_INDENT, contents=running_cfg)
+        runnconfig_before_changes = NetworkConfig(
+            indent=CFG_FILE_SUBCONFIG_INDENT, contents=running_cfg)
         if module.params['backup']:
             result['__backup__'] = running_cfg
 
     if is_new_config_provided(module):
         res = apply_config(module, running_cfg)
         result.update(res)
-    
+
     if is_config_store_requested(module):
         store_config(module, result)
-    
+
     # check if config difference output is requested
     if module._diff:
         diff = find_diff(module, runnconfig_before_changes)

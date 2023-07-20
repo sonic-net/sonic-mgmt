@@ -2,6 +2,7 @@ import logging
 import os
 import difflib
 import operator
+import six
 from tests.common.helpers.assertions import pytest_assert
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -77,7 +78,7 @@ def compare_passw_policies_in_linux(duthost, pam_file_expected=PAM_PASSWORD_CONF
     logging.debug('DUT command = {}'.format(read_command_password))
     read_command_password_cmd = duthost.command(read_command_password)
     command_password_stdout = read_command_password_cmd["stdout_lines"]
-    command_password_stdout = [line.encode('utf-8') for line in command_password_stdout]
+    command_password_stdout = [six.ensure_str(line) for line in command_password_stdout]
 
     common_password_expected = []
     with open(pam_file_expected, 'r') as expected_common_password_file:

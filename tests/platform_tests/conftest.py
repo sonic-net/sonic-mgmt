@@ -20,6 +20,7 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
 FMT = "%b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
+FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 SMALL_DISK_SKUS = [
     "Arista-7060CX-32S-C32",
     "Arista-7060CX-32S-Q32",
@@ -31,7 +32,10 @@ def _parse_timestamp(timestamp):
     try:
         time = datetime.strptime(timestamp, FMT)
     except ValueError:
-        time = datetime.strptime(timestamp, FMT_SHORT)
+        try:
+            time = datetime.strptime(timestamp, FMT_SHORT)
+        except ValueError:
+            time = datetime.strptime(timestamp, FMT_ALT)
     return time
 
 
@@ -86,7 +90,9 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
 
         # Enable outer interfaces
         for port in ports:
-            duthost.no_shutdown(ifname=port)
+            namespace = mg_facts["minigraph_neighbors"][port]['namespace']
+            namespace_arg = '-n {}'.format(namespace) if namespace else ''
+            duthost.command("sudo config interface {} startup {}".format(namespace_arg, port))
 
 
 def get_state_times(timestamp, state, state_times, first_after_offset=None):
@@ -152,11 +158,12 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
         if lacp_sessions_dict and "lacp_sessions" in lacp_sessions_dict else None
     controlplane_summary = {"downtime": "",
                             "arp_ping": "", "lacp_session_max_wait": ""}
-    if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
-        max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
-        analyze_result.get(
-            "controlplane", controlplane_summary).update(
-                {"lacp_session_max_wait": max_lacp_session_wait})
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
+            max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+            analyze_result.get(
+                "controlplane", controlplane_summary).update(
+                    {"lacp_session_max_wait": max_lacp_session_wait})
 
     result_summary = {
         "reboot_type": "{}-{}".format(reboot_type, reboot_oper) if reboot_oper else reboot_type,
@@ -304,6 +311,10 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
                             .get("timestamp", {}).get("Start")
                         if not fdb_aging_disable_start:
                             break
+                        # Ignore MAC learning events before FDB aging disable, as MAC learning is still allowed
+                        log_time = timestamp.strftime(FMT)
+                        if _parse_timestamp(log_time) < _parse_timestamp(fdb_aging_disable_start):
+                            break
                         first_after_offset = fdb_aging_disable_start
                     else:
                         first_after_offset = result.get("reboot_time", {}).get(
@@ -329,18 +340,9 @@ def analyze_sairedis_rec(messages, result, offset_from_kexec):
 def get_data_plane_report(analyze_result, reboot_type, log_dir, reboot_oper):
     report = {"controlplane": {"arp_ping": "", "downtime": ""},
               "dataplane": {"lost_packets": "", "downtime": ""}}
-    # escaping, as glob utility does not work well with "[","]"
-    reboot_report_path = re.sub(r'([\[\]])', r'[\\1]', log_dir)
-    if reboot_oper:
-        reboot_report_file_name = "{}-reboot-{}-report.json".format(
-            reboot_type, reboot_oper)
-    else:
-        reboot_report_file_name = "{}-reboot-report.json".format(reboot_type)
-    reboot_report_file = "{}/{}".format(reboot_report_path,
-                                        reboot_report_file_name)
-    files = glob.glob(reboot_report_file)
+    files = glob.glob1(log_dir, '*reboot*-report.json')
     if files:
-        filepath = files[0]
+        filepath = "{}/{}".format(log_dir, files[0])
         with open(filepath) as json_file:
             report = json.load(json_file)
     analyze_result.update(report)
@@ -518,11 +520,27 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             # restore original script. If the ".orig" file does not exist (upgrade path case), ignore the error.
             duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path),
                           module_ignore_errors=True)
-        result = loganalyzer.analyze(marker, fail=False)
+        # For mac jump test, the log message we care about is uaually combined with other messages in one line,
+        # which makes the length of the line longer than 1000 and get dropped by Logananlyzer. So we need to increase
+        # the max allowed length.
+        # The regex library in Python 2 takes very long time (over 10 minutes) to process long lines. In our test,
+        # most of the combined log message for mac jump test is around 5000 characters. So we set the max allowed
+        # length to 6000.
+        result = loganalyzer.analyze(marker, fail=False, maximum_log_length=6000)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 
-        for key, messages in list(result["expect_messages"].items()):
+        # Parsing sairedis shall happen after parsing syslog because FDB_AGING_DISABLE is required
+        # when analysing sairedis.rec log, so we need to sort the keys
+        key_list = ["syslog", "bgpd.log", "sairedis.rec"]
+        for i in range(0, len(key_list)):
+            for message_key in list(result["expect_messages"].keys()):
+                if key_list[i] in message_key:
+                    key_list[i] = message_key
+                    break
+
+        for key in key_list:
+            messages = result["expect_messages"][key]
             if "syslog" in key:
                 get_kexec_time(duthost, messages, analyze_result)
                 reboot_start_time = analyze_result.get(

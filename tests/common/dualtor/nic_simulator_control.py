@@ -30,7 +30,8 @@ __all__ = [
     "TrafficDirection",
     "ForwardingState",
     "toggle_active_active_simulator_ports",
-    "stop_nic_grpc_server"
+    "stop_nic_grpc_server",
+    "simulator_server_down_active_active"
 ]
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=
 @pytest.fixture(scope="session")
 def nic_simulator_info(request, tbinfo):
     """Fixture to gather nic_simulator related infomation."""
-    if "dualtor-mixed" not in tbinfo["topo"]["name"]:
+    if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
         return None, None, None
 
     server = tbinfo["server"]
@@ -267,9 +268,13 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
     def _call_set_drop_nic_simulator(nic_addresses, portids, directions, recover=False):
         drop_requests = []
         for portid, direction in zip(portids, directions):
+            if not isinstance(portid, list):
+                portid = [portid]
+            if not isinstance(direction, list):
+                direction = [direction]
             drop_request = nic_simulator_grpc_service_pb2.DropRequest(
-                portid=[portid],
-                direction=[direction],
+                portid=portid,
+                direction=direction,
                 recover=recover
             )
             drop_requests.append(drop_request)
@@ -385,3 +390,27 @@ def stop_nic_grpc_server(mux_config, nic_simulator_client, restart_nic_simulator
     yield _stop_nic_grpc_server
 
     restart_nic_simulator()
+
+
+@pytest.fixture
+def simulator_server_down_active_active(active_active_ports, set_drop_active_active):       # noqa F811
+    """Simulate server down scenario for active-active mux ports."""
+
+    def _simulate_server_down(interface_name):
+        if interface_name not in active_active_ports:
+            raise ValueError("%s is not a valid active-active mux port" % interface_name)
+        portids = [[ActiveActivePortID.UPPER_TOR, ActiveActivePortID.LOWER_TOR]]
+        # set upstream drop for both upper and lower ToR
+        set_drop_active_active(
+            [interface_name],
+            portids,
+            [[TrafficDirection.UPSTREAM, TrafficDirection.UPSTREAM]]
+        )
+        # set downstream drop for both upper and lower ToR
+        set_drop_active_active(
+            [interface_name],
+            portids,
+            [[TrafficDirection.DOWNSTREAM, TrafficDirection.DOWNSTREAM]]
+        )
+
+    return _simulate_server_down

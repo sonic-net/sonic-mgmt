@@ -2,6 +2,7 @@ t0:
   - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
+  - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved
   - bgp/test_bgp_speaker.py
@@ -28,14 +29,16 @@ t0:
   - generic_config_updater/test_syslog.py
   - generic_config_updater/test_vlan_interface.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
+  - generic_config_updater/test_ecn_config_update.py
   - iface_namingmode/test_iface_namingmode.py
   - lldp/test_lldp.py
+  - minigraph/test_masked_services.py
   - monit/test_monit_status.py
   - ntp/test_ntp.py
   - override_config_table/test_override_config_table.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
-#  - platform_tests/test_advanced_reboot.py::test_warm_reboot
+  - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - radv/test_radv_ipv6_ra.py
@@ -60,9 +63,12 @@ t0:
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
   - telemetry/test_telemetry.py
+  - telemetry/test_events.py
   - test_features.py
   - test_interfaces.py
   - test_procdockerstatsd.py
+  - database/test_db_scripts.py
+  - system_health/test_watchdog.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -75,6 +81,8 @@ t0-sonic:
   - macsec/test_deployment.py
   - macsec/test_fault_handling.py
   - macsec/test_interop_protocol.py
+  - pc/test_retry_count.py
+#  - platform_tests/test_advanced_reboot.py::test_warm_reboot
 
 dualtor:
   - arp/test_arp_extended.py
@@ -92,6 +100,7 @@ t1-lag:
   - container_checker/test_container_checker.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - http/test_http_copy.py
+  - iface_namingmode/test_iface_namingmode.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
   - monit/test_monit_status.py
@@ -121,7 +130,6 @@ multi-asic-t1-lag:
   - iface_namingmode/test_iface_namingmode.py
   - scp/test_scp_copy.py
   - test_interfaces.py
-  - override_config_table/test_override_config_table.py
   - process_monitoring/test_critical_process_monitoring.py
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
@@ -146,3 +154,11 @@ wan-pub:
   - tacacs/test_ro_disk.py
   - tacacs/test_authorization.py
   - tacacs/test_accounting.py
+
+specific_param:
+  t0-sonic:
+  - name: bgp/test_bgp_fact.py
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+#  all the test modules under macsec directory
+  - name: macsec
+    param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
