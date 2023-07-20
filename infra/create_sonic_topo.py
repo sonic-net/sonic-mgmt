@@ -949,6 +949,10 @@ def main():
         dut_platform = 'sfd'
     elif device_type == 'crocodile':
         dut_platform = 'crocodile'
+    elif device_type == 'churchill':
+        if topo_type == 't0':
+            topo_yaml = '../pyvxr_yaml_files/churchill_sonic_t0_topo.yaml'
+        dut_platform = 'churchill'
     else:
         dut_platform = "mathilda"
 
@@ -968,6 +972,8 @@ def main():
             base_topo_file = 'testbed-sherman-t0.yaml'
         elif device_type == 'crocodile':
             base_topo_file = 'testbed-crocodile-t0.yaml'
+        elif device_type == 'churchill':
+            base_topo_file = 'testbed-churchill-t0.yaml'
         else:
             base_topo_file = 'testbed-mth32-t0.yaml'
     elif topo_type == 't1':
@@ -1098,6 +1104,9 @@ def main():
     elif device_type == 'crocodile':
         print("Device name is crocodile. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    elif device_type == 'churchill':
+        print("Device name is mth32 or m64. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d churchill-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32 or m64. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
