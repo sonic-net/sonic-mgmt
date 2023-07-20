@@ -178,7 +178,7 @@ def get_healthy_psu_num(duthost):
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
         fields = iter.split()
-        if 'OK' in fields:
+        if 'OK' in fields and 'NOT' not in fields:
             healthy_psus += 1
 
     return healthy_psus
@@ -228,7 +228,8 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS_JSON)
         psu_info_list = json.loads(cli_psu_status["stdout"])
         for psu_info in psu_info_list:
-            psu_test_results[psu_info['name']] = psu_info
+            if psu_info["status"] != 'NOT PRESENT':
+                psu_test_results[psu_info['name']] = psu_info
             if psu_info["status"] == "NOT OK":
                 power_off_psu_list.append(psu_info["index"])
 
