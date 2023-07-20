@@ -44,3 +44,6 @@ mux_simulator_http_port:
 
     vmsvc1-dual-t0-7050-1: 8080
     vmsvc1-dual-t0-7050-2: 8082
+
+    # On server64
+    vms64-dual-t0-7260-1: 8080
