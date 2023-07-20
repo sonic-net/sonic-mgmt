@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX
+from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -39,8 +39,17 @@ class TestMemoryExhaustion:
             # Waiting for SSH connection startup
             pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED, SSH_STARTUP_TIMEOUT),
                           'Recover {} by PDU reboot failed'.format(hostname))
+            # First wait for device to bootup
+            is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
+            wait = 600 if is_sup else 300
+            wait_for_startup(duthost, localhost, delay=10, timeout=wait)
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
+            if is_sup:
+                for lc in duthosts.frontend_nodes:
+                    wait_for_startup(lc, localhost, delay=10, timeout=300)
+                    check_interfaces_and_services(lc, interfaces, xcvr_skip_list,
+                                                  reboot_type=reboot_type)
 
     def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
