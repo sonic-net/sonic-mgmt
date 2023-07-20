@@ -900,13 +900,13 @@ def get_RIB_IN_capacity(cvg_api,
     def run_traffic(routes):
         logger.info(
             '|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(routes))
-        conv_config = tgen_capacity(routes) 
+        conv_config = tgen_capacity(routes)
         cvg_api.set_config(conv_config)
         restpy_session = cvg_api._api._assistant.Session
         ixnet = restpy_session.Ixnetwork
-        if str(ixnet.Locations.find()[0].DeviceType) == 'Optixia XV':                 
-            ixnet.Traffic.Statistics.CpdpConvergence.EnableDataPlaneEventsRateMonitor = False 
-            
+        if str(ixnet.Locations.find()[0].DeviceType) == 'Optixia XV':
+            ixnet.Traffic.Statistics.CpdpConvergence.EnableDataPlaneEventsRateMonitor = False
+
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
         cs = cvg_api.convergence_state()
@@ -931,7 +931,7 @@ def get_RIB_IN_capacity(cvg_api,
             wait(TIMEOUT-20, "For Traffic To stop")
             flow_stats = get_flow_stats(cvg_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
-            for flow in flow_stats: 
+            for flow in flow_stats:
                 tx_frate.append(flow.frames_tx)
                 rx_frate.append(flow.frames_rx)
             logger.info("Tx Rate : {}".format(tx_frate))
