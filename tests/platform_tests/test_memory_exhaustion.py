@@ -5,7 +5,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
-from tests.common.platform_tests.test_reboot import check_interfaces_and_services
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
@@ -25,7 +25,7 @@ class TestMemoryExhaustion:
 
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                 localhost, pdu_controller, xcvr_skip_list, conn_graph_facts):
+                 localhost, pdu_controller,):
         yield
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.
@@ -47,11 +47,9 @@ class TestMemoryExhaustion:
             if is_sup:
                 for lc in duthosts.frontend_nodes:
                     wait_for_startup(lc, localhost, delay=10, timeout=300)
-                    check_interfaces_and_services(lc, conn_graph_facts["device_conn"][lc.hostname],
-                                                  xcvr_skip_list)
+                    wait_critical_processes(lc)
 
-    def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                               conn_graph_facts, localhost, xcvr_skip_list):
+    def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
@@ -81,8 +79,7 @@ class TestMemoryExhaustion:
         if is_sup:
             for lc in duthosts.frontend_nodes:
                 wait_for_startup(lc, localhost, delay=10, timeout=300)
-                check_interfaces_and_services(lc, conn_graph_facts["device_conn"][lc.hostname],
-                                              xcvr_skip_list)
+                wait_critical_processes(lc)
         # Verify DUT uptime is later than the time when the test case started running.
         dut_uptime = duthost.get_up_time()
         pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
