@@ -45,7 +45,7 @@ def check_results(results):
 
 
 @pytest.fixture(scope='module')
-def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=24):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts  = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -113,7 +113,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
             )
         results[node['host'].hostname] = node_results
 
-    results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+    results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
 
@@ -131,12 +131,12 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
     if not res:
         # Disable graceful restart in case of failure
-        parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+        parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120, concurrent_tasks=cct)
         pytest.fail(err_msg)
 
     yield
 
-    results = parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+    results = parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
 

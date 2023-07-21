@@ -27,7 +27,7 @@ LOOP_TIMES_LEVEL_MAP = {
     'diagnose': 50
 }
 
-WAIT_EXPECTED_PACKET_TIMEOUT = 5
+WAIT_EXPECTED_PACKET_TIMEOUT = 15
 EXABGP_BASE_PORT = 5000
 NHIPV4 = '10.10.246.254'
 WITHDRAW = 'withdraw'
@@ -200,6 +200,8 @@ def is_dualtor(tbinfo):
 def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
     # Get internal bgp ips for later filtering
     internal_bgp_ips = duthost.get_internal_bgp_peers().keys()
+    # Get voq inband interface for later filtering
+    voq_inband_interfaces = duthost.get_voq_inband_interfaces()
     dev_port = None
     route_to_ping = None
     for dst_prefix in dst_prefix_set:
@@ -219,13 +221,23 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
                         continue
                     if per_hop['ip'] in internal_bgp_ips:
                         continue
+                    if per_hop['interfaceName'] in voq_inband_interfaces:
+                        continue
+                    if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
+                        continue
                     dev_port = per_hop['interfaceName']
+                    break
         else:
             dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
             for per_hop in dev[route_to_ping][0]['nexthops']:
                 if 'interfaceName' not in per_hop.keys():
                     continue
+                if per_hop['interfaceName'] in voq_inband_interfaces:
+                    continue
+                if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
+                    continue
                 dev_port = per_hop['interfaceName']
+                break
     pytest_assert(dev_port, "dev_port not exist")
     return dev_port, route_to_ping
 

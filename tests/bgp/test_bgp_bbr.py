@@ -18,7 +18,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 
 
 pytestmark = [
@@ -50,8 +50,8 @@ def prepare_bbr_config_files(duthosts, rand_one_dut_hostname):
 
     yield
 
-    duthost.copy(src="./bgp/templates/del_bgp_bbr_config.json", dest='/tmp/del_bgp_bbr_config.json')
-    duthost.shell("configlet -d -j {}".format("/tmp/del_bgp_bbr_config.json"))
+    del_bbr_json = [{"BGP_BBR": {}}]
+    delete_running_config(del_bbr_json, duthost)
 
 @pytest.fixture(scope='module')
 def bbr_default_state(setup):
@@ -309,7 +309,8 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
     # check DUT
     pytest_assert(wait_until(5, 1, 0, check_dut, duthost, other_vms, bgp_neighbors, setup, route, accepted=accepted), 'DUT check failed')
 
-    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted}, other_vms, timeout=120)
+    results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted},
+                           other_vms, timeout=120, concurrent_tasks=6)
 
     failed_results = {}
     for node, result in results.items():

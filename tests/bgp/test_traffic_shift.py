@@ -61,15 +61,15 @@ def verify_traffic_shift(host, outputs, match_result):
     return match_result
 
 
-def get_traffic_shift_state(host):
-    outputs = host.shell('TSC')['stdout_lines']
+def get_traffic_shift_state(host, cmd="TSC"):
+    outputs = host.shell(cmd)['stdout_lines']
     if verify_traffic_shift(host, outputs, TS_NORMAL) != "ERROR":
         return TS_NORMAL
     if verify_traffic_shift(host, outputs, TS_MAINTENANCE) != "ERROR":
         return TS_MAINTENANCE
     if verify_traffic_shift(host, outputs, TS_INCONSISTENT) != "ERROR":
         return TS_INCONSISTENT
-    pytest.fail("TSC return unexpected state {}".format("ERROR"))
+    pytest.fail("{} return unexpected state {}".format(cmd, "ERROR"))
 
 
 def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
@@ -111,7 +111,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
             routes[a_route] = ""
         all_routes[hostname] = routes
 
-    all_routes = parallel_run(parse_routes_process_vsonic, (), {}, neigh_hosts.values(), timeout=120, concurrent_tasks=8)
+    all_routes = parallel_run(parse_routes_process_vsonic, (), {}, neigh_hosts.values(), timeout=180, concurrent_tasks=8)
     return all_routes
 
 
@@ -184,7 +184,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
             routes[entry] = community
         results[hostname] = routes
 
-    all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=180, concurrent_tasks=8)
+    all_routes = parallel_run(parse_routes_process, (), {}, neigh_hosts.values(), timeout=240, concurrent_tasks=8)
     return all_routes
 
 

@@ -12,9 +12,12 @@ from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # no
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_test_port_map
 
 from tests.ptf_runner import ptf_runner
-from tests.common.dualtor.mux_simulator_control import mux_server_url
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side
+from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side            # noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
 from tests.common.utilities import is_ipv4_address
 
 from tests.common.fixtures.fib_utils import fib_info_files_per_function
@@ -74,7 +77,9 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                    fib_info_files_per_function,
                    updated_tbinfo, mux_server_url,
                    mux_status_from_nic_simulator,
-                   ignore_ttl, single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):
+                   ignore_ttl, single_fib_for_duts,                     # noqa F401
+                   duts_running_config_facts, duts_minigraph_facts,
+                   validate_active_active_dualtor_setup):               # noqa F401
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -84,7 +89,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
 
     # do not test load balancing for vs platform as kernel 4.9
     # can only do load balance base on L3
-    if duthosts[0].facts['asic_type'] in ["vs"]:
+    asic_type = duthosts[0].facts['asic_type']
+    if asic_type in ["vs"]:
         test_balancing = False
     else:
         test_balancing = True
@@ -110,7 +116,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
             "test_balancing": test_balancing,
             "ignore_ttl": ignore_ttl,
             "single_fib_for_duts": single_fib_for_duts,
-            "switch_type": switch_type
+            "switch_type": switch_type,
+            "asic_type": asic_type
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -273,14 +280,34 @@ def add_default_route_to_dut(duts_running_config_facts, duthosts, tbinfo):
         yield
 
 
-def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan, hash_keys, ptfhost, ipver,
-              toggle_all_simulator_ports_to_rand_selected_tor_m,
-              updated_tbinfo, mux_server_url, mux_status_from_nic_simulator,
-              ignore_ttl, single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts):
+@pytest.fixture
+def setup_active_active_ports(
+    active_active_ports, rand_selected_dut, rand_unselected_dut,                        # noqa F811
+    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup   # noqa F811
+):
+    if active_active_ports:
+        # The traffic from active-active mux ports are ECMPed twice:first time on the NiC to
+        # choose the ToR, second time on the ToR to choose the uplinks. The NiC ECMP is not
+        # within the test scope, and we also cannot guarantee that the traffic is evenly
+        # distributed among all the uplinks. So let's configure the active-active mux ports
+        # to let them work in active-standby mode.
+        logger.info("Configuring {} as active".format(rand_selected_dut.hostname))
+        logger.info("Configuring {} as standby".format(rand_unselected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
+
+    return
+
+
+def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, setup_vlan,      # noqa F811
+              hash_keys, ptfhost, ipver, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
+              updated_tbinfo, mux_server_url, mux_status_from_nic_simulator, ignore_ttl,        # noqa F811
+              single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts,             # noqa F811
+              setup_active_active_ports, active_active_ports):                                  # noqa F811
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
+    is_active_active_dualtor = bool(active_active_ports)
     switch_type = duthosts[0].facts.get('switch_type')
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.HashTest.{}.{}.log".format(ipver, timestamp)
@@ -296,20 +323,22 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
         "ptftests",
         "hash_test.HashTest",
         platform_dir="ptftests",
-        params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
-                "ptf_test_port_map": ptf_test_port_map_active_active(
-                    ptfhost, updated_tbinfo, duthosts, mux_server_url,
-                    duts_running_config_facts, duts_minigraph_facts,
-                    mux_status_from_nic_simulator()
-                ),
-                "hash_keys": hash_keys,
-                "src_ip_range": ",".join(src_ip_range),
-                "dst_ip_range": ",".join(dst_ip_range),
-                "vlan_ids": VLANIDS,
-                "ignore_ttl":ignore_ttl,
-                "single_fib_for_duts": single_fib_for_duts,
-                "switch_type": switch_type
-                },
+        params={
+            "fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
+            "ptf_test_port_map": ptf_test_port_map_active_active(
+                ptfhost, updated_tbinfo, duthosts, mux_server_url,
+                duts_running_config_facts, duts_minigraph_facts,
+                mux_status_from_nic_simulator()
+            ),
+            "hash_keys": hash_keys,
+            "src_ip_range": ",".join(src_ip_range),
+            "dst_ip_range": ",".join(dst_ip_range),
+            "vlan_ids": VLANIDS,
+            "ignore_ttl": ignore_ttl,
+            "single_fib_for_duts": single_fib_for_duts,
+            "switch_type": switch_type,
+            "is_active_active_dualtor": is_active_active_dualtor
+        },
         log_file=log_file,
         qlen=PTF_QLEN,
         socket_recv_size=16384,
@@ -377,15 +406,15 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
                            ptfhost, tbinfo, duthosts, mux_server_url,
                            duts_running_config_facts, duts_minigraph_facts,
                            mux_status_from_nic_simulator()
-                        ),
-                       "hash_keys": hash_keys,
-                       "src_ip_range": ",".join(src_ip_range),
-                       "dst_ip_range": ",".join(dst_ip_range),
-                       "vlan_ids": VLANIDS,
-                       "ignore_ttl": ignore_ttl,
-                       "single_fib_for_duts": single_fib_for_duts,
-                       "ipver": ipver
-                       },
+               ),
+                   "hash_keys": hash_keys,
+                   "src_ip_range": ",".join(src_ip_range),
+                   "dst_ip_range": ",".join(dst_ip_range),
+                   "vlan_ids": VLANIDS,
+                   "ignore_ttl": ignore_ttl,
+                   "single_fib_for_duts": single_fib_for_duts,
+                   "ipver": ipver
+               },
                log_file=log_file,
                qlen=PTF_QLEN,
                socket_recv_size=16384)

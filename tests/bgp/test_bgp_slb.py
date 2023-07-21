@@ -4,7 +4,7 @@ from tests.common import reboot
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.dualtor.mux_simulator_control import mux_server_url                                   # lgtm[py/unused-import]
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # lgtm[py/unused-import]
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 
 
 pytestmark = [
@@ -81,3 +81,5 @@ def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
             pytest.fail("dynamic BGP session is not established after %s" % reboot_type)
     finally:
         neighbor.stop_session()
+        delete_slb_json = [{"WARM_RESTART": {}}]
+        delete_running_config(delete_slb_json, duthost)

@@ -13,8 +13,8 @@ TEST_FILE_2_NAME = "test_file_2.bin"
 BLOCK_SIZE = 500000000
 
 @pytest.fixture
-def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     # Copies script to DUT
     duthost.copy(src="scp/perform_scp.py", dest="/home/admin/perform_scp.py")
 
@@ -28,8 +28,10 @@ def setup_teardown(duthosts, rand_one_dut_hostname, ptfhost):
     for file in files_to_remove_2:
         ptfhost.file(path=file, state="absent")
 
-def test_scp_copy(duthosts, rand_one_dut_hostname, ptfhost, setup_teardown, creds):
-    duthost = duthosts[rand_one_dut_hostname]
+
+def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_teardown, creds):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
     ptf_ip = ptfhost.mgmt_ip
 
     # Generate the file from /dev/urandom
