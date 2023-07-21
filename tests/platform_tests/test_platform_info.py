@@ -293,7 +293,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
         for line in cli_psu_status["stdout_lines"][2:]:
             psu_match = psu_line_pattern.match(line)
             pytest_assert(psu_match, "Unexpected PSU status output")
-            if psu_match.group(2) != "OK":
+            # also make sure psustatus is not 'NOT PRESENT', which cannot be turned on/off
+            if psu_match.group(2) != "OK" and psu_match.group(2) != "NOT PRESENT":
                 psu_under_test = psu_match.group(1)
             check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
         pytest_assert(psu_under_test is not None, "No PSU is turned off")
