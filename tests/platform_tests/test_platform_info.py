@@ -220,7 +220,8 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             fields = line.split()
-            psu_test_results[fields[1]] = line
+            if " ".join(fields[2:]) != 'NOT PRESENT':
+                psu_test_results[fields[1]] = line
             if " ".join(fields[2:]) == "NOT OK":
                 power_off_psu_list.append(fields[1])
     else:
