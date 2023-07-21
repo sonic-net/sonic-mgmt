@@ -208,22 +208,24 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
 
     bgp_nbrs = duthost.get_bgp_neighbors()
     bgp_neighbor = random.choice(bgp_nbrs.keys())
-    bgp_info = duthost.get_bgp_neighbor_info(unicode(bgp_neighbor))
+    bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor)
     original_state = bgp_info["bgpState"]
-    new_state = "Established" if original_state.lower() == "active"  else "Active"
+    new_state = "Established" if original_state.lower() == "active" else "Active"
 
     client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, results, 1, bgp_neighbor,))
     client_thread.start()
 
     wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
-    ret = duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state))
+    duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                            new_state))
 
     client_thread.join(30)
 
     try:
         assert results[0] != "", "Did not get key from update"
     finally:
-        duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, original_state))
+        duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                                original_state))
 
 
 @pytest.mark.disable_loganalyzer

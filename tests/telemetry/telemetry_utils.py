@@ -106,6 +106,7 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file):
     event_thread.join(30)  # close thread after 30 sec, was not able to find event within reasonable time
     assert results[0] != "", "No output from PTF docker"
     # regex logic and then to write to file
+    result = results[0]
     event_str = fetch_json_ptf_output(result, 0)
     event_str = event_str.replace('\\', '')
     event_json = json.loads(event_str)
