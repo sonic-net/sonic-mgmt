@@ -15,6 +15,7 @@ from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
 
 logger = logging.getLogger(__name__)
 
@@ -488,6 +489,9 @@ class AdvancedReboot:
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
+                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
+                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
+                                                        self.duthost.hostname)
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()

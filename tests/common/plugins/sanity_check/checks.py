@@ -10,6 +10,7 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -134,7 +135,7 @@ def check_interfaces(duthosts):
 
 
 @pytest.fixture(scope="module")
-def check_bgp(duthosts):
+def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600, init_result=init_result)
@@ -215,6 +216,11 @@ def check_bgp(duthosts):
                             check_result[a_result]['down_neighbors'], a_result, dut.hostname))
         else:
             logger.info('No BGP neighbors are down on %s' % dut.hostname)
+
+        mgFacts = dut.get_extended_minigraph_facts(tbinfo)
+        if dut.num_asics() == 1 and not wait_until(timeout, interval, 0, check_bgp_router_id, dut, mgFacts):
+            check_result['failed'] = True
+            logger.info("Failed to verify BGP router identifier is Loopback0 address on %s" % dut.hostname)
 
         logger.info("Done checking bgp status on %s" % dut.hostname)
         results[dut.hostname] = check_result
