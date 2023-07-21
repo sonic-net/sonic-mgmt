@@ -45,7 +45,7 @@ def set_max_time_for_interfaces(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname, 
+def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname,
                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
