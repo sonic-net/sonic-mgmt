@@ -879,7 +879,7 @@ def cleanup_config(duthost_list, snappi_ports):
                                                                                                    port['peer_port'],
                                                                                                    dutIp,
                                                                                                    prefix_length))
-                if port['asic_value'] == 'None':
+                if port['asic_value'] is None:
                     duthost.command('sudo config interface ip remove {} {}/{} \n' .format(
                                                                                           port['peer_port'],
                                                                                           dutIp,
