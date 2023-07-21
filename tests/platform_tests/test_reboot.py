@@ -59,8 +59,8 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_supervisor_node():
         for lc in duthosts.frontend_nodes:
             wait_for_startup(lc, localhost, delay=10, timeout=300)
-            check_interfaces_and_services(lc, interfaces, xcvr_skip_list,
-                                          reboot_type=reboot_type)
+            check_interfaces_and_services(lc, interfaces, xcvr_skip_list)
+
 
 def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
                      reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
@@ -92,8 +92,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     if dut.is_supervisor_node():
         for lc in duthosts.frontend_nodes:
             wait_for_startup(lc, localhost, delay=10, timeout=300)
-            check_interfaces_and_services(lc, interfaces, xcvr_skip_list,
-                                          reboot_type=reboot_type)
+            check_interfaces_and_services(lc, interfaces, xcvr_skip_list)
 
 
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
