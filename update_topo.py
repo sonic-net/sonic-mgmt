@@ -2,7 +2,7 @@
 import sys
 import yaml
 
-T0_TOPOLOGY_FILE = "pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml"
+T0_TOPOLOGY_FILE = "pyvxr_yaml_files/churchill_sonic_t0_topo.yaml"
 T1_TOPOLOGY_FILE = "pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
 SIM_CFG_FILE = "../sim-cfg.yml"
 
