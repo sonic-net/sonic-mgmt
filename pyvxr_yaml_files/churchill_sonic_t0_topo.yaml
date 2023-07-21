@@ -29,10 +29,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     onie-install: http://172.27.147.152/IMAGES/4265/sonic-cisco-8000.bin
     linecard_types: [churchill]
-    vxr_sim_config:
-        shelf:
-            ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.55.10.0.10/npl
-            ConfigS1NpsuiteVer: 1.99.0
 
   sonic_mgmt :
     platform: linux
