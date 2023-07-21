@@ -825,7 +825,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
-platform_tests/test_reboot.py::test_power_off_reboot:
+platform_tests/test_power_off_reboot.py:
   skip:
     reason: "Skip power off reboot test for Wistron/Nokia-7215"
     conditions:
