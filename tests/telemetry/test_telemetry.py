@@ -206,8 +206,8 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
                               target="STATE_DB")
     results = [""]
 
-    bgp_nbrs = duthost.get_bgp_neighbors()
-    bgp_neighbor = random.choice(bgp_nbrs.keys())
+    bgp_nbrs = list(duthost.get_bgp_neighbors().keys())
+    bgp_neighbor = random.choice(bgp_nbrs)
     bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor)
     original_state = bgp_info["bgpState"]
     new_state = "Established" if original_state.lower() == "active" else "Active"
