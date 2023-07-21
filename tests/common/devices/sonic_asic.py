@@ -341,7 +341,7 @@ class SonicAsic(object):
 
         try:
             pid_list = self.sonichost.shell(
-                r'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:{}"'.format(self.get_rpc_port_ssh_tunnel())
+                r'pgrep -f "ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -fN -L \*:{}"'.format(self.get_rpc_port_ssh_tunnel())
             )["stdout_lines"]
         except RunAnsibleModuleFail:
             return
@@ -374,7 +374,7 @@ class SonicAsic(object):
             raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
 
         self.sonichost.shell(
-            ("ssh -o StrictHostKeyChecking=no -fN"
+            ("ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -fN"
              " -L *:{}:{}:{} localhost").format(self.get_rpc_port_ssh_tunnel(), ns_docker_if_ipv4,
                                                 self._RPC_PORT_FOR_SSH_TUNNEL ))
 
