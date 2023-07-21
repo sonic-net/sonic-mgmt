@@ -66,7 +66,7 @@ def verify_host_port_vlan_membership(duthosts, rand_one_dut_hostname, testbed_pa
 
 
 @pytest.fixture(scope="module")
-def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, verify_host_port_vlan_membership):
+def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, verify_host_port_vlan_membership, tbinfo):
     vlan_intf, _ = testbed_params
     duthost = duthosts[rand_one_dut_hostname]
     dut_vlan_mac = duthost.get_dut_iface_mac('%s' % vlan_intf["attachto"])
@@ -75,16 +75,17 @@ def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, ve
 
     yield
 
-    del_vlan_json = json.loads("""
-                [{
-                    "VLAN":{
-                        "%s":{
-                            "mac": "%s"
-                        }
+    if "dualtor" not in tbinfo["topo"]["name"]:
+        del_vlan_json = json.loads("""
+            [{
+                "VLAN":{
+                    "%s":{
+                        "mac": "%s"
                     }
-                }]
-            """ % (vlan_intf["attachto"], dut_vlan_mac))
-    delete_running_config(del_vlan_json, duthost)
+                }
+            }]
+        """ % (vlan_intf["attachto"], dut_vlan_mac))
+        delete_running_config(del_vlan_json, duthost)
 
     wait_until(10, 2, 2, lambda: duthost.get_dut_iface_mac(vlan_intf["attachto"]) == dut_vlan_mac)
 
