@@ -5,7 +5,7 @@ import os
 import re
 import logging
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from tests.platform_tests.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS,\
     SAIREDIS_PATTERNS, OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
@@ -21,6 +21,7 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(
 FMT = "%b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
+FMT_ALT_PY2 = "%Y-%m-%dT%H:%M:%S.%f"
 SMALL_DISK_SKUS = [
     "Arista-7060CX-32S-C32",
     "Arista-7060CX-32S-Q32",
@@ -35,7 +36,14 @@ def _parse_timestamp(timestamp):
         try:
             time = datetime.strptime(timestamp, FMT_SHORT)
         except ValueError:
-            time = datetime.strptime(timestamp, FMT_ALT)
+            if sys.version_info.major >= 3:
+                time = datetime.strptime(timestamp, FMT_ALT)
+            else:
+                time = datetime.strptime(timestamp[:-6], FMT_ALT_PY2)
+                if timestamp[26] == "+":
+                    time += timedelta(hours=int(timestamp[27:29]), minutes=int(timestamp[30:]))
+                else:
+                    time -= timedelta(hours=int(timestamp[27:29]), minutes=int(timestamp[30:]))
     return time
 
 
