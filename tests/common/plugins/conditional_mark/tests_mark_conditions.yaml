@@ -487,6 +487,12 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
+generic_config_updater/test_pfcwd_status.py:
+  skip:
+    reason: "PFC watchdog is not supported on M0/Mx topology"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+
 #######################################
 #####           http              #####
 #######################################
