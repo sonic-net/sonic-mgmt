@@ -126,9 +126,9 @@ steps:
   - ${{ if eq(parameters.DOWNLOAD_TEST_PLAN_SCRIPTS, true) }}:
       - script: |
           set -ex
-          
+
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-          
+
           if [[ -z "$(AZP_REPO_ACCESS_TOKEN)" ]]; then
             curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           else
