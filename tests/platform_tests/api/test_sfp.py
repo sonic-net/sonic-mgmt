@@ -23,6 +23,10 @@ else:
     STRING_TYPE = basestring    # noqa F821
 # END Remove this after we transition to Python 3
 ###################################################
+SFP_UNRESETABLE_PLATFORM = [
+    "armhf-nokia_ixs7215_52x-r0",
+    "x86_64-arista_720dt_48s"
+]
 
 logger = logging.getLogger(__name__)
 
@@ -277,8 +281,11 @@ class TestSfpApi(PlatformApiTestBase):
                     return False
         return True
 
-    def is_xcvr_resettable(self, request, xcvr_info_dict):
+    def is_xcvr_resettable(self, request, xcvr_info_dict, duthost):
+        platform = duthost.facts["platform"]
         not_resettable_xcvr_type = request.config.getoption("--unresettable_xcvr_types")
+        if len(not_resettable_xcvr_type) == 0 and platform in SFP_UNRESETABLE_PLATFORM:
+            not_resettable_xcvr_type.append("SFP")
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         return xcvr_type not in not_resettable_xcvr_type
 
@@ -643,7 +650,7 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
 
             ret = sfp.reset(platform_api_conn, i)
-            if self.is_xcvr_resettable(request, info_dict):
+            if self.is_xcvr_resettable(request, info_dict, duthost):
                 self.expect(ret is True, "Failed to reset transceiver {}".format(i))
             else:
                 self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
