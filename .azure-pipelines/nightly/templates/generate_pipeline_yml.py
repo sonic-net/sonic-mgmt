@@ -1,6 +1,6 @@
 """
 Pipeline yaml soure data is to get from the following workbook:
-https://microsoft.sharepoint.com/:x:/r/teams/Aznet/_layouts/15/Doc.aspx?sourcedoc=%7BF1EB3F6D-2455-4D57-B805-CB3127CA322F%7D&file=nightly_pipelines_data_source.xlsx&action=default&mobileredirect=true&share=IQFtP-vxVSRXTbgFyzEnyjIvAcr96gkVoj_iydTAgs1WrjA
+https://microsoft.sharepoint.com/:x:/r/teams/Aznet/_layouts/15/Doc.aspx?sourcedoc=%7B2CACD877-11BE-4C11-9DAF-A90643F5B746%7D&file=nightly_pipelines_data_source.xlsx&action=default&mobileredirect=true&share=IQF32KwsvhERTJ2vqQZD9bdGAeCQS1UQj9cpxbrjSJQAFZw
 
 Generate nightly pipeline yaml file steps:
 1. Fill the workbook above accordingly, for example, fill the TESTBED_NAME, TESTBED_SPECIFIC, SKIP_SCRIPTS, cron column, etc.

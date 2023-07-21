@@ -11,11 +11,11 @@ resources:
     ref: master
 
 schedules:
-  - cron: "0 4 * * 0,2,4"
+  - cron: "0 1 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202205
+        - internal-202012
     always: true
 
 variables:
@@ -25,26 +25,34 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms7-t1-s6100
+    default: vms7-t0-s6100-4
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_202205)
+    default: $(IMAGE_BRCM_202012)
     displayName: "Image URL"
 
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "pfc_asym span sub_port_interfaces platform_tests bgp generic_config_updater acl show_techsupport pc metadata-scripts"'
+    default: '-I "pfc_asym span platform_tests bgp generic_config_updater acl show_techsupport pc"'
     displayName: Testbed specific
+
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "platform_tests/test_advanced_reboot.py::test_warm_reboot \
+              platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump \
+              platform_tests/test_advanced_reboot.py::test_warm_reboot_sad"
+    displayName: "Skip Scripts"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -53,3 +61,4 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
