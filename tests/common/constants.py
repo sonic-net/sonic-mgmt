@@ -19,8 +19,13 @@ DEFAULT_SSH_CONNECT_PARAMS = {
     }
 }
 # resolv.conf expected nameservers
+#
+# For public images tested with internal sonic-mgmt, expect the internal DNS server to be set. This is because there
+# are some test cases (involving swapping syncd container) that need DNS to work, and we set the DNS server at pretest.
+# If this is changed to set the DNS server only for those test cases that need DNS resolution, then this list can be
+# empty for public images.
 RESOLV_CONF_NAMESERVERS = {
-    "public": [],
+    "public": ["10.64.5.5"],
     "microsoft": ["10.64.5.5"]
 }
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
