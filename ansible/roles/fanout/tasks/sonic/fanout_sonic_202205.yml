@@ -22,7 +22,7 @@
 
 - name: Disable feature teamd and remove teamd container (avoid swss crash after config reload)
   block:
-    - name: Chekc if teamd container exists
+    - name: Check if teamd container exists
       shell: "docker ps -a -q -f name=teamd"
       register: teamd_container
 
