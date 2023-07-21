@@ -495,6 +495,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('sonic_lab_devices_crocodile.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+    elif device_type == 'churchill':
+        ftp_client.put('lab_connection_graph_churchill.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('topo_8800-LC-48H-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-LC-48H-O.yml')
@@ -956,7 +958,6 @@ def main():
     else:
         dut_platform = "mathilda"
 
-    print("TOPO TYPE {}. Device type {}".format(topo_type, device_type))
     if topo_type in ['t2-vs', 't2-min']:
         assert device_type == 'sfd', "Only SF-D is currently supported with T2 topologies"
         os.system("cp sonic_t2/* .")
