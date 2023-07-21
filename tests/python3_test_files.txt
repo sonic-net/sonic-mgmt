@@ -37,6 +37,7 @@ console/test_console_loopback.py
 console/test_console_reversessh.py
 console/test_console_udevrule.py
 container_checker/test_container_checker.py
+container_hardening/test_container_hardening.py
 copp/test_copp.py
 crm/test_crm.py
 dash/test_dash_vnet.py
