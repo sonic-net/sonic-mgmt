@@ -214,7 +214,7 @@ steps:
       echo "Runtime detailed progress at $(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
       # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
 
-      if $(RUN_TEST_TO_THE_END); then
+      if ${{ parameters.RUN_TEST_TO_THE_END }}; then
         echo "Running the test to the end..."
         python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING --expected-result SUCCESS
       else
