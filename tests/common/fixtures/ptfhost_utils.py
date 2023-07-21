@@ -269,8 +269,17 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     yield
 
-    logger.info("Leave icmp_responder running for dualtor/dualtor-mixed/dualtor-aa topology")
-    return
+    if "dualtor-mixed" in tbinfo["topo"]["name"] or "dualtor-aa" in tbinfo["topo"]["name"]:
+        logger.info("Leave icmp_responder running for dualtor-mixed/dualtor-aa topology")
+        return
+
+    logger.info("Stop running icmp_responder")
+    ptfhost.shell("supervisorctl stop icmp_responder")
+    icmp_responder_session_started = False
+
+    logger.info("Recover linkmgrd probe interval")
+    recover_linkmgrd_probe_interval(duthosts, tbinfo)
+    duthosts.shell("config save -y")
 
 
 @pytest.fixture(scope="module", autouse=True)
