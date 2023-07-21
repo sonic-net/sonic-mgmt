@@ -50,7 +50,7 @@ class TestMemoryExhaustion:
                 for lc in duthosts.frontend_nodes:
                     wait_for_startup(lc, localhost, delay=10, timeout=300)
                     check_interfaces_and_services(lc, conn_graph_facts["device_conn"][lc.hostname], 
-                                                  xcvr_skip_list, reboot_type=reboot_type)
+                                                  xcvr_skip_list)
 
     def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
