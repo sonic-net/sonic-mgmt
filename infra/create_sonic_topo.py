@@ -956,6 +956,7 @@ def main():
     else:
         dut_platform = "mathilda"
 
+    print("TOPO TYPE {}. Device type {}".format(topo_type, device_type))
     if topo_type in ['t2-vs', 't2-min']:
         assert device_type == 'sfd', "Only SF-D is currently supported with T2 topologies"
         os.system("cp sonic_t2/* .")
@@ -1069,8 +1070,8 @@ def main():
 
     # Change DUT password and set mgmt ip address
     for dut_name in get_dut_names(data):
-            print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
-            change_dut_passwd(data[dut_name])
+        print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
+        change_dut_passwd(data[dut_name])
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
