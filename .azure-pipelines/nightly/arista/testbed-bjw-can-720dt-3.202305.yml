@@ -42,7 +42,7 @@ parameters:
     type: string
     default: "platform_tests/api/test_psu.py::TestPsuApi::test_power \
               platform_tests/link_flap/test_cont_link_flap.py \
-              platform_tests/test_reboot.py::test_power_off_reboot \
+              platform_tests/test_power_off_reboot.py \
               snmp/test_snmp_psu.py::test_snmp_numpsu \
               snmp/test_snmp_psu.py::test_snmp_psu_status \
               snmp/test_snmp_phy_entity.py::test_turn_off_psu_and_check_psu_info"

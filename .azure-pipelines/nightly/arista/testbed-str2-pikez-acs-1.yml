@@ -41,8 +41,7 @@ parameters:
   - name: SKIP_SCRIPTS
     type: string
     default: "platform_tests/link_flap/test_cont_link_flap.py \
-              snmp/test_snmp_fdb.py::test_snmp_fdb_send_tagged \
-              acl/test_stress_acl.py"
+              platform_tests/test_power_off_reboot.py"
     displayName: "Skip Scripts"
 
 stages:
