@@ -45,16 +45,22 @@ def set_max_time_for_interfaces(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname, conn_graph_facts, xcvr_skip_list):      # noqa F811
+def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname, 
+                    localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
 
     logging.info(
         "Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    wait_for_startup(duthost, localhost, delay=10, timeout=300)
     check_critical_processes(duthost, watch_secs=10)
     check_interfaces_and_services(duthost, interfaces, xcvr_skip_list)
-
+    if duthost.is_supervisor_node():
+        for lc in duthosts.frontend_nodes:
+            wait_for_startup(lc, localhost, delay=10, timeout=300)
+            check_interfaces_and_services(lc, interfaces, xcvr_skip_list,
+                                          reboot_type=reboot_type)
 
 def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
                      reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
