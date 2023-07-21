@@ -1252,6 +1252,9 @@ class VMTopology(object):
                     self.netns, ns_if, rt_name))
                 VMTopology.cmd("ip netns exec %s ip rule add from %s table %s" % (
                     self.netns, ns_if_addr.ip, rt_name))
+                # issue: https://www.mail-archive.com/debian-bugs-dist@lists.debian.org/msg1811241.html
+                # When the route table is empty, the ip route flush command will fail.
+                # So ignore the error here.
                 VMTopology.cmd(
                     "ip netns exec %s ip route flush table %s" % (self.netns, rt_name), ignore_errors=True)
                 VMTopology.cmd("ip netns exec %s ip route add %s dev %s table %s" % (
