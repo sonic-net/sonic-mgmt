@@ -2292,6 +2292,7 @@
   ptf: vms64-2
   ptf_ip: 10.64.246.101/23
   ptf_ipv6:
+  netns_mgmt_ip: 10.64.246.102/23
   server: server_64
   vm_base: VM64156
   dut:
