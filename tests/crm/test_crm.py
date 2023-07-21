@@ -912,8 +912,6 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 4,
                   "\"crm_stats_acl_entry_used\" counter was not incremented")
 
-    crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used
-
     used_percent = get_used_percent(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
     if used_percent < 1:
         # Preconfiguration needed for used percentage verification
@@ -947,13 +945,13 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
                     asicAclBindings.add(portToLag[port])
             else:
                 if asichost.port_on_asic(port):
-                    asicAclBindings.add(port) 
+                    asicAclBindings.add(port)
 
-        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available +\
-                                        (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
+        freed_acl_entries = (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
     else:
-        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available +\
-                                        new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
+        freed_acl_entries = new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
+
+    crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + freed_acl_entries
 
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
