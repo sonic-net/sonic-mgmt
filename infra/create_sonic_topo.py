@@ -1014,6 +1014,8 @@ def main():
         ptf_intfcount = 64
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
+        elif device_type == 'churchill':
+            base_topo_file = 'testbed-churchill-t0.yaml'
         else:
             base_topo_file = 'testbed-mth64-t0-64.yaml'
 
