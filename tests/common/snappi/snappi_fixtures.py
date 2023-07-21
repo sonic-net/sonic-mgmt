@@ -725,8 +725,8 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
                                                                             duthost.hostname,
                                                                             port['peer_port'],
                                                                             dutIp,
-                                                                            prefix_length))                                                     
-        if port['asic_value'] == None:
+                                                                            prefix_length))
+        if port['asic_value'] is None:
             duthost.command('sudo config interface ip add {} {}/{} \n' .format(
                                                                                 port['peer_port'],
                                                                                 dutIp,
