@@ -1171,6 +1171,9 @@ def main():
     elif device_type == 'crocodile':
         print("Device name is crocodile. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
+    elif device_type == 'churchill':
+        print("Device name is mth32 or m64. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d churchill-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
