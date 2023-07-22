@@ -521,7 +521,7 @@ def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     downlink/unlink ports.
     """
     dscp_to_tc_map_names = set()
-    for port_name, qos_map in dut_qos_maps_module['port_qos_map'].iteritems():
+    for port_name, qos_map in dut_qos_maps_module['port_qos_map'].items():
         if port_name == "global":
             continue
         dscp_to_tc_map_names.add(qos_map.get("dscp_to_tc_map", ""))

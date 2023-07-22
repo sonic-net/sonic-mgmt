@@ -1115,7 +1115,7 @@ class TestQosSai(QosSaiBase):
         """
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
         duthost = get_src_dst_asic_and_duts['src_dut']
-        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip(
                 "Skip this test since separated DSCP_TO_TC_MAP is applied")
 
@@ -1166,7 +1166,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         # Only run this test on T1 testbed when separated DSCP_TO_TC_MAP is defined
-        if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if not separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip(
                 "Skip this test since separated DSCP_TO_TC_MAP is not applied")
         if "dualtor" in dutTestParams['topo']:
@@ -1653,7 +1653,7 @@ class TestQosSai(QosSaiBase):
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
-        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip(
                 "Skip this test since separated DSCP_TO_TC_MAP is applied")
 
@@ -1702,7 +1702,7 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if not separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if not separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip(
                 "Skip this test since separated DSCP_TO_TC_MAP is not applied")
         if "dualtor" in dutTestParams['topo']:
