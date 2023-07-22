@@ -19,7 +19,6 @@ endif
 
 t0_run:
 	echo "run T0 testing..."
-	bash -c "python3.8 update_topo.py T0"
 	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64 -c -r -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report"
 
 t1_run:
