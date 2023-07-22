@@ -498,6 +498,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     elif device_type == 'churchill':
         ftp_client.put('lab_connection_graph_churchill.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_churchill.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
+        ftp_client.put('sonic_lab_devices_churchill.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv ')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('topo_8800-LC-48H-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-LC-48H-O.yml')
@@ -1110,7 +1111,7 @@ def main():
         print("Device name is crocodile. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'churchill':
-        print("Device name is mth32 or m64. To execute a pytest script:\n")
+        print("Device name is churchill. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d churchill-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32 or m64. To execute a pytest script:\n")
@@ -1173,7 +1174,7 @@ def main():
         print("Device name is crocodile. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     elif device_type == 'churchill':
-        print("Device name is mth32 or m64. To execute a pytest script:\n")
+        print("Device name is churchill. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d churchill-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32. To execute a pytest script:\n")
