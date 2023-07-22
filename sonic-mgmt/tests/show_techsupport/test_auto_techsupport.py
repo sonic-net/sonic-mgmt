@@ -63,6 +63,9 @@ class TestAutoTechSupport:
     duthost = None
     dut_cli = None
     dockers_list = []
+    # The restapi docker doesn't mount the /etc/sonic directory, which result in the core_file_generator script
+    # is not available in reatapi container. So it's skipped from the test
+    unsupported_dockers_list = ['restapi']
     number_of_test_dockers = 0
     test_docker = None
 
@@ -72,7 +75,7 @@ class TestAutoTechSupport:
             self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys())
         system_features_status = self.duthost.get_feature_status()
         for feature in auto_tech_support_features_list:
-            if is_docker_enabled(system_features_status, feature):
+            if is_docker_enabled(system_features_status, feature) and feature not in self.unsupported_dockers_list:
                 if feature not in self.dockers_list:
                     self.dockers_list.append(feature)
 
@@ -426,9 +429,11 @@ class TestAutoTechSupport:
         with allure.step('Validate: {} limit(disabled): {}'.format(test_mode, max_limit)):
 
             with allure.step('Create .core file in test docker and check techsupport generated'):
+                available_tech_support_files = get_available_tech_support_files(self.duthost)
                 expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
                 validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                                expected_core_file=expected_core_file)
+                                                expected_core_file=expected_core_file,
+                                                available_tech_support_files=available_tech_support_files)
 
             with allure.step('Check that all stub files exist'):
                 validate_expected_stub_files(self.duthost, validation_folder, dummy_files_list,
@@ -441,9 +446,11 @@ class TestAutoTechSupport:
                 set_limit(self.duthost, test_mode, max_limit, cleanup_list=None)
 
             with allure.step('Create .core file in test docker and check techsupport generated'):
+                available_tech_support_files = get_available_tech_support_files(self.duthost)
                 expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
                 validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                                expected_core_file=expected_core_file)
+                                                expected_core_file=expected_core_file,
+                                                available_tech_support_files=available_tech_support_files)
 
             with allure.step('Check that all expected stub files exist and unexpected does not exist'):
                 expected_max_usage = one_percent_in_mb * max_limit
@@ -469,7 +476,7 @@ class TestAutoTechSupport:
         :param cleanup_list: cleanup list
         :return: exception in case of fail
         """
-
+        # TODO: Check if TEMP_VIEW is enabled. If not, skip the test
         minigraph_facts = self.duthost.get_extended_minigraph_facts(tbinfo)
         po_name = 'PortChannel1234'
 

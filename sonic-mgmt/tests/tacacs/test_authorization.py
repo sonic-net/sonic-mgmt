@@ -4,7 +4,8 @@ import pytest
 from _pytest.outcomes import Failed
 
 from tests.tacacs.utils import stop_tacacs_server, start_tacacs_server
-from tests.tacacs.utils import per_command_check_skip_versions, remove_all_tacacs_server, get_ld_path
+from tests.tacacs.utils import per_command_authorization_skip_versions, \
+        remove_all_tacacs_server, get_ld_path
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received
@@ -107,7 +108,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_release(duthost, per_command_check_skip_versions)
+    skip_release(duthost, per_command_authorization_skip_versions)
 
 
 @pytest.fixture

@@ -25,12 +25,16 @@ def test_fun(duthosts, rand_one_dut_hostname):
     - Reguired: `False`
     - Type: `Boolean`
     - Default: `True`
+- `timeout` - Specify time limit (in second) for each command. 0 means no limit.
+    - Reguired: `False`
+    - Type: `Integer`
+    - Default: `0`
 
 ## Expected Output
 A dictionary with results from commands run. The dictionary hierarchy is described below, with each indentation describing a sub-dictionary:
 
 - `end` - Datetime for when the commands finished running
-- `cmds` - the list of commands that were run
+- `cmds` - the list of commands that user input.
 - `start` - Datetime for when the commands started running
 - `delta` - difference between `start` and `end`
 - `results` - List of dictionaries, each corresponding to the results for one of the commands run
@@ -38,5 +42,7 @@ A dictionary with results from commands run. The dictionary hierarchy is describ
     - `stderr` - What was printed to stderr (as one string) during execution of command
     - `stdout_lines` - What was printed to stdout (split by line) during execution of command
     - `stdout` - What was printed to stdout (as one string) during execution of command
-    - `cmd` - command that was run
+    - `cmd` - command that user input. It's what actaully ran if `timeout == 0`.
+    - `cmd_with_timeout` - command wrapped with `timeout`. It's what actually ran if `timeout != 0`.
     - `rc` - return code
+    - `timeout` - time limit (in second) for each command. 0 means no limit.

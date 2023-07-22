@@ -468,12 +468,16 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                  pfc_frames_number=PFC_PKT_COUNT,
                                  peer_info=peer_info)
 
+        dst_ports = dualtor_meta['target_server_port']
+        if not isinstance(dualtor_meta['target_server_port'], list):
+            dst_ports = [dualtor_meta['target_server_port']]
+
         retry = 0
         while retry < PFC_PAUSE_TEST_RETRY_MAX:
             try:
                 if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut,
                                   dualtor_meta['selected_port'], queue, tunnel_pkt.exp_pkt, src_port, exp_pkt,
-                                  dualtor_meta['target_server_port']):
+                                  dst_ports):
                     break
             except AssertionError:
                 retry += 1

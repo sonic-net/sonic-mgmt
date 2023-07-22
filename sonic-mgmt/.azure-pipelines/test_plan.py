@@ -226,8 +226,10 @@ class TestPlanManager(object):
 
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
+        kvm_image_branch = kwargs.get("kvm_image_branch", "")
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
+            kvm_image_branch = ""
 
         payload = json.dumps({
             "name": test_plan_name,
@@ -253,7 +255,8 @@ class TestPlanManager(object):
                 "image": {
                     "url": image_url,
                     "release": "",
-                    "kvm_image_build_id": kvm_image_build_id
+                    "kvm_image_build_id": kvm_image_build_id,
+                    "kvm_image_branch": kvm_image_branch
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
@@ -479,6 +482,16 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="Deploy minigraph extra params"
+    )
+    parser_create.add_argument(
+        "--kvm-image-branch",
+        type=str,
+        dest="kvm_image_branch",
+        nargs='?',
+        const="",
+        default="",
+        required=False,
+        help="KVM build branch."
     )
     parser_create.add_argument(
         "--kvm-build-id",
@@ -828,6 +841,7 @@ if __name__ == "__main__":
                 test_plan_name=test_plan_name,
                 deploy_mg_extra_params=args.deploy_mg_extra_params,
                 kvm_build_id=args.kvm_build_id,
+                kvm_image_branch=args.kvm_image_branch,
                 min_worker=args.min_worker,
                 max_worker=args.max_worker,
                 pr_id=pr_id,
