@@ -250,6 +250,7 @@ test_t1_lag() {
     route/test_default_route.py \
     scp/test_scp_copy.py \
     test_interfaces.py"
+    tests="fips/test_fips.py"
 
     pushd $SONIC_MGMT_DIR/tests
     ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
