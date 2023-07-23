@@ -422,6 +422,8 @@ def main():
 
     if device_type == 'sherman':
         dut_name = 'sherman-01'
+    elif device_type == 'churchill':
+        dut_name = 'churchill-01'
     else:
         dut_name = 'mathilda-01'
 
