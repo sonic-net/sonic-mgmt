@@ -294,7 +294,7 @@ def start_dhcp_monitor_debug_counter(duthost):
         assert False, "Failed to start dhcpmon in debug counter mode\n"
 
 
-def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, 
+def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
@@ -318,7 +318,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                         r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
                         r"Discover: +0/ +0, Offer: +0/ +0, Request: +0/ +0, ACK: +0/ +0+"
-                    ) % (dhcp_relay['downlink_vlan_iface']['name'])   
+                    ) % (dhcp_relay['downlink_vlan_iface']['name'])
                     loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
                     marker_standby = loganalyzer_standby.init()
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
@@ -331,7 +331,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
                 marker = loganalyzer.init()
                 loganalyzer.expect_regex = [expected_agg_counter_message]
-                
+
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
