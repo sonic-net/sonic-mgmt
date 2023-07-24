@@ -41,6 +41,7 @@ from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_group_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
