@@ -119,16 +119,14 @@ parameters:
 
 
 steps:
-  - script: |
-      for var in $(compgen -e); do
-        echo $var ${!var};
-      done
-      return 1
-    displayName: "print ENV"
+  - ${{ if eq(variables['BUILD.REPOSITORY_NAME'],'sonic-net/sonic-mgmt') }}:
+      - script: |
+          echo $(BUILD.REPOSITORY_NAME)
+          return 1
+        displayName: "print ENV"
   - ${{ if not(contains(variables['BUILD.REPOSITORY_NAME'], 'sonic-mgmt')) }}:
       - script: |
           set -ex
-          echo '$(BUILD.REPOSITORY_NAME)'
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
         displayName: "Download test plan script"
       - script: |

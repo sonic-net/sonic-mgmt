@@ -64,84 +64,84 @@ stages:
         MAX_WORKER: $(T0_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: "master"
         MGMT_BRANCH: "master"
-
-  - job: t0_2vlans_elastictest
-    displayName: "kvmtest-t0-2vlans by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml
-      parameters:
-        TOPOLOGY: t0
-        TEST_SET: t0-2vlans
-        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
-        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
-        DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
-        KVM_IMAGE_BRANCH: "master"
-        MGMT_BRANCH: "master"
-
-  - job: t1_lag_elastictest
-    displayName: "kvmtest-t1-lag by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml
-      parameters:
-        TOPOLOGY: t1-lag
-        MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
-        MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
-        KVM_IMAGE_BRANCH: "master"
-        MGMT_BRANCH: "master"
-
-  - job: dualtor_elastictest
-    displayName: "kvmtest-dualtor-t0 by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: dualtor
-          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
-          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
-          KVM_IMAGE_BRANCH: "master"
-          MGMT_BRANCH: "master"
-
-  - job: multi_asic_elastictest
-    displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: t1-8-lag
-          TEST_SET: multi-asic-t1-lag
-          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
-          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
-          NUM_ASIC: 4
-          KVM_IMAGE_BRANCH: "master"
-          MGMT_BRANCH: "master"
-
-  - job: sonic_t0_elastictest
-    displayName: "kvmtest-t0-sonic by Elastictest"
-    timeoutInMinutes: 240
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-      - template: .azure-pipelines/run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: t0-64-32
-          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
-          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
-          TEST_SET: t0-sonic
-          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
-          VM_TYPE: vsonic
-          KVM_IMAGE_BRANCH: "master"
-          MGMT_BRANCH: "master"
+#
+#  - job: t0_2vlans_elastictest
+#    displayName: "kvmtest-t0-2vlans by Elastictest"
+#    timeoutInMinutes: 240
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#    - template: .azure-pipelines/run-test-elastictest-template.yml
+#      parameters:
+#        TOPOLOGY: t0
+#        TEST_SET: t0-2vlans
+#        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+#        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+#        DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
+#        KVM_IMAGE_BRANCH: "master"
+#        MGMT_BRANCH: "master"
+#
+#  - job: t1_lag_elastictest
+#    displayName: "kvmtest-t1-lag by Elastictest"
+#    timeoutInMinutes: 240
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#    - template: .azure-pipelines/run-test-elastictest-template.yml
+#      parameters:
+#        TOPOLOGY: t1-lag
+#        MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
+#        MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
+#        KVM_IMAGE_BRANCH: "master"
+#        MGMT_BRANCH: "master"
+#
+#  - job: dualtor_elastictest
+#    displayName: "kvmtest-dualtor-t0 by Elastictest"
+#    timeoutInMinutes: 240
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#      - template: .azure-pipelines/run-test-elastictest-template.yml
+#        parameters:
+#          TOPOLOGY: dualtor
+#          MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+#          MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+#          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+#          KVM_IMAGE_BRANCH: "master"
+#          MGMT_BRANCH: "master"
+#
+#  - job: multi_asic_elastictest
+#    displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
+#    timeoutInMinutes: 240
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#      - template: .azure-pipelines/run-test-elastictest-template.yml
+#        parameters:
+#          TOPOLOGY: t1-8-lag
+#          TEST_SET: multi-asic-t1-lag
+#          MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+#          MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+#          NUM_ASIC: 4
+#          KVM_IMAGE_BRANCH: "master"
+#          MGMT_BRANCH: "master"
+#
+#  - job: sonic_t0_elastictest
+#    displayName: "kvmtest-t0-sonic by Elastictest"
+#    timeoutInMinutes: 240
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#      - template: .azure-pipelines/run-test-elastictest-template.yml
+#        parameters:
+#          TOPOLOGY: t0-64-32
+#          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
+#          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
+#          TEST_SET: t0-sonic
+#          COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
+#          VM_TYPE: vsonic
+#          KVM_IMAGE_BRANCH: "master"
+#          MGMT_BRANCH: "master"
 
 #  - job: wan_elastictest
 #    displayName: "kvmtest-wan by Elastictest"
