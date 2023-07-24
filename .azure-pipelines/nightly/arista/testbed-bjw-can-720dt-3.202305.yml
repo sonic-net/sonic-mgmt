@@ -35,7 +35,7 @@ parameters:
 
   - name: EXTRA_PARAMS
     type: string
-    default: "--no_dscp_uniform"
+    default: "--no_dscp_uniform --unresettable_xcvr_types=SFP"
     displayName: "Extra pytest params"
 
   - name: SKIP_SCRIPTS
