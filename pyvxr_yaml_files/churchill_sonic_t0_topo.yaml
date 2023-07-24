@@ -17,7 +17,7 @@ devices:
     memory: '4G'
     mgmt_intf_name: mgmt
     data_ports:
-      - eth[1..24]
+      - eth[0..32]
       - backplane
 
   sonic_dut:
