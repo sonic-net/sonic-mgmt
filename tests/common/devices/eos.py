@@ -104,8 +104,9 @@ class EosHost(AnsibleHostBase):
 
     def check_intf_link_state(self, interface_name):
         show_int_result = self.eos_command(
-            commands=['show interface %s' % interface_name])
-        return 'Up' in show_int_result['stdout_lines'][0]
+            commands=['show interface %s | json' % interface_name])
+        int_status = show_int_result['stdout'][0]['interfaces'][interface_name]['interfaceStatus']
+        return int_status == 'connected'
 
     def links_status_down(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
