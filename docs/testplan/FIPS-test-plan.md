@@ -77,7 +77,7 @@ with open(os.path.join('/proc', str(os.getpid()), 'maps')) as f:
 root@sonic:/home/admin# ps -ef | grep  go-server-server
 root       70019   69976  0 Jul14 pts/0    00:00:01 /usr/sbin/go-server-server -enablehttp=false -enablehttps=true -servercert=/etc/sonic/credentials/restapiserver.crt -serverkey=/etc/sonic/credentials/restapiserver.key -clientcert=/etc/sonic/credentials/AME_ROOT_CERTIFICATE.pem -clientcertcommonname=client.restapi.sonic.gbl -loglevel=info
 root      142330  140758  0 00:15 pts/0    00:00:00 grep go-server-server
-root@sonic:/home/admin# grep symcrypt /proc/70019/maps   
+root@sonic:/home/admin# grep symcrypt /proc/70019/maps
 7fa471991000-7fa47199c000 r--p 00000000 fe:03 919328                     /usr/lib/x86_64-linux-gnu/libsymcrypt.so.103.0.1
 7fa471a59000-7fa471a5b000 rw-p 0001b000 fe:03 919258                     /usr/lib/x86_64-linux-gnu/libsymcryptengine.so
 ```
