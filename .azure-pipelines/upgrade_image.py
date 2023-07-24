@@ -23,8 +23,8 @@ if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
 
-from devutil.devices import init_localhost, init_testbed_sonichosts                 # noqa E402
-from devutil.sonic_helpers import upgrade_image                                     # noqa E402
+from devutil.devices.factory import init_localhost, init_testbed_sonichosts         # noqa E402
+from devutil.devices.sonic import upgrade_image                                     # noqa E402
 
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa E402
 
@@ -211,9 +211,8 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "-i", "--inventory",
-        type=str,
+        nargs="+",
         dest="inventory",
-        required=True,
         help="Ansible inventory file")
 
     parser.add_argument(

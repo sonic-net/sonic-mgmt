@@ -47,6 +47,7 @@ import logging
 import json
 import six
 import ipaddress
+import itertools
 import fib
 
 import ptf
@@ -117,6 +118,12 @@ class DecapPacketTest(BaseTest):
         ptf_test_port_map = self.test_params.get('ptf_test_port_map')
         with open(ptf_test_port_map) as f:
             self.ptf_test_port_map = json.load(f)
+
+        # preprocess ptf_test_port_map to support multiple DUTs as target DUT
+        for port_map in self.ptf_test_port_map.values():
+            if not isinstance(port_map["target_dut"], list):
+                port_map["target_dut"] = [port_map["target_dut"]]
+                port_map["target_src_mac"] = [port_map["target_src_mac"]]
 
         self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
 
@@ -216,10 +223,20 @@ class DecapPacketTest(BaseTest):
         router_mac = target_mac = self.ptf_test_port_map[str(
             src_port)]['target_dest_mac']  # Outer dest mac
 
-        active_dut_index = int(
-            self.ptf_test_port_map[str(src_port)]['target_dut'])
-        lo_ip = self.lo_ips[active_dut_index]
-        lo_ipv6 = self.lo_ipv6s[active_dut_index]
+        target_dut = self.ptf_test_port_map[str(src_port)]['target_dut']
+        if len(target_dut) == 1:
+            active_dut_index = int(self.ptf_test_port_map[str(src_port)]['target_dut'][0])
+            lo_ip = self.lo_ips[active_dut_index]
+            lo_ipv6 = self.lo_ipv6s[active_dut_index]
+        elif len(target_dut) == 2:
+            # for active-active dualtor, Loopback2 is used for test, and
+            # it is same on both ToRs.
+            assert self.lo_ips[0] == self.lo_ips[1]
+            assert self.lo_ipv6s[0] == self.lo_ipv6s[1]
+            lo_ip = self.lo_ips[0]
+            lo_ipv6 = self.lo_ipv6s[0]
+        else:
+            raise ValueError("Unsupported target DUT count %s" % (target_dut))
 
         # Set DSCP value for the inner layer
         dscp_in = self.DSCP_RANGE[self.dscp_in_idx]
@@ -317,12 +334,12 @@ class DecapPacketTest(BaseTest):
 
         return pkt, exp_pkt
 
-    def send_and_verify(self, dst_ip, expected_ports, src_port, dut_index, outer_pkt_type='ipv4', triple_encap=False,
+    def send_and_verify(self, dst_ip, exp_port_lists, src_port, dut_index, outer_pkt_type='ipv4', triple_encap=False,
                         outer_ttl=None, inner_ttl=None):
         '''
         @summary: This function builds encap packet, send and verify their arrival.
         @dst_ip: the destination ip for the inner IP header
-        @expected_ports: list of ports that a packet can arrived from
+        @exp_port_lists: list of ports that a packet can arrived from
         @src_port: the physical port that the packet will be sent from
         @dut_index: Index of the DUT that the test packet is targeted for
         @outer_pkt_type: Outer layter packet type, either 'ipv4' or 'ipv6'
@@ -388,6 +405,7 @@ class DecapPacketTest(BaseTest):
         # send and verify the return packets
         send_packet(self, src_port, pkt)
 
+        expected_ports = list(itertools.chain(*exp_port_lists))
         logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, (tos|tc)={}, ttl={})/'
                      'IP(src={}, dst={}, (tos|tc)={}, ttl={}) from interface {}'
                      .format(pkt.src,
@@ -416,55 +434,56 @@ class DecapPacketTest(BaseTest):
             str(expected_ports[matched])))
         return matched, received
 
-    def send_and_verify_all(self, dst_ip, expected_ports, src_port, dut_index, outer_pkt_type):
+    def send_and_verify_all(self, dst_ip, exp_port_lists, src_port, dut_index, outer_pkt_type):
         """
         @summary: This method builds different encap packets, send and verify their arrival
         @dest_ip: The destination ip for the inner IP header
-        @expected_ports: List of ports that a packet can arrive from
+        @exp_port_lists: List of ports that a packet can arrive from
         @src_port: The physical port that the packet will be sent from
         @dut_index: Index of the DUT that the test packet is targeted for
         @outer_pkt_type: Indicates whether the outer packet is ipv4 or ipv6
         """
 
-        self.send_and_verify(dst_ip, expected_ports,
+        self.send_and_verify(dst_ip, exp_port_lists,
                              src_port, dut_index, outer_pkt_type)
-        self.send_and_verify(dst_ip, expected_ports, src_port, dut_index,
+        self.send_and_verify(dst_ip, exp_port_lists, src_port, dut_index,
                              outer_pkt_type, outer_ttl=64, inner_ttl=self.max_internal_hops + 2)
         if self.ttl_mode == "pipe":
-            self.send_and_verify(dst_ip, expected_ports, src_port, dut_index,
+            self.send_and_verify(dst_ip, exp_port_lists, src_port, dut_index,
                                  outer_pkt_type, outer_ttl=self.max_internal_hops + 1, inner_ttl=64)
         elif self.ttl_mode == "uniform":
-            self.send_and_verify(dst_ip, expected_ports, src_port, dut_index,
+            self.send_and_verify(dst_ip, exp_port_lists, src_port, dut_index,
                                  outer_pkt_type, outer_ttl=self.max_internal_hops + 2, inner_ttl=64)
 
         # Triple encapsulation
-        self.send_and_verify(dst_ip, expected_ports, src_port,
+        self.send_and_verify(dst_ip, exp_port_lists, src_port,
                              dut_index, outer_pkt_type, triple_encap=True)
-        self.send_and_verify(dst_ip, expected_ports, src_port, dut_index, outer_pkt_type,
+        self.send_and_verify(dst_ip, exp_port_lists, src_port, dut_index, outer_pkt_type,
                              triple_encap=True, outer_ttl=64, inner_ttl=self.max_internal_hops + 2)
         if self.ttl_mode == "pipe":
-            self.send_and_verify(dst_ip, expected_ports, src_port, dut_index, outer_pkt_type,
+            self.send_and_verify(dst_ip, exp_port_lists, src_port, dut_index, outer_pkt_type,
                                  triple_encap=True, outer_ttl=self.max_internal_hops + 1, inner_ttl=64)
         elif self.ttl_mode == "uniform":
-            self.send_and_verify(dst_ip, expected_ports, src_port, dut_index, outer_pkt_type,
+            self.send_and_verify(dst_ip, exp_port_lists, src_port, dut_index, outer_pkt_type,
                                  triple_encap=True, outer_ttl=self.max_internal_hops + 2, inner_ttl=64)
 
     def get_src_and_exp_ports(self, dst_ip):
         while True:
             src_port = int(random.choice(self.src_ports))
+            active_dut_indexes = [0]
             if self.single_fib == 'multiple-fib':
-                active_dut_index = int(
-                    self.ptf_test_port_map[str(src_port)]['target_dut'])
+                active_dut_indexes = self.ptf_test_port_map[str(src_port)]['target_dut']
+
+            next_hops = [self.fibs[active_dut_index][dst_ip] for active_dut_index in active_dut_indexes]
+            exp_port_lists = [next_hop.get_next_hop_list() for next_hop in next_hops]
+            for exp_port_list in exp_port_lists:
+                if src_port in exp_port_list:
+                    break
             else:
-                active_dut_index = 0
-            next_hop = self.fibs[active_dut_index][dst_ip]
-            exp_port_list = next_hop.get_next_hop_list()
-            if src_port in exp_port_list:
-                continue
-            logging.info('src_port={}, exp_port_list={}, active_dut_index={}'.format(
-                src_port, exp_port_list, active_dut_index))
-            break
-        return src_port, exp_port_list, next_hop
+                logging.info('src_port={}, exp_port_lists={}, active_dut_index={}'.format(
+                    src_port, exp_port_lists, active_dut_indexes))
+                break
+        return src_port, exp_port_lists, next_hops
 
     def run_encap_combination_test(self, outer_pkt_type, inner_pkt_type):
         """
@@ -501,25 +520,32 @@ class DecapPacketTest(BaseTest):
     def check_range(self, ip_range, outer_pkt_type, inner_pkt_type, dut_index):
         dst_ips = []
         dst_ips.append(ip_range.get_first_ip())
-        if ip_range.length > 1:
+        if ip_range.length() > 1:
             dst_ips.append(ip_range.get_last_ip())
-        if ip_range.length > 2:
+        if ip_range.length() > 2:
             dst_ips.append(ip_range.get_random_ip())
 
         logging.info('Checking dst_ips={}'.format(dst_ips))
         for dst_ip in dst_ips:
-            src_port, exp_port_list, _ = self.get_src_and_exp_ports(dst_ip)
+            src_port, exp_port_lists, _ = self.get_src_and_exp_ports(dst_ip)
 
-            if not exp_port_list:
-                logging.info('Skip checking ip_range {} with exp_ports {}, outer_pkt_type={}, inner_pkt_type={}'
-                             .format(ip_range, exp_port_list, outer_pkt_type, inner_pkt_type))
-                return
+            # if dst_ip is local to DUT, the nexthops will be empty.
+            # for active-active dualtor testbed, if the dst_ip is local to the upper ToR and src_port is an
+            # active-active port, the expect egress ports of upper ToR will be empty, exp_port_lists will be
+            # like [[], [30, 31, 32, 33]].
+            # for single DUT testbed, if the dst_ip is local to the ToR, the exp_port_lists will be like [[]].
+            # so let's skip checking this IP range if any sub-list is empty.
+            for exp_port_list in exp_port_lists:
+                if not exp_port_list:
+                    logging.info('Skip checking ip range {} with exp_ports {}'.format(
+                        ip_range, exp_port_lists))
+                    return
 
             logging.info('Checking ip range {}, outer_pkt_type={}, inner_pkt_type={}, '
-                         'src_port={}, exp_port_list={}, dst_ip={}, dut_index={}'
-                         .format(ip_range, outer_pkt_type, inner_pkt_type, src_port, exp_port_list, dst_ip, dut_index))
+                         'src_port={}, exp_port_lists={}, dst_ip={}, dut_index={}'
+                         .format(ip_range, outer_pkt_type, inner_pkt_type, src_port, exp_port_lists, dst_ip, dut_index))
             self.send_and_verify_all(
-                dst_ip, exp_port_list, src_port, dut_index, outer_pkt_type)
+                dst_ip, exp_port_lists, src_port, dut_index, outer_pkt_type)
 
     def runTest(self):
         """

@@ -77,7 +77,7 @@ class MultiAsicSonicHost(object):
             config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
             for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
                 if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
-                    logger.warning("Removing teamd from default services for switch_type DPU")
+                    logger.info("Removing teamd from default services for switch_type DPU")
                     self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                     continue
                 if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
@@ -458,8 +458,10 @@ class MultiAsicSonicHost(object):
                     services.append(service_name)
 
         for docker in services:
-            # TODO: https://github.com/sonic-net/sonic-mgmt/issues/5970
-            if self.sonichost.is_multi_asic and docker == "gbsyncd":
+            # This is to avoid gbsyncd check fo VS test_disable_rsyslog_rate_limit
+            # we are still getting whatever enabled feature in test_disable_rsyslog_rate_limit
+            # and gbsyncd feature will be added to services
+            if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
             cmd_disable_rate_limit = (
                 r"docker exec -i {} sed -i "
@@ -659,6 +661,29 @@ class MultiAsicSonicHost(object):
                 config_facts.get("BGP_INTERNAL_NEIGHBOR", {})
             )
         return bgp_internal_neighbors
+
+    def get_voq_inband_interfaces(self):
+        """
+        This Function is only applicable on VOQ Chassis.
+        Get VOQ Internal Inband Interfaces. API iterates through frontend ASIC
+        index to get the VOQ Inband Interfaces from running configuration.
+        Not using BGP_VOQ_CHASSIS_NEIGHBOUR peer ips  since they are not referenced in
+        next hops of route.
+        Returns:
+              List of [voq_inband_interfaces]
+        """
+        if not self.sonichost.is_multi_asic:
+            return {}
+        voq_inband_interfaces = {}
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
+                namespace=asic.namespace
+            )['ansible_facts']
+            voq_inband_interfaces.update(
+                config_facts.get("VOQ_INBAND_INTERFACE", {})
+            )
+        return voq_inband_interfaces.keys()
 
     def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""

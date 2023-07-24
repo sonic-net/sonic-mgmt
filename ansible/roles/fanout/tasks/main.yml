@@ -24,6 +24,9 @@
   when: os is not defined
   tags: always
 
+- fail: msg="non sonic does not support incremental update and dry run"
+  when: os != 'sonic' and (incremental is defined or dry_run is defined)
+
 - import_tasks: fanout_eos.yml
   when: os == 'eos'
 
@@ -41,5 +44,5 @@
   - import_tasks: rootfanout_connect.yml
     vars:
       deploy_leaf: true
-  when: '"FanoutLeaf" in sw_type'
+  when: '"FanoutLeaf" in sw_type and dry_run is not defined'
   tags: always

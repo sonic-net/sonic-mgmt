@@ -84,7 +84,7 @@ from multiprocessing.pool import ThreadPool, TimeoutError
 from fcntl import ioctl
 from collections import defaultdict
 from device_connection import DeviceConnection
-from arista import Arista
+from host_device import HostDevice
 
 
 class StateMachine():
@@ -178,6 +178,7 @@ class ReloadTest(BaseTest):
         self.check_param('bgp_v4_v6_time_diff', 40, required=False)
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
+        self.check_param('neighbor_type', 'eos', required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -238,10 +239,7 @@ class ReloadTest(BaseTest):
         #   Inter-packet interval, to be used in send_in_background method.
         #   Improve this interval to gain more precision of disruptions.
         self.send_interval = 0.0035
-        # How many packets to be sent in send_in_background method
-        self.packets_to_send = min(
-            int(self.time_to_listen / (self.send_interval + 0.0015)), 45000)
-
+        self.sent_packet_count = 0
         # Thread pool for background watching operations
         self.pool = ThreadPool(processes=3)
 
@@ -254,6 +252,7 @@ class ReloadTest(BaseTest):
         self.asic_state_time = {}  # Recording last asic state entering time
         self.asic_vlan_reach = []  # Recording asic vlan reachability
         self.recording = False  # Knob for recording asic_vlan_reach
+        self.finalizer_state = ''
         # light_probe:
         #    True : when one direction probe fails, don't probe another.
         #    False: when one direction probe fails, continue probe another.
@@ -709,13 +708,6 @@ class ReloadTest(BaseTest):
         if 'warm-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
 
-        # Pre-generate list of packets to be sent in send_in_background method.
-        generate_start = datetime.datetime.now()
-        if not self.vnet:
-            self.generate_bidirectional()
-        self.log("%d packets are ready after: %s" % (
-            len(self.packets_list), str(datetime.datetime.now() - generate_start)))
-
         self.dataplane = ptf.dataplane_instance
         for p in self.dataplane.ports.values():
             port = p.get_packet_source()
@@ -896,36 +888,6 @@ class ReloadTest(BaseTest):
         self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwsrc')
         self.arp_src_port = src_port
 
-    def generate_bidirectional(self):
-        """
-        This method is used to pre-generate packets to be sent in background thread.
-        Packets are composed into a list, and present a bidirectional flow as next:
-        five packet from T1, one packet from vlan.
-        Each packet has sequential TCP Payload - to be identified later.
-        """
-
-        self.send_interval = self.time_to_listen / self.packets_to_send
-        self.packets_list = []
-        from_t1_iter = itertools.cycle(self.from_t1)
-        sent_count_vlan_to_t1 = 0
-        sent_count_t1_to_vlan = 0
-        for i in range(self.packets_to_send):
-            payload = '0' * 60 + str(i)
-            if (i % 5) == 0:   # From vlan to T1.
-                packet = scapyall.Ether(self.from_vlan_packet)
-                packet.load = payload
-                from_port = self.from_server_src_port
-                sent_count_vlan_to_t1 += 1
-            else:   # From T1 to vlan.
-                src_port, packet = next(from_t1_iter)
-                packet = scapyall.Ether(packet)
-                packet.load = payload
-                from_port = src_port
-                sent_count_t1_to_vlan += 1
-            self.packets_list.append((from_port, str(packet)))
-        self.log("Sent prep count vlan to t1: {}".format(sent_count_vlan_to_t1))
-        self.log("Sent prep count t1 to vlan: {}".format(sent_count_t1_to_vlan))
-
     def put_nowait(self, queue, data):
         try:
             queue.put_nowait(data)
@@ -1007,9 +969,9 @@ class ReloadTest(BaseTest):
         self.wait_until_control_plane_up()
         dut_datetime = self.get_now_time()
         self.log('waiting for warmboot-finalizer service to become activating')
-        finalizer_state = self.get_warmboot_finalizer_state()
+        self.finalizer_state = self.get_warmboot_finalizer_state()
 
-        while finalizer_state != 'activating':
+        while self.finalizer_state != 'activating':
             time.sleep(1)
             dut_datetime_after_ssh = self.get_now_time()
             time_passed = float(dut_datetime_after_ssh.strftime(
@@ -1018,15 +980,15 @@ class ReloadTest(BaseTest):
                 self.fails['dut'].add(
                     'warmboot-finalizer never reached state "activating"')
                 raise TimeoutError
-            finalizer_state = self.get_warmboot_finalizer_state()
+            self.finalizer_state = self.get_warmboot_finalizer_state()
 
         self.log('waiting for warmboot-finalizer service to finish')
-        finalizer_state = self.get_warmboot_finalizer_state()
-        self.log('warmboot finalizer service state {}'.format(finalizer_state))
+        self.finalizer_state = self.get_warmboot_finalizer_state()
+        self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
         count = 0
-        while finalizer_state == 'activating':
-            finalizer_state = self.get_warmboot_finalizer_state()
-            self.log('warmboot finalizer service state {}'.format(finalizer_state))
+        while self.finalizer_state == 'activating':
+            self.finalizer_state = self.get_warmboot_finalizer_state()
+            self.log('warmboot finalizer service state {}'.format(self.finalizer_state))
             time.sleep(10)
             if count * 10 > int(self.test_params['warm_up_timeout_secs']):
                 self.fails['dut'].add(
@@ -1444,7 +1406,10 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.neigh_handle = Arista(neigh, None, self.test_params)
+            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                         if x['mgmt_addr'] == neigh]
+            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
+                                                                 None, self.test_params)
             self.neigh_handle.connect()
             fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
             self.neigh_handle.disconnect()
@@ -1483,30 +1448,79 @@ class ReloadTest(BaseTest):
         else:
             return non_zero[-1]
 
+    def get_teamd_state(self):
+        stdout, stderr, _ = self.dut_connection.execCommand(
+            'sudo systemctl is-active teamd.service')
+        if stderr:
+            self.fails['dut'].add("Error collecting teamd state. stderr: {}, stdout:{}".format(
+                str(stderr), str(stdout)))
+            raise Exception("Error collecting teamd state. stderr: {}, stdout:{}".format(
+                str(stderr), str(stdout)))
+        if not stdout:
+            self.log('teamd state not returned from DUT')
+            return ''
+
+        teamd_state = stdout[0].strip()
+        return teamd_state
+
+    def wait_until_teamd_goes_down(self):
+        self.log('Waiting for teamd service to go down')
+        teamd_state = self.get_teamd_state()
+        self.log('teamd service state: {}'.format(teamd_state))
+        dut_datetime = self.get_now_time()
+        teamd_shutdown_timeout = 300
+
+        while teamd_state == 'active':
+            time.sleep(1)
+            dut_datetime_during_shutdown = self.get_now_time()
+            time_passed = float(dut_datetime_during_shutdown.strftime(
+                "%s")) - float(dut_datetime.strftime("%s"))
+            if time_passed > teamd_shutdown_timeout:
+                self.fails['dut'].add(
+                    'Teamd service did not go down')
+                raise TimeoutError
+            teamd_state = self.get_teamd_state()
+
+        self.log('teamd service state: {}'.format(teamd_state))
+
     def reboot_dut(self):
         time.sleep(self.reboot_delay)
+
+        self.log("Rebooting remote side")
+        if self.reboot_type != 'service-warm-restart' and self.test_params['other_vendor_flag'] is False:
+            # Check to see if the warm-reboot script knows about the retry count feature
+            stdout, stderr, return_code = self.dut_connection.execCommand(
+                "sudo " + self.reboot_type + " -h", timeout=5)
+            if "retry count" in stdout:
+                if self.test_params['neighbor_type'] == "sonic":
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -N", timeout=10)
+                else:
+                    stdout, stderr, return_code = self.dut_connection.execCommand(
+                        "sudo " + self.reboot_type + " -n", timeout=10)
+            else:
+                stdout, stderr, return_code = self.dut_connection.execCommand(
+                    "sudo " + self.reboot_type, timeout=10)
+
+        elif self.test_params['other_vendor_flag'] is True:
+            ignore_db_integrity_check = " -d"
+            stdout, stderr, return_code = self.dut_connection.execCommand(
+                "sudo " + self.reboot_type + ignore_db_integrity_check, timeout=10)
+
+        else:
+            self.restart_service()
+            return
 
         if not self.kvm_test and\
                 (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
                  self.reboot_type or 'service-warm-restart' in self.reboot_type):
             # Event for the sniff_in_background status.
             self.sniffer_started = threading.Event()
+
+            self.wait_until_teamd_goes_down()
+
             self.sniff_thr.start()
             self.sender_thr.start()
-
-        self.log("Rebooting remote side")
-        if self.reboot_type != 'service-warm-restart' and self.test_params['other_vendor_flag'] is False:
-            stdout, stderr, return_code = self.dut_connection.execCommand(
-                "sudo " + self.reboot_type, timeout=30)
-
-        elif self.test_params['other_vendor_flag'] is True:
-            ignore_db_integrity_check = " -d"
-            stdout, stderr, return_code = self.dut_connection.execCommand(
-                "sudo " + self.reboot_type + ignore_db_integrity_check, timeout=30)
-
-        else:
-            self.restart_service()
-            return
 
         if stdout != []:
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
@@ -1587,7 +1601,10 @@ class ReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
-        ssh = Arista(ip, queue, self.test_params, log_cb=self.log)
+        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                     if x['mgmt_addr'] == ip]
+        ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
+                                               self.test_params, log_cb=self.log)
         self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         self.log('SSH thread for VM {} finished'.format(ip))
 
@@ -1643,17 +1660,14 @@ class ReloadTest(BaseTest):
             port = p.get_packet_source()
             scapyall.attach_filter(port.socket, filter_expression)
 
-    def send_in_background(self, packets_list=None, interval=None):
+    def send_in_background(self, packets_list=None):
         """
         This method sends predefined list of packets with predefined interval.
         """
-        if not interval:
-            interval = self.send_interval
         if not packets_list:
             packets_list = self.packets_list
         self.sniffer_started.wait(timeout=10)
         with self.dataplane_io_lock:
-            sent_packet_count = 0
             # While running fast data plane sender thread there are two reasons for filter to be applied
             #  1. filter out data plane traffic which is tcp to free up the load
             #     on PTF socket (sniffer thread is using a different one)
@@ -1663,17 +1677,37 @@ class ReloadTest(BaseTest):
                 'not (arp and ether src {}) and not tcp'.format(self.test_params['dut_mac']))
             sender_start = datetime.datetime.now()
             self.log("Sender started at %s" % str(sender_start))
-            for entry in packets_list:
-                time.sleep(interval)
-                if self.vnet:
-                    testutils.send_packet(
-                        self, entry[0], entry[1].decode("base64"))
-                else:
-                    testutils.send_packet(self, *entry)
-                sent_packet_count += 1
+
+            self.packets_list = []
+            from_t1_iter = itertools.cycle(self.from_t1)
+            sent_count_vlan_to_t1 = 0
+            sent_count_t1_to_vlan = 0
+
+            while True:
+                time.sleep(self.send_interval)
+                if self.reboot_start and self.finalizer_state == "inactive":
+                    # keep sending packets until device reboots and finalizer enters inactive state
+                    break
+                payload = '0' * 60 + str(self.sent_packet_count)
+                if (self.sent_packet_count % 5) == 0:   # From vlan to T1.
+                    packet = scapyall.Ether(self.from_vlan_packet)
+                    packet.load = payload
+                    from_port = self.from_server_src_port
+                    sent_count_vlan_to_t1 += 1
+                else:   # From T1 to vlan.
+                    src_port, packet = next(from_t1_iter)
+                    packet = scapyall.Ether(packet)
+                    packet.load = payload
+                    from_port = src_port
+                    sent_count_t1_to_vlan += 1
+                testutils.send_packet(self, from_port, str(packet))
+                self.sent_packet_count = self.sent_packet_count + 1
+
+            self.log("Sent count vlan to t1: {}".format(sent_count_vlan_to_t1))
+            self.log("Sent count t1 to vlan: {}".format(sent_count_t1_to_vlan))
             self.log("Sender has been running for %s" %
                      str(datetime.datetime.now() - sender_start))
-            self.log("Total sent packets by sender: {}".format(sent_packet_count))
+            self.log("Total sent packets by sender: {}".format(self.sent_packet_count))
 
             # Signal sniffer thread to allow early finish.
             # Without this signalling mechanism, the sniffer thread can continue for a hardcoded max time.
@@ -1716,14 +1750,18 @@ class ReloadTest(BaseTest):
             wait (int): Duration in seconds to sniff the traffic
             sniff_filter (str): Filter that tcpdump will use to collect only relevant packets
         """
-        capture_pcap = ("/tmp/capture_%s.pcap" % self.logfile_suffix
-                        if self.logfile_suffix is not None else "/tmp/capture.pcap")
-        subprocess.call(["rm", "-rf", capture_pcap])  # remove old capture
-        self.kill_sniffer = False
-        self.start_sniffer(capture_pcap, sniff_filter, wait)
-        self.create_single_pcap(capture_pcap)
-        self.packets = scapyall.rdpcap(capture_pcap)
-        self.log("Number of all packets captured: {}".format(len(self.packets)))
+        try:
+            capture_pcap = ("/tmp/capture_%s.pcap" % self.logfile_suffix
+                            if self.logfile_suffix is not None else "/tmp/capture.pcap")
+            subprocess.call(["rm", "-rf", capture_pcap])  # remove old capture
+            self.kill_sniffer = False
+            self.start_sniffer(capture_pcap, sniff_filter, wait)
+            self.create_single_pcap(capture_pcap)
+            self.packets = scapyall.rdpcap(capture_pcap)
+            self.log("Number of all packets captured: {}".format(len(self.packets)))
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.log("Error in tcpdump_sniff: {}".format(traceback_msg))
 
     def start_sniffer(self, pcap_path, tcpdump_filter, timeout):
         """
@@ -1752,6 +1790,8 @@ class ReloadTest(BaseTest):
 
         for process in processes_list:
             process.join()
+
+        self.log("Killed all tcpdump processes by SIGINT")
 
     def start_dump_process(self, iface, pcap_path, tcpdump_filter):
         """
@@ -1809,12 +1849,11 @@ class ReloadTest(BaseTest):
     def check_tcp_payload(self, packet):
         """
         This method is used by examine_flow() method.
-        It returns True if a packet is not corrupted and has a valid TCP sequential TCP Payload,
-        as created by generate_bidirectional() method'.
+        It returns True if a packet is not corrupted and has a valid TCP sequential TCP Payload
         """
         try:
             int(str(packet[scapyall.TCP].payload)
-                ) in range(self.packets_to_send)
+                ) in range(self.sent_packet_count)
             return True
         except Exception:
             return False
@@ -1994,7 +2033,7 @@ class ReloadTest(BaseTest):
             self.fails["dut"].add("Data traffic loss not found but reboot test type is '%s' which "
                                   "must have data traffic loss" % self.reboot_type)
 
-        if len(self.packets_list) > sent_counter:
+        if self.sent_packet_count > sent_counter:
             self.dataplane_loss_checked_successfully = False
             self.fails["dut"].add("Not all sent packets counted by receiver process. "
                                   "Could be issue with sniffer performance")
@@ -2008,7 +2047,7 @@ class ReloadTest(BaseTest):
             self.fails["dut"].add("Unexpected count of sent packets available in pcap file. "
                                   "Could be issue with DUT flooding for original packets which was sent to DUT")
 
-        if prev_payload != (self.packets_to_send - 1):
+        if prev_payload != (self.sent_packet_count - 1):
             # Specific case when packet loss started but final lost packet not detected
             self.dataplane_loss_checked_successfully = False
             message = "Unable to calculate the dataplane traffic loss time. The traffic did not restore after " \

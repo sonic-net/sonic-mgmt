@@ -1,6 +1,7 @@
 import logging
 import pytest
 import re
+import ipaddress
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.utilities import wait, wait_until
@@ -467,21 +468,42 @@ class TestShowQueue():
 
         for key in buffer_queue_keys:
             try:
-                interfaces.add(key.split('|')[1])
+                fields = key.split("|")
+                # The format of BUFFER_QUEUE entries on VOQ chassis is
+                #   'BUFFER_QUEUE|<host name>|<asic-name>|Ethernet32|0-2'
+                # where 'host name' could be any host in the chassis, including those from other
+                # cards. This test only cares about local interfaces, so we can filter out the rest
+                if duthost.facts['switch_type'] == 'voq':
+                    hostname = fields[1]
+                    if hostname != duthost.hostname:
+                        continue
+                # The interface name is always the last but one field in the BUFFER_QUEUE entry key
+                interfaces.add(fields[-2])
             except IndexError:
                 pass
 
+        # For the test to be valid, we should have at least one interface selected
+        assert (len(interfaces) > 0)
+
+        intfsChecked = 0
         if mode == 'alias':
             for intf in interfaces:
                 alias = setup['port_name_map'][intf]
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
                                   .format(alias), queue_counter) is not None) \
                     and (setup['port_alias_map'][alias] not in queue_counter)
+                intfsChecked += 1
         elif mode == 'default':
             for intf in interfaces:
+                if intf not in setup['port_name_map']:
+                    continue
                 assert (re.search(r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
                                   .format(intf), queue_counter) is not None) \
                     and (setup['port_name_map'][intf] not in queue_counter)
+                intfsChecked += 1
+
+        # At least one interface should have been checked to have a valid result
+        assert(intfsChecked > 0)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
@@ -940,32 +962,62 @@ class TestShowIP():
             pytest.skip('No non-portchannel member interface present')
 
     @pytest.fixture(scope='class')
-    def spine_ports(self, setup, tbinfo):
+    def static_route_intf(self,  duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tbinfo):
         """
         Returns the alias and names of the spine ports
 
         Args:
             setup: Fixture defined in this module
         Returns:
-            spine_ports: dictionary containing lists of aliases and names
+            static_route_intf: dictionary containing lists of aliases and names
             of the spine ports
         """
-        minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
-        spine_ports = dict()
-        spine_ports['interface'] = list()
-        spine_ports['alias'] = list()
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        static_route_intf = dict()
+        static_route_intf['interface'] = list()
+        static_route_intf['alias'] = list()
+        gw_ip_list = []
 
-        for key, value in list(minigraph_neighbors.items()):
-            if (key in setup['physical_interfaces']
-                    and ('T2' in value['name'] or (tbinfo['topo']['type'] == 't2' and 'T3' in value['name']))):
-                spine_ports['interface'].append(key)
-                spine_ports['alias'].append(setup['port_name_map'][key])
-
-        if not spine_ports['interface']:
+        if not setup['physical_interfaces']:
             pytest.skip('No non-portchannel member interface present')
 
-        logger.info('spine_ports:\n{}'.format(spine_ports))
-        return spine_ports
+        for mg_intf in setup['minigraph_facts'][u'minigraph_interfaces']:
+            if mg_intf[u'attachto'] == setup['physical_interfaces'][0]:
+                dev = mg_intf[u'attachto']
+                namespace = setup['minigraph_facts']['minigraph_neighbors'][dev]['namespace']
+                gw_ip = mg_intf['peer_addr']
+                if ipaddress.ip_address(gw_ip).version == 4:
+                    ip_version = ''
+                    dst_ip = '192.168.1.1'
+                else:
+                    ip_version = '-6'
+                    dst_ip = 'fd0a::1'
+                if namespace:
+                    duthost.shell("ip netns exec {} ip {} route add {}  via {} dev {}".
+                                  format(namespace, ip_version, dst_ip, gw_ip, dev))
+                else:
+                    duthost.shell("ip {} route add {}  via {} dev {}".format(ip_version, dst_ip, gw_ip, dev))
+                static_route_intf['interface'].append(dev)
+                static_route_intf['alias'].append(setup['port_name_map'][dev])
+                gw_ip_list.append((gw_ip, namespace))
+
+        yield static_route_intf
+
+        for gw_ip_ns in gw_ip_list:
+            gw_ip, namespace = gw_ip_ns
+            if ipaddress.ip_address(gw_ip).version == 4:
+                ip_version = ''
+                dst_ip = '192.168.1.1'
+            else:
+                ip_version = '-6'
+                dst_ip = 'fd0a::1'
+
+            if namespace:
+                duthost.shell("ip netns exec {} ip {} route del {} via {}".
+                              format(namespace, ip_version, dst_ip, gw_ip))
+            else:
+                duthost.shell("ip {} route del {} via {}".
+                              format(ip_version, dst_ip, gw_ip))
 
     def test_show_ip_interface(self, setup, setup_config_mode):
         """
@@ -1008,40 +1060,36 @@ class TestShowIP():
                     assert re.search(r'{}\s+{}'.format(item['attachto'], item['addr']),
                                      show_ipv6_interface) is not None
 
-    def test_show_ip_route_v4(self, setup_config_mode, spine_ports, tbinfo):
+    def test_show_ip_route_v4(self, setup_config_mode, static_route_intf, tbinfo):
         """
         Checks whether 'show ip route <ip>' lists the interface name as
         per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
         dip = '192.168.1.1'
-        # In T2 topo, 192.168.1.1 is forwarded via a route learnt over ibgp from other LC, which will fail the test
-        # because the vias in 'show ip route' output are Inband ports. Explicitly use '0.0.0.0' here to check the
-        # output of default route, whose vias should be local ports.
-        if tbinfo['topo']['type'].startswith('t2'):
-            dip = '0.0.0.0'
         route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ip route {}'.format(ifmode, dip))['stdout']
         logger.info('route:\n{}'.format(route))
 
         if mode == 'alias':
-            for alias in spine_ports['alias']:
+            for alias in static_route_intf['alias']:
                 assert re.search(r'via {}'.format(alias), route) is not None
         elif mode == 'default':
-            for intf in spine_ports['interface']:
+            for intf in static_route_intf['interface']:
                 assert re.search(r'via {}'.format(intf), route) is not None
 
-    def test_show_ip_route_v6(self, setup_config_mode, spine_ports):
+    def test_show_ip_route_v6(self, setup_config_mode, static_route_intf):
         """
         Checks whether 'show ipv6 route <ipv6>' lists the interface name
         as per the configured naming mode
         """
         dutHostGuest, mode, ifmode = setup_config_mode
-        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ipv6 route ::/0'.format(ifmode))['stdout']
+        dip = 'fd0a::1'
+        route = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show ipv6 route {}'.format(ifmode, dip))['stdout']
         logger.info('route:\n{}'.format(route))
 
         if mode == 'alias':
-            for alias in spine_ports['alias']:
+            for alias in static_route_intf['alias']:
                 assert re.search(r'via {}'.format(alias), route) is not None
         elif mode == 'default':
-            for intf in spine_ports['interface']:
+            for intf in static_route_intf['interface']:
                 assert re.search(r'via {}'.format(intf), route) is not None

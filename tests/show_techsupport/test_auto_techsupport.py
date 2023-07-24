@@ -32,6 +32,7 @@ DEFAULT_MAX_TECHSUPPORT_LIMIT = 10
 DEFAULT_MAX_CORE_LIMIT = 5
 DEFAULT_SINCE = '2 days ago'
 
+KB_SIZE = 1000  # We use 1000 to have the same value as in shutil.disk_usage() method which used in SONiC code
 CMD_GET_AUTO_TECH_SUPPORT_HISTORY_REDIS_KEYS = 'sudo redis-cli --raw -n 6  KEYS AUTO_TECHSUPPORT*'
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
 SAI_CALL_TEMPLATE_FILE_PATH = os.path.join(TEMPLATES_DIR, 'sai_call_fail_config.j2')
@@ -62,6 +63,9 @@ class TestAutoTechSupport:
     duthost = None
     dut_cli = None
     dockers_list = []
+    # The restapi docker doesn't mount the /etc/sonic directory, which result in the core_file_generator script
+    # is not available in reatapi container. So it's skipped from the test
+    unsupported_dockers_list = ['restapi']
     number_of_test_dockers = 0
     test_docker = None
 
@@ -71,7 +75,7 @@ class TestAutoTechSupport:
             self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys())
         system_features_status = self.duthost.get_feature_status()
         for feature in auto_tech_support_features_list:
-            if is_docker_enabled(system_features_status, feature):
+            if is_docker_enabled(system_features_status, feature) and feature not in self.unsupported_dockers_list:
                 if feature not in self.dockers_list:
                     self.dockers_list.append(feature)
 
@@ -425,9 +429,11 @@ class TestAutoTechSupport:
         with allure.step('Validate: {} limit(disabled): {}'.format(test_mode, max_limit)):
 
             with allure.step('Create .core file in test docker and check techsupport generated'):
+                available_tech_support_files = get_available_tech_support_files(self.duthost)
                 expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
                 validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                                expected_core_file=expected_core_file)
+                                                expected_core_file=expected_core_file,
+                                                available_tech_support_files=available_tech_support_files)
 
             with allure.step('Check that all stub files exist'):
                 validate_expected_stub_files(self.duthost, validation_folder, dummy_files_list,
@@ -440,9 +446,11 @@ class TestAutoTechSupport:
                 set_limit(self.duthost, test_mode, max_limit, cleanup_list=None)
 
             with allure.step('Create .core file in test docker and check techsupport generated'):
+                available_tech_support_files = get_available_tech_support_files(self.duthost)
                 expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
                 validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                                expected_core_file=expected_core_file)
+                                                expected_core_file=expected_core_file,
+                                                available_tech_support_files=available_tech_support_files)
 
             with allure.step('Check that all expected stub files exist and unexpected does not exist'):
                 expected_max_usage = one_percent_in_mb * max_limit
@@ -468,7 +476,7 @@ class TestAutoTechSupport:
         :param cleanup_list: cleanup list
         :return: exception in case of fail
         """
-
+        # TODO: Check if TEMP_VIEW is enabled. If not, skip the test
         minigraph_facts = self.duthost.get_extended_minigraph_facts(tbinfo)
         po_name = 'PortChannel1234'
 
@@ -636,7 +644,7 @@ def is_techsupport_generation_in_expected_state(duthost, expected_in_progress=Tr
         num_of_process = len(duthost.shell(get_running_tech_procs_cmd)['stdout_lines']) - processes_to_be_ignored
         logger.info('Number of running autotechsupport processes: {}'.format(num_of_process))
 
-        if num_of_process == 1:
+        if num_of_process >= 1:
             techsupport_in_progress = True
 
         is_in_expected_state = False
@@ -1057,11 +1065,10 @@ def get_partition_usage_info(duthost, partition='/'):
     """
     with allure.step('Getting HDD partition {} usage'.format(partition)):
         output = duthost.shell('sudo df {}'.format(partition))['stdout_lines']
-        kb = 1024
         _, total, used, avail, used_percent, _ = output[-1].split()
-        total_mb = int(total) / kb
-        used_mb = int(used) / kb
-        avail_mb = int(avail) / kb
+        total_mb = int(total) / KB_SIZE
+        used_mb = int(used) / KB_SIZE
+        avail_mb = int(avail) / KB_SIZE
         used_percent = int(used_percent.strip('%'))
 
     return total_mb, used_mb, avail_mb, used_percent
@@ -1079,8 +1086,7 @@ def get_used_space(duthost, path_to_file_folder):
         directory_usage_line = -1
         memory_usage_line = 0
         used_by_folder = du_output[directory_usage_line].split()[memory_usage_line]
-        kb = 1024
-        used_by_folder_mb = int(used_by_folder) / kb
+        used_by_folder_mb = int(used_by_folder) / KB_SIZE
 
     return used_by_folder_mb
 
@@ -1128,7 +1134,7 @@ def create_stub_file(duthost, path_to_file, size_in_mb):
     :param path_to_file: full path to file which should be created
     :param size_in_mb: size of file in mb
     """
-    cmd = 'sudo dd if=/dev/zero of={} bs=1M count={}'.format(path_to_file, size_in_mb)
+    cmd = 'sudo dd if=/dev/zero of={} bs=1M count={}'.format(path_to_file, int(size_in_mb))
     duthost.shell(cmd)
 
 
@@ -1289,7 +1295,7 @@ def get_port_vlan(minigraph_facts, port):
     :return: string with Vlan ID, or None
     """
     test_port_vlan = None
-    for vlan in minigraph_facts['minigraph_vlans']:
+    for vlan in minigraph_facts.get('minigraph_vlans', []):
         if port in minigraph_facts['minigraph_vlans'][vlan]['members']:
             test_port_vlan = vlan.split('Vlan')[1]  # Get string '1000' from 'Vlan1000
             break
@@ -1305,7 +1311,7 @@ def get_port_ips(minigraph_facts, port):
     :return: list, example: [(ip, mask), (ip, mask)]
     """
     iface_ips_data = []
-    for iface_data in minigraph_facts['minigraph_interfaces']:
+    for iface_data in minigraph_facts.get('minigraph_interfaces', []):
         if iface_data['attachto'] == port:
             ip_addr = iface_data['addr']
             ip_mask = iface_data['prefixlen']
