@@ -1,0 +1,54 @@
+{
+    "learn_arp": ["cd /opt/trex/v2.87", 
+                  "sudo ./trex-console --force", 
+                  "service -p 0 1", 
+                  "arp -p 0 1", 
+                  "service --off -p 0 1"],
+
+    "portattr": ["portattr"],
+
+    "start_flow": ["start -f stl/rdmaPacketV4V6_Port0.py -m 98gbps --force -p 0.traffic"],
+
+    "start_pfc_flow": ["start -f stl/pfcPacket.py -m 100kpps --force -p 1.pfc"],
+
+    "pfc_statistics": ["sudo sonic-clear pfccounters",
+                       "sudo sonic-clear counters",
+                       "show interfaces counters",
+                       "show interfaces counters",
+                       "show pfc counters",
+                       "show pfc counters"],
+    
+    "dut_counters": ["show int cou",
+                     "show int cou"],
+    
+    "dut_ip": {"eth_egress": "55",
+               "ip_egress": "200.0.0.1/30",
+               "eth_ingress": "56",
+               "ip_ingress": "11.255.255.1/30"
+               },
+
+    "dut_routes": {"prefix_egress": "48.0.0.0/24",
+                   "nexthop_egress": "200.0.0.2",
+                   "prefix_ingress": "16.0.0.0/24",
+                   "nexthop_ingress": "11.255.255.2"},
+
+    "dut_buffer_config": ["sudo config buffer shared-headroom-pool over-subscribe-ratio 2",
+                          "sudo config buffer shared-headroom-pool size 1024000",
+                          "sudo config buffer profile add pg-lossless --dynamic_th 3 --size 4096 --xoff 10240 --xon 2048 --pool ingress_lossless_pool"],
+
+    "dut_pfc_config": ["sudo config interface buffer priority-group lossless add Ethernet55 1 pg-lossless",
+                       "sudo config interface pfc priority Ethernet55 pg_tbd on",
+                       "sudo config interface pfc priority Ethernet55 1 off"],
+
+    "dut_del_pfc_config": ["sudo config interface pfc priority Ethernet55 pg_tbd on",
+                           "sudo config interface buffer priority-group lossless remove Ethernet55"],
+
+    "dut_del_buffer_config": ["sudo config buffer profile remove pg-lossless"],
+
+    "dut_pfc_counter_config": ["sudo config pfc counter_poll enable",
+                               "sudo config pfc interval 200"],
+
+
+    "dut_buffer_issue_avoidance": ["sudo redis-cli -n 4 hset 'BUFFER_POOL|ingress_lossless_pool' 'type' 'ingress'",
+                                   "sudo redis-cli -n 4 hset 'DEVICE_METADATA|localhost' 'buffer_model' 'dynamic'"]
+}
