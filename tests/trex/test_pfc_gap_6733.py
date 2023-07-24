@@ -8,6 +8,7 @@ pytestmark = [
     pytest.mark.topology('t0')
 ]
 
+
 def test_pfc_gap_6733(trexhost, duthost):
     trexhost.set_dut_buffer()
     trexhost.set_dut_pfc("55", [0])
