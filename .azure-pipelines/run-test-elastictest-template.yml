@@ -119,12 +119,7 @@ parameters:
 
 
 steps:
-  - script: |
-      echo $(Build.Repository.Name)
-      echo $(BUILD.REPOSITORY.NAME)
-      return 1
-    displayName: "print ENV"
-  - ${{ if not(contains(variables['BUILD.REPOSITORY_NAME'], 'sonic-mgmt')) }}:
+  - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
           set -ex
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
@@ -141,7 +136,6 @@ steps:
       - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
               set -ex
-              echo '${{ parameters.MGMT_BRANCH }}'
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
             displayName: "Download test plan script"
 
