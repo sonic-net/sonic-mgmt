@@ -55,13 +55,7 @@ Arista	vms24-t1-7050qx-acs-01.2	vms24-t1-7050qx-acs-01		202205-SLIM		202205-SLIM
               platform_tests/test_reboot.py::test_warm_reboot \
               platform_tests/test_reboot.py::test_fast_reboot"""							IMAGE_BRCM_ABOOT_201811	
 Arista	testbed-bjw-can-7050qx-2.1	testbed-bjw-can-7050qx-2	202012-SLIM		202012-SLIM		202012-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 10	1800	vlan/test_vlan.py	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811	
-Arista	testbed-bjw-can-7050qx-2.2	testbed-bjw-can-7050qx-2		202012-SLIM		202012-SLIM		202012-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 10	1800	"""vlan/test_vlan.py \
-scp/test_scp_copy.py \
-show_techsupport/tech_support_cmds.py \
-show_techsupport/templates \
-show_techsupport/test_auto_techsupport.py \
-show_techsupport/test_techsupport.py \
-show_techsupport/test_techsupport_no_secret.py"""	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811	
+Arista	testbed-bjw-can-7050qx-2.2	testbed-bjw-can-7050qx-2		202012-SLIM		202012-SLIM		202012-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 10	1800	vlan/test_vlan.py	nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811	
 Arista	testbed-bjw-can-7050qx-1.1	testbed-bjw-can-7050qx-1	202205-SLIM		202205-SLIM		202205-SLIM			-I "platform_tests copp show_techport acl everflow drop_packets"'	Platform	30 2	1800		nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811	
 Arista	testbed-bjw-can-7050qx-1.2	testbed-bjw-can-7050qx-1		202205-SLIM		202205-SLIM		202205-SLIM		-S "sub_port_interfaces platform_tests copp show_techport acl everflow drop_packets"'	Non-platform	30 2	1800		nightly-bjw						BJW_IMAGE_BRCM_ABOOT_201811	
 Arista	vms24-dual-t0-7050-1	vms24-dual-t0-7050-1	202012	internal	202012	202205	202012	master		-I "dualtor qos pc generic_config_updater acl drop_packets snmp"'	Non-platform	0 10		"platform_tests/test_cont_warm_reboot.py"					FALSE	FALSE		
