@@ -454,7 +454,8 @@ def trexhost(ansible_adhoc, duthost, get_trex_host):
     Return a TRex connection method.
     '''
     if "inventory_hostname_short" in get_trex_host:
-        return TRexHost(ansible_adhoc, duthost, get_trex_host["inventory_hostname_short"], get_trex_host["ansible_host"])
+        return TRexHost(ansible_adhoc, duthost, get_trex_host["inventory_hostname_short"], \
+                        get_trex_host["ansible_host"])
     else:
         return None
 
@@ -986,7 +987,6 @@ def get_trex_host(request):
     '''
     inv_files = get_inventory_files(request)
     return get_group_visible_vars(inv_files, "trex")
-
 
 def generate_params_frontend_hostname(request):
     frontend_duts = []
