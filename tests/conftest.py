@@ -448,6 +448,7 @@ def ptfhost(ansible_adhoc, tbinfo, duthost, request):
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         return PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo, macsec_enabled=request.config.option.enable_macsec)
 
+
 @pytest.fixture(scope="session")
 def trexhost(ansible_adhoc, duthost, get_trex_host):
     '''
@@ -458,6 +459,7 @@ def trexhost(ansible_adhoc, duthost, get_trex_host):
                         get_trex_host["ansible_host"])
     else:
         return None
+
 
 @pytest.fixture(scope="module")
 def k8smasters(ansible_adhoc, request):
@@ -978,6 +980,7 @@ def get_host_data(request, dut):
     inv_files = get_inventory_files(request)
     return get_host_vars(inv_files, dut)
 
+
 @pytest.fixture(scope='session')
 def get_trex_host(request):
     '''
@@ -985,6 +988,7 @@ def get_trex_host(request):
     '''
     inv_files = get_inventory_files(request)
     return get_group_visible_vars(inv_files, "trex")
+
 
 def generate_params_frontend_hostname(request):
     frontend_duts = []
