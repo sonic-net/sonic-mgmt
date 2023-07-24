@@ -48,7 +48,6 @@
     "dut_pfc_counter_config": ["sudo config pfc counter_poll enable",
                                "sudo config pfc interval 200"],
 
-
     "dut_buffer_issue_avoidance": ["sudo redis-cli -n 4 hset 'BUFFER_POOL|ingress_lossless_pool' 'type' 'ingress'",
                                    "sudo redis-cli -n 4 hset 'DEVICE_METADATA|localhost' 'buffer_model' 'dynamic'"]
 }
