@@ -1,3 +1,5 @@
+import functools
+
 
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
                "ACS-MSN2010", "ACS-SN2201"]
@@ -11,6 +13,8 @@ PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_out2']
 ]
+RESPINED_PLATFORM = ['x86_64-mlnx_msn4700-r0', 'x86_64-mlnx_msn4410-r0', 'x86_64-mlnx_msn4600c-r0', \
+                     'x86_64-mlnx_msn3700-r0', 'x86_64-mlnx_msn3700c-r0', 'x86_64-mlnx_msn2700-r0']
 SWITCH_MODELS = {
     "x86_64-nvidia_sn5600-r0": {
         "chip_type": "spectrum4",
@@ -185,6 +189,61 @@ SWITCH_MODELS = {
             },
             "sodimm": {
                 "start": 1,
+                "number": 1
+            }
+        }
+    },
+    "x86_64-mlnx_msn2700-r0-comex-respined": {
+        "chip_type": "spectrum1",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": True,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 4,
+            "hot_swappable": True
+        },
+        "psus": {
+            "number": 2,
+            "hot_swappable": True,
+            "capabilities": PSU_CAPABILITIES[0]
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 2
+        },
+        "ports": {
+            "number": 32
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 2
+            },
+            "module": {
+                "start": 1,
+                "number": 32
+            },
+            "psu": {
+                "start": 1,
+                "number": 2
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 1
+            },
+            "fan_ambient": {
+                "number": 1
+            },
+            "comex_ambient": {
                 "number": 1
             }
         }
@@ -884,10 +943,30 @@ SWITCH_MODELS = {
 }
 
 
+def read_only_cache():
+    """Decorator to cache return value for a method/function once.
+       This decorator should be used for method/function when:
+       1. Executing the method/function takes time. e.g. reading sysfs.
+       2. The return value of this method/function never changes.
+    """
+    def decorator(method):
+        method.return_value = None
+
+        @functools.wraps(method)
+        def _impl(*args, **kwargs):
+            if not method.return_value:
+                method.return_value = method(*args, **kwargs)
+            return method.return_value
+        return _impl
+    return decorator
+
+
+@read_only_cache()
 def is_mellanox_device(dut):
     return dut.facts["asic_type"] == "mellanox"
 
 
+@read_only_cache()
 def get_platform_data(dut):
     """
     Get the platform physical data for the given dut object
@@ -895,9 +974,53 @@ def get_platform_data(dut):
     :return: A dictionary contains the platform physical data
     """
     dut_platform = dut.facts["platform"]
-    return SWITCH_MODELS[dut_platform]
+    respin_version = get_respin_version(dut, dut_platform)
+    if not respin_version:
+        return SWITCH_MODELS[dut_platform]
+    else:
+        respin_platform_name = dut_platform + '-' + respin_version
+        return SWITCH_MODELS[respin_platform_name] if respin_platform_name in SWITCH_MODELS else SWITCH_MODELS[dut_platform]
 
 
 def get_chip_type(dut):
     platform_data = get_platform_data(dut)
     return platform_data.get("chip_type")
+
+
+@read_only_cache()
+def get_respin_version(duthost, platform):
+    if platform in RESPINED_PLATFORM and platform != 'x86_64-mlnx_msn2700-r0':
+        config1 = duthost.command('cat /run/hw-management/system/config1', module_ignore_errors=True)
+        config3 = duthost.command('cat /run/hw-management/system/config3', module_ignore_errors=True)
+        if platform in ('x86_64-mlnx_msn4700-r0', 'x86_64-mlnx_msn4410-r0'):
+            return 'a1' if config1['rc'] == 0 and config1['stdout'] == '1' else ''
+        elif platform == 'x86_64-mlnx_msn4600c-r0':
+            if config1['rc'] == 0:
+                if config1['stdout'] == '1':
+                    if config3['rc'] == 0 and config3['stdout'] == '1':
+                            return 'a1-respined'
+                    else:
+                        return 'a1'
+                else:
+                    if config3['rc'] == 0 and config3['stdout'] == '1':
+                        return 'respined'
+            return ''
+        elif platform in ('x86_64-mlnx_msn3700-r0', 'x86_64-mlnx_msn3700c-r0'):
+            if config1['rc'] == 0 and (config1['stdout'] == '2' or config1['stdout'] == '6'):
+                return 'swb-respined'
+            if config3['rc'] == 0 and config3['stdout'] == '1':
+                return 'respined'
+            return ''
+    elif platform == 'x86_64-mlnx_msn2700-r0':
+        output = duthost.command('dmidecode --string baseboard-product-name', module_ignore_errors=True)
+        return 'comex-respined' if 'VMOD0001' not in output['stdout'] else ''
+    else:
+        return ''
+
+
+def get_platform_json_file_name(duthost, dut_platform):
+    if dut_platform == 'x86_64-mlnx_msn2700-r0':
+        if get_respin_version(duthost, dut_platform) != '':
+            return 'platform_comex_respin.json'
+
+    return 'platform.json'
