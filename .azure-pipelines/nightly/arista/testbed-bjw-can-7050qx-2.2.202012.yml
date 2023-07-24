@@ -49,12 +49,7 @@ parameters:
   # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
-    default: "scp/test_scp_copy.py \
-show_techsupport/tech_support_cmds.py \
-show_techsupport/templates \
-show_techsupport/test_auto_techsupport.py \
-show_techsupport/test_techsupport.py \
-show_techsupport/test_techsupport_no_secret.py"
+    default: ""
     displayName: "Skip Scripts"
 
   # Test timeout
