@@ -119,11 +119,11 @@ parameters:
 
 
 steps:
-  - ${{ if not(contains(variables['BUILD_REPOSITORY_NAME'], 'sonic-mgmt')) }}:
+  - ${{ if not(contains(variables['BUILD.REPOSITORY_NAME'], 'sonic-mgmt')) }}:
       - script: |
           set -ex
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-        displayName: Download test plan script
+        displayName: "Download test plan script"
       - script: |
           set -ex
           if [[ -z "$(AZP_REPO_ACCESS_TOKEN)" ]]; then
@@ -131,13 +131,13 @@ steps:
           else
             curl -u $(AZP_REPO_ACCESS_TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
-        displayName: Download pr script
+        displayName: "Download pr script"
   - ${{ else }}:
-      - ${{ if not(eq(parameters.MGMT_BRANCH, 'master')) }}:
+      - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
               set -ex
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-            displayName: Download test plan script
+            displayName: "Download test plan script"
 
   - script: |
       set -e
@@ -184,7 +184,7 @@ steps:
       TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
       CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
       CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
-    displayName: Trigger test
+    displayName: "Trigger test"
 
   - script: |
       set -e
@@ -195,7 +195,7 @@ steps:
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state LOCK_TESTBED
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
-    displayName: Lock testbed
+    displayName: "Lock testbed"
 
   - script: |
       set -e
@@ -207,7 +207,7 @@ steps:
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state PREPARE_TESTBED
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
-    displayName: Prepare testbed
+    displayName: "Prepare testbed"
 
   - script: |
       set -e
@@ -224,7 +224,7 @@ steps:
       fi
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
-    displayName: Run test
+    displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
 
   - ${{ if eq(parameters.DUMP_KVM_IF_FAIL, 'True') }}:
@@ -238,7 +238,7 @@ steps:
         condition: succeededOrFailed()
         env:
           TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
-        displayName: KVM dump
+        displayName: "KVM dump"
 
   - script: |
       set -e
@@ -250,4 +250,4 @@ steps:
       TENANT_ID: $(TESTBED_TOOLS_MSAL_TENANT_ID)
       CLIENT_ID: $(TESTBED_TOOLS_MSAL_CLIENT_ID)
       CLIENT_SECRET: $(TESTBED_TOOLS_MSAL_CLIENT_SECRET)
-    displayName: Finalize running test plan
+    displayName: "Finalize running test plan"
