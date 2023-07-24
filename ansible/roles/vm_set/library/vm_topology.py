@@ -12,6 +12,7 @@ import traceback
 import logging
 import docker
 import ipaddress
+import six
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -1241,7 +1242,7 @@ class VMTopology(object):
                         "Kernel only supports up to 252 additional routing tables")
                 rt_name = ns_if
                 ns_if_addr = ipaddress.ip_interface(
-                    self.mux_cable_facts[host_ifindex]["soc_ipv4"].decode())
+                    six.ensure_text(self.mux_cable_facts[host_ifindex]["soc_ipv4"]))
                 gateway_addr = str(ns_if_addr.network.network_address + 1)
                 if rt_slot not in rt_tables:
                     # add route table mapping, use interface name as route table name
@@ -1251,8 +1252,11 @@ class VMTopology(object):
                     self.netns, ns_if, rt_name))
                 VMTopology.cmd("ip netns exec %s ip rule add from %s table %s" % (
                     self.netns, ns_if_addr.ip, rt_name))
+                # issue: https://www.mail-archive.com/debian-bugs-dist@lists.debian.org/msg1811241.html
+                # When the route table is empty, the ip route flush command will fail.
+                # So ignore the error here.
                 VMTopology.cmd(
-                    "ip netns exec %s ip route flush table %s" % (self.netns, rt_name))
+                    "ip netns exec %s ip route flush table %s" % (self.netns, rt_name), ignore_errors=True)
                 VMTopology.cmd("ip netns exec %s ip route add %s dev %s table %s" % (
                     self.netns, ns_if_addr.network, ns_if, rt_name))
                 VMTopology.cmd("ip netns exec %s ip route add default via %s dev %s table %s" % (
@@ -1388,7 +1392,7 @@ class VMTopology(object):
             return VMTopology.cmd('nsenter -t %s -n ethtool -K %s tx off' % (pid, iface_name))
 
     @staticmethod
-    def cmd(cmdline, grep_cmd=None, retry=1, negative=False, shell=False, split_cmd=True):
+    def cmd(cmdline, grep_cmd=None, retry=1, negative=False, shell=False, split_cmd=True, ignore_errors=False):
         """Execute a command and return the output
 
         Args:
@@ -1396,6 +1400,7 @@ class VMTopology(object):
             grep_cmd (str, optional): Grep command line. Defaults to None.
             retry (int, optional): Max number of retry if command result is unexpected. Defaults to 1.
             negative (bool, optional): If negative is True, expect the command to fail. Defaults to False.
+            ignore_errors (bool, optional): If ignore_errors is True, return the output even if the command fails.
 
         Raises:
             Exception: If command result is unexpected after max number of retries, raise an exception.
@@ -1457,10 +1462,13 @@ class VMTopology(object):
                     # Result is unexpected, need to retry
                     continue
 
-        # Reached max retry, fail with exception
-        err_msg = 'ret_code=%d, error message="%s". cmd="%s%s"' \
-            % (ret_code, err, cmdline_ori, ' | ' + grep_cmd_ori if grep_cmd_ori else '')
-        raise Exception(err_msg)
+        if ignore_errors:
+            return out
+        else:
+            # Reached max retry, fail with exception
+            err_msg = 'ret_code=%d, error message="%s". cmd="%s%s"' \
+                % (ret_code, err, cmdline_ori, ' | ' + grep_cmd_ori if grep_cmd_ori else '')
+            raise Exception(err_msg)
 
     @staticmethod
     def get_ovs_br_ports(bridge):
