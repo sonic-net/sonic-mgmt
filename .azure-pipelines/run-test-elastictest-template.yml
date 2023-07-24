@@ -119,11 +119,10 @@ parameters:
 
 
 steps:
-  - ${{ if eq(variables['BUILD.REPOSITORY_NAME'],'sonic-net/sonic-mgmt') }}:
-      - script: |
-          echo $(BUILD.REPOSITORY_NAME)
-          return 1
-        displayName: "print ENV"
+  - script: |
+      echo $(BUILD.REPOSITORY_NAME)
+      return 1
+    displayName: "print ENV"
   - ${{ if not(contains(variables['BUILD.REPOSITORY_NAME'], 'sonic-mgmt')) }}:
       - script: |
           set -ex
