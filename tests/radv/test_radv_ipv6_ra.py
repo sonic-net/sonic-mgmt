@@ -116,7 +116,7 @@ def test_radv_router_advertisement(
         ptfhost, radv_test_setup,
         dut_update_radv_periodic_ra_interval,
         toggle_all_simulator_ports_to_rand_selected_tor_m       # noqa F811
-    ):
+):
     """
     @summary: Test validates the RADVd's periodic router advertisement sent on each VLAN interface
     """
@@ -142,7 +142,7 @@ def test_solicited_router_advertisement(
         duthosts, rand_one_dut_hostname,
         ptfhost, radv_test_setup,
         toggle_all_simulator_ports_to_rand_selected_tor_m       # noqa F811
-    ):
+):
     """
     @summary: Test validates the RADVd's solicited router advertisement sent on each VLAN interface
     """
@@ -169,7 +169,7 @@ def test_unsolicited_router_advertisement_with_m_flag(
         duthosts, rand_one_dut_hostname,
         ptfhost, radv_test_setup,
         toggle_all_simulator_ports_to_rand_selected_tor_m       # noqa F811
-    ):
+):
     """
     @summary: Test validates the M flag in RADVd's periodic router advertisement sent on each VLAN interface
     """
@@ -195,7 +195,7 @@ def test_solicited_router_advertisement_with_m_flag(
         duthosts, rand_one_dut_hostname,
         ptfhost, radv_test_setup,
         toggle_all_simulator_ports_to_rand_selected_tor_m       # noqa F811
-    ):
+):
     """
     @summary: Test validates the M flag in RADVd's solicited router advertisement sent on each VLAN interface
     """
