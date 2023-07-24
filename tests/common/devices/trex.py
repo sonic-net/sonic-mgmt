@@ -8,6 +8,7 @@ from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
 
+
 class TRexHost(AnsibleHostBase):
     """
     @summary: Class for TRex
@@ -321,6 +322,7 @@ class TRexHost(AnsibleHostBase):
         self.run("dut_counters", dut=True)
 
         return
+
 
 def clean_data(list_data, s1):
     res_list = []
