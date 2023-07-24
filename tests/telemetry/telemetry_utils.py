@@ -104,6 +104,13 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, 
         f.close()
 
 
+def trigger_logger(duthost, log, process, container="", priority="local0.notice"):
+    tag = process
+    if container != "":
+        tag = container + "#" + process
+    duthost.shell("logger -p {} -t {} {}".format(priority, tag, log))
+
+
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex=""):

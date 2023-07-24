@@ -4,6 +4,7 @@ import logging
 
 from run_events_test import run_test
 from event_utils import backup_monit_config, customize_monit_config, restore_monit_config
+from telemetry_utils import trigger_logger
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
@@ -11,6 +12,8 @@ tag = "sonic-events-host"
 
 def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test host events")
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
+             "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
     backup_monit_config(duthost)
     customize_monit_config(
         duthost,
@@ -35,3 +38,8 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 def trigger_mem_threshold_exceeded_alert(duthost):
     logger.info("Invoking memory checker with low threshold")
     duthost.shell("python3 /usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
+
+
+def trigger_kernel_event(duthost):
+    logger.info("Invoking logger for kernel events")
+    trigger_logger(duthost, "zlib decompression failed, data probably corrupt", "kernel")
