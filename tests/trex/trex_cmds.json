@@ -1,8 +1,8 @@
 {
-    "learn_arp": ["cd /opt/trex/v2.87", 
-                  "sudo ./trex-console --force", 
-                  "service -p 0 1", 
-                  "arp -p 0 1", 
+    "learn_arp": ["cd /opt/trex/v2.87",
+                  "sudo ./trex-console --force",
+                  "service -p 0 1",
+                  "arp -p 0 1",
                   "service --off -p 0 1"],
 
     "portattr": ["portattr"],
@@ -17,10 +17,10 @@
                        "show interfaces counters",
                        "show pfc counters",
                        "show pfc counters"],
-    
+
     "dut_counters": ["show int cou",
                      "show int cou"],
-    
+
     "dut_ip": {"eth_egress": "55",
                "ip_egress": "200.0.0.1/30",
                "eth_ingress": "56",
