@@ -121,20 +121,28 @@ parameters:
 steps:
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
+          # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
           set -ex
+
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
         displayName: "Download test plan script"
       - script: |
+          # If not sonic-mgmt/sonic-mgmt-int repo, need to download pr_test_scripts.yaml
           set -ex
-          if [[ -z "$AZP_REPO_ACCESS_TOKEN" ]]; then
+
+          # If public build image repo, download pr test scripts from public sonic-mgmt repo
+          if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" ]]; then
             curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+
+          # Else, internal build image repo, download from internal sonic-mgmt repo
           else
-            curl -u $AZP_REPO_ACCESS_TOKEN "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            curl -u $(AZP_REPO_ACCESS_TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
         displayName: "Download pr script"
   - ${{ else }}:
       - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
+              # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
             displayName: "Download test plan script"
