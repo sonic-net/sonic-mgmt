@@ -90,7 +90,9 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
 
         # Enable outer interfaces
         for port in ports:
-            duthost.no_shutdown(ifname=port)
+            namespace = mg_facts["minigraph_neighbors"][port]['namespace']
+            namespace_arg = '-n {}'.format(namespace) if namespace else ''
+            duthost.command("sudo config interface {} startup {}".format(namespace_arg, port))
 
 
 def get_state_times(timestamp, state, state_times, first_after_offset=None):
@@ -156,11 +158,12 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
         if lacp_sessions_dict and "lacp_sessions" in lacp_sessions_dict else None
     controlplane_summary = {"downtime": "",
                             "arp_ping": "", "lacp_session_max_wait": ""}
-    if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
-        max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
-        analyze_result.get(
-            "controlplane", controlplane_summary).update(
-                {"lacp_session_max_wait": max_lacp_session_wait})
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
+            max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+            analyze_result.get(
+                "controlplane", controlplane_summary).update(
+                    {"lacp_session_max_wait": max_lacp_session_wait})
 
     result_summary = {
         "reboot_type": "{}-{}".format(reboot_type, reboot_oper) if reboot_oper else reboot_type,
@@ -517,11 +520,27 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             # restore original script. If the ".orig" file does not exist (upgrade path case), ignore the error.
             duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path),
                           module_ignore_errors=True)
-        result = loganalyzer.analyze(marker, fail=False)
+        # For mac jump test, the log message we care about is uaually combined with other messages in one line,
+        # which makes the length of the line longer than 1000 and get dropped by Logananlyzer. So we need to increase
+        # the max allowed length.
+        # The regex library in Python 2 takes very long time (over 10 minutes) to process long lines. In our test,
+        # most of the combined log message for mac jump test is around 5000 characters. So we set the max allowed
+        # length to 6000.
+        result = loganalyzer.analyze(marker, fail=False, maximum_log_length=6000)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 
-        for key, messages in list(result["expect_messages"].items()):
+        # Parsing sairedis shall happen after parsing syslog because FDB_AGING_DISABLE is required
+        # when analysing sairedis.rec log, so we need to sort the keys
+        key_list = ["syslog", "bgpd.log", "sairedis.rec"]
+        for i in range(0, len(key_list)):
+            for message_key in list(result["expect_messages"].keys()):
+                if key_list[i] in message_key:
+                    key_list[i] = message_key
+                    break
+
+        for key in key_list:
+            messages = result["expect_messages"][key]
             if "syslog" in key:
                 get_kexec_time(duthost, messages, analyze_result)
                 reboot_start_time = analyze_result.get(
