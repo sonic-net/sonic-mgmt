@@ -448,18 +448,16 @@ def ptfhost(ansible_adhoc, tbinfo, duthost, request):
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         return PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo, macsec_enabled=request.config.option.enable_macsec)
 
-
 @pytest.fixture(scope="session")
 def trexhost(ansible_adhoc, duthost, get_trex_host):
     '''
     Return a TRex connection method.
     '''
     if "inventory_hostname_short" in get_trex_host:
-        return TRexHost(ansible_adhoc, duthost, get_trex_host["inventory_hostname_short"], \
+        return TRexHost(ansible_adhoc, duthost, get_trex_host["inventory_hostname_short"],
                         get_trex_host["ansible_host"])
     else:
         return None
-
 
 @pytest.fixture(scope="module")
 def k8smasters(ansible_adhoc, request):
@@ -979,7 +977,6 @@ def get_host_data(request, dut):
     '''
     inv_files = get_inventory_files(request)
     return get_host_vars(inv_files, dut)
-
 
 @pytest.fixture(scope='session')
 def get_trex_host(request):
