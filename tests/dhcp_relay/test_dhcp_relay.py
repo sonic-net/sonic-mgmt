@@ -45,13 +45,13 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
 
 
 @pytest.fixture(scope="module")
-def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+def dut_dhcp_relay_data(duthosts, rand_selected_dut, ptfhost, tbinfo):
     """ Fixture which returns a list of dictionaries where each dictionary contains
         data necessary to test one instance of a DHCP relay agent running on the DuT.
         This fixture is scoped to the module, as the data it gathers can be used by
         all tests in this module. It does not need to be run before each test.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = rand_selected_dut
     dhcp_relay_data_list = []
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -200,9 +200,9 @@ def get_subtype_from_configdb(duthost):
 
 
 @pytest.fixture(scope="module", params=[SINGLE_TOR_MODE, DUAL_TOR_MODE])
-def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
+def testing_config(request, rand_selected_dut, tbinfo):
     testing_mode = request.param
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = rand_selected_dut
     subtype_exist, subtype_value = get_subtype_from_configdb(duthost)
 
     if 'dualtor' in tbinfo['topo']['name']:
@@ -294,22 +294,23 @@ def start_dhcp_monitor_debug_counter(duthost):
         assert False, "Failed to start dhcpmon in debug counter mode\n"
 
 
-def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, rand_unselected_dut,
                             toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
+
     testing_mode, duthost, testbed_mode = testing_config
 
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
 
-    skip_dhcpmon = (testing_mode == DUAL_TOR_MODE or
-                    any(vers in duthost.os_version for vers in ["201811", "201911", "202111"]))
+    skip_dhcpmon = "201811" in duthost.os_version or "201911" in duthost.os_version
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
             if not skip_dhcpmon:
+                standby_duthost = rand_unselected_dut
                 dhcp_server_num = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 start_dhcp_monitor_debug_counter(duthost)
                 expected_agg_counter_message = (
@@ -317,10 +318,16 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
                     r"Discover: +1/ +%d, Offer: +1/ +1, Request: +3/ +%d, ACK: +1/ +1+"
                 ) % (dhcp_relay['downlink_vlan_iface']['name'], dhcp_server_num, dhcp_server_num * 3)
+                expected_standby_agg_counter_message = (
+                    r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
+                    r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
+                    r"Discover: +0/ +0, Offer: +0/ +0, Request: +0/ +0, ACK: +0/ +0+"
+                ) % (dhcp_relay['downlink_vlan_iface']['name'])
                 loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
-                loganalyzer.expect_regex = []
+                loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
                 marker = loganalyzer.init()
                 loganalyzer.expect_regex = [expected_agg_counter_message]
+                loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
