@@ -120,7 +120,8 @@ parameters:
 
 steps:
   - script: |
-      echo $(BUILD.REPOSITORY_NAME)
+      echo $(Build.Repository.Name)
+      echo $(BUILD.REPOSITORY.NAME)
       return 1
     displayName: "print ENV"
   - ${{ if not(contains(variables['BUILD.REPOSITORY_NAME'], 'sonic-mgmt')) }}:
