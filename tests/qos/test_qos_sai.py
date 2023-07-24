@@ -39,6 +39,7 @@ from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from .qos_sai_base import QosSaiBase
 from tests.common.cisco_data import get_markings_dut, setup_markings_dut
+from tests.common.utilities import is_ipv4_address
 
 logger = logging.getLogger(__name__)
 
@@ -1073,6 +1074,7 @@ class TestQosSai(QosSaiBase):
         self.updateTestPortIdIp(dutConfig)
 
         testParams = dict()
+        import pdb; pdb.set_trace()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
@@ -1093,6 +1095,72 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.DscpMappingPB",
             testParams=testParams
         )
+        import pdb; pdb.set_trace()
+
+    def testIPIPQosSaiDscpQueueMapping(
+        self, duthost, ptfhost, dutTestParams, dutConfig, dut_qos_maps
+    ):
+        """
+            Test QoS SAI DSCP to queue mapping for IP-IP packets
+
+            Args:
+                duthost (AnsibleHost): The DUT host
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if "backend" in dutTestParams["topo"]:
+            pytest.skip("Dscp-queue mapping is not supported on {}".format(dutTestParams["topo"]))
+
+        # Skip the regular dscp to pg mapping test. Will run another test case instead.
+        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+            pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
+        import pdb; pdb.set_trace()
+        config_facts = duthost.get_running_config_facts()
+        los = config_facts.get("LOOPBACK_INTERFACE", {})
+        loopback_ip = None
+        DUMMY_IP = '8.8.8.8'
+
+        for key, _ in los.items():
+            if "Loopback" in key:
+                loopback_ips = los[key]
+                for ip_str, _ in loopback_ips.items():
+                    ip = ip_str.split("/")[0]
+                    if is_ipv4_address(ip):
+                        loopback_ip = ip
+                        break
+
+        pytest_assert(loopback_ip, "No loopback ip found")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
+        testParams.update({
+            "outer_dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "outer_dst_port_ip": loopback_ip,
+            "outer_src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "outer_src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "inner_dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "inner_dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "inner_src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "inner_src_port_ip": DUMMY_IP,
+            "hwsku": dutTestParams['hwsku'],
+            "dual_tor": dutConfig['dualTor'],
+            "dual_tor_scenario": dutConfig['dualTorScenario']
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.DscpMappingIPIP",
+            testParams=testParams
+        )
+        import pdb; pdb.set_trace()
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
     def testQosSaiSeparatedDscpQueueMapping(self, duthost, ptfhost, dutTestParams,
