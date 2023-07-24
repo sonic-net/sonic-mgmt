@@ -2,7 +2,6 @@
 The site is : https://github.com/sonic-net/sonic-mgmt/issues/6733
 '''
 import logging
-
 import pytest
 
 pytestmark = [
