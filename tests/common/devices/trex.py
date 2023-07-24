@@ -15,7 +15,7 @@ class TRexHost(AnsibleHostBase):
     Instance of this class can run ansible modules on the TRex host which is running on same server with pytest.
     """
 
-    def __init__(self, ansible_adhoc, duthost, hostname, ip, \
+    def __init__(self, ansible_adhoc, duthost, hostname, ip,
                  cmds_path="./trex/trex_cmds.json", login="admin5", password="admin"):
         self.ip = ip
         self.cmds_path = cmds_path
@@ -135,13 +135,13 @@ class TRexHost(AnsibleHostBase):
         """
         dut_ip = self.cmds_json["dut_ip"]
         dut_routes = self.cmds_json["dut_routes"]
-        duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_egress"], \
+        duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_egress"],
                                                                           dut_ip["ip_egress"]))
-        duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_ingress"], \
+        duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_ingress"],
                                                                           dut_ip["ip_ingress"]))
-        duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_egress"], \
+        duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_egress"],
                                                                           dut_routes["nexthop_egress"]))
-        duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_ingress"], \
+        duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_ingress"],
                                                                           dut_routes["nexthop_ingress"]))
 
     def set_dut_buffer(self):
