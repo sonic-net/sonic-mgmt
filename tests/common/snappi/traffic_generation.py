@@ -28,8 +28,20 @@ def setup_base_traffic_config(testbed_config,
         port_id (int): ID of DUT port to test
 
     Returns:
-        base_flow_config (dict): base flow configuration containing flow_port_config, tx_mac,
+        base_flow_config (dict): base flow configuration containing dut_port_config, tx_mac,
             rx_mac, tx_port_config, rx_port_config, tx_port_name, rx_port_name
+            dict key-value pairs (all keys are strings):
+                tx_port_id (int): ID of ixia TX port ex. 1
+                rx_port_id (int): ID of ixia RX port ex. 2
+                tx_port_config (SnappiPortConfig): port config obj for ixia TX port
+                rx_port_config (SnappiPortConfig): port config obj for ixia RX port
+                tx_mac (str): MAC address of ixia TX port ex. '00:00:fa:ce:fa:ce'
+                rx_mac (str): MAC address of ixia RX port ex. '00:00:fa:ce:fa:ce'
+                tx_port_name (str): name of ixia TX port ex. 'Port 1'
+                rx_port_name (str): name of ixia RX port ex. 'Port 2'
+                dut_port_config (list): a list of two dictionaries of tx and rx ports on the peer (switch) side,
+                                        and the associated test priorities
+                                        ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
     """
     base_flow_config = {}
     rx_port_id = port_id
@@ -49,16 +61,13 @@ def setup_base_traffic_config(testbed_config,
     base_flow_config["tx_port_config"] = tx_port_config
     base_flow_config["rx_port_config"] = rx_port_config
 
-    """ Instantiate peer ports in flow_port_config
-    flow_port_config: a list of two dictionaries of tx and rx ports on the peer (switch) side,
-    and the associated test priorities ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
-    """
-    flow_port_config = []
+    # Instantiate peer ports in dut_port_config
+    dut_port_config = []
     tx_dict = {str(tx_port_config.peer_port): []}
     rx_dict = {str(rx_port_config.peer_port): []}
-    flow_port_config.append(tx_dict)
-    flow_port_config.append(rx_dict)
-    base_flow_config["flow_port_config"] = flow_port_config
+    dut_port_config.append(tx_dict)
+    dut_port_config.append(rx_dict)
+    base_flow_config["dut_port_config"] = dut_port_config
 
     base_flow_config["tx_mac"] = tx_port_config.mac
     if tx_port_config.gateway == rx_port_config.gateway and \
@@ -78,22 +87,22 @@ def generate_test_flows(testbed_config,
                         test_flow_name,
                         test_flow_prio_list,
                         test_flow_rate_percent,
-                        data_flow_dur_sec,
-                        data_flow_delay_sec,
-                        data_pkt_size,
+                        test_flow_dur_sec,
+                        test_flow_delay_sec,
+                        test_flow_pkt_size,
                         prio_dscp_map,
                         snappi_extra_params):
     """
-    Generate test configurations of flows. Test flows and background flows are also known as data flows.
+    Generate configurations of test flows. Test flows and background flows are also known as data flows.
 
     Args:
         testbed_config (obj): testbed L1/L2/L3 configuration
         test_flow_name (str): name of test flow
         test_flow_prio_list (list): list of test flow priorities
         test_flow_rate_percent (int): rate percentage of test flows
-        data_flow_dur_sec (int): duration of test flows
-        data_flow_delay_sec (int): delay of test flows in seconds
-        data_pkt_size (int): packet size of test flows
+        test_flow_dur_sec (int): duration of test flows
+        test_flow_delay_sec (int): delay of test flows in seconds
+        test_flow_pkt_size (int): packet size of test flows
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (obj): snappi extra parameters
     """
@@ -117,19 +126,19 @@ def generate_test_flows(testbed_config,
         ipv4.priority.dscp.ecn.value = (
             ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
-        test_flow.size.fixed = data_pkt_size
+        test_flow.size.fixed = test_flow_pkt_size
         test_flow.rate.percentage = test_flow_rate_percent
-        test_flow.duration.fixed_seconds.seconds = data_flow_dur_sec
-        test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(data_flow_delay_sec))
+        test_flow.duration.fixed_seconds.seconds = test_flow_dur_sec
+        test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(test_flow_delay_sec))
 
         test_flow.metrics.enable = True
         test_flow.metrics.loss = True
 
         """ Set flow port config values """
-        flow_port_config = base_flow_config["flow_port_config"]
-        flow_port_config[0][str(base_flow_config["tx_port_config"].peer_port)].append(int(prio))
-        flow_port_config[1][str(base_flow_config["rx_port_config"].peer_port)].append(int(prio))
-        base_flow_config["flow_port_config"] = flow_port_config
+        dut_port_config = base_flow_config["dut_port_config"]
+        dut_port_config[0][str(base_flow_config["tx_port_config"].peer_port)].append(int(prio))
+        dut_port_config[1][str(base_flow_config["rx_port_config"].peer_port)].append(int(prio))
+        base_flow_config["dut_port_config"] = dut_port_config
 
     snappi_extra_params.base_flow_config = base_flow_config
 
@@ -138,9 +147,9 @@ def generate_background_flows(testbed_config,
                               bg_flow_name,
                               bg_flow_prio_list,
                               bg_flow_rate_percent,
-                              data_flow_dur_sec,
-                              data_flow_delay_sec,
-                              data_pkt_size,
+                              bg_flow_dur_sec,
+                              bg_flow_delay_sec,
+                              bg_flow_pkt_size,
                               prio_dscp_map,
                               snappi_extra_params):
     """
@@ -151,9 +160,9 @@ def generate_background_flows(testbed_config,
         bg_flow_name (str): name of background flow
         bg_flow_prio_list (list): list of background flow priorities
         bg_flow_rate_percent (int): rate percentage of background flows
-        data_flow_dur_sec (int): duration of background flows
-        data_flow_delay_sec (int): delay of background flows in seconds
-        data_pkt_size (int): packet size of background flows
+        bg_flow_dur_sec (int): duration of background flows
+        bg_flow_delay_sec (int): delay of background flows in seconds
+        bg_flow_pkt_size (int): packet size of background flows
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (obj): snappi extra parameters
     """
@@ -177,10 +186,10 @@ def generate_background_flows(testbed_config,
         ipv4.priority.dscp.ecn.value = (
             ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
-        bg_flow.size.fixed = data_pkt_size
+        bg_flow.size.fixed = bg_flow_pkt_size
         bg_flow.rate.percentage = bg_flow_rate_percent
-        bg_flow.duration.fixed_seconds.seconds = data_flow_dur_sec
-        bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(data_flow_delay_sec))
+        bg_flow.duration.fixed_seconds.seconds = bg_flow_dur_sec
+        bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(bg_flow_delay_sec))
 
         bg_flow.metrics.enable = True
         bg_flow.metrics.loss = True
@@ -355,20 +364,21 @@ def verify_pause_flow(flow_metrics,
 def verify_background_flow(flow_metrics,
                            bg_flow_name,
                            bg_flow_rate_percent,
-                           data_flow_dur_sec,
-                           data_pkt_size,
+                           bg_flow_dur_sec,
+                           bg_flow_pkt_size,
                            speed_gbps,
                            tolerance,
                            snappi_extra_params):
     """
-    Verify background flow statistics
+    Verify background flow statistics. Background traffic on lossy priorities should not be dropped when there is no
+    congestion, else some packets should be dropped if there is congestion.
 
     Args:
         flow_metrics (list): per-flow statistics
         bg_flow_name (str): name of the background flow
         bg_flow_rate_percent (int): background flow rate in percentage
-        data_flow_dur_sec (int): data flow duration in second
-        data_pkt_size (int): data packet size in bytes
+        bg_flow_dur_sec (int): background data flow duration in second
+        bg_flow_pkt_size (int): background data packet size in bytes
         speed_gbps (int): speed of the port in Gbps
         tolerance (float): tolerance for background flow deviation
         snappi_extra_params (obj): snappi extra parameters
@@ -383,7 +393,7 @@ def verify_background_flow(flow_metrics,
         rx_frames = metric.frames_rx
 
         exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
-            * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
+            * 1e9 * bg_flow_dur_sec / 8.0 / bg_flow_pkt_size
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
 
         if snappi_extra_params.headroom_test_params is None:
@@ -401,21 +411,22 @@ def verify_background_flow(flow_metrics,
 def verify_basic_test_flow(flow_metrics,
                            test_flow_name,
                            test_flow_rate_percent,
-                           data_flow_dur_sec,
-                           data_pkt_size,
+                           test_flow_dur_sec,
+                           test_flow_pkt_size,
                            speed_gbps,
                            tolerance,
                            test_flow_pause,
                            snappi_extra_params):
     """
-    Verify basic test flow statistics from ixia
+    Verify basic test flow statistics from ixia. Test traffic on lossless priorities should not be dropped regardless
+    of whether there is congestion or not.
 
     Args:
         flow_metrics (list): per-flow statistics
         test_flow_name (str): name of the test flow
         test_flow_rate_percent (int): test flow rate in percentage
-        data_flow_dur_sec (int): data flow duration in second
-        data_pkt_size (int): data packet size in bytes
+        test_flow_dur_sec (int): test flow duration in second
+        test_flow_pkt_size (int): test packet size in bytes
         speed_gbps (int): speed of the port in Gbps
         tolerance (float): tolerance for test flow deviation
         test_flow_pause (bool): whether test flow is paused
@@ -441,7 +452,7 @@ def verify_basic_test_flow(flow_metrics,
                           "{} should not have any dropped packet".format(metric.name))
 
             exp_test_flow_rx_pkts = test_flow_rate_percent / 100.0 * speed_gbps \
-                * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
+                * 1e9 * test_flow_dur_sec / 8.0 / test_flow_pkt_size
             deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
             pytest_assert(abs(deviation) < tolerance,
                           "{} should receive {} packets (actual {})".
@@ -453,7 +464,7 @@ def verify_basic_test_flow(flow_metrics,
 def verify_in_flight_buffer_pkts(duthost,
                                  flow_metrics,
                                  test_flow_name,
-                                 data_pkt_size,
+                                 test_flow_pkt_size,
                                  snappi_extra_params):
     """
     Verify in-flight TX bytes of test flows should be held by switch buffer unless PFC delay is applied
@@ -466,11 +477,11 @@ def verify_in_flight_buffer_pkts(duthost,
         None
     """
     tx_frames_total = sum(metric.frames_tx for metric in flow_metrics if test_flow_name in metric.name)
-    tx_bytes_total = tx_frames_total * data_pkt_size
+    tx_bytes_total = tx_frames_total * test_flow_pkt_size
     dut_buffer_size = get_lossless_buffer_size(host_ans=duthost)
     headroom_test_params = snappi_extra_params.headroom_test_params
-    flow_port_config = snappi_extra_params.base_flow_config["flow_port_config"]
-    pytest_assert(flow_port_config is not None, "Flow port config is not provided")
+    dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    pytest_assert(dut_port_config is not None, "Flow port config is not provided")
 
     if headroom_test_params is None:
         exceeds_headroom = False
@@ -484,7 +495,7 @@ def verify_in_flight_buffer_pkts(duthost,
                       "Total TX bytes {} should exceed DUT buffer size {}".
                       format(tx_bytes_total, dut_buffer_size))
 
-        for peer_port, prios in flow_port_config[0].items():
+        for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
                 dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
                 pytest_assert(dropped_packets > 0,
@@ -495,7 +506,7 @@ def verify_in_flight_buffer_pkts(duthost,
                       "Total TX bytes {} should be smaller than DUT buffer size {}".
                       format(tx_bytes_total, dut_buffer_size))
 
-        for peer_port, prios in flow_port_config[0].items():
+        for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
                 dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
                 pytest_assert(dropped_packets == 0,
@@ -514,10 +525,10 @@ def verify_pause_frame_count(duthost,
     Returns:
         None
     """
-    flow_port_config = snappi_extra_params.base_flow_config["flow_port_config"]
-    pytest_assert(flow_port_config is not None, 'Flow port config is not provided')
+    dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
 
-    for peer_port, prios in flow_port_config[1].items():
+    for peer_port, prios in dut_port_config[1].items():
         for prio in range(len(prios)):
             pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio])
             pytest_assert(pfc_pause_rx_frames > 0,
@@ -535,12 +546,12 @@ def verify_unset_cev_pause_frame_count(duthost,
     Returns:
         None
     """
-    flow_port_config = snappi_extra_params.base_flow_config["flow_port_config"]
-    pytest_assert(flow_port_config is not None, 'Flow port config is not provided')
+    dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
     set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
 
     if not set_class_enable_vec:
-        for peer_port, prios in flow_port_config[1].items():
+        for peer_port, prios in dut_port_config[1].items():
             for prio in range(len(prios)):
                 pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio])
                 pytest_assert(pfc_pause_rx_frames == 0,
@@ -558,13 +569,13 @@ def verify_egress_queue_frame_count(duthost,
     Returns:
         None
     """
-    flow_port_config = snappi_extra_params.base_flow_config["flow_port_config"]
-    pytest_assert(flow_port_config is not None, 'Flow port config is not provided')
+    dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
     set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
     test_tx_frames = snappi_extra_params.test_tx_frames
 
     if not set_class_enable_vec:
-        for peer_port, prios in flow_port_config[1].items():
+        for peer_port, prios in dut_port_config[1].items():
             for prio in range(len(prios)):
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
