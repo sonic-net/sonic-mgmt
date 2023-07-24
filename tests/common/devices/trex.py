@@ -128,7 +128,7 @@ class TRexHost(AnsibleHostBase):
         # self.disconnect()
 
         return
-    
+
     def set_dut_ip_route(self, duthost):
         """
         @summary: do IP/routes configuration on DUT.
@@ -139,11 +139,11 @@ class TRexHost(AnsibleHostBase):
         duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_ingress"], dut_ip["ip_ingress"]))
         duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_egress"], dut_routes["nexthop_egress"]))
         duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_ingress"], dut_routes["nexthop_ingress"]))
-    
+
     def set_dut_buffer(self):
         """
         @summary: do buffer configuration on DUT.
-        """        
+        """
         self.run("dut_buffer_config", dut=True)
 
     def set_dut_pfc(self, eth, pg_list):
@@ -152,7 +152,7 @@ class TRexHost(AnsibleHostBase):
         """
         cmds_buffer = self.cmds_json['dut_pfc_config']
         cmds_list = cmds_buffer
-        
+
         for i in range(len(pg_list)):
             if pg_list[i] == 1:
                 cmds_list.pop(-1)
@@ -178,12 +178,11 @@ class TRexHost(AnsibleHostBase):
         self.run("dut_pfc_config", cmds_list=cmds_list, dut=True)
 
         # logging.info("cmds_list: {}".format(cmds_list))
-            
+
         # for cmd in cmds_buffer:
         #     cmds_list.append(cmd.replace('Ethernet55', eth).replace('pg_tbd', pg))
         # # logging.warning("set_dut_pfc cmds_list: {}, length: {}".format(cmds_list, len(cmds_list)))
-        
-        
+
         # # cmds_buffer = json.dumps(self.cmds_json['dut_buffer_pfc_config'])
         # # logging.warning("set_dut_pfc cmds_buffer: {}".format(cmds_buffer))
         # # cmds_list = self.duthost.shell("echo {} | sed -n 's/Ethernet55/{}/g;p' | sed -n 's/pg_tbd/{}/g;p'".format(cmds_buffer, eth, pg))['stdout_lines']
@@ -234,7 +233,7 @@ class TRexHost(AnsibleHostBase):
         self.run("dut_del_buffer_config", cmds_list=cmds_list, dut=True)
 
         return
-    
+
     def get_dut_intf(self):
         show_interface = self.duthost.show_interface()['ansible_facts']
         logging.info("show_interface: {}, type: {}".format(show_interface, type(show_interface)))
@@ -244,7 +243,7 @@ class TRexHost(AnsibleHostBase):
         @summary: do buffer issue avoidance on DUT.
         """
         self.run("dut_buffer_issue_avoidance", dut=True)
-        
+
         return
 
     def learn_arp(self):
