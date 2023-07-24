@@ -122,7 +122,7 @@ steps:
   - ${{ if not(contains(variables['BUILD.REPOSITORY_NAME'], 'sonic-mgmt')) }}:
       - script: |
           set -ex
-          echo '$BUILD_REPOSITORY_NAME'
+          echo '$(BUILD_REPOSITORY_NAME)'
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
         displayName: "Download test plan script"
       - script: |
