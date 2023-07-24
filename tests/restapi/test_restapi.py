@@ -6,7 +6,7 @@ import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
 from tests.common.reboot import reboot
-from helper import apply_cert_config
+from tests.common.helpers.restapi_helper import apply_cert_config
 from restapi_operations import Restapi
 
 
