@@ -26,9 +26,9 @@ devices:
     xr_port_redir: [22]
     linux_username: "cisco"
     linux_password: "cisco123"
-    image:  /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: /ws/adarssri-sjc/sonic-dpu-vxr/vxr/final/sonic-buildimage-cisco.202205.dpu-p2/sonic-cisco-8000.bin
-    linecard_types: [8201-32FH]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.27.147.152/IMAGES/4265/sonic-cisco-8000.bin
+    linecard_types: [churchill32]
 
   sonic_mgmt :
     platform: linux

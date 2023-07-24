@@ -954,7 +954,7 @@ def main():
     elif device_type == 'crocodile':
         dut_platform = 'crocodile'
     elif device_type == 'churchill':
-        if topo_type == 't0':
+        if topo_type == 't0-64':
             topo_yaml = '../pyvxr_yaml_files/churchill_sonic_t0_topo.yaml'
         dut_platform = 'churchill'
     else:
