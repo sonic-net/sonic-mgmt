@@ -8,7 +8,6 @@ from tests.common.devices.base import AnsibleHostBase
 
 logger = logging.getLogger(__name__)
 
-
 class TRexHost(AnsibleHostBase):
     """
     @summary: Class for TRex
@@ -16,7 +15,8 @@ class TRexHost(AnsibleHostBase):
     Instance of this class can run ansible modules on the TRex host which is running on same server with pytest.
     """
 
-    def __init__(self, ansible_adhoc, duthost, hostname, ip, cmds_path="./trex/trex_cmds.json", login="admin5", password="admin"):
+    def __init__(self, ansible_adhoc, duthost, hostname, ip, \
+                 cmds_path="./trex/trex_cmds.json", login="admin5", password="admin"):
         self.ip = ip
         self.cmds_path = cmds_path
         self.login = login
@@ -35,7 +35,7 @@ class TRexHost(AnsibleHostBase):
                           allow_agent=False,
                           look_for_keys=False)
         self.shell = self.conn.invoke_shell()
-        self.shell.keep_this = self.conn # to keep the session go on
+        self.shell.keep_this = self.conn  # to keep the session go on
 
         with open(self.cmds_path) as f:
             self.cmds_json = json.load(f)
@@ -135,10 +135,14 @@ class TRexHost(AnsibleHostBase):
         """
         dut_ip = self.cmds_json["dut_ip"]
         dut_routes = self.cmds_json["dut_routes"]
-        duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_egress"], dut_ip["ip_egress"]))
-        duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_ingress"], dut_ip["ip_ingress"]))
-        duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_egress"], dut_routes["nexthop_egress"]))
-        duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_ingress"], dut_routes["nexthop_ingress"]))
+        duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_egress"], \
+                                                                          dut_ip["ip_egress"]))
+        duthost.shell("sudo config interface ip add Ethernet{} {}".format(dut_ip["eth_ingress"], \
+                                                                          dut_ip["ip_ingress"]))
+        duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_egress"], \
+                                                                          dut_routes["nexthop_egress"]))
+        duthost.shell("sudo config route add prefix {} nexthop {}".format(dut_routes["prefix_ingress"], \
+                                                                          dut_routes["nexthop_ingress"]))
 
     def set_dut_buffer(self):
         """
@@ -185,7 +189,8 @@ class TRexHost(AnsibleHostBase):
 
         # # cmds_buffer = json.dumps(self.cmds_json['dut_buffer_pfc_config'])
         # # logging.warning("set_dut_pfc cmds_buffer: {}".format(cmds_buffer))
-        # # cmds_list = self.duthost.shell("echo {} | sed -n 's/Ethernet55/{}/g;p' | sed -n 's/pg_tbd/{}/g;p'".format(cmds_buffer, eth, pg))['stdout_lines']
+        # # cmds_list = self.duthost.shell("echo {} | sed -n 's/Ethernet55/{}/g;p' | \
+        # # sed -n 's/pg_tbd/{}/g;p'".format(cmds_buffer, eth, pg))['stdout_lines']
         # # logging.warning("set_dut_pfc cmds_list: {}, length: {}".format(cmds_list, len(cmds_list)))
 
     def set_dut_pfc_counter(self):
@@ -216,7 +221,6 @@ class TRexHost(AnsibleHostBase):
             for pg in pg_list:
                 cmds_list.append('sudo config interface pfc priority Ethernet{} {} off'.format(eth, pg))
             cmds_list.append('sudo config interface buffer priority-group lossless remove Ethernet{}'.format(eth))
-
 
         self.run("dut_disable_pfc", cmds_list=cmds_list, dut=True)
 
@@ -283,7 +287,8 @@ class TRexHost(AnsibleHostBase):
                     allow_agent=False,
                     look_for_keys=False)
         conn_pfc_mod = ssh.invoke_shell()
-        conn_pfc_mod.send('sudo sed -i \'/pad =/s/x[0-9a-f][0-9a-f]/x{}/4\' /opt/trex/v2.87/stl/pfcPacket.py\n'.format(ls_octet))
+        conn_pfc_mod.send('sudo sed -i \'/pad =/s/x[0-9a-f][0-9a-f]/x{}/4\' \
+                           /opt/trex/v2.87/stl/pfcPacket.py\n'.format(ls_octet))
         time.sleep(2)
         # result = ''
         # while True:
@@ -316,7 +321,6 @@ class TRexHost(AnsibleHostBase):
         self.run("dut_counters", dut=True)
 
         return
-
 
 def clean_data(list_data, s1):
     res_list = []
