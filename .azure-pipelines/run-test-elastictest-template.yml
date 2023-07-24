@@ -119,6 +119,12 @@ parameters:
 
 
 steps:
+  - script: |
+      for var in $(compgen -e); do
+        echo $var ${!var};
+      done
+      return 1
+    displayName: "print ENV"
   - ${{ if not(contains(variables['BUILD.REPOSITORY_NAME'], 'sonic-mgmt')) }}:
       - script: |
           set -ex
