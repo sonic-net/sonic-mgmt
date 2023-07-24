@@ -224,6 +224,9 @@ def testing_config(request, rand_selected_dut, tbinfo):
         if testing_mode == DUAL_TOR_MODE:
             pytest.skip("skip DUAL_TOR_MODE tests on po2vlan testbeds")
     else:
+        if testing_mode == DUAL_TOR_MODE:
+            pytest.skip("skip DUAL_TOR_MODE tests on Single ToR testbeds")
+
         if testing_mode == SINGLE_TOR_MODE:
             if subtype_exist:
                 duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "subtype"')
