@@ -543,6 +543,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
         flow.metrics.enable = True
         flow.metrics.loss = True
         return conv_config
+
     for j in range(start_routes, stop_routes, routes_step):
         logger.info('|--------------------CP/DP Test with No.of Routes : {} ----|'.format(j))
         bgp_config = tgen_config(j)
