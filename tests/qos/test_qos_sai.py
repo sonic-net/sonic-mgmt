@@ -51,13 +51,15 @@ PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer):
-    """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_attribute:1920 updating switch mac addr failed with error -2"""
+    """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_
+       attribute:1920 updating switch mac addr failed with error -2"""
     ignore_regex = [
         ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
     ]
     if loganalyzer:
         for a_dut in get_src_dst_asic_and_duts['all_duts']:
             loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex)
+
 
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
@@ -148,7 +150,7 @@ class TestQosSai(QosSaiBase):
             portNumbers = []
             portIds = []
             for idName in qosParams.keys():
-                if re.match('(?:src|dst)_port\S+ids?', idName):
+                if re.match(r'(?:src|dst)_port\S+ids?', idName):
                     portIdNames.append(idName)
                     ids = qosParams[idName]
                     if isinstance(ids, list):
@@ -640,7 +642,8 @@ class TestQosSai(QosSaiBase):
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
 
-        if ('platform_asic' in dutTestParams["basicParams"] and dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             # Need to adjust hdrm_pool_size src_port_ids, dst_port_id and pgs_num based on how many source and dst ports
             # present
             src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
@@ -667,7 +670,8 @@ class TestQosSai(QosSaiBase):
             "src_port_ips": [testPortIps[src_dut_index][src_asic_index][port]['peer_addr']
                              for port in qosConfig["hdrm_pool_size"]["src_port_ids"]],
             "dst_port_id": qosConfig["hdrm_pool_size"]["dst_port_id"],
-            "dst_port_ip": testPortIps[dst_dut_index][dst_asic_index][qosConfig["hdrm_pool_size"]["dst_port_id"]]['peer_addr'],
+            "dst_port_ip":
+                testPortIps[dst_dut_index][dst_asic_index][qosConfig["hdrm_pool_size"]["dst_port_id"]]['peer_addr'],
             "pgs_num": qosConfig["hdrm_pool_size"]["pgs_num"],
             "pkts_num_trig_pfc": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
@@ -842,9 +846,11 @@ class TestQosSai(QosSaiBase):
             "ecn": qosConfig["hdrm_pool_size"]["ecn"],
             "pgs": qosConfig["hdrm_pool_size"]["pgs"],
             "src_port_ids": qosConfig["hdrm_pool_size"]["src_port_ids"],
-            "src_port_ips": [testPortIps[src_dut_index][src_asic_index][port]['peer_addr'] for port in qosConfig["hdrm_pool_size"]["src_port_ids"]],
+            "src_port_ips": [testPortIps[src_dut_index][src_asic_index][port]['peer_addr']
+                             for port in qosConfig["hdrm_pool_size"]["src_port_ids"]],
             "dst_port_id": qosConfig["hdrm_pool_size"]["dst_port_id"],
-            "dst_port_ip": testPortIps[dst_dut_index][dst_asic_index][qosConfig["hdrm_pool_size"]["dst_port_id"]]['peer_addr'],
+            "dst_port_ip":
+                testPortIps[dst_dut_index][dst_asic_index][qosConfig["hdrm_pool_size"]["dst_port_id"]]['peer_addr'],
             "pgs_num": qosConfig["hdrm_pool_size"]["pgs_num"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc"],
@@ -1095,7 +1101,7 @@ class TestQosSai(QosSaiBase):
                 setup_markings_dut(duthost, localhost, **original_voq_markings)
 
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1114,7 +1120,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         # Skip the regular dscp to pg mapping test. Will run another test case instead.
-        duthost = get_src_dst_asic_and_duts['src_dut']
+        duthost = get_src_dst_asic_and_duts['src_dut']    # noqa F841
         if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip(
                 "Skip this test since separated DSCP_TO_TC_MAP is applied")
@@ -1627,7 +1633,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDscpToPgMapping(
-        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps
+        self, get_src_dst_asic_and_duts, duthost, request, ptfhost, dutTestParams, dutConfig, dut_qos_maps  # noqa F811
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
