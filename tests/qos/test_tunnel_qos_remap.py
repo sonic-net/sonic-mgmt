@@ -4,14 +4,14 @@ import sys
 import time
 from ptf.mask import Mask
 import ptf.packet as scapy
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder        # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_garp_service          # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode  # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # lgtm[py/unused-import]
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module       # lgtm[py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder        # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service          # noqa F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode  # noqa F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module       # noqa F401
 from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 
@@ -225,7 +225,8 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
         counter_poll_config(rand_selected_dut, 'queue', 10000)
 
 
-def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, dut_qos_maps_module):
+def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_dut,
+        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, dut_qos_maps_module):  # noqa F811
     """
     The test case is to verify separated DSCP_TO_TC_MAP/TC_TO_QUEUE_MAP on uplink and downlink ports of dualtor
     Test steps
@@ -338,7 +339,8 @@ def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue,
         stop_pfc_storm(storm_handler)
 
 
-def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):
+def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
+        toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
     Test steps:
@@ -412,7 +414,8 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
             time.sleep(5)
 
 
-def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):
+def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
+        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
     Test steps:
