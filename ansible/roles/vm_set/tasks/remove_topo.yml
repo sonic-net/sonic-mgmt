@@ -87,7 +87,7 @@
     become: yes
     ignore_errors: yes
 
-  - name: [Workaround] Sleep 180 seconds to avoid server temporarily unreachable
+  - name: (Workaround) Sleep 180 seconds to avoid server temporarily unreachable
     pause:
       seconds: 180
 
