@@ -13,8 +13,12 @@ PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_out2']
 ]
-RESPINED_PLATFORM = ['x86_64-mlnx_msn4700-r0', 'x86_64-mlnx_msn4410-r0', 'x86_64-mlnx_msn4600c-r0', \
-                     'x86_64-mlnx_msn3700-r0', 'x86_64-mlnx_msn3700c-r0', 'x86_64-mlnx_msn2700-r0']
+RESPINED_PLATFORM = ['x86_64-mlnx_msn4700-r0',
+                     'x86_64-mlnx_msn4410-r0',
+                     'x86_64-mlnx_msn4600c-r0',
+                     'x86_64-mlnx_msn3700-r0',
+                     'x86_64-mlnx_msn3700c-r0',
+                     'x86_64-mlnx_msn2700-r0']
 SWITCH_MODELS = {
     "x86_64-nvidia_sn5600-r0": {
         "chip_type": "spectrum4",
@@ -979,7 +983,8 @@ def get_platform_data(dut):
         return SWITCH_MODELS[dut_platform]
     else:
         respin_platform_name = dut_platform + '-' + respin_version
-        return SWITCH_MODELS[respin_platform_name] if respin_platform_name in SWITCH_MODELS else SWITCH_MODELS[dut_platform]
+        return SWITCH_MODELS[respin_platform_name] if respin_platform_name in SWITCH_MODELS else \
+            SWITCH_MODELS[dut_platform]
 
 
 def get_chip_type(dut):
@@ -998,7 +1003,7 @@ def get_respin_version(duthost, platform):
             if config1['rc'] == 0:
                 if config1['stdout'] == '1':
                     if config3['rc'] == 0 and config3['stdout'] == '1':
-                            return 'a1-respined'
+                        return 'a1-respined'
                     else:
                         return 'a1'
                 else:
