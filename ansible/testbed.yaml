@@ -180,21 +180,6 @@
   auto_recover: 'True'
   comment: Pavel
 
-- conf-name: vms3-4
-  group-name: vms3-4
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms3-4
-  ptf_ip: 10.64.246.11/23
-  ptf_ipv6:
-  server: server_3
-  vm_base: VM03060
-  dut:
-    - str-s6000-acs-13
-  inv_name: str
-  auto_recover: 'True'
-  comment: Renuka
-
 - conf-name: vms3-t1-dx010-1
   group-name: vms3-5
   topo: t1-lag
@@ -554,21 +539,6 @@
   inv_name: str
   auto_recover: 'True'
   comment: gulv
-
-- conf-name: vms12-t0-s6000
-  group-name: v12-4
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: v12-4
-  ptf_ip: 10.64.246.84/23
-  ptf_ipv6:
-  server: server_12
-  vm_base: VM12036
-  dut:
-    - str-s6000-on-5
-  inv_name: str
-  auto_recover: 'False'
-  comment: dev
 
 - conf-name: vms12-t0-s6000-1
   group-name: v12-6

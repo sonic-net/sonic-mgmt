@@ -248,14 +248,10 @@ sonic:
 
 sonic_dell32_40:
   hosts:
-    str-s6000-on-1:
-      ansible_host: 10.3.147.141
     str-s6000-on-2:
       ansible_host: 10.3.147.142
     str-s6000-on-4:
       ansible_host: 10.3.146.113
-    str-s6000-on-5:
-      ansible_host: 10.3.147.171
     str-s6000-on-6:
       ansible_host: 10.3.147.172
     str-s6000-acs-7:
@@ -296,8 +292,6 @@ sonic_dell32_40:
         "0x2D": "DELL"
         "0x2F": "DR0RX42"
         "0xFE": "0xD6DDB4A6"
-    str-s6000-acs-13:
-      ansible_host: 10.3.147.253
     str-s6000-acs-14:
       ansible_host: 10.3.147.17
       model: 0P19MV

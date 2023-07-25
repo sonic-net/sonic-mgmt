@@ -12,7 +12,6 @@ vms2-4-t0-2700,vms2-4,t0,docker-ptf,vms2-4,10.64.246.131/23,,server_2,VM02040,st
 vms2-t1-7260-7,vms2-6,t1-64-lag,docker-ptf,vms2-6,10.64.246.79/23,,server_2,VM02044,str-7260cx3-acs-7,str,True,nejo
 vms2-5-t0-7050-1,vms2-5,t0-35,docker-ptf,vms2-5,10.64.247.23/23,,server_2,VM02072,str-a7050-acs-1,str,True,daall
 vms3-t0-s6100,vms3-61,t0-64,docker-ptf,vms3-61,10.64.246.21/23,,server_3,VM03056,str-s6100-acs-1,str,True,Pavel
-vms3-4,vms3-4,t0,docker-ptf,vms3-4,10.64.246.11/23,,server_3,VM03060,str-s6000-acs-13,str,True,Renuka
 vms3-t1-dx010-1,vms3-6,t1-lag,docker-ptf,vms3-5,10.64.247.15/23,2a01:111:e210:b000::7/64,server_3,VM03000,str-dx010-acs-1,str,True,nejo
 vms3-t1-7280,vms3-7,t1-lag,docker-ptf,vms3-7,10.64.246.87/23,,server_3,VM03024,str-a7280cr3-2,str,True,prsunny
 vms6-1,vms6-1,t1-lag,docker-ptf,vms6-1,10.64.247.6/23,,server_6,VM06000,str-a7050-acs-2,str,True,jleveque
@@ -37,7 +36,6 @@ vms12-t1-lag-1,v12-11,t1-lag,docker-ptf,v12-11,10.64.247.27/23,,server_12,VM1200
 vms12-t0-1,v12-12,t0,docker-ptf,v12-12,10.64.247.26/23,,server_12,VM12024,str-s6000-acs-7,str,True,Jenkins
 vms12-t0-2,v12-21,t0,docker-ptf,v12-21,10.64.246.26/23,,server_12,VM12028,str-msn2700-04,str,True,Jenkins
 vms12-3-t0-e1031,vms11-7,t0-52,docker-ptf,vms11-7,10.64.246.42/23,,server_11,VM12064,str-e1031-acs-1,str,True,gulv
-vms12-t0-s6000,v12-4,t0,docker-ptf,v12-4,10.64.246.84/23,,server_12,VM12032,str-s6000-on-5,str,False,dev
 vms12-t0-s6000-1,v12-6,t0,docker-ptf,v12-6,10.64.246.55/23,,server_12,VM12080,str-s6000-acs-14,str,True,taahme
 vms12-t0-3800,vms12-5,t0-64,docker-ptf,vms12-5,10.64.246.90/23,,server_12,VM12072,str-sn3800-01,str,True,stumkurv
 vms12-t0-s5232-1,vms12-8,t0,docker-ptf,vms12-8,10.64.246.112/23,,server_12,VM12084,str-s5232f-on-1,str,True,lawlee
