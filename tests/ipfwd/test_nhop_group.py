@@ -379,7 +379,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
     # increase CRM polling time
     asic.command("crm config polling interval {}".format(polling_interval))
 
-    if is_cisco_device(duthost) or is_innovium_device(duthost):
+    if is_cisco_device(duthost):
         # Waiting for ARP routes to be synced and programmed
         time.sleep(sleep_time_sync_before)
         crm_stat = get_crm_info(duthost, asic)
@@ -389,6 +389,9 @@ def test_nhop_group_member_count(duthost, tbinfo):
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
+    elif is_innovium_device(duthost):
+        crm_stat = get_crm_info(duthost, asic)
+        nhop_group_count = crm_stat["available_nhop_grp"]
     else:
         nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
     # initialize log analyzer
