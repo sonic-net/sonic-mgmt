@@ -67,6 +67,8 @@ from switch_sai_thrift.sai_headers import SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRES
     SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_QLEN
 
 
+from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS
+
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
 switch_inited = 0
