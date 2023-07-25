@@ -12,7 +12,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
 from tests.common.mellanox_data import is_mellanox_device
 
-from platform_api_test_base import PlatformApiTestBase
+from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
 # TODO: Remove this after we transition to Python 3

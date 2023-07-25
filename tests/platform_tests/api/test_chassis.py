@@ -12,7 +12,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import skip_release
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.platform_tests.cli.util import get_skip_mod_list
-from platform_api_test_base import PlatformApiTestBase
+from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
