@@ -11,7 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('m0'),
+    pytest.mark.topology('m0', 'mx'),
 ]
 
 def test_idle_driver(duthosts, enum_rand_one_per_hwsku_hostname):
