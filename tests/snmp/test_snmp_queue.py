@@ -1,6 +1,5 @@
 import pytest
 from tests.common.helpers.snmp_helpers import get_snmp_facts
-from tests.common.helpers.sonic_db import redis_get_keys
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -11,14 +10,20 @@ pytestmark = [
 def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
                      collect_techsupport_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip("interfaces not present on supervisor node")
+    q_keys = []
+
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
 
-    q_keys = redis_get_keys(duthost, "CONFIG_DB", "QUEUE|*")
+    for asic_id in duthost.get_asic_ids():
+        namespace = duthost.get_namespace_from_asic_id(asic_id)
+        sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+        q_keys_ns = duthost.shell('{} CONFIG_DB KEYS "QUEUE|*"'.format(sonic_db_cmd),
+                                  module_ignore_errors=False)['stdout_lines']
+        if q_keys_ns:
+            q_keys.extend(q_keys_ns)
 
-    if q_keys is None:
+    if not q_keys:
         pytest.skip("No queues configured on interfaces")
 
     q_interfaces = set()
