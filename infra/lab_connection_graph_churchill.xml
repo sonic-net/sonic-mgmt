@@ -6,7 +6,7 @@
       <Device Hostname="sonic-ucs-m3-2" HwSku="TestServ" Type="Server"/>
     </Devices>
     <DeviceInterfaceLinks>
-	    <DevwiceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet1/1" StartDevice="churchill-01" StartPort="Ethernet0"/>
+	    <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet1/1" StartDevice="churchill-01" StartPort="Ethernet0"/>
 	    <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet1/2" StartDevice="churchill-01" StartPort="Ethernet1"/>
 	    <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet1/3" StartDevice="churchill-01" StartPort="Ethernet2"/>
 	    <DeviceInterfaceLink BandWidth="40000" EndDevice="nexus-5" EndPort="Ethernet1/4" StartDevice="churchill-01" StartPort="Ethernet3"/>
