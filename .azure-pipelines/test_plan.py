@@ -226,8 +226,10 @@ class TestPlanManager(object):
 
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
+        kvm_image_branch = kwargs.get("kvm_image_branch", "")
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
+            kvm_image_branch = ""
 
         payload = json.dumps({
             "name": test_plan_name,
@@ -253,7 +255,8 @@ class TestPlanManager(object):
                 "image": {
                     "url": image_url,
                     "release": "",
-                    "kvm_image_build_id": kvm_image_build_id
+                    "kvm_image_build_id": kvm_image_build_id,
+                    "kvm_image_branch": kvm_image_branch
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
@@ -335,7 +338,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state=""):
+    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_result=None):
         print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
@@ -396,9 +399,18 @@ class TestPlanManager(object):
                                         .format(test_plan_id, step_status, result, time.time() - start_time,
                                                 self.frontend_url,
                                                 test_plan_id))
-                    else:
-                        print("Current status is {}".format(step_status))
-                        return
+                    if expected_result:
+                        if result != expected_result:
+                            raise Exception("Test plan id: {}, status: {}, result: {} not match expected result: {}, "
+                                            "Elapsed {:.0f} seconds. "
+                                            "Check {}/scheduler/testplan/{} for test plan status"
+                                            .format(test_plan_id, step_status, result,
+                                                    expected_result, time.time() - start_time,
+                                                    self.frontend_url,
+                                                    test_plan_id))
+
+                    print("Current status is {}".format(step_status))
+                    return
                 else:
                     print("Current state is {}, waiting for the state {}".format(status, expected_state))
 
@@ -470,6 +482,16 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="Deploy minigraph extra params"
+    )
+    parser_create.add_argument(
+        "--kvm-image-branch",
+        type=str,
+        dest="kvm_image_branch",
+        nargs='?',
+        const="",
+        default="",
+        required=False,
+        help="KVM build branch."
     )
     parser_create.add_argument(
         "--kvm-build-id",
@@ -724,6 +746,17 @@ if __name__ == "__main__":
         default=""
     )
     parser_poll.add_argument(
+        "--expected-result",
+        type=str,
+        dest="expected_result",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        choices=['PENDING', 'EXECUTING', 'SUCCESS', 'FAILED', 'CANCELLED'],
+        help="If specify expected result, check test plan result after expected state matched."
+    )
+    parser_poll.add_argument(
         "--interval",
         type=int,
         required=False,
@@ -808,6 +841,7 @@ if __name__ == "__main__":
                 test_plan_name=test_plan_name,
                 deploy_mg_extra_params=args.deploy_mg_extra_params,
                 kvm_build_id=args.kvm_build_id,
+                kvm_image_branch=args.kvm_image_branch,
                 min_worker=args.min_worker,
                 max_worker=args.max_worker,
                 pr_id=pr_id,
@@ -837,7 +871,7 @@ if __name__ == "__main__":
                 max_execute_seconds=args.max_execute_seconds,
             )
         elif args.action == "poll":
-            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state)
+            tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)

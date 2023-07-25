@@ -379,7 +379,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
     # increase CRM polling time
     asic.command("crm config polling interval {}".format(polling_interval))
 
-    if is_cisco_device(duthost) or is_innovium_device(duthost):
+    if is_cisco_device(duthost):
         # Waiting for ARP routes to be synced and programmed
         time.sleep(sleep_time_sync_before)
         crm_stat = get_crm_info(duthost, asic)
@@ -389,6 +389,9 @@ def test_nhop_group_member_count(duthost, tbinfo):
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
+    elif is_innovium_device(duthost):
+        crm_stat = get_crm_info(duthost, asic)
+        nhop_group_count = crm_stat["available_nhop_grp"]
     else:
         nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
     # initialize log analyzer
@@ -663,13 +666,41 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
                          45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
                          47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+
+    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
+                         2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d',
+                         4: 'c0:ff:ee:00:00:11', 5: 'c0:ff:ee:00:00:0e',
+                         6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c',
+                         8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:11',
+                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
+                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
+                         14: 'c0:ff:ee:00:00:10', 15: 'c0:ff:ee:00:00:0b',
+                         16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0e',
+                         18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0c',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
+                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
+                         24: 'c0:ff:ee:00:00:11', 25: 'c0:ff:ee:00:00:0e',
+                         26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:0c',
+                         28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
+                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
+                         34: 'c0:ff:ee:00:00:0e', 35: 'c0:ff:ee:00:00:11',
+                         36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:12',
+                         38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
+                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
+                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b',
+                         44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:11',
+                         46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f',
+                         48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+
     # Make sure a givenflow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
-                                              "td2": td2_asic_flow_map, "th2": th2_asic_flow_map}
+                                              "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
+                                              "td3": td3_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
