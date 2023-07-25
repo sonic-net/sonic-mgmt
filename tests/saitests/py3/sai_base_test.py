@@ -174,8 +174,8 @@ class ThriftInterface(BaseTest):
                                                             self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             cmd)
-            assert 'Success rv = 0' in stdOut[1],"enable wd failed '{}' on asic '{}' on '{}'".format(cmd,
-                            self.src_asic_index, self.src_server_ip)
+            assert 'Success rv = 0' in stdOut[1], "enable wd failed '{}' on asic '{}' on '{}'".format(
+                    cmd, self.src_asic_index, self.src_server_ip)
 
         sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
 
@@ -187,8 +187,8 @@ class ThriftInterface(BaseTest):
                                                             self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             cmd)
-            assert 'Success rv = 0' in stdOut[1],"disable wd failed '{}' on asic '{}' on '{}'".format(cmd,
-                            self.src_asic_index, self.src_server_ip)
+            assert 'Success rv = 0' in stdOut[1], "disable wd failed '{}' on asic '{}' on '{}'".format(
+                    cmd, self.src_asic_index, self.src_server_ip)
         sai_thrift_port_tx_disable(client, asic_type, port_list, target=target)
 
 
