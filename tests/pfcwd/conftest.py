@@ -206,17 +206,15 @@ def setup_dut_test_params(
                         dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
                         break
 
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    conf_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-
     vlan_table = {}
-    for name, vlan in list(conf_facts['VLAN'].items()):
-        vlan_id = int(vlan['vlanid'])
-        vlan_table[vlan_id] = {"mac": vlan['mac'], "ifname": []} 
-
-        for ifname in list(conf_facts['VLAN_MEMBER'][name].keys()):
-            vlan_table[vlan_id]['ifname'].append(ifname)
-    logger.info("vlan_table : {}".format(vlan_table))
+    if dut_test_params['basicParams']['is_dualtor']:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        conf_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        for name, vlan in list(conf_facts['VLAN'].items()):
+            vlan_id = int(vlan['vlanid'])
+            vlan_table[vlan_id] = {"mac": vlan['mac'], "ifname": []}
+            for ifname in list(conf_facts['VLAN_MEMBER'][name].keys()):
+                vlan_table[vlan_id]['ifname'].append(ifname)
 
     dut_test_params['vlanParams'] = vlan_table
     logger.info("dut_test_params : {}".format(dut_test_params))
