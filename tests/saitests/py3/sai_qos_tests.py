@@ -104,7 +104,7 @@ def check_leackout_compensation_support(asic, hwsku):
 
 def get_ip_addr():
     val = 1
-    while True:
+    while val < 200:
         val = max(val, (val+1)%250)
         yield "192.0.0.{}".format(val)
 
