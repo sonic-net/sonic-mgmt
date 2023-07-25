@@ -4,7 +4,7 @@ import pytest
 from tests.common.helpers.platform_api import chassis, thermal
 from tests.common.utilities import skip_release_for_platform
 
-from platform_api_test_base import PlatformApiTestBase
+from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
