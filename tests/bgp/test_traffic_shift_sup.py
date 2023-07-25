@@ -59,7 +59,8 @@ class TestTrafficShiftOnSup:
                          self.dutuser, self.dutip),
                      timeout=300)
             client.expect(["admin@{}'s password:".format(self.dutip)])
-
+            client.sendline(self.dutpass)
+            client.expect("admin*")
             client.sendline(cmd)
             client.expect("Password .*")
             client.sendline(self.dutpass)
