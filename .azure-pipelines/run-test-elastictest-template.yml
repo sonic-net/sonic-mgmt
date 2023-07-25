@@ -113,9 +113,9 @@ parameters:
     type: string
     default: ""
 
-  - name: RUN_TEST_TO_THE_END
-    type: boolean
-    default: false
+  - name: EXPECTED_RESULT
+    type: string
+    default: ""
 
 
 steps:
@@ -223,13 +223,7 @@ steps:
       echo "SONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com"
       echo "Runtime detailed progress at $(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
       # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
-
-      if ${{ parameters.RUN_TEST_TO_THE_END }}; then
-        echo "Running the test to the end..."
-        python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING --expected-result SUCCESS
-      else
-        python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING
-      fi
+      python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: "Run test"
