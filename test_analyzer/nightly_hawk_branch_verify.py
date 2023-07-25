@@ -48,22 +48,26 @@ from nightly_hawk_common import logger
 
 
 class Nightly_hawk_branch_verify(object):
-    def __init__(self, verbose = False, branch = None, image = None):
+    def __init__(self, verbose = False, branch = None, image = None, script=None, specific=None, skip=False):
         self.verbose = verbose
         self.branch = branch
+        self.script_branch = script
+        self.testbed_specific = specific
+        self.skip_upload_result = skip
         self.image = image
         self.testbeds = {}
         self.curr_building_testbed_list = []
         self.pipeline_parser_analyzer_dict = {}
         self.nightly_pipeline_check = NightlyPipelineCheck()
 
-        logger.debug("Get all nightly test pipeline information")
         self.pipeline_parser_analyzer_dict = self.nightly_pipeline_check.collect_nightly_build_pipelines()
 
         # with open('pipeline_parser_dict_debug_branch_verify.json') as f:
         # # with open('pipeline_parser_dict_debug.json') as f:
         #     logger.info("parser_pipeline_info using cache file")
         #     self.pipeline_parser_analyzer_dict = json.load(f)
+
+        logger.debug("Get all nightly test pipeline information: {}".format(self.pipeline_parser_analyzer_dict))
 
 
     def check_testbed_is_available(self, testbed):
@@ -127,14 +131,21 @@ class Nightly_hawk_branch_verify(object):
                 self.testbeds[testbed]['yml'] = os.path.basename(pipeline['path']) 
 
                 yml = os.path.join(SONIC_MGMT_DIR, pipeline['path'])
-                _, _, _, _, testbed_specific, nightly_test_timeout = self.nightly_pipeline_check.parser_nightly_pipeline_yml_File(yml)
+                _, _, _, _, testbed_specific, nightly_test_timeout, skip_test_results_uploading = self.nightly_pipeline_check.parser_nightly_pipeline_yml_File(yml)
                 if testbed_specific == None and 'TESTBED_SPECIFIC' in self.testbeds[testbed]:
                     logger.info("pipeline has no TESTBED_SPECIFIC item, remove {}".format(self.testbeds[testbed]['TESTBED_SPECIFIC']))
                     del self.testbeds[testbed]['TESTBED_SPECIFIC']
+                elif self.testbed_specific:
+                    self.testbeds[testbed]['TESTBED_SPECIFIC'] = self.testbed_specific
+
                 if nightly_test_timeout == None and 'NIGHTLY_TEST_TIMEOUT' in self.testbeds[testbed]:
                     logger.info("pipeline has no NIGHTLY_TEST_TIMEOUT item, remove {}".format(self.testbeds[testbed]['NIGHTLY_TEST_TIMEOUT']))
                     del self.testbeds[testbed]['NIGHTLY_TEST_TIMEOUT']
-
+                if skip_test_results_uploading == None and 'SKIP_TEST_RESULTS_UPLOADING' in self.testbeds[testbed]:
+                    logger.info("pipeline has no SKIP_TEST_RESULTS_UPLOADING item, remove {}".format(self.testbeds[testbed]['SKIP_TEST_RESULTS_UPLOADING']))
+                    del self.testbeds[testbed]['SKIP_TEST_RESULTS_UPLOADING']
+                elif self.skip_upload_result:
+                    self.testbeds[testbed]['SKIP_TEST_RESULTS_UPLOADING'] = self.skip_upload_result
 
                 # self.testbeds[testbed]['TESTBED_SPECIFIC'] = testbed_specific
                 break
@@ -159,7 +170,8 @@ class Nightly_hawk_branch_verify(object):
         new_image_name = '{}.{}'.format(new_name, ext)
 
         # Networking-acs-buildimage-Official/broadcom/internal-202205/tagged/sonic-aboot-broadcom-20220531.05.swi
-        image_url = "http://{}/pipelines/Networking-acs-buildimage-Official/{}/{}/tagged/{}".format(IP_Address, vendor, self.branch, new_image_name)
+        # Networking-acs-buildimage-Official/broadcom/internal/sonic-aboot-broadcom-internal.76630385-c5de9bbe18.swi
+        image_url = "http://{}/pipelines/Networking-acs-buildimage-Official/{}/{}/{}{}".format(IP_Address, vendor, self.branch, 'tagged/' if self.branch != 'internal' else '', new_image_name)
 
         # fixme, is it OK for prev image
         self.testbeds[testbed]['image_url'] = image_url
@@ -172,6 +184,13 @@ class Nightly_hawk_branch_verify(object):
             self.update_test_image(testbed)
 
         payload = {
+            "resources": {
+                "repositories": {
+                    "self": {
+                        "refName": "refs/heads/{}".format(self.script_branch),
+                    }
+                }
+            },
             "templateParameters" : {
                 "TESTBED_NAME" : testbed ,
                 "IMAGE_URL" : self.testbeds[testbed]['image_url'],
@@ -183,6 +202,9 @@ class Nightly_hawk_branch_verify(object):
 
         if 'NIGHTLY_TEST_TIMEOUT' in self.testbeds[testbed]:
             payload['templateParameters']['NIGHTLY_TEST_TIMEOUT'] = self.testbeds[testbed]['NIGHTLY_TEST_TIMEOUT']
+
+        if 'SKIP_TEST_RESULTS_UPLOADING' in self.testbeds[testbed]:
+            payload['templateParameters']['SKIP_TEST_RESULTS_UPLOADING'] = self.testbeds[testbed]['SKIP_TEST_RESULTS_UPLOADING']
 
         return payload
 
@@ -265,6 +287,21 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '-s', '--script', help='input mgmt script branch name', type=str,
+        required=True
+    )
+
+    parser.add_argument(
+        '-p', '--parameterspecific', help='input Testbed specific parameter', type=str,
+        required=True
+    )
+
+    parser.add_argument(
+        '-r', '--resultignore', help='set if upload test result to kusto', type=bool,
+        required=True
+    )
+
+    parser.add_argument(
         '-i', '--image', help='input image name', type=str,
         required=False, default=None
     )
@@ -309,7 +346,7 @@ if __name__ == '__main__':
         elif logging_lever == 'error':
             logger.setLevel(logging.ERROR)
 
-    branch_verify = Nightly_hawk_branch_verify(verbose=args.verbose, branch=args.branch, image=args.image)
+    branch_verify = Nightly_hawk_branch_verify(verbose=args.verbose, branch=args.branch, image=args.image, script=args.script, specific=args.parameterspecific, skip=args.resultignore)
 
 
     
