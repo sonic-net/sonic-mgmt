@@ -107,6 +107,9 @@ def get_ip_addr():
     while val < 200:
         val = max(val, (val+1)%250)
         yield "192.0.0.{}".format(val)
+    raise RuntimeError(
+        "The program has run out of IP addresses. "
+        "Please check if the dst port is even used.")
 
 
 def get_tcp_port():
