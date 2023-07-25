@@ -27,32 +27,16 @@ Manual FIPS configuration can be done using the sonic-installer command, see [he
 ### Related DUT configuration files
 | File | Comment |
 |:-------:|---------------------|
-| /etc/fips/fips_enabled | The FIPS enabling config |
+| /etc/fips/fips_enable | The FIPS enabling config |
 
 ## Test cases
 
-### Test case #1 – Test to enable the FIPS
-1. Setup the dut to disable the FIPS.
-1. Enable the FIPS in ConfigDB
-1. Verify the FIPS enabled state in STATE_DB is 1, and the enforced state is 0.
-1. Verify the FIPS enabled by command: openssl engine -vv, expect the symcrypt loadded.
-1. Disable the FIPS in ConfigDB.
-1. Verify the FIPS enabled state in STATE_DB is 0.
-1. Verify the symcrypt not loaded by command: openssl engine -vv.
-
-### Test case #2 – Test to enforce the FIPS
-1. Setup the dut to disable the FIPS.
-1. Enable the FIPS in ConfigDB.
-1. Reboot the dut.
-1. Verify the FIPS enabled state in STATE_DB is 1, and the enforced state is 1.
-1. Verify the FIPS enabled by command: openssl engine -vv, expect the symcrypt loadded.
-1. Disable the FIPS in ConfigDB.
-1. Reboot the dut.
-1. Verify the FIPS enforced state in STATE_DB is 0.
-1. Verify the symcrypt not loaded by command: openssl engine -vv.
-
-### Test case #3 – Test to enable the FIPS for Python
+### Test case #1 – Test python crypto module using symcrypt lib
 1. Setup the dut to disable the FIPS
+    ```
+    sonic-installer set-fips --disable-fips
+    echo 0 > /etc/fips/fips_enable
+    ```
 1. Import ssl, and call the ssl function RAND_bytes.
 1. Verify the symcrypt engine not loaded in the /proc/<python proccess id>/maps.
 1. Setup the dut to enable the FIPS
@@ -67,12 +51,17 @@ with open(os.path.join('/proc', str(os.getpid()), 'maps')) as f:
     assert 'libsymcrypt.so' in f.read()
 ```
 
-### Test case #4 – Test to enable the FIPS for Golang
+### Test case #2 – Test Golang crypto module using symcrypt lib
 1. Setup the dut to disable the FIPS
+    ```
+    sonic-installer set-fips --disable-fips
+    echo 0 > /etc/fips/fips_enable
+    ```
+1. Setup the restapi service, prepare the test certificates and update the configDB to refer to the test certificates
 1. Restart the restapi service
 1. Verify the symcrypt engine not loaded in the /proc/<restapi proccess id>/maps.
 1. Setup the dut to enable the FIPS
-1. Call the RAND_bytes again, and verify the symcrypt engine loaded
+1. Restart the restapi service again, and verify the symcrypt engine loaded
 ```
 root@sonic:/home/admin# ps -ef | grep  go-server-server
 root       70019   69976  0 Jul14 pts/0    00:00:01 /usr/sbin/go-server-server -enablehttp=false -enablehttps=true -servercert=/etc/sonic/credentials/restapiserver.crt -serverkey=/etc/sonic/credentials/restapiserver.key -clientcert=/etc/sonic/credentials/AME_ROOT_CERTIFICATE.pem -clientcertcommonname=client.restapi.sonic.gbl -loglevel=info
@@ -82,5 +71,34 @@ root@sonic:/home/admin# grep symcrypt /proc/70019/maps
 7fa471a59000-7fa471a5b000 rw-p 0001b000 fe:03 919258                     /usr/lib/x86_64-linux-gnu/libsymcryptengine.so
 ```
 
+### Test case #3 – Test common openssl crypto module using symcyrpt lib
+1. Enable the FIPS in ConfigDB
+    ```
+    config apply-patch <fips.patch>
+    [{"op": "replace", "path": "/FIPS/global/enable", "value": "false" }]
+    ```
+1. Verify the FIPS enabled state in STATE_DB is 1, and the enforced state is 0.
+1. Verify the FIPS enabled by command: openssl engine -vv, expect the symcrypt loadded.
+1. Disable the FIPS in ConfigDB.
+1. Verify the FIPS enabled state in STATE_DB is 0.
+1. Verify the symcrypt not loaded by command: openssl engine -vv.
+
+### Test case #4 – Test to enforce the FIPS
+1. Setup the dut to disable the FIPS.
+1. Enable the FIPS in ConfigDB.
+1. Reboot the dut.
+1. Verify the FIPS enabled state in STATE_DB is 1, and the enforced state is 1.
+1. Verify the FIPS enabled by command: openssl engine -vv, expect the symcrypt loadded.
+1. Disable the FIPS in ConfigDB.
+1. Reboot the dut.
+1. Verify the FIPS enforced state in STATE_DB is 0.
+1. Verify the symcrypt not loaded by command: openssl engine -vv.
+
 ### Test case #5 – Integrate the FIPS in nightly test
-Test the FIPS configuration for aboot/uboot/grub, and make sure it can pass all tests with FIPS enabled.
+Enable the FIPS for all nigthly tests on release 202205+, make sure the FIPS feature does not break any tests.
+1. Enforce the FIPS when setup testbed
+   ```
+   sonic-installer set-fips --enable-fips
+   reboot
+   ```
+1. Verify all tests pass not impacted by FIPS feature.
