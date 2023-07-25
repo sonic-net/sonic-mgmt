@@ -4,8 +4,8 @@ import json
 import sys
 import xml.etree.ElementTree as ET
 
-from helpers import *
-from common import *
+from tests.configlet.util.common import *
+from tests.configlet.util.helpers import *
 
 from tempfile import mkstemp
 

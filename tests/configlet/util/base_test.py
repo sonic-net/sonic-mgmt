@@ -3,11 +3,9 @@
 import json
 import os
 
-from helpers import *
-from common import *
-import strip
-import configlet
-import generic_patch
+from tests.configlet.util import configlet, strip, generic_patch
+from tests.configlet.util.common import *
+from tests.configlet.util.helpers import *
 
 if os.path.exists("/etc/sonic/sonic-environment"):
     from mock_for_switch import config_reload, wait_until
@@ -291,5 +289,3 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
                 hack_apply=hack_apply)
 
     log_info("Test run is good!")
-
-
