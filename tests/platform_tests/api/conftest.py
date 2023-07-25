@@ -121,7 +121,3 @@ def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     yield
     loganalyzer.match_regex.extend(['WARNING pmon#platform_api_server.py: API.+not implemented'])
     loganalyzer.analyze(marker)
-
-
-def pytest_addoption(parser):
-    parser.addoption("--unresettable_xcvr_types", action="append", default=[], help="unsupported resettable xcvr types")
