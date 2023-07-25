@@ -10,11 +10,12 @@ Single Switch Reboot
 
 ## Overview
 
-The goal of this test is to verify that dut is operational post reboot.
+The goal of this test is to verify that dut is operational and macsec is up post reboot.
 
 ### Scope
 
-The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to verify operation after SONiC dut is rebooted.
+The test is targeting a running SONIC system with fully functioning configuration.
+The purpose of the test is to verify operation after SONiC dut is rebooted.
 
 ### Related DUT CLI commands
 
@@ -52,4 +53,5 @@ Reboot DUT and ensure DUT is operational post reboot.
 2. Reboot neighbor and wait for critial processes
 3. Wait for critial processes
 4. Check interface status are up on all ports
-5. Verify base and post reboot total bgp route count are equal
+5. Check appl_db
+6. Verify base and post reboot total bgp route count are equal
