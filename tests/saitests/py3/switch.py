@@ -69,7 +69,7 @@ from switch_sai_thrift.sai_headers import SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRES
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
-switch_inited=0
+switch_inited = 0
 # All below are dictionary with key 'src' or 'dst' and val is value for that client
 port_list = {}
 sai_port_list = {}

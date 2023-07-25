@@ -324,12 +324,12 @@ class QosSaiBase(QosBase):
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
-                    argv=[
-                        "redis-cli", "-n", "4", "HGET",
-                        "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                        "wred_profile"
-                    ]
-                )[0]
+                argv=[
+                    "redis-cli", "-n", "4", "HGET",
+                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                    "wred_profile"
+                ]
+            )[0]
             if six.PY2:
                 wredProfileName = out.encode("utf-8").translate(None, "[]")
             else:
@@ -384,11 +384,11 @@ class QosSaiBase(QosBase):
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
-                    argv=[
-                        "redis-cli", "-n", "4", "HGET",
-                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                    ]
-                )[0]
+                argv=[
+                    "redis-cli", "-n", "4", "HGET",
+                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                ]
+            )[0]
             if six.PY2:
                 schedProfile = out.encode("utf-8").translate(None, "[]")
             else:
@@ -527,7 +527,7 @@ class QosSaiBase(QosBase):
                     src_asic_index = 0
                     dst_asic_index = 1
                     found_multi_asic_dut = True
-                    logger.info ("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
+                    logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
                     break
             if not found_multi_asic_dut:
                 pytest.skip("Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
@@ -609,7 +609,6 @@ class QosSaiBase(QosBase):
         dst_dut_port_ips = testPortIps[get_src_dst_asic_and_duts['dst_dut_index']]
         dst_test_port_ips = dst_dut_port_ips[get_src_dst_asic_and_duts['dst_asic_index']]
 
-
         if dstPorts is None:
             if dst_port_ids:
                 pytest_assert(
@@ -677,7 +676,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
         self, request, duthosts, get_src_dst_asic_and_duts,
-        lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps): # noqa F811
+        lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps):  # noqa F811
         """
             Build DUT host config pertaining to QoS SAI tests
 
@@ -691,7 +690,7 @@ class QosSaiBase(QosBase):
         """
 
         """
-        Below are dictionaries with key being dut_index and value a dictionary with key asic_index 
+        Below are dictionaries with key being dut_index and value a dictionary with key asic_index
         Example for 2 DUTs with 2 asics each
             { 0: { 0: <asic0_value>, 1: <asic1_value>}, 1: { 0: <asic0_value>, 1: <asic1_value> }}
         """
@@ -712,7 +711,6 @@ class QosSaiBase(QosBase):
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
-
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(src_dut):
             # Only single asic is supported for this scenario, so use src_dut and src_asic - which will be the same
@@ -727,13 +725,14 @@ class QosSaiBase(QosBase):
                     dutLagInterfaces.append(src_mgFacts["minigraph_ptf_indices"][intf])
 
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
-                                for port in src_mgFacts["minigraph_ports"].keys())
+                                                             for port in src_mgFacts["minigraph_ports"].keys())
             testPortIds[src_dut_index][src_asic_index] -= set(dutLagInterfaces)
             if isMellanoxDevice(src_dut):
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
-            pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0, "Skip test since no ports are available for testing")
+            pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0,
+                           "Skip test since no ports are available for testing")
 
             # get current DUT port IPs
             dutPortIps[src_dut_index] = {}
@@ -817,7 +816,8 @@ class QosSaiBase(QosBase):
                             uplinkPortIps.append(addr["peer_ipv4"])
                             uplinkPortNames.append(portName)
 
-                testPortIds[src_dut_index][dut_asic.asic_index] = sorted(dutPortIps[src_dut_index][dut_asic.asic_index].keys())
+                testPortIds[src_dut_index][dut_asic.asic_index] = sorted(
+                    dutPortIps[src_dut_index][dut_asic.asic_index].keys())
 
             # Need to fix this
             testPortIps[src_dut_index] = {}
@@ -837,7 +837,7 @@ class QosSaiBase(QosBase):
             testPortIds[src_dut_index] = {}
             dutPortIps[src_dut_index][src_asic_index] = {}
             active_ips = src_asic.get_active_ip_interfaces(tbinfo)
-            for iface,addr in active_ips.items():
+            for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
@@ -923,7 +923,8 @@ class QosSaiBase(QosBase):
         if dualTor:
             testPortIds = dualTorPortIndexes
 
-        testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids, get_src_dst_asic_and_duts)
+        testPorts = self.__buildTestPorts(request, testPortIds, testPortIps,
+                                          src_port_ids, dst_port_ids, get_src_dst_asic_and_duts)
         # Update the uplink/downlink ports to testPorts
         testPorts.update({
             "uplink_port_ids": uplinkPortIds,
@@ -938,8 +939,8 @@ class QosSaiBase(QosBase):
         if tbinfo["topo"]["type"] == "t2":
             #dutportIps={0: {0: {0: {'peer_addr': u'10.0.0.1', 'port': u'Ethernet8'}, 2: {'peer_addr': u'10.0.0.5', 'port': u'Ethernet17'}}}}
             # { 0: 'Ethernet8', 2: 'Ethernet17' }
-            for dut_index,dut_val in dutPortIps.items():
-                for asic_index,asic_val in dut_val.items():
+            for dut_index, dut_val in dutPortIps.items():
+                for asic_index, asic_val in dut_val.items():
                     for ptf_port, ptf_val in asic_val.items():
                         dutinterfaces[ptf_port] = ptf_val['port']
         else:
@@ -955,7 +956,7 @@ class QosSaiBase(QosBase):
             "qosConfigs": qosConfigs,
             "dutAsic": dutAsic,
             "dutTopo": dutTopo,
-            "srcDutInstance" : src_dut,
+            "srcDutInstance": src_dut,
             "dstDutInstance": get_src_dst_asic_and_duts['dst_dut'],
             "dualTor": request.config.getoption("--qos_dual_tor"),
             "dualTorScenario": len(dualtor_ports_for_duts) != 0
@@ -1006,7 +1007,7 @@ class QosSaiBase(QosBase):
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts,
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status,
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports): # noqa F811
+        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
         """
             Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
 
@@ -1059,7 +1060,7 @@ class QosSaiBase(QosBase):
 
             try:
                 lower_tor_host.shell("ls %s" % file)
-                lower_tor_host.shell("sudo cp {} {}".format(file,backup_file))
+                lower_tor_host.shell("sudo cp {} {}".format(file, backup_file))
                 lower_tor_host.shell("sudo rm {}".format(file))
                 lower_tor_host.shell("sudo touch {}".format(file))
             except:
@@ -1083,8 +1084,8 @@ class QosSaiBase(QosBase):
                 {"docker": dst_asic.get_docker_name("lldp"), "service": "lldpd"},
                 {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpd"},
                 {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpmon"},
-            	{"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
-            	{"docker": dst_asic.get_docker_name("swss"), "service": "arp_update"}
+                {"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
+                {"docker": dst_asic.get_docker_name("swss"), "service": "arp_update"}
             ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
@@ -1109,17 +1110,17 @@ class QosSaiBase(QosBase):
 
         """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
-           try:
-               lower_tor_host.shell("ls %s" % backup_file)
-               lower_tor_host.shell("sudo cp {} {}".format(backup_file,file))
-               lower_tor_host.shell("sudo chmod +x {}".format(file))
-               lower_tor_host.shell("sudo rm {}".format(backup_file))
-           except:
-               pytest.skip('file {} not found'.format(backup_file))
+            try:
+                lower_tor_host.shell("ls %s" % backup_file)
+                lower_tor_host.shell("sudo cp {} {}".format(backup_file, file))
+                lower_tor_host.shell("sudo chmod +x {}".format(file))
+                lower_tor_host.shell("sudo rm {}".format(backup_file))
+            except:
+                pytest.skip('file {} not found'.format(backup_file))
 
-           lower_tor_host.shell('sudo config feature state mux enabled')
-           lower_tor_host.shell('sudo config feature state mux enabled')
-           logger.info("Start mux container for dual ToR testbed")
+            lower_tor_host.shell('sudo config feature state mux enabled')
+            lower_tor_host.shell('sudo config feature state mux enabled')
+            logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
@@ -1127,7 +1128,6 @@ class QosSaiBase(QosBase):
         if 'dualtor' in tbinfo['topo']['name']:
             enable_container_autorestart(
                 duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
-
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, get_src_dst_asic_and_duts, loganalyzer):
@@ -1299,7 +1299,7 @@ class QosSaiBase(QosBase):
 
         elif 'broadcom' in duthost.facts['asic_type'].lower():
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
-                logger.info ("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
+                logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
                 bufferConfig = self.dutBufferConfig(duthost, dut_asic)
@@ -1687,7 +1687,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def lossySchedProfile(
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host
-   ):
+    ):
         """
             Retreives lossy scheduler profile
 
@@ -1735,7 +1735,7 @@ class QosSaiBase(QosBase):
             """
             for a_asic in get_src_dst_asic_and_duts['all_asics']:
                 a_asic.run_redis_cmd(
-                    argv = [
+                    argv=[
                         "redis-cli",
                         "-n",
                         "4",
