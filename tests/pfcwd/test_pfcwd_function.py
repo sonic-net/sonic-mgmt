@@ -760,7 +760,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.setup_test_params(port, setup_info['vlan'], init=not idx)
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
-                duthost.get_dut_iface_mac(port),
+                duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
                 self.pfc_wd)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
@@ -845,7 +845,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.setup_test_params(port, setup_info['vlan'], init=not idx, toggle=idx and count)
                     self.traffic_inst = SendVerifyTraffic(
                                                           self.ptf,
-                                                          duthost.get_dut_iface_mac(port),
+                                                          duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
                                                           self.pfc_wd)
                     self.run_test(self.dut, port, "drop", restore=False)
                 for idx, port in enumerate(selected_ports):
@@ -918,7 +918,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             for idx, mmu_action in enumerate(MMU_ACTIONS):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
-                    duthost.get_dut_iface_mac(port),
+                    duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
                     self.pfc_wd)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
                 # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
@@ -928,7 +928,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_setup()
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
-                    duthost.get_dut_iface_mac(port),
+                    duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
                     self.pfc_wd)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
                 self.dut.command("pfcwd stop")
@@ -995,7 +995,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
-                duthost.get_dut_iface_mac(port),
+                duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
                 self.pfc_wd)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
