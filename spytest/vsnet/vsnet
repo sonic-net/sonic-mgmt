@@ -1,0 +1,1578 @@
+#!/bin/env python3
+
+import os
+import re
+import sys
+import shutil
+import socket
+import logging
+import argparse
+import datetime
+import textwrap
+import tempfile
+import subprocess
+
+from jinja2 import Environment
+from collections import OrderedDict
+
+tool_name = os.path.basename(__file__).replace(".py", "")
+
+class Formatter(logging.Formatter):
+    def format(self, record):
+        duration = datetime.datetime.utcfromtimestamp(record.relativeCreated / 1000)
+        record.delta = duration.strftime("%H:%M:%S")
+        return super(Formatter, self).format(record)
+
+class SpyTestDict(OrderedDict):
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name)
+
+    def __setattr__(self, name, value):
+        if not name.startswith('_OrderedDict__'):
+            self[name] = value
+        else:
+            OrderedDict.__setattr__(self, name, value)
+
+    def __delattr__(self, name):
+        try:
+            self.pop(name)
+        except KeyError:
+            OrderedDict.__delattr__(self, name)
+
+    # compare
+    def __eq__(self, other):
+        return dict.__eq__(self, other)
+
+    # stringify
+    def __str__(self):
+        try:
+            import json
+            return json.dumps(self)
+        except Exception:
+            return '{%s}' % ', '.join('%r: %r' % item for item in self.items())
+
+    # for PrettyPrinter
+    __repr__ = OrderedDict.__repr__
+
+handler = logging.StreamHandler()
+handler.setFormatter(Formatter('%(delta)s %(message)s'))
+logger = logging.getLogger()
+logger.addHandler(handler)
+#logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
+
+this_path = os.path.abspath(os.path.dirname(__file__))
+
+rps_model = "virsh"
+
+vmxml_tmpl_text = """\
+<domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
+  <name>{{dut_name}}</name> <memory unit='GiB'>{{vmem}}</memory> <currentMemory unit='GiB'>{{vmem}}</currentMemory> <vcpu placement='static'>{{vcpu}}</vcpu>
+  <resource> <partition>/machine</partition> </resource>
+  <os> <type arch='x86_64' machine='pc-i440fx-1.5'>hvm</type> <boot dev='hd'/> </os>
+  <features> <acpi/> <apic/> </features>
+  <clock offset='utc'/> <on_poweroff>destroy</on_poweroff> <on_reboot>restart</on_reboot> <on_crash>restart</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2' cache='writeback'/> <source file='/data/images/{{dut_name}}.img'/> <target bus='virtio' dev='vda'/>
+    </disk>
+    <serial type="tcp"> <source mode="bind" host="0.0.0.0" service="{{ts_ports[dut]}}"/> <protocol type="telnet"/> <target port="0"/> </serial>
+    <interface type='bridge'> <source bridge='virbr0'/> <model type='virtio'/> </interface>
+    {%- for port in ports %}
+    <interface type='ethernet'> <target dev='{{port}}'/> <model type='virtio'/> </interface>
+    {%- endfor %}
+    <controller type='usb' index='0'/>
+    <memballoon model='virtio'> <alias name='balloon0'/> <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/> </memballoon>
+    <channel type='unix'> <target type='virtio' name='org.qemu.guest_agent.0'/> <address type='virtio-serial' controller='0' bus='0' port='2'/> </channel>
+  </devices>
+  <seclabel type='none' model='none'/>
+</domain>
+"""
+
+testbed_tmpl_text = """\
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+configs: !include sonic_configs_all.yaml
+
+overrides:
+    services:
+        default:
+            snmptrap: {ip: {{container_ip}}, username: ubuntu, password: ubuntu }
+
+devices:
+    {%- for dut in dut_list %}
+    {{dut_names[dut]}}:
+        device_type: {{device_types[dut]}}
+        access: {protocol: {{ts_protocol[dut]}}, ip: {{ts_ip[dut]}}, port: {{ts_ports[dut]}}}
+        rps: {model: {{rps_info["model"]}}, ip: {{rps_info["ip"][dut]}}, port: {{rps_info["port"][dut]}}, outlet: '{{rps_info["outlet"][dut]}}', username: '{{rps_info["username"]}}', password: '{{rps_info["password"]}}'}
+        credentials: {username: admin, password: {{passwords[dut]}}, altpassword: {{alt_passwords[dut]}}}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+        params: {chip: {{dut_tbchips[dut]}}}
+    {% endfor %}
+    {% if tg_links -%}
+    tgen-01:
+        device_type: TGEN
+        properties: {type: {{tg_type}}, version: {{tg_version}}, ip: {{tg_ipaddr}}, virtual: 1, console: {{ts_ports['TG']}} }
+    {% endif %}
+topology:
+    {% for dut in dut_list -%}
+    {% if tg_links[dut] or dut_links[dut] -%}
+    {{dut_names[dut]}}:
+        interfaces:
+            {% for linfo in tg_links[dut] -%}
+            Ethernet{{linfo[0]}}: {EndDevice: tgen-01, EndPort: 1/{{linfo[2]}}}
+            {% endfor %}
+            {%- for linfo in dut_links[dut] -%}
+            Ethernet{{linfo[0]}}: {EndDevice: {{dut_names[linfo[1]]}}, EndPort: Ethernet{{linfo[2]}}}
+            {% endfor %}
+    {% endif -%}
+    {% endfor %}
+
+"""
+
+entrypoint_tmpl_text = """\
+#!/bin/bash
+
+mkdir -p /data
+mkdir -p /var/log/libvirt
+mkdir -p /run/lock
+chown root:kvm /dev/kvm
+#ln -s /scripts/* ~/
+#usermod -aG $(stat -c %g /var/run/docker.sock) ubuntu
+export SPYTEST_PYTHON=/usr/bin/python{{PYVER}}
+echo 'ubuntu:ubuntu' | chpasswd
+rm -f /run/nologin
+#sed -i 's#^ExecStart.*#ExecStart=/usr/sbin/snmptrapd -Ln -f -Lf /var/log/snmptrap.log -p /run/snmptrap.pid#' /lib/systemd/system/snmptrapd.service
+#systemctl disable snmptrapd.service
+#systemctl stop snmptrapd.service
+#systemctl start snmptrapd.service
+#systemctl enable snmptrapd.service
+apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+#systemctl stop getty@tty1.service
+#systemctl disable getty@tty1.service
+echo 0 | tee /proc/sys/kernel/yama/ptrace_scope
+exec "$@"
+
+"""
+
+apt_proxy_tmpl_text = """\
+#!/bin/bash
+PORT=3142
+if [ -z $APT_PROXY_IP ]; then
+    echo -n "DIRECT"
+elif nc -w1 -z $APT_PROXY_IP $PORT; then
+    echo -n "http://${APT_PROXY_IP}:${PORT}"
+else
+    echo -n "DIRECT"
+fi
+
+"""
+
+dockerfile_tmpl_text = """\
+FROM ubuntu:{{RELEASE}}
+MAINTAINER rama.kristipati@broadcom.com
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN {{APT_UPDATE}}
+RUN {{APT_INSTALL}} --no-install-recommends apt-utils dialog
+RUN {{APT_INSTALL}} netcat iproute2 curl wget
+ARG APT_PROXY_IP=
+ENV APT_PROXY_IP=${APT_PROXY_IP}
+ADD apt-proxy-detect.sh /scripts/apt-proxy-detect.sh
+RUN echo "Acquire::HTTP::Proxy-Auto-Detect \"/scripts/apt-proxy-detect.sh\";" > /etc/apt/apt.conf.d/01proxy
+RUN echo "Acquire::HTTPS::Proxy \"false\";" >> /etc/apt/apt.conf.d/01proxy
+
+######################## SYSTEMD ####################################
+RUN {{APT_INSTALL}} systemd systemd-sysv
+RUN (cd /lib/systemd/system/sysinit.target.wants/; \
+     for i in ; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done);
+RUN rm -f /lib/systemd/system/multi-user.target.wants/*
+RUN rm -f /etc/systemd/system/*.wants/*
+RUN rm -f /lib/systemd/system/local-fs.target.wants/*
+RUN rm -f /lib/systemd/system/sockets.target.wants/*udev*
+RUN rm -f /lib/systemd/system/sockets.target.wants/*initctl*
+RUN rm -f /lib/systemd/system/basic.target.wants/*
+RUN rm -f /lib/systemd/system/anaconda.target.wants/*
+RUN rm -f /lib/systemd/system/plymouth*
+RUN rm -f /lib/systemd/system/systemd-update-utmp*
+#####################################################################
+
+######################## DOCKER #####################################
+RUN {{APT_INSTALL}} ca-certificates gnupg lsb-release sudo
+RUN mkdir -m 0755 -p /etc/apt/keyrings
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+RUN echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] \\
+    https://download.docker.com/linux/ubuntu   {{RELEASE}} stable" \\
+    | tee /etc/apt/sources.list.d/docker.list > /dev/null
+RUN chmod a+r /etc/apt/keyrings/docker.gpg
+RUN {{APT_UPDATE}}
+RUN {{APT_INSTALL}} docker-ce-cli
+RUN {{APT_INSTALL}} docker-ce
+RUN {{APT_INSTALL}} fuse-overlayfs || true
+RUN useradd -rm -d /home/ubuntu -s /bin/bash -G sudo ubuntu
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN echo 'ubuntu:ubuntu' | chpasswd
+RUN echo "ubuntu ALL=(ALL) NOPASSWD: ALL" | tee /etc/sudoers.d/ubuntu
+#####################################################################
+
+######################## LIBVIRT ####################################
+RUN {{APT_UPDATE}}
+RUN {{APT_INSTALL}} kmod
+RUN lsmod | grep kvm
+RUN {{APT_INSTALL}} {{LIBVIRT}}
+RUN {{APT_INSTALL}} dnsmasq
+RUN {{APT_INSTALL}} ebtables
+RUN {{APT_INSTALL}} qemu-kvm
+RUN {{APT_INSTALL}} squashfs-tools
+RUN {{APT_INSTALL}} virtinst cloud-utils libosinfo-bin
+RUN {{APT_INSTALL}} net-tools bridge-utils cpu-checker whois
+RUN mkdir -p /etc/libvirt/storage
+RUN echo security_driver = \"'none'\" >> /etc/libvirt/qemu.conf
+ADD pool-default.xml /etc/libvirt/storage/default.xml
+RUN systemctl enable virtlockd
+RUN systemctl enable libvirtd
+#####################################################################
+
+######################## MISC #######################################
+RUN {{APT_UPDATE}}
+RUN {{APT_INSTALL}} ethtool
+RUN {{APT_INSTALL}} xmlstarlet
+RUN {{APT_INSTALL}} git
+RUN {{APT_INSTALL}} iputils-ping
+RUN {{APT_INSTALL}} htop
+RUN {{APT_UPDATE}}
+RUN {{APT_INSTALL}} tcpdump
+RUN {{APT_INSTALL}} telnet
+RUN {{APT_INSTALL}} openssh-server
+RUN sed -i 's/UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
+RUN systemctl enable ssh
+RUN rm -f /run/nologin
+RUN {{APT_INSTALL}} vim
+RUN {{APT_INSTALL}} rsync
+#####################################################################
+
+######################## SPYTEST ####################################
+RUN {{APT_INSTALL}} python{{PYVER}}
+RUN {{APT_INSTALL}} python{{PYVER}}-dev
+RUN {{APT_INSTALL}} python3-pip
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
+RUN {{APT_INSTALL}} gcc
+ADD requirements.sh /scripts/requirements.sh
+RUN bash /scripts/requirements.sh
+RUN {{APT_INSTALL}} snmp snmptrapd
+RUN {{APT_INSTALL}} socat
+RUN {{APT_INSTALL}} openvswitch-switch
+RUN {{APT_INSTALL}} lockfile-progs
+RUN {{APT_INSTALL}} arping
+RUN {{APT_INSTALL}} ndisc6
+RUN {{APT_INSTALL}} smcroute wpasupplicant
+RUN {{APT_INSTALL}} less
+RUN {{APT_INSTALL}} apparmor
+RUN systemctl disable apparmor
+RUN {{APT_INSTALL}} moreutils
+RUN sed -i 's#^ExecStart.*#ExecStart=/usr/sbin/snmptrapd -Ln -f -Lf /var/log/snmptrap.log -p /run/snmptrap.pid#' /lib/systemd/system/snmptrapd.service
+RUN {{APT_INSTALL}} minicom
+RUN {{APT_INSTALL}} daemonize
+RUN {{APT_INSTALL}} tshark
+RUN {{APT_INSTALL}} gdb python3-dbg
+#####################################################################
+
+ENV PATH=/scripts:$PATH
+ADD . /scripts
+RUN chmod +x /scripts/*.sh
+
+ENTRYPOINT ["/scripts/entrypoint.sh"]
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
+
+"""
+
+helper_tmpl_text = """\
+#!/bin/env python3
+from {{tool_name}} import helper_main
+helper_main()
+"""
+
+debug_tmpl_text = """\
+#!/bin/bash
+
+systemctl status libvirtd | xargs
+grep security_driver /etc/libvirt/qemu.conf
+route
+ifconfig
+systemctl status docker
+journalctl -eu docker
+"""
+
+tshark_tmpl_text = """\
+#!/bin/bash
+
+ARGS="-T fields -e frame.number"
+ARGS="$ARGS -e frame.interface_name"
+ARGS="$ARGS -e frame.time_relative"
+ARGS="$ARGS -e eth.src -e eth.dst"
+ARGS="$ARGS -e frame.protocols"
+ARGS="$ARGS -e _ws.col.Protocol"
+ARGS="$ARGS -E header=y"
+
+tshark $ARGS $@
+
+"""
+
+ut_tmpl_text = """\
+#!/bin/bash
+
+pushd /data/work
+
+rm -rf logs/ut
+
+export SPYTEST_LOGS_TIME_FMT_ELAPSED=1
+
+ARGS="--results-prefix results"
+ARGS="$ARGS --logs-path logs/ut"
+ARGS="$ARGS --env SPYTEST_SCAPY_DBG_LVL 100"
+ARGS="$ARGS --ifname-type native"
+ARGS="$ARGS --skip-init-config"
+#TODO: need to do noshut even when skip-init-checks used
+#ARGS="$ARGS --skip-init-checks"
+ARGS="$ARGS --skip-load-config base"
+ARGS="$ARGS --get-tech-support none"
+ARGS="$ARGS --fetch-core-files none"
+ARGS="$ARGS --syslog-check none"
+ARGS="$ARGS --topology-check skip"
+
+/repo/bin/spytest $ARGS $@
+
+"""
+
+build_tmpl_text = """\
+#!/bin/bash
+
+export DOCKERC={{DOCKERC}}
+export DOCKER_HOST={{DOCKER_HOST}}
+VM_IMAGE=${VM_IMAGE:={{NAME}}-{{RELEASE}}}
+DIND={{DIND}}
+USE_APT_PROXY={{USE_APT_PROXY}}
+
+cd $(dirname $0)
+
+# check dependencies
+if [ "$DIND" != "True" ]; then
+  out=$(lsmod | grep openvswitch)
+  if [ -z "$out" ]; then
+    echo "please install openvswitch-switch on the server"
+    #exit 1
+  fi
+else
+  # prompt the user to enable swap
+  text=$($DOCKERC info 2>&1)
+  if [[ "$text" == *"WARNING: No swap limit support"* ]]; then
+    echo "please enable swap support"
+    echo "   https://phoenixnap.com/kb/docker-memory-and-cpu-limit"
+  fi
+  # ensure /dev/nbd* gets created
+  text=$(sudo -n modprobe nbd max_part=8)
+  if [[ "$text" == *"sudo: a password is required"* ]]; then
+    echo "please execute this with sudo user or call 'modprobe nbd' before this"
+  fi
+fi
+
+# cleanup docker resources
+$DOCKERC system prune -f
+
+# start the apt proxy if needed
+if [ "$USE_APT_PROXY" = "True" ]; then
+  if [ -z "$($DOCKERC ps -q --filter name=^apt-cacher-ng$)" ]; then
+    VER=3.3-20200524; VER=latest;
+    echo "Starting APT Proxy Docker"
+    $DOCKERC ps -aq --filter name=^apt-cacher-ng$ | xargs -r -L 1  $DOCKERC rm -f
+    $DOCKERC run --name apt-cacher-ng --init -d --restart=always \\
+      --volume /srv/docker/apt-cacher-ng:/var/cache/apt-cacher-ng \\
+      --publish 3142:3142 sameersbn/apt-cacher-ng:$VER
+  fi
+  APT_PROXY_IP=$($DOCKERC inspect -f {{DOCKER_IP_FILTER}} apt-cacher-ng 2>&1 | grep -v Error)
+fi
+
+# build docker image
+OPTS="--build-arg APT_PROXY_IP=$APT_PROXY_IP"
+$DOCKERC build -f Dockerfile $OPTS -t $VM_IMAGE .
+if [ $? -ne 0 ]; then
+  echo "Failed to build the docker image"
+  exit 2
+fi
+
+exit 0
+
+"""
+
+env_tmpl_text = """\
+#!/bin/bash
+
+export RUN={{RUN}}
+export BLD={{BLD}}
+export DIND={{DIND}}
+export SHARE={{SHARE}}
+export IMAGE={{IMAGE}}
+export REPO={{REPO}}
+export DCOUNT={{DCOUNT}}
+export DUT_PREFIX={{DUT_PREFIX}}
+export PLATFORM={{PLATFORM}}
+export MEM={{MEM}}
+export CPU={{CPU}}
+export CPORT={{CPORT}}
+export SCAPY_TGEN_PORT_COUNT={{TGPORTS}}
+"""
+
+run_tmpl_text = """\
+#!/bin/bash
+
+. $(dirname $0)/env
+
+export DOCKERC={{DOCKERC}}
+export DOCKER_HOST={{DOCKER_HOST}}
+export VM_IMAGE=${VM_IMAGE:={{NAME}}-{{RELEASE}}}
+export VM_NAME=${VM_NAME:={{NAME}}}
+
+cd $(dirname $0)
+
+# cleanup docker resources
+$DOCKERC system prune -f
+
+OPTS="--privileged"
+OPTS="$OPTS --restart always"
+#OPTS="$OPTS --rm"
+OPTS="$OPTS -d"
+OPTS="$OPTS --device /dev/kvm:/dev/kvm"
+OPTS="$OPTS -v $SHARE/$VM_NAME:/data:rw"
+OPTS="$OPTS --volume /sys/fs/cgroup:/sys/fs/cgroup:ro"
+{%- for IMG in IMAGES %}
+OPTS="$OPTS -v {{IMAGES[IMG]}}:/images/{{IMG}}"
+{%- endfor %}
+OPTS="$OPTS -v $REPO:/repo"
+if [ "$DIND" != "True" ]; then
+  #OPTS="$OPTS --volume /var/run/docker.sock:/var/run/docker.sock"
+  #OPTS="$OPTS --volume /var/lib/docker:/var/lib/docker"
+  echo ""
+else
+  SUDO="$DOCKERC run --rm -v $SHARE:$SHARE -it busybox "
+  $SUDO rm -rf $SHARE/$VM_NAME/dockerfs
+  $SUDO mkdir -p $SHARE/$VM_NAME/dockerfs
+  OPTS="$OPTS -v $SHARE/$VM_NAME/dockerfs:/var/lib/docker"
+  $SUDO rm -rf $SHARE/$VM_NAME/varlog
+  OPTS="$OPTS -v $SHARE/$VM_NAME/varlog:/var/log"
+  # ensure /dev/nbd* gets created
+  text=$(sudo -n modprobe nbd max_part=8)
+  if [[ "$text" == *"sudo: a password is required"* ]]; then
+    echo "please execute this with sudo user or call 'modprobe nbd' before this"
+  fi
+fi
+OPTS="$OPTS --env SCAPY_TGEN_PORTMAP=eth1"
+OPTS="$OPTS --tmpfs /tmp --tmpfs /run"
+OPTS="$OPTS --env SCID_PYTHON_BIN=/usr/bin"
+OPTS="$OPTS --env SPYTEST_PYTHON_VERSION={{PYVER}}"
+OPTS="$OPTS --env SPYTEST_SCAPY_USE_BRIDGE={{USE_BRIDGE}}"
+OPTS="$OPTS --env SPYTEST_DOCKER_HOST=unix://var/run/docker.sock"
+OPTS="$OPTS --env SPYTEST_RUN=$RUN"
+#OPTS="$OPTS --env APT_PROXY_IP=$APT_PROXY_IP"
+OPTS="$OPTS -h $VM_NAME --name $VM_NAME"
+#OPTS="$OPTS --network host"
+echo "Removing $VM_NAME Container if exists"
+$DOCKERC ps -aq --filter "name=^$VM_NAME$" | xargs -r -L 1 $DOCKERC rm -f
+# check again
+$DOCKERC ps -aq --filter "name=^$VM_NAME$" | xargs -r -L 1 $DOCKERC rm -f
+[ "$RUN" = "remove" ] && exit 0
+echo "Creating $VM_NAME Container"
+$DOCKERC run $OPTS $VM_IMAGE
+$DOCKERC cp . $VM_NAME:/scripts
+#$DOCKERC cp testbed.yaml $VM_NAME:/scripts
+#$DOCKERC cp links.sh $VM_NAME:/scripts
+set -x
+$DOCKERC exec -it -w /scripts $VM_NAME /scripts/autorun.sh
+
+"""
+
+service_tmpl_text = """\
+cat << EOF > /etc/systemd/system/{{SRV_NAME}}.service
+[Unit]
+Description=[{{SRV_NAME}} service]
+
+[Service]
+Type=simple
+StandardOutput=journal
+ExecStart=/scripts/{{SRV_NAME}}.sh
+Restart=always
+
+[Install]
+WantedBy=default.target
+
+EOF
+systemctl disable {{SRV_NAME}}.service
+systemctl stop {{SRV_NAME}}.service
+systemctl start {{SRV_NAME}}.service
+systemctl enable {{SRV_NAME}}.service
+
+"""
+
+
+logger_tmpl_text = """\
+#!/bin/bash
+
+. $(dirname $0)/env
+export ROOT=/data/work/debug_logs
+if [ "$1" = "" ]; then
+  mkdir -p $ROOT
+  for((i=1;i<=$DCOUNT;i++)); do
+    DUT=$DUT_PREFIX$i
+    tail -f /data/varlog/$DUT/syslog >> $ROOT/syslog.$DUT &
+  done
+  wait
+fi
+
+""" + service_tmpl_text
+
+fixups_tmpl_text = """\
+#!/bin/bash
+
+. $(dirname $0)/env
+
+export DOCKERC={{DOCKERC}}
+export ROOT=/data/work/debug_logs
+if [ "$1" = "" ]; then
+  mkdir -p $ROOT
+  $DOCKERC events >> $ROOT/docker_events.log &
+  while true; do
+    for((i=1;i<=$DCOUNT;i++)); do
+      DUT=$DUT_PREFIX$i
+      $DOCKERC exec $DUT /bin/{{tool_name}}.sh
+    done
+    sleep 10
+  done
+fi
+
+""" + service_tmpl_text
+
+scapy_tmpl_text = """\
+#!/bin/bash
+
+. $(dirname $0)/env
+
+export ROOT=/data/work/scapy-tgen
+if [ "$1" = "" ]; then
+  export PYTHON=python{{PYVER}}
+  export SCAPY_TGEN_PORTMAP=eth1
+  export SPYTEST_SCAPY_INST_PORT=5001
+  export SPYTEST_SCAPY_USE_BRIDGE={{USE_BRIDGE}}
+  ip netns exec scapy ifconfig lo 127.0.0.1/8 up
+  ip netns exec scapy /repo/spytest/tgen/scapy/service.sh
+fi
+
+""" + service_tmpl_text
+
+expose_tmpl_text = """\
+#!/bin/bash
+if [ "$1" = "" ]; then
+  ports=( 9090 5001)
+  for port in "${ports[@]}"; do
+    socat tcp-listen:$port,reuseaddr,fork exec:"ip netns exec scapy socat STDIO \\\"tcp-connect:127.0.0.1:$port\\\"",nofork &
+  done
+  wait $(jobs -p)
+fi
+
+""" + service_tmpl_text
+
+pool_tmpl_text = """\
+<pool type='dir'>
+  <name>default</name>
+  <source>
+  </source>
+  <target>
+    <path>/data</path>
+    <permissions>
+      <mode>0755</mode>
+      <owner>-1</owner>
+      <group>-1</group>
+    </permissions>
+  </target>
+</pool>
+
+"""
+
+topo_tmpl_text = """\
+#!/bin/bash
+
+export DOCKERC={{DOCKERC}}
+
+cd $(dirname $0)
+
+. $(dirname $0)/env
+
+if [ "$PLATFORM" = "vm" ]; then
+
+IMGS=/data/images; WORK=/data/work
+mkdir -p $IMGS $WORK
+
+for((i=1;i<=$DCOUNT;i++)); do
+  DUT=$DUT_PREFIX$i
+  cp /images/D$i.img $IMGS/$DUT.img
+done
+for((i=1;i<=$DCOUNT;i++)); do
+  DUT=$DUT_PREFIX$i
+  CPORT=$((CPORT+1)); cp $DUT.xml $WORK
+  sed -i -e "s#SONICIMG#$IMGS/$DUT.img#g" $WORK/$DUT.xml
+  sed -i -e "s/CPORT/$CPORT/g" $WORK/$DUT.xml
+  virsh -l $WORK/$DUT.log -q define $WORK/$DUT.xml
+  virsh start $DUT
+done
+bash links.sh
+bash expose.sh INSTALL
+bash scapy.sh INSTALL
+TERMSERV_IP=$(hostname -I | awk '{print $1}')
+sed "s/TERMSERV_IP/$TERMSERV_IP/g" testbed.yaml > $WORK/testbed.yaml
+
+else
+
+export WORK=/data/work
+export ROOT=/data
+
+bash sonic_import_img.sh || exit 1
+bash links.sh
+bash expose.sh INSTALL
+bash scapy.sh INSTALL
+bash logger.sh INSTALL
+bash fixups.sh INSTALL
+
+cp -f testbed.yaml $WORK/testbed.yaml
+for ((i=1;i<=$DCOUNT;i++)); do
+  DUT=$DUT_PREFIX$i
+  SSH_IP=$($DOCKERC inspect -f {{DOCKER_IP_FILTER}} $DUT)
+  sed -i "s/SSH_IP_$DUT,/$SSH_IP,/g" $WORK/testbed.yaml
+done
+
+fi
+
+"""
+
+virsh_tmpl_text = """
+#!/bin/bash
+
+op=$1;shift
+device=$1;shift
+TMPF=$(mktemp)
+
+# wait for max of 5 minutes for the lock
+lockfile-create -r 60 -p /var/log/rps.lock || exit 1
+
+# remove the lock on exit
+trap "lockfile-remove /var/log/rps.lock; rm -f $TMPF" EXIT
+
+VS=1
+
+log()
+{
+  echo "-------------- $@ -------" >> $TMPF 2>&1
+}
+
+run_cmd()
+{
+  log $@; $@ >> $TMPF 2>&1
+}
+
+if [ "$op" = "dbg" ]; then
+  echo "################# VIRSH DEBUG START ################" >> $TMPF 2>&1
+  run_cmd brctl show
+  echo "################# VIRSH DEBUG END ################" >> $TMPF 2>&1
+  cat $TMPF
+elif [ "$op" = "debug" ]; then
+  echo "################# VIRSH DEBUG START ################" >> $TMPF 2>&1
+  run_cmd brctl show
+  run_cmd ifconfig -a
+  run_cmd ip -s -d link show
+  run_cmd netstat -i
+  run_cmd virsh list --all
+  echo "################# VIRSH DEBUG END ################" >> $TMPF 2>&1
+  cat $TMPF
+elif [ $VS -ne 1 ]; then
+  echo "Not Supported"
+elif [ "$op" = "off" ]; then
+  run_cmd virsh shutdown $device
+  for((i=0;i<10;i++)); do
+    state=$(virsh domstate $device)
+    if [ "$state" != "running" ]; then
+      break
+    fi
+    log "$device is still running"
+    sleep 10
+  done
+else
+  run_cmd virsh start $device
+  sleep 10
+fi
+cat $TMPF
+rm -f $TMPF
+
+
+"""
+
+def init_file_log(file_path):
+    try: os.remove(file_path)
+    except Exception: pass
+    rootLogger = logging.getLogger()
+    fileHandler = logging.FileHandler(file_path)
+    fileHandler.setFormatter(Formatter('%(delta)s %(message)s'))
+    rootLogger.addHandler(fileHandler)
+
+def trace_date():
+    trace(str(datetime.datetime.utcnow()))
+
+def banner(msg, width=80, delimiter="#", wrap=True, func=None, tnl=True, lnl=True):
+    msg_list = [""] if lnl else []
+    msg_list.append(delimiter*width)
+    if msg is not None:
+        msg = str(msg)
+        if wrap: output = ["{0} {1} {0}".format(delimiter,each.center(width-4))
+                            for each in textwrap.wrap(msg, width=width-4)]
+        else: output = ["{0} {1:{2}} {0}".format(delimiter,each,(width-4))
+                            for each in textwrap.wrap(msg, width=width-4)]
+        msg_list.extend(['\n'.join(output), delimiter*width])
+    if tnl: msg_list.append("")
+    for each_line in msg_list:
+        if func: func(each_line)
+        else: logger.info(each_line)
+    return "\n".join(msg_list)
+
+def error(msg, prefix="", machine=""):
+    for line in msg.split("\n"):
+        logger.error("%s%s%s", machine, prefix, line)
+
+def trace(msg, prefix="", machine=""):
+    for line in msg.split("\n"):
+        logger.info("%s%s%s", machine, prefix, line)
+
+def ensure_folder(path):
+    path = os.path.abspath(path)
+    if not os.path.exists(path):
+        #print(f"TODO: mkdir -p {path}")
+        os.makedirs(path)
+    return path
+
+def ensure_parent(filename):
+    path = os.path.dirname(filename)
+    return ensure_folder(path)
+
+def fpath(prefix, name):
+    return os.path.join(prefix, name) if prefix else name
+
+def tmpl_render(tmpl, **kwargs):
+    # nosemgrep-next-line
+    return Environment().from_string(tmpl).render(**kwargs)
+
+def lwrite(prefix, file_path, tmpl, **kwargs):
+    content = tmpl_render(tmpl, **kwargs)
+    write_file(prefix, file_path, content+"\n")
+
+def chmod(prefix, perm, *args):
+    for arg in args:
+        arg = fpath(prefix, arg)
+        os.chmod(arg, perm)
+
+def get_dut_name(wap, dut):
+    return wap.topo_info.dut_names.get(dut, dut)
+
+def new_list(*args):
+    rv = []
+    for arg in args:
+        if isinstance(arg, list):
+            rv.extend(arg)
+        else:
+            rv.append(arg)
+    return rv
+
+def write_file(prefix, filename, data, mode="w"):
+    if filename:
+        filename = fpath(prefix, filename)
+        filename = os.path.abspath(filename)
+        ensure_parent(filename)
+        fh = open(filename, mode)
+        fh.write(data)
+        fh.close()
+    return data
+
+def read_lines(filepath):
+    fh = open(filepath, 'r')
+    data = fh.readlines()
+    fh.close()
+    data = map(str, data)
+    return data
+
+def copytree(src, dst, symlinks=False, ignore=None):
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.exists(d):
+            try:
+                shutil.rmtree(d)
+            except Exception:
+                os.unlink(d)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)
+
+class RES(object):
+    def __init__(self):
+        self.res = None
+    def search(self, pattern, string, *args):
+        self.res = re.search(pattern, string, *args)
+        return self.res
+    def group(self, index):
+        return self.res.group(index)
+    def groups(self):
+        return self.res.groups()
+
+def parse_topology (arg_list):
+    requests, errs, properties, pods = [], [], {}, {}
+    for arg in arg_list:
+        res = RES()
+        if res.search(r"^D(\d+)$", arg):
+            arg = "D{}T1:0".format(res.group(1))
+        if res.search(r"^D(\d+)D(\d+):(\d+)$", arg):
+            if int(res.group(1)) == int(res.group(2)):
+                errs.append("{}: loopback links not supported".format(arg))
+                continue
+            requests.append(["D", "D", res, arg])
+        elif res.search(r"^D(\d+)T(\d+):(\d+)$", arg):
+            requests.append(["D", "T", res, arg])
+        elif res.search(r"^T(\d+)D(\d+):(\d+)$", arg):
+            requests.append(["T", "D", res, arg])
+        elif res.search(r"^D(\d+)NAME[:=](\S+)$", arg):
+            properties.setdefault("D{}".format(res.group(1)), dict())["NAME"] = res.group(2)
+        elif res.search(r"^D(\d+)CHIP[:=](\S+)$", arg):
+            properties.setdefault("D{}".format(res.group(1)), dict())["CHIP"] = res.group(2)
+        elif res.search(r"^D(\d+)IMAGE[:=](\S+)$", arg):
+            properties.setdefault("D{}".format(res.group(1)), dict())["IMAGE"] = res.group(2)
+        elif res.search(r"^COMMENT[:=](\S+)$", arg, re.IGNORECASE):
+            properties.setdefault(None, dict())["COMMENT"] = res.group(1)
+        elif res.search(r"^POD[:=](\S+)$", arg, re.IGNORECASE):
+            properties.setdefault(None, dict())["POD"] = res.group(1)
+        elif res.search(r"^P(\d+):D(\d+)-D(\d+)$", arg):
+            devs = list(range(int(res.group(2)), int(res.group(3))+1))
+            for dev in devs: pods[dev] = int(res.group(1))
+        elif res.search(r"^P(\d+):D(\d+)$", arg):
+            devs = [int(res.group(2))]
+            for dev in devs: pods[dev] = int(res.group(1))
+        else:
+            errs.append("{}: unsupported".format(arg))
+            requests.append([None, None, 0, arg])
+    if errs:
+        logger.error("parse_topology--errors: %s", str(errs))
+    return requests, errs, properties, pods
+
+def prepare_topology(topology, def_chip):
+    topology = topology.replace(",", " ")
+    requests, errs, properties, pods = parse_topology(topology.split())
+    if errs:
+        logger.error("Failed to parse topology")
+        sys.exit(0)
+    dut_links, tg_links = OrderedDict(), OrderedDict()
+    duts = OrderedDict()
+    for src_type, dst_type, res, _ in requests:
+        if not src_type or not dst_type: continue
+        src_dev = src_type + res.group(1)
+        dst_dev = dst_type + res.group(2)
+        count = int(res.group(3))
+        if src_type == 'T': tg_links[dst_dev] = count
+        elif dst_type == 'T': tg_links[src_dev] = count
+        else: dut_links.setdefault(src_dev, OrderedDict())[dst_dev] = count
+        if src_type == "D": duts[src_dev] = 1
+        if dst_type == "D": duts[dst_dev] = 1
+
+    chips = OrderedDict()
+    for dut in duts:
+        chips[dut] = properties.get(dut, {}).get("CHIP", def_chip)
+
+    pod_name = properties.get(None, {}).get("POD", "V")
+    names = OrderedDict()
+    for dut in duts:
+        def_name = dut.replace("D", pod_name)
+        names[dut] = properties.get(dut, {}).get("NAME", def_name)
+
+    images = OrderedDict()
+    for dut in duts:
+        images[dut] = properties.get(dut, {}).get("IMAGE", "default")
+
+    dut_list = list(duts.keys())
+    dut_list.sort(key= lambda x: float(x.strip('D')))
+    topo_info = SpyTestDict()
+    topo_info.pod_name = pod_name
+    topo_info.topology = topology
+    topo_info.dut_list = dut_list
+    topo_info.dut_links = dut_links
+    topo_info.tg_links = tg_links
+    topo_info.dut_chips = chips
+    topo_info.dut_names = names
+    topo_info.dut_images = images
+    topo_info.properties = properties
+    topo_info.dut_pods = pods
+    return topo_info
+
+def prepare_testbed_data(wap, dut_links, tg_links, tg_link_start):
+    next_port_dict = dict()
+    dut_connections = OrderedDict()
+    tg_connections = OrderedDict()
+    tgen_link = tg_link_start
+    for src_dev, count in tg_links.items():
+        for _ in range(count):
+            dut_link = next_port_dict.setdefault(src_dev, 0)
+            next_port_dict[src_dev] = dut_link + get_step(wap, src_dev, dut_link)
+            tg_connections.setdefault(src_dev, []).append([dut_link, "", tgen_link])
+            tgen_link = tgen_link + 1
+    for src_dev, dinfo in dut_links.items():
+        for dst_dev, count in dinfo.items():
+            for _ in range(count):
+                src_link = next_port_dict.setdefault(src_dev, 0)
+                next_port_dict[src_dev] = src_link + get_step(wap, src_dev, src_link)
+                dst_link = next_port_dict.setdefault(dst_dev, 0)
+                next_port_dict[dst_dev] = dst_link + get_step(wap, dst_dev, dst_link)
+                dut_connections.setdefault(src_dev, []).append([src_link, dst_dev, dst_link])
+    return dut_connections, tg_connections, tgen_link
+
+def match_chip(wap, dut, *args):
+    dut = dut or wap.topo_info.dut_list[0]
+    chip = wap.topo_info.dut_chips[dut]
+    return bool(chip in new_list(*args))
+
+def is_arista_device(wap, dut):
+    return match_chip(wap, dut, "veos")
+
+def is_vs_device(wap, dut):
+    return match_chip(wap, dut, "vs")
+
+def map_chip(wap, chip):
+    return chip
+
+def map_tb_chip(wap, chip):
+    chip = "VS"
+    return chip
+
+def get_step(wap, dut, link):
+    if wap.lanes:
+        step = wap.lanes
+    elif is_vs_device(wap, dut):
+        step = 4 if link > 48 else 1
+    else:
+        step = 8
+    return step
+
+def get_all_dev_list(wap, dut_list):
+    tg_dev = "TG"
+    return new_list(tg_dev, dut_list)
+
+def create_testbed(wap, ipaddr=None, file_path=None):
+    dut_list = wap.topo_info.dut_list
+    dut_chips = wap.topo_info.dut_chips
+    dut_connections = wap.topo_info.dut_connections
+    tg_connections = wap.topo_info.tg_connections
+    ts_protocol = wap.topo_info.ts_protocol
+    ts_ip = wap.topo_info.ts_ip
+    dut_console = wap.topo_info.consoles
+    rps_info = {"model": rps_model, "username": "ubuntu", "password": "ubuntu", "ip": {}, "port": {}, "outlet": {}}
+    if ipaddr: wap.container_ip = ipaddr
+    device_types = {}
+    dut_names, dut_tbchips = {}, {}
+    passwords, alt_passwords = {}, {}
+    console_port_map = {}
+    for dut in dut_list:
+        ts_protocol.setdefault(dut, "telnet")
+        ts_ip.setdefault(dut, wap.container_ip)
+        dut_names[dut] = get_dut_name(wap, dut)
+        dut_tbchips[dut] = map_tb_chip(wap, dut_chips[dut])
+        if is_arista_device(wap, dut):
+            device_types[dut] = "veos"
+            passwords[dut] = "arista"
+        elif is_vs_device(wap, dut):
+            device_types[dut] = "sonicvs"
+            passwords[dut] = "broadcom"
+        else:
+            device_types[dut] = "vsonic"
+            passwords[dut] = "broadcom"
+        alt_passwords[dut] = "YourPaSsWoRd"
+        rps_info["outlet"][dut] = dut_names[dut]
+        rps_info["ip"][dut] = wap.container_ip
+    for dut in get_all_dev_list(wap, dut_list):
+        console_port_map[dut] = dut_console.get(dut)
+        rps_info["port"][dut] = 22
+    yaml = tmpl_render(testbed_tmpl_text,
+                container_ip=wap.container_ip,
+                ts_ports=console_port_map,
+                ts_protocol=ts_protocol,
+                dut_list=dut_list, dut_links=dut_connections,
+                tg_links=tg_connections, ts_ip=ts_ip,
+                tg_ipaddr=wap.tg_ipaddr, device_types=device_types,
+                dut_names=dut_names, tg_type=wap.tg_type,
+                tg_version=wap.tg_version,
+                passwords=alt_passwords, alt_passwords=passwords,
+                dut_tbchips=dut_tbchips, rps_info=rps_info)
+
+    if file_path:
+        write_file(None, file_path, yaml)
+    else:
+        write_file(wap.files_path, wap.testbed_file, yaml)
+
+    return yaml
+
+def process_topology(wap):
+    wap.topo_info = prepare_topology(wap.topology, wap.chip)
+    rv = prepare_testbed_data(wap, wap.topo_info.dut_links, wap.topo_info.tg_links, 1)
+    dut_connections, tg_connections, tgen_link_end = rv
+    wap.topo_info.dut_connections = dut_connections
+    wap.topo_info.tg_connections = tg_connections
+    wap.topo_info.tgen_link_end = tgen_link_end
+
+def build_parser(helper=False):
+    topology = "POD:V D1D2:4 T1D1:2 T1D2:2"
+    topology = "POD:V D1T1:4 D1D2:6 D1D3:4 D1D4:4 D1D5:4 D1D6:4 D2T1:4 D2D3:4 D2D4:4 D2D5:4 D2D6:4 D3T1:4 D3D4:6 D3D5:4 D3D6:4 D4T1:4 D4D5:6 D4D6:4 D5T1:2 D5D6:6 D6T1:4"
+    topology = "POD:V D1D2:6 D1D3:4 D1D4:4 D2D3:4 D2D4:4 D3D4:6 T1D1:4 T1D2:4 T1D3:4 T1D4:4"
+
+    # create parser
+    formatter_class=lambda prog: argparse.RawTextHelpFormatter(prog, max_help_position=28, width=80)
+    parser = argparse.ArgumentParser(description='Virtual SONiC Network Helper.', formatter_class=formatter_class)
+
+    # add defaults
+    parser.topology = [topology]
+    parser.cpu = 4
+    parser.mem = 8
+    parser.dockerc = os.getenv("DOCKERC") or "docker"
+    parser.host = os.getenv("DOCKER_HOST") or "unix:///var/run/docker.sock"
+    parser.repo = "/data/sonic-mgmt/spytest"
+    parser.name = tool_name
+    parser.lanes = 4
+    parser.platform = "vm"
+    parser.share = "/data"
+
+    operations = ["build", "remove", "topo", "test"]
+    #operations.extend(["start", "bash"])
+    parser.add_argument("operation", choices=operations, action="append", help="operation(s) to be performed.", nargs='+')
+    parser.add_argument("--noop", action="store_true", default=False, help="No operation, can be used to terminate multiple value arguments.")
+    parser.add_argument("--name", action="store", default=None, help=f"Name of the network instance. default: {parser.name}")
+    platform_choices = ["vm", "docker"]
+    parser.add_argument("--platform", action="store", default=None, choices=platform_choices, help=f"Underlying platform type to run SONiC. default: {parser.platform}")
+    default_host = "<DOCKER_HOST>|unix:///var/run/docker.sock"
+    parser.add_argument("--host", action="store", default=None, help=f"Docker host to run. default: {default_host}")
+    parser.add_argument("--topology", action="store", default=[], nargs='+', help=f"default: {parser.topology}")
+    parser.add_argument("--cpu", action="store", default=None, help=f"Maximum CPU cores per SONiC instance. default: {parser.cpu}")
+    parser.add_argument("--mem", action="store", default=None, help=f"Maximum memory in GB per SONiC instance. default: {parser.mem}")
+    parser.add_argument("--lanes", action="store", default=None, type=int, help=f"Number of interface lanes in SONiC. default: {parser.lanes}")
+    parser.add_argument("--share", action="store", default=None, help=f"Path in the host to store results and temorary files. default: {parser.share}")
+    default_image_path = "<share>/images/sonic-vs.img"
+    parser.add_argument("--image", action="append", default=[], nargs=2, metavar='<name> <path>',
+            help=f"Named image paths on the host, use name=default for common image path.\ndefault name=default path={default_image_path}")
+    default_repo_path = "<share>/sonic-mgmt/spytest/"
+    parser.add_argument("--repo", action="store", default=None, help=f"SPyTest repo path in host. default: {default_repo_path}")
+    parser.add_argument("--bridge", action="store", default="covs", choices=["linux", "ovs", "covs"], help="")
+    parser.add_argument("--run-args", action="store", default=None, help="SPyTest run arguments File.")
+    parser.add_argument("--dry-run", action="store", type=int, default=0)
+
+    return parser
+
+def parse_known_args(parser):
+    args, unknown = parser.parse_known_args()
+    if unknown: parser.error("unknown arguments: {}".format(unknown))
+
+    args.cmdline = []
+    if args.platform: args.cmdline.append(f"--platform {args.platform}")
+    if args.topology: args.cmdline.append("--topology {}".format(" ".join(args.topology)))
+    if args.cpu is not None: args.cmdline.append(f"--cpu {args.cpu}")
+    if args.mem is not None: args.cmdline.append(f"--mem {args.mem}")
+    if args.lanes is not None: args.cmdline.append(f"--lanes {args.lanes}")
+    for name, value in args.image:
+        args.cmdline.append(f"--image {name} {value}")
+    if args.repo: args.cmdline.append(f"--repo {args.repo}")
+    if args.bridge: args.cmdline.append(f"--bridge {args.bridge}")
+    if args.dry_run: args.cmdline.append(f"--dry-run {args.dry_run}")
+
+    args.operation = args.operation[0]
+    run = new_list(args.operation)
+    if "build" in run:
+        args.op_build = True
+        run.remove("build")
+    else:
+        args.op_build = False
+    args.run = run[0] if run else ""
+    args.files_path = None
+    args.files_path = os.getenv("TOOL_TMPD")
+    if not args.files_path:
+        args.files_path0 = tempfile.mkdtemp()
+        args.files_path = args.files_path0
+    else:
+        args.files_path0 = None
+    #print(f"using {args.files_path} as temp")
+
+    args.cpu = args.cpu or parser.cpu
+    args.mem = args.mem or parser.mem
+    args.topology = args.topology or parser.topology
+    args.lanes = parser.lanes if args.lanes is None else args.lanes
+    args.platform = args.platform or parser.platform
+    args.share = args.share or parser.share
+    args.images = {"default": os.path.join(args.share, "images", "sonic-vs.img")}
+    for name, value in args.image:
+        args.images[name] = value
+    args.host = args.host or parser.host
+    args.dockerc = parser.dockerc
+    os.environ["DOCKER_HOST"] = args.host
+    os.environ["DOCKERC"] = args.dockerc
+    args.repo = args.repo or parser.repo
+    args.name = args.name or parser.name
+    args.dind = 1
+    args.chip = "vs"
+    args.container_ip = "127.0.0.1"
+    args.python = "3.8"
+    if "bridge" not in args:
+        args.bridge = "covs" #bridge_choices = ["linux", "ovs", "covs"]
+    args.ubuntu = "20.04" #ubuntu_choices = ["18.04", "20.04"]
+    args.build = "master" #build_choices = ["202111", "master", "brcm"]
+    args.testbed_file = "testbed.yaml"
+    args.add_files = []
+    args.apt_proxy = None
+    args.apt_proxy = "docker"
+    args.rsync = False
+
+    return args
+
+def process_args(args):
+
+    args.topology = " ".join(args.topology)
+    args.chip = map_chip(args, args.chip)
+
+    args.tg_type = "scapy"
+    args.tg_version = "1.0"
+    args.ts_port = 7000
+
+    process_topology(args)
+
+    if args.ubuntu == "18.04":
+        args.release = "bionic"
+        args.libvirt_pkg = "libvirt-bin"
+    elif args.ubuntu == "20.04":
+        args.release = "focal"
+        args.libvirt_pkg = "libvirt-daemon-system libvirt-clients"
+    elif args.ubuntu == "22.04":
+        args.release = "jammy"
+        args.libvirt_pkg = "libvirt-daemon-system libvirt-clients"
+    else:
+        args.release = "bionic"
+        args.libvirt_pkg = "libvirt-bin"
+
+    return args
+
+def tool_parse_args(helper=False):
+    parser = build_parser(helper)
+    args = parse_known_args(parser)
+    return process_args(args)
+
+def add_cmd(cmds, cmd):
+    if cmd not in cmds:
+        cmds.append(cmd)
+
+def br_add_port(cmds, sport, dport, si, di):
+    br = "{}_{}".format(sport, dport)
+    add_cmd(cmds, "ip link add name {0} type bridge".format(br))
+    add_cmd(cmds, "echo 16384 > /sys/class/net/{}/bridge/group_fwd_mask".format(br))
+    add_cmd(cmds, "ip link set dev {} up".format(br))
+    if dport.startswith("TP"):
+        add_cmd(cmds, "ip netns add scapy")
+        peer = dport.replace("TP", "TG")
+        add_cmd(cmds, "ip link add {} type veth peer name {}".format(dport, peer))
+        add_cmd(cmds, "ip link set {} netns scapy".format(peer))
+        add_cmd(cmds, "ip netns exec scapy ip link set {} name eth{}".format(peer, di+1))
+    for intf in [sport, dport]:
+        add_cmd(cmds, "ip link set dev {1} master {0}".format(br, intf))
+    for intf in [sport, dport]:
+        add_cmd(cmds, "ip link set dev {} up".format(intf))
+        add_cmd(cmds, "ip link set dev {} mtu 9100".format(intf))
+    add_cmd(cmds, "")
+    return br
+
+def ovs_add_port(cmds, br, sport, dport, si, di):
+    add_cmd(cmds, "ovs-vsctl add-br {0} -- set Bridge {0} fail-mode=secure".format(br))
+    if dport.startswith("TP"):
+        add_cmd(cmds, "ip netns add scapy")
+        peer = dport.replace("TP", "TG")
+        add_cmd(cmds, "ip link add {} type veth peer name {}".format(dport, peer))
+        add_cmd(cmds, "ip link set {} netns scapy".format(peer))
+        add_cmd(cmds, "ip netns exec scapy ip link set {} name eth{}".format(peer, di+1))
+    for intf in [sport, dport]:
+        add_cmd(cmds, "ip link set dev {} up".format(intf))
+        add_cmd(cmds, "ip link set dev {} mtu 9100".format(intf))
+        add_cmd(cmds, "ovs-vsctl add-port {} {}".format(br, intf))
+        add_cmd(cmds, "ovs-ofctl mod-port {} {} up".format(br, intf))
+    add_cmd(cmds, "ovs-ofctl add-flow {} in_port={},action=output:{}".format(br, sport, dport))
+    add_cmd(cmds, "ovs-ofctl add-flow {} in_port={},action=output:{}".format(br, dport, sport))
+    add_cmd(cmds, "ip link set dev {} up".format(br))
+    cmds.append("")
+    return br
+
+def add_port(wap, cmds, src, dst, local, remote, si, di):
+    sport, dport = "{}P{}".format(src, local), "{}P{}".format(dst, remote)
+    if wap.platform in ["docker"]:
+        local += 1; remote += 0 if dst == "T" else 1
+        add_cmd(cmds[0], "mkdir -p /var/run/netns/")
+        for dut in [src, dst]:
+            dut = get_dut_name(wap, dut)
+            if dut == "T":
+                add_cmd(cmds[0], "ip netns add scapy")
+            else:
+                add_cmd(cmds[0], "PID_{0}=$({1} inspect -f {{{{.State.Pid}}}} {0})".format(dut, wap.dockerc))
+                add_cmd(cmds[0], "ln -sfT /proc/$PID_{0}/ns/net /var/run/netns/{0}".format(dut))
+        add_cmd(cmds[1], "ip link add {} type veth peer name {}".format(sport, dport))
+        for dut, port, link, i in [[src, sport, local, si], [dst, dport, remote, di]]:
+            dut = get_dut_name(wap, dut)
+            eth = "eth{}".format(link)
+            eth = "eth{}".format(i+1)
+            if dut == "T":
+                ns = "scapy"
+            else:
+                ns = dut
+            add_cmd(cmds[1], "ip link set netns {} dev {}".format(ns, port))
+            add_cmd(cmds[1], "ip netns exec {} ip link set {} name {}".format(ns, port, eth))
+            add_cmd(cmds[1], "ip netns exec {} ip link set {} up".format(ns, eth))
+        return sport, dport
+
+    if wap.bridge == "linux":
+        br = br_add_port(cmds[1], sport, dport, si, di)
+    elif wap.bridge == "ovs":
+        br = "{}_{}".format(sport, dport)
+        ovs_add_port(cmds[1], br, sport, dport, si, di)
+    else:
+        br = "vsbr"
+        ovs_add_port(cmds[1], br, sport, dport, si, di)
+
+    add_cmd(cmds[2], "ip link set dev {} mtu 9100".format(br))
+    return sport, dport
+
+def tool_build_kwargs(wap):
+    dut_list = wap.topo_info.dut_list
+    links = wap.topo_info.links
+    USE_BRIDGE = "1" if wap.bridge in ["linux"] else "0"
+    USE_BRIDGE = "1"
+    kwargs = {"REPO":wap.repo, "SHARE":wap.share, "PYVER":wap.python, "USE_BRIDGE":USE_BRIDGE}
+    kwargs.update({"TOPOLOGY":wap.topology})
+    kwargs.update({"NAME":wap.name, "MEM":wap.mem, "CPU":wap.cpu})
+    kwargs.update({"TGPORTS":len(links[None])})
+    kwargs.update({"DUT_PREFIX":wap.topo_info.pod_name})
+    kwargs.update({"DOCKERC":os.getenv("DOCKERC")})
+    kwargs.update({"DOCKER_HOST":os.getenv("DOCKER_HOST")})
+    kwargs.update({"DCOUNT":len(dut_list), "CPORT":wap.ts_port})
+    DOCKER_IP_FILTER="'{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}'"
+    kwargs.update({"DOCKER_IP_FILTER":DOCKER_IP_FILTER})
+    kwargs.update({"RELEASE": wap.release, "BLD": wap.build})
+    kwargs.update({"RUN": wap.run})
+    kwargs.update({"USE_APT_PROXY": bool(wap.apt_proxy != "none")})
+    kwargs.update({"PLATFORM": wap.platform})
+    kwargs.update({"IMAGE": wap.images["default"]})
+    mnt_images = {}
+    for name in wap.topo_info.dut_images.values():
+        mnt_images[name] = wap.images[name]
+    kwargs.update({"IMAGES": mnt_images})
+    kwargs.update({"DIND": bool(wap.dind and wap.platform in ["docker"])})
+    kwargs.update({"tool_name": tool_name})
+    return kwargs
+
+def tool_main0(wap):
+    wap.cpu = wap.cpu or 4
+    wap.mem = wap.mem or 8
+    dut_list = wap.topo_info.dut_list
+    dut_connections = wap.topo_info.dut_connections
+    tg_connections = wap.topo_info.tg_connections
+    cmds, links = OrderedDict(), OrderedDict()
+    for i in range(3): cmds[i] = []
+    print("{} TOPOLOGY = {}".format(wap.topo_info.pod_name, wap.topology))
+    for dut in new_list(None, dut_list):
+        links.setdefault(dut, [])
+    for dut, linfo in tg_connections.items():
+        for src, _, dst in linfo:
+            si, di = len(links[dut]), len(links[None])
+            sport, dport = add_port(wap, cmds, dut, "T", src, dst, si, di)
+            links[dut].append(sport); links[None].append(dport)
+    for dut, linfo in dut_connections.items():
+        links.setdefault(dut, [])
+        for src, partner, dst in linfo:
+            links.setdefault(partner, [])
+            si, di = len(links[dut]), len(links[partner])
+            sport, dport = add_port(wap, cmds, dut, partner, src, dst, si, di)
+            links[dut].append(sport); links[partner].append(dport)
+    if cmds[2]:
+        cmds[1].append("sleep 10")
+    cmds[2].append("")
+
+    wap.tg_ipaddr = "127.0.0.1"
+    dut_console = {}
+    ts_protocol = {}
+    ts_ip = {}
+    for index, dut in enumerate(dut_list):
+        dut_name = get_dut_name(wap, dut)
+        if wap.platform in ["docker"]:
+            dut_console[dut] = 22
+            ts_protocol[dut] = "ssh"
+            ts_ip[dut] = f"SSH_IP_{dut_name}"
+            global rps_model
+            rps_model = "none"
+        else:
+            dut_console[dut] = 7001 + index
+
+    wap.topo_info.cmds = cmds
+    wap.topo_info.rps_model = rps_model
+    wap.topo_info.links = links
+    wap.topo_info.consoles = dut_console
+    wap.topo_info.ts_protocol = ts_protocol
+    wap.topo_info.ts_ip = ts_ip
+
+    return tool_build_kwargs(wap)
+
+def tool_main(wap):
+    kwargs = tool_main0(wap)
+    #dut_console = wap.topo_info.consoles
+    #dut_list = wap.topo_info.dut_list
+    #cmds = wap.topo_info.cmds
+    #links = wap.topo_info.links
+    run_args = read_lines(wap.run_args) if wap.run_args else []
+    write_file(wap.files_path, "run.args", " ".join(run_args))
+    #write_file(wap.files_path, "links.sh", "\n".join(cmds[0] + cmds[1] + cmds[2]))
+    lwrite(wap.files_path, "apt-proxy-detect.sh", apt_proxy_tmpl_text)
+    APT_INSTALL="apt-get -y install"
+    APT_INSTALL="apt-get -y install --no-install-recommends"
+    APT_INSTALL="apt-get -y install --no-install-recommends -o APT::Retries=30"
+    APT_INSTALL="apt-get -y install --no-install-recommends -o APT::Retries=30 -o Acquire::ForceIPv4=true"
+    APT_UPDATE="apt-get update"
+    APT_UPDATE="apt-get update -o Acquire::ForceIPv4=true --fix-missing"
+    APT_UPDATE="apt-get update -o Acquire::ForceIPv4=true -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false --fix-missing"
+    lwrite(wap.files_path, "Dockerfile", dockerfile_tmpl_text, RELEASE=wap.release, TOOL=this_path,
+            LIBVIRT=wap.libvirt_pkg, PYVER=wap.python, APT_INSTALL=APT_INSTALL, APT_UPDATE=APT_UPDATE)
+    #lwrite(wap.files_path, "scapy.sh", scapy_tmpl_text, SRV_NAME="scapy", **kwargs)
+    #lwrite(wap.files_path, "logger.sh", logger_tmpl_text, SRV_NAME="logger", **kwargs)
+    #lwrite(wap.files_path, "fixups.sh", fixups_tmpl_text, SRV_NAME="fixups", **kwargs)
+    #lwrite(wap.files_path, "expose.sh", expose_tmpl_text, SRV_NAME="expose", **kwargs)
+    lwrite(wap.files_path, "entrypoint.sh", entrypoint_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "pool-default.xml", pool_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "env", env_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "run.sh", run_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "build.sh", build_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "debug.sh", debug_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "tshark.sh", tshark_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "virsh-rps", virsh_tmpl_text, **kwargs)
+    #lwrite(wap.files_path, "topo.sh", topo_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "ut.sh", ut_tmpl_text, **kwargs)
+    lwrite(wap.files_path, "helper.sh", helper_tmpl_text, **kwargs)
+
+    test_sh = os.path.join(this_path, "test.sh")
+    requirements_sh = os.path.join(this_path, "requirements.sh")
+    autorun_sh = os.path.join(this_path, "autorun.sh")
+    sonic_import_img = os.path.join(this_path, "sonic_import_img.sh")
+    if wap.files_path:
+        all_files = new_list(requirements_sh, autorun_sh, test_sh)
+        all_files.append(sonic_import_img)
+        all_files.extend(wap.add_files)
+        for f in all_files:
+            os.system("cp -rf {} {}".format(f, wap.files_path))
+        os.system("cp -rf {} {}/{}.py".format(__file__, wap.files_path, tool_name))
+
+    chmod(wap.files_path, 0o755, "entrypoint.sh", "debug.sh", "virsh-rps", "apt-proxy-detect.sh")
+    chmod(wap.files_path, 0o755, "build.sh", "run.sh", test_sh)
+    chmod(wap.files_path, 0o755, "tshark.sh", "ut.sh")
+    chmod(wap.files_path, 0o755, "helper.sh")
+    write_file(wap.files_path, "args.txt", " ".join(wap.cmdline))
+
+    #create_testbed(wap, "TERMSERV_IP")
+
+    """
+    for dut in dut_list:
+        dut_name = get_dut_name(wap, dut)
+        xml_file = "{}.xml".format(dut_name)
+        #print(f"Creating {xml_file}")
+        lwrite(wap.files_path, xml_file, vmxml_tmpl_text,
+               dut=dut, ports=links[dut], vmem=wap.mem, vcpu=wap.cpu,
+               ts_ports=dut_console, dut_name=dut_name)
+    """
+
+    if wap.rsync:
+        SREPO = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        cmd = "/usr/bin/rsync -rqptgoDP {}/ {}".format(SREPO, wap.repo)
+        subprocess.call(cmd.split())
+
+    if wap.op_build:
+        subprocess.call(fpath(wap.files_path, "./build.sh"))
+    if wap.run:
+        subprocess.call(fpath(wap.files_path, "./run.sh"))
+
+    if wap.files_path0:
+        #os.system(f"ls -l {wap.files_path0}")
+        shutil.rmtree(wap.files_path0)
+
+def os_system(cmd):
+    if not dry_run:
+        os.system(cmd)
+    else:
+        print(f"os.system({cmd})")
+
+def copy_file(src, dst):
+    os_system(f"cp {src} {dst}")
+
+def get_ipaddr():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(('8.8.8.8', 1))  # connect() for UDP doesn't send packets
+    return s.getsockname()[0]
+
+def helper_topo_vm(wap):
+    root = ensure_folder("/tmp/root" if dry_run else "/")
+    images = ensure_folder(f"{root}/data/images")
+    work = ensure_folder(f"{root}/data/work")
+    scripts = ensure_folder(f"{root}/scripts")
+    bash = "bash -x"
+
+    kwargs = tool_main0(wap)
+    links = wap.topo_info.links
+    cmds = wap.topo_info.cmds
+    dut_console = wap.topo_info.consoles
+
+    # save image as device image based on image type
+    for dut, image in wap.topo_info.dut_images.items():
+        dut_name = get_dut_name(wap, dut)
+        copy_file(f"/images/{image}", f"{images}/{dut_name}.img")
+
+    # create device xml files
+    for dut in wap.topo_info.dut_list:
+        dut_name = get_dut_name(wap, dut)
+        lwrite(work, f"{dut_name}.xml", vmxml_tmpl_text,
+               dut=dut, ports=links[dut], vmem=wap.mem, vcpu=wap.cpu,
+               ts_ports=dut_console, dut_name=dut_name)
+
+    # create testbed file
+    #create_testbed(wap, get_ipaddr(), f"{work}/testbed.yaml")
+    create_testbed(wap, "127.0.0.1", f"{work}/testbed.yaml")
+
+    # start devices
+    for dut in wap.topo_info.dut_list:
+        dut_name = get_dut_name(wap, dut)
+        os_system(f"virsh -l {work}/{dut_name}.log -q define {work}/{dut_name}.xml")
+        os_system(f"virsh start {dut_name}")
+
+    # create links
+    write_file(scripts, "links.sh", "\n".join(cmds[0] + cmds[1] + cmds[2]))
+    chmod(scripts, 0o755, "links.sh")
+    os_system(f"{bash} {scripts}/links.sh")
+
+    # expose scapy service ports
+    lwrite(scripts, "expose.sh", expose_tmpl_text, SRV_NAME="expose", **kwargs)
+    chmod(scripts, 0o755, "expose.sh")
+    os_system(f"{bash} {scripts}/expose.sh INSTALL")
+
+    # start scapy service
+    lwrite(scripts, "env", env_tmpl_text, **kwargs)
+    lwrite(scripts, "scapy.sh", scapy_tmpl_text, SRV_NAME="scapy", **kwargs)
+    chmod(scripts, 0o755, "scapy.sh")
+    os_system(f"{bash} {scripts}/scapy.sh INSTALL")
+
+    # copy rps script
+    lwrite(None, "/usr/bin/virsh-rps", virsh_tmpl_text, **kwargs)
+    chmod(None, 0o755, "/usr/bin/virsh-rps")
+
+def helper_topo_docker(wap):
+    root = ensure_folder("/tmp/root" if dry_run else "/")
+    #images = ensure_folder(f"{root}/data/images")
+    work = ensure_folder(f"{root}/data/work")
+    scripts = ensure_folder(f"{root}/scripts")
+    bash = "bash -x"
+
+    kwargs = tool_main0(wap)
+    #links = wap.topo_info.links
+    cmds = wap.topo_info.cmds
+    #dut_console = wap.topo_info.consoles
+
+    print("Importing sonic build image as docker image and volume")
+    # nosemgrep-next-line
+    proc = subprocess.Popen("sonic_import_img.sh /images/default", shell=True, stdout=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    if proc.returncode != 0:
+        stderr = stderr.decode() if stderr else ""
+        stdout = stdout.decode() if stdout else ""
+        print("Failed to import sonic image")
+        print(f"ERR = {stderr} OUT = {stdout}")
+        sys.exit(1)
+
+    # create testbed file
+    yaml = create_testbed(wap, "127.0.0.1", f"{work}/testbed.yaml")
+    for dut in wap.topo_info.dut_list:
+        dut_name = get_dut_name(wap, dut)
+        cmd="{} inspect -f {} {}".format(wap.dockerc, kwargs["DOCKER_IP_FILTER"], dut_name)
+        # nosemgrep-next-line
+        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+        yaml = yaml.replace(f"SSH_IP_{dut_name},", f"{stdout.decode().strip()},")
+    write_file(work, "testbed.yaml", yaml)
+
+    # create env
+    lwrite(scripts, "env", env_tmpl_text, **kwargs)
+
+    # create links
+    write_file(scripts, "links.sh", "\n".join(cmds[0] + cmds[1] + cmds[2]))
+    os_system(f"{bash} {scripts}/links.sh")
+
+    # expose scapy service ports
+    lwrite(scripts, "expose.sh", expose_tmpl_text, SRV_NAME="expose", **kwargs)
+    chmod(scripts, 0o755, "expose.sh")
+    os_system(f"{bash} {scripts}/expose.sh INSTALL")
+
+    # start scapy service
+    lwrite(scripts, "scapy.sh", scapy_tmpl_text, SRV_NAME="scapy", **kwargs)
+    chmod(scripts, 0o755, "scapy.sh")
+    os_system(f"{bash} {scripts}/scapy.sh INSTALL")
+
+    # start logger service
+    lwrite(scripts, "logger.sh", logger_tmpl_text, SRV_NAME="logger", **kwargs)
+    chmod(scripts, 0o755, "logger.sh")
+    os_system(f"{bash} {scripts}/logger.sh INSTALL")
+
+    # start fixup service
+    lwrite(scripts, "fixups.sh", fixups_tmpl_text, SRV_NAME="fixups", **kwargs)
+    chmod(scripts, 0o755, "fixups.sh")
+    os_system(f"{bash} {scripts}/fixups.sh INSTALL")
+
+
+def helper_main(inner=True):
+    args_file = "/scripts/args.txt"
+    if not os.path.exists(args_file):
+        files_path = os.getenv("TOOL_TMPD")
+        args_file = os.path.join(files_path, "args.txt")
+    argv = " ".join(read_lines(args_file)).split()
+    #print(f"ARGV = {argv}")
+    sys.argv.extend(argv)
+    wap = tool_parse_args(True)
+    global dry_run; dry_run = wap.dry_run
+    if "topo" in wap.operation or "test" in wap.operation:
+        if wap.platform in ["vm"]:
+            helper_topo_vm(wap)
+        else:
+            helper_topo_docker(wap)
+            #os_system("bash topo.sh")
+
+def main():
+    #init_file_log(f"/tmp/{tool_name}.log")
+    trace_date()
+    wap = tool_parse_args()
+    if wap.dry_run != 2:
+        tool_main(wap)
+    if wap.dry_run >= 2:
+        helper_main(False)
+
+if __name__ == "__main__":
+    main()
