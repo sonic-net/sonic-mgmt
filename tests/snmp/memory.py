@@ -3,11 +3,13 @@
 import time
 import subprocess
 
+
 def get_free_memory():
     command = "grep MemFree /proc/meminfo | awk '{print $2}'"
     output = subprocess.check_output(command, shell=True)
     free_memory = int(output.strip())
     return free_memory
+
 
 free_memory = get_free_memory()
 total_chars = 512000000
