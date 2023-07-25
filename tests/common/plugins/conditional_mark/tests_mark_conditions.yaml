@@ -106,6 +106,12 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_suppress_fib.py:
+  skip:
+    reason: "Not supported before release 202305."
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported topology backend."
@@ -499,6 +505,12 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     reason: "This test is not run on this asic type currently"
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+
+generic_config_updater/test_pfcwd_status.py:
+  skip:
+    reason: "PFC watchdog is not supported on M0/Mx topology"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####           http              #####
