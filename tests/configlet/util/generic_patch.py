@@ -6,8 +6,8 @@ import fnmatch
 import os
 import re
 
-from helpers import *
-from common import *
+from tests.configlet.util.common import *
+from tests.configlet.util.helpers import *
 
 if os.path.exists("/etc/sonic/sonic-environment"):
     from mock_for_switch import config_reload, wait_until
