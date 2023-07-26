@@ -109,6 +109,7 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
     if container != "":
         tag = container + "#" + process
     duthost.shell("logger -p {} -t {} {}".format(priority, tag, log))
+    duthost.shell("tail -n 5 /var/log/syslog", module_ignore_errors=True)["stdout"]
 
 
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
