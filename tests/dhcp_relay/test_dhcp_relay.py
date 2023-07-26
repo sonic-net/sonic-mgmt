@@ -45,13 +45,13 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
 
 
 @pytest.fixture(scope="module")
-def dut_dhcp_relay_data(duthosts, rand_selected_dut, ptfhost, tbinfo):
+def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """ Fixture which returns a list of dictionaries where each dictionary contains
         data necessary to test one instance of a DHCP relay agent running on the DuT.
         This fixture is scoped to the module, as the data it gathers can be used by
         all tests in this module. It does not need to be run before each test.
     """
-    duthost = rand_selected_dut
+    duthost = duthosts[rand_one_dut_hostname]
     dhcp_relay_data_list = []
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
