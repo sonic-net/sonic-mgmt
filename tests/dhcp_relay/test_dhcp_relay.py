@@ -200,9 +200,9 @@ def get_subtype_from_configdb(duthost):
 
 
 @pytest.fixture(scope="module", params=[SINGLE_TOR_MODE, DUAL_TOR_MODE])
-def testing_config(request, rand_selected_dut, tbinfo):
+def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
     testing_mode = request.param
-    duthost = rand_selected_dut
+    duthost = duthosts[rand_one_dut_hostname]
     subtype_exist, subtype_value = get_subtype_from_configdb(duthost)
 
     if 'dualtor' in tbinfo['topo']['name']:
@@ -308,7 +308,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     if testing_mode == DUAL_TOR_MODE:
         skip_release(duthost, ["201811", "201911"])
 
-    skip_dhcpmon = "201811" in duthost.os_version or "201911" in duthost.os_version
+    skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
@@ -368,12 +368,13 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
         logger.error("Unable to find expected log in syslog")
         raise err
 
-    # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-    restart_dhcp_service(duthost)
-    if testing_mode == DUAL_TOR_MODE:
-        restart_dhcp_service(standby_duthost)
-        pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost))
-    pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+    if not skip_dhcpmon:
+        # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
+        restart_dhcp_service(duthost)
+        if testing_mode == DUAL_TOR_MODE:
+            restart_dhcp_service(standby_duthost)
+            pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost))
+        pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
 def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
