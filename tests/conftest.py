@@ -28,6 +28,7 @@ from tests.common.devices.cisco import CiscoHost
 from tests.common.helpers.parallel import parallel_run
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session    # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active         # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session              # noqa F401
 
 from tests.common.helpers.constants import (
@@ -1708,6 +1709,59 @@ def duts_running_config_facts(duthosts):
 
 
 @pytest.fixture(scope='class')
+def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lower_tor_host, creds,
+                        mux_server_url, mux_status_from_nic_simulator, duts_running_config_facts, duts_minigraph_facts):
+    if 'dualtor' in tbinfo['topo']['name']:
+        all_duts = [lower_tor_host]
+    else:
+        all_duts = get_src_dst_asic_and_duts['all_duts']
+
+    src_asic = get_src_dst_asic_and_duts['src_asic']
+    dst_asic = get_src_dst_asic_and_duts['dst_asic']
+
+    src_dut = get_src_dst_asic_and_duts['src_dut']
+    src_dut_ip = src_dut.host.options['inventory_manager'].get_host(src_dut.hostname).vars['ansible_host']
+    src_server = "{}:{}".format(src_dut_ip, src_asic.get_rpc_port_ssh_tunnel())
+
+    duthost = all_duts[0]
+    mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+    topo = tbinfo["topo"]["name"]
+
+    rtn_dict = {
+        "topo": topo,
+        "hwsku": mgFacts["minigraph_hwsku"],
+        "basicParams": {
+            "router_mac": duthost.facts["router_mac"],
+            "src_server": src_server,
+            "port_map_file": ptf_test_port_map_active_active(
+                ptfhost, tbinfo, duthosts, mux_server_url,
+                duts_running_config_facts, duts_minigraph_facts,
+                mux_status_from_nic_simulator()),
+            "sonic_asic_type": duthost.facts['asic_type'],
+            "sonic_version": duthost.os_version,
+            "src_dut_index": get_src_dst_asic_and_duts['src_dut_index'],
+            "src_asic_index": get_src_dst_asic_and_duts['src_asic_index'],
+            "dst_dut_index": get_src_dst_asic_and_duts['dst_dut_index'],
+            "dst_asic_index": get_src_dst_asic_and_duts['dst_asic_index'],
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
+        },
+
+    }
+
+    # Add dst server info if src and dst asic are different
+    if src_asic != dst_asic:
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        dst_dut_ip = dst_dut.host.options['inventory_manager'].get_host(dst_dut.hostname).vars['ansible_host']
+        rtn_dict["basicParams"]["dst_server"] = "{}:{}".format(dst_dut_ip, dst_asic.get_rpc_port_ssh_tunnel())
+
+    if 'platform_asic' in duthost.facts:
+        rtn_dict['basicParams']["platform_asic"] = duthost.facts['platform_asic']
+
+    yield rtn_dict
+
+
+@ pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ptf_portmap_file, lower_tor_host, creds):   # noqa F811
     """
