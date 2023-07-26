@@ -283,10 +283,14 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep "\"Destination\": \"/data\"," -B 1 | head -1 | sed "s/.*\/sonic\///" | sed "s/\/sonic-test\/.*//"'
 
     chan.send(cmd)
-    sonic_test_dir_deduced = chan.recv(9999).decode("ascii")
+    resp = ''
+    while ':~$ ' not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
+        sonic_test_dir_deduced = resp
+    
     print(f"This is a test. Tried getting sonic-test directory from docker sonic-mgmt container name, container name is {docker_mgmt_container}, the sonic-test directory we got is {sonic_test_dir_deduced}")
-    
-    
+
     time.sleep(3)
     
     sanity_start_time = datetime.datetime.now()
