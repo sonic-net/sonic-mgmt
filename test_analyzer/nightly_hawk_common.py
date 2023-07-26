@@ -361,13 +361,14 @@ class NightlyPipelineCheck(object):
             branch_name = None
             schedules = None
             testbed_specific = None
-            nightly_test_timeout = None            
+            nightly_test_timeout = None
+            skip_test_results_uploading = None
 
             schedules = pipeline_file_dict.get('schedules', None)
             parameters = pipeline_file_dict.get('parameters', None)
             if not schedules or not parameters:
                 logger.info("file {} seems not a nightly pipeline yml file ".format(fileName))
-                return None, None, None, None, None, None
+                return None, None, None, None, None, None, None
 
             for para in pipeline_file_dict['parameters']:
                 if para['name'] == 'TESTBED_NAME':
@@ -382,7 +383,9 @@ class NightlyPipelineCheck(object):
                 if para['name'] == 'NIGHTLY_TEST_TIMEOUT':
                     # logger.info("{}".format(para['default']))
                     nightly_test_timeout = para['default']   
-
+                if para['name'] == 'SKIP_TEST_RESULTS_UPLOADING':
+                    # logger.info("{}".format(para['default']))
+                    skip_test_results_uploading = para['default']
 
             if len(pipeline_file_dict['schedules']) > 1 or len(pipeline_file_dict['schedules'][0]['branches']['include']) > 1:
                 logger.info("schedules ERROR {}".format(pipeline_file_dict['schedules']))
@@ -390,7 +393,7 @@ class NightlyPipelineCheck(object):
             branch_name = pipeline_file_dict['schedules'][0]['branches']['include'][0]
             schedules = self.decode_cron(pipeline_file_dict['schedules'][0]['cron'])
 
-            return testbed_name, branch_name, image_url, schedules, testbed_specific, nightly_test_timeout
+            return testbed_name, branch_name, image_url, schedules, testbed_specific, nightly_test_timeout, skip_test_results_uploading
 
 
     def get_pipeline_ids_from_azure(self):
@@ -433,7 +436,7 @@ class NightlyPipelineCheck(object):
             for file in files:
                 # logger.info("home {} dirs {} file {} ".format(home, dirs, files))
                 if file.endswith('.yml'):
-                    testbed_name, branch_name, image_url, schedules, _, _ = self.parser_nightly_pipeline_yml_File(os.path.join(home, file))
+                    testbed_name, branch_name, image_url, schedules, _, _, _ = self.parser_nightly_pipeline_yml_File(os.path.join(home, file))
                     logger.debug("file {} testbed_name {} branch_name {} image_url {} schedules {}".format(file, testbed_name, branch_name, image_url, schedules))
                     if not nightly_pipelines_yml_dict.get(file, None):
                         if testbed_name and branch_name and schedules:
@@ -471,7 +474,7 @@ class NightlyPipelineCheck(object):
         # for i in range(pipeline_ids_records['count']):
         for pipeline_info in pipeline_ids_records['value']:
             logger.warning("pipeline_info {} ".format(pipeline_info))
-            if 'path' in pipeline_info and pipeline_info['path'].startswith('\\Nightly') and not pipeline_info['path'].startswith('\\Nightly-Hawk') and not '\\Disabled' in pipeline_info['path']:
+            if 'path' in pipeline_info and pipeline_info['path'].startswith('\\Nightly') and not pipeline_info['path'].startswith('\\Nightly-Hawk'):
                 file_name, pipeline_name, path = self.get_pipelines_info(pipeline_info['id'])
                 if file_name == None and pipeline_name == None and path == None :
                     logger.warning("get_pipelines_id {} failed ".format(pipeline_info['id']))

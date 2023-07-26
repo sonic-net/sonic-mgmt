@@ -1,145 +1,149 @@
 {
-  "acl": {
-    "acl-sets": {
-      "acl-set": {
-        "BMC_ACL_NORTHBOUND": {
-          "acl-entries": {
-            "acl-entry": {
-              "0001_IN_PORTS_BMC_DST_IP_BMC_1": {
-                "actions": {
-                  "config": {
-                    "forwarding-action": "DROP"
-                  }
-                },
-                "config": {
-                  "sequence-id": 1
-                },
-                "input_interface": {
-                  "interface_ref": {
-                    "config": {
-                      "interface": "Ethernet0,Ethernet1,Ethernet2,Ethernet3,Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14,Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet25,Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35,Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "BMC_ACL_NORTHBOUND": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "0001_IN_PORTS_BMC_DST_IP_BMC_1": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 1
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet0,Ethernet1,Ethernet2,Ethernet3,Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14,Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet25,Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35,Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                                        }
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.17.0.0/25",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0006_IN_PORTS_BMC_DST_IP_BMC_2": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 6
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet0,Ethernet1,Ethernet2,Ethernet3,Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14,Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet25,Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35,Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                                        }
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.17.0.128/26",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0101_SRC_IP_RM": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 101
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "0",
+                                        "source-ip-address": "172.17.0.200/30"
+                                    }
+                                }
+                            },
+                            "0106_DST_IP_RM": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 106
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.17.0.200/30",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "9990_DROP_ALL": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9990
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
+                                }
+                            }
+                        }
                     }
-                  }
                 },
-                "ip": {
-                  "config": {
-                    "destination-ip-address": "172.17.0.0/25"
-                  }
-                }
-              },
-              "0006_IN_PORTS_BMC_DST_IP_BMC_2": {
-                "actions": {
-                  "config": {
-                    "forwarding-action": "DROP"
-                  }
-                },
-                "config": {
-                  "sequence-id": 6
-                },
-                "input_interface": {
-                  "interface_ref": {
-                    "config": {
-                      "interface": "Ethernet0,Ethernet1,Ethernet2,Ethernet3,Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14,Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet25,Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35,Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                "BMC_ACL_NORTHBOUND_V6": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "9990_DROP_ALL": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9990
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
+                                }
+                            }
+                        }
                     }
-                  }
                 },
-                "ip": {
-                  "config": {
-                    "destination-ip-address": "172.17.0.128/26"
-                  }
+                "BMC_ACL_SOUTHBOUND_V6": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "9990_DROP_ALL": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9990
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-              },
-              "0101_SRC_IP_RM": {
-                "actions": {
-                  "config": {
-                    "forwarding-action": "ACCEPT"
-                  }
-                },
-                "config": {
-                  "sequence-id": 101
-                },
-                "ip": {
-                  "config": {
-                    "source-ip-address": "172.17.0.200/30"
-                  }
-                }
-              },
-              "0106_DST_IP_RM": {
-                "actions": {
-                  "config": {
-                    "forwarding-action": "ACCEPT"
-                  }
-                },
-                "config": {
-                  "sequence-id": 106
-                },
-                "ip": {
-                  "config": {
-                    "destination-ip-address": "172.17.0.200/30"
-                  }
-                }
-              },
-              "9990_DROP_ALL": {
-                "actions": {
-                  "config": {
-                    "forwarding-action": "DROP"
-                  }
-                },
-                "config": {
-                  "sequence-id": 9990
-                },
-                "l2": {
-                  "config": {
-                    "ethertype": 2048
-                  }
-                }
-              }
             }
-          }
-        },
-        "BMC_ACL_NORTHBOUND_V6": {
-          "acl-entries": {
-            "acl-entry": {
-              "9990_DROP_ALL": {
-                "actions": {
-                  "config": {
-                    "forwarding-action": "DROP"
-                  }
-                },
-                "config": {
-                  "sequence-id": 9990
-                },
-                "l2": {
-                  "config": {
-                    "ethertype": 34525
-                  }
-                }
-              }
-            }
-          }
-        },
-        "BMC_ACL_SOUTHBOUND_V6": {
-          "acl-entries": {
-            "acl-entry": {
-              "9990_DROP_ALL": {
-                "actions": {
-                  "config": {
-                    "forwarding-action": "DROP"
-                  }
-                },
-                "config": {
-                  "sequence-id": 9990
-                },
-                "l2": {
-                  "config": {
-                    "ethertype": 34525
-                  }
-                }
-              }
-            }
-          }
         }
-      }
     }
-  }
 }

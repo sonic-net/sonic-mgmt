@@ -24,6 +24,7 @@ curr_convert_to_trusty_images_dict = {
     '$(IMAGE_BRCM_ABOOT_201911)'             :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_201911)'            , 'image' : 'sonic-aboot-broadcom.swi',      'vendor' : 'broadcom'},
     '$(IMAGE_BRCM_ABOOT_202012)'             :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)'            , 'image' : 'sonic-aboot-broadcom.swi',      'vendor' : 'broadcom'},
     '$(IMAGE_BRCM_ABOOT_202012_SLIM)'        :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012_SLIM)'       , 'image' : 'sonic-aboot-broadcom-slim.swi', 'vendor' : 'broadcom'},
+    '$(IMAGE_BRCM_ABOOT_INTERNAL)'           :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_INTERNAL)'          , 'image' : 'sonic-aboot-broadcom.swi',      'vendor' : 'broadcom'},
     '$(IMAGE_BRCM_ABOOT_202205)'             :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_202205)'            , 'image' : 'sonic-aboot-broadcom.swi',      'vendor' : 'broadcom'},
     '$(IMAGE_BRCM_ABOOT_202205_SLIM)'        :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_202205_SLIM)'       , 'image' : 'sonic-aboot-broadcom-slim.swi', 'vendor' : 'broadcom'},
     '$(IMAGE_BRCM_ABOOT_DNX_CHASSIS_202205)' :  {'trusty_image' : '$(TRUSTY_IMAGE_BRCM_ABOOT_DNX_CHASSIS_202205)', 'image' : 'sonic-aboot-broadcom-dnx.swi',  'vendor' : 'broadcom'},
@@ -34,6 +35,7 @@ curr_convert_to_trusty_images_dict = {
     '$(IMAGE_MARVELL_202205)'                :  {'trusty_image' : '$(TRUSTY_IMAGE_MARVELL_202205)'               , 'image' : 'sonic-marvell-armhf.bin',       'vendor' : 'marvell-armhf'},
     '$(IMAGE_MLNX_201911)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_MLNX_201911)'                  , 'image' : 'sonic-mellanox.bin',            'vendor' : 'mellanox'},
     '$(IMAGE_MLNX_202012)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_MLNX_202012)'                  , 'image' : 'sonic-mellanox.bin',            'vendor' : 'mellanox'},
+    '$(IMAGE_MLNX_INTERNAL)'                 :  {'trusty_image' : '$(TRUSTY_IMAGE_MLNX_INTERNAL)'                , 'image' : 'sonic-mellanox.bin',            'vendor' : 'mellanox'},
     '$(IMAGE_MLNX_202205)'                   :  {'trusty_image' : '$(TRUSTY_IMAGE_MLNX_202205)'                  , 'image' : 'sonic-mellanox.bin',            'vendor' : 'mellanox'},
 }
 

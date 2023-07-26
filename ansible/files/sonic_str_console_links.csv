@@ -38,7 +38,6 @@ console-80,48,str-dx010-acs-1,ssh,admin
 console-81,32,str-s6000-acs-10,ssh,admin
 console-81,30,str-s6000-acs-11,ssh,admin
 console-80,7,str-s6000-acs-12,ssh,admin
-console-80,4,str-s6000-acs-13,ssh,admin
 console-80,2,str-s6000-acs-14,ssh,admin
 console-81,6,str-s6000-acs-7,ssh,admin
 console-81,4,str-s6000-acs-8,ssh,admin
@@ -46,7 +45,6 @@ console-81,18,str-s6000-acs-9,ssh,admin
 console-81,16,str-s6000-on-01,ssh,admin
 console-81,13,str-s6000-on-2,ssh,admin
 console-81,10,str-s6000-on-4,ssh,admin
-console-81,14,str-s6000-on-5,ssh,admin
 console-81,8,str-s6000-on-6,ssh,admin
 console-81,28,str-s6100-acs-1,ssh,admin
 console-82,4,str-s6100-acs-2,ssh,admin

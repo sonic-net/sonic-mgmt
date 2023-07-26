@@ -823,14 +823,6 @@ vms_3:
       ansible_host: 10.64.246.218
     VM03059:
       ansible_host: 10.64.246.219
-    VM03060:
-      ansible_host: 10.64.246.220
-    VM03061:
-      ansible_host: 10.64.246.221
-    VM03062:
-      ansible_host: 10.64.246.222
-    VM03063:
-      ansible_host: 10.64.246.223
 vms_6:
   hosts:
     VM06000:
@@ -1363,14 +1355,6 @@ vms_12:
       ansible_host: 172.16.131.62
     VM12031:
       ansible_host: 172.16.131.63
-    VM12032:
-      ansible_host: 172.16.131.64
-    VM12033:
-      ansible_host: 172.16.131.65
-    VM12034:
-      ansible_host: 172.16.131.66
-    VM12035:
-      ansible_host: 172.16.131.67
     VM12036:
       ansible_host: 172.16.131.68
     VM12037:

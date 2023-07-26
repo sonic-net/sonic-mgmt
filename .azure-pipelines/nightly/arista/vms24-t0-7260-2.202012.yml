@@ -43,21 +43,8 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests generic_config_updater"'
+    default: '-I "platform_tests qos"'
     displayName: Testbed specific
-
-  - name: CROSS_BRANCH_BASE_URL
-    type: string
-    default: $(IMAGE_BRCM_ABOOT_201811)
-    displayName: "Cross-branch base-image URL"
-
-  - name: TEST_CROSS_BRANCH_UPGRADE
-    default: true
-    type: boolean
-
-  - name: TEST_IN_BRANCH_UPGRADE
-    default: true
-    type: boolean
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -66,6 +53,3 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      CROSS_BRANCH_BASE_URL: ${{ parameters.CROSS_BRANCH_BASE_URL }}
-      TEST_CROSS_BRANCH_UPGRADE: ${{ parameters.TEST_CROSS_BRANCH_UPGRADE }}
-      TEST_IN_BRANCH_UPGRADE: ${{ parameters.TEST_IN_BRANCH_UPGRADE }}

@@ -1,8 +1,6 @@
 Hostname,ManagementIp,HwSku,Type,Protocol,Os
-str-s6000-on-1,10.3.147.141/23,Force10-S6000,DevSonic,,sonic
 str-s6000-on-2,10.3.147.142/23,Force10-S6000,DevSonic,,sonic
 str-s6000-on-4,10.3.146.113/23,Force10-S6000,DevSonic,,sonic
-str-s6000-on-5,10.3.147.171/23,Force10-S6000,DevSonic,,sonic
 str-s6000-on-6,10.3.147.172/23,Force10-S6000,DevSonic,,sonic
 str-s6000-acs-7,10.3.147.195/23,Force10-S6000,DevSonic,,sonic
 str-s6000-acs-8,10.3.147.197/23,Force10-S6000,DevSonic,,sonic
@@ -10,7 +8,6 @@ str-s6000-acs-9,10.3.147.235/23,Force10-S6000,DevSonic,,sonic
 str-s6000-acs-10,10.3.147.237/23,Force10-S6000,DevSonic,,sonic
 str-s6000-acs-11,10.3.147.239/23,Force10-S6000,DevSonic,,sonic
 str-s6000-acs-12,10.3.147.252/23,Force10-S6000,DevSonic,,sonic
-str-s6000-acs-13,10.3.147.253/23,Force10-S6000,DevSonic,,sonic
 str-s6000-acs-14,10.3.147.17/23,Force10-S6000,DevSonic,,sonic
 str-s6100-acs-1,10.3.147.243/23,Force10-S6100,DevSonic,,sonic
 str-s6100-acs-2,10.64.247.225/23,Force10-S6100,DevSonic,,sonic

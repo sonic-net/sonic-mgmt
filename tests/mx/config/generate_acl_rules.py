@@ -59,6 +59,8 @@ def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
             ip_cfg["destination-ip-address"] = dst_ip
         if ip_protocol:
             ip_cfg["protocol"] = ip_protocol
+        else:
+            ip_cfg["protocol"] = "0"  # NDM requires protocol set to 0 if not specified
         rule["ip"] = {"config": ip_cfg}
     if interfaces:
         rule["input_interface"] = {"interface_ref": {"config": {"interface": ",".join(interfaces)}}}

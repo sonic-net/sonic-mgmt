@@ -63,8 +63,6 @@ pdu-98,42,str-s6000-acs-10,PSU2
 pdu-99,37,str-s6000-acs-11,PSU1
 pdu-98,37,str-s6000-acs-11,PSU2
 pdu-103,22,str-s6000-acs-12,PSU1
-pdu-102,14,str-s6000-acs-13,PSU1
-pdu-103,14,str-s6000-acs-13,PSU2
 pdu-102,8,str-s6000-acs-14,PSU1
 pdu-103,8,str-s6000-acs-14,PSU2
 pdu-97,15,str-s6000-acs-7,PSU1
@@ -73,14 +71,10 @@ pdu-97,10,str-s6000-acs-8,PSU1
 pdu-96,10,str-s6000-acs-8,PSU2
 pdu-99,5,str-s6000-acs-9,PSU1
 pdu-98,5,str-s6000-acs-9,PSU2
-pdu-97,37,str-s6000-on-1,PSU1
-pdu-96,37,str-s6000-on-1,PSU2
 pdu-97,30,str-s6000-on-2,PSU1
 pdu-96,30,str-s6000-on-2,PSU2
 pdu-97,25,str-s6000-on-4,PSU1
 pdu-96,25,str-s6000-on-4,PSU2
-pdu-97,32,str-s6000-on-5,PSU1
-pdu-96,32,str-s6000-on-5,PSU2
 pdu-97,20,str-s6000-on-6,PSU1
 pdu-96,20,str-s6000-on-6,PSU2
 pdu-99,31,str-s6100-acs-1,PSU1
