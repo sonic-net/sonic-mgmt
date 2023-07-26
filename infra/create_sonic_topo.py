@@ -1128,17 +1128,11 @@ def main():
         run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
         delta4 = datetime.datetime.now()
         
+    if run_sanity:
         create_report_html(data,log_dir)
         parse_report(data)
         get_report_file(data)
         get_log_files(data,log_dir)
-
-        # if not run_result:
-        #     report_file = open('full_report.txt', 'w')
-        #     report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
-        #     report_file.flush()
-        #     report_file.close()
-        #     print("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
             
 
     sim_time_delta = (delta2 - delta1).total_seconds()
