@@ -129,7 +129,8 @@ class TestAutoTechSupport:
         yield
 
         update_auto_techsupport_feature(self.duthost, self.test_docker,
-                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE, mem_threshold=DEFAULT_AVAILABLE_MEM_THRESHOLD)
+                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE,
+                                        mem_threshold=DEFAULT_AVAILABLE_MEM_THRESHOLD)
 
     def test_sanity(self, cleanup_list):
         """
