@@ -108,7 +108,7 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
     tag = process
     if container != "":
         tag = container + "#" + process
-    for r in repeat:
+    for r in range(repeat):
         duthost.shell("logger -p {} -t {} {} {}".format(priority, tag, log, r))
     duthost.shell("tail -n 5 /var/log/syslog", module_ignore_errors=True)["stdout"]
 
