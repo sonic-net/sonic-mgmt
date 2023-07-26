@@ -4,7 +4,7 @@ import logging
 import re
 import struct
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from multiprocessing import Process
 
 import cryptography.exceptions
@@ -386,7 +386,7 @@ def load_macsec_info(duthost, port, force_reload=None):
 
 
 def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
-    recent_packets = []
+    recent_packets = deque(maxlen=test.dataplane.POLL_MAX_RECENT_PACKETS)
     packet_count = 0
     if timeout is None:
         timeout = ptf.ptfutils.default_timeout
