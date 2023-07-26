@@ -119,12 +119,6 @@ parameters:
 
 
 steps:
-  - script: |
-      set -ex
-      echo "$(TESTBED_TOOLS_URL)"
-      echo "$(FRONTEND_URL)"
-    displayName: "Print env"
-
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
