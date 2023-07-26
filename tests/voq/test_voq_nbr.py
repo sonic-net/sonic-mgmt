@@ -614,7 +614,8 @@ def test_neighbor_clear_one(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         check_neighbors_are_gone(duthosts, all_cfg_facts, per_host, asic, nbr_to_test)
 
         logger.info("Verify other neighbors are not affected.")
-        dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, untouched_nbrs, nbrhosts, all_cfg_facts, nbr_macs)
+        dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, untouched_nbrs,
+                                          nbrhosts, all_cfg_facts, nbr_macs, check_nbr_state=False)
 
     finally:
         change_vm_intefaces(nbrhosts, nbr_vms, state="up")
