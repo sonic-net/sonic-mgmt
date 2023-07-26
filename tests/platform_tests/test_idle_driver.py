@@ -1,7 +1,7 @@
 """
-Some devices have potential problems entering idle state. So
-on m0 devices, we expect to disable both intel idle driver
-and acpi idle driver, and no available idle state for all cpu.
+Some devices have potential problems entering idle state. We
+expect to disable both intel idle driver and acpi idle driver,
+or have no available idle state higher than 1 for all cpu.
 """
 import logging
 import pytest
