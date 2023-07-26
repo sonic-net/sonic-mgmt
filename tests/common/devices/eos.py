@@ -131,7 +131,7 @@ class EosHost(AnsibleHostBase):
              Et3/1 is oper up
         Et1/1      str2-7804-lc7-1-Ethernet0            notconnect   1102     full   100G   100GBASE-CR4
         Et2/1      str2-7804-lc7-1-Ethernet4            disabled     1103     full   100G   100GBASE-CR4
-        Et3/1      str2-7804-lc7-1-Ethernet8            connected    1104     full   100G   100GBASE-CR4  
+        Et3/1      str2-7804-lc7-1-Ethernet8            connected    1104     full   100G   100GBASE-CR4
         """
         show_int_result = self.eos_command(commands=['show interface status'])
         for output_line in show_int_result['stdout_lines'][0]:
