@@ -1127,8 +1127,10 @@ def main():
         print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
         run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
         delta4 = datetime.datetime.now()
-        
+
+    print("Run Sanity: " + run_sanity)   
     if run_sanity:
+        print("Entered state")
         create_report_html(data,log_dir)
         parse_report(data)
         get_report_file(data)
@@ -1141,7 +1143,7 @@ def main():
         sanity_time_delta = (delta4 - delta3).total_seconds()
 
     print("******************************************************************************************************************************************************************************\n")
-    print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
+    print("Confirm: Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
     print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
     if run_sanity:
         print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
