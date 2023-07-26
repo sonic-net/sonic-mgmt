@@ -107,13 +107,13 @@ class EosHost(AnsibleHostBase):
         This function returns link oper status
             e.g. cable not connected:     
                      Ethernet1/1 is down, line protocol is notpresent (notconnect)
-                 link is admin shut(cable not present):
+                 link is admin down(cable not present):
                      Ethernet1/1 is administratively down, line protocol is notpresent (disabled)
-                 link is admin shut(cable present):
+                 link is admin down(cable present):
                      Ethernet2/1 is administratively down, line protocol is down (disabled)
-                 link is admin&oper up:
+                 link is admin up&oper up:
                      Ethernet2/1 is up, line protocol is up (connected)
-                 link is admin no shut:
+                 link is admin up&oper down:
                      Ethernet2/1 is down, line protocol is down (notconnect)
         In conclusion, if 'up' found in output line, link is oper up&admin up, link could not be admin down&oper up.
         """
