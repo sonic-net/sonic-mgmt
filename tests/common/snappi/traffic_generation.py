@@ -201,7 +201,7 @@ def generate_pause_flows(testbed_config,
                          global_pause,
                          snappi_extra_params):
     """
-    Generate pause configurations of flows.
+    Generate configurations of pause flows.
 
     Args:
         testbed_config (obj): testbed L1/L2/L3 configuration
@@ -351,7 +351,7 @@ def verify_pause_flow(flow_metrics,
         flow_metrics (list): per-flow statistics
         pause_flow_name (str): name of the pause flow
     Returns:
-        None
+
     """
     pause_flow_row = next(metric for metric in flow_metrics if metric.name == pause_flow_name)
     pause_flow_tx_frames = pause_flow_row.frames_tx
@@ -383,7 +383,7 @@ def verify_background_flow(flow_metrics,
         tolerance (float): tolerance for background flow deviation
         snappi_extra_params (obj): snappi extra parameters
     Returns:
-        None
+
     """
     for metric in flow_metrics:
         if bg_flow_name not in metric.name:
@@ -396,16 +396,11 @@ def verify_background_flow(flow_metrics,
             * 1e9 * bg_flow_dur_sec / 8.0 / bg_flow_pkt_size
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
 
-        if snappi_extra_params.headroom_test_params is None:
-            pytest_assert(tx_frames == rx_frames,
-                          "{} should not have any dropped packet".format(metric.name))
+        pytest_assert(tx_frames == rx_frames,
+                      "{} should not have any dropped packet".format(metric.name))
 
-            pytest_assert(abs(deviation) < tolerance,
-                          "{} should receive {} packets (actual {})".
-                          format(metric.name, exp_bg_flow_rx_pkts, rx_frames))
-        else:
-            pytest_assert(tx_frames >= rx_frames,
-                          "{} should drop some packets due to congestion".format(metric.name))
+        pytest_assert(abs(deviation) < tolerance,
+                      "{} should receive {} packets (actual {})".format(metric.name, exp_bg_flow_rx_pkts, rx_frames))
 
 
 def verify_basic_test_flow(flow_metrics,
@@ -432,7 +427,7 @@ def verify_basic_test_flow(flow_metrics,
         test_flow_pause (bool): whether test flow is paused
         snappi_extra_params (obj): snappi extra parameters
     Returns:
-        None
+
     """
     test_tx_frames = []
 
@@ -474,7 +469,7 @@ def verify_in_flight_buffer_pkts(duthost,
         duthost (obj): DUT host object
         snappi_extra_params (obj): snappi extra parameters
     Returns:
-        None
+
     """
     tx_frames_total = sum(metric.frames_tx for metric in flow_metrics if test_flow_name in metric.name)
     tx_bytes_total = tx_frames_total * test_flow_pkt_size
@@ -523,7 +518,7 @@ def verify_pause_frame_count(duthost,
         duthost (obj): DUT host object
         snappi_extra_params (obj): snappi extra parameters
     Returns:
-        None
+
     """
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
@@ -544,7 +539,7 @@ def verify_unset_cev_pause_frame_count(duthost,
         duthost (obj): DUT host object
         snappi_extra_params (obj): snappi extra parameters
     Returns:
-        None
+
     """
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
@@ -567,7 +562,7 @@ def verify_egress_queue_frame_count(duthost,
         duthost (obj): DUT host object
         snappi_extra_params (obj): snappi extra parameters
     Returns:
-        None
+
     """
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')

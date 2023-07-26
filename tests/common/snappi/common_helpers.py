@@ -762,7 +762,3 @@ def config_capture_pkt(testbed_config, port_id, capture_type, capture_name=None)
         ip_filter.value = '40'
         ip_filter.offset = 14
         ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
-    elif capture_type == packet_capture.PFC_CAPTURE:
-        # Capture PFC packets
-        pfc_filter = cap.filters.custom()[-1]
-        pfc_filter.value = '8808'  # PFC pause MAC control code is 0x8808, hence this is the filter value
