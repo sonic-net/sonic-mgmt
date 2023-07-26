@@ -311,4 +311,3 @@ class RouteMap:
         else:
             command = self.config_command_string()
         st.config(dut, command, type=cli_type)
-

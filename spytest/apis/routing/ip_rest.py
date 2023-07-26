@@ -28,4 +28,3 @@ def get_subinterface_index(dut, port):
         st.log("{} exception occurred".format(e))
         st.log("The actual output is: {}".format(output))
         return False
-

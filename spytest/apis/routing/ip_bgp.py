@@ -44,7 +44,7 @@ def verify_bgp_neighbor(dut,**kwargs):
     if 'neighborip' not in kwargs:
         st.error("Mandatory parameter neighborip is not found")
         return result
-    
+
     if 'vrf' in kwargs:
         vrf = kwargs['vrf']
         del kwargs['vrf']
