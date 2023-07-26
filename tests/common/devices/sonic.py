@@ -1954,22 +1954,6 @@ Totals               6450                 6449
 
         return "RUNNING" in service_status
 
-    def remove_ssh_tunnel_sai_rpc(self):
-        """
-        Removes any ssh tunnels if present created for syncd RPC communication
-
-        Returns:
-            None
-        """
-        try:
-            pid_list = self.shell(
-                r'pgrep -f "ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -fN -L \*:9092"'
-            )["stdout_lines"]
-        except RunAnsibleModuleFail:
-            return
-        for pid in pid_list:
-            self.shell("kill {}".format(pid), module_ignore_errors=True)
-
     def get_up_ip_ports(self):
         """
         Get a list for all up ip interfaces

@@ -2,18 +2,18 @@
 
 ''':'
 export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
-exec $(dirname $0)/python "$0" "$@"
+exec $(dirname $0)/python $SPYTEST_PYTHON_ARGS "$0" "$@"
 '''
 
-import os, re, sys, warnings
-
-warnings.filterwarnings(action='ignore', module='.*paramiko.*')
+import os, re, sys
 
 root = os.path.join(os.path.dirname(__file__), '..')
 root = os.path.abspath(root)
+tests = os.path.join(root, "tests")
 sys.path.append(os.path.join(root))
 sys.path.append(os.path.join(root, "apis"))
 os.environ["SPYTEST_USER_ROOT"] = os.path.abspath(".")
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
 if __name__ == '__main__':
   arg_list = []
@@ -27,7 +27,9 @@ if __name__ == '__main__':
   sys.argv.insert(1, "-c")
   sys.argv.insert(2, os.path.join(root, "spytest", "pytest.ini"))
   sys.argv.extend(["-p", "spytest.splugin"])
-  
-  os.chdir(os.path.join(root, "tests"))
+  sys.argv.extend(["-W", "once::DeprecationWarning"])
+  sys.argv.extend(["--rootdir", tests])
+
+  os.chdir(tests)
   from spytest.main import main
   sys.exit(main())
