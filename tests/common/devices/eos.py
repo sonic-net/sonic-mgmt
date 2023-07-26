@@ -102,10 +102,24 @@ class EosHost(AnsibleHostBase):
         intf_str = ','.join(interfaces)
         return self.no_shutdown(intf_str)
 
-    def check_intf_link_state(self, interface_name):
+    def check_intf_link_oper_state(self, interface_name):
+        """
+        This function returns link oper status
+            e.g. cable not connected:     
+                     Ethernet1/1 is down, line protocol is notpresent (notconnect)
+                 link is admin shut(cable not present):
+                     Ethernet1/1 is administratively down, line protocol is notpresent (disabled)
+                 link is admin shut(cable present):
+                     Ethernet2/1 is administratively down, line protocol is down (disabled)
+                 link is admin&oper up:
+                     Ethernet2/1 is up, line protocol is up (connected)
+                 link is admin no shut:
+                     Ethernet2/1 is down, line protocol is down (notconnect)
+        In conclusion, if 'up' found in output line, link is oper up&admin up, link could not be admin down&oper up.
+        """
         show_int_result = self.eos_command(
             commands=['show interface %s' % interface_name])
-        return 'Up' in show_int_result['stdout_lines'][0]
+        return 'up' in show_int_result['stdout_lines'][0].lower()
 
     def links_status_down(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
