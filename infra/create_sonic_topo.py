@@ -840,6 +840,7 @@ def create_report_html(data,log_dir):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
         print(resp.decode("ascii"))
+        print("AMAZING")
     time.sleep(3)
 
     chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
