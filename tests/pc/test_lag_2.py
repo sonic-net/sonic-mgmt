@@ -94,7 +94,10 @@ class LagTest:
         return out['stdout'] == 'True'
 
     def __check_intf_state(self, vm_host, intf, expect):
-        return vm_host.check_intf_link_state(vm_host, intf) == expect
+        """
+        check neighbor fanout oper status, if nbr is admin shut, oper status will be down too
+        """
+        return vm_host.check_intf_link_oper_state(vm_host, intf) == expect
 
     def __verify_lag_lacp_timing(self, lacp_timer, exp_iface):
         if exp_iface is None:
