@@ -932,7 +932,8 @@ class TestQosSai(QosSaiBase):
             fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
             buf_pool_roid = ingressLosslessProfile["bufferPoolRoid"]
         elif "wm_buf_pool_lossy" in bufPool:
-            qosConfig = dutQosConfig["param"]
+            baseQosConfig = dutQosConfig["param"]
+            qosConfig = baseQosConfig.get(portSpeedCableLength, baseQosConfig)
             triggerDrop = qosConfig[bufPool]["pkts_num_trig_egr_drp"]
             fillMin = qosConfig[bufPool]["pkts_num_fill_egr_min"]
             buf_pool_roid = egressLossyProfile["bufferPoolRoid"]
