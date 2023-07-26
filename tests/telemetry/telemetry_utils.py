@@ -61,6 +61,7 @@ def setup_telemetry_forpyclient(duthost):
     if client_auth == "true":
         duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"',
                       module_ignore_errors=False)
+        duthost.shell("systemctl reset-failed telemetry")
         duthost.service(name="telemetry", state="restarted")
     else:
         logger.info('client auth is false. No need to restart telemetry')
