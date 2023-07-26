@@ -129,9 +129,9 @@ class EosHost(AnsibleHostBase):
         e.g. Et1/1 is admin up, oper down
              Et2/1 is admin down
              Et3/1 is oper up
-        Et1/1      str2-7804-lc7-1-Ethernet0            notconnect   1102     full   100G   100GBASE-CR4
-        Et2/1      str2-7804-lc7-1-Ethernet4            disabled     1103     full   100G   100GBASE-CR4
-        Et3/1      str2-7804-lc7-1-Ethernet8            connected    1104     full   100G   100GBASE-CR4
+        Et1/1      lc-Ethernet0            notconnect   1102     full   100G   100GBASE-CR4
+        Et2/1      lc-Ethernet4            disabled     1103     full   100G   100GBASE-CR4
+        Et3/1      lc-Ethernet8            connected    1104     full   100G   100GBASE-CR4
         """
         show_int_result = self.eos_command(commands=['show interface status'])
         for output_line in show_int_result['stdout_lines'][0]:
@@ -165,7 +165,7 @@ class EosHost(AnsibleHostBase):
             """
             Note:
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
+            u'Et33/1     lc-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
             e.g.
             (Pdb) output_line.split(' ')[0]
             u'Et1/1'
@@ -190,7 +190,7 @@ class EosHost(AnsibleHostBase):
             """
             Note:
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
+            u'Et33/1     lc-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
             e.g.
             (Pdb) output_line.split(' ')[0]
             u'Et1/1'
