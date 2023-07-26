@@ -20,6 +20,17 @@
     dest: "/usr/share/sonic/templates/copp_cfg.j2"
   become: yes
 
+- name: Disable feature teamd and remove teamd container (avoid swss crash after config reload)
+  block:
+    - name: Check if teamd container exists
+      shell: "docker ps -a -q -f name=teamd"
+      register: teamd_container
+
+    - name: disable feature teamd and remove container
+      shell: "config feature state teamd disabled && sleep 10 && docker rm teamd"
+      become: true
+      when: teamd_container.stdout != ""
+
 - name: SONiC update config db
   shell: config reload -y -f
   become: true

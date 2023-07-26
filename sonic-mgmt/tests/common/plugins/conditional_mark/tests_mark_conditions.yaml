@@ -106,6 +106,12 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_suppress_fib.py:
+  skip:
+    reason: "Not supported before release 202305."
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported topology backend."
