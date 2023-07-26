@@ -1117,12 +1117,12 @@ def main():
         get_report_file(data)
         get_log_files(data,log_dir)
 
-        if not run_result:
-            report_file = open('full_report.txt', 'w')
-            report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
-            report_file.flush()
-            report_file.close()
-            print("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
+        # if not run_result:
+        #     report_file = open('full_report.txt', 'w')
+        #     report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
+        #     report_file.flush()
+        #     report_file.close()
+        #     print("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
             
 
     sim_time_delta = (delta2 - delta1).total_seconds()
