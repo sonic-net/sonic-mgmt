@@ -104,11 +104,12 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, 
         f.close()
 
 
-def trigger_logger(duthost, log, process, container="", priority="local0.notice"):
+def trigger_logger(duthost, log, process, container="", priority="local0.notice", repeat=5):
     tag = process
     if container != "":
         tag = container + "#" + process
-    duthost.shell("logger -p {} -t {} {}".format(priority, tag, log))
+    for r in repeat:
+        duthost.shell("logger -p {} -t {} {} {}".format(priority, tag, log, r))
     duthost.shell("tail -n 5 /var/log/syslog", module_ignore_errors=True)["stdout"]
 
 
