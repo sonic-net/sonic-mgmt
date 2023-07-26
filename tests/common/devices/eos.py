@@ -105,7 +105,7 @@ class EosHost(AnsibleHostBase):
     def check_intf_link_oper_state(self, interface_name):
         """
         This function returns link oper status
-            e.g. cable not connected:     
+            e.g. cable not connected:
                      Ethernet1/1 is down, line protocol is notpresent (notconnect)
                  link is admin down(cable not present):
                      Ethernet1/1 is administratively down, line protocol is notpresent (disabled)
