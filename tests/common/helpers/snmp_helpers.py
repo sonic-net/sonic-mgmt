@@ -64,10 +64,8 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
     ipaddr = ipaddress.ip_address(ip)
     iptables_cmd = "iptables"
 
-    # TODO : Fix snmp query over loopback v6 and remove this check and add IPv6 ACL table/rule.
     if isinstance(ipaddr, ipaddress.IPv6Address):
         iptables_cmd = "ip6tables"
-        return None
 
     ip_tbl_rule_add = "sudo {} -I INPUT 1 -p udp --dport 161 -d {} -j ACCEPT".format(
         iptables_cmd, ip)
