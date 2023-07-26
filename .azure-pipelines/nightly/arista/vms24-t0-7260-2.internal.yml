@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests generic_config_updater"'
+    default: '-I "platform_tests qos"'
     displayName: Testbed specific
 
 stages:

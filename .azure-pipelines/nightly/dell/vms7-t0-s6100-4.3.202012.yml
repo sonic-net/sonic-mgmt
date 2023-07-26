@@ -11,7 +11,7 @@ resources:
     ref: master
 
 schedules:
-  - cron: "0 1 * * 0,2,4"
+  - cron: "0 1 * * 2,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -43,7 +43,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "pfc_asym span platform_tests bgp generic_config_updater acl show_techsupport pc"'
+    default: '-S "pfc_asym span sub_port_interfaces platform_tests pfcwd fdb qos acl crm pc copp metadata-scripts"'
     displayName: Testbed specific
 
   # Custom skip scripts
