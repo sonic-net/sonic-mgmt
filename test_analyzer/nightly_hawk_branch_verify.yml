@@ -23,7 +23,7 @@ parameters:
 
   - name: TESTBEDS_NAME
     type: string
-    default: null
+    default: 'vms20-t0-7050cx3-2,vms21-dual-t0-7260,vms7-t0-4600c-2,vms21-t1-2700-2'
     displayName: "testbeds names for verify"
 
   - name: LIBRARY
