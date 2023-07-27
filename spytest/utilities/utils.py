@@ -2,17 +2,67 @@
 # Author : Chaitanya Vella (chaitanya-vella.kumar@broadcom.com) / Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 
 import re
-import socket
-import datetime
+import os
+import sys
 import json
+import socket
 import random
-
-from binascii import hexlify
+import string
+import struct
+import binascii
+import datetime
+import logging
 
 from spytest import st
+from spytest.datamap import DataMap
 
 import utilities.parallel as pll
-from utilities.common import filter_and_select, dicts_list_values, make_list
+from utilities.common import filter_and_select, dicts_list_values
+from utilities.common import make_list
+from utilities.common import str_encode,str_decode
+
+msgs = DataMap("messages").get()
+test_func_name = None
+
+
+def get_supported_ui_type_list(*more):
+    retval = ['gnmi', 'gnmi-update', 'gnmi-replace', 'rest']
+    for add in more:
+        retval.extend(make_list(add))
+    return retval
+
+def force_cli(cli_type, default="click"):
+    if cli_type not in ["klish"]:
+        return cli_type
+    return "klish" if st.is_feature_supported("klish") else "click"
+
+def force_klish_ui(*args, **kwargs):
+    cli_type = kwargs.get("cli_type", "klish")
+    if cli_type not in get_supported_ui_type_list(*args):
+        return cli_type
+    return force_cli(cli_type, cli_type)
+
+# use use_cli if the cli_type is one of args
+def override_ui(*args, **kwargs):
+  cli_type = kwargs.get("cli_type", "klish")
+  use_cli = kwargs.get("use_cli", "klish")
+  default = kwargs.get("default", "click")
+  use_cli = use_cli if cli_type in args else cli_type
+  if use_cli != "klish": return use_cli
+  return use_cli if st.is_feature_supported(use_cli) else default
+
+# use use_cli if the cli_type is one of args or supported uis
+def override_supported_ui(*args, **kwargs):
+  new_args = get_supported_ui_type_list(*args)
+  return override_ui(*new_args, **kwargs)
+
+def cli_type_for_get_mode_filtering():
+    """
+    list for cli types support get mode filtering
+    :return:
+    """
+    return ["gnmi"]
+
 
 def remove_last_line_from_string(data):
     """
@@ -64,12 +114,11 @@ def check_file_exists(file_path):
     :param file_path:
     :return:
     """
-    import os
     exists = os.path.isfile(file_path)
     return True if exists else False
 
 
-def get_mac_address(base_mac="00:00:00:00:00:00", start=0, end=100, step=1):
+def generate_mac_sequence(base_mac="00:00:00:00:00:00", start=0, end=100, step=1):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Common function to generate MAC addresses
@@ -88,6 +137,16 @@ def get_mac_address(base_mac="00:00:00:00:00:00", start=0, end=100, step=1):
         mac_address_list.append(mac_formated)
     return mac_address_list
 
+def generate_ip_sequence(type, startip, count=1):
+    ipaddr_list = []
+    for i in range(count):
+        if type == "ipv4":
+            ipaddr_list.append(socket.inet_ntoa(struct.pack('!I', struct.unpack('!I', socket.inet_aton(startip))[0] + (i * 256))))
+        else:
+            tmp = int(binascii.hexlify(socket.inet_pton(socket.AF_INET6, startip)), 16) + (i*256)
+            tmp = hex(tmp)[2:].replace("L", "")
+            ipaddr_list.append(socket.inet_ntop(socket.AF_INET6, binascii.unhexlify(tmp)))
+    return ipaddr_list
 
 def log_parser(logs):
     """
@@ -97,14 +156,25 @@ def log_parser(logs):
     :return:
     """
     log_li = list(logs) if isinstance(logs, list) else [logs]
-    pattern = r'(\S+)\s*(\d+)\s*(\d+):(\d+):(\d+).(\d+)\s(\S+)\s*(\S+)\s*(.*)'
+    pattern = r'(\S+)\s*(\d+)\s*(\d+):(\d+):(\d+).(\d+)[+](\d+):(\d+)\s(\S+)\s*(\S+)\s*(\S+)\s*(.*)'
+    pattern2 = r'(\S+)\s*(\d+)\s*(\d+):(\d+):(\d+).(\d+)\s(\S+)\s*(\S+)\s*(.*)'  # For Community build
     rv = []
     for each_log in log_li:
         temp = {}
         out = re.findall(pattern, each_log)
-        temp['month'], temp['date'], temp['hours'], temp['minutes'], temp['seconds'], temp[
-            'micro_second'], temp['hostname'], temp['severity'], temp['message'] = out[0]
-        rv.append(temp)
+        out2 = re.findall(pattern2, each_log)
+        if out:
+            temp['month'], temp['date'], temp['hours'], temp['minutes'], temp['seconds'], temp['micro_second'],\
+            temp['utc_hours'], temp['utc_minutes'], temp['year'], temp['hostname'], temp['severity'], \
+            temp['message'] = out[0]
+            rv.append(temp)
+        elif out2:
+            temp['month'], temp['date'], temp['hours'], temp['minutes'], temp['seconds'], temp['micro_second'], \
+            temp['hostname'], temp['severity'], temp['message'] = out2[0]
+            temp['utc_hours'], temp['utc_minutes'], temp['year'] = '', '', ''
+            rv.append(temp)
+        else:
+            st.error("Pattern is not match for log - {}".format(each_log))
     st.debug(rv)
     return rv
 
@@ -212,7 +282,15 @@ def ensure_service_params(dut, *argv):
         return None
 
     service_string = ' -> '.join([str(e) for e in argv])
-    st.log("Ensure service parameter(s) - {}".format(service_string))
+
+    env_name = "SPYTEST_OVERRIDE_SERVICE_{}".format(str(argv[0]).upper())
+    for each in argv[1:]:
+        env_name = "{}_{}".format(env_name, str(each).upper())
+    output = st.getenv(env_name)
+    if output:
+        st.log("Ensure service parameter(s) - {} = {} (from {})".format(service_string, output, env_name))
+        return output
+
     output = st.get_service_info(dut, argv[0])
     if not output:
         st.error("'{}' is not specified in services/default.".format(argv[0]))
@@ -233,7 +311,7 @@ def ensure_service_params(dut, *argv):
             st.log(e3)
             st.error("Service or Parm '{}' not found.".format(each))
             st.report_env_fail("test_case_not_executed_s_service", service_string)
-    st.log("Return : {}".format(output))
+    st.log("Ensure service parameter(s) - {} = {}".format(service_string, output))
     return output
 
 
@@ -366,11 +444,10 @@ def list_diff(list1, list2, identical=False):
 def get_random_vlans_in_sequence(count=1, start=2, end=3000):
     vlan_list = []
     while True:
-        vlan_list = random.sample([range(start, end)[x:x + count] for x in range(0, len(range(start, end)), count)],
-                                  k=1)[0]
+        vlan_list = random.sample([range(start, end)[x:x + count] for x in range(0, len(range(start, end)), count)], k=1)[0]
         if len(vlan_list) == count:
             break
-    return vlan_list
+    return vlan_list if sys.version_info[0] < 3 else list(vlan_list)
 
 
 def check_empty_values_in_dict(data):
@@ -409,8 +486,8 @@ def get_interface_number_from_name(interface_name):
     :param interface_name:
     :return:
     """
-    if interface_name and not re.search(r':|\.',interface_name):
-        data = re.search(r'([A-Za-z\-]+)\s*([0-9\/]+)', interface_name)
+    if interface_name and not is_valid_ipv4_address(interface_name) and not is_valid_ipv6_address(interface_name):
+        data = re.search(r'([A-Za-z\-]+)\s*([0-9\/\.]+(-?\d+)?)', interface_name)
         if data:
             if 'PortChannel' in interface_name:
                 return {'type': data.group(1), 'number': data.group(2).lstrip('0')}
@@ -461,7 +538,7 @@ def util_ip_addr_to_hexa_conv(ipaddr):
     :param ipaddr:
     :return:
     """
-    return hexlify(socket.inet_aton(ipaddr)).upper()
+    return str(str_decode(str_encode(binascii.hexlify(socket.inet_aton(ipaddr))))).upper()
 
 def util_ipv6_addr_to_hexa_conv(ip6addr):
     """
@@ -469,7 +546,7 @@ def util_ipv6_addr_to_hexa_conv(ip6addr):
     :param ipaddr:
     :return:
     """
-    return hexlify(socket.inet_pton(socket.AF_INET6, ip6addr)).upper()
+    return str(str_decode(str_encode(binascii.hexlify(socket.inet_pton(socket.AF_INET6, ip6addr))))).upper()
 
 
 def util_int_to_hexa_conv(int_data, z_fill=4):
@@ -565,12 +642,12 @@ def ip4_ip6_to_integer(ip_address):
     for version in (socket.AF_INET, socket.AF_INET6):
         try:
             ip_hex = socket.inet_pton(version, ip_address)
-            ip_integer = int(hexlify(ip_hex), 16)
+            ip_integer = int(binascii.hexlify(ip_hex), 16)
 
             return (ip_integer, 4 if version == socket.AF_INET else 6)
         except Exception:
             pass
-    raise ValueError("invalid IP address")
+    raise ValueError("invalid IP address '{}'".format(ip_address))
 
 
 def subnetwork_to_ip4_ip6_range(subnetwork):
@@ -585,7 +662,7 @@ def subnetwork_to_ip4_ip6_range(subnetwork):
                 suffix_mask = (1 << (ip_len - netmask_len)) - 1
                 netmask = ((1 << ip_len) - 1) - suffix_mask
                 ip_hex = socket.inet_pton(version, network_prefix)
-                ip_lower = int(hexlify(ip_hex), 16) & netmask
+                ip_lower = int(binascii.hexlify(ip_hex), 16) & netmask
                 ip_upper = ip_lower + suffix_mask
 
                 return (ip_lower,
@@ -605,18 +682,24 @@ def bitwise_OR_to_char(char, val):
 
     return str(int(char) | int(val))
 
+def retry_api_base(retry_count, delay, api_result, func, *args,**kwargs):
+    for i in range(retry_count):
+        st.debug("Attempt {} of {}".format((i+1),retry_count))
+        if api_result:
+            if func(*args, **kwargs):
+                return api_result
+        else:
+            if not func(*args, **kwargs):
+                return api_result
+        if retry_count != (i+1):
+            st.wait(delay, "before retyring again")
+    return  False if api_result else True
+
 def retry_api(func, *args,**kwargs):
     retry_count = kwargs.pop("retry_count", 10)
     delay = kwargs.pop("delay", 3)
-    for i in range(retry_count):
-        st.log("Attempt {} of {}".format((i+1),retry_count))
-        if func(*args,**kwargs):
-            #print('API_Call: {} Successful'.format(func))
-            return True
-        if retry_count != (i+1):
-            st.log("waiting for {} seconds before retyring again".format(delay))
-            st.wait(delay)
-    return False
+    api_result = kwargs.pop("api_result", True)
+    return retry_api_base(retry_count, delay, api_result, func, *args,**kwargs)
 
 def retry_parallel(func,dict_list=[],dut_list=[],api_result=True,retry_count=3,delay=2):
     for i in range(retry_count):
@@ -674,6 +757,9 @@ def is_valid_ipv6_address(address):
     :param address:
     :return:
     """
+    if not address:
+        st.error("address is Null")
+        return False
     try:
         socket.inet_pton(socket.AF_INET6, address)
     except socket.error:  # not a valid address
@@ -691,30 +777,34 @@ def is_valid_ip_address(address, family, subnet=None):
     :return:
     """
 
-    if not address or not family:
-        st.error("Parameter Family or address is Null")
+    if not address:
+        st.error("Parameter address is Null")
+        return False
+
+    if not family:
+        st.error("Parameter Family is Null")
         return False
 
     if family == "ipv4":
         if not is_valid_ipv4_address(address):
-            st.error("Invalid IPv4 address {} ".format(address))
+            st.warn("Invalid IPv4 address '{}' ".format(address))
             return False
         if subnet:
             subnet = int(subnet)
             if subnet < 1 or subnet > 32:
-                st.error("Invalid IPv4 subnet {}".format(subnet))
+                st.warn("Invalid IPv4 subnet '{}'".format(subnet))
                 return False
     elif family == "ipv6":
         if not is_valid_ipv6_address(address):
-            st.error("Invalid IPv6 address {} ".format(address))
+            st.warn("Invalid IPv6 address '{}' ".format(address))
             return False
         if subnet:
             subnet = int(subnet)
             if subnet < 1 or subnet > 128:
-                st.error("Invalid IPv6 subnet {}".format(subnet))
+                st.warn("Invalid IPv6 subnet '{}'".format(subnet))
                 return False
     else:
-        st.error("Invalid address family {} ".format(family))
+        st.warn("Invalid address family '{}' ".format(family))
         return False
 
     return True
@@ -725,3 +815,540 @@ def convert_microsecs_to_time(microseconds):
     if time:
         return time[0]
     return "0:00:00"
+
+
+def read_json(file_path):
+    try:
+        fp = open(file_path, 'r')
+        obj = fp.read().replace("\x00", '')
+        fp.close()
+        st.debug(obj)
+        rv = json.loads(obj)
+        st.log(rv)
+    except Exception as e:
+        st.error(e)
+        rv = obj
+    return rv
+
+
+def has_value(obj, val):
+    if isinstance(obj, dict):
+        values = obj.values()
+    elif isinstance(obj, list):
+        values = obj
+    if val in values:
+        st.log("Value present in Object")
+        return True
+    for v in values:
+        if isinstance(v, (dict, list)) and has_value(v, val):
+            return True
+    st.error("Value not present in Object")
+    return False
+
+
+def run_os_cmd(cmd):
+    for each_cmd in make_list(cmd):
+        st.log("Running cmd : {}".format(each_cmd))
+        try:
+            st.log(os.popen(each_cmd).read())
+        except Exception as e:
+            st.error(e)
+
+
+def erase_file_content(file_name):
+    st.log("Erasing content of : {}".format(file_name))
+    try:
+        fp = open(file_name, 'r+')
+        fp.truncate(0)
+        fp.close()
+    except Exception as e:
+        st.error(e)
+
+
+
+def get_intf_short_name(interface_name):
+
+    """
+    Common function to get the shorter interface notation for Subinterface
+    Author: Sooriya.Gajendrababu@broadcom.com
+    :param interface_name:
+    :return:
+    """
+    if interface_name and not is_valid_ipv4_address(interface_name) and not is_valid_ipv6_address(interface_name):
+        if '.' in interface_name:
+            interface_name = interface_name.replace('Ethernet','Eth').replace('PortChannel','Po')
+    return interface_name
+
+
+def report_tc_fail(tc, msg, *args):
+    """
+    Common function for test case Fail
+    Author: jagadish.chatrasi@broadcom.com
+    :param tc:
+    :param msg:
+    :return:
+    """
+
+    import inspect
+    global test_func_name
+    if msg in msgs:
+        message = msgs[msg].format(*args)
+    else:
+        message = msg
+
+    calling_func_name = None
+
+    for each_tupple in inspect.stack():
+        for each_entry in each_tupple:
+            if re.match(r'test_', str(each_entry).strip()) and '.py' not in str(each_entry):
+                calling_func_name = each_entry
+
+    try:
+        #when this func is called for 2nd time onwards - from test_func_1
+        if test_func_name == calling_func_name:
+            collect_tech_support = False
+        else:
+            #when this func is called for first time - from test_func_2
+            test_func_name = calling_func_name
+            collect_tech_support = True
+    except NameError:
+        #when this func is called for first time - from test_func_1
+        test_func_name = calling_func_name
+        collect_tech_support = True
+
+    st.warn('Current Test Func: {} Previous Test Func: {}'.format(calling_func_name, test_func_name))
+    st.warn("test_step_failed, tc_id: {}, fail_reason: {}".format(tc, message))
+    if collect_tech_support:
+        st.banner('Collecting tech support on all DUTs')
+        st.generate_tech_support(dut=None, name=tc)
+
+    if msg in msgs:
+        return st.report_tc_fail(tc, msg, *args)
+
+    return st.report_tc_fail(tc, "msg", msg, *args)
+
+
+def convert_intf_range_to_list(intf, range_format=False):
+    """
+    convert_intf_range_to_list(intf=['Ethernet0'], range_format=False)
+    INPUT :  ['Ethernet0'] and range_format : False
+    OUTPUT : ['Ethernet0']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet0'], range_format=True)
+    INPUT :  ['Ethernet0'] and range_format : True
+    OUTPUT : ['Ethernet0']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet6-10'], range_format=False)
+    INPUT :  ['Ethernet6-10'] and range_format : False
+    OUTPUT : ['Ethernet6', 'Ethernet7', 'Ethernet8', 'Ethernet9', 'Ethernet10']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet6-10'], range_format=True)
+    INPUT :  ['Ethernet6-10'] and range_format : True
+    OUTPUT : ['Ethernet6-10']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet6', 'Ethernet7-Ethernet10', 'Ethernet11'], range_format=False)
+    INPUT :  ['Ethernet6', 'Ethernet7-Ethernet10', 'Ethernet11'] and range_format : False
+    OUTPUT : ['Ethernet7', 'Ethernet8', 'Ethernet9', 'Ethernet10', 'Ethernet11']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet6', 'Ethernet7-Ethernet10', 'Ethernet11'], range_format=True)
+    INPUT :  ['Ethernet6', 'Ethernet7-Ethernet10', 'Ethernet11'] and range_format : True
+    OUTPUT : ['Ethernet6,7-10,11']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet6', 'Ethernet7-10', 'Ethernet11'], range_format=False)
+    INPUT :  ['Ethernet6', 'Ethernet7-10', 'Ethernet11'] and range_format : False
+    OUTPUT : ['Ethernet7', 'Ethernet8', 'Ethernet9', 'Ethernet10', 'Ethernet11']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet6', 'Ethernet7-10', 'Ethernet11'], range_format=True)
+    INPUT :  ['Ethernet6', 'Ethernet7-10', 'Ethernet11'] and range_format : True
+    OUTPUT : ['Ethernet6,7-10,11']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet6-10,25,30-31'], range_format=False)
+    INPUT :  ['Ethernet6-10,25,30-31'] and range_format : False
+    OUTPUT : ['Ethernet6', 'Ethernet7', 'Ethernet8', 'Ethernet9', 'Ethernet10', 'Ethernet30', 'Ethernet31', 'Ethernet25']
+    ====================================
+    convert_intf_range_to_list(intf=['Ethernet6-10,25,30-31'], range_format=True)
+    INPUT :  ['Ethernet6-10,25,30-31'] and range_format : True
+    OUTPUT : ['Ethernet6-10,25,30-31']
+    ====================================
+    INPUT :  ['Eth1/2'] and range_format : False
+    OUTPUT : ['Eth1/2']
+    ====================================
+    INPUT :  ['Eth1/2'] and range_format : True
+    OUTPUT : ['Eth1/2']
+    ====================================
+    INPUT :  ['Eth1/6-10'] and range_format : False
+    OUTPUT : ['Eth1/6', 'Eth1/7', 'Eth1/8', 'Eth1/9', 'Eth1/10']
+    ====================================
+    INPUT :  ['Eth1/6-10'] and range_format : True
+    OUTPUT : ['Eth1/6-10']
+    ====================================
+    INPUT :  ['Ethernet1/6', 'Ethernet1/7-Ethernet1/10', 'Ethernet1/11'] and range_format : False
+    OUTPUT : ['Ethernet1/6', 'Ethernet1/7', 'Ethernet1/8', 'Ethernet1/9', 'Ethernet1/10', 'Ethernet1/11']
+    ====================================
+    INPUT :  ['Ethernet1/6', 'Ethernet1/7-Ethernet1/10', 'Ethernet1/11'] and range_format : True
+    OUTPUT : ['Ethernet1/6,1/7-1/10,1/11']
+    ====================================
+    INPUT :  ['Ethernet1/6', 'Ethernet1/7-1/10', 'Ethernet1/11'] and range_format : False
+    OUTPUT : ['Ethernet1/6', 'Ethernet1/7', 'Ethernet1/8', 'Ethernet1/9', 'Ethernet1/10', 'Ethernet1/11']
+    ====================================
+    INPUT :  ['Ethernet1/6', 'Ethernet1/7-1/10', 'Ethernet1/11'] and range_format : True
+    OUTPUT : ['Ethernet1/6,1/7-1/10,1/11']
+    ====================================
+    INPUT :  ['Ethernet1/6-1/10,1/25,1/30-1/31'] and range_format : False
+    OUTPUT : ['Ethernet1/6', 'Ethernet1/7', 'Ethernet1/8', 'Ethernet1/9', 'Ethernet1/10', 'Ethernet1/25', 'Ethernet1/30', 'Ethernet1/31']
+    ====================================
+    INPUT :  ['Ethernet1/6-1/10,1/25,1/30-1/31'] and range_format : True
+    OUTPUT : ['Ethernet1/6-1/10,1/25,1/30-1/31']
+    ====================================
+    INPUT :  ['Ethernet1/2/6-1/2/10,1/2/25,1/2/30-1/2/31'] and range_format : False
+    OUTPUT : ['Ethernet1/2/6', 'Ethernet1/2/7', 'Ethernet1/2/8', 'Ethernet1/2/9', 'Ethernet1/2/10', 'Ethernet1/2/25', 'Ethernet1/2/30', 'Ethernet1/2/31']
+    ====================================
+    INPUT :  ['Ethernet1/2/6-1/2/10,1/2/25,1/2/30-1/2/31'] and range_format : True
+    OUTPUT : ['Ethernet1/2/6-1/2/10,1/2/25,1/2/30-1/2/31']
+    ====================================
+    INPUT :  ['Eth1/2/1'] and range_format : False
+    OUTPUT : ['Eth1/2/1']
+    ====================================
+    INPUT :  ['Eth1/2/1'] and range_format : True
+    OUTPUT : ['Eth1/2/1']
+    ====================================
+    :param intf:
+    :param range_format:
+    :return:
+    """
+    if not isinstance(intf, list): intf=make_list(intf)
+    result = []
+    intf_range = ','.join([str(elem) for elem in intf])
+    t1_intf_range = re.sub(r'([A-Za-z]+)', '', intf_range)
+    intf_name = re.search(r'([A-Za-z]+)', intf_range).group(1)
+    if range_format:
+        result.append(intf_name + t1_intf_range)
+        return result
+    for ea in t1_intf_range.split(','):
+        if '-' in str(ea):
+            intf_slot_port = ''
+            intf_range = ea.split('-')
+            intf_range_start = intf_range[0]
+            intf_range_end = intf_range[1]
+            if '/' in intf_range[0]:
+                intf_range_start = str(intf_range[0]).split('/')[-1]
+                intf_slot_port = '/'.join(str(intf_range[0]).split('/')[:-1]) + '/'
+            if '/' in intf_range[1]:
+                intf_range_end = str(intf_range[1]).split('/')[-1]
+                intf_slot_port = '/'.join(str(intf_range[1]).split('/')[:-1]) + '/'
+            intf_range_updated = sorted([intf_name + intf_slot_port + str(j) for j in
+                                         range(int(intf_range_start), int(intf_range_end) + 1)])
+            result += intf_range_updated
+        else:
+            result.append(intf_name + ea)
+    return result
+
+def segregate_intf_list_type(intf, range_format=False, log=None):
+    """
+    segregare_intf_list_type(intf=['Ethernet2','Ethernet6-9','Portchannel12-20','Vlan40-50','Loopback10','Loopback20'], range_format=True)
+    returns the dictionary {range_intf_phy=[Ethernet2',Ethernet6-9'],range_intf_pc = ['Portchannel12-20'], range_intf_vlan=['Vlan40-50'],
+    range_intf_lb=['Loopback10','Loopback20']}
+    :param intf:
+    :return:
+    """
+    log = log or st.log
+    log('API_NAME: segregate_intf_list_type, API_ARGS: {}'.format(locals()))
+    intf_hash_list = {'range_intf_mgmt' : [],'range_intf_phy' : [],'range_intf_vlan': [],'range_intf_pc' : [],
+                      'intf_list_all':[], 'range_intf_lb':[], 'range_intf_sub_phy':[], 'range_intf_sub_pc':[]}
+    intf_list_phy = list()
+    intf_list_vlan = list()
+    intf_list_pc = list()
+    intf_list_lb = list()
+    intf_list_mgmt = list()
+    intf_list_sub_phy = list()
+    intf_list_sub_pc = list()
+
+    intf = make_list(intf)
+    for each in intf:
+        if 'eth' in each.lower() and '.' in each.lower():
+            intf_hash_list['range_intf_sub_phy'].append(each)
+        elif 'portchannel' in each.lower() and '.' in each.lower():
+            intf_hash_list['range_intf_sub_pc'].append(each)
+        elif 'portchannel' in each.lower():
+            intf_hash_list['range_intf_pc'].append(each)
+        elif 'vlan' in each.lower():
+            intf_hash_list['range_intf_vlan'].append(each)
+        elif 'eth' in each.lower():
+            intf_hash_list['range_intf_phy'].append(each)
+        elif 'loopback' in each.lower():
+            intf_hash_list['range_intf_lb'].append(each)
+        elif 'management' in each.lower():
+            intf_hash_list['range_intf_mgmt'].append(each)
+        else:
+            log('Unsupported interface name - {}'.format(each), lvl=logging.ERROR)
+            return intf_hash_list
+
+    if intf_hash_list['range_intf_lb']:
+        intf_list_lb = convert_intf_range_to_list(intf=intf_hash_list['range_intf_lb'], range_format=False)
+    if intf_hash_list['range_intf_phy']:
+        intf_list_phy = convert_intf_range_to_list(intf=intf_hash_list['range_intf_phy'], range_format=range_format)
+    if intf_hash_list['range_intf_vlan']:
+        intf_list_vlan = convert_intf_range_to_list(intf=intf_hash_list['range_intf_vlan'], range_format=range_format)
+    if intf_hash_list['range_intf_pc']:
+        intf_list_pc = convert_intf_range_to_list(intf=intf_hash_list['range_intf_pc'], range_format=range_format)
+    if intf_hash_list['range_intf_mgmt']:
+        intf_list_mgmt = convert_intf_range_to_list(intf=intf_hash_list['range_intf_mgmt'], range_format=False)
+    if intf_hash_list['range_intf_sub_phy']:
+        intf_list_sub_phy = convert_intf_range_to_list(intf=intf_hash_list['range_intf_sub_phy'], range_format=False)
+    if intf_hash_list['range_intf_sub_pc']:
+        intf_list_sub_pc = convert_intf_range_to_list(intf=intf_hash_list['range_intf_sub_pc'], range_format=False)
+
+    intf_list_all = intf_list_phy + intf_list_pc + intf_list_vlan + intf_list_lb + intf_list_mgmt + intf_list_sub_phy + intf_list_sub_pc
+
+    intf_hash_list['intf_list_all'] = intf_list_all
+    intf_hash_list['range_intf_phy'] = intf_list_phy
+    intf_hash_list['range_intf_pc'] = intf_list_pc
+    intf_hash_list['range_intf_vlan'] = intf_list_vlan
+    intf_hash_list['range_intf_lb'] = intf_list_lb
+    intf_hash_list['range_intf_mgmt'] = intf_list_mgmt
+    intf_hash_list['range_intf_sub_phy'] = intf_list_sub_phy
+    intf_hash_list['range_intf_sub_pc'] = intf_list_sub_pc
+
+    return intf_hash_list
+
+def is_a_single_intf(intf):
+    """
+    is_a_single_intf('Ethernet1-4') returns False
+    is_a_single_intf('Ethernet4') returns True
+
+    :param intf:
+    :return:
+    """
+    if '-' in intf or ',' in intf:
+        return False
+    else:
+        return True
+
+def rif_support_check(dut, platform, sub_intf=False):
+    common_constants = st.get_datastore(dut, "constants", "default")
+    if sub_intf:
+        return True if platform in common_constants['TD3_PLATFORMS'] else False
+    plat = []
+    for key, value in common_constants.items():
+        if key in ['TD3_PLATFORMS', 'TH_PLATFORMS', 'TD2_PLATFORMS', 'TH2_PLATFORMS']:
+            plat.append(value)
+            final_list = [item for sublist in plat for item in sublist]
+    if platform in final_list:
+        st.log("RIF is supported on {}".format(platform))
+        return True
+    else:
+        return False
+
+def validate_data_path(dut=None):
+    if st.is_sonicvs(dut):
+        return False
+    return True
+
+def validate_link_events(dut=None):
+    if not st.is_sonicvs(dut):
+        return True
+    linkmon = st.getenv("SPYTEST_SONICVS_LINKMON", "0")
+    return bool(linkmon != "0")
+
+def get_random_string(N=4):
+    """
+    Function to generate random string in the given length
+    :param N:
+    :return:
+    """
+    return ''.join(random.sample(string.ascii_uppercase +
+                                 string.digits, k=N))
+
+def get_traffic_loss_duration(tx_count,rx_count,tx_rate):
+    '''
+
+    :param dut:
+    :param tx_count: source tg port tx_pkt count
+    :param rx_count: destination tg port rx_pkt count
+    :param tx_rate: Tgen PPS rate
+    :return:
+    '''
+    traffic_loss = abs(int(tx_count) - int(rx_count))
+    traffic_loss_duration = traffic_loss/int(tx_rate)
+    st.log("traffic loss is {} PPS".format(traffic_loss))
+    traffic_loss_msec = convert_time_to_milli_seconds(0,0,0,traffic_loss_duration,0)
+    st.log("traffic loss duration is {} msec".format(traffic_loss_msec))
+    return traffic_loss_msec
+
+
+def get_random_mac_address(no_of_macs):
+    macs = set()
+    while True:
+        if len(macs) == no_of_macs:
+            return list(macs)
+        macs.add("02:%02x:%02x:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+
+
+def compare_lists(list1, list2, equals=True):
+    """
+    Author: Chaitanya Vella (chaitanya-kumar.vella@broadcom.com)
+    Common function to compare 2 lists
+    :param list1:
+    :param list2:
+    :param equals:
+    :return: True/False
+    """
+    import functools
+    if functools.reduce(lambda x, y: x and y, map(lambda p, q: p == q, list1, list2), True):
+        return True if equals else False
+    else:
+        return False if equals else True
+
+def compare_lists_by_count(list_to_be_compared, parent_list, length):
+    """
+    Author: Chaitanya Vella (chaitanya-kumar.vella@broadcom.com)
+    :param list1:
+    :param list2:
+    :param length:
+    :return:
+    """
+    cnt = 0
+    for l in list_to_be_compared:
+        for x in parent_list:
+            if l.upper() == x.upper():
+                cnt += 1
+    if cnt != length:
+        return False
+    return True
+
+def copy_files_to_dut(dut, src_file_list, dst_folder, cft=0):
+    for src_file in make_list(src_file_list):
+        dst_file = os.path.join(dst_folder, os.path.basename(src_file))
+        st.upload_file_to_dut(dut, src_file, dst_file, cft)
+
+def convert_to_timestamp(timedate):
+    """
+    Function to convert unix time to timestamp
+    :param timedate:
+    :return:
+    """
+    month_dict = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10,
+                  "Nov": 11, "Dec": 12}
+    output = re.split(':| ', timedate)
+    try:
+        output[2] = month_dict[output[2]]
+        if output[7] == "PM" and int(output[4]) < 12:
+            output[4] = int(output[4]) + 12
+        dt = datetime.datetime(int(output[3]),int(output[2]),int(output[1]),int(output[4]),int(output[5]),int(output[6]))
+        return int((dt - datetime.datetime(1970, 1, 1)).total_seconds())
+    except Exception as e:
+        st.error(e)
+        return False
+
+
+def convert_intf_name_to_component(dut, intf_list, **kwargs):
+
+    '''
+    alias-Intf              std/alias                               std-exd
+    Eth1/1          kernel/database/Appl:  Ethernet0        kernel:             E1_1
+                    all-other-places:      Eth1/1           all-other-places:   Eth1/1
+
+    Eth1/49/1       kernel/database/Appl:  Ethernet48       kernel:             E1_49_1
+                    all-other-places:      Eth1/49/1        all-other-places:   Eth1/49/1
+
+    PortChannel7    kernel/database/Appl:  PortChannel7     kernel:             PortChannel7
+                    all-other-places:      PortChannel7     all-other-places:   PortChannel7
+
+    Eth1/1.10       kernel/database/Appl:  Eth0.10          kernel:             E1_1.10
+                    all-other-places:      Eth1/1.10        all-other-places:   Eth1/1.10
+
+    PortChannel7.7  kernel/database/Appl:  Po7.7            kernel:             Po7.7
+                    all-other-places:      PortChannel7.7   all-other-places:   PortChannel7.7
+    '''
+
+    '''
+    convert_intf_name_to_component(dut, intf_list=['Eth1/1', 'Eth1/1.10', 'PortChannel7', 'PortChannel7.7'], ifname_type='alias')
+    2022-08-10 16:36:35,157 T0000: INFO  Interface-naming: alias
+    ['Ethernet0', 'Eth0.10', 'PortChannel7', 'Po7.7']
+
+    convert_intf_name_to_component(dut, intf_list=['Ethernet0', 'Ethernet0.10', 'PortChannel7', 'PortChannel7.7'])
+    2022-08-10 16:37:39,517 T0000: INFO  Interface-naming: native
+    ['Ethernet0', 'Eth0.10', 'PortChannel7', 'Po7.7']
+
+    convert_intf_name_to_component(dut, intf_list=['Eth1/1', 'Eth1/1.10', 'PortChannel7', 'PortChannel7.7'], ifname_type='std-exd')
+    2022-08-10 16:38:00,749 T0000: INFO  Interface-naming: std-exd
+    ['E1_1', 'E1_1.10', 'PortChannel7', 'Po7.7']
+
+    convert_intf_name_to_component(dut, intf_list='Eth1/1.10', ifname_type='alias')
+    2022-08-10 16:34:48,957 T0000: INFO  Interface-naming: alias
+    'Eth0.10'
+
+    convert_intf_name_to_component(dut, intf_list='Eth1/1.10', ifname_type='std-exd')
+    2022-08-10 16:41:52,292 T0000: INFO  Interface-naming: std-exd
+    'E1_1.10'
+
+
+
+    '''
+
+    intf_list = make_list(intf_list)
+    component = kwargs.get('component', 'kernel')
+    ifname_type = kwargs.get('ifname_type', st.get_ifname_type(dut))
+    ret_intf_list = list()
+    for intf in intf_list:
+        if not ('Eth' in intf or 'PortChannel' in intf):
+            st.log('Interface naming is applicable to Ethernet or PortChannel only', dut=dut)
+            ret_intf_list.append(intf)
+            continue
+        if ifname_type in ['native', 'none']:
+            #No error check, as in native mode intf names are same
+            if '.' in intf:
+                ret_intf_list.append(intf.replace('Ethernet', 'Eth').replace('PortChannel','Po'))
+            else:
+                ret_intf_list.append(intf)
+        if ifname_type == 'alias':
+            if 'Eth' in intf and '/' not in  intf:
+                st.log('Intf: {} is not a valid alias/standard name'.format(intf), dut=dut)
+                ret_intf_list.append(intf)
+                continue
+            if component.lower() in ['kernel', 'databases', 'applications', 'frr']:
+                if '.' in intf:
+                    short_name = None
+                    other_name = st.get_other_names(dut, [intf.split('.')[0]])[0]
+                    short_name = other_name.replace('Ethernet', 'Eth').replace('PortChannel', 'Po')
+                    if short_name:
+                        ret_intf_list.append(short_name + '.' + intf.split('.')[1])
+                    else:
+                        st.log('test_step_failed: Invalid Interface Name', dut=dut)
+                        ret_intf_list.append(intf)
+                else:
+                    other_name = st.get_other_names(dut, [intf])[0]
+                    ret_intf_list.append(other_name)
+            else:
+                ret_intf_list.append(intf)
+        if ifname_type == 'std-ext':
+            if 'Eth' in intf and '/' not in intf:
+                st.log('Intf: {} is not a valid std-ext name'.format(intf), dut=dut)
+                ret_intf_list.append(intf)
+                continue
+            if component == 'kernel':
+                #For all types of Ethernet interface, replace Eth with E and / with _
+                if 'Eth' in intf: ret_intf_list.append(intf.replace('Eth', 'E').replace('/','_'))
+                if 'PortChannel' in intf:
+                    #For sub interface only, replace PortChannel with Po
+                    if '.' in intf:
+                        ret_intf_list.append(intf.replace('PortChannel','Po'))
+                    else:
+                        ret_intf_list.append(intf)
+            elif component == 'frr':
+                if 'PortChannel' in intf and '.' in intf:
+                    ret_intf_list.append(intf.replace('PortChannel','Po'))
+                else:
+                    ret_intf_list.append(intf)
+            else:
+                ret_intf_list.append(intf)
+    st.log('Intf-naming: {}, Input Intf: {}, Output Intf: {}'.format(ifname_type, intf_list, ret_intf_list), dut=dut)
+    if len(ret_intf_list) == 1: return ret_intf_list[0]
+    return ret_intf_list
+
+def is_octype_gnmi():
+    oc_type = os.getenv('SPYTEST_OPENCONFIG_API')
+    if oc_type is None or oc_type.lower() == 'gnmi':
+        return True
+    else:
+        return False

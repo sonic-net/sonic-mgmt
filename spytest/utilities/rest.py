@@ -22,4 +22,3 @@ def retry_rest_api(func, *args, **kwargs):
             st.log("waiting for {} seconds before retyring again".format(delay))
             st.wait(delay)
     return False
-
