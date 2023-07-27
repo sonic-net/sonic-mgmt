@@ -118,7 +118,7 @@ steps:
 
       rm -f new_test_plan_id.txt
 
-      python ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt --min-worker ${{ parameters.MIN_WORKER }} --max-worker ${{ parameters.MAX_WORKER }} \
+      python3 ./.azure-pipelines/test_plan.py create -t ${{ parameters.TOPOLOGY }} -o new_test_plan_id.txt --min-worker ${{ parameters.MIN_WORKER }} --max-worker ${{ parameters.MAX_WORKER }} \
       --test-set ${{ parameters.TEST_SET }} --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
       --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
@@ -159,7 +159,7 @@ steps:
       echo "SONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com"
       echo "Runtime detailed progress at $(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
       # When "LOCK_TESTBED" finish, it changes into "PREPARE_TESTBED"
-      python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state LOCK_TESTBED
+      python3 ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state LOCK_TESTBED
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Lock testbed
@@ -171,7 +171,7 @@ steps:
       echo "SONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com"
       echo "Runtime detailed progress at $(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
       # When "PREPARE_TESTBED" finish, it changes into "EXECUTING"
-      python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state PREPARE_TESTBED
+      python3 ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state PREPARE_TESTBED
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Prepare testbed
@@ -182,7 +182,7 @@ steps:
       echo "SONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com"
       echo "Runtime detailed progress at $(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
       # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
-      python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING
+      python3 ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
     displayName: Run test
@@ -195,7 +195,7 @@ steps:
         echo "SONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com"
         echo "Runtime detailed progress at $(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
         # When "KVMDUMP" finish, it changes into "FAILED", "CANCELLED" or "FINISHED"
-        python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state KVMDUMP
+        python3 ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state KVMDUMP
       condition: succeededOrFailed()
       env:
         TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
@@ -204,7 +204,7 @@ steps:
   - script: |
       set -e
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
-      python ./.azure-pipelines/test_plan.py cancel -i "$(TEST_PLAN_ID)"
+      python3 ./.azure-pipelines/test_plan.py cancel -i "$(TEST_PLAN_ID)"
     condition: always()
     env:
       TESTBED_TOOLS_URL: $(TESTBED_TOOLS_URL)
