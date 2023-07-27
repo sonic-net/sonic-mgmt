@@ -22,10 +22,17 @@ class TestMemoryExhaustion:
     """
     This test case is used to verify that DUT will reboot when it runs out of memory.
     """
+    def wait_lc_healthy_if_sup(duthost, duthosts):
+        # For sup, we also need to ensure linecards are back and healthy for following tests
+        is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
+        if is_sup:
+            for lc in duthosts.frontend_nodes:
+                wait_for_startup(lc, localhost, delay=10, timeout=300)
+                wait_critical_processes(lc)
 
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                 localhost, pdu_controller,):
+                 localhost, pdu_controller):
         yield
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.
@@ -42,12 +49,7 @@ class TestMemoryExhaustion:
                           'Recover {} by PDU reboot failed'.format(hostname))
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
-            # For sup, we also need to ensure linecards are back and healthy for following tests
-            is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
-            if is_sup:
-                for lc in duthosts.frontend_nodes:
-                    wait_for_startup(lc, localhost, delay=10, timeout=300)
-                    wait_critical_processes(lc)
+            wait_lc_healthy_if_sup(duthost, duthosts)
 
     def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -75,11 +77,7 @@ class TestMemoryExhaustion:
                       'DUT {} did not startup'.format(hostname))
         # Wait until all critical processes are healthy.
         wait_critical_processes(duthost)
-        is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
-        if is_sup:
-            for lc in duthosts.frontend_nodes:
-                wait_for_startup(lc, localhost, delay=10, timeout=300)
-                wait_critical_processes(lc)
+        wait_lc_healthy_if_sup(duthost, duthosts)
         # Verify DUT uptime is later than the time when the test case started running.
         dut_uptime = duthost.get_up_time()
         pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
