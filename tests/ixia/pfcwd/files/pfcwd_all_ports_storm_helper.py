@@ -1,23 +1,16 @@
-import os, time 
+import os 
+import time 
 from math import ceil
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
 from tests.common.ixia.port import select_ports
-from tests.common.cisco_data import is_cisco_device
 
-from abstract_open_traffic_generator.flow import TxRx, Flow, Header,Size, Rate
-from abstract_open_traffic_generator.flow import Duration, FixedSeconds, FixedPackets, Continuous, PortTxRx, PfcPause  
-from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size, Rate
+from abstract_open_traffic_generator.flow import Duration, Continuous, PortTxRx, PfcPause  
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
-from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
-from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.control import State, ConfigState, FlowTransmitState
 from abstract_open_traffic_generator.result import FlowRequest
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer 
@@ -30,15 +23,16 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templ
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*" 
 
+
 def run_pfcwd_pause_storm_test(api,
-                              testbed_config,
-                              port_config_list,
-                              conn_data,
-                              fanout_data,
-                              duthost,
-                              dut_ports_list,
-                              pause_prio_list,
-                              prio_dscp_map):  
+                               testbed_config,
+                               port_config_list,
+                               conn_data,
+                               fanout_data,
+                               duthost,
+                               dut_ports_list,
+                               pause_prio_list,
+                               prio_dscp_map):  
     """
     Run PFC Pause Storm on all ports  
 
@@ -82,27 +76,27 @@ def run_pfcwd_pause_storm_test(api,
 
         """ Generate traffic config """
 
-        flow_name=PAUSE_FLOW_NAME+str(port_id)  
+        flow_name=PAUSE_FLOW_NAME + str(port_id)  
         pause_flows = __gen_traffic(testbed_config=testbed_config,
-                          port_config_list=port_config_list,
-                          port_id=port_id,
-                          pause_flow_name=flow_name,
-                          pause_prio_list=pause_prio_list,
-                          pfc_storm_dur_sec=pfc_storm_dur_sec,
-                          prio_dscp_map=prio_dscp_map)  
+                                    port_config_list=port_config_list,
+                                    port_id=port_id,
+                                    pause_flow_name=flow_name,
+                                    pause_prio_list=pause_prio_list,
+                                    pfc_storm_dur_sec=pfc_storm_dur_sec,
+                                    prio_dscp_map=prio_dscp_map)  
 
         flows.extend(pause_flows) 
 
     """ Tgen config = testbed config + flow config """
 
-    syslog_marker="all_port_storm"  
+    syslog_marker = "all_port_storm"  
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
 
     loganalyzer.expect_regex = []
 
     for port in dut_ports_list: 
-        expect_regex=[EXPECT_PFC_WD_DETECT_RE+port]  
+        expect_regex = [EXPECT_PFC_WD_DETECT_RE+port]  
 
         loganalyzer.expect_regex.extend(expect_regex)
 
@@ -117,24 +111,27 @@ def run_pfcwd_pause_storm_test(api,
 
     with loganalyzer: 
         flow_stats = __run_traffic(api=api,
-                               config=config,
-                               all_flow_names=all_flow_names,
-                               exp_dur_sec=exp_dur_sec)
+                                   config=config,
+                                   all_flow_names=all_flow_names,
+                                   exp_dur_sec=exp_dur_sec)
 
     time.sleep(10) 
 
     loganalyzer.expect_regex = [] 
     for port in dut_ports_list:
 
-        expect_regex=[EXPECT_PFC_WD_RESTORE_RE+port]
+        expect_regex = [EXPECT_PFC_WD_RESTORE_RE+port]
         loganalyzer.expect_regex.extend(expect_regex)
 
     with loganalyzer: 
-        flow_stats=__stop_traffic(api=api, config=config,all_flow_names=all_flow_names)  
+        flow_stats = __stop_traffic(api=api, config=config, all_flow_names=all_flow_names)  
 
         time.sleep(15) 
 
+    if not flow_stats:
+        pytest_assert('Fail to stop the traffic')
 
+        
 def __gen_traffic(testbed_config,
                   port_config_list,
                   port_id,
@@ -171,7 +168,6 @@ def __gen_traffic(testbed_config,
                                   flow_dur_sec=pfc_storm_dur_sec)
 
     result.append(pause_flow)
-
 
     return result
 
@@ -230,7 +226,6 @@ def __gen_pause_flow(testbed_config,
     speed_gbps = int(speed_str.split('_')[1])
     pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
     pps = int(2 / pause_dur)
-    pkt_cnt = pps * flow_dur_sec
 
     pause_flow = Flow(
         name=flow_name,
@@ -238,11 +233,11 @@ def __gen_pause_flow(testbed_config,
         packet=[pause_pkt],
         size=Size(64),
         rate=Rate('pps', value=pps),
-        #duration=Duration(FixedPackets(packets=pkt_cnt, delay=0))
         duration=Duration(Continuous(delay=0, delay_unit='nanoseconds'))
     )
 
     return pause_flow
+
 
 def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     """
@@ -260,6 +255,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     api.set_state(State(ConfigState(config=config, state='set')))
     api.set_state(State(FlowTransmitState(state='start')))
     time.sleep(exp_dur_sec)
+
 
 def __stop_traffic(api, config, all_flow_names): 
 
