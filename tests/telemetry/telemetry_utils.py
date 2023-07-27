@@ -78,9 +78,8 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
 
 
 def check_gnmi_cli_running(ptfhost):
-    program_list = ptfhost.shell("ps aux | grep py_gnmicli.py")["stdout"]
-    matches = re.findall('python /root/gnxi/gnmi_cli_py/py_gnmicli.py', program_list)
-    return len(matches) > 0
+    program_list = ptfhost.shell("pgrep -f 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py'")["stdout"]
+    return len(program_list) > 0
 
 
 def fetch_json_ptf_output(output, match_no):

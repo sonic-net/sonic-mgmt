@@ -191,9 +191,7 @@ def invoke_py_cli_from_ptf(ptfhost, cmd, results=[""], match_no=0, find_data="")
     gnmi_str = str(gnmi_output)
     if find_data != "":
         result = fetch_json_ptf_output(gnmi_str, match_no)
-        match = re.findall(find_data, result)
-        assert len(match) > 0
-        results[0] = match[0]
+        assert find_data in result
 
 
 def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
