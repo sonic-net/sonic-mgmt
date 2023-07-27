@@ -64,7 +64,7 @@ def run_pfcwd_pause_storm_test(api,
                                   fanout_data=fanout_data)
 
         pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
+                      'Fail to get ID for port {}'.format(dut_port))
 
         poll_interval_sec = get_pfcwd_poll_interval(duthost) / 1000.0
         detect_time_sec = get_pfcwd_detect_time(host_ans=duthost, intf=dut_port) / 1000.0
