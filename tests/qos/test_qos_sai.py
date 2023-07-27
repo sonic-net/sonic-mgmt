@@ -558,7 +558,7 @@ class TestQosSai(QosSaiBase):
          "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
             self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig,
-            dutQosConfig, get_src_dst_asic_and_duts, skip_check_for_hbm
+            dutQosConfig, get_src_dst_asic_and_duts, skip_check_for_hbm_either_asic
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -1036,7 +1036,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts
+            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
+            skip_check_for_hbm_either_asic
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq

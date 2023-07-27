@@ -9,6 +9,7 @@ import random
 import os
 import sys
 import copy
+from operator import xor
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 import copy
@@ -1970,8 +1971,21 @@ class QosSaiBase(QosBase):
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
         src_hbm_enabled = self.get_hbm_status(src_asic)
         dst_hbm_enabled = self.get_hbm_status(dst_asic)
-        if src_hbm_enabled == "True" or dst_hbm_enabled == "True":
+        if src_asic == dst_asic and 
+                get_src_dst_asic_and_duts['src_dut'] == \
+                    get_src_dst_asic_and_duts['dst_dut'] :
+            yield
+            return
+        if xor(src_hbm_enabled, dst_hbm_enabled):
             pytest.skip(
                 "This test needs to be revisited for HBM enabled systems.")
 
-
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_check_for_hbm_either_asic(self, get_src_dst_asic_and_duts):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        src_hbm_enabled = self.get_hbm_status(src_asic)
+        dst_hbm_enabled = self.get_hbm_status(dst_asic)
+        if src_hbm_enabled or dst_hbm_enabled:
+            pytest.skip(
+                "This test needs to be revisited for HBM enabled systems.")
