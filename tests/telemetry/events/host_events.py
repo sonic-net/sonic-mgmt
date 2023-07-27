@@ -37,7 +37,7 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 
 def trigger_mem_threshold_exceeded_alert(duthost):
     logger.info("Invoking memory checker with low threshold")
-    duthost.shell("python3 /usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
+    duthost.shell("python /usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
 
 
 def trigger_kernel_event(duthost):
