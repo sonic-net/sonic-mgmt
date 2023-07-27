@@ -44,6 +44,4 @@ def restart_monit(duthost):
 
 def check_monit_running(duthost):
     monit_services_status = duthost.get_monit_services_status()
-    if not monit_services_status:
-        return False
-    return True
+    return monit_services_status
