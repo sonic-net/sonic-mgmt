@@ -91,15 +91,15 @@ DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
 
 # Below M0_VLAN IPs are ip in vlan range
 DOWNSTREAM_DST_IP_VLAN = {
-    "ipv4": "192.168.0.253",
+    "ipv4": "192.168.0.123",
     "ipv6": "fc02:1000::5"
 }
 DOWNSTREAM_IP_TO_ALLOW_VLAN = {
-    "ipv4": "192.168.0.252",
+    "ipv4": "192.168.0.122",
     "ipv6": "fc02:1000::6"
 }
 DOWNSTREAM_IP_TO_BLOCK_VLAN = {
-    "ipv4": "192.168.0.251",
+    "ipv4": "192.168.0.121",
     "ipv6": "fc02:1000::7"
 }
 
@@ -950,7 +950,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 if ip_version == "ipv6":
                     rule_id = 34
                 else:
-                    rule_id = 2
+                    rule_id = 33
             else:
                 rule_id = 2
         else:
@@ -975,7 +975,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 if ip_version == "ipv6":
                     rule_id = 35
                 else:
-                    rule_id = 15
+                    rule_id = 32
             else:
                 rule_id = 15
         else:

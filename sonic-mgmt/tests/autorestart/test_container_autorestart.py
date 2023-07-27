@@ -25,6 +25,7 @@ CONTAINER_RESTART_THRESHOLD_SECS = 300
 CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
+PROGRAM_STATUS = "RUNNING"
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -318,20 +319,17 @@ def clear_failed_flag_and_restart(duthost, service_name, container_name):
 
 
 def verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
-                                             program_status, program_pid):
+                                             program_pid):
     """
     @summary: Kill a critical process in a container to verify whether the container
               is stopped and restarted correctly
     """
-    if program_status == "RUNNING":
-        kill_process_by_pid(duthost, container_name, program_name, program_pid)
-    elif program_status in ["EXITED", "STOPPED", "STARTING"]:
-        pytest.fail("Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
-                    .format(program_name, container_name, program_status))
-    else:
-        pytest.fail("Failed to find program '{}' in container '{}'"
-                    .format(program_name, container_name))
+    global PROGRAM_STATUS
+    pytest_assert(wait_until(40, 3, 0, is_process_running, duthost, container_name, program_name),
+                  "Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
+                  .format(program_name, container_name, PROGRAM_STATUS))
 
+    kill_process_by_pid(duthost, container_name, program_name, program_pid)
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
                          CONTAINER_CHECK_INTERVAL_SECS,
@@ -449,6 +447,19 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     return critical_proceses, bgp_check
 
 
+def is_process_running(duthost, container_name, program_name):
+    global PROGRAM_STATUS
+    program_status, _ = get_program_info(duthost, container_name, program_name)
+    PROGRAM_STATUS = program_status
+    if program_status == "RUNNING":
+        return True
+    elif program_status in ["EXITED", "STOPPED", "STARTING"]:
+        return False
+    else:
+        pytest.fail("Failed to find program '{}' in container '{}'"
+                    .format(program_name, container_name))
+
+
 def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
@@ -488,10 +499,9 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         # TODO: Should remove the following two lines once the issue was solved in the image.
         if feature_name == "syncd" and critical_process == "dsserve":
             continue
-
-        program_status, program_pid = get_program_info(duthost, container_name, critical_process)
+        _, program_pid = get_program_info(duthost, container_name, critical_process)
         verify_autorestart_with_critical_process(duthost, container_name, service_name, critical_process,
-                                                 program_status, program_pid)
+                                                 program_pid)
         # Sleep 20 seconds in order to let the processes come into live after container is restarted.
         # We will uncomment the following line once the "extended" mode is added
         # time.sleep(20)
@@ -503,7 +513,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
         group_program_info = get_group_program_info(duthost, container_name, critical_group)
         for program_name in group_program_info:
             verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
-                                                     group_program_info[program_name][0],
                                                      group_program_info[program_name][1])
             # We are currently only testing one critical program for each critical group, which is
             # why we use 'break' statement. Once we add the "extended" mode, we will remove this
