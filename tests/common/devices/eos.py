@@ -133,31 +133,9 @@ class EosHost(AnsibleHostBase):
         Et2/1      lc-Ethernet4            disabled     1103     full   100G   100GBASE-CR4
         Et3/1      lc-Ethernet8            connected    1104     full   100G   100GBASE-CR4
         """
-        show_int_result = self.eos_command(commands=['show interface status'])
-        for output_line in show_int_result['stdout_lines'][0]:
-            fields = output_line.split(' ')
-            output_port = fields[0].replace('Et', 'Ethernet')
-            if interface_name == output_port:
-                # if link is not oper up, we consider it as oper down, it could be admin down as well
-                if 'connected' not in fields:
-                    logging.info("Interface {} is oper down on {}".format(output_port, self.hostname))
-                    return False
-        return True
-
-    def check_intf_link_admin_state(self, interface_name):
-        """
-        This function returns admin state for eos fanout
-        """
-        show_int_result = self.eos_command(commands=['show interface status'])
-        for output_line in show_int_result['stdout_lines'][0]:
-            fields = output_line.split(' ')
-            output_port = fields[0].replace('Et', 'Ethernet')
-            if interface_name == output_port:
-                # if link is not admin down, we consider it as admin up, however, it could be oper down(notconnect)
-                if 'disabled' in fields:
-                    logging.info("Interface {} is admin down on {}".format(output_port, self.hostname))
-                    return False
-        return True
+        commands=['show interface %s | json' % interface_name])
+        int_status = show_int_result['stdout'][0]['interfaces'][interface_name]['interfaceStatus']
+        return int_status == 'connected'
 
     def links_status_down(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
