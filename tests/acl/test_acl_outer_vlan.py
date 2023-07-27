@@ -626,7 +626,13 @@ def skip_sonic_leaf_fanout(fanouthosts):
     """
     for fanouthost in list(fanouthosts.values()):
         if fanouthost.get_fanout_os() == 'sonic':
-            pytest.skip("Not supporteds on SONiC leaf-fanout")
+            os_version = fanouthost.get_sonic_os_version()
+            asic_type = fanouthost.facts['asic_type']
+            platform = fanouthost.facts["platform"]
+            if "202205" not in os_version:
+                pytest.skip("Not supporteds on SONiC leaf-fanout with os version is not 202205")
+            if not (asic_type in ["broadcom"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
+                pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
 
 class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):

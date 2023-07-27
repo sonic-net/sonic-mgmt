@@ -208,3 +208,8 @@ class FanoutHost(object):
 
     def set_port_fec(self, interface_name, mode):
         self.host.set_port_fec(interface_name, mode)
+
+    def get_sonic_os_version(self):
+        if self.os != 'sonic':
+            return None
+        return self.host.os_version
