@@ -842,33 +842,17 @@ def create_report_html(data,log_dir):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    print("1st command")
     chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
         --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{} > ~/golden-code/sonic-test/sonic-mgmt/tests/report.txt \n'.format(log_dir))
     time.sleep(3)
-    
-    chan.send('echo $?')
-    time.sleep(3)
 
-    print("2nd command")
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
     time.sleep(3)
 
-    chan.send('echo $?')
-    time.sleep(3)
-
-    print("3rd command")
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
     time.sleep(3)
 
-    chan.send('echo $?')
-    time.sleep(3)
-
-    print("4th command")
     chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
-    time.sleep(3)
-
-    chan.send('echo $?')
     time.sleep(3)
 
     ssh.close()
@@ -1127,10 +1111,6 @@ def main():
         print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
         run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
         delta4 = datetime.datetime.now()
-
-    print("Run Sanity: " + run_sanity)   
-    if run_sanity:
-        print("Entered state")
         create_report_html(data,log_dir)
         parse_report(data)
         get_report_file(data)
