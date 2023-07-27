@@ -103,9 +103,27 @@ class EosHost(AnsibleHostBase):
         return self.no_shutdown(intf_str)
 
     def check_intf_link_state(self, interface_name):
+        """
+        This function returns link oper status
+            e.g. cable not connected:
+                     Ethernet1/1 is down, line protocol is notpresent (notconnect)
+                 link is admin down(cable not present):
+                     Ethernet1/1 is administratively down, line protocol is notpresent (disabled)
+                 link is admin down(cable present):
+                     Ethernet2/1 is administratively down, line protocol is down (disabled)
+                 link is admin up&oper up:
+                     Ethernet2/1 is up, line protocol is up (connected)
+                 link is admin up&oper down:
+                     Ethernet2/1 is down, line protocol is down (notconnect)
+        In conclusion:
+            connected = admin up & oper up
+            disabled  = admin down
+            notconnect= admin up & oper down
+        """
         show_int_result = self.eos_command(
-            commands=['show interface %s' % interface_name])
-        return 'Up' in show_int_result['stdout_lines'][0]
+            commands=['show interface %s | json' % interface_name])
+        int_status = show_int_result['stdout'][0]['interfaces'][interface_name]['interfaceStatus']
+        return int_status == 'connected'
 
     def links_status_down(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
@@ -113,7 +131,7 @@ class EosHost(AnsibleHostBase):
             """
             Note:
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
+            u'Et33/1     lc-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
             e.g.
             (Pdb) output_line.split(' ')[0]
             u'Et1/1'
@@ -138,7 +156,7 @@ class EosHost(AnsibleHostBase):
             """
             Note:
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
+            u'Et33/1     lc-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
             e.g.
             (Pdb) output_line.split(' ')[0]
             u'Et1/1'
