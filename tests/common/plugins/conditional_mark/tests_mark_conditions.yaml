@@ -802,6 +802,16 @@ platform_tests/test_auto_negotiation.py:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
     conditions: https://github.com/sonic-net/sonic-mgmt/issues/5447
 
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
+  skip:
+    reason: "Test should be skipped on DPU for it doesn't have PSUs."
+    conditions: "'nvda_bf' in platform"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
+  skip:
+    reason: "Test should be skipped on DPU for it doesn't have PSUs."
+    conditions: "'nvda_bf' in platform"
+
 #######################################
 #####           qos               #####
 #######################################
