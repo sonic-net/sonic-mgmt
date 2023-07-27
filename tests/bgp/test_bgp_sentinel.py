@@ -145,45 +145,45 @@ def dut_lo_addr(rand_selected_dut):
     return lo_ipv4_addr, lo_ipv6_addr
 
 
-@pytest.fixture(scope="module")
-def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr):
+@pytest.fixture(scope="module", params=['BGPSentinel'])
+def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
     duthost = rand_selected_dut
     lo_ipv4_addr, lo_ipv6_addr = dut_lo_addr
     ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
     ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
     ptf_bp_v6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6'].lower()
 
-    # render template and write to DB, check running configuration for BGP sentinel
-    bgp_sentinelv4_tmpl = Template(BGP_SENTINEL_TMPL)
-    duthost.copy(content=bgp_sentinelv4_tmpl.render(v4_listen_range=json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
-                                                    v4_src_address=lo_ipv4_addr,
-                                                    v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
-                                                    v6_src_address=lo_ipv6_addr),
-                 dest=BGPSENTINEL_CONFIG_FILE)
-    duthost.shell("sonic-cfggen -j {} -w".format(BGPSENTINEL_CONFIG_FILE))
+    if request.param == 'BGPSentinel':
+        # render template and write to DB, check running configuration for BGP_sentinel
+        bgp_sentinelv4_tmpl = Template(BGP_SENTINEL_TMPL)
+        duthost.copy(content=bgp_sentinelv4_tmpl.render(v4_listen_range=json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
+                                                        v4_src_address=lo_ipv4_addr,
+                                                        v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
+                                                        v6_src_address=lo_ipv6_addr),
+                     dest=BGPSENTINEL_CONFIG_FILE)
+        duthost.shell("sonic-cfggen -j {} -w".format(BGPSENTINEL_CONFIG_FILE))
 
-    # Once https://github.com/sonic-net/sonic-buildimage/pull/14844 is merged into sonic 202205, we can remove this
     duthost.shell("vtysh -c \"configure terminal\" -c \"ipv6 nht resolve-via-default\"")
 
-    yield lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6
+    yield lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6, request.param
 
-    # Cleanup bgp sentinel configuration
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
-
-    duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
+    if request.param == 'BGPSentinel':
+        # Cleanup bgp sentinel configuration
+        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
+        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
+        duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
 
 
 @pytest.fixture(scope="module")
 def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
     duthost = rand_selected_dut
+    lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6, case_type = dut_setup_teardown
 
-    if not is_bgp_sentinel_supported(duthost):
-        pytest.skip("BGP sentinel is not supported on this image")
+    if case_type == 'BGPSentinel':
+        if not is_bgp_sentinel_supported(duthost):
+            pytest.skip("BGP sentinel is not supported on this image")
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-
-    lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6 = dut_setup_teardown
 
     # Start exabgp process to simulate bgp sentinel
     ptfhost.exabgp(name=BGP_SENTINEL_NAME_V4,
@@ -242,7 +242,7 @@ def common_setup_teardown(rand_selected_dut, ptf_setup_teardown, ptfhost):
     if ipv6_nh is not None:
         ibgp_sessions.append(ptf_bp_v6)
 
-    # wait for bgp sentinel <-> dut to establish ibgp session
+    # wait for bgp sentinel and dut to establish ibgp session
     pytest_assert(wait_until(30, 5, 5, is_bgp_sentinel_session_established, duthost, ibgp_sessions),
                   "BGP Sentinel session has not setup successfully")
 
@@ -289,7 +289,7 @@ def get_target_routes(duthost):
             break
 
     if v4_peer is None or v6_peer is None:
-        pytest.skip("No bgp route received from T0")
+        pytest.skip("No bgp session to T0 spine")
 
     bgp_v4_routes = json.loads(duthost.shell(
         "vtysh -c \'show bgp ipv4 neighbors {} received-routes json\'".format(v4_peer))['stdout'])
@@ -299,15 +299,15 @@ def get_target_routes(duthost):
     return bgp_v4_routes['receivedRoutes'].keys(), bgp_v6_routes['receivedRoutes'].keys()
 
 
-@pytest.mark.parametrize("addr_family", ["IPv4", "IPv6"])
-def test_bgp_sentinel(rand_selected_dut, common_setup_teardown, sentinel_community, addr_family):
+@pytest.fixture(scope="module", params=['IPv4', 'IPv6'])
+def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, sentinel_community, request):
     duthost = rand_selected_dut
     ptfip, lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ibgp_sessions, ptf_bp_v4, ptf_bp_v6 = common_setup_teardown
 
-    if ipv4_nh is None and addr_family == "IPv4":
+    if ipv4_nh is None and request.param == "IPv4":
         pytest.skip("IPv4 IBGP session is not established")
 
-    if ipv6_nh is None and addr_family == "IPv6":
+    if ipv6_nh is None and request.param == "IPv6":
         pytest.skip("IPv6 IBGP session is not established")
 
     ipv4_routes, ipv6_routes = get_target_routes(duthost)
@@ -318,7 +318,7 @@ def test_bgp_sentinel(rand_selected_dut, common_setup_teardown, sentinel_communi
                       "Route {} is not advertised to bgp peers".format(route))
 
     # Announce routes from bgp sentinel
-    if addr_family == "IPv4":
+    if request.param == "IPv4":
         for route in ipv4_routes:
             announce_route(ptfip, lo_ipv4_addr, route, ptf_bp_v4, BGP_SENTINEL_PORT_V4, sentinel_community)
 
@@ -331,13 +331,18 @@ def test_bgp_sentinel(rand_selected_dut, common_setup_teardown, sentinel_communi
         for route in ipv6_routes:
             announce_route(ptfip, lo_ipv6_addr, route, ptf_bp_v6, BGP_SENTINEL_PORT_V6, sentinel_community)
 
-    # Check if the routes are suppressed by bgp sentinel route and not announced to ebgp peers
+    # Check if the routes are not announced to ebgp peers
     for route in ipv4_routes + ipv6_routes:
         pytest_assert(not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
                       "Route {} should not be advertised to bgp peers".format(route))
 
+    if request.param == "IPv4":
+        yield ptf_bp_v4, ipv4_routes + ipv6_routes, ibgp_sessions
+    else:
+        yield ptf_bp_v6, ipv4_routes + ipv6_routes, ibgp_sessions
+
     # Withdraw routes from bgp sentinel
-    if addr_family == "IPv4":
+    if request.param == "IPv4":
         for route in ipv4_routes:
             withdraw_route(ptfip, lo_ipv4_addr, route, ptf_bp_v4, BGP_SENTINEL_PORT_V4, sentinel_community)
 
@@ -355,4 +360,26 @@ def test_bgp_sentinel(rand_selected_dut, common_setup_teardown, sentinel_communi
         pytest_assert(is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
                       "Route {} is not advertised to bgp peers".format(route))
 
+
+@pytest.mark.parametrize("reset_type", ["none", "soft", "hard"])
+def test_bgp_sentinel(rand_selected_dut, prepare_bgp_sentinel_routes, reset_type):
+    duthost = rand_selected_dut
+    ibgp_nbr, target_routes, ibgp_sessions = prepare_bgp_sentinel_routes
+
+    if reset_type == "none":
+        return
+    elif reset_type == "soft":
+        cmd = "vtysh -c \'clear bgp {} soft \'".format(ibgp_nbr)
+    elif reset_type == "hard":
+        cmd = "vtysh -c \'clear bgp {} \'".format(ibgp_nbr)
+    duthost.shell(cmd)
+
+    # wait for bgp sentinel and dut to establish ibgp session
+    pytest_assert(wait_until(30, 5, 5, is_bgp_sentinel_session_established, duthost, [ibgp_nbr]),
+                  "BGP Sentinel session has not setup successfully")
+
+    # Check if the routes are not announced to ebgp peers
+    for route in target_routes:
+        pytest_assert(not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
+                      "Route {} should not be advertised to bgp peers".format(route))
     return
