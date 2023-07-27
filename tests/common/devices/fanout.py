@@ -98,9 +98,6 @@ class FanoutHost(object):
 
         return self.host.no_shutdown(interface_name)
 
-    def check_intf_link_oper_state(self, interface_name):
-        return self.host.check_intf_link_oper_state(interface_name)
-
     def check_intf_link_state(self, interface_name):
         return self.host.check_intf_link_state(interface_name)
 
