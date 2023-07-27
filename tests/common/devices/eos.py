@@ -133,7 +133,8 @@ class EosHost(AnsibleHostBase):
         Et2/1      lc-Ethernet4            disabled     1103     full   100G   100GBASE-CR4
         Et3/1      lc-Ethernet8            connected    1104     full   100G   100GBASE-CR4
         """
-        commands=['show interface %s | json' % interface_name])
+        show_int_result = self.eos_command(
+            commands=['show interface %s | json' % interface_name])
         int_status = show_int_result['stdout'][0]['interfaces'][interface_name]['interfaceStatus']
         return int_status == 'connected'
 
