@@ -29,6 +29,7 @@ DEFAULT_STATE = 'enabled'
 DEFAULT_RATE_LIMIT_GLOBAL = 180
 DEFAULT_RATE_LIMIT_FEATURE = 600
 DEFAULT_MAX_TECHSUPPORT_LIMIT = 10
+DEFAULT_AVAILABLE_MEM_THRESHOLD = 10.0
 DEFAULT_MAX_CORE_LIMIT = 5
 DEFAULT_SINCE = '2 days ago'
 
@@ -126,7 +127,9 @@ class TestAutoTechSupport:
 
         yield
 
-        update_auto_techsupport_feature(self.duthost, self.test_docker, rate_limit=DEFAULT_RATE_LIMIT_FEATURE)
+        update_auto_techsupport_feature(self.duthost, self.test_docker,
+                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE,
+                                        mem_threshold=DEFAULT_AVAILABLE_MEM_THRESHOLD)
 
     def test_sanity(self, cleanup_list):
         """
@@ -557,7 +560,7 @@ def set_auto_techsupport_global(duthost, state=None, rate_limit=None, techsuppor
             duthost.shell(cmd)
 
 
-def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=None):
+def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=None, mem_threshold=None):
     """
     Do configuration using cmd: sudo config auto-techsupport-feature update .....
     :param duthost: duthost object
@@ -573,9 +576,12 @@ def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=Non
     if rate_limit or rate_limit == 0:
         command = '{} --rate-limit-interval {}'.format(base_cmd, rate_limit)
         commands_list.append(command)
+    if mem_threshold:
+        command = '{} --available-mem-threshold {}'.format(base_cmd, mem_threshold)
+        commands_list.append(command)
 
     if not commands_list:
-        pytest.fail('Provide at least one argument from list: state, rate_limit')
+        pytest.fail('Provide at least one argument from list: state, rate_limit, mem_threshold')
 
     for cmd in commands_list:
         with allure.step('Setting feature {} config: {}'.format(feature, cmd)):
