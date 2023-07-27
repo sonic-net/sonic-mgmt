@@ -6,7 +6,6 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
-from tests.common.ixia.port import select_ports
 
 from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size, Rate
 from abstract_open_traffic_generator.flow import Duration, Continuous, PortTxRx, PfcPause  
@@ -55,14 +54,14 @@ def run_pfcwd_pause_storm_test(api,
 
     start_pfcwd(duthost)
     enable_packet_aging(duthost)
-    flows=[] 
+    flows = [] 
 
     for dut_port in dut_ports_list: 
         """ Get the ID of the port to test """
         port_id = get_dut_port_id(dut_hostname=duthost.hostname,
-                              dut_port=dut_port,
-                              conn_data=conn_data,
-                              fanout_data=fanout_data)
+                                  dut_port=dut_port,
+                                  conn_data=conn_data,
+                                  fanout_data=fanout_data)
 
         pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
@@ -76,7 +75,7 @@ def run_pfcwd_pause_storm_test(api,
 
         """ Generate traffic config """
 
-        flow_name=PAUSE_FLOW_NAME + str(port_id)  
+        flow_name = PAUSE_FLOW_NAME + str(port_id)  
         pause_flows = __gen_traffic(testbed_config=testbed_config,
                                     port_config_list=port_config_list,
                                     port_id=port_id,

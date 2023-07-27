@@ -4,9 +4,6 @@
 
 import pytest
 
-from tests.common.ixia.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list, lossy_prio_list
-
 from files.pfcwd_all_ports_storm_helper import run_pfcwd_pause_storm_test
 
 pytestmark = [pytest.mark.topology('tgen')]
@@ -52,11 +49,11 @@ def test_pfcwd_all_ports_pause_storm(ixia_api,
     dut_ports_list = conn_graph_facts["device_conn"][dut_hostname].keys() 
 
     run_pfcwd_pause_storm_test(api=ixia_api,
-                              testbed_config=testbed_config,
-                              port_config_list=port_config_list,
-                              conn_data=conn_graph_facts,
-                              fanout_data=fanout_graph_facts,
-                              duthost=duthost,
-                              dut_ports_list=dut_ports_list,
-                              pause_prio_list=[lossless_prio],
-                              prio_dscp_map=prio_dscp_map)
+                               testbed_config=testbed_config,
+                               port_config_list=port_config_list,
+                               conn_data=conn_graph_facts,
+                               fanout_data=fanout_graph_facts,
+                               duthost=duthost,
+                               dut_ports_list=dut_ports_list,
+                               pause_prio_list=[lossless_prio],
+                               prio_dscp_map=prio_dscp_map)
