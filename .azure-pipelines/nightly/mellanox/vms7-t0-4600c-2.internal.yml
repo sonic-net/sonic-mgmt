@@ -8,7 +8,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202205
+        - internal
     always: false
 
 variables:
