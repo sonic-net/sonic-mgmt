@@ -10,6 +10,7 @@ to/from API server, processing the statistics after obtaining them
 in .csv format etc.
 """
 
+from enum import Enum
 import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
@@ -722,3 +723,42 @@ def get_egress_queue_count(duthost, port, priority):
     total_pkts = raw_out.split()[2]
     total_bytes = raw_out.split()[3]
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
+
+
+class packet_capture(Enum):
+    """
+    ENUM of packet capture settings
+    NO_CAPTURE - No capture
+    PFC_CAPTURE - PFC capture enabled
+    IP_CAPTURE - IP capture enabled
+    """
+    NO_CAPTURE = "No_Capture"
+    PFC_CAPTURE = "PFC_Capture"
+    IP_CAPTURE = "IP_Capture"
+
+
+def config_capture_pkt(testbed_config, port_id, capture_type, capture_name=None):
+    """
+    Generate the configuration to capture packets on a port for a specific type of packet
+
+    Args:
+        testbed_config (obj): L2/L3 snappi config of a testbed
+        port_id (int): ID of DUT port to capture packets
+        capture_type (Enum): Type of packet to capture
+        capture_name (str): Name of the capture
+
+    Returns:
+        N/A
+    """
+
+    cap = testbed_config.captures.capture(name=capture_name if capture_name else "PacketCapture")[-1]
+    cap.port_names = [testbed_config.ports[port_id].name]
+    cap.format = cap.PCAP
+
+    if capture_type == packet_capture.IP_CAPTURE:
+        # Capture IP packets
+        ip_filter = cap.filters.custom()[-1]
+        # Version for IPv4 packets is "4" which has to be in the upper 4 bits of the first byte, hence filter is 0x40
+        ip_filter.value = '40'
+        ip_filter.offset = 14  # Offset is the length of the Ethernet header
+        ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
