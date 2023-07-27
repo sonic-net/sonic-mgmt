@@ -23,6 +23,7 @@ resources:
     - repository: sonic-mgmt
       type: github
       name: sonic-net/sonic-mgmt
+      ref: master
       endpoint: sonic-net
 
 stages:
