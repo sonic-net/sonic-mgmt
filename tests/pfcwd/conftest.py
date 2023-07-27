@@ -177,7 +177,7 @@ def setup_pfc_test(
 
 @pytest.fixture(scope="module")
 def setup_dut_test_params(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo     # noqa F811
 ):
     """
     Sets up all the parameters needed for the PFCWD tests
