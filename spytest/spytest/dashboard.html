@@ -5,33 +5,77 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
-	<title>SPyTest Batch Run Dashboard</title>
+    <title>SPyTest Batch Run Dashboard</title>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-	<script type="text/javascript">
+    <link rel="stylesheet" type="text/css" href="{{cdn}}datatables.min.css"/>
+    <script type="text/javascript" src="{{cdn}}datatables.min.js"></script>
+    <script type="text/javascript">
 
     var prev_active_li = null;
 
-	$(document).ready(function () {
+    $(document).ready(function () {
+
+        setInterval(updateStatus,5000);
+        function updateStatus(){
+            $.ajax({ cache: false,
+                url: "build.txt",
+                success: function (data) {
+                    if (data.search("Execution Completed") != -1) {
+                        $('#date').css('background-color', 'green');
+                    } else {
+                        $('#date').css('background-color', '');
+                    }
+                },
+                error: function (ajaxContext) {
+                    $('#date').css('background-color', '');
+                }
+            });
+        }
 
         setInterval(updateTime,1000);
         function updateTime(){
             $('#date').html(new Date().toUTCString());
             $('#url').html(document.getElementById("mainFrame").contentWindow.location.href)
         }
+        function fix_timestamp(oldUrl, data_val) {
+            var newUrl;
+            if (/[?&]timestamp\s*=/.test(oldUrl)) {
+              newUrl = oldUrl.replace(/(?:([?&])timestamp\s*=[^?&]*)/, "$1timestamp=" + data_val);
+            } else if (/\?/.test(oldUrl)) {
+              newUrl = oldUrl + "&timestamp=" + data_val;
+            } else {
+              newUrl = oldUrl + "?timestamp=" + data_val;
+            }
+            return newUrl
+        }
         $(document).on("click", "a", function(){
+            $(this).attr("href", fix_timestamp($(this).attr("href"), Date.now()/1000|0));
             if (prev_active_li !== null) {
                 prev_active_li.css("border", '');
             }
             prev_active_li = $(this).parent('li');
             prev_active_li.css("border", '1px solid green');
         });
- 	});
 
-	</script>
+        var collapseHooks = document.getElementsByClassName('collapseAfter');
+        for (var hook of collapseHooks) {
+            var wrap = hook.parentNode;
+            var a = wrap.parentNode.insertBefore( document.createElement('a'), wrap.nextSibling);
+            a.addEventListener('click', toggleCollapse, false);
+            a.className = 'collapseAnchor';
+            a.href="#"; /* without this it's not keyboard focusable */
+            wrap.classList.add('closed', 'collapseWrap');
+        }
+        function toggleCollapse(e) {
+            e.preventDefault();
+            e.currentTarget.previousElementSibling.classList.toggle('closed');
+        }
+    });
+
+    </script>
 
 
-	<style type="text/css">
+    <style type="text/css">
 
     iframe {
         position: absolute;
@@ -70,16 +114,23 @@
         margin-left: 5px;
     }
 
-	ul {
-		padding:	0;
-		list-style:	none;
-		position:	relative;
-	}
-	li {
-		padding: 0.15em 1em 0.3em 5px;
-	}
+    ul {
+        padding:    0;
+        list-style: none;
+        position:   relative;
+    }
+    li {
+        padding: 0.15em 1em 0.3em 5px;
+    }
 
-	</style>
+    .collapseAnchor { text-decoration:none; color:blue; }
+    .collapseAnchor:before { content:"Less"; }
+    .collapseWrap.closed + .collapseAnchor:before { content:"More"; }
+    .collapseAnchor:after { content:"\25B2"; display:inline-block; padding:0.4em 0 0 0.3em; vertical-align:top; font-size:0.625em; }
+    .collapseWrap.closed + .collapseAnchor:after { content:"\25BC"; }
+    .collapseWrap.closed > .collapseAfter ~ * { position:absolute; top:-999em; left:-999em; }
+
+    </style>
 
     <link href="data:image/x-icon;base64,
         iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACBElEQVQ4T31TTWgTURD+JtslBK1a
@@ -270,39 +321,63 @@
         CIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCIIgCMKRzVFH/X82RtaZS2X5
         MAAAAABJRU5ErkJggg==">
     <span id='date' ></span>
-	<ul>
-		<li><a target="mainFrame" href=".">Root</a></li>
+    <ul>
+        <li><a target="mainFrame" href=".">Root</a></li>
         {%- if is_bucket == 'True' %}
         <li><a target="mainFrame" href="batch_summary.html">Batch</a></li>
-		<li>
-	        <ul>
-		        <li><a target="mainFrame" href="batch_summary.html">Summary</a></li>
-		        <li><a target="mainFrame" href="batch_devices.html">Devices</a></li>
-		        <li><a target="mainFrame" href="batch_modules.html">Modules</a></li>
-		        <li><a target="mainFrame" href="batch_pending.html">Pending</a></li>
-		        <li><a target="mainFrame" href="batch_progress.html">Progress</a></li>
-		        <li><a target="mainFrame" href="batch_nes.html">NES</a></li>
-		        <li><a target="mainFrame" href="batch_debug.log">Debug</a></li>
-		        <li><a target="mainFrame" href="master/results_stdout.log">Master</a></li>
-	        </ul>
-		</li>
+        <li>
+            <ul>
+                <li><a target="mainFrame" href="batch_summary.html">Summary</a></li>
+                <li><a target="mainFrame" href="batch_devices.html">Devices</a></li>
+                <li class="collapseAfter"><a target="mainFrame" href="batch_modules.html">Modules</a></li>
+                <li><a target="mainFrame" href="batch_pending.html">Pending</a></li>
+                <li><a target="mainFrame" href="batch_progress.html">Progress</a></li>
+                <li><a target="mainFrame" href="batch_running.html">Running</a></li>
+                <li><a target="mainFrame" href="batch_nes.html">NES</a></li>
+                <li><a target="mainFrame" href="batch_rerun.html">ReRun</a></li>
+                <li><a target="mainFrame" href="batch_debug.log">Debug</a></li>
+                <li><a target="mainFrame" href="master/results_stdout.log">Master</a></li>
+            </ul>
+        </li>
         {%- endif %}
-		<li><a target="mainFrame" href="{{results_features}}">Run</a></li>
-		<li>
-	        <ul>
-		        <li><a target="mainFrame" href="{{results_summary}}">Summary</a></li>
-		        <li><a target="mainFrame" href="{{results_features}}">Features</a></li>
-		        <li><a target="mainFrame" href="{{results_modules}}">Modules</a></li>
-		        <li><a target="mainFrame" href="{{results_functions}}">Functions</a></li>
-		        <li><a target="mainFrame" href="{{results_testcases}}">Testcases</a></li>
-	        </ul>
-		</li>
+        <li><a target="mainFrame" href="{{results_features}}">Run</a></li>
+        <li>
+            <ul>
+                <li><a target="mainFrame" href="{{features_summary}}">Summary</a></li>
+                <li class="collapseAfter"><a target="mainFrame" href="{{results_modules}}">Modules</a></li>
+                <li><a target="mainFrame" href="{{results_functions}}">Functions</a></li>
+                <li><a target="mainFrame" href="{{results_testcases}}">Testcases</a></li>
+                {%- for name, report in feature_reports %}
+                <li><a target="mainFrame" href="{{report}}">{{name}}</a></li>
+                {%- endfor %}
+                <li><a target="mainFrame" href="{{execution_summary}}">Execution</a></li>
+            </ul>
+        </li>
+
+        <li><a target="mainFrame" href="{{results_coverage}}">Coverage</a></li>
+        <li>
+            <ul>
+                <li><a target="mainFrame" href="{{results_coverage}}">Modules</a></li>
+                {%- if message_coverage != 'None' %}
+                <li><a target="mainFrame" href="{{message_coverage}}">Messages</a></li>
+                {%- endif %}
+                {%- if is_bucket == 'True' %}
+                <li><a target="mainFrame" href="{{device_inventory}}">Devices</a></li>
+                <li><a target="mainFrame" href="{{platform_inventory}}">Platforms</a></li>
+                <li><a target="mainFrame" href="{{chip_inventory}}">Chips</a></li>
+                {%- endif %}
+            </ul>
+        </li>
+
         <li><a target="mainFrame" href="{{results_stats}}">Debug</a></li>
         <li>
             <ul>
+                <li><a target="mainFrame" href="{{results_audit}}">Audit</a></li>
                 <li><a target="mainFrame" href="{{results_stats}}">Stats</a></li>
-                <li><a target="mainFrame" href="{{results_syslog}}">Syslogs</a></li>
-                <li><a target="mainFrame" href="{{results_sysinfo}}">Sysinfo</a></li>
+                <li class="collapseAfter"><a target="mainFrame" href="{{results_syslog}}">Syslogs</a></li>
+                <li><a target="mainFrame" href="{{results_msysinfo}}">M-Sysinfo</a></li>
+                <li><a target="mainFrame" href="{{results_fsysinfo}}">F-Sysinfo</a></li>
+                <li><a target="mainFrame" href="{{results_dsysinfo}}">D-Sysinfo</a></li>
                 <li><a target="mainFrame" href="{{results_alerts}}">Alerts</a></li>
                 {%- if is_master == 'True' %}
                 <li><a target="mainFrame" href="results_all.cli">CLI</a></li>
@@ -312,16 +387,17 @@
                 <li><a target="mainFrame" href="{{results_devfeat}}">Dev Feat</a></li>
             </ul>
         </li>
+
         <!--
-		<li><a target="mainFrame" href="{{results_functions_png}}">Pie Charts</a></li>
-		<li>
-	        <ul>
-		        <li><a target="mainFrame" href="{{results_functions_png}}">Functions</a></li>
-		        <li><a target="mainFrame" href="{{results_testcases_png}}">Testcases</a></li>
-	        </ul>
-		</li>
+        <li><a target="mainFrame" href="{{results_functions_png}}">Pie Charts</a></li>
+        <li>
+            <ul>
+                <li><a target="mainFrame" href="{{results_functions_png}}">Functions</a></li>
+                <li><a target="mainFrame" href="{{results_testcases_png}}">Testcases</a></li>
+            </ul>
+        </li>
         -->
-	</ul>
+    </ul>
 </div>
 
 <iframe name="mainFrame" id="mainFrame" src="{{results_features}}"

@@ -25,7 +25,7 @@ def download(build_url, local_path):
             print("Error: Exception occurred while executing the command '{}'".format(curl_cmd))
             return None
 
-        if retval.strip() != "":
+        if retval.strip():
             print(retval)
             if re.search(r"curl:\s+\(\d+\)", retval):
                 errorline = [m for m in retval.split("\n") if re.search(r"curl:\s+\(\d+\)", m)]
@@ -61,4 +61,3 @@ def download(build_url, local_path):
             break
 
     return status
-

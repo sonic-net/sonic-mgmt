@@ -2,14 +2,16 @@ import pprint
 import requests
 import warnings
 import jsonpatch
+import time
 
 from jinja2 import Environment
 
 from spytest.dicts import SpyTestDict
-import spytest.env as env
+from spytest import env
 
 from utilities import common as utils
 from utilities import json_helpers as json
+
 
 class Rest(object):
 
@@ -26,11 +28,23 @@ class Rest(object):
         self.curr_pwd = None
         self.cli_data = SpyTestDict()
         self.headers = {}
+        self.init_exception = None
+        self.min_loopcount = 1
+        self.max_loopcount = 2
+        self.incr_time = 5
 
-    def reinit(self, ip, username, password, altpassword):
+        test_addr = env.get("SPYTEST_REST_TEST_ADDR")
+        test_user = env.get("SPYTEST_REST_TEST_USER")
+        test_pass = env.get("SPYTEST_REST_TEST_PASS")
+        if test_addr and test_user and test_pass:
+            self.reinit(test_addr, test_user, test_pass, None)
+
+    def reinit(self, ip, username, password, altpassword, cli_type=None):
         self.ip = ip
-        self.base_url = "{}://{}".format(self.protocol, ip)
+        self.base_url = "{}://{}".format(self.protocol, self.ip)
         try:
+            if cli_type and cli_type in ["rest-patch", "rest-put"]:
+                self.max_loopcount = 4
             self._set_auth(username, password, altpassword)
         except Exception:
             pass
@@ -45,23 +59,41 @@ class Rest(object):
             if password and altpassword:
                 self.password = password
                 self.altpassword = altpassword
-                for pwd in [password, altpassword]:
-                    tmp_session = self._get_session()
-                    tmp_session.auth = (self.username, pwd)
-                    tmp_session.verify = False
-                    tmp_url = self._get_url("/restconf/data/openconfig-system:system")
-                    iter_count = 3
-                    while iter_count > 0:
-                        iter_count -= 1
-                        try:
-                            retval = tmp_session.get(tmp_url, verify=False, timeout=self.timeout)
-                            self._log("Using '{}' '{}' : '{}'".format(username, pwd, retval.status_code))
-                            if retval.status_code == 200:
-                                self.curr_pwd = pwd
-                                break
-                        except Exception as e:
-                            self._log("Exception '{}' '{}' : '{}'".format(username, pwd, e))
+                for loop_count in range(self.min_loopcount, self.max_loopcount):
+                    if loop_count > 1:
+                        self._log("Sleeping for {} secs, before retrying another time".format(self.timeout * loop_count))
+                        time.sleep(self.timeout * loop_count)
+                    for pwd in [password, altpassword]:
+                        tmp_session = self._get_session()
+                        tmp_session.auth = (self.username, pwd)
+                        tmp_session.verify = False
+                        tmp_url = self._get_url("/restconf/data/openconfig-system:system/config/hostname")
+                        iter_count = 3
+                        local_timeout = self.timeout
+                        while iter_count > 0:
+                            iter_count -= 1
+                            try:
+                                retval = tmp_session.get(tmp_url, verify=False, timeout=local_timeout)
+                                self._log("Using '{}' '{}' : '{}'".format(username, pwd, retval.status_code))
+                                if retval.status_code == 200:
+                                    self.curr_pwd = pwd
+                                    break
+                                else:
+                                    self._log("REST CALL FAILED WITH STATUS CODE AS {}".format(retval.status_code))
+                            except (requests.ReadTimeout, requests.ConnectTimeout) as t:
+                                self._log("Timeout Exception '{}' '{}' : '{}'".format(username, pwd, t))
+                                local_timeout += self.incr_time
+                                self.init_exception = t
+                            except Exception as e:
+                                self._log("Exception '{}' '{}' : '{}'".format(username, pwd, e))
+                                self.init_exception = e
+                        if self.curr_pwd:
+                            break
                     if self.curr_pwd:
+                        break
+                    else:
+                        self.init_exception = "OBSERVED NOT OK STATUS CODE."
+                    if env.get("SPYTEST_FILE_MODE", "0") != "0":
                         break
             elif password:
                 self.password = password
@@ -69,7 +101,7 @@ class Rest(object):
             elif altpassword:
                 self.altpassword = altpassword
                 self.curr_pwd = altpassword
-            msg = "Rest details '{}' '{}' '{}' '{}' '{}'".format(
+            msg = "Rest details '{}' '{}/{}/{}' Current '{}'".format(
                 self.ip, self.username, self.password, self.altpassword, self.curr_pwd)
             self._log(msg)
 
@@ -83,12 +115,15 @@ class Rest(object):
             self.session.verify = False
         else:
             if self.curr_pwd:
-                self.session.auth = (self.username, self.curr_pwd ) 
+                self.session.auth = (self.username, self.curr_pwd)
                 self.session.verify = False
         warnings.filterwarnings('ignore', message='Unverified HTTPS request')
 
     def _get_credentials(self):
         return [self.username, self.curr_pwd]
+
+    def _set_curr_pwd(self, pwd):
+        self.curr_pwd = pwd
 
     def _get_session(self, username=None, password=None):
         self._create_session(username, password)
@@ -109,7 +144,7 @@ class Rest(object):
         params = []
         for key, value in kwargs.items():
             if value:
-                value = value.replace(" ", "%20")
+                value = str(value).replace(" ", "%20")
                 params.append('{}={}'.format(key, value))
             else:
                 params.append(key)
@@ -144,66 +179,99 @@ class Rest(object):
         self._log(json.dumps(resp))
         return resp
 
+    def _get_init_exception(self):
+        return self.init_exception
+
     def post(self, path, data, *args, **kwargs):
         username = kwargs.pop("rest_username", None)
         password = kwargs.pop("rest_password", None)
         session = self._get_session(username, password)
+        kwargs.pop('expect_reboot', None)
         try:
             timeout = kwargs.pop("rest_timeout", self.timeout)
+            q_params = kwargs.pop("params", None)
+            headers = kwargs.pop("headers", None)
+            cert = kwargs.pop("cert", None)
+            auth = kwargs.pop("auth", None)
             url = self._get_url(path, *args, **kwargs)
-            retval = session.post(url, json.dumps(data), verify=False, timeout=timeout)
+            retval = session.post(url, json.dumps(data), verify=False, timeout=timeout, params=q_params,
+                                  headers=headers, cert=cert, auth=auth)
             return self._result("POST", retval, data)
         except Exception as e:
-            print(e)
+            print(utils.stack_trace(e))
             raise e
 
     def put(self, path, data, *args, **kwargs):
         username = kwargs.pop("rest_username", None)
         password = kwargs.pop("rest_password", None)
         session = self._get_session(username, password)
+        kwargs.pop('expect_reboot', None)
         try:
             timeout = kwargs.pop("rest_timeout", self.timeout)
+            q_params = kwargs.pop("params", None)
+            headers = kwargs.pop("headers", None)
+            cert = kwargs.pop("cert", None)
+            auth = kwargs.pop("auth", None)
             url = self._get_url(path, *args, **kwargs)
-            retval = session.put(url, json.dumps(data), verify=False, timeout=timeout)
+            retval = session.put(url, json.dumps(data), verify=False, timeout=timeout, params=q_params, headers=headers,
+                                 cert=cert, auth=auth)
             return self._result("PUT", retval, data)
         except Exception as e:
-            print(e)
+            print(utils.stack_trace(e))
             raise e
 
     def patch(self, path, data, *args, **kwargs):
         username = kwargs.pop("rest_username", None)
         password = kwargs.pop("rest_password", None)
         session = self._get_session(username, password)
+        kwargs.pop('expect_reboot', None)
         try:
             timeout = kwargs.pop("rest_timeout", self.timeout)
+            q_params = kwargs.pop("params", None)
+            headers = kwargs.pop("headers", None)
+            cert = kwargs.pop("cert", None)
+            auth = kwargs.pop("auth", None)
             url = self._get_url(path, *args, **kwargs)
-            retval = session.patch(url, json.dumps(data), verify=False, timeout=timeout)
+            retval = session.patch(url, json.dumps(data), verify=False, timeout=timeout, params=q_params,
+                                   headers=headers, cert=cert, auth=auth)
             return self._result("PATCH", retval, data)
         except Exception as e:
-            print(e)
+            print(utils.stack_trace(e))
             raise e
 
     def delete(self, path, *args, **kwargs):
         username = kwargs.pop("rest_username", None)
         password = kwargs.pop("rest_password", None)
         session = self._get_session(username, password)
+        kwargs.pop('expect_reboot', None)
         try:
             timeout = kwargs.pop("rest_timeout", self.timeout)
+            q_params = kwargs.pop("params", None)
+            headers = kwargs.pop("headers", None)
+            cert = kwargs.pop("cert", None)
+            auth = kwargs.pop("auth", None)
             url = self._get_url(path, *args, **kwargs)
-            retval = session.delete(url, verify=False, timeout=timeout)
+            retval = session.delete(url, verify=False, timeout=timeout, params=q_params, headers=headers, cert=cert,
+                                    auth=auth)
             return self._result("DELETE", retval, None)
         except Exception as e:
-            print(e)
+            print(utils.stack_trace(e))
             raise e
 
     def get(self, path, *args, **kwargs):
         username = kwargs.pop("rest_username", None)
         password = kwargs.pop("rest_password", None)
         session = self._get_session(username, password)
+        kwargs.pop('expect_reboot', None)
         try:
             timeout = kwargs.pop("rest_timeout", self.timeout)
+            q_params = kwargs.pop("params", None)
+            headers = kwargs.pop("headers", None)
+            cert = kwargs.pop("cert", None)
+            auth = kwargs.pop("auth", None)
             url = self._get_url(path, *args, **kwargs)
-            retval = session.get(url, verify=False, timeout=timeout)
+            retval = session.get(url, verify=False, timeout=timeout, params=q_params, headers=headers, cert=cert,
+                                 auth=auth)
             return self._result("GET", retval, None)
         except Exception as e:
             print(utils.stack_trace(e))
@@ -251,7 +319,7 @@ class Rest(object):
 
     def cli(self, request, sections=None, operations=None):
         retval = SpyTestDict()
-        map_operations={"create":"post", "read":"get", "update":"put", "modify":"patch", "delete":"delete"}
+        map_operations = {"create": "post", "read": "get", "update": "put", "modify": "patch", "delete": "delete"}
         for ent in utils.make_list(request):
             key = ent.path.replace("/restconf/data", map_operations[ent.operation])
             key = key.replace("-", "_").replace(":", "_").replace("/", "_")
@@ -299,8 +367,8 @@ class Rest(object):
     def send(self, devname, method='get', api='', headers={}, params=None,
              data=None, verify=False, retAs='json', **kwargs):
         credentials = self._get_credentials()
-        session = self._get_session(username = credentials[0], password=credentials[1] or self.password or self.altpassword)
-        url     = '{}{}'.format(self.base_url,api)
+        session = self._get_session(username=credentials[0], password=credentials[1] or self.password or self.altpassword)
+        url = '{}{}'.format(self.base_url, api)
 
         self._log("REST [{}]: {}".format(method.upper(), url))
         if params: self._log("params:\n{}".format(pprint.pformat(params)))
@@ -311,10 +379,10 @@ class Rest(object):
         try:
             if 'timeout' not in kwargs: kwargs['timeout'] = self.timeout
             with warnings.catch_warnings():
-                #from requests.packages.urllib3.exceptions import InsecureRequestWarning
-                #warnings.filterwarnings("ignore", category=InsecureRequestWarning)
+                # from requests.packages.urllib3.exceptions import InsecureRequestWarning
+                # warnings.filterwarnings("ignore", category=InsecureRequestWarning)
                 res = session.request(method.lower(), url, params=params, data=data,
-                                  verify=verify, **kwargs)
+                                      verify=verify, **kwargs)
             if res:
                 self._log("REST [STATUS]: {} {}".format(res.status_code, res.reason))
                 if not res.ok:
@@ -323,10 +391,10 @@ class Rest(object):
                 self._log("text:\n{}".format(res.text))
         except Exception as e:
             print(utils.stack_trace(e))
-            #msg = utils.stack_trace(traceback.format_exc())
-            #self._log('REST Request error: {}\n{}'.format(e, msg))
-            #pprint.pprint(e)
-            #pprint.pprint(msg)
+            # msg = utils.stack_trace(traceback.format_exc())
+            # self._log('REST Request error: {}\n{}'.format(e, msg))
+            # pprint.pprint(e)
+            # pprint.pprint(msg)
             raise e
 
         if res is not None and retAs:
@@ -339,6 +407,4 @@ class Rest(object):
             elif retAs == 'text':
                 return res.text
 
-        return self._result(method.upper(), res, kwargs.get('json',data))
-
-
+        return self._result(method.upper(), res, kwargs.get('json', data))

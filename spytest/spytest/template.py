@@ -2,37 +2,49 @@ import sys
 import os
 import re
 import json
+from collections import OrderedDict
 
 import textfsm
 try:
     import clitable
 except Exception:
-    import textfsm.clitable as clitable
+    from textfsm import clitable
 
-import spytest.env as env
+from spytest import env
+import utilities.common as utils
+
 
 class Template(object):
 
-    def __init__(self, platform=None, cli=None):
-        self.reinit(platform, cli)
+    def __init__(self, platform=None, cli=None, root=None):
+        self.reinit(platform, cli, root)
 
-    def reinit(self, platform=None, cli=None):
-        self.root = os.path.join(os.path.dirname(__file__), '..', 'templates')
+    def reinit(self, platform=None, cli=None, root=None):
+        root = root or env.get("SPYTEST_TEXTFSM_ROOT", "templates")
+        basedir = os.path.join(os.path.dirname(__file__), '..', root)
+        basedir = os.path.abspath(basedir)
+        platform = env.get("SPYTEST_TEXTFSM_PLATFORM", platform)
+        self.root = os.path.join(basedir, platform) if platform else basedir
+        if not os.path.exists(self.root): self.root = basedir
         self.samples = os.path.join(self.root, 'test')
-        index_file = env.get("SPYTEST_TEXTFSM_INDEX_FILENAME", "index")
-        self.cli_table = clitable.CliTable(index_file, self.root)
+        index = env.get("SPYTEST_TEXTFSM_INDEX_FILENAME", platform or "index")
+        self.cli_tables = OrderedDict()
+        for index in index.split(","):
+            if not os.path.exists(os.path.join(self.root, index)): index = "index"
+            self.cli_tables[index] = clitable.CliTable(index, self.root)
         self.platform = platform
         self.cli = cli
 
     # find the template given command
     def get_tmpl(self, cmd):
         attrs = dict(Command=cmd)
-        row_idx = self.cli_table.index.GetRowMatch(attrs)
-        if row_idx == 0:
-            return None
-        return self.cli_table.index.index[row_idx]['Template']
+        for cli_table in self.cli_tables.values():
+            row_idx = cli_table.index.GetRowMatch(attrs)
+            if row_idx != 0:
+                return cli_table.index.index[row_idx]['Template']
+        return None
 
-    # retrive template and sameple file given the command
+    # retrieve template and sample file given the command
     def read_sample(self, cmd):
         tmpl_file = self.get_tmpl(cmd)
         if not tmpl_file:
@@ -61,39 +73,101 @@ class Template(object):
         if self.platform: attrs["Platform"] = self.platform
         if self.cli: attrs["cli"] = self.cli
         try:
-            self.cli_table.ParseCmd(output, attrs)
-            objs = []
-            for row in self.cli_table:
-                temp_dict = {}
-                for index, element in enumerate(row):
-                    if index >= len(self.cli_table.header):
-                        print("HEADER: {} ROW: {}".format(self.cli_table.header, row))
-                    temp_dict[self.cli_table.header[index].lower()] = element
-                objs.append(temp_dict)
             tmpl_file = self.get_tmpl(cmd)
-            return [tmpl_file, objs]
+            if not tmpl_file:
+                raise ValueError('Unknown command "%s"' % (cmd))
+            for cli_table in self.cli_tables.values():
+                cli_table.ParseCmd(output, attrs)
+                objs = self.result(cli_table.header, cli_table)
+                return [tmpl_file, objs]
         except clitable.CliTableError as e:
-            raise Exception('Unable to parse command "%s" - %s' % (cmd, str(e)))
+            raise ValueError('Unable to parse command "%s" - %s' % (cmd, str(e)))
+
+    def result(self, header, rows):
+        objs = []
+        for row in rows:
+            temp_dict = {}
+            for index, element in enumerate(row):
+                if index >= len(header):
+                    print("HEADER: {} ROW: {}".format(header, row))
+                temp_dict[header[index].lower()] = element
+            objs.append(temp_dict)
+        return objs
+
+    def save_sample(self, tmpl, cmd, output, parsed, path=None):
+        try:
+            key = ",".join(parsed[0].keys())
+            md5 = utils.md5(None, key)
+            info_file = "{}.{}.info.log".format(tmpl, md5)
+            info_file = os.path.join(path or self.samples, info_file)
+            if not os.path.isfile(info_file):
+                utils.write_file(info_file, "\n".join([tmpl, cmd, key, md5]), "a")
+                data_file = info_file.replace(".info.log", ".data.log")
+                utils.write_file(data_file, output)
+        except Exception:
+            print(utils.stack_trace(None, True))
+
+    @staticmethod
+    def get_samples(path=None, include=None):
+        fpaths, include = [], include or ["*.info.log", "*.data.log"]
+        for pattern in utils.make_list(include):
+            fpaths.extend(utils.list_files_tree(path, pattern))
+        return fpaths
+
+    def verify_samples(self, path=None):
+        results, path = [], path or self.samples
+        for info_file in utils.list_files_tree(path, "*.info.log"):
+            results.append([info_file, self.verify_sample(info_file, path)])
+        return results
+
+    def verify_sample(self, info_file, path=None):
+        errs = []
+        path = path or self.samples
+        lines = utils.read_lines(info_file, [])
+        for i in range(0, len(lines), 4):
+            tmpl, cmd, key, md5 = [data.strip() for data in lines[i:i + 4]]
+            data_file = os.path.join(path, "{}.{}.data.log".format(tmpl, md5))
+            data_lines = utils.read_lines(data_file, [])
+            t, parsed = self.apply("\n".join(data_lines), cmd)
+            if t != tmpl:
+                errs.append("{} is parsed by different template".format(info_file))
+                continue
+            k = ",".join(parsed[0].keys())
+            if k != key:
+                errs.append("{} produced different key".format(info_file))
+                continue
+        return errs
 
     # apply the given template on given data
     def apply_textfsm(self, tmpl_file, data):
         tmpl_file2 = os.path.join(self.root, tmpl_file)
         tmpl_fp = open(tmpl_file2, "r")
-        out = textfsm.TextFSM(tmpl_fp).ParseText(data)
+        re_table = textfsm.TextFSM(tmpl_fp)
+        out = re_table.ParseText(data)
         tmpl_fp.close()
-        return out
+        objs = self.result(re_table.header, out)
+        return re_table.header, objs
+
 
 if __name__ == "__main__":
     template = Template()
     if len(sys.argv) <= 2:
-        print("USAGE: template.py <template file> <data file>")
+        print("USAGE: template.py <command> <data file> [<template file>]")
         sys.exit(0)
 
-    f = open(sys.argv[2], "r")
-    tmpl, rv = template.apply(f.read(), sys.argv[1])
+    cmd, data_file = sys.argv[1:3]
+    data = "\n".join(utils.read_lines(data_file))
+    if len(sys.argv) > 3:
+        tmpl = sys.argv[3]
+        _, rv = template.apply_textfsm(tmpl, data)
+    else:
+        tmpl, rv = template.apply(data, cmd)
+    print("TEXTFSM = {}".format(textfsm.__file__))
     print("============ Template: {}".format(tmpl))
     if env.get("SPYTEST_TEXTFSM_DUMP_INDENT_JSON", "0") == "0":
-        print(rv)
+        # template.save_sample(tmpl, cmd, data, rv)
+        for ent in rv:
+            print(str(ent) + "\n")
         sys.exit(0)
 
     try:
@@ -101,4 +175,3 @@ if __name__ == "__main__":
     except Exception as exp:
         print("============ ERROR: {}".format(exp))
         print(rv)
-

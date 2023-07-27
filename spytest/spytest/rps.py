@@ -1,10 +1,17 @@
-import re
+import os
 import sys
 import time
 import logging
 import telnetlib
 import requests
 import getpass
+import subprocess
+
+from utilities import ctrl_chars
+from utilities.common import write_file
+from utilities.common import make_list
+from utilities.common import parse_integer
+
 
 class RPS(object):
 
@@ -12,7 +19,7 @@ class RPS(object):
                  dbg_lvl=0, dut="", console_ip=None, console_port=None):
         """
         Construction of the RPS object
-        :param model: RPS Model Rariron/ServerTech/Avocent/AvocentRoot/PX3
+        :param model: RPS Model Raritan/ServerTech/Avocent/AvocentRoot/PX3/APCMIB
         :type model: basestring
         :param ip: IPv4 Address to Telnet
         :type ip:
@@ -55,6 +62,12 @@ class RPS(object):
         self.rest_auth = None
         self.rest_params = {}
         self.rest_headers = {'accept': 'text/html,application/json'}
+        self.protocol = "telnet"
+        self.use_linux_connection = True
+        self.use_native_netmiko = False
+        self.use_paramiko = False
+        self.send_prefix = " >>> "
+        self.recv_prefix = " <<< "
         if self.model == "Raritan":
             self.login_prompt = "Login:"
             self.password_prompt = "Password:"
@@ -69,6 +82,10 @@ class RPS(object):
             self.base_prompt = "#"
             self.fail_msg = "Login failed."
             self.disc_delay = 10
+            self.off_delay = 30
+            self.on_delay = 120
+        elif self.model == "APCMIB":
+            pass
         elif self.model == "ServerTech":
             self.login_prompt = "Username:"
             self.password_prompt = "Password:"
@@ -100,28 +117,38 @@ class RPS(object):
             self.rest_url = 'http://{}/tool/connect.php'.format(ip)
             self.rest_params = {'device': outlet, 'as': username or getpass.getuser()}
             self.on_delay = 120
-        elif self.model == "vsonic":
+        elif self.model in ["vsh", "svsh", "lxc", "virsh"]:
+            self.protocol = "telnet" if self.model == "vsh" else "ssh"
             self.login_prompt = ""
             self.password_prompt = ""
             self.base_prompt2 = "#"
             self.base_prompt = "#"
             self.confirm_prompt = ""
             self.fail_msg = "Access denied"
-            self.off_delay = 10
-            self.on_delay = 10
+            self.off_delay = 30
+            self.on_delay = 120
         else:
             msg = "TODO: model={}".format(self.model)
-            self.logger.log(msg, lvl=logging.WARNING)
+            self.logmsg(msg, lvl=logging.WARNING)
             self.multi_support = False
 
-    def logmsg(self, msg, lvl=logging.INFO):
+        self.on_delay = parse_integer(os.getenv("SPYTEST_RPS_ON_DELAY", str(self.on_delay)))
+        self.off_delay = parse_integer(os.getenv("SPYTEST_RPS_OFF_DELAY", str(self.off_delay)))
+        self.disc_delay = parse_integer(os.getenv("SPYTEST_RPS_DISC_DELAY", str(self.disc_delay)))
+
+    def bldmsg(self, msg, prefix=""):
+        lines = []
         if self.dut:
-            prefix = "RPS({}): ".format(self.dut)
+            prefix2 = "RPS({}):{} ".format(self.dut, prefix)
         else:
-            prefix = "RPS: "
-        msg2 = "{}{}".format(prefix, msg)
-        try: self.logger.dut_log(self.dut, msg2, lvl)
-        except Exception: self.logger.log(lvl, msg2)
+            prefix2 = "RPS:{} ".format(prefix)
+        for line in msg.splitlines():
+            lines.append("{}{}".format(prefix2, line))
+        return lines
+
+    def logmsg(self, msg, lvl=logging.INFO, prefix=""):
+        for line in self.bldmsg(msg, prefix=prefix):
+            self.logger.log(lvl, line)
 
     def has_multi_support(self):
         return self.multi_support
@@ -141,12 +168,12 @@ class RPS(object):
         method = method or self.rest_method
         url = url or self.rest_url
         auth = auth or (requests.auth.HTTPBasicAuth(self.username, self.password)
-                if self.username and self.password else self.rest_auth)
+                        if self.username and self.password else self.rest_auth)
         self.logmsg("requesting : {}".format(url))
         new_params = self.merge_dict(params, self.rest_params)
         new_headers = self.merge_dict(headers, self.rest_headers)
         func = getattr(requests, method)
-        res = func(url, params=new_params, data=data, auth=auth, headers=new_headers)
+        res = func(url, params=new_params, data=data, auth=auth, headers=new_headers, timeout=300)
         self.logmsg(res.text)
         if res.status_code != 200:
             self.logmsg("Request Error: {}".format(res.status_code), lvl=logging.WARNING)
@@ -154,10 +181,49 @@ class RPS(object):
             self.logmsg("Request completed!", lvl=logging.WARNING)
         return res
 
-    def _connect(self, base_prompt=None):
+    def connect(self, base_prompt=None):
+
+        if self.model in ["APCMIB"]: return True
 
         # no need to connect if we are using rest
         if self.rest_url: return True
+
+        if self.protocol == "ssh":
+            for retry in range(1, self.max_connect_try + 1):
+                msg = "connect {}:{} try {}".format(self.ip, self.port, retry)
+                self.logmsg(msg, lvl=logging.WARNING)
+                try:
+                    rps_server = {'device_type': "linux", 'ip': self.ip, 'port': self.port,
+                                  'username': self.username, 'password': self.password,
+                                  "global_delay_factor": 10}
+                    if self.use_linux_connection:
+                        from spytest.access.linux_connection import LinuxConnection as LinuxDeviceConnection
+                        self.tn = LinuxDeviceConnection(logger=self.logger, **rps_server)
+                        self.base_prompt = self.tn.init_prompt()
+                    elif self.use_native_netmiko:
+                        from netmiko import ConnectHandler
+                        self.tn = ConnectHandler(**rps_server)
+                        self.base_prompt = self.tn.find_prompt()
+                    elif not self.use_paramiko:
+                        from spytest.access.connection import DeviceConnection as NetmikoDeviceConnection
+                        self.tn = NetmikoDeviceConnection(devname=None, logger=self.logger, **rps_server)
+                        self.base_prompt = self.tn.init_prompt()
+                    else:
+                        from spytest.access.paramiko_connection import DeviceConnection as ParamikoDeviceConnection
+                        self.tn = ParamikoDeviceConnection("ssh", self.ip, self.port,
+                                                           self.username, self.password)
+                        self.tn.set_logger(self.logger)
+                        # self.tn.set_log_level(None, True)
+                        self.tn.connect()
+                        self.base_prompt = self.tn.init_prompt()
+                    return True
+                except Exception as e:
+                    msg = "connection failed {}".format(e)
+                    self.logmsg(msg, lvl=logging.ERROR)
+                    self.tn = None
+                    if retry >= self.max_connect_try:
+                        return False
+                    self._wait(5)
 
         for retry in range(1, self.max_connect_try + 1):
             msg = "connect {}:{} try {}".format(self.ip, self.port, retry)
@@ -175,7 +241,7 @@ class RPS(object):
 
         self.tn.set_debuglevel(self.dbg_lvl)
 
-        if len(self.username) == 0:
+        if len(self.username) == 0 or len(self.login_prompt) == 0:
             self._write("", self.base_prompt)
             return True
 
@@ -205,11 +271,11 @@ class RPS(object):
 
         return True
 
-    def _disconnect(self):
+    def disconnect(self):
         self.logmsg("disconnect", lvl=logging.WARNING)
-        if self.tn:
-            self.tn.close()
-            self.tn = None
+        try: self.tn.disconnect()
+        except Exception: pass
+        self.tn = None
         if self.disc_delay > 0:
             self._wait(self.disc_delay)
 
@@ -219,55 +285,113 @@ class RPS(object):
 
     def _encode(self, s):
         if sys.version_info[0] >= 3:
-            rv = str.encode(s)
-            return rv
+            s = str.encode(s)
         return s
 
     def _decode(self, s):
         if sys.version_info[0] >= 3:
-            rv = s.decode() if s else s
-            return rv
+            if s is not None:
+                s = s.decode(errors='ignore')
         return s
 
-    def _write(self, cmd, prompt=None, fail_msg=None, timeout=10):
-        self.logmsg("sending {}".format(cmd))
-        rv = self.tn_write(self.tn, cmd + "\r\n")
-        if prompt:
-            try:
-                rv = self.tn_read_until(self.tn, prompt, timeout)
-                rv = self._decode(rv)
-                return None if (fail_msg and fail_msg in rv) else rv
-            except EOFError as e:
-                msg = "connection closed {}".format(e)
+    def _write(self, cmd, pass_msg=None, fail_msg=None, timeout=10, log_file=None, prompt=None):
+        self.logmsg("sending '{}'".format(cmd))
+
+        if self.protocol == "ssh":
+            rv, max_attempts = "", 3
+            for attempt in range(max_attempts):
+                try:
+                    if self.use_native_netmiko:
+                        rv = self.tn.send_command(cmd, strip_prompt=False)
+                    elif self.use_paramiko:
+                        rv = self.tn.send_command(cmd, prompt, timeout=timeout, wait_time=5)
+                    else:
+                        rv = self.tn.send_command(cmd, prompt or self.base_prompt,
+                                                  strip_prompt=False, strip_command=False)
+                    break
+                except Exception as e:
+                    msg = "failed to execute {}: {}/{} {}".format(cmd, attempt, max_attempts, e)
+                    for line in self.bldmsg(msg):
+                        try: self.tn.log_exception(line, dump=True, prefix="")
+                        except Exception: self.logmsg(line, lvl=logging.ERROR)
+                    if attempt >= max_attempts:
+                        return None
+                    self._wait(60)
+        else:
+            rv = self.tn_write(self.tn, cmd + "\r\n")
+            if pass_msg:
+                try:
+                    rv = self.tn_read_until(self.tn, pass_msg, timeout)
+                except EOFError as e:
+                    msg = "connection closed {}".format(e)
+                    self.logmsg(msg, lvl=logging.ERROR)
+                    return None
+
+        rv2 = ctrl_chars.tostring(rv)
+        if log_file is None:
+            rv2 = rv2.lstrip()
+            self.logmsg(rv2, prefix=self.recv_prefix)
+        else:
+            write_file(log_file, rv2)
+
+        if fail_msg and fail_msg in rv:
+            msg = "UnExpected text '{}' is seen".format(fail_msg)
+            self.logmsg(msg, lvl=logging.ERROR)
+            self.logmsg(rv, lvl=logging.ERROR)
+            return None
+
+        if pass_msg:
+            for msg in make_list(pass_msg):
+                if msg in rv:
+                    return rv
+            for msg in make_list(pass_msg):
+                msg = "Expected text '{}' not seen".format(msg)
                 self.logmsg(msg, lvl=logging.ERROR)
-                return None
+            self.logmsg(rv, lvl=logging.ERROR)
+            return None
+
         return rv
 
-    def do_op(self, op, on_delay=None, off_delay=None, outlet=None):
+    def do_op(self, op, on_delay=None, off_delay=None, outlet=None, disc=True, log_file=None):
         op = op.lower()
         if op == "on":
-            self.on(True, on_delay, outlet)
+            return self.on(disc, on_delay, outlet, log_file=log_file)
         elif op == "off":
-            self.off(True, off_delay, outlet)
+            return self.off(disc, off_delay, outlet, log_file=log_file)
         elif op == "reset":
-            self.reset(True, on_delay, off_delay, outlet)
+            return self.reset(disc, on_delay, off_delay, outlet, log_file=log_file)
+        elif op in ["debug", "dbg"]:
+            return self.debug(disc, outlet, log_file=log_file, op=op)
         else:
             return False
-        return True
 
-    def off_on(self, disc=True, on_delay=None, off_delay=None, outlet=None):
+    def off_on(self, disc=True, on_delay=None, off_delay=None, outlet=None, log_file=None):
 
-        if not self.tn: self._connect()
+        if not self.tn: self.connect()
         if not self.tn: return False
         rv1 = self.off(False, off_delay, outlet)
         rv2 = self.on(False, on_delay, outlet)
-        if disc: self._disconnect()
+        if disc: self.disconnect()
 
         return bool(rv1 and rv2)
 
-    def reset(self, disc=True, on_delay=None, off_delay=None, outlet=None):
+    def snmp_set(self, outlet, val):
+        cmd = "snmpset -v1 -c private {} iso.3.6.1.4.1.318.1.1.4.4.2.1.3.{} i {}".format(self.ip, outlet, val)
+        pprocess = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    universal_newlines=True)
+        stdout, stderr = pprocess.communicate()
+        self.logmsg("SNMP stdout: {}".format(stdout))
+        self.logmsg("SNMP stderr: {}".format(stderr))
+
+    def reset(self, disc=True, on_delay=None, off_delay=None, outlet=None, log_file=None):
 
         self.logmsg("powering reboot", lvl=logging.WARNING)
+
+        try:
+            pre_wait = int(os.getenv("SPYTEST_RPS_PRE_RESET_WAIT", "0"))
+            if pre_wait > 0: self._wait(pre_wait)
+        except Exception:
+            self.logmsg("Exception in pre-reset wait", lvl=logging.WARNING)
 
         if self.model == 'pConnect':
             res = self._rest_send(params={'action': 'reboot'})
@@ -283,7 +407,7 @@ class RPS(object):
 
         # connect if not already done
         if not self.tn:
-            if not self._connect():
+            if not self.connect():
                 self.logmsg("failed to connect", lvl=logging.WARNING)
                 return False
 
@@ -292,12 +416,14 @@ class RPS(object):
             retval = self.off_on(False, 0, off_delay, outlet)
         elif self.model == "PX3":
             self._write("power outlets {} cycle /y".format(outlet), self.base_prompt)
+        elif self.model == "APCMIB":
+            self.snmp_set(outlet, 3)
         elif self.model == "ServerTech":
             self._write("reboot {}".format(outlet), self.base_prompt)
-            #retval = self.off_on(False, 0, off_delay, outlet)
+            # retval = self.off_on(False, 0, off_delay, outlet)
         elif self.model == "Avocent" or self.model == "AvocentRoot":
             retval = self.off_on(False, 0, off_delay, outlet)
-        elif self.model == "vsonic":
+        elif self.model in ["vsh", "svsh", "lxc", "virsh"]:
             retval = self.off_on(False, 0, off_delay, outlet)
         else:
             msg = "TODO: off {}".format(self.model)
@@ -306,21 +432,22 @@ class RPS(object):
         # wait for on delay
         if retval and on_delay > 0: self._wait(on_delay)
 
-        # disconnected if required
-        if disc: self._disconnect()
+        # disconnect if required
+        if disc: self.disconnect()
 
         return retval
 
-    def off(self, disc=True, off_delay=None, outlet=None):
-        self.logmsg("powering off", lvl=logging.WARNING)
+    def off(self, disc=True, off_delay=None, outlet=None, log_file=None):
 
         # use defaults if not specified
         if outlet is None: outlet = self.outlet
         if off_delay is None: off_delay = self.off_delay
 
+        self.logmsg("powering off {}".format(outlet), lvl=logging.WARNING)
+
         # connect if not already done
         if not self.tn:
-            if not self._connect():
+            if not self.connect():
                 self.logmsg("failed to connect", lvl=logging.WARNING)
                 return False
 
@@ -330,6 +457,8 @@ class RPS(object):
             self._write(cmd, self.base_prompt)
         elif self.model == "PX3":
             self._write("power outlets {} off /y".format(outlet), self.base_prompt)
+        elif self.model == "APCMIB":
+            self.snmp_set(outlet, 2)
         elif self.model == "ServerTech":
             self._write("off {}".format(outlet), self.base_prompt)
         elif self.model == "Avocent" or self.model == "AvocentRoot":
@@ -340,10 +469,29 @@ class RPS(object):
         elif self.model == 'pConnect':
             res = self._rest_send(params={'action': 'off'})
             retval = bool('exit code: 0' in res.text)
-        elif self.model == "vsonic":
-            cmd = "vsh sgconf poweroff G {}".format(outlet)
-            self._write(cmd, "The device is powered off successfully", timeout=120)
-            self._write("", self.base_prompt)
+        elif self.model in ["vsh"]:
+            cmd = "vsh-rps off {}".format(outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
+            self._write(cmd, "The device is powered off successfully", timeout=300)
+            self._write("", self.base_prompt.replace("\\", ""))
+        elif self.model in ["svsh"]:
+            cmd = "vsh-rps off {}".format(outlet)
+            expected = ["The device is powered off successfully"]
+            expected.append("The device is not on")
+            self._write("", self.base_prompt.replace("\\", ""))
+            retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
+        elif self.model in ["lxc"]:
+            cmd = "lxc-rps off {}".format(outlet)
+            expected = ["The device is powered off successfully"]
+            expected.append("The device is not on")
+            self._write("", self.base_prompt.replace("\\", ""))
+            retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
+        elif self.model in ["virsh"]:
+            cmd = "virsh-rps off {}".format(outlet)
+            expected = ["The device is powered off successfully"]
+            expected.append("The device is not on")
+            self._write("", self.base_prompt.replace("\\", ""))
+            retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
         else:
             msg = "TODO: off {}".format(self.model)
             self.logmsg(msg, lvl=logging.WARNING)
@@ -351,22 +499,22 @@ class RPS(object):
         # wait for off delay
         if retval and off_delay > 0: self._wait(off_delay)
 
-        # disconnected if required
-        if disc: self._disconnect()
+        # disconnect if required
+        if disc: self.disconnect()
 
         return retval
 
-    def on(self, disc=True, on_delay=None, outlet=None):
-
-        self.logmsg("powering on", lvl=logging.WARNING)
+    def on(self, disc=True, on_delay=None, outlet=None, log_file=None):
 
         # use defaults if not specified
         if outlet is None: outlet = self.outlet
         if on_delay is None: on_delay = self.on_delay
 
+        self.logmsg("powering on {}".format(outlet), lvl=logging.WARNING)
+
         # connect if not already done
         if not self.tn:
-            if not self._connect():
+            if not self.connect():
                 self.logmsg("failed to connect", lvl=logging.WARNING)
                 return False
 
@@ -376,6 +524,8 @@ class RPS(object):
             self._write(cmd, self.base_prompt)
         elif self.model == "PX3":
             self._write("power outlets {} on /y".format(outlet), self.base_prompt)
+        elif self.model == "APCMIB":
+            self.snmp_set(outlet, 1)
         elif self.model == "ServerTech":
             self._write("on {}".format(outlet), self.base_prompt)
         elif self.model == "Avocent" or self.model == "AvocentRoot":
@@ -386,10 +536,23 @@ class RPS(object):
         elif self.model == 'pConnect':
             res = self._rest_send(params={'action': 'on'})
             retval = bool('exit code: 0' in res.text)
-        elif self.model == "vsonic":
-            cmd = "vsh sgconf poweron G {}".format(outlet)
+        elif self.model in ["vsh"]:
+            cmd = "vsh-rps on {}".format(outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
             self._write(cmd, "The device is powered on successfully", timeout=30)
-            self._write("", self.base_prompt)
+            self._write("", self.base_prompt.replace("\\", ""))
+        elif self.model in ["svsh"]:
+            cmd = "vsh-rps on {}".format(outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
+            self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
+        elif self.model in ["lxc"]:
+            cmd = "lxc-rps on {}".format(outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
+            self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
+        elif self.model in ["virsh"]:
+            cmd = "virsh-rps on {}".format(outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
+            self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
         else:
             msg = "TODO: on {}".format(self.model)
             self.logmsg(msg, lvl=logging.WARNING)
@@ -397,8 +560,48 @@ class RPS(object):
         # wait for on delay
         if retval and on_delay > 0: self._wait(on_delay)
 
-        # disconnected if required
-        if disc: self._disconnect()
+        # disconnect if required
+        if disc: self.disconnect()
+
+        return retval
+
+    def debug(self, disc=True, outlet=None, log_file=None, op="debug"):
+
+        self.logmsg("powering debug", lvl=logging.WARNING)
+
+        # use defaults if not specified
+        if outlet is None: outlet = self.outlet
+
+        # connect if not already done
+        if not self.tn:
+            if not self.connect():
+                self.logmsg("failed to connect", lvl=logging.WARNING)
+                return False
+
+        retval = True
+        if self.model in ["vsh"]:
+            cmd = "vsh-rps {} {}".format(op, outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
+            self._write(cmd, "# VSH DEBUG END #", timeout=300, log_file=log_file)
+            self._write("", self.base_prompt.replace("\\", ""))
+        elif self.model in ["svsh"]:
+            cmd = "vsh-rps {} {}".format(op, outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
+            self._write(cmd, "# VSH DEBUG END #", timeout=300, log_file=log_file, prompt=self.base_prompt)
+        elif self.model in ["lxc"]:
+            cmd = "lxc-rps {} {}".format(op, outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
+            self._write(cmd, "# VSH DEBUG END #", timeout=300, log_file=log_file, prompt=self.base_prompt)
+        elif self.model in ["virsh"]:
+            cmd = "virsh-rps {} {}".format(op, outlet)
+            self._write("", self.base_prompt.replace("\\", ""))
+            self._write(cmd, "# VSH DEBUG END #", timeout=300, log_file=log_file, prompt=self.base_prompt)
+        else:
+            msg = "TODO: on {}".format(self.model)
+            self.logmsg(msg, lvl=logging.WARNING)
+
+        # disconnect if required
+        if disc: self.disconnect()
 
         return retval
 
@@ -430,34 +633,59 @@ class RPS(object):
     def _grub_wait_prompt(self, tn, prompt, time):
         rv = self.tn_read_until(tn, prompt, time)
         for p in self._grub_prompts:
-            if self._encode(p) in rv:
+            if p in rv:
                 msg = "Device stuck in {}".format(p)
                 self.logmsg(msg, lvl=logging.ERROR)
-                return p
-        if self._encode("Minimal BASH-like") in rv:
+                return True, p
+        if "Minimal BASH-like" in rv:
             p = self._grub_prompt
             msg = "Device stuck in {}".format(p)
             self.logmsg(msg, lvl=logging.ERROR)
-            return p
-        return None
+            return True, p
+        return False, rv
 
     def _grub_wait(self, tn, ip, port, after_reset=True):
         try:
             if not after_reset:
                 for _ in range(2):
                     self.tn_write(tn, "\r\n", 2)
-                    rv = self._grub_wait_prompt(tn, self._grub_rescue_prompt, 10)
-                    if rv: return rv
-            rv = self._grub_wait_prompt(tn, "GNU GRUB  version", 120)
-            if rv: return rv
-            rv = self._grub_wait_prompt(tn, "The highlighted entry will be executed automatically", 10)
-            if rv: return rv
-            self.tn_write(tn, '\x1b[B\r\n')
-            rv = self._grub_wait_prompt(tn, "The highlighted entry will be executed automatically", 10)
-            if rv: return rv
-            self.tn_write(tn, '\x1b[B\r\n')
-            rv = self._grub_wait_prompt(tn, "Please press Enter to activate this console", 30)
-            if rv: return rv
+                    stuck, rv = self._grub_wait_prompt(tn, self._grub_rescue_prompt, 10)
+                    if stuck: return rv
+            stuck, rv = self._grub_wait_prompt(tn, "GNU GRUB  version", 120)
+            if stuck: return rv
+
+            tok = "The highlighted entry will be executed automatically"
+            stuck, rv = self._grub_wait_prompt(tn, tok, 10)
+            if stuck: return rv
+            if tok not in rv:
+                pass
+
+            for phase in [0, 1]:
+                # move the cursor to stop the timer by changing the selection
+                self.tn_write(tn, 'v^v^v^v^')
+                tok = "Press enter to boot the selected OS"
+                stuck, rv = self._grub_wait_prompt(tn, tok, 2)
+                if stuck: return rv
+                rescued = False
+                for i in range(5):
+                    self.tn_write(tn, 'v')  # select next entry
+                    stuck, rv = self._grub_wait_prompt(tn, tok, 2)
+                    if stuck: return rv
+                    if "*ONIE: Rescue" in rv:
+                        self.tn_write(tn, '\r\n')
+                        rescued = True  # break outer loop
+                        msg = "ONIE: Rescue seen {}/{}".format(phase, i)
+                        self.logmsg(msg, lvl=logging.DEBUG)
+                        break
+                    if "*ONIE " in rv:
+                        self.tn_write(tn, '\r\n')
+                        break  # break inner loop
+                    self.logmsg(rv, prefix=" ********** ")
+                if rescued:
+                    break
+
+            stuck, rv = self._grub_wait_prompt(tn, "Please press Enter to activate this console", 30)
+            if stuck: return rv
         except EOFError as e:
             msg = "grub connection closed {}".format(e)
             self.logmsg(msg, lvl=logging.ERROR)
@@ -471,8 +699,12 @@ class RPS(object):
         tn = self._grub_connect(ip, port)
         msg = self._grub_wait(tn, ip, port, after_reset)
         if msg in self._grub_prompts:
-            return self.recover_from_grub(tn, msg, ip, port)
-        return bool(msg is None)
+            rv = self.recover_from_grub(tn, msg, ip, port)
+        else:
+            rv = bool(msg is None)
+        try: tn.close()
+        except Exception: pass
+        return rv
 
     def recover_from_grub(self, tn, prompt, ip=None, port=0):
         msg = "Recovering Device stuck in {}".format(prompt)
@@ -505,16 +737,21 @@ class RPS(object):
             if "ONIE:" in rv: return True
         return False
 
-    def tn_read_until(self, tn, msg, time):
-        self.logmsg("Waiting for: '{}'".format(msg))
-        rv = rv0 = tn.read_until(self._encode(msg), time)
-        rv = self._tostring(rv)
-        self.logmsg("Rcvd: {}".format(rv))
-        return rv0
+    def tn_read_until(self, tn, msg, time, log_file=None):
+        self.logmsg("Waiting (max: {} sec) for: '{}'".format(time, msg))
+        rv1 = tn.read_until(self._encode(msg), time)
+        rv1 = self._decode(rv1)
+        rv2 = ctrl_chars.tostring(rv1)
+        if log_file is None:
+            rv2 = rv2.lstrip()
+            self.logmsg(rv2, prefix=self.recv_prefix)
+        else:
+            write_file(log_file, rv2)
+        return rv1
 
     def tn_write(self, tn, msg, wait=0, split_wait=None):
         msg2 = msg.replace("\n", "<LF>").replace("\r", "<CR>")
-        self.logmsg("Send: {}".format(msg2))
+        self.logmsg(msg2, prefix=self.send_prefix)
         msg2 = self._encode(msg)
         if not split_wait:
             tn.write(msg2)
@@ -524,13 +761,3 @@ class RPS(object):
                 tn.write(ch)
         if wait > 0: self._wait(wait)
         return None
-
-    def _tostring(self, msg):
-        msg = re.sub(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]', ' ', msg)
-        msg = re.sub(r'[^\x00-\x7F]+', ' ', msg)
-        try:
-            return msg.encode('ascii', 'ignore').decode('ascii')
-        except Exception as exp:
-            self.logmsg(str(exp), lvl=logging.ERROR)
-        return "non-ascii characters"
-

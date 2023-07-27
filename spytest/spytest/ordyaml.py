@@ -5,6 +5,12 @@ import yaml
 from spytest.dicts import SpyTestDict
 import utilities.common as utils
 
+
+class NoAliasDumper(yaml.SafeDumper):
+    def ignore_aliases(self, data):
+        return True
+
+
 class OrderedYaml(object):
 
     def _locate(self, filename):
@@ -68,12 +74,14 @@ class OrderedYaml(object):
                 path.append(k)
                 self.include_map[v][2] = path
 
-    def _dump(self, data, stream=None, Dumper=yaml.Dumper, **kwds):
+    def _dump(self, data, stream=None, Dumper=None, use_aliases=True, **kwds):
         def _dict_representer(dumper, data):
             return dumper.represent_mapping(
                 yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
                 data.items())
 
+        Dumper0 = yaml.Dumper if use_aliases else NoAliasDumper
+        Dumper = Dumper or Dumper0
         Dumper.add_representer(SpyTestDict, _dict_representer)
         return yaml.dump(data, stream, Dumper, **kwds)
 
@@ -86,7 +94,7 @@ class OrderedYaml(object):
         self._paths = []
         self.errs = []
         self.valid = False
-        self.obj = None
+        self.obj = SpyTestDict()
         self.all_files = dict()
         self.file_path = None
         self.include_map = dict()
@@ -107,7 +115,7 @@ class OrderedYaml(object):
             return all_files
         except Exception as e:
             self.errs.append(e)
-            raise(e)
+            raise (e)
 
     def init_file(self, filename, paths=[]):
         self._init_paths(filename, paths)
@@ -127,7 +135,7 @@ class OrderedYaml(object):
             return file_path
         except Exception as e:
             self.errs.append(e)
-            raise(e)
+            raise (e)
 
     def get_raw(self, expanded=False):
         return self.text1 if expanded else self.text0
@@ -147,9 +155,9 @@ class OrderedYaml(object):
     def get_errors(self):
         return self.errs
 
-    def dump(self, expanded=True, obj_in=None, **kwargs):
+    def dump(self, obj_in=None, expanded=True, use_aliases=True, **kwargs):
         obj = obj_in if obj_in else self.obj
-        if expanded: return self._dump(obj, **kwargs)
+        if expanded: return self._dump(obj, use_aliases=use_aliases, **kwargs)
         if not obj_in: obj = copy.deepcopy(obj)
         files = []
         for f, _, path in self.include_map.values():
@@ -159,9 +167,8 @@ class OrderedYaml(object):
                 obj1 = obj1[path[index]]
             obj1[path[last_index]] = "!include {}".format(f)
             files.append(f)
-        rv = self._dump(obj, **kwargs)
+        rv = self._dump(obj, use_aliases=use_aliases, **kwargs)
         for f in files:
             value = "!include {}".format(f)
             rv = rv.replace("'{}'".format(value), value)
         return rv
-
