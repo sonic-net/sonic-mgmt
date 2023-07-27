@@ -3,6 +3,7 @@ import json
 import pytest
 import os
 import re
+import sys
 import logging
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -39,7 +40,7 @@ def _parse_timestamp(timestamp):
             if sys.version_info.major >= 3:
                 time = datetime.strptime(timestamp, FMT_ALT)
             else:
-                time = datetime.strptime(timestamp[:-6], FMT_ALT_PY2)
+                time = datetime.strptime(timestamp[:26], FMT_ALT_PY2)
                 if timestamp[26] == "+":
                     time += timedelta(hours=int(timestamp[27:29]), minutes=int(timestamp[30:]))
                 else:
