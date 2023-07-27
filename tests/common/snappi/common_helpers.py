@@ -729,7 +729,7 @@ class packet_capture(Enum):
     """
     ENUM of packet capture settings
     NO_CAPTURE - No capture
-    PFC_CAPTURE_EGRESS - PFC capture enabled
+    PFC_CAPTURE - PFC capture enabled
     IP_CAPTURE - IP capture enabled
     """
     NO_CAPTURE = "No_Capture"
@@ -760,5 +760,5 @@ def config_capture_pkt(testbed_config, port_id, capture_type, capture_name=None)
         ip_filter = cap.filters.custom()[-1]
         # Version for IPv4 packets is "4" which has to be in the upper 4 bits of the first byte, hence filter is 0x40
         ip_filter.value = '40'
-        ip_filter.offset = 14
+        ip_filter.offset = 14  # Offset is the length of the Ethernet header
         ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version

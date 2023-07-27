@@ -104,7 +104,7 @@ def generate_test_flows(testbed_config,
         test_flow_delay_sec (int): delay of test flows in seconds
         test_flow_pkt_size (int): packet size of test flows
         prio_dscp_map (dict): priority to DSCP mapping
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
@@ -424,7 +424,7 @@ def verify_basic_test_flow(flow_metrics,
         test_flow_pkt_size (int): test packet size in bytes
         speed_gbps (int): speed of the port in Gbps
         tolerance (float): tolerance for test flow deviation
-        test_flow_pause (bool): whether test flow is paused
+        test_flow_pause (bool): whether test flow is expected to be paused
         snappi_extra_params (obj): snappi extra parameters
     Returns:
 
