@@ -220,4 +220,3 @@ def pause_icmp_responder(ptfhost):
     yield
 
     ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
-
