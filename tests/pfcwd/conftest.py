@@ -145,7 +145,6 @@ def setup_pfc_test(
         test_ports = update_t1_test_ports(
             duthost, mg_facts, test_ports, enum_frontend_asic_index, tbinfo
         )
-
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
@@ -206,3 +205,19 @@ def setup_dut_test_params(
 
     logger.info("dut_test_params : {}".format(dut_test_params))
     yield dut_test_params
+
+
+# icmp_responder need to be paused during the test because the test case
+# configures static IP address on ptf host and sends ICMP reply to DUT.
+@pytest.fixture(scope="module")
+def pause_icmp_responder(ptfhost):
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
+    if "RUNNING" not in icmp_responder_status:
+        yield
+        return
+    ptfhost.shell("supervisorctl stop icmp_responder", module_ignore_errors=True)
+
+    yield
+
+    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
+
