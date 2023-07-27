@@ -1971,7 +1971,7 @@ class QosSaiBase(QosBase):
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
         src_hbm_enabled = self.get_hbm_status(src_asic)
         dst_hbm_enabled = self.get_hbm_status(dst_asic)
-        if src_asic == dst_asic and 
+        if src_asic == dst_asic and \
                 get_src_dst_asic_and_duts['src_dut'] == \
                     get_src_dst_asic_and_duts['dst_dut'] :
             yield
