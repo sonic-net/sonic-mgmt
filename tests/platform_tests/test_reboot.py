@@ -243,9 +243,8 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
         output = duthost.shell("dmidecode -s bios-version")["stdout"]
         bios = output.split('-')
         bios_version = bios[1]
-        if bios_version < "218" and "t1" in tbinfo["topo"]["type"] :
+        if bios_version < "218" and "t1" in tbinfo["topo"]["type"]:
             pytest.skip("Skip test if BIOS ver <218 and topo is T1 and platform is M64")
-
 
     reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
                      xcvr_skip_list, REBOOT_TYPE_WATCHDOG, duthosts=duthosts)
